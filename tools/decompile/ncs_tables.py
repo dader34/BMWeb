@@ -50,6 +50,22 @@ rest are body/market names (COUP, MEXICO) and `*_CI_nn` coding-index stamps
 (KMBI_CI_04), which name a module revision rather than an option. Both are
 kept: they are what the tables say, and the CI stamps say which .Cxx a module
 should be read against.
+
+<BR>ZST.K00 -- the SA-NUMBER -> ZCS-BIT table, and the reason an E39 option
+list can be complete. ZST.000 is the DECODING table, and BMW retires rows in
+it: on E39 the rows for 0194, 0364 and 0645 are all-zero masks, and 0223,
+0316, 0403, 0677 never had one. The K00 sidecar is the ENCODING table the
+factory writes a key from, and it still carries every one of them. It is not
+text: it is the same framed, checksummed container as the .C0x coding files
+(ncs_daten.records), and its MONTAGEAUFTRAG section is one record per SA
+number -- SALA, then the GM/SA/VN masks the option sets:
+
+    0223  GMS 00000000  SAS 0000000000000001  VNS 0000000000
+
+Inverting it (a row holds when the car's key has the row's bits) against an
+E39 M5's keys reproduces PA Soft's / NCS Expert's option list exactly, where
+ZST.000 alone recovers six of thirteen. Ten chassis ship a K00 (E31..E53,
+R50), all under DATEN/E39; each is parsed under the chassis its NAME says.
 """
 
 import glob
@@ -205,6 +221,86 @@ def parse_zst(path):
     return rows
 
 
+# ---- ZST.K00: SA catalog number -> the ZCS bits that option sets -----------
+
+def _k00_fields(sig, payload):
+    """Decode one K00 record by its section signature.
+
+    ncs_daten.parse_payload reads `A` as a coding value list, which is right
+    for .C0x files and wrong here: in K00 an `A` is a length-prefixed byte
+    array holding a mask. So the four codes are read literally: S = NUL
+    string, B = u8, W = u16 LE, A = u8 length + that many bytes (as hex),
+    (X) = u16 count + values. Anything else in the signature is a decode
+    bug and raises rather than yielding a shifted row.
+    """
+    import struct
+    from ncs_daten import parse_signature
+    out = []
+    i = 0
+    for f in parse_signature(sig):
+        c = f['code']
+        if f['repeating']:
+            n = struct.unpack_from('<H', payload, i)[0]
+            i += 2
+            fmt, size = {'W': ('<H', 2), 'B': ('<B', 1), 'L': ('<I', 4)}[c]
+            out.append([struct.unpack_from(fmt, payload, i + k * size)[0]
+                        for k in range(n)])
+            i += n * size
+        elif c == 'S':
+            j = payload.index(b'\0', i)
+            out.append(payload[i:j].decode('latin-1'))
+            i = j + 1
+        elif c == 'A':
+            n = payload[i]
+            out.append(payload[i + 1:i + 1 + n].hex().upper())
+            i += 1 + n
+        elif c in ('B', 'W', 'L'):
+            fmt, size = {'W': ('<H', 2), 'B': ('<B', 1), 'L': ('<I', 4)}[c]
+            out.append(struct.unpack_from(fmt, payload, i)[0])
+            i += size
+        else:
+            raise ValueError(f'K00 signature code {c!r}')
+    if i != len(payload):
+        raise ValueError(f'K00 record not fully consumed ({i}/{len(payload)})')
+    return out
+
+
+def parse_sabits(path):
+    """-> [{key, gm, sa, vn}] : one row per SA number, its masks.
+
+    Only the MONTAGEAUFTRAG section is an SA -> bits list. HISTORIE repeats
+    ZST.000's own rows and GRUNDVERCODUNG is the base key of the series, so
+    both are left to the files that own them. A record that fails to decode
+    is skipped, never guessed: a wrong mask would put an option on a car.
+    """
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from ncs_daten import records, schema
+    with open(path, 'rb') as fh:
+        data = fh.read()
+    secs = {v['seq']: v for v in schema(data).values()}
+    rows = []
+    for seq, payload, _off in records(data):
+        sec = secs.get(seq)
+        if not sec or sec['name'] != 'MONTAGEAUFTRAG':
+            continue
+        try:
+            vals = dict(zip(sec['fields'], _k00_fields(sec['sig'], payload)))
+        except Exception:
+            continue
+        key, gm, sa, vn = (vals.get('SALA'), vals.get('GMS', ''),
+                           vals.get('SAS', ''), vals.get('VNS', ''))
+        if not key or not key.isdigit():
+            continue
+        if not (len(gm) == 8 and len(sa) == 16 and len(vn) == 10):
+            continue
+        # An all-zero row constrains nothing: it is a retired number and
+        # must never match a car (same rule as ZST.000's empty rows).
+        if not (int(gm, 16) or int(sa, 16) or int(vn, 16)):
+            continue
+        rows.append({'key': key, 'gm': gm, 'sa': sa, 'vn': vn})
+    return rows
+
+
 # ---- which jobs answer with an identity, found by asking every SGBD --------
 #
 # A screen has to know WHICH JOB on which control unit returns the coding key
@@ -276,6 +372,7 @@ def corpus():
         (re.compile(r'^([A-Z0-9]+)SGFAM\.DAT$'), 'sgfam'),
         (re.compile(r'^([A-Z0-9]+)AT\.000$'), 'at'),
         (re.compile(r'^([A-Z0-9]+)ZST\.000$'), 'zst'),
+        (re.compile(r'^([A-Z0-9]+)ZST\.K00$'), 'sabits'),
     ]
     for dirpath, _, names in os.walk(DATEN):
         # A chassis's tables ship in two places: its OWN directory, and a
@@ -309,6 +406,8 @@ def build():
             entry['at'] = parse_at(paths['at'])
         if 'zst' in paths:
             entry['zst'] = parse_zst(paths['zst'])
+        if 'sabits' in paths:
+            entry['sabits'] = parse_sabits(paths['sabits'])
         if entry:
             out[ch] = entry
     return out
@@ -334,7 +433,8 @@ def main():
             print(f"  {ch:6s} "
                   f"{len(sgfam):3d} SG  "
                   f"{len(e.get('at', {}).get('sa', {})):4d} SA  "
-                  f"{len(e.get('zst', [])):4d} ZST"
+                  f"{len(e.get('zst', [])):4d} ZST  "
+                  f"{len(e.get('sabits', [])):4d} SAbits"
                   + (f"  FA:{','.join(sorted(fa))}" if fa else '')
                   + (f"  ZCS:{','.join(sorted(zcs))}" if zcs else ''))
 
@@ -360,6 +460,32 @@ def main():
         if crossed < 12:
             print(f'FAIL: only {crossed} ZST keywords resolve to an SA '
                   'number (expected at least 12)')
+            bad += 1
+        # The K00 inversion is pinned to a real car: an E39 M5 (PA Soft
+        # photo, 2026-09-05) whose SA key 55A0001A914D9167 / VN 4B10100009
+        # lists 0194 0223 0316 0364 0403 0645 0677 -- the seven numbers
+        # ZST.000 cannot produce. If any of them stops holding, the K00
+        # decode has shifted.
+        e39 = data.get('E39', {})
+        held = set()
+        for r in e39.get('sabits') or []:
+            ok = None
+            for field, key in (('gm', '54930000'),
+                               ('sa', '55A0001A914D9167'),
+                               ('vn', '4B10100009')):
+                m = r[field]
+                if not int(m, 16):
+                    continue
+                if any((int(k, 16) & int(c, 16)) != int(c, 16)
+                       for k, c in zip(key, m)):
+                    ok = False
+                    break
+                ok = True
+            if ok:
+                held.add(str(int(r['key'])))
+        want = {'194', '223', '316', '364', '403', '645', '677'}
+        if not want <= held:
+            print(f'FAIL: E39 K00 inversion missing {sorted(want - held)}')
             bad += 1
         # An SGFAM read that finds no identity master would silently disable
         # the identity screen rather than fail loudly.
@@ -401,7 +527,8 @@ def main():
         with open(OUT_JS, 'w') as fh:
             fh.write('// BMW chassis tables: SGFAM (ECU family + identity '
                      'masters), AT (SA number -> keywords),\n')
-            fh.write('// ZST (ZCS key bits -> keywords).\n')
+            fh.write('// ZST (ZCS key bits -> keywords), SABITS (SA number '
+                     '-> ZCS key bits, from ZST.K00).\n')
             fh.write('// Generated by tools/decompile/ncs_tables.py '
                      '-- do not edit by hand.\n')
             fh.write('window.BMW_TABLES=')

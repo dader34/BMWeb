@@ -30,5 +30,5 @@ Re-deploy after edits:
 app+browser version, current screen route, the session journal (screens
 opened, every job run with JOB_STATUS and timing, captured crashes), the last
 ~60 wire telegrams (plus the 400-row verbose capture when the tester had
-`busTrace.start()` on), cable status, theme/demo/INPA-mode flags, and a stable
+`busTrace.start()` on), cable status, theme/INPA-mode flags, and a stable
 anonymous tester id. VINs in text fields are masked to their first 10 chars.

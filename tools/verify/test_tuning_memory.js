@@ -378,57 +378,6 @@ print(json.dumps(out))
     ok(bytes.length === 8, 'kept only what actually came back');
   }
 
-  console.log('a simulated answer is flagged, not passed off as a read');
-  {
-    // THE BUG THIS GUARDS: with no cable the shim answers demo:true with
-    // invented bytes. The reader loaded them into the hex editor as if they had
-    // come off the car -- a dump of fiction that looks exactly like a real one.
-    const region = {
-      job: 'DPRAM_LESEN',
-      lo: 0x80,
-      hi: 0xdf,
-      max: 32,
-      unit: 'byte',
-      wordBytes: 1,
-      selArg: null,
-      types: [],
-      order: ['ADRESSE', 'BYTE_ANZAHL'],
-    };
-    let calls = 0;
-    apiStub = async () => {
-      calls++;
-      return {
-        job: 'DPRAM_LESEN',
-        demo: true,
-        sets: [{ JOB_STATUS: 'OKAY', DATEN: '23' }],
-      };
-    };
-    const chunk = await TM.readChunk('kombi46', region, 0x80, 32);
-    ok(chunk.demo === true, 'readChunk reports demo:true from the response');
-
-    calls = 0;
-    const res = await TM.readRange(
-      'kombi46',
-      region,
-      region.lo,
-      region.hi,
-      () => true
-    );
-    ok(res.demo === true, 'readRange propagates the demo flag');
-    ok(
-      calls === 1,
-      `stopped after the first simulated chunk (${calls} call, not 3)`
-    );
-
-    // and a real answer is NOT flagged
-    apiStub = async () => ({
-      sets: [{ JOB_STATUS: 'OKAY', DATEN: '01 02 03 04' }],
-    });
-    const real = await TM.readRange('kombi46', region, 0x80, 0x83, () => true);
-    ok(real.demo === false, 'a response with no demo badge reads as real');
-    ok(real.bytes.length > 0, 'and still returns its bytes');
-  }
-
   console.log(
     failures ? `\nFAILED (${failures})` : '\nAll memory-reader checks passed'
   );

@@ -42,8 +42,10 @@ const CORE = fs.readFileSync(
   path.join(ROOT, 'app/renderer/core/core.js'),
   'utf8'
 );
+// (dataSets recognises the system set by content through isSystemSet, so
+// the slice starts at that helper)
 const DATASETS = CORE.slice(
-  CORE.indexOf('function dataSets'),
+  CORE.indexOf('function isSystemSet'),
   CORE.indexOf('// flatten result sets')
 );
 assert.ok(

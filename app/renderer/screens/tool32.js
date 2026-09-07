@@ -7,7 +7,7 @@
 // Everything here rides endpoints that already exist and are already tested:
 //   GET  /api/ecu/:sgbd/jobs            the job list
 //   GET  /api/ecu/:sgbd/results/:JOB    the declared result registers
-//   POST /api/ecu/:sgbd/run/:JOB?arg=   execute (BEST2 VM -> cable, or ?demo=1)
+//   POST /api/ecu/:sgbd/run/:JOB?arg=   execute (BEST2 VM -> cable)
 // so this file is a screen, not an engine.
 
 // ecu-index.json keys ARE the runnable SGBDs (each maps to the chassis whose
@@ -430,20 +430,16 @@ function showTool32() {
   function renderResults(r) {
     const pairs = typeof flatResults === 'function' ? flatResults(r.sets) : [];
     const status = tool32Status(r.sets);
-    // r.demo is set by the shim when the values were synthesized (no cable);
-    // badge it so a fabricated set can never pass for a real read.
-    const demo = r.demo || (typeof demoMode === 'function' && demoMode());
-    const badge = demo ? `<span class="t32-demobadge">DEMO</span>` : '';
     if (!pairs.length) {
       out.innerHTML =
-        `<div class="t32-outhead">${badge}` +
+        `<div class="t32-outhead">` +
         `${status ? esc(status) : 'no result values'}</div>`;
       return;
     }
     out.innerHTML =
-      `<div class="t32-outhead">${badge}${pairs.length} value` +
+      `<div class="t32-outhead">${pairs.length} value` +
       `${pairs.length === 1 ? '' : 's'}${status ? ` · ${esc(status)}` : ''}</div>` +
-      `<table class="t32-table${demo ? ' t32-demo' : ''}"><tbody>${pairs
+      `<table class="t32-table"><tbody>${pairs
         .map(
           ([k, v]) =>
             `<tr><td class="t32-k">${esc(k)}</td>` +
@@ -620,7 +616,7 @@ function buildTraceSection() {
             `<span class="t32-tms">${esc(ms)}</span>` +
             `<span class="t32-ttag t32-apitag">JOB</span>` +
             `<span class="t32-tapi">${esc(r.sgbd)}.${esc(r.job)}` +
-            `${r.arg ? `(${esc(r.arg)})` : ''}${r.demo ? ' ·DEMO' : ''}</span>` +
+            `${r.arg ? `(${esc(r.arg)})` : ''}</span>` +
             `<span class="t32-tnote ${stcls}">${esc(st)}${nsets ? ` · ${nsets}` : ''}</span></div>`
           );
         }
@@ -675,7 +671,7 @@ function exportTrc(rows) {
       const nsets = r.sets ? ` sets=${r.sets.length}` : '';
       return (
         `${ms}  JOB  ${r.sgbd}.${r.job}${r.arg ? `(${r.arg})` : ''}` +
-        `${r.demo ? ' [DEMO]' : ''}  -> ${st}${nsets}`
+        `  -> ${st}${nsets}`
       );
     }
     if (r.tag === 'tx' || r.tag === 'rx') {

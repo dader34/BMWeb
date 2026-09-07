@@ -125,11 +125,7 @@ async function showCuratedCoding(chassisId, container, back, scan, reScan) {
   // there is not a setting the user can have. The hub's scan is what knows;
   // opened standalone there is no scan and the list stays as written.
   const seenStatus = (scan && scan.status) || null;
-  if (
-    seenStatus &&
-    seenStatus.size &&
-    !(typeof demoMode === 'function' && demoMode())
-  ) {
+  if (seenStatus && seenStatus.size) {
     const live = (sg) => {
       const s = seenStatus.get(sg);
       return s && (s.state === 'ok' || s.state === 'raw');
@@ -181,12 +177,10 @@ async function showCuratedCoding(chassisId, container, back, scan, reScan) {
   const key = (it) => `${it.sgbd}:${it.name}`;
   let readOk = false;
 
-  const demo = typeof demoMode === 'function' && demoMode();
-
   // Map the car's coding onto our features from the hub's scan (or read here if
   // opened standalone). Most curated functions live only in the DATEN blob and
   // are NOT named in the SGBD's coding read (BEIKLAPPEN_GM vs COD_MIT_*), so the
-  // round-trip resolves only a few. Demo mode fills the rest deterministically.
+  // round-trip resolves only a few.
   const applyScan = (cache) => {
     for (const g of groups)
       for (const it of g.items) {
@@ -213,15 +207,7 @@ async function showCuratedCoding(chassisId, container, back, scan, reScan) {
             if (f && f.exact) hit = codReadDaten(bytes, f);
           }
         }
-        if (hit != null) {
-          current.set(key(it), hit);
-          continue;
-        }
-        if (demo) {
-          let h = 0;
-          for (const c of it.name) h = (h * 31 + c.charCodeAt(0)) >>> 0;
-          current.set(key(it), h % 2 === 0 ? it.on : it.off);
-        }
+        if (hit != null) current.set(key(it), hit);
       }
   };
   const readAll = async () => {
@@ -377,8 +363,8 @@ function curatedMatchResult(kw, got) {
   return typeof codMatchRead === 'function' ? codMatchRead(kw, got) : null;
 }
 
-// The staged-changes review: what WOULD be sent. Demo mode says the write is
-// simulated; on a real car it says it is not sent.
+// The staged-changes review: what WOULD be sent. It says the write is not
+// sent.
 function curatedReview(chassisId, groups, staged, current) {
   const rows = [];
   for (const g of groups)
@@ -409,22 +395,19 @@ function codingReviewRow(label, sub, from, to) {
   );
 }
 
-// The dialog body, demo-aware: demo mode simulates a "send", a real car refuses
-// the write (unverified). Keep the "not sent" / EEPROM rationale below.
+// The dialog body: the write is refused (unverified). Keep the "not sent" /
+// EEPROM rationale below.
 function codingReviewDialog(title, rows) {
-  const demo = typeof demoMode === 'function' && demoMode();
-  const foot = demo
-    ? `<b>Demo mode.</b> No car is connected, so “Send” only simulates the ` +
-      `coding write — nothing leaves the app and no ECU is touched.`
-    : `<b>Not sent.</b> These map onto each module's coding write, but sending ` +
-      `is disabled: a coding write is an EEPROM write, and this app has not ` +
-      `verified a round-trip on a car that can be recovered.`;
+  const foot =
+    `<b>Not sent.</b> These map onto each module's coding write, but sending ` +
+    `is disabled: a coding write is an EEPROM write, and this app has not ` +
+    `verified a round-trip on a car that can be recovered.`;
   return {
     title,
     body:
       `<div class="cod-rev-list">${rows.join('')}</div>` +
       `<div class="cod-rev-foot">${foot}</div>`,
-    confirmLabel: demo ? 'Send (demo)' : 'OK',
+    confirmLabel: 'OK',
     cancelLabel: 'Close',
   };
 }

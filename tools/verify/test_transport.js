@@ -229,15 +229,11 @@ check(
     'DS2 fixed answer length from xawlen [n]',
     frameTotal([0xe8, 0x00], ds2fixed) === 7
   );
-  let noLen = null;
-  try {
-    frameTotal([0xe8, 0x11], { concept: 6, baud: 9600 });
-  } catch (e) {
-    noLen = e;
-  }
+  // No xawlen: EDIABAS does not refuse, it uses the concept's seed
+  // (EdInterfaceObd.CommParameter case 0x0006: [-1, 0], byte 1 = total).
   check(
-    'DS2 with no xawlen is refused, not guessed',
-    noLen && noLen.ifh === 'IFH-0018'
+    'DS2 with no xawlen uses the EDIABAS default (byte 1)',
+    frameTotal([0xe8, 0x11], { concept: 6, baud: 9600 }) === 0x11
   );
 }
 
@@ -406,6 +402,41 @@ check(
   check(
     'wait (seconds) + waitex (ms) reach the transport as 2050 ms',
     seen && seen.waitMs === 2050
+  );
+}
+
+// DS2 WITHOUT xawlen. d_0057 (E46 steering-angle group) never sets an answer
+// length; EDIABAS falls back to the concept default (byte 1 = total length,
+// EdInterfaceObd.CommParameter case 0x0006). The real LWS5 ident answer,
+// captured on the car: 16 bytes, byte 1 = 0x10.
+console.log('\nDS2 answer length without xawlen');
+{
+  const lws = [
+    0x57, 0x10, 0xa0, 0x06, 0x76, 0x02, 0x32, 0x04, 0x01, 0x30, 0x60, 0x29,
+    0x04, 0x02, 0x04, 0xd9,
+  ];
+  let total = null;
+  let err = null;
+  try {
+    total = frameTotal(lws, { concept: 6 });
+  } catch (e) {
+    err = e;
+  }
+  check(
+    'no xawlen: DS2 defaults to byte 1 (16 bytes), not IFH-0018',
+    !err && total === 16
+  );
+  check(
+    'too few bytes to know: null, not an error',
+    frameTotal([0x57], { concept: 6 }) === null
+  );
+  check(
+    'an explicit xawlen still wins',
+    frameTotal(lws, { concept: 6, answerLen: [12] }) === 12
+  );
+  check(
+    'concept 1 default is byte 2',
+    frameTotal([0, 0, 9], { concept: 1 }) === 9
   );
 }
 

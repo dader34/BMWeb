@@ -405,6 +405,9 @@ BUILTINS = {
     # files. EMPIRICAL: no MUST call site; shape-derived, name is ours.
     0x27: "formatnum",
     0x28: "bytetoint", 0x29: "inttolong",
+    # Inpa.h declares longtoreal right after inttolong, and MS450's fault
+    # printer calls it exactly so: F_ORT_NR -> inttolong -> 0x2a -> realtostring.
+    0x2a: "longtoreal",
     # input dialogs. getinputstate reports how the LAST dialog closed
     # (== input_ok means the user pressed OK, and the answer slots are live).
     0x3e: "getinputstate",

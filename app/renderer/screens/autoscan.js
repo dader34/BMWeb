@@ -214,7 +214,7 @@ function showAttentionPopup(findings) {
           const { name, present } = faultFields(c, g.sgbd);
           return `<div class="att-fault${present ? ' present' : ''}">
           <div class="att-name">${esc(name)}${present ? '<span class="att-badge">PRESENT</span>' : ''}</div>
-          <div class="att-meta">${esc(`${deGerman(c.F_SYMPTOM_TEXT) || ''}${pstr ? ` · ${pstr}` : ''}${c.F_HFK || c.F_LZ ? ` · seen ${c.F_HFK || c.F_LZ}×` : ''}`)}</div>
+          <div class="att-meta">${esc(`${phraseText(c.F_SYMPTOM_TEXT) || ''}${pstr ? ` · ${pstr}` : ''}${c.F_HFK || c.F_LZ ? ` · seen ${c.F_HFK || c.F_LZ}×` : ''}`)}</div>
         </div>`;
         })
         .join('')}

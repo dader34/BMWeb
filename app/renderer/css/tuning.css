@@ -1624,6 +1624,14 @@ body.apps-section .view:has(.tn-workspace) > .tn-workspace {
 .tn-ecu-modal {
   max-width: 520px;
 }
+/* the body scrolls inside the 88vh modal: four region cards plus the span
+   box and the status line outgrow a laptop viewport, and content that
+   spills past the panel's edge is unreachable */
+.tn-ecu-modal .modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
 .tn-ecu-row {
   display: flex;
   align-items: center;
@@ -1774,6 +1782,126 @@ body.apps-section .view:has(.tn-workspace) > .tn-workspace {
   border-radius: 5px;
   padding: 3px 6px;
   flex-basis: 100%;
+}
+.tn-ecu-car {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  color: var(--ink);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 6px 8px;
+  min-width: 160px;
+}
+.tn-ecu-sug-head {
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  padding: 8px 10px 3px;
+}
+.tn-ecu-sug-row {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+}
+.tn-ecu-sug-sgbd {
+  font-family: var(--mono);
+}
+.tn-ecu-sug-text {
+  font-size: 12px;
+  color: var(--ink-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tn-ecu-ident {
+  margin: 8px 0 10px;
+  padding: 8px 11px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  font-size: 12.5px;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.tn-ecu-ident.ok {
+  border-color: var(--amber);
+}
+.tn-ecu-ident.bad {
+  border-color: var(--red);
+}
+.tn-ecu-ident.dim {
+  color: var(--ink-faint);
+}
+.tn-ecu-use {
+  margin-left: auto;
+  padding: 3px 9px;
+  font-size: 12px;
+}
+.tn-ecu-kind {
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 1px 6px;
+}
+.tn-ecu-comment {
+  flex-basis: 100%;
+  font-size: 11.5px;
+  color: var(--ink-faint);
+  line-height: 1.35;
+}
+.tn-ecu-region.locked {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.tn-ecu-span {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  margin-top: 10px;
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-2);
+}
+.tn-ecu-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11.5px;
+  color: var(--ink-faint);
+}
+.tn-ecu-field span {
+  margin-left: 6px;
+}
+.tn-ecu-num {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  color: var(--ink);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 5px 7px;
+  width: 110px;
+}
+.tn-ecu-num:focus {
+  outline: none;
+  border-color: var(--amber);
+}
+.tn-ecu-span-note {
+  flex-basis: 100%;
+  font-size: 11.5px;
+  color: var(--ink-faint);
+  line-height: 1.35;
 }
 .tn-ecu-prog {
   margin-top: 12px;

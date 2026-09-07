@@ -114,6 +114,7 @@ fi
 echo
 echo "== the VM against captured telegrams =="
 node tools/verify/test_bestvm.js || exit 1
+node tools/verify/test_fa_stream.js || exit 1
 
 echo
 echo "== group SGBDs resolve variants (address -> concrete SGBD) =="
@@ -146,6 +147,10 @@ node tools/verify/test_coding_zcs.js || exit 1
 echo
 echo "== ECU memory read: region units (word vs byte), chunking, refused reads =="
 node tools/verify/test_tuning_memory.js || exit 1
+
+echo
+echo "== ECU read dialog: count/range comments, profile regions, status origin, identify =="
+node tools/verify/test_tuning_read.js || exit 1
 
 echo
 echo "== Web Serial read: a timed-out read is resumed, not orphaned (echo loss) =="
@@ -186,6 +191,11 @@ node tools/verify/test_vehicle_identity.js || exit 1
 echo
 echo "== Coding selection: SGET predicates pick the module and its coding file =="
 node tools/verify/test_coding_select.js || exit 1
+
+echo
+echo "== scriptchange: the entry script's hand-off to another .IPO is followed =="
+node tools/verify/test_scriptchange.js || exit 1
+node tools/verify/test_ipo_runtime.js || exit 1
 
 echo
 echo "== renderer's VM bridge reconstructs frames the engine consumed =="

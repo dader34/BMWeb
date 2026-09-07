@@ -84,9 +84,11 @@ function isPlainStr(x) {
 function isPlainInt(x) {
   return typeof x === 'number' && Number.isInteger(x);
 }
-// a procref pushed on the stack: ['ref', kind, n]
+// a procref pushed on the stack: ['ref', kind, n, ownerFrame]. A local ref
+// (kind 2) remembers the frame it was taken in, so a callee writing through
+// its by-reference parameter lands in the CALLER's slot, not its own.
 function isRef(x) {
-  return Array.isArray(x) && x.length === 3 && x[0] === 'ref';
+  return Array.isArray(x) && x.length >= 3 && x[0] === 'ref';
 }
 
 // A FLOAT, boxed. JS has one number type, but INPA distinguishes int from real
@@ -278,16 +280,37 @@ class OkHost {
 class FeedHost {
   constructor() {
     this.map = new Map();
+    // EDIABAS numbers a job's result sets 0..n: set 0 is the system record
+    // (OBJECT, VARIANTE, JOBNAME, SAETZE), sets 1..n are what the job
+    // produced -- one per fault for FS_LESEN, the last one carrying
+    // JOB_STATUS. A feed may carry that array as `sets`; the flat map is
+    // the union of every set and answers a read that names no set.
+    this.sets = null;
   }
   feed(m) {
     this.map = m instanceof Map ? m : new Map(Object.entries(m || {}));
+    this.sets = m && Array.isArray(m.sets) ? m.sets : null;
   }
   job(_sgbd, _job, _arg, _results) {
     return {};
   }
+  // INPAapiResultSets: how many sets the job produced (n, without set 0)
+  count() {
+    return this.sets ? Math.max(0, this.sets.length - 1) : 1;
+  }
   result(key, opts = {}) {
-    if (key === 'JOB_STATUS') return this.status();
-    const v = this.map.get(key);
+    let v;
+    const si = opts.set;
+    if (this.sets && si != null && si >= 0 && si < this.sets.length) {
+      const s = this.sets[si] || {};
+      v = Object.prototype.hasOwnProperty.call(s, key) ? s[key] : undefined;
+      // JOB_STATUS is asked of the last set; the wire's verdict answers
+      // wherever the shim put it
+      if (v == null && key === 'JOB_STATUS') return this.status();
+    } else {
+      if (key === 'JOB_STATUS') return this.status();
+      v = this.map.get(key);
+    }
     if (v == null) {
       return opts.integer ? 0 : opts.default != null ? opts.default : '';
     }
@@ -351,6 +374,21 @@ class Emissions {
     this.states = [];
     this.reads = [];
     this.predicateReads = new Set();
+    // the .IPO a scriptchange() handed control to, or null
+    this.scriptChange = null;
+    // setscreen's second argument: TRUE = a frequent screen, re-run its
+    // cycle while it is current (INPA's WM_TIMER loop); null = no setscreen
+    this.screenFrequent = null;
+    // blankscreen: the runtime clears the painted grid before the next cycle
+    this.blank = false;
+    // exit: the script ended itself (INPA returns to script selection)
+    this.exit = false;
+    // setstate(&sm): the state machine a key handed control to. In wire mode
+    // the driver runs it (its picker, its job, its parks); offline the
+    // builtin executes it for the lift.
+    this.stateEnter = null;
+    // deselect(): the line filter Select set is cleared
+    this.deselect = false;
   }
 }
 
@@ -361,7 +399,7 @@ class Emissions {
 // flag is true, so run_item must force it -- but ONLY a guard flag (a GLOBAL
 // compared by `eq` feeding a `jfalse`, before the body stores anything), never
 // a global read as real data. Ported from ipo_vm.py _keypress_guards.
-function keypressGuards(toks, start, end) {
+function keypressGuards(toks, start, end, opts = {}) {
   const guards = new Set(),
     stored = new Set();
   const lim = Math.min(end, toks.length);
@@ -378,6 +416,17 @@ function keypressGuards(toks, start, end) {
     ) {
       const b = k + 1 < end ? toks[k + 1] : {};
       const c = k + 2 < end ? toks[k + 2] : {};
+      // numericOnly: a slot compared against a STRING ("ON") is state the
+      // body keeps, not a flag -- a preset of 1 can never satisfy that
+      // compare and only destroys the value (the live item VM's concern;
+      // the offline derivation keeps the Python twin's exact behaviour).
+      if (
+        opts.numericOnly &&
+        b.op === 'const' &&
+        b.t === 's' &&
+        !/^-?\d+$/.test(String(b.v).trim())
+      )
+        continue;
       if (b.op === 'const' && c.op === 'binop' && c.name === 'eq') {
         let gated = false;
         for (let j = k + 3; j < Math.min(k + 6, end); j++) {
@@ -552,7 +601,7 @@ class IpoVm {
         if (val == null) val = mkSlot(t.sc == null ? 0 : t.sc, t.n);
         stack.push(val);
       } else if (op === 'procref') {
-        stack.push(['ref', t.kind, t.n]);
+        stack.push(['ref', t.kind, t.n, t.kind === 2 ? frame : null]);
       } else if (op === 'store') {
         let val = stack.length ? stack.pop() : null;
         const sc = t.sc == null ? GLOBAL : t.sc;
@@ -641,18 +690,12 @@ class IpoVm {
     this._exec(this.procs[name], frame);
     if (inKey) {
       for (const ref of outs) {
-        const dsc = ref[1] === 2 && this.frame != null ? LOCAL : GLOBAL;
-        const cur =
-          dsc === GLOBAL
-            ? this.globals.get(ref[2])
-            : this.frame
-              ? this.frame.get(ref[2])
-              : null;
+        const { dsc, n, map } = this._refTarget(ref, this.frame);
+        const cur = map.get(n);
         if (isBound(cur) && cur.key) continue;
-        const val = mkBound(mkSlot(dsc, ref[2]), '0', inKey);
-        this.setBind(dsc, ref[2], inKey);
-        if (dsc === GLOBAL) this.globals.set(ref[2], val);
-        else if (this.frame) this.frame.set(ref[2], val);
+        const val = mkBound(mkSlot(dsc, n), '0', inKey);
+        this.setBind(dsc, n, inKey);
+        map.set(n, val);
       }
     }
   }
@@ -679,6 +722,10 @@ class IpoVm {
   // Begin a resumable run of proc `name`. Returns the first pending action, or
   // {kind:'done'} if the proc finished without suspending.
   stepStart(name) {
+    // the budget is a runaway guard PER RUN: a persistent VM (the live
+    // runtime cycles a frequent screen for as long as the module is open)
+    // must not hit it by accumulation
+    this.steps = 0;
     const toks = this.procs[name];
     if (!toks) throw new IpoError(`no proc ${name}`);
     return this._beginRange(toks, 0, this._procEnd(toks));
@@ -689,6 +736,10 @@ class IpoVm {
   // are preset (pressing the key IS the flag); jumps resolve against the
   // whole proc, which slicing the body out would lose.
   stepStartItem(procName, nr) {
+    // the budget is a runaway guard PER RUN: a persistent VM (the live
+    // runtime cycles a frequent screen for as long as the module is open)
+    // must not hit it by accumulation
+    this.steps = 0;
     const toks = this.procs[procName];
     if (!toks) throw new IpoError(`no proc ${procName}`);
     const idx = toks.findIndex((t) => t.op === 'ITEM' && t.nr === nr);
@@ -700,12 +751,22 @@ class IpoVm {
         break;
       }
     }
-    for (const g of keypressGuards(toks, idx + 1, end)) this.globals.set(g, 1);
+    // Preset the keypress-guard FLAGS (`if (flag == 1)`), never a slot the
+    // body compares against a string: IHKA46's digital keys toggle
+    // `if (v37 == "ON") v37 = "OFF" else v37 = "ON"` and send v37, and a
+    // preset of 1 on every press sent ON forever. This VM persists across
+    // presses; that state is the point.
+    for (const g of keypressGuards(toks, idx + 1, end, { numericOnly: true }))
+      this.globals.set(g, 1);
     return this._beginRange(toks, idx + 1, end);
   }
 
   // A slice of a proc, driven (a menu's prologue: its title and defaults).
   stepStartRange(procName, i0, end) {
+    // the budget is a runaway guard PER RUN: a persistent VM (the live
+    // runtime cycles a frequent screen for as long as the module is open)
+    // must not hit it by accumulation
+    this.steps = 0;
     const toks = this.procs[procName];
     if (!toks) throw new IpoError(`no proc ${procName}`);
     return this._beginRange(toks, i0, Math.min(end, this._procEnd(toks)));
@@ -773,6 +834,29 @@ class IpoVm {
         this.frame = prevFrame;
         s.pendingStack = null;
       }
+    } else if (s.pending === 'toggle') {
+      // the pick: run the parked togglelist with it, then step past it
+      if (value != null) {
+        if (typeof value === 'object' && !Array.isArray(value)) {
+          this._pickInput = value.ort != null ? value.ort : null;
+          this._driveInput = value.ein != null ? value.ein : 0;
+        } else {
+          this._pickInput = value;
+          this._driveInput = 0;
+        }
+        const prevFrame = this.frame;
+        this.frame = s.frame;
+        try {
+          this._builtin(s.toks[s.i], s.pendingStack || [], null);
+        } finally {
+          this.frame = prevFrame;
+          this._pickInput = null; // one pick per togglelist call
+        }
+      }
+      s.pendingStack = null;
+    } else if (s.pending === 'exit') {
+      this._susp = null;
+      return { kind: 'done', out: this.out };
     } else if (s.pending === 'job') {
       // the wire answered; fold its result keys in so a later read sees them
       this._lastJobSets = value || {};
@@ -920,12 +1004,21 @@ class IpoVm {
         if (sig === 'called') continue; // switched into a callee
         if (
           sig &&
-          (sig.kind === 'job' || sig.kind === 'wait' || sig.kind === 'input')
+          (sig.kind === 'job' ||
+            sig.kind === 'wait' ||
+            sig.kind === 'input' ||
+            sig.kind === 'message' ||
+            sig.kind === 'toggle' ||
+            sig.kind === 'print' ||
+            sig.kind === 'select' ||
+            sig.kind === 'exit')
         ) {
-          // a wire job (the renderer runs it), a timed wait (it sleeps), or
-          // a user prompt (it asks and hands the answer back)
+          // a wire job (the renderer runs it), a timed wait (it sleeps), a
+          // user prompt / message / picker (it asks and hands the answer
+          // back), or the script's own exit
           s.pending = sig.kind;
-          if (sig.kind === 'input') s.pendingStack = sig.stack;
+          if (sig.kind === 'input' || sig.kind === 'toggle')
+            s.pendingStack = sig.stack;
           return sig;
         }
         s.i += 1;
@@ -951,7 +1044,7 @@ class IpoVm {
       if (val == null) val = mkSlot(t.sc == null ? 0 : t.sc, t.n);
       stack.push(val);
     } else if (op === 'procref') {
-      stack.push(['ref', t.kind, t.n]);
+      stack.push(['ref', t.kind, t.n, t.kind === 2 ? s.frame : null]);
     } else if (op === 'store') {
       let val = stack.length ? stack.pop() : null;
       const sc = t.sc == null ? GLOBAL : t.sc;
@@ -988,6 +1081,12 @@ class IpoVm {
       const sig = this._builtinDrive(t, stack);
       s.stack = [];
       if (sig) return sig; // a wire-job pending action
+    } else if (op === 'dllcall') {
+      // an import32 call; the import table is per-file and carries no names,
+      // but the scripts use it for ONE thing our formatters must honour: a
+      // sprintf of a structure's bytes ("%08lX") into an out string
+      if (this.wireJobs) this._dllcall(stack);
+      s.stack = [];
     } else if (op === 'calluser') {
       const entered = this._pushCall(s, t, stack);
       s.stack = [];
@@ -1045,18 +1144,12 @@ class IpoVm {
     this.frame = c.frame;
     if (c.inKey) {
       for (const ref of c.outs) {
-        const dsc = ref[1] === 2 && this.frame != null ? LOCAL : GLOBAL;
-        const cur =
-          dsc === GLOBAL
-            ? this.globals.get(ref[2])
-            : this.frame
-              ? this.frame.get(ref[2])
-              : null;
+        const { dsc, n, map } = this._refTarget(ref, this.frame);
+        const cur = map.get(n);
         if (!(isBound(cur) && cur.key)) {
-          const val = mkBound(mkSlot(dsc, ref[2]), '0', c.inKey);
-          this.setBind(dsc, ref[2], c.inKey);
-          if (dsc === GLOBAL) this.globals.set(ref[2], val);
-          else if (this.frame) this.frame.set(ref[2], val);
+          const val = mkBound(mkSlot(dsc, n), '0', c.inKey);
+          this.setBind(dsc, n, c.inKey);
+          map.set(n, val);
         }
       }
     }
@@ -1124,9 +1217,15 @@ class IpoVm {
     // confirmed. Offline they store '0' -- which a LIVE run must never send
     // (LLERH's Select would command idle target 0). Suspend instead; the
     // renderer shows INPA's own prompt and resume() stores the typed value.
+    // inputdigital too: offline it stores the CONFIRMING placeholder (so the
+    // static lift keeps the yes-branch), but live that would answer INPA's
+    // "Are you sure?" for the user -- and IHKA46's compressor-lock key sends
+    // on that answer. Suspend, ask, store what was pressed.
     if (
       this.wireJobs &&
-      (BUILTINS[name] === bInput || /^input(int|real|hex|string)?$/.test(name))
+      (BUILTINS[name] === bInput ||
+        BUILTINS[name] === bInputDigital ||
+        /^input(int|real|hex|string)?$/.test(name))
     ) {
       const prompts = stack.filter((x) => isPlainStr(x) && x.trim());
       // bounds may be ints (inputint) or doubles (builtin_40: MS43 pushes
@@ -1145,6 +1244,49 @@ class IpoVm {
         out: this.out,
       };
     }
+    // A LIVE messagebox BLOCKS the script until OK, like INPA's own: the
+    // renderer shows it in sequence and resumes. Offline it is only recorded.
+    if (this.wireJobs && BUILTINS[name] === bMessage) {
+      this._builtin(t, stack, null);
+      const M = this.out.messages;
+      const m = M.length ? M[M.length - 1] : { title: '', body: null };
+      return { kind: 'message', title: m.title, body: m.body, out: this.out };
+    }
+    // INPA's Select key: select(MultipleSelectFlag) lists the current
+    // screen's named logical lines and shows only the ones picked. Park;
+    // the renderer offers the list and keeps the choice.
+    if (this.wireJobs && name === 'select') {
+      const flag = stack.length ? stack[0] : 0;
+      return {
+        kind: 'select',
+        multiple: !!(isFloat(flag) ? flag.v : Number(flag)),
+        out: this.out,
+      };
+    }
+    // INPA's Print key (printscreen): live, the renderer prints the page --
+    // the browser's print dialog stands in for INPA's printer
+    if (this.wireJobs && name === 'printscreen') {
+      return { kind: 'print', out: this.out };
+    }
+    // A LIVE togglelist is INPA's component picker: park until the renderer
+    // hands back the pick ({ort, ein}); resume re-runs the builtin with it.
+    if (this.wireJobs && name === 'builtin_16' && this._pickInput == null) {
+      return { kind: 'toggle', stack, out: this.out };
+    }
+    if (this.wireJobs && BUILTINS[name] === bExit) {
+      this._builtin(t, stack, null);
+      return { kind: 'exit', out: this.out };
+    }
+    // INPA's binary-structure helpers (CreateStructure / SetStructureMode /
+    // Structure{Byte,Int,Long,String}), which the scripts' own hex formatters
+    // (chr, bytetohexstring, longtohexstring) build on. Offline they stay
+    // noops (the Python twin's behaviour, parity-diffed); a LIVE run needs
+    // them or every helper pops its own "Error: Handle" box and prints
+    // nothing.
+    if (this.wireJobs && IPO_STRUCT_FNS.has(name)) {
+      this._structure(name, stack);
+      return null;
+    }
     // builtin_1b = wartezeit(ms). Offline a noop; a guided run honours it --
     // the S_ZUHEIZ Pruefung waits 2000ms after DIAGNOSE_ENDE and 10000ms for
     // the heater's run-on, and rushing those changes what the ECU answers.
@@ -1155,6 +1297,123 @@ class IpoVm {
     // not a drive: run it exactly as the offline builtin would
     this._builtin(t, stack, null);
     return null;
+  }
+
+  // ---------------------------------------------------------- structures --
+
+  // A structure is a byte buffer behind a handle. Mode 0 writes, 1 reads.
+  _structure(name, stack) {
+    if (!this.structs) this.structs = new Map();
+    const refs = stack.filter(isRef);
+    const nums = stack
+      .map((x) => (isPlainInt(x) ? x : isFloat(x) ? x.v : null))
+      .filter((x) => x != null);
+    const refVal = (r) =>
+      r[1] === 2 && this.frame ? this.frame.get(r[2]) : this.globals.get(r[2]);
+    const toNum = (v) => {
+      if (isBound(v)) v = v.s;
+      if (isFloat(v)) return v.v;
+      const n = Number(v);
+      return Number.isFinite(n) ? n : 0;
+    };
+    if (name === 'CreateStructure') {
+      // (out handle, size): a fresh handle, never 0 (0 is the failure code)
+      const size = nums.length ? Math.max(1, nums[0]) : 1024;
+      const h = this.structs.size + 1;
+      this.structs.set(h, { buf: new Uint8Array(size), mode: 0 });
+      storeOut(this, stack, h);
+      return;
+    }
+    if (name === 'SetStructureMode') {
+      this._structMode = nums.length ? nums[0] : 0;
+      return;
+    }
+    // Structure{Byte,Int,Long,String}(handle, offset[, len], value | out ref)
+    // the handle is the first non-out argument: a slot read (var) or a ref
+    const handle = toNum(
+      stack.find((x) => !isRef(x) && (isPlainInt(x) || isBound(x)))
+    );
+    const st = this.structs.get(handle);
+    if (!st) return;
+    const off = nums.length > 1 ? nums[1] : nums.length ? nums[0] : 0;
+    const width =
+      name === 'StructureByte'
+        ? 1
+        : name === 'StructureInt'
+          ? 2
+          : name === 'StructureLong'
+            ? 4
+            : 0;
+    const mode = this._structMode || 0;
+    if (width) {
+      if (mode === 0) {
+        // write: the value is the last non-ref argument
+        const vals = stack.filter((x) => !isRef(x));
+        let v = toNum(vals[vals.length - 1]);
+        for (let i = 0; i < width; i++) {
+          if (off + i < st.buf.length) st.buf[off + i] = (v >>> (8 * i)) & 0xff;
+        }
+      } else {
+        let v = 0;
+        for (let i = width - 1; i >= 0; i--)
+          v = v * 256 + (st.buf[off + i] || 0);
+        storeOut(this, refs.slice(-1), v);
+      }
+      return;
+    }
+    // StructureString(handle, offset, len, out string | string)
+    const len = nums.length > 2 ? nums[2] : st.buf.length - off;
+    if (mode === 0) {
+      const sv = stack.find((x) => isPlainStr(x) || (isBound(x) && !isRef(x)));
+      const bytes = Best2VmBytes(asStr(sv == null ? '' : sv));
+      for (let i = 0; i < Math.min(len, bytes.length); i++) {
+        if (off + i < st.buf.length) st.buf[off + i] = bytes[i];
+      }
+    } else {
+      let out = '';
+      for (let i = 0; i < len && off + i < st.buf.length; i++) {
+        const b = st.buf[off + i];
+        if (b === 0) break;
+        out += String.fromCharCode(b);
+      }
+      storeOut(this, refs.slice(-1), out);
+    }
+  }
+
+  // sprintf through import32: (out string ref, format, handle ref, out count
+  // ref). The format is the only string carrying '%'; the value is the
+  // structure's long at offset 0 (what the formatters just wrote), or the
+  // argument itself when it is not a handle.
+  _dllcall(stack) {
+    const fmt = stack.find((x) => isPlainStr(x) && x.includes('%'));
+    const refs = stack.filter(isRef);
+    if (!fmt || !refs.length) return;
+    const refVal = (r) =>
+      r[1] === 2 && this.frame ? this.frame.get(r[2]) : this.globals.get(r[2]);
+    let value = 0;
+    if (refs.length > 1) {
+      const raw = refVal(refs[1]);
+      const n = Number(isBound(raw) ? raw.s : isFloat(raw) ? raw.v : raw);
+      const st = this.structs && this.structs.get(n);
+      if (st) {
+        for (let i = 3; i >= 0; i--) value = value * 256 + (st.buf[i] || 0);
+      } else if (Number.isFinite(n)) value = n;
+    }
+    const m = fmt.match(/%(0?)(\d*)(l?)([xXdus])/);
+    let text = fmt;
+    if (m) {
+      const width = m[2] ? Number(m[2]) : 0;
+      let body;
+      if (m[4] === 'x') body = (value >>> 0).toString(16);
+      else if (m[4] === 'X') body = (value >>> 0).toString(16).toUpperCase();
+      else if (m[4] === 'u') body = String(value >>> 0);
+      else body = String(value);
+      const pad = m[1] === '0' ? '0' : ' ';
+      while (body.length < width) body = pad + body;
+      text = fmt.replace(m[0], body);
+    }
+    storeOut(this, [refs[0]], text);
+    if (refs.length > 2) storeOut(this, [refs[refs.length - 1]], text.length);
   }
 
   // ------------------------------------------------------------ reads --
@@ -1192,9 +1451,42 @@ class IpoVm {
 
   _read(t, frame) {
     const sc = t.sc == null ? GLOBAL : t.sc;
-    if (sc === GLOBAL)
-      return this.globals.has(t.n) ? this.globals.get(t.n) : null;
-    return frame.has(t.n) ? frame.get(t.n) : null;
+    let v;
+    if (sc === GLOBAL) v = this.globals.has(t.n) ? this.globals.get(t.n) : null;
+    else v = frame.has(t.n) ? frame.get(t.n) : null;
+    // a by-reference parameter READS the caller's value: `strlen(->n, s)`
+    // inside `stringappend(string &s, ...)` measures the string, not the
+    // reference. Without this the pad loop never ended (length 0 forever).
+    if (isRef(v)) {
+      const tg = this._refTarget(v, frame);
+      v = tg.map.has(tg.n) ? tg.map.get(tg.n) : null;
+    }
+    return v;
+  }
+
+  // Where a reference points: the owning frame (or the globals) and the slot,
+  // following a reference stored in a referenced slot (a by-ref parameter
+  // handed on by reference). {dsc, n, map}
+  _refTarget(ref, frame) {
+    let cur = ref;
+    let map = null,
+      dsc = GLOBAL,
+      n = 0;
+    for (let hops = 0; hops < 8 && isRef(cur); hops++) {
+      const owner = cur[1] === 2 ? cur[3] || frame : null;
+      if (owner) {
+        dsc = LOCAL;
+        map = owner;
+      } else {
+        dsc = GLOBAL;
+        map = this.globals;
+      }
+      n = cur[2];
+      const next = map.has(n) ? map.get(n) : null;
+      if (!isRef(next)) break;
+      cur = next;
+    }
+    return { dsc, n, map: map || this.globals };
   }
 
   _write(t, frame, val) {
@@ -1205,13 +1497,11 @@ class IpoVm {
       const src =
         sc !== GLOBAL ? (frame ? frame.get(t.n) : null) : this.globals.get(t.n);
       if (isRef(src)) {
-        const dsc = src[1] === 2 && frame != null ? LOCAL : GLOBAL;
-        const n = src[2];
+        const { dsc, n, map } = this._refTarget(src, frame);
         const key = isBound(val) && val.key ? val.key : null;
         if (key) this.setBind(dsc, n, key);
         else this.delBind(dsc, n);
-        if (dsc === GLOBAL) this.globals.set(n, val);
-        else if (frame) frame.set(n, val);
+        map.set(n, val);
         return;
       }
     }
@@ -1248,8 +1538,7 @@ function outRef(stack) {
 function storeOut(vm, stack, val, key) {
   const dest = outRef(stack);
   if (dest == null) return null;
-  const sc = dest[1] === 2 && vm.frame != null ? LOCAL : GLOBAL;
-  const n = dest[2];
+  const { dsc: sc, n, map } = vm._refTarget(dest, vm.frame);
   if (key != null) {
     const amap = isBound(val) ? val.amap : null;
     val = mkBound(mkSlot(sc, n), val == null ? '' : asStr(val), key);
@@ -1260,8 +1549,8 @@ function storeOut(vm, stack, val, key) {
     // An offline non-answer must not overwrite a preset presence flag (true).
     const empty = val === '' || val == null || (isBound(val) && val.s === '');
     if (!empty || vm.globals.get(n) !== true) vm.globals.set(n, val);
-  } else if (vm.frame) {
-    vm.frame.set(n, val);
+  } else {
+    map.set(n, val);
   }
   return n;
 }
@@ -1304,6 +1593,9 @@ function bSetscreen(vm, stack, item) {
   if (tgt) {
     vm.out.screen = tgt;
     if (item) item.screen = tgt;
+    // setscreen(ref, frequent): the bool rides as a 0/1 const after the ref
+    const flags = stack.filter((x) => isPlainInt(x) || typeof x === 'boolean');
+    vm.out.screenFrequent = flags.length ? !!flags[flags.length - 1] : false;
   }
 }
 
@@ -1349,19 +1641,22 @@ function bCheckStatus(vm) {
 
 function bResult(vm, stack, item, integer) {
   const key = stack.find(isPlainStr) || null;
-  let val = key ? vm.host.result(key, { integer }) : '';
+  // INPAapiResult*(->dest, KEY, set[, format]): the set number is the one
+  // numeric argument (a literal or a bound variable); the format is a string
+  const setArg = stack.find((x) => !isRef(x) && !isPlainStr(x));
+  const set = setArg != null ? Math.trunc(num(setArg)) : undefined;
+  let val = key ? vm.host.result(key, { integer, set }) : '';
   const refs = stack.filter(isRef);
   if (refs.length >= 2) storeOut(vm, [refs[0]], 1);
   const dest = refs.length ? refs[refs.length - 1] : null;
   if (dest != null) {
-    const sc = dest[1] === 2 ? 2 : 0;
+    const { dsc: sc, n, map } = vm._refTarget(dest, vm.frame);
     if (key) {
-      val = mkBound(mkSlot(sc, dest[2]), val == null ? '' : asStr(val), key);
-      vm.setBind(sc, dest[2], key);
+      val = mkBound(mkSlot(sc, n), val == null ? '' : asStr(val), key);
+      vm.setBind(sc, n, key);
     }
-    vm.globals.set(`ref:${dest[2]}`, val);
-    if (sc === GLOBAL) vm.globals.set(dest[2], val);
-    else if (vm.frame) vm.frame.set(dest[2], val);
+    vm.globals.set(`ref:${n}`, val);
+    map.set(n, val);
   }
   if (key) {
     vm.globals.set('__lastkey__', key);
@@ -1382,7 +1677,12 @@ function bErrorText(vm, stack) {
 function bResultSets(vm, stack) {
   const refs = stack.filter(isRef);
   if (refs.length >= 2) storeOut(vm, [refs[0]], 1);
-  storeOut(vm, refs.length ? [refs[refs.length - 1]] : [], 1);
+  // the wire's own set count when a feed carries it (a fault list is one
+  // set per fault plus the JOB_STATUS set: INPA subtracts one and loops);
+  // 1 for the offline hosts, as before
+  const n =
+    vm.host && typeof vm.host.count === 'function' ? vm.host.count() : 1;
+  storeOut(vm, refs.length ? [refs[refs.length - 1]] : [], n);
 }
 
 function bStrArrayCreate(vm, stack) {
@@ -1453,11 +1753,13 @@ function bTextout(vm, stack) {
   // ftextout(text/slot, row, col, ...): a printed literal, or a printed VALUE
   // whose key comes from the binding. A bound value wins over a literal.
   let key = null,
-    also = [];
+    also = [],
+    liveText = null;
   for (const x of stack) {
     if (isBound(x) && x.key) {
       key = x.key;
       also = (x.extra || []).filter((k) => k !== key);
+      liveText = x.s;
       break;
     }
     const sl = isBound(x) ? x.slot : isSlot(x) ? x : null;
@@ -1488,6 +1790,9 @@ function bTextout(vm, stack) {
   let el;
   if (key) {
     el = { t: 'value', key };
+    // the text the value HAD when drawn: a live run fed real results, and
+    // the painter shows this rather than polling the key again
+    if (vm.wireJobs && liveText != null && liveText !== '') el.s = liveText;
     if (also.length) el.also = also;
     const amap = stack.map((x) => (isBound(x) ? x.amap : null)).find((m) => m);
     if (amap) el.map = amap;
@@ -1525,6 +1830,26 @@ function field(vm, stack, kind) {
     el.on = strs[strs.length - 2].trim();
     el.off = strs[strs.length - 1].trim();
   }
+  // LIVE: the cell's text. digitalout(val, row, col, TrueText, FalseText)
+  // shows one of its two words for the value it was handed; analogout(val,
+  // row, col, ..., format) shows the number. Wire mode only (like textout's
+  // live text): the offline twins emit the declaration, never a value.
+  if (vm.wireJobs && stack.length) {
+    const v = stack[0];
+    const n = isBound(v)
+      ? parseFloat(v.s)
+      : isFloat(v)
+        ? v.v
+        : typeof v === 'number' || typeof v === 'boolean'
+          ? Number(v)
+          : NaN;
+    if (kind === 'digital') {
+      const on = !Number.isNaN(n) ? n !== 0 : isBound(v) && !!v.s.trim();
+      el.s = on ? (el.on != null ? el.on : '1') : el.off != null ? el.off : '0';
+    } else {
+      el.s = Number.isNaN(n) ? (isBound(v) ? v.s : '') : String(n);
+    }
+  }
   if (!vm.out.lines.length) vm.out.lines.push({ label: null, elements: [] });
   vm.out.lines[vm.out.lines.length - 1].elements.push(el);
   return el;
@@ -1554,6 +1879,25 @@ function bAnalogout(vm, stack) {
     (x) => (isPlainStr(x) || isBound(x)) && asStr(x).trim()
   );
   if (fmt) el.fmt = asStr(fmt).trim();
+  // live text in the declared format ("6.2" = width 6, 2 decimals). The
+  // format is the LAST plain string argument; the first string-like value on
+  // the stack can be the reading itself (a bound real with a long tail),
+  // which is not a format and once asked toFixed for 100+ digits.
+  if (vm.wireJobs && el.s != null) {
+    let fmtStr = null;
+    for (let k = stack.length - 1; k >= 0; k--) {
+      if (isPlainStr(stack[k]) && stack[k].trim()) {
+        fmtStr = stack[k].trim();
+        break;
+      }
+    }
+    const m = fmtStr ? /^(\d+)\.(\d+)$/.exec(fmtStr) : null;
+    const n = Number(el.s);
+    if (m && !Number.isNaN(n)) {
+      const digits = Math.max(0, Math.min(20, Number(m[2])));
+      el.s = n.toFixed(digits);
+    }
+  }
 }
 
 function bMultiAnalogout(vm, stack) {
@@ -1614,6 +1958,21 @@ function bInttostring(vm, stack) {
     n = num(n);
   }
   storeOut(vm, stack, String(Math.trunc(n)), keyed(stack));
+}
+
+// inttolong / bytetoint: a NUMBER out, not its text. Mapped to inttostring
+// they handed the fault printer "42" as a string, so `< 0` and longtoreal
+// saw no number and every entry read "Nr: 0".
+function bIntwiden(vm, stack) {
+  let n = stack.find((x) => typeof x === 'number' || isFloat(x));
+  if (n == null) {
+    const s = stack.find((x) => isPlainStr(x) || isBound(x));
+    n = parseFloat(asStr(s));
+    if (Number.isNaN(n)) n = 0;
+  } else {
+    n = num(n);
+  }
+  storeOut(vm, stack, Math.trunc(n), keyed(stack));
 }
 
 function bMessage(vm, stack, item) {
@@ -1701,14 +2060,49 @@ function bSelect(vm, stack, item) {
 }
 function bDeselect(vm, stack, item) {
   if (item && !item.action) item.action = 'deselect';
+  // LIVE: INPA's Deselect shows every logical line again
+  if (vm.wireJobs) vm.out.deselect = true;
 }
 function bExit(vm, stack, item) {
   if (item) item.action = 'exit';
+  vm.out.exit = true;
+}
+
+// settimer(n, ms) / testtimer(n, out expired): INPA's per-script timer slots.
+// A screen INIT arms one and a LINE tests it every cycle; without them the
+// test never fires and a timed refresh runs on every tick instead.
+function bSettimer(vm, stack) {
+  const ints = allInts(stack);
+  if (ints.length < 2) return;
+  if (!vm.timers) vm.timers = new Map();
+  const now = typeof vm.now === 'function' ? vm.now() : Date.now();
+  vm.timers.set(ints[0], now + Math.max(0, ints[1]));
+}
+function bTesttimer(vm, stack) {
+  const ints = allInts(stack);
+  const n = ints.length ? ints[0] : 0;
+  const now = typeof vm.now === 'function' ? vm.now() : Date.now();
+  const due = vm.timers && vm.timers.has(n) ? vm.timers.get(n) : null;
+  const expired = due != null && now >= due ? 1 : 0;
+  storeOut(vm, stack, expired);
+}
+// blankscreen: the next paint starts from an empty grid
+function bBlankscreen(vm) {
+  vm.out.blank = true;
+  vm.out.lines = [];
 }
 function bPrint(vm, stack, item) {
   if (item) item.action = 'printscreen';
 }
 function bScriptchange(vm, stack, item) {
+  // scriptchange("IHKA46") hands the WHOLE UI to another .IPO: INPA unloads
+  // this script and runs the named one, inpainit and all. KLIMA_5B does it
+  // from its variant check (IHKA46_3 -> IHKA46, IHKA85 -> IHKX85), so a
+  // script that never names a variant in its own menus is still correct --
+  // it left before the menu drew. Record the target for the entry gate to
+  // follow; the key itself stays an app-side tool.
+  const name = stack.find((x) => isPlainStr(x) || isBound(x));
+  if (name != null && asStr(name)) vm.out.scriptChange = asStr(name);
   if (item) item.appTool = true;
 }
 function bCallwin(vm, stack, item) {
@@ -1726,6 +2120,13 @@ function bSetstate(vm, stack, item) {
   const name = vm.byid('state', ref[2]);
   if (!name || !vm.procs[name]) return;
   if (item) item.stateEnter = name;
+  // LIVE: the machine is a guided procedure (togglelist -> job -> parks);
+  // running it through the offline executor here stopped at its first
+  // %STATE and the driver never saw the picker. Emit it; the driver runs it.
+  if (vm.wireJobs) {
+    vm.out.stateEnter = name;
+    return;
+  }
   if (vm.entered.has(name)) return;
   vm.entered.add(name);
   const before = vm.out.jobs.length;
@@ -1773,8 +2174,17 @@ function bStrcat(vm, stack) {
 }
 
 function bNumconvert(vm, stack) {
-  const n = stack.find((x) => typeof x === 'number' || isFloat(x));
-  storeOut(vm, stack, n == null ? 0 : num(n), keyed(stack));
+  let n = stack.find((x) => typeof x === 'number' || isFloat(x));
+  if (n == null) {
+    // a job result or a converted value arrives BOUND (its text plus the
+    // key it came from): convert the text, as inttostring does
+    const s = stack.find((x) => isPlainStr(x) || isBound(x));
+    n = s == null ? 0 : parseFloat(asStr(s));
+    if (Number.isNaN(n)) n = 0;
+  } else {
+    n = num(n);
+  }
+  storeOut(vm, stack, n, keyed(stack));
 }
 
 function bGetdate(vm, stack) {
@@ -1792,6 +2202,20 @@ function bInputDigital(vm, stack, item) {
   // choice as the placeholder -- the lift keeps the yes-branch's job
   bInput(vm, stack, item);
   for (const ref of stack.filter(isRef)) storeOut(vm, [ref], 1);
+}
+
+const IPO_STRUCT_FNS = new Set([
+  'CreateStructure',
+  'SetStructureMode',
+  'StructureByte',
+  'StructureInt',
+  'StructureLong',
+  'StructureString',
+]);
+function Best2VmBytes(s) {
+  const out = [];
+  for (const ch of String(s || '')) out.push(ch.charCodeAt(0) & 0xff);
+  return out;
 }
 
 const BUILTINS = {
@@ -1826,8 +2250,8 @@ const BUILTINS = {
   strlen: bStrlen,
   midstr: bMidstr,
   inttostring: bInttostring,
-  inttolong: bInttostring,
-  bytetoint: bInttostring,
+  inttolong: bIntwiden,
+  bytetoint: bIntwiden,
   realtostring: bInttostring,
   SetStructureMode: bNoop,
   CreateStructure: bNoop,
@@ -1883,6 +2307,11 @@ const BUILTINS = {
   builtin_22: bHexconvert, // hexconvert
   builtin_23: bStrcat, // strcat (dest ref FIRST)
   builtin_26: bNumconvert, // inttoreal/realtoint family
+  // longtoreal(in long, out real): Inpa.h's extern after inttolong, and the
+  // fault printers use it that way (F_ORT_NR -> inttolong -> longtoreal ->
+  // realtostring). Unnamed, it was a no-op and every fault read "Nr: 5".
+  builtin_2a: bNumconvert,
+  longtoreal: bNumconvert,
   formatnum: bInttostring, // (src, dst): number -> display
   getdate: bGetdate,
   gettime: bGettime,
@@ -1892,7 +2321,12 @@ const BUILTINS = {
   builtin_74: bResult, // INP1apiResultReal(rc, val, KEY, set)
   builtin_14: bNoop, // stop
   builtin_1a: bNoop, // setcolor
-  builtin_51: bNoop, // blankscreen
+  builtin_51: bBlankscreen, // blankscreen
+  blankscreen: bBlankscreen,
+  settimer: bSettimer,
+  testtimer: bTesttimer,
+  builtin_09: bSettimer,
+  builtin_0a: bTesttimer,
   builtin_57: bNoop, // userboxclear
   builtin_58: bNoop, // userboxsetcolor
 };

@@ -221,8 +221,7 @@ for (const v of VARIANTS) {
       `  the folder. Chrome and Edge support this; Safari and Firefox do not, so\n` +
       `  on those use the HTTP-server option above.\n\n` +
       `Nothing in this build fetches from the internet. A K+DCAN cable talks to\n` +
-      `the car through the browser (Web Serial, Chrome or Edge) or over WiFi\n` +
-      `through the THOR adapter.\n\n` +
+      `the car through the browser (Web Serial, Chrome or Edge).\n\n` +
       `This build includes:\n` +
       `  - full diagnostics (every shipped SGBD), coding, fault memory\n` +
       `  - fault code lookup with English descriptions and ISTA test plans\n` +

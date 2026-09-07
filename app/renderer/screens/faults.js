@@ -1,4 +1,4 @@
-// fault rendering. German→English tables and the bmwCode/pCode/deGerman/
+// fault rendering. German→English tables and the bmwCode/pCode/phraseText/
 // envLabel helpers live in translate.js (loaded before this file).
 
 // fault-name DB (faultdb.js, generated): a big literal kept out of the initial
@@ -24,7 +24,7 @@ function loadFaultDb() {
         _faultDbPromise = null;
         resolve();
         return;
-      } // fall back to deGerman
+      } // fall back to phraseText
       const s = document.createElement('script');
       s.src = urls[i++];
       s.onload = () => resolve();
@@ -58,7 +58,7 @@ function faultName(loc, hex, sgbd) {
   if (code && own && own[code]) return `${code} ${own[code]}`;
   const db = (typeof window !== 'undefined' && window.BMW_FAULT_DB) || {};
   if (code && db[code]) return `${code} ${db[code]}`;
-  return deGerman(loc) || loc || '';
+  return phraseText(loc) || loc || '';
 }
 
 // The ECU's fault-type list (F_ART1..F_ART_ANZ), "--" entries dropped, joined
@@ -70,7 +70,7 @@ function faultTypeText(c) {
   for (let a = 1; a <= n; a++) {
     const t = c[`F_ART${a}_TEXT`];
     if (t != null && String(t).trim() && String(t).trim() !== '--') {
-      parts.push(deGerman(t));
+      parts.push(phraseText(t));
     }
   }
   return parts.join(', ');
@@ -109,7 +109,7 @@ function faultFields(c, sgbd) {
     ? 'static'
     : /sporadisch/i.test(art)
       ? 'intermittent'
-      : deGerman(art) || art || '';
+      : phraseText(art) || art || '';
   const count = c.F_HFK || c.F_LZ || '';
   // SAE P-code: the ECU's own F_PCODE_STRING (a live detail read) is the ONLY
   // source. No BMW-hex -> P-code mapping on our side during a fault read.
@@ -197,23 +197,18 @@ async function exportFaults(ecu, view, opts = {}) {
   const now = new Date();
   const present = faults.filter((c) => faultFields(c, ecu.sgbd).present).length;
   const body = faultModuleBlock(ecu.label, ecu.sgbd, faults);
-  // A PDF outlives the app: once exported nothing about the page says where
-  // the faults came from, so a demo export declares it in the TITLE and in the
-  // summary rows, both of which survive printing and cropping.
-  const isDemo = faults.some((c) => c._DEMO);
   const rows = [
     ['Generated', now.toLocaleString()],
     ['Total faults', faults.length],
     ['Present', present],
   ];
-  if (isDemo) rows.push(['Source', 'DEMO — simulated, no car was read']);
   const html = faultReportHtml(
-    `${ecu.label} · ${ecu.sgbd}.prg · fault memory${isDemo ? ' (DEMO)' : ''}`,
+    `${ecu.label} · ${ecu.sgbd}.prg · fault memory`,
     rows,
     body
   );
 
-  const name = `${APP_NAME}-faults-${isDemo ? 'DEMO-' : ''}${ecu.sgbd}-${now.toISOString().slice(0, 10)}.pdf`;
+  const name = `${APP_NAME}-faults-${ecu.sgbd}-${now.toISOString().slice(0, 10)}.pdf`;
   sbLeft.textContent = 'saving…';
   try {
     const res = await window.bmacw.savePdf(name, html);
@@ -277,7 +272,7 @@ function renderFaultsInpa(codes, container, ecu) {
       const code = bmwCode(c.F_ORT_TEXT, hex);
       // P-code from the ECU's own detailed read only -- no local hex->P mapping.
       const pstr = c.F_PCODE_STRING || c.F_PCODE7_STRING || '';
-      const ptext = deGerman(c.F_PCODE_TEXT || c.F_PCODE7_TEXT || '');
+      const ptext = phraseText(c.F_PCODE_TEXT || c.F_PCODE7_TEXT || '');
       const freq = c.F_HFK || c.F_LZ; // how many times seen
       const km = c.F_UW_KM; // mileage at entry
       const { present } = faultFields(c, ecu && ecu.sgbd);
@@ -291,7 +286,7 @@ function renderFaultsInpa(codes, container, ecu) {
       const row = (label, k, nrKey) =>
         has(k)
           ? `<div class="inpa-ff"><span class="inpa-ff-k">${label}</span><span class="inpa-ff-v">` +
-            `${esc(`${nrKey && c[nrKey] != null ? `(${c[nrKey]}) ` : ''}${deGerman(c[k])}`)}</span></div>`
+            `${esc(`${nrKey && c[nrKey] != null ? `(${c[nrKey]}) ` : ''}${phraseText(c[k])}`)}</span></div>`
           : '';
       // F_ART1..N: the fault-type list (F_ART_ANZ counts them). "--" entries
       // are the ECU's own "not this type", so drop them.
@@ -303,7 +298,7 @@ function renderFaultsInpa(codes, container, ecu) {
           artRows.push(
             `<div class="inpa-ff"><span class="inpa-ff-k">` +
               `${artRows.length ? '' : 'type of error:'}</span>` +
-              `<span class="inpa-ff-v">${esc(deGerman(t))}</span></div>`
+              `<span class="inpa-ff-v">${esc(phraseText(t))}</span></div>`
           );
         }
       }
@@ -381,25 +376,14 @@ function renderFaults(codes, container, ecu) {
   }
   container.innerHTML = '';
   container.className = 'faults stagger';
-  // A fabricated fault names a component and gets screenshotted, so a demo
-  // read says so ABOVE the list -- not only in Settings, which is off-screen
-  // by the time anyone is looking at this.
-  if (faults.some((c) => c._DEMO)) {
-    const b = document.createElement('div');
-    b.className = 'fault-demo-banner';
-    b.innerHTML =
-      "<b>Demo faults.</b> Simulated from this module's fault " +
-      'table. No car was read.';
-    container.appendChild(b);
-  }
   faults.forEach((c) => {
     const ff = faultFields(c, ecu && ecu.sgbd);
     const present = ff.present;
     const hex = hexText(c.F_HEX_CODE);
     // prefer the detailed P-code (FS_LESEN_DETAIL) over our static map
     const pstr = c.F_PCODE_STRING || c.F_PCODE7_STRING || ff.pcode || '';
-    const ptext = deGerman(c.F_PCODE_TEXT || c.F_PCODE7_TEXT || '');
-    const warn = deGerman(c.F_WARNUNG_TEXT);
+    const ptext = phraseText(c.F_PCODE_TEXT || c.F_PCODE7_TEXT || '');
+    const warn = phraseText(c.F_WARNUNG_TEXT);
     const freq = c.F_HFK || c.F_LZ;
     const km = c.F_UW_KM;
     // The UI mode is STYLE ONLY -- modern must show the same fields INPA mode
@@ -407,7 +391,7 @@ function renderFaults(codes, container, ecu) {
     // field (numbered `(NN) text` like INPA), so nothing is invented or hidden.
     const has = (k) => c[k] != null && String(c[k]).trim() !== '';
     const numbered = (k, nrKey) =>
-      `${nrKey && c[nrKey] != null ? `(${c[nrKey]}) ` : ''}${deGerman(c[k])}`;
+      `${nrKey && c[nrKey] != null ? `(${c[nrKey]}) ` : ''}${phraseText(c[k])}`;
     const detRow = (label, k, nrKey) =>
       has(k)
         ? `<div class="fd-row"><span class="fd-k">${label}</span>` +
@@ -447,11 +431,10 @@ function renderFaults(codes, container, ecu) {
       </div>
       <div class="fault-main">
         <div class="fault-loc">${esc(ff.name || 'Unknown location')}</div>
-        <div class="fault-symptom">${esc(deGerman(c.F_SYMPTOM_TEXT) || faultTypeText(c) || '')}</div>
+        <div class="fault-symptom">${esc(phraseText(c.F_SYMPTOM_TEXT) || faultTypeText(c) || '')}</div>
         ${rows ? `<div class="fault-detail">${rows}</div>` : ''}
       </div>
       <div class="fault-flags">
-        ${c._DEMO ? '<span class="flag demo">demo</span>' : ''}
         ${present ? '<span class="flag present">present</span>' : '<span class="flag">stored</span>'}
         ${warn ? `<span class="flag">${esc(warn)}</span>` : ''}
       </div>`;

@@ -185,7 +185,7 @@ const apiTrace = {
   clear() {
     this.rows = [];
   },
-  // record one job: {sgbd, job, arg, sets, status, error, demo, t}
+  // record one job: {sgbd, job, arg, sets, status, error, t}
   add(entry) {
     if (!this.on) return;
     if (this.rows.length >= this.limit) return;
@@ -204,6 +204,9 @@ if (typeof window !== 'undefined') window.apiTrace = apiTrace;
 // Nothing here looks at the first byte of a frame to decide -- 0xB8 is just
 // the tester address KWP2000* and BMW-FAST both use.
 const XOR_CONCEPTS = new Set([1, 5, 6, 0x10d]);
+// EdInterfaceObd.CommParameter's per-concept CommAnswerLen seed, used when an
+// SGBD never issues xawlen: [-o, k] = byte at offset o plus k.
+const DS_ANSWER_LEN_DEFAULT = { 1: [-2, 0], 5: [-1, 0], 6: [-1, 0] };
 const SUM_CONCEPTS = new Set([0x10b, 0x10c, 0x10f, 0x110]);
 function checksumOf(bytes, c) {
   let sum = 0;
@@ -229,9 +232,17 @@ function withChecksum(out, comm) {
 function frameTotal(buf, comm) {
   const c = conceptOf(comm);
   if (XOR_CONCEPTS.has(c) && c !== 0x10d) {
-    // DS2: the SGBD declared the rule with xawlen (EdInterfaceObd.TelLengthDs2)
-    const al = comm && comm.answerLen;
-    if (!al || !al.length) {
+    // DS2: the rule the SGBD declared with xawlen (EdInterfaceObd.TelLengthDs2),
+    // or, when it never did, EDIABAS's own default for the concept -- every
+    // xsetpar seeds CommAnswerLen per concept (EdInterfaceObd.CommParameter:
+    // DS1/DS2 = [-1, 0] "byte 1 is the total length", concept 1 = [-2, 0])
+    // and xawlen only overrides it. The E46 steering-angle group d_0057 is
+    // 99 ops and never calls xawlen; refusing its exchange here made the
+    // resolver log "bus-silent" for a sensor that answers every time, and
+    // the scan printed "not installed".
+    let al = comm && comm.answerLen;
+    if (!al || !al.length) al = DS_ANSWER_LEN_DEFAULT[c];
+    if (!al) {
       throw ifhError(
         'IFH-0018',
         'DS2 answer length not set by the SGBD (xawlen)'
@@ -506,24 +517,19 @@ async function runExchange(bus, out, comm) {
 
 // ---- the Transport interface -----------------------------------------------
 //
-// THREE transports carry the exact same protocol to the car: Web Serial (a
-// K+DCAN cable in desktop Chrome), the native bridge (the macOS shell owning
-// /dev/tty), and THOR (a WiFi/socket adapter). runExchange, readFrame,
-// withChecksum, frameTotal and verifyChecksum above are the protocol and are
-// SHARED by all three -- "the protocol does not change with the plumbing." A
-// full merge of the three classes is NOT possible, because three boundaries
-// are physical, not incidental, and each stays a per-transport override:
+// TWO transports carry the exact same protocol to the car: Web Serial (a
+// K+DCAN cable in desktop Chrome) and the native bridge (the macOS shell owning
+// /dev/tty). runExchange, readFrame, withChecksum, frameTotal and
+// verifyChecksum above are the protocol and are SHARED by both -- "the
+// protocol does not change with the plumbing." A full merge of the two classes
+// is NOT possible, because two boundaries are physical, not incidental, and
+// each stays a per-transport override:
 //
 //   SEAM 1  connect-entry -- Web Serial needs a USER GESTURE for the first
-//           requestPort(); a socket (THOR) and the native bridge do not.
+//           requestPort(); the native bridge does not.
 //   SEAM 2  K-line line-control -- only Web Serial has setSignals (DTR/break),
 //           so fast-init and the ISO 9141 slow-init live there alone; the
-//           native bridge has no setSignals, and THOR asks its firmware to
-//           wake the line instead (a config flag in each telegram).
-//   SEAM 3  echo/config placement -- half-duplex echo stripping and the FTDI
-//           read-poll latency are Web Serial / native concerns; THOR's remote
-//           adapter strips the echo itself and carries the wire settings in
-//           each telegram, so it has no port to reconfigure.
+//           native bridge has no setSignals.
 //
 // Every transport MUST expose this surface (the rest of the renderer -- app.js,
 // coding-write.js, the fetch shim -- calls only these):
@@ -531,12 +537,11 @@ async function runExchange(bus, out, comm) {
 //   get connected            -> bool           is the wire up right now
 //   async connect()          -> label          open the wire (SEAM 1)
 //   async reconnect()        -> label|null     silent reopen on load, no gesture
-//                                              (Web Serial only: keepCable)
+//                                              (Web Serial only)
 //   async ensureConfig(cfg)  -> void           make baud+parity match a concept
-//                                              (SEAM 3: no-op on THOR)
 //   async exchange(out,comm) -> frame          one request/answer -- SHARED, it
 //                                              just calls runExchange(this,...)
-//   async exchangeRaw(f,t,c) -> frame          write+read one frame (SEAM 2/3)
+//   async exchangeRaw(f,t,c) -> frame          write+read one frame (SEAM 2)
 //   async disconnect()       -> void           tear the wire down
 //   async readState()        -> {battery,ignition}   KL30/KL15 (absent on the
 //                                              native bridge -- callers guard)
@@ -547,17 +552,16 @@ async function runExchange(bus, out, comm) {
 //
 // The native correspondence lives in C# (a different runtime, not unified here):
 // SerialProxy.cs is the byte-mover behind NativeSerialBus (open/write/
-// readAvailable/close/flush), TcpProxy.cs the same for THOR's native socket.
-// Bytes cross that bridge as a JSON int[] (BmacwBridge.cs AsNumberArray), NOT
-// base64 -- base64 corrupted the echo/checksum. src/EdiabasMac is LEGACY (its
-// InpaMac.Api server is deleted); it is reference for what JS reimplemented,
-// not a transport, and is deliberately NOT part of this interface.
+// readAvailable/close/flush). Bytes cross that bridge as a JSON int[]
+// (BmacwBridge.cs AsNumberArray), NOT base64 -- base64 corrupted the
+// echo/checksum. src/EdiabasMac is LEGACY (its InpaMac.Api server is deleted);
+// it is reference for what JS reimplemented, not a transport, and is
+// deliberately NOT part of this interface.
 
 // Shared base for the two SERIAL transports (Web Serial + native bridge). They
 // both own a real port whose baud/parity must track the job's concept, and they
 // both keep the same per-session wire state -- so the reconfigure-guard and the
-// state reset live here once. THOR does NOT extend this: it owns no port (SEAM
-// 3) and its "wire state" is a single `inited` flag with no port to reopen.
+// state reset live here once.
 class SerialTransportBase {
   // The full wire state, cleared when the session on the wire ENDS (connect,
   // reconnect, disconnect): a fresh cable has woken nothing and remembers no
@@ -593,7 +597,7 @@ class SerialTransportBase {
   // One request/answer exchange. IDENTICAL for every transport -- the retry,
   // pacing, response-pending and framing all live in runExchange, which drives
   // the transport through its exchangeRaw/ensureConfig overrides. Kept in the
-  // base (and reused by THOR below) so there is exactly one copy.
+  // base so there is exactly one copy.
   async exchange(out, comm) {
     return runExchange(this, out, comm);
   }
@@ -1239,697 +1243,17 @@ class WebSerialBus extends SerialTransportBase {
   }
 }
 
-// The THOR WiFi adapter (EdiabasLib DEEPOBDWIFI behind an ESP-Link bridge at
-// 192.168.4.1:23). NOT an ELM327 -- it carries BMW-FAST telegrams, what the VM
-// sends. A browser has no TCP, so the adapter is reflashed to serve a WebSocket
-// itself (vendor/esp-link-ws). Its F1->F1 "special" telegrams (ident, ignition,
-// battery) are answered by the adapter MCU, so connect + topbar indicators work
-// against any car; wrapping K-line/D-CAN job telegrams is still to come.
-const THOR_BRIDGE = 'ws://127.0.0.1:8124';
-const THOR_HOST = '192.168.4.1';
-const THOR_PORT = 23;
-
-// DIRECT MODE. An adapter running the WebSocket firmware in
-// vendor/esp-link-ws serves ws://<ip>/bmweb straight off the dongle, so the
-// page talks to the car with nothing else running -- no relay, no shell.
-// That is what makes this work on a phone: WebSockets are the only browser
-// transport with no platform gaps (Web Serial is desktop-Chrome only, Web
-// Bluetooth does not exist on iOS).
-//
-// Everything below this line is unchanged either way. The telegram wrapping
-// and the framing do not care which socket carries the bytes.
-const THOR_WS_PATH = '/bmweb';
-const THOR_DEFAULT_IP = '192.168.4.1';
-
-// How long to wait on the adapter before falling back to the relay. A
-// socket to an address that is not there does not fail fast -- the browser
-// retransmits SYN for a long time -- so this deadline is what bounds the
-// whole "try direct first" idea. Long enough for a sleepy ESP on a weak
-// AP, short enough that a user who is not on the adapter's WiFi is not
-// left staring.
-const THOR_DIRECT_TIMEOUT_MS = 10000;
-
-// One message that says what was tried and what to do about it. Every
-// branch here is a real, distinguishable situation -- "could not connect"
-// alone sends people to check the wrong thing.
-function thorAdviceFor(failures, https, typedAddress) {
-  const tried = failures.join('; ');
-  if (https) {
-    return (
-      'This page is served over https, which cannot open a ws:// ' +
-      'connection to the adapter (mixed content), and a bare IP cannot ' +
-      'have a certificate. Open this build over http:// or as an offline ' +
-      `copy. (${tried})`
-    );
-  }
-  if (typedAddress) {
-    return (
-      `No adapter answered at ${typedAddress}. Check you are joined to ` +
-      "the adapter's WiFi, that the address is right, and that it runs the " +
-      `WebSocket firmware (vendor/esp-link-ws). (${tried})`
-    );
-  }
-  return (
-    "No THOR adapter found. Join the adapter's WiFi, and check it has " +
-    'the WebSocket firmware flashed (see vendor/esp-link-ws). ' +
-    `(${tried})`
-  );
-}
-
-// "192.168.4.1" | "192.168.4.1:81" | "ws://host/path" -> a URL. Bare hosts
-// are the common case (it is what the adapter's own page shows), so accept
-// them and supply the rest.
-function thorDirectUrl(addr) {
-  const a = String(addr || THOR_DEFAULT_IP).trim();
-  if (/^wss?:\/\//i.test(a)) return a;
-  return `ws://${a.replace(/\/+$/, '')}${THOR_WS_PATH}`;
-}
-
-class ThorWifiBus {
-  // directUrl: talk to the adapter's own WebSocket instead of the relay.
-  constructor(directUrl) {
-    this.ws = null;
-    this.native = false; // shell-owned TCP socket
-    this.direct = directUrl || null; // address the user chose
-    this.usingDirect = null; // address that answered
-    this.textFrames = false;
-    this._connecting = null; // in-flight connect()
-    this.fw = null; // { type, version }
-    this.state = { battery: null, ignition: null }; // last ident readings
-    this.rx = [];
-    // whether the adapter has been asked to wake the K line this session
-    this.inited = false;
-    this.sessionConcept = null;
-  }
-
-  get connected() {
-    return this.native || (!!this.ws && this.ws.readyState === 1);
-  }
-
-  // Open a WebSocket, or give up after `ms`. A socket to an address that
-  // simply is not there does NOT fail fast -- the browser sits in SYN
-  // retransmit, which on a phone can run past a minute. Hence the deadline:
-  // it is what makes "try direct, then fall back" finish in a knowable
-  // time rather than looking hung.
-  openWs(url, ms, onText) {
-    return new Promise((res, rej) => {
-      const ws = new WebSocket(url);
-      ws.binaryType = 'arraybuffer';
-      let settled = false;
-      // THE DEADLINE COVERS OPENING, AND NOTHING AFTER IT. It exists
-      // because a socket to an address that is not there does not fail
-      // fast -- the browser sits in SYN retransmit. Once the socket is
-      // OPEN that reason is gone, so this must never touch it: closing a
-      // live connection here killed a working adapter ten seconds in,
-      // mid-conversation, with voltage already on screen.
-      const timer = setTimeout(() => {
-        if (settled || ws.readyState === 1) return;
-        settled = true;
-        try {
-          ws.close();
-        } catch {
-          /* never opened */
-        }
-        rej(
-          new Error(`no answer from ${url} within ${Math.round(ms / 1000)}s`)
-        );
-      }, ms);
-      ws.onopen = () => {
-        clearTimeout(timer);
-        if (settled) {
-          // A late open after we gave up: do not hand back a socket the
-          // caller has stopped waiting for, and do not leak it either.
-          try {
-            ws.close();
-          } catch {
-            /* already closing */
-          }
-          return;
-        }
-        settled = true;
-        // KEEPALIVE. A diagnostic session is idle most of the time -- the
-        // user reads a screen and thinks -- and an idle TCP connection is
-        // exactly what times out. The firmware disarms espconn's own
-        // 10-second timer, but an AP or router in between can have its own
-        // idea, so keep the socket warm.
-        //
-        // A browser cannot send a ping opcode, so this is a ZERO-LENGTH
-        // BINARY frame: the firmware's `if (plen) uart0_tx_buffer(...)`
-        // means an empty payload writes nothing to the K-line. Traffic on
-        // the socket, silence on the wire.
-        clearInterval(this.keepAlive);
-        this.keepAlive = setInterval(() => {
-          if (ws.readyState !== 1) {
-            clearInterval(this.keepAlive);
-            return;
-          }
-          try {
-            ws.send(new Uint8Array(0));
-          } catch {
-            /* closing */
-          }
-        }, 5000);
-        res(ws);
-      };
-      ws.onerror = () => {
-        if (settled) return;
-        settled = true;
-        clearTimeout(timer);
-        try {
-          ws.close();
-        } catch {
-          /* already dead */
-        }
-        rej(new Error(`could not open ${url}`));
-      };
-      ws.onmessage = (e) => {
-        if (typeof e.data === 'string') {
-          busTrace.add(
-            'ws.text',
-            null,
-            JSON.stringify(String(e.data).slice(0, 60))
-          );
-          if (onText) onText();
-          return;
-        }
-        const chunk = new Uint8Array(e.data);
-        busTrace.add(
-          'ws.recv',
-          chunk,
-          `rx ${this.rx.length} -> ${this.rx.length + chunk.length}`
-        );
-        this.rx.push(...chunk);
-      };
-      ws.onclose = (e) => {
-        // WHO CLOSED IT, AND WHY. A connection that dies mid-session is
-        // the hardest thing to diagnose blind: the app just says "not
-        // running" and every layer looks innocent. The close code names
-        // the culprit -- 1006 is an abnormal close (no close frame: the
-        // peer vanished or the network dropped), 1001 is going-away,
-        // 1000 is a clean close somebody asked for.
-        console.warn(
-          `[thor] socket closed: code=${e && e.code} ` +
-            `reason="${(e && e.reason) || ''}" ` +
-            `clean=${e && e.wasClean} url=${url}`
-        );
-        this.ws = null;
-      };
-    });
-  }
-
-  async connect() {
-    // ONE CONNECT AT A TIME. app.js auto-connects on load AND offers the
-    // chip as a manual retry, so two chains can overlap -- and a second
-    // chain's failed attempt would tear down the transport the first one
-    // had already established. Hand the caller the in-flight attempt
-    // instead of starting a rival one.
-    if (this._connecting) return this._connecting;
-    if (this.connected) return this.portLabel();
-    this._connecting = this.connectOnce().finally(() => {
-      this._connecting = null;
-    });
-    return this._connecting;
-  }
-
-  async connectOnce() {
-    // WHAT TO TRY, IN ORDER. Direct first whenever it is possible: an
-    // adapter running the WebSocket firmware needs nothing else, which is
-    // the only arrangement that works on a phone. The relay and the
-    // shell's socket are the fallbacks, and each one is only offered where
-    // it can actually work.
-    const https =
-      typeof location !== 'undefined' && location.protocol === 'https:';
-    const attempts = [];
-    if (!https) {
-      attempts.push({
-        kind: 'direct',
-        url: this.direct || thorDirectUrl(THOR_DEFAULT_IP),
-        open: async (url) => {
-          this.ws = await this.openWs(url, THOR_DIRECT_TIMEOUT_MS, () => {
-            this.textFrames = true;
-          });
-          this.usingDirect = url;
-        },
-      });
-    }
-    if (window.bmacw && window.bmacw.tcpOpen) {
-      attempts.push({
-        kind: 'native',
-        open: async () => {
-          await window.bmacw.tcpOpen(THOR_HOST, THOR_PORT);
-          this.native = true;
-        },
-      });
-    }
-    // THE RELAY IS GONE FROM THE SHIPPED BUILDS. A browser cannot open a
-    // raw TCP socket, so reaching a stock esp-link adapter used to need a
-    // node process beside the page -- which is exactly the "install
-    // something first" this app exists to avoid, and impossible on a phone.
-    // The answer is the WebSocket firmware (vendor/esp-link-ws): flash it
-    // once and the adapter serves the socket itself.
-    //
-    // Kept alive only for someone who still runs thor_bridge.js by hand:
-    // ?relay=1. Not offered, not documented in the UI, and never tried on
-    // its own -- a silent fallback to a relay would hide a wrong address or
-    // unflashed firmware behind a connection that happens to work.
-    if (!this.direct && bootQuery.has('relay')) {
-      attempts.push({
-        kind: 'relay',
-        open: async () => {
-          this.ws = await this.openWs(THOR_BRIDGE, 4000);
-        },
-      });
-    }
-
-    // A SOCKET IS NOT AN ADAPTER, so each attempt has to prove itself
-    // before the next one is skipped. The ident is that proof: addressed
-    // F1 -> F1, the adapter MCU answers it itself, and a correct reply can
-    // only come back over a real, binary-clean UART bridge. No car, no
-    // ignition. An endpoint that opens and then says nothing -- a console
-    // socket, a relay with no adapter behind it -- fails here and the next
-    // transport gets its turn, which is the whole point of trying in order.
-    const failures = [];
-    for (const a of attempts) {
-      try {
-        await a.open(a.url);
-        const fw = await this.special(0xfd, 9);
-        this.fw = { type: (fw[4] << 8) | fw[5], version: (fw[6] << 8) | fw[7] };
-        // the raw method, not the bus-locked wrapper installed below --
-        // connect() already holds the lock, and the wrapper would deadlock
-        await ThorWifiBus.prototype.readState.call(this);
-        return this.portLabel();
-      } catch (e) {
-        failures.push(
-          `${a.kind}: ${
-            this.textFrames
-              ? 'text frames, not a binary UART bridge'
-              : e.message
-          }`
-        );
-        await this.dropTransport();
-      }
-    }
-    throw new Error(thorAdviceFor(failures, https, this.direct));
-  }
-
-  // Undo a failed attempt so the next one starts clean.
-  async dropTransport() {
-    clearInterval(this.keepAlive);
-    this.keepAlive = null;
-    try {
-      if (this.ws) this.ws.close();
-    } catch {
-      /* already gone */
-    }
-    if (this.native) {
-      try {
-        await window.bmacw.tcpClose();
-      } catch {
-        /* already gone */
-      }
-    }
-    this.ws = null;
-    this.native = false;
-    this.usingDirect = null;
-    this.textFrames = false;
-    this.rx.length = 0;
-    // the wake belongs to the CONNECTION: a new transport must re-wake
-    this.inited = false;
-    this.sessionConcept = null;
-  }
-
-  portLabel() {
-    const v = this.fw
-      ? ` v${this.fw.version >> 8}.${this.fw.version & 0xff}`
-      : '';
-    // Name the mode that actually WON, not the one that was configured:
-    // with the fallback in place those differ, and "direct" has to mean
-    // "nothing else is running" or it is worse than no label at all.
-    const how = this.usingDirect ? ' direct' : this.native ? '' : ' via relay';
-    return `THOR${v}${how}`;
-  }
-
-  async disconnect() {
-    clearInterval(this.keepAlive);
-    this.keepAlive = null;
-    if (this.native) {
-      try {
-        await window.bmacw.tcpClose();
-      } catch {
-        /* already gone */
-      }
-      this.native = false;
-    }
-    try {
-      if (this.ws) this.ws.close();
-    } catch {
-      /* already gone */
-    }
-    this.ws = null;
-    this.usingDirect = null;
-    this.inited = false;
-    this.sessionConcept = null;
-  }
-
-  // One special telegram: 82 F1 F1 <cmd> <cmd> <sum8>. The adapter echoes
-  // the request, then appends its answer (respLen bytes, sum8 last). Over
-  // the WebSocket, bytes arrive via onmessage; over the native socket, poll
-  // the shell (same shape as NativeSerialBus, and the timeout policy stays
-  // here either way).
-  async special(cmd, respLen, timeoutMs = 2000) {
-    const req = [0x82, 0xf1, 0xf1, cmd, cmd];
-    req.push(req.reduce((a, b) => (a + b) & 0xff, 0));
-    if (this.native) await window.bmacw.tcpRead(); // drop anything stale
-    this.rx.length = 0;
-    if (this.native) await window.bmacw.tcpWrite(req);
-    else this.ws.send(new Uint8Array(req));
-    const want = req.length + respLen;
-    const deadline = Date.now() + timeoutMs;
-    while (this.rx.length < want && Date.now() < deadline) {
-      if (this.native) {
-        const got = await window.bmacw.tcpRead();
-        if (got && got.length) {
-          this.rx.push(...got);
-          continue;
-        }
-      }
-      await new Promise((r) => setTimeout(r, 15));
-    }
-    if (this.rx.length < want) {
-      busTrace.add(
-        'thor.special',
-        this.rx,
-        `cmd=0x${cmd.toString(16)} SHORT: wanted ${want}, got ${this.rx.length}`
-      );
-      throw new Error('THOR adapter did not answer');
-    }
-    const resp = this.rx.slice(req.length, want);
-    busTrace.add('thor.special', resp, `cmd=0x${cmd.toString(16)} ok`);
-    const sum = resp.slice(0, -1).reduce((a, b) => (a + b) & 0xff, 0);
-    if (sum !== resp[resp.length - 1]) {
-      busTrace.add(
-        'thor.special',
-        this.rx,
-        `cmd=0x${cmd.toString(16)} CHECKSUM bad`
-      );
-      throw new Error('THOR answer checksum bad');
-    }
-    return resp;
-  }
-
-  // ignition sense + battery voltage, read from the adapter (no car protocol
-  // involved). Feeds /api/state, so the topbar KL30/KL15 indicators are real.
-  async readState() {
-    const ign = await this.special(0xfe, 6);
-    this.state.ignition = (ign[4] & 0x01) !== 0;
-    if (this.fw && this.fw.type >= 2) {
-      const v = await this.special(0xfc, 6);
-      this.state.battery = v[4] / 10;
-    }
-    return this.state;
-  }
-
-  // ---- job telegrams.
-  //
-  // The adapter does not take a bare BMW telegram: it takes a CONFIG header
-  // saying how to drive the K line, with the telegram as payload. That is
-  // what makes THOR the only transport here that can reach a 9600-baud DS2
-  // module without touching the serial port's own settings -- the baud
-  // rides in each telegram.
-  //
-  // Layout (EdiabasLib EdCustomAdapterCommon.CreateAdapterTelegram), the
-  // two firmware generations:
-  //
-  //   fw < 0x0008:  00 00 baudH baudL flags1 interByte lenH lenL <payload> sum8
-  //   fw >= 0x0008: 00 02 baudH baudL flags1 flags2 interByte kwp1281To
-  //                                                  lenH lenL <payload> sum8
-  //
-  // baud is transmitted HALVED, big-endian; 115200 is special-cased to 0,
-  // which means "raw passthrough" (the adapter stops reframing and the wire
-  // is BMW-FAST as-is). flags1 bits 0-2 are parity (0 none, 1 even),
-  // 0x80 selects the K line. The adapter echoes the whole wrapped telegram
-  // back, then appends the ECU's answer with its own sum8 -- so the answer
-  // is checked on its own bytes, not across the echo.
-  // flags1 bits, from EdiabasLib EdCustomAdapterCommon (KLINEF1_*). These are
-  // the adapter's instructions for how to drive the wire.
-  static get KLINEF1() {
-    return {
-      PARITY_EVEN: 0x01,
-      USE_LLINE: 0x08,
-      SEND_PULSE: 0x10,
-      NO_ECHO: 0x20,
-      FAST_INIT: 0x40,
-      USE_KLINE: 0x80,
-    };
-  }
-
-  // Build flags1 the way EdiabasLib does (EdCustomAdapterCommon
-  // .CreateAdapterTelegram, lines 245-262), because the adapter acts on these
-  // bits and a missing one is silent.
-  //
-  // THE L LINE IS THE ONE THAT WAS MISSING. EdiabasLib sets KLINEF1_USE_LLINE
-  // whenever setDtr is false, and DS2 is exactly that case: EdInterfaceObd's
-  // concept-1 setup (case 0x0001) sets `ParSendSetDtr = false`. On the serial
-  // path DTR is the transmit enable; on a custom adapter the equivalent is
-  // telling the firmware to drive the L line as well as K. Without it the
-  // telegram is framed perfectly, the adapter echoes it, and the module never
-  // hears a thing -- which is precisely the silence seen here.
-  //
-  // NOTE DS2 needs NO WAKE: the same setup sets `EcuConnected = true` outright,
-  // so there is no fast-init for this concept. (KWP2000 does wake, via
-  // SendWakeFastInit -> KLINEF1_FAST_INIT; that path is kept for 0x10D.)
-  // NO_ECHO IS THE STARTING VALUE, NOT AN OPTION. EdiabasLib opens with
-  // `byte flags1 = KLINEF1_NO_ECHO` and never clears it, so a real adapter is
-  // always told to swallow the echo -- and in the wrapped branch EdiabasLib
-  // reads no echo back either (the echo-removal loop lives only in the raw /
-  // 115200 branch). Asking for the echo left this the only client on the wire
-  // driving the line differently from every other one.
-  static thorConfig(comm, fastInit) {
-    const F = ThorWifiBus.KLINEF1;
-    const c = conceptOf(comm);
-    const kline = isDs2(c) || c === 0x10d;
-    const baud = kline ? (comm && comm.baud) || 9600 : 115200;
-    let flags1 = F.NO_ECHO | F.USE_KLINE;
-    if (kline) {
-      flags1 |= F.PARITY_EVEN; // DS2/KWP2000* are 8E1
-      // setDtr is false for these concepts, so the L line carries the send
-      flags1 |= F.USE_LLINE;
-      // only the concepts that actually do a fast init ask for one
-      if (fastInit && c === 0x10d) flags1 |= F.FAST_INIT;
-    }
-    return {
-      baudHalf: baud === 115200 ? 0 : Math.floor(baud / 2),
-      flags1,
-      interByte: 0,
-    };
-  }
-
-  thorWrap(payload, comm, fastInit) {
-    const cfg = ThorWifiBus.thorConfig(comm, fastInit);
-    const v2 = this.fw && this.fw.version >= 0x0008;
-    const head = v2
-      ? [
-          0x00,
-          0x02,
-          (cfg.baudHalf >> 8) & 0xff,
-          cfg.baudHalf & 0xff,
-          cfg.flags1,
-          0x00,
-          cfg.interByte,
-          0x3c,
-          (payload.length >> 8) & 0xff,
-          payload.length & 0xff,
-        ]
-      : [
-          0x00,
-          0x00,
-          (cfg.baudHalf >> 8) & 0xff,
-          cfg.baudHalf & 0xff,
-          cfg.flags1,
-          cfg.interByte,
-          (payload.length >> 8) & 0xff,
-          payload.length & 0xff,
-        ];
-    const tel = [...head, ...payload];
-    tel.push(tel.reduce((a, b) => (a + b) & 0xff, 0));
-    return tel;
-  }
-
-  // The wire settings ride in each telegram's config header (thorWrap), so the
-  // adapter needs no port reconfiguration -- but runExchange calls this on
-  // every exchange, so it has to exist and be cheap. Tracking the concept
-  // keeps parity with the serial buses for anything that reads it back.
-  async ensureConfig(cfg) {
-    this.config = cfg;
-  }
-
-  // Same contract as the serial buses' exchangeRaw: write `framed` (null means
-  // "keep reading the answer to what was already sent" -- the response-pending
-  // path), then return one verified frame. Everything ABOVE this -- concept
-  // reconfiguration, ParRegenTime, response-pending polling, the retry policy
-  // -- now comes from runExchange, shared with the serial path, instead of the
-  // partial copy this class used to carry.
-  async exchangeRaw(framed, timeoutMs, comm) {
-    let echoLen = 0;
-    if (framed) {
-      // `framed` already carries the concept checksum (runExchange applied it);
-      // the adapter wraps that telegram, it does not compute the checksum.
-      // Wake the module on the first K-line telegram of a session, exactly
-      // like the serial path's `inited` gate -- the wake belongs to the
-      // CONNECTION, not to one telegram, so it is cleared on connect/drop.
-      const concept = conceptOf(comm);
-      const wantWake =
-        (isKline(concept) || isKline(this.sessionConcept)) && !this.inited;
-      busTrace.add(
-        'thor.wake?',
-        null,
-        `concept=0x${concept.toString(16)} isKline=${isKline(concept)}` +
-          ` sessionConcept=${this.sessionConcept} inited=${this.inited}` +
-          ` -> wantWake=${wantWake}`
-      );
-      const tel = this.thorWrap(Array.from(framed), comm, wantWake);
-      if (wantWake) this.inited = true;
-      // No echo to skip: thorConfig sets KLINEF1_NO_ECHO, so the adapter
-      // swallows it and the next bytes on the stream are the ECU's answer.
-      // (When the flag was absent the adapter echoed the PAYLOAD -- the bare
-      // BMW telegram, not the wrapper -- which is why echoLen was framed.length
-      // and not tel.length. Kept as a note: the echo is a mode, not a given.)
-      echoLen = 0;
-      busTrace.add(
-        'thor.telegram',
-        framed,
-        `concept 0x${conceptOf(comm).toString(16)}`
-      );
-      busTrace.add(
-        'thor.wrapped',
-        tel,
-        `echoLen=${echoLen} baud=${(comm && comm.baud) || ''}` +
-          ` flags1=0x${tel[4].toString(16)}${wantWake ? ' FAST_INIT' : ''}`
-      );
-      if (this.native) await window.bmacw.tcpRead(); // drop anything stale
-      this.rx.length = 0;
-      if (this.native) await window.bmacw.tcpWrite(tel);
-      else this.ws.send(new Uint8Array(tel));
-    } else {
-      busTrace.add('thor.reread', null, 'response-pending follow-up');
-    }
-    const deadline = Date.now() + timeoutMs;
-    // echoLen is 0 while NO_ECHO is set; the loop and the throw below cost
-    // nothing then, and still cover an adapter that echoes anyway.
-    while (this.rx.length < echoLen && Date.now() < deadline) {
-      if (this.native) {
-        const got = await window.bmacw.tcpRead();
-        if (got && got.length) {
-          this.rx.push(...got);
-          continue;
-        }
-      }
-      await new Promise((r) => setTimeout(r, 10));
-    }
-    if (this.rx.length < echoLen) {
-      busTrace.add('thor.rx', this.rx, `SHORT: wanted echo of ${echoLen}`);
-      throw new Error('no echo from the THOR adapter (timeout)');
-    }
-    if (echoLen)
-      busTrace.add('thor.echo', this.rx.slice(0, echoLen), 'echo (skipped)');
-    while (Date.now() < deadline) {
-      const buf = this.rx.slice(echoLen);
-      const total = frameTotal(buf, comm);
-      if (total !== null && buf.length >= total) {
-        const frame = buf.slice(0, total);
-        busTrace.add('thor.answer', frame, `frameTotal=${total}`);
-        verifyChecksum(frame, comm);
-        // consume it, so a follow-up read (response-pending) starts clean
-        this.rx = this.rx.slice(echoLen + total);
-        return frame;
-      }
-      if (this.native) {
-        const got = await window.bmacw.tcpRead();
-        if (got && got.length) {
-          this.rx.push(...got);
-          continue;
-        }
-      }
-      await new Promise((r) => setTimeout(r, 10));
-    }
-    const partial = this.rx.length - echoLen;
-    busTrace.add(
-      'thor.rx',
-      this.rx,
-      `TIMEOUT after echo: ${partial} byte(s) of answer, frameTotal=${frameTotal(this.rx.slice(echoLen), comm)}`
-    );
-    throw new Error(
-      partial > 0
-        ? `incomplete answer from ECU via THOR (${partial} bytes)`
-        : 'no answer from ECU (timeout)'
-    );
-  }
-
-  // The Transport interface's shared exchange: identical to the serial buses'
-  // (all three delegate to runExchange). THOR does NOT extend
-  // SerialTransportBase -- it owns no port, so the reconfigure-guard and
-  // wake-state reset there do not apply (SEAM 3) -- so it keeps its own copy of
-  // this one-liner rather than inheriting the port-shaped base.
-  async exchange(out, comm) {
-    return runExchange(this, out, comm);
-  }
-}
-
-// Which transport this host can do. THOR is an explicit choice (?thor=1 or the
-// Adapter setting): shell TCP in the macOS app, a direct WebSocket to the
-// adapter's esp-link-ws firmware in a browser (relay is ?relay=1 only). Else the
-// native serial bridge when present. Settings read from localStorage over the
-// shell's injected copy, which is a reload behind right after a change.
-const bootSettings = (() => {
-  try {
-    return {
-      ...(window.__bmacwSettings || {}),
-      ...JSON.parse(localStorage.getItem('bmacw.settings') || '{}'),
-    };
-  } catch {
-    return {};
-  }
-})();
-const bootQuery = (() => {
-  try {
-    return new URLSearchParams(location.search);
-  } catch {
-    return new URLSearchParams();
-  }
-})();
-
-const wantThor = (() => {
-  // an https page cannot open ws://192.168.4.1, so the hosted site is
-  // K+DCAN only whatever a carried-over setting says
-  if (typeof location !== 'undefined' && location.protocol === 'https:')
-    return false;
-  if (bootQuery.has('thor') || bootQuery.has('ws')) return true;
-  return bootSettings.adapter === 'thor';
-})();
-
-// The adapter's own WebSocket address; setting one turns the relay off
-// (?ws=<host> for a one-off, Settings > THOR address for durable). Empty keeps
-// the relay default -- stock esp-link has no WebSocket, so direct mode needs a
-// reflashed adapter. No setting for the address itself: 192.168.4.1 is the
-// ESP's fixed soft-AP address (a field for something that never varies only
-// gets typed wrong); change it in esp-link's Soft-AP page if you must.
-const thorDirect = (() => {
-  const q = bootQuery.get('ws');
-  if (q) return thorDirectUrl(q === '1' ? THOR_DEFAULT_IP : q);
-  const s = bootSettings.thorAddress; // honoured if an old copy set it
-  return s ? thorDirectUrl(s) : null;
-})();
-
-const webBus = wantThor
-  ? new ThorWifiBus(thorDirect)
-  : typeof window !== 'undefined' && window.bmacw && window.bmacw.serialOpen
+// Which transport this host can do: the native serial bridge when the macOS
+// shell injects one, else Web Serial. Both drive the same K+DCAN cable.
+const webBus =
+  typeof window !== 'undefined' && window.bmacw && window.bmacw.serialOpen
     ? new NativeSerialBus()
     : new WebSerialBus();
 
-// ONE EXCHANGE AT A TIME, BUS-WIDE. The K-line is half duplex and the THOR
-// socket has a single rx buffer: two concurrent callers interleave writes
-// and steal each other's answers -- the 3-second topbar state poll was
-// clobbering any job that took longer than a second. The old C# engine
+// ONE EXCHANGE AT A TIME, BUS-WIDE. The K-line is half duplex: two
+// concurrent callers interleave writes and steal each other's answers -- the
+// 3-second topbar state poll was clobbering any job that took longer than a
+// second. The old C# engine
 // held a bus lock server-side; the VM migration lost it. Every entry point
 // that can touch the wire queues here.
 let busChain = Promise.resolve();
@@ -2701,7 +2025,7 @@ function installWebShim() {
       return ok({ port: webBus.connected ? webBus.portLabel() : null });
     }
     if (/^\/api\/state/.test(rel)) {
-      // the THOR adapter senses ignition and battery itself; ask it
+      // the cable's modem lines carry KL15; ask the bus that owns them
       if (webBus.connected && webBus.readState) {
         try {
           const st = await webBus.readState();
@@ -2747,41 +2071,6 @@ function installWebShim() {
         JOBNAME: decodeURIComponent(run[2]).toUpperCase(),
         SAETZE: (sets || []).length,
       });
-      if (q.get('demo') === '1' && typeof webDemoSets === 'function') {
-        const sgbd = run[1].toLowerCase();
-        try {
-          const ecu = await loadEcu(sgbd, real);
-          const meta = ecu.get('meta.json');
-          if (!meta) return err(`Metadata not found for ${sgbd}`, 404);
-          const sets = webDemoSets(meta, decodeURIComponent(run[2]), arg);
-          // coding reads answer with the module's own legal values (DATEN)
-          if (typeof webDemoCoding === 'function') {
-            await webDemoCoding(sgbd, decodeURIComponent(run[2]), sets);
-          }
-          // fault reads answer with faults this module can really report
-          if (typeof webDemoFaults === 'function') {
-            await webDemoFaults(sgbd, decodeURIComponent(run[2]), sets);
-          }
-          apiTrace.add({
-            sgbd: run[1],
-            job: decodeURIComponent(run[2]),
-            arg,
-            sets,
-            status: (sets[0] && sets[0].JOB_STATUS) || '',
-            demo: true,
-          });
-          return ok({ job: run[2], demo: true, sets, system: systemSet(sets) });
-        } catch (e) {
-          apiTrace.add({
-            sgbd: run[1],
-            job: decodeURIComponent(run[2]),
-            arg,
-            error: e.message,
-            demo: true,
-          });
-          return err(e.message, 404);
-        }
-      }
       if (!webBus.connected) return err('no cable connected', 503);
       try {
         // One SGBD is "loaded" at a time, like the engine: moving to a

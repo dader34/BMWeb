@@ -12,13 +12,11 @@ const JOB_LABELS = {
 
 const jobLabel = (j) => {
   if (JOB_LABELS[j]) return JOB_LABELS[j];
-  // humanize SNAKE_CASE then translate any German verbs/nouns left in the name
-  let s = j
+  // humanise SNAKE_CASE
+  return j
     .replace(/_/g, ' ')
     .toLowerCase()
     .replace(/\b\w/g, (c) => c.toUpperCase());
-  if (typeof deGerman === 'function') s = deGerman(s) || s;
-  return s;
 };
 
 // BEFORE the IR loads: let the ecu's diagnostic-address group name the real
@@ -38,7 +36,6 @@ async function irResolveGroupVariant(ecu) {
   // One attempt per screen entry, EXCEPT after a failure to verify: a user
   // who plugs the cable in and re-opens the module must get a real answer,
   // not a cached "we never asked".
-  if (demoMode()) return;
   if (
     ecu._groupTried &&
     !['unverified', 'unavailable'].includes(ecu._variantSource)
@@ -309,14 +306,49 @@ async function showEcu(chassisId, sectionName, ecu, openMenu) {
   // probe, the _variantSource state machine are gone): the .IPO shipped the real
   // check and it works, so we run it instead of guessing. Cable + a runnable
   // inpainit required; with no cable there is nothing to ask and the module
-  // opens offline for browsing; demo exempt.
-  if (ecu._ir && !(typeof demoMode === 'function' && demoMode())) {
+  // opens offline for browsing.
+  // THE LIVE PROGRAM. With a cable, the module view is the running .IPO
+  // (screens/ipo-runtime.js): inpainit names the root, keys run their own
+  // bodies, screens send their own jobs. The derived renderer below stays
+  // for offline browsing, modules without a runnable twin, and `?ir=1`. See docs/live-ipo-runtime.md.
+  if (
+    ecu._ir &&
+    typeof ipoLiveEnabled === 'function' &&
+    ipoLiveEnabled() &&
+    typeof ipoProgramOpen === 'function'
+  ) {
+    // the silent reconnect on load may still be running: wait for it, or a
+    // reload on a module deep link opens offline with the cable attached
+    if (window.cableReady) await window.cableReady.catch(() => {});
+    const p0 = await api('/api/port').catch(() => null);
+    if (p0 && p0.port) {
+      if (bar) bar.remove();
+      const took = await ipoProgramOpen(
+        ecu,
+        grid,
+        () => backToModules(chassisId),
+        openMenu
+      );
+      if (took) return;
+      // not runnable live: the derived path draws it
+      grid.className = inpaMode() ? 'inpa-haupt' : 'group-grid stagger';
+    }
+  }
+  if (ecu._ir) {
+    if (window.cableReady) await window.cableReady.catch(() => {});
     const p = await api('/api/port').catch(() => null);
     const cable = !!(p && p.port);
-    const entry =
+    let entry =
       cable && typeof irRunEntry === 'function'
         ? await irRunEntry(ecu)
         : { ran: false };
+    // inpainit may not finish in this script at all: KLIMA_5B's variant
+    // check calls scriptchange("IHKA46") for an IHKA46_3, and INPA then
+    // draws IHKA46.IPO's menus -- the only ones whose guards name that
+    // variant. Staying in KLIMA_5B left "Activate" with no menu for it, and
+    // the name-tag fallback handed an E46 the E39 heater's page.
+    if (entry.ran && entry.script && typeof irFollowScriptChange === 'function')
+      entry = await irFollowScriptChange(ecu, entry);
     if (entry.ran) {
       // inpainit IS the variant read -- the live wire answer is the variant.
       if (entry.variant) {
@@ -454,7 +486,7 @@ const FKEY_LABEL = {
   Überdrehzahl: 'Overrev',
   Übertemp: 'Overtemp',
 };
-const fkeyLabel = (l) => FKEY_LABEL[l] || deGerman(l) || l;
+const fkeyLabel = (l) => FKEY_LABEL[l] || irLabel(l) || l;
 
 // number keys 1..9 bind to footer F-keys; anything past that needs another selector
 const FKEY_SLOTS = 9;

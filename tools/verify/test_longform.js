@@ -36,8 +36,22 @@ const grab = (name) => {
   if (!m) throw new Error('could not find ' + name);
   return m[0];
 };
+// the concept tables and checksumOf, which withChecksum/frameTotal consult
+const grabConst = (name) => {
+  const m = src.match(new RegExp('const ' + name + ' = [\\s\\S]*?;'));
+  if (!m) throw new Error('could not find const ' + name);
+  return m[0];
+};
 const sandbox = new Function(
-  grab('withChecksum') +
+  grabConst('XOR_CONCEPTS') +
+    '\n' +
+    grabConst('DS_ANSWER_LEN_DEFAULT') +
+    '\n' +
+    grabConst('SUM_CONCEPTS') +
+    '\n' +
+    grab('checksumOf') +
+    '\n' +
+    grab('withChecksum') +
     '\n' +
     grab('frameTotal') +
     '\n' +

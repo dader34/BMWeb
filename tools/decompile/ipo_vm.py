@@ -1158,6 +1158,19 @@ def _b_inttostring(vm, stack, item):
     _store_out(vm, stack, str(int(n)), _keyed(stack))
 
 
+def _b_intwiden(vm, stack, item):
+    # inttolong / bytetoint: a NUMBER out, not its text (see ipovm.js
+    # bIntwiden -- the fault printer compares and converts the result).
+    n = next((x for x in stack if isinstance(x, (int, float))), None)
+    if n is None:
+        n = next((x for x in stack if isinstance(x, str)), 0)
+        try:
+            n = float(n)
+        except (TypeError, ValueError):
+            n = 0
+    _store_out(vm, stack, int(n), _keyed(stack))
+
+
 def _b_fileopen(vm, stack, item):
     """fileopen(path, mode) -- INPA scripts keep user data in text files.
 
@@ -1290,7 +1303,14 @@ def _b_numconvert(vm, stack, item):
     # inttoreal/realtoint family by position. The value passes through
     # unchanged; which exact cast it is does not survive the corpus, and
     # identity is right for every candidate but the truncation edge.
-    n = next((x for x in stack if isinstance(x, (int, float))), 0)
+    n = next((x for x in stack if isinstance(x, (int, float))), None)
+    if n is None:
+        # a bound job result is a str subclass: convert its text
+        s = next((x for x in stack if isinstance(x, str)), None)
+        try:
+            n = float(s) if s is not None else 0
+        except (TypeError, ValueError):
+            n = 0
     _store_out(vm, stack, n, _keyed(stack))
 
 
@@ -1553,8 +1573,8 @@ _BUILTINS = {
     "strlen": _b_strlen,
     "midstr": _b_midstr,
     "inttostring": _b_inttostring,
-    "inttolong": _b_inttostring,
-    "bytetoint": _b_inttostring,
+    "inttolong": _b_intwiden,
+    "bytetoint": _b_intwiden,
     # no IR effect, but known and accounted for
     "SetStructureMode": _b_noop, "CreateStructure": _b_noop,
     "StructureByte": _b_noop, "StructureString": _b_noop,
@@ -1597,6 +1617,8 @@ _BUILTINS = {
     "builtin_22": _b_hexconvert,         # hexconvert
     "builtin_23": _b_strcat,             # strcat (dest ref FIRST)
     "builtin_26": _b_numconvert,         # inttoreal/realtoint family
+    "builtin_2a": _b_numconvert,         # longtoreal (see ipo_disasm)
+    "longtoreal": _b_numconvert,
     "formatnum": _b_inttostring,         # (src, dst): number -> display
     "getdate": _b_getdate, "gettime": _b_gettime,
     "builtin_15": _b_getapistring,       # getapistring(out s)

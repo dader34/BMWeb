@@ -2147,20 +2147,6 @@ html[data-theme='inpa'] .combo-item.active {
 .t32-pending .t32-v {
   color: var(--ink-faint);
 }
-.t32-demobadge {
-  font-size: 9px;
-  font-weight: 700;
-  color: var(--amber-ink);
-  background: var(--amber);
-  border-radius: 3px;
-  padding: 1px 5px;
-  margin-right: 8px;
-  letter-spacing: 0.04em;
-}
-.t32-table.t32-demo .t32-v {
-  color: var(--amber);
-}
-
 /* Custom checkbox: square, amber when checked, app-themed (no native control) */
 .t32-check {
   -webkit-appearance: none;
@@ -4201,13 +4187,6 @@ html[data-theme='inpa'] .inpa-fault-name {
   50% {
     box-shadow: 0 0 0 4px rgba(255, 66, 66, 0);
   }
-}
-
-/* demo mode: simulated values, never a real reading — say so loudly */
-.live-meta.demo {
-  color: var(--amber);
-  font-weight: 700;
-  letter-spacing: 0.04em;
 }
 
 /* INPA action menus: an actuator's softkey row, each key sending the exact
@@ -7500,29 +7479,6 @@ body.apps-section .view {
   justify-content: flex-end;
 }
 
-/* a typed setting (the THOR adapter's address): same box as .combo-btn, so
-   a row with a field and a row with a picker read as the same control */
-.setting-input {
-  min-width: 200px;
-  font-family: var(--mono);
-  font-size: 13px;
-  color: var(--ink);
-  background: var(--bg);
-  border: 1px solid var(--line-bright);
-  border-radius: 4px;
-  padding: 9px 12px;
-}
-.setting-input:hover {
-  border-color: var(--ink-dim);
-}
-.setting-input:focus {
-  outline: none;
-  border-color: var(--amber);
-}
-.setting-input::placeholder {
-  color: var(--ink-faint);
-}
-
 /* WDS component-location photos: BMW drew them small, so let them be their
    own size rather than stretched, but never wider than the page */
 .wiring-doc img {
@@ -8186,7 +8142,6 @@ body.apps-section .view {
     flex-wrap: wrap;
     gap: 8px;
   }
-  .setting-input,
   .combo {
     width: 100%;
     min-width: 0;
@@ -9375,28 +9330,6 @@ body.apps-section .view {
   color: var(--ink-dim);
 }
 
-/* Demo faults are synthesized from the module's own fault table. They name real
-   components and get screenshotted, so they are labelled in the list and on
-   every row -- a crop of one row still carries the badge. */
-.fault-demo-banner {
-  grid-column: 1 / -1;
-  margin-bottom: 10px;
-  padding: 10px 14px;
-  border-radius: 6px;
-  background: var(--amber-glow);
-  border-left: 2px solid var(--amber);
-  color: var(--ink-dim);
-  font-size: 13px;
-}
-.fault-demo-banner b {
-  color: var(--ink);
-}
-.flag.demo {
-  background: var(--amber);
-  color: #11161c;
-  font-weight: 700;
-}
-
 /* ---- VEHICLE IDENTITY ----------------------------------------------------
    The reading is the headline: one summary card saying what the car IS, the
    equipment beneath it as labelled chips, and the control units that answered
@@ -10315,4 +10248,247 @@ body.remote-helper::after {
   .flasher-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* ---- live .IPO runtime (screens/ipo-runtime.js) ---------------------------- */
+.ipo-view {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.ipo-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.ipo-title:empty {
+  display: none;
+}
+.ipo-screen {
+  overflow-x: hidden;
+  max-width: 100%;
+}
+/* INPA mode: the text rows exactly as the script placed them -- one
+   monospace grid, no panel, no colouring beyond the page's ink */
+.ipo-inpa .ipo-screen {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.25;
+  white-space: pre-wrap;
+  color: var(--ink);
+}
+.ipo-row.ipo-band {
+  margin-top: 1.4em;
+}
+/* a row wider than the page wraps; it never scrolls sideways */
+.ipo-row {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  min-height: 1.25em;
+}
+.ipo-row .ipo-cap,
+.ipo-row .ipo-val {
+  color: inherit;
+}
+.ipo-empty {
+  color: var(--ink-faint, #888);
+  padding: 14px 10px;
+}
+.ipo-status {
+  font-size: 12px;
+  color: var(--ink-faint, #888);
+}
+.ipo-status:empty {
+  display: none;
+}
+.ipo-machine {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+/* `display: flex` outranks the hidden attribute's UA rule: a park's control
+   stayed on screen after the machine had moved on */
+.ipo-machine[hidden] {
+  display: none;
+}
+.ipo-machine-state {
+  font-family: ui-monospace, Menlo, monospace;
+}
+.ipo-pick {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ipo-pick-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  cursor: pointer;
+}
+.ipo-pick-key {
+  color: var(--ink-faint, #888);
+  font-size: 12px;
+}
+/* modern skin: one row per LINE block of the running screen, in a panel */
+.ipo-view:not(.ipo-inpa) .ipo-screen {
+  font-family: inherit;
+  white-space: normal;
+  padding: 12px 14px;
+  border: 1px solid var(--line, #333);
+  border-radius: 8px;
+  background: var(--panel, rgba(0, 0, 0, 0.25));
+  min-height: 3em;
+}
+.ipo-line {
+  display: grid;
+  grid-template-columns: minmax(9em, 26%) 1fr;
+  gap: 12px;
+  align-items: baseline;
+  padding: 5px 10px;
+  border-bottom: 1px solid var(--line, rgba(255, 255, 255, 0.06));
+}
+.ipo-line.ipo-nocap {
+  grid-template-columns: 1fr;
+}
+.ipo-line.ipo-nocap .ipo-line-cap {
+  display: none;
+}
+.ipo-line.ipo-nocap .ipo-line-val {
+  color: var(--ink);
+  font-weight: 600;
+}
+.ipo-line.ipo-band {
+  margin-top: 10px;
+  border-top: 1px solid var(--line, rgba(255, 255, 255, 0.06));
+}
+.ipo-line:last-child {
+  border-bottom: 0;
+}
+.ipo-line-cap {
+  min-width: 0;
+  color: var(--ink-dim, #c8c8c8);
+}
+.ipo-line-cells {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: baseline;
+  min-width: 0;
+  font-family: ui-monospace, Menlo, monospace;
+}
+.ipo-line-val {
+  color: var(--amber, #e8c36a);
+}
+.ipo-line-val.ipo-text {
+  color: var(--ink);
+}
+.ipo-line-unit {
+  color: var(--ink-faint, #888);
+  font-size: 12px;
+}
+/* a note is one flowing line: as a grid item list its pieces would each
+   take a cell and wrap ("Rework program" / ":" / the value on three rows) */
+.ipo-line.ipo-line-note {
+  display: block;
+  color: var(--ink-faint, #888);
+  font-size: 13px;
+}
+.ipo-line-gap {
+  display: inline-block;
+  width: 1.5em;
+}
+.ipo-lamp {
+  padding: 1px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--line, rgba(255, 255, 255, 0.15));
+  color: var(--ink-dim, #c8c8c8);
+  font-size: 12px;
+}
+.ipo-lamp.on {
+  border-color: var(--amber, #e8c36a);
+  color: var(--amber, #e8c36a);
+}
+.ipo-lamp.off {
+  opacity: 0.7;
+}
+/* INPA's instrument cells: the lamp (digitalout) and the bar (analogout),
+   drawn the same on the text grid and in the modern rows */
+.ipo-lamp-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45em;
+  white-space: nowrap;
+}
+.ipo-dot {
+  display: inline-block;
+  width: 1.05em;
+  height: 1.05em;
+  border-radius: 50%;
+  border: 1.5px solid var(--ink);
+  background: transparent;
+  box-sizing: border-box;
+}
+.ipo-dot.on {
+  background: var(--ink);
+}
+.ipo-gauge {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 10px;
+  vertical-align: top;
+  white-space: normal;
+  margin: 2px 0 6px;
+}
+.ipo-gauge-bar {
+  display: block;
+  width: 30ch;
+  max-width: 60vw;
+}
+.ipo-gauge-track {
+  display: block;
+  position: relative;
+  height: 13px;
+  border: 1px solid var(--line);
+  overflow: hidden;
+  background: var(--gauge-ok);
+}
+.ipo-gauge-fill {
+  position: absolute;
+  left: 0;
+  top: 12.5%;
+  bottom: 12.5%;
+  width: 0;
+  background: var(--gauge-mark);
+  transition: width 0.25s ease;
+}
+.ipo-gauge-foot {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 10px;
+  line-height: 12px;
+  color: var(--ink-faint, #888);
+}
+.ipo-gauge-edge {
+  position: absolute;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+.ipo-gauge-val {
+  font-weight: 700;
+  white-space: nowrap;
+}
+.ipo-notes {
+  margin-bottom: 6px;
+}
+.ipo-notes .ipo-line {
+  border-bottom: 0;
+  padding: 2px 0;
+}
+/* a menu's tiles sit on the page, not in the screen panel */
+.ipo-screen.ipo-tiles {
+  border: 0;
+  background: none;
+  padding: 0;
 }

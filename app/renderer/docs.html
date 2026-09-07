@@ -188,7 +188,7 @@
       <p class="toc-label">Contents</p>
       <nav id="toc-nav">
         <a href="#start">Getting connected</a>
-        <a href="#hardware">Cables and adapters</a>
+        <a href="#hardware">The cable</a>
         <a href="#features">What you can do</a>
         <a href="#coverage">Supported cars</a>
         <a href="#safety">Writing and safety</a>
@@ -202,7 +202,7 @@
 
       <section id="start">
         <h2>Getting connected</h2>
-        <p class="section-note">Pick the path that matches your machine and your cable.</p>
+        <p class="section-note">A K+DCAN cable and a desktop browser with Web Serial.</p>
 
         <div class="callout plain">
           <h4>Before you plug anything in</h4>
@@ -217,29 +217,9 @@
           so on a Mac with a USB cable use Chrome or Edge.</p>
         <ol class="steps">
           <li><div><b>Plug the cable in directly</b><span>Into the car's OBD-II port and into the machine. Avoid USB hubs.</span></div></li>
-          <li><div><b>Set the adapter</b><span>Settings, then Adapter, then K+DCAN. This is the default.</span></div></li>
-          <li><div><b>Click the cable chip in the top bar</b><span>The chip is the connect control. Web Serial refuses to open its port picker unless a click asks for it, so there is no way to connect automatically.</span></div></li>
-          <li><div><b>Choose your port</b><span>On macOS it starts with cu.usbserial, cu.usbmodem, cu.SLAB or cu.wchusbserial. On Linux, ttyUSB or ttyACM.</span></div></li>
+          <li><div><b>Click the cable chip in the top bar</b><span>The chip is the connect control. Web Serial refuses to open its port picker unless a click asks for it, so the first connect is always yours.</span></div></li>
+          <li><div><b>Choose your port</b><span>On macOS it starts with cu.usbserial, cu.usbmodem, cu.SLAB or cu.wchusbserial. On Linux, ttyUSB or ttyACM. The browser remembers the choice, and from then on the app reopens the cable on every load with no picker.</span></div></li>
         </ol>
-
-        <h3>Phone, tablet or any browser, over WiFi</h3>
-        <p>A phone has no USB path, so the THOR WiFi adapter is the only option there.
-          It also works on a desktop if you would rather not run a cable.</p>
-        <ol class="steps">
-          <li><div><b>Plug THOR into the OBD-II port</b><span>It powers itself from the car.</span></div></li>
-          <li><div><b>Join its network</b><span>The SSID is Thor_Wifi. Your phone will warn that the network has no internet, which is expected.</span></div></li>
-          <li><div><b>Set the adapter to THOR</b><span>Settings, then Adapter, then THOR. The page reloads, because the bus is chosen when the app loads.</span></div></li>
-          <li><div><b>Click the cable chip</b><span>THOR connects on its own once selected. The top bar then reads THOR with its firmware version and whether it connected directly or via relay.</span></div></li>
-        </ol>
-
-        <div class="callout">
-          <h4>The page has to be http, not https</h4>
-          <p>A page served over HTTPS cannot open a socket to a plain
-            <code>http</code> address on your local network, and a bare IP like
-            <code>192.168.4.1</code> cannot hold a certificate. If you loaded the app from
-            an <code>https://</code> URL, the adapter is unreachable no matter what else
-            is correct. Use the installed app, a local copy, or an <code>http://</code> URL.</p>
-        </div>
 
         <div class="callout plain">
           <h4>On iPhone, open it in a browser</h4>
@@ -250,8 +230,8 @@
       </section>
 
       <section id="hardware">
-        <h2>Cables and adapters</h2>
-        <p class="section-note">Two are supported. An ELM327 is not one of them.</p>
+        <h2>The cable</h2>
+        <p class="section-note">One is supported. An ELM327 is not it.</p>
 
         <h3>K+DCAN USB cable</h3>
         <p>The standard BMW cable. The app opens it at <code>115200 8N1</code> by default
@@ -264,13 +244,7 @@
           that the cable misses its own echo, which surfaces as
           <code>IFH-0003</code>.</p>
 
-        <h3>THOR WiFi adapter</h3>
-        <p>An esp-link based adapter that carries BMW-FAST telegrams over WebSocket. The
-          app reaches it at <code>192.168.4.1</code> and proves the link with an identity
-          exchange before trusting it, so a network that merely answers is not mistaken for
-          a working adapter. It is <b>not an ELM327</b> and ELM327 adapters will not work.</p>
-
-        <h3>Which one do I need</h3>
+        <h3>Where it works</h3>
         <div class="matrix">
           <div class="matrix-scroll">
             <table>
@@ -278,24 +252,20 @@
                 <tr>
                   <th scope="col">Platform</th>
                   <th scope="col">K+DCAN USB</th>
-                  <th scope="col">THOR WiFi</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
                   <th scope="row">Chrome or Edge, desktop</th>
                   <td>Yes, via Web Serial</td>
-                  <td>Yes</td>
                 </tr>
                 <tr>
                   <th scope="row">Safari</th>
                   <td class="req">No, Safari has no Web Serial</td>
-                  <td>Yes</td>
                 </tr>
                 <tr>
                   <th scope="row">iPhone and Android</th>
-                  <td class="req">No USB path on a phone</td>
-                  <td>Yes, the only option</td>
+                  <td class="req">No USB path on a phone; everything offline still works</td>
                 </tr>
               </tbody>
             </table>
@@ -442,8 +412,6 @@
           catalogue for every chassis, which makes it about 6 GB, more than a GitHub
           release asset may hold, so it lives on Hugging Face and is linked from each
           release's notes.</p>
-        <p>A local copy must stay on <code>http://</code> or <code>file://</code> to reach
-          a THOR adapter; see <a href="#start">Getting connected</a>.</p>
       </section>
 
       <section id="trouble">
@@ -451,7 +419,7 @@
         <p class="section-note">The errors people actually hit, and what each one means.</p>
 
         <div class="fault">
-          <h4>No adapter connected</h4>
+          <h4>No cable connected</h4>
           <p>Plug the cable directly into the machine rather than through a USB hub, and
             check the OBD-II end is fully seated.</p>
         </div>
@@ -488,13 +456,6 @@
           <h4>App error, not the car</h4>
           <p>When you see this, nothing needs checking on the vehicle. The fault is in the
             software, not the car.</p>
-        </div>
-        <div class="fault">
-          <h4>THOR will not connect</h4>
-          <p>Three usual causes: the page was loaded over <code>https</code>, so it cannot
-            reach a local <code>http</code> address; the phone is not actually joined to
-            <code>Thor_Wifi</code>; or the adapter is not powered because the OBD-II port is
-            dead in the current ignition position.</p>
         </div>
       </section>
 

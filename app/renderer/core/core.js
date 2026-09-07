@@ -112,8 +112,8 @@ applyTheme(Settings.get('theme', 'instrument'));
 
 // 'en' = translated English, 'orig' = raw EDIABAS job names
 const lang = () => Settings.get('lang', 'en');
-// mined layout labels arrive in German (deGerman is memoized)
-const itemLabel = (it) => (lang() === 'orig' ? it.job : deGerman(it.label));
+// mined layout labels are .IPO captions: the open ECU's own i18n map
+const itemLabel = (it) => (lang() === 'orig' ? it.job : irLabel(it.label));
 
 const view = document.getElementById('view');
 const crumbsEl = document.getElementById('crumbs');
@@ -165,11 +165,6 @@ const esc = (s) =>
 const hex = (n, width = 2) =>
   '0x' + (n >>> 0).toString(16).toUpperCase().padStart(width, '0');
 
-// demo mode: synthesized job values so screens can be walked with no cable. Every response is badged so it can't pass for real. Opt-in via Settings or ?demo=1.
-const demoMode = () =>
-  Settings.get('demo', 'off') === 'on' ||
-  new URLSearchParams(location.search).get('demo') === '1';
-
 // INPA-style layout. Forced off below 760px (the mobile stylesheet strips what
 // makes it itself), so every screen follows one reader.
 const inpaMode = () =>
@@ -177,9 +172,7 @@ const inpaMode = () =>
   !window.matchMedia('(max-width: 760px)').matches;
 
 async function api(path, opts) {
-  let url = `${API}${path}`;
-  if (demoMode() && path.includes('/run/'))
-    url += (url.includes('?') ? '&' : '?') + 'demo=1';
+  const url = `${API}${path}`;
   const res = await fetch(url, opts);
   if (!res.ok)
     throw new Error(
@@ -738,12 +731,17 @@ function openModal(html, { onKey, onClose, backdropValue } = {}) {
 }
 
 // confirm modal -> Promise<boolean>. Enter confirms, Esc cancels.
+// dismissValue: what Esc / a backdrop click resolve with. false by default (a
+// dismissal is a cancel); a caller whose two buttons are both real answers
+// (INPA's inputdigital, where either word may be the one that sends) passes
+// null so a dismissal is neither.
 function confirmDialog({
   title,
   body,
   confirmLabel = 'Confirm',
   cancelLabel = 'Cancel',
   danger = false,
+  dismissValue = false,
 }) {
   return new Promise((resolve) => {
     const { overlay, close } = openModal(
@@ -758,12 +756,12 @@ function confirmDialog({
       </div>`,
       {
         onClose: resolve,
-        backdropValue: false,
+        backdropValue: dismissValue,
         onKey: (e, close) => {
           if (e.key === 'Escape') {
             e.preventDefault();
             e.stopPropagation();
-            close(false);
+            close(dismissValue);
           } else if (e.key === 'Enter') {
             e.preventDefault();
             e.stopPropagation();

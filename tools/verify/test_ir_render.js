@@ -28,6 +28,12 @@ const R = path.join(__dirname, '..', '..');
 
 const lang = () => 'en';
 eval(fs.readFileSync(path.join(R, 'app/renderer/core/translate.js'), 'utf8'));
+// the shared caption table the app loads as a data script
+global.window = {
+  BMW_I18N_SHARED: JSON.parse(
+    fs.readFileSync(path.join(R, 'data/inpa-i18n/_shared.json'), 'utf8')
+  ),
+};
 const inpaMode = () => true,
   esc = (s) => s,
   stagger = () => {},
@@ -617,44 +623,54 @@ ok(
 // ---- SGBD result descriptions carry German the screen has to read --------
 // INPA prints ONE heading over ten keys ("ABS primary signals [pulses/sec]"),
 // so each DWS row falls back to the SGBD's own description -- which is German.
-// The vocabulary is ordered: these compounds must beat the generic
-// /Geschwindigkeit/ and /Signal/ rules, or "Radgeschwindigkeit" becomes
-// "Radspeed" and "Rohsignal" survives untouched.
-for (const [de, en] of [
-  [
-    'Rohsignal vom DSC/ABS RL (Impulse/sec)',
-    'Raw signal from DSC/ABS RL (pulses/sec)',
-  ],
-  [
-    'Speedsabh. Standardisierungsfortschritt 1 for EXX',
-    'Speed-dep. standardisation progress 1 for EXX',
-  ],
-  ['Radgeschwindigkeit vorne links', 'Wheel speed front left'],
-  [
-    'geschwindigkeitsabhängige Standardisierung',
-    'speed-dependent standardisation',
-  ],
-  ['ABS-Rohsignale [Hz]', 'ABS-raw signals [Hz]'],
-  ['Bandmode', 'Plant mode'],
-]) {
+// Those strings never appear in the .IPO, so the per-ECU file carries them
+// explicitly and irLabel finds them through the ECU's resolved map. There is
+// no word table: a description with no entry shows as BMW wrote it.
+{
+  const dws = load('DWS');
+  irUseTranslations(dws);
+  for (const [de, en] of [
+    [
+      'Rohsignal vom DSC/ABS RL (Impulse/sec)',
+      'Raw signal from DSC/ABS RL (pulses/sec)',
+    ],
+    ['Radgeschwindigkeit vorne links', 'Wheel speed front left'],
+    ['ABS-Rohsignale [Hz]', 'ABS raw signals [Hz]'],
+    ['Bandmode', 'Plant mode'],
+  ]) {
+    ok(
+      irLabel(de) === en,
+      `DWS irLabel(${JSON.stringify(de)}) = ${JSON.stringify(irLabel(de))}`
+    );
+  }
+  // a key legend keeps its key and translates the caption after it
   ok(
-    deGerman(de) === en,
-    `deGerman(${JSON.stringify(de)}) = ${JSON.stringify(deGerman(de))}`
+    irLabel('< F4  >         Bandmode') === '< F4  >         Plant mode' &&
+      irLabel('< Shift > + < F6 >  Bandmode') ===
+        '< Shift > + < F6 >  Plant mode',
+    `key legend: ${JSON.stringify(irLabel('< F4  >         Bandmode'))}`
   );
-}
-// ...and must not touch strings BMW already shipped in English. "Impulse" is
-// spelled the same in both languages, so translating the bare word turned
-// "Closing impulses left" into "Closing pulsess left".
-for (const eng of [
-  'Closing impulses left',
-  'Encoder impulse count',
-  'wheel speed impulse :  ',
-  'impulse open',
-]) {
+  // a padded caption resolves through its collapsed form and keeps its
+  // indentation, so a translated cell stays on its column
   ok(
-    deGerman(eng) === eng,
-    `deGerman mangled English: ${JSON.stringify(eng)} -> ${JSON.stringify(deGerman(eng))}`
+    irLabel('  Radgeschwindigkeit   vorne links :') ===
+      '  Wheel speed front left :',
+    `padded lookup: ${JSON.stringify(irLabel('  Radgeschwindigkeit   vorne links :'))}`
   );
+  // ...and strings BMW already shipped in English pass through untouched:
+  // there is no rule that could turn "impulses" into "pulsess" any more
+  for (const eng of [
+    'Closing impulses left',
+    'Encoder impulse count',
+    'wheel speed impulse :  ',
+    'impulse open',
+  ]) {
+    ok(
+      irLabel(eng) === eng && phraseText(eng) === eng,
+      `English mangled: ${JSON.stringify(eng)} -> ${JSON.stringify(irLabel(eng))}`
+    );
+  }
+  irUseTranslations(null);
 }
 
 // ---- INPA's caption may carry its own separator --------------------------
@@ -785,8 +801,8 @@ for (const [e, scr] of [
 }
 
 // ---- the Activate key is not always called "Activate" --------------------
-// INPA names it per ECU and per build language, and deGerman may have
-// half-translated it: MS450's root reads "Stellgliedcontrolen" (Stellglied =
+// INPA names it per ECU and per build language, and an older word table
+// half-translated it: MS450's root read "Stellgliedcontrolen" (Stellglied =
 // actuator) over an 18-group actuator tree that was simply unreachable,
 // because the section map matched only Activate|Ansteuern|Steuern.
 {
@@ -832,7 +848,7 @@ for (const [e, scr] of [
 }
 
 // ---- a German-built ECU: chrome by ACTION, not by caption ----------------
-// MS450's .IPO is German, and deGerman half-translates its chrome: its ident
+// MS450's .IPO is German, and a word table half-translated its chrome: its ident
 // menu is Back/Print/End but reads "Folder"/"Printing"/"END", which no caption
 // list matches. So the menu looked runnable and won over s_ident -- the screen
 // holding the 23 identification fields -- and the key appeared to do nothing.
@@ -872,22 +888,30 @@ for (const [e, scr] of [
     `a PC action survived in the fault menu: ${fm2.map((i) => i.label)}`
   );
 }
-// German menu captions translate as whole phrases: a word table cannot reorder
-// "Fehlerspeicher lesen" (verb-last), and the bare /Fehler/ rule alone left
-// "faultspeicher Read" -- German grammar with an English stem.
-for (const [de, en] of [
-  ['Fehlerspeicher lesen', 'Read error memory'],
-  ['Fehlerspeicher l\u00f6schen', 'Clear error memory'],
-  ['Anpassungswerte selektiv l\u00f6schen', 'Clear selected adaptation values'],
-  ['SG-Identifikation', 'ECU identification'],
-  ['Stellgliedansteuerungen', 'Actuator activation'],
-  ['Systemdiagnosen', 'System diagnostics'],
-  ['Bildschirm drucken', 'Print screen'],
-]) {
-  ok(
-    deGerman(de) === en,
-    `deGerman(${JSON.stringify(de)}) = ${JSON.stringify(deGerman(de))}`
-  );
+// German menu captions translate as whole phrases -- "Fehlerspeicher lesen"
+// is verb-last and no word table can reorder it -- so each is an entry in
+// the ECU's own file (or the shared softkey table), found through irLabel.
+{
+  const ms6 = load('MS450');
+  irUseTranslations(ms6);
+  for (const [de, en] of [
+    ['Fehlerspeicher lesen', 'Read fault memory'],
+    ['Fehlerspeicher l\u00f6schen', 'Clear error memory'],
+    [
+      'Anpassungswerte selektiv l\u00f6schen',
+      'Clear selected adaptation values',
+    ],
+    ['SG-Identifikation', 'ECU identification'],
+    ['Stellgliedansteuerungen', 'Actuator activations'],
+    ['Systemdiagnosen', 'System diagnostics'],
+    ['Bildschirm drucken', 'Print screen'],
+  ]) {
+    ok(
+      irLabel(de) === en,
+      `MS450 irLabel(${JSON.stringify(de)}) = ${JSON.stringify(irLabel(de))}`
+    );
+  }
+  irUseTranslations(null);
 }
 
 // ---- several keys, one screen, told apart by an index --------------------
@@ -934,6 +958,9 @@ for (const [de, en] of [
 // to the app's own fault view; the clear belongs to the confirm-and-run path.
 {
   const ms4 = load('MS450');
+  // the app opens a module with its own map active (ecu.js), so the fault
+  // keys are classified on the captions the user sees
+  irUseTranslations(ms4);
   for (const n of ['s_fs_kurz', 's_fs_detail', 's_fs_lang']) {
     const sc = ms4.screens[n];
     ok(
@@ -956,15 +983,16 @@ for (const [de, en] of [
       ms4.screens[clr.screen].jobs[0].write,
     'MS450 clear should carry FS_LOESCHEN as a write'
   );
+  irUseTranslations(null);
 }
 
 // ---- translations are resolved per ECU, into the IR ----------------------
-// The renderer used to call deGerman at draw time from 24 places, so a caption
-// BMW worded oddly for ONE ECU had nowhere to be corrected: the vocabulary is
-// shared, and a rule general enough to translate MS450's "Gesteuerte
-// LuftFuehrung GLF" mangles other ECUs into "Gecontrolse". Each ECU now
-// carries its own resolved map, from data/inpa-i18n/<ECU>.json first and the
-// shared vocabulary second.
+// The renderer used to translate at draw time with a shared word table, so a
+// caption BMW worded oddly for ONE ECU had nowhere to be corrected, and a
+// rule general enough for MS450's "Gesteuerte LuftFuehrung GLF" mangled other
+// ECUs into "Gecontrolse". Each ECU now carries its own resolved map, from
+// data/inpa-i18n/<ECU>.json first and the shared softkey table second, and
+// nothing is guessed.
 {
   const ms5 = load('MS450');
   ok(
@@ -975,12 +1003,11 @@ for (const [de, en] of [
     !ms5.strings,
     'the emitter hand-off list should be consumed, not shipped to the app'
   );
-  // the shared vocabulary alone still mangles this -- which is why the
-  // per-ECU layer exists
+  // the runtime phrase lookup knows nothing about it: no word rule, no guess
   ok(
-    deGerman('Gesteuerte LuftF\u00fchrung GLF') !==
-      'Controlled air guidance (GLF)',
-    'this phrase is deliberately NOT in the shared vocabulary'
+    phraseText('Gesteuerte LuftF\u00fchrung GLF') ===
+      'Gesteuerte LuftF\u00fchrung GLF',
+    'phraseText must pass an unknown caption through unchanged'
   );
   irUseTranslations(ms5);
   const acts = irMenuItems(ms5, 'm_iostatus');

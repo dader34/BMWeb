@@ -136,7 +136,8 @@ function optGroupHtml(options, tr) {
 // ';'-joined arg string EDIABAS expects, or null if cancelled.
 function argsDialog(job, argSpecs) {
   return new Promise((resolve) => {
-    const tr = (s) => (typeof deGerman === 'function' ? deGerman(s) : s) || s;
+    const tr = (s) =>
+      (typeof phraseText === 'function' ? phraseText(s) : s) || s; // argument comments
     const fieldHtml = argSpecs
       .map((a, i) => {
         const hint = tr((a.ARGCOMMENT0 || '').replace(/^'|'$/g, ''));
@@ -506,8 +507,8 @@ async function showInpaTable(ecu, scr, container, title, meta, grid, liveTok) {
   grid.innerHTML = `
     <table class="inpa-table">
       <thead><tr>
-        <th>${esc(deGerman(t.rowHead) || t.rowHead || '')}</th>
-        ${t.headings.map((h) => `<th>${esc(deGerman(h) || h)}</th>`).join('')}
+        <th>${esc(irLabel(t.rowHead) || t.rowHead || '')}</th>
+        ${t.headings.map((h) => `<th>${esc(irLabel(h) || h)}</th>`).join('')}
       </tr></thead>
       <tbody>
         ${t.labels
@@ -555,7 +556,7 @@ async function showInpaTable(ecu, scr, container, title, meta, grid, liveTok) {
       });
     }
     if (alive) {
-      meta.textContent = demoMode() ? 'demo' : 'live';
+      meta.textContent = 'live';
       sbLeft.textContent = `${scr.job} · ${t.labels.length}x${t.cols.length}`;
     } else if (lastErr) {
       meta.textContent = 'no response';
@@ -580,7 +581,7 @@ async function showInpaScreens(
   title =
     title ||
     (screens.length === 1
-      ? deGerman(screens[0].group) || jobLabel(screens[0].job)
+      ? irLabel(screens[0].group) || jobLabel(screens[0].job)
       : `${screens.length} readouts`);
   // merged category -> two columns; a lone screen honours its own layout
   // (columns:2 = Bank 1 / Bank 2). Go two-wide too when one screen overflows a
@@ -690,8 +691,8 @@ async function showInpaScreens(
           ? String(vals.get(r.captionKey) ?? '').trim()
           : '';
         const caption =
-          (live && !IR_STATE_WORD.test(live) ? deGerman(live) : '') ||
-          deGerman(r.label) ||
+          (live && !IR_STATE_WORD.test(live) ? irLabel(live) : '') ||
+          irLabel(r.label) ||
           r.key;
         // unit: r.unit is the .IPO's literal "[rpm]", which most screens omit, so
         // fall back to the ECU's STAT_x_EINH. A LAMP has NO unit — it's on/off,
@@ -723,10 +724,7 @@ async function showInpaScreens(
     if (alive) {
       // count only what is on screen: an "of N" prediction the screen then
       // contradicts is worse than none.
-      meta.textContent =
-        (demoMode() ? 'DEMO · ' : 'live · ') +
-        `${cellEls.size} value${cellEls.size === 1 ? '' : 's'}`;
-      meta.classList.toggle('demo', demoMode());
+      meta.textContent = `live · ${cellEls.size} value${cellEls.size === 1 ? '' : 's'}`;
       sbLeft.textContent = `${screens
         .map((s) => s.job)
         .join(', ')
@@ -780,8 +778,8 @@ function boolGlyph(raw) {
   // a bare 0/1 IS the state: printing the digit gave "○ 0" beside rows of "○ off"
   if (/^[01]$/.test(s))
     return { on: s === '1', text: s === '1' ? 'on' : 'off' };
-  if (BOOL_ON.test(s)) return { on: true, text: deGerman(s) || s };
-  if (BOOL_OFF.test(s)) return { on: false, text: deGerman(s) || s };
+  if (BOOL_ON.test(s)) return { on: true, text: irLabel(s) || s };
+  if (BOOL_OFF.test(s)) return { on: false, text: irLabel(s) || s };
   return null;
 }
 
@@ -798,7 +796,7 @@ function setBoolCell(cellEl, valEl, raw, rowSpec) {
   // prefer the lamp's OWN .IPO word (MS450's CC buttons say EIN/AUS) over the
   // ECU's return, else four identical rows read "ready"/"active"/"not active".
   const own = rowSpec && (b.on ? rowSpec.on : rowSpec.off);
-  const text = own ? deGerman(own) || own : b.text;
+  const text = own ? irLabel(own) || own : b.text;
   const shown = `${b.on ? '●' : '○'} ${text}`;
   if (valEl.textContent !== shown) {
     valEl.textContent = shown;
@@ -815,7 +813,7 @@ function updateGaugeSpec(cellEl, rowSpec, raw) {
   if (p.num === null) {
     // a state word ("ein"/"nicht aktiv"): translate it like a label
     if (setBoolCell(cellEl, valEl, p.raw, rowSpec)) return;
-    const text = deGerman(p.raw) || p.raw;
+    const text = irLabel(p.raw) || p.raw;
     cellEl.classList.add('text-only');
     if (valEl.textContent !== text) {
       valEl.textContent = text;
@@ -876,13 +874,6 @@ function updateGaugeSpec(cellEl, rowSpec, raw) {
   if (!declared) {
     if (p.num < min) min = p.num;
     if (p.num > max) max = p.num;
-  }
-  // demo values are synthesized from the UNIT alone, so an unmatched unit lands
-  // off-axis; fold it into the declared span. Never touches a live reading — a
-  // real value past its scale is worth seeing pinned.
-  if (declared && demoMode() && (p.num < min || p.num > max)) {
-    const span0 = max - min || 1;
-    p.num = +(min + span0 * (((Math.abs(p.num) % 70) + 15) / 100)).toFixed(1);
   }
   const span = max - min || 1;
   const pct = Math.max(0, Math.min(100, ((p.num - min) / span) * 100));
@@ -1021,7 +1012,7 @@ function updateGauge(cellEl, key, raw) {
   // non-numeric state word ("ein", "nicht aktiv"): translate, hide the bar
   if (p.num === null) {
     if (setBoolCell(cellEl, valEl, p.raw)) return;
-    const text = deGerman(p.raw) || p.raw;
+    const text = irLabel(p.raw) || p.raw;
     cellEl.classList.add('text-only');
     if (valEl.textContent !== text) {
       valEl.textContent = text;
