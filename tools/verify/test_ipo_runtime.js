@@ -176,7 +176,13 @@ function fakeApi(answers) {
     const target = m[1],
       job = decodeURIComponent(m[2]),
       arg = m[3] != null ? decodeURIComponent(m[3]) : null;
-    sent.push({ target, job, arg, method: (opts && opts.method) || 'GET' });
+    sent.push({
+      target,
+      job,
+      arg,
+      method: (opts && opts.method) || 'GET',
+      action: (opts && opts.action) || null,
+    });
     const a = answers(job, arg, target);
     if (a instanceof Error) throw a;
     return a;
@@ -914,6 +920,18 @@ const sysSet = (sgbd) => ({
     ok(
       `MS45: +10 -> STOP, START_SYSTEMCHECK_LLERH ${arg} (from slot 49 = ${seed})`
     );
+    // both jobs of that one key press carry the same action tag, named
+    // after the key, so a remote owner approves "+10" once
+    {
+      const tagged = msent.filter(
+        (x) => x.action && /SYSTEMCHECK_LLERH/.test(x.job)
+      );
+      assert.ok(tagged.length >= 2, `tagged jobs: ${tagged.length}`);
+      const ids = new Set(tagged.slice(-2).map((x) => x.action.id));
+      assert.strictEqual(ids.size, 1, 'one action id for the whole press');
+      assert.strictEqual(tagged.at(-1).action.label, '+10');
+    }
+    ok('MS45: every job of a key press carries that key as its action');
 
     // and again: the second press builds on the first (INPA's persistent globals)
     // the screen re-reads the setpoint between presses (frequent screen), and
@@ -969,6 +987,28 @@ const sysSet = (sgbd) => ({
       );
       ok('MS45: m_speicher lists the address keys as keys');
     }
+
+    // the fault-memory clear asks through INPA's two-string OK/Cancel box
+    // (builtin_3f): a confirm, not a number to type
+
+    const asked = [];
+    mui.askInput = async (step) => {
+      asked.push({ name: step.name, prompts: step.prompts.length });
+      return 0; // OK
+    };
+    mui.confirms.length = 0;
+    await mp.openMenu('m_fehlersp');
+    const n0 = msent.length;
+    await mp.press(5); // Clear error memory
+    assert.ok(
+      asked.some((a) => a.name === 'builtin_3f' && a.prompts === 2),
+      `the clear asked through the two-string box: ${JSON.stringify(asked)}`
+    );
+    assert.ok(
+      msent.slice(n0).some((x) => x.job === 'FS_LOESCHEN'),
+      `FS_LOESCHEN sent after OK: ${JSON.stringify(msent.slice(n0).map((x) => x.job))}`
+    );
+    ok('MS45: the clear confirmation is an OK/Cancel box and OK clears');
   }
 
   // =============================================================================
@@ -1091,8 +1131,116 @@ const sysSet = (sgbd) => ({
     ok('SM46: the Print key prints the page');
   }
 
+  // =============================================================================
+  // 6. LSZ: a MULTIPLE-select togglelist feeds STEUERN_IO the ";"-joined keys
+  // =============================================================================
+  const lexec = loadExec('E46', 'lsz');
+  let lp = null;
+  if (!lexec) {
+    console.log('  skip: lsz exec not available locally');
+  } else {
+    const lecu = {
+      sgbd: 'lsz_2',
+      label: 'LSZ',
+      _variant: 'LSZ_2',
+      chassis: 'E46',
+    };
+    const lsent = fakeApi((job) => {
+      if (job === 'INITIALISIERUNG')
+        return { system: sysSet('lsz_2'), sets: [{ DONE: '1' }] };
+      return { system: sysSet('lsz_2'), sets: [{ JOB_STATUS: 'OKAY' }] };
+    });
+    const lui = fakeUi({ pick: { ort: 'Kl15;S_AL', ein: 0 } });
+    let toggleStep = null;
+    lui.pickComponent = async (p, step) => {
+      toggleStep = step;
+      return { ort: 'Kl15;S_AL', ein: 0 };
+    };
+    lp = new IpoProgram(lecu, lexec, lui);
+    const lr = await lp.start();
+    assert.strictEqual(lr.ok, true, `LSZ start: ${lr.reason}`);
+    // inpainit asks the LSZ whether headlight levelling is fitted; a read
+    // the classifier cannot name must still go without a dialog at entry
+    assert.ok(
+      lsent.some((x) => x.job === 'LWR_VORHANDEN'),
+      `entry sent LWR_VORHANDEN: ${JSON.stringify(lsent.map((x) => x.job))}`
+    );
+    assert.ok(
+      !lui.confirms.some((c) => c.job === 'LWR_VORHANDEN'),
+      `no confirm at entry: ${JSON.stringify(lui.confirms)}`
+    );
+    ok('LSZ: inpainit runs without asking, LWR_VORHANDEN included');
+    await lp.openMenu('m_steuern');
+    await lp.press(8); // Select: togglelist(1, 0, ->var)
+    assert.ok(
+      toggleStep && toggleStep.multiple === true && toggleStep.argnum === false,
+      `flags: ${JSON.stringify(toggleStep && [toggleStep.multiple, toggleStep.argnum])}`
+    );
+    const n0 = lsent.length;
+    await lp.press(2); // start: STEUERN_IO with the selection
+    const io = lsent.slice(n0).find((x) => x.job === 'STEUERN_IO');
+    assert.ok(
+      io && io.arg === 'Kl15;S_AL',
+      `STEUERN_IO carries the picked keys: ${JSON.stringify(lsent.slice(n0))}`
+    );
+    ok('LSZ: multiple-select togglelist -> STEUERN_IO "Kl15;S_AL"');
+  }
+
+  // =============================================================================
+  // 7. IHKA46 analog screen: unary minus must not eat the argument under it
+  // =============================================================================
+  {
+    const kexec = loadExec('E46', 'ihka46');
+    if (kexec) {
+      const kecu = {
+        sgbd: 'ihka46_3',
+        label: 'IHKA',
+        _variant: 'IHKA46_3',
+        chassis: 'E46',
+      };
+      fakeApi((job) => {
+        if (job === 'INITIALISIERUNG')
+          return { system: sysSet('ihka46_3'), sets: [{ DONE: '1' }] };
+        if (job === 'STATUS_ANALOGEINGAENGE')
+          return {
+            system: sysSet('ihka46_3'),
+            sets: [
+              {
+                JOB_STATUS: 'OKAY',
+                STAT_TINNEN_WERT: '28',
+                STAT_TVERDAMPFER_WERT: '4',
+              },
+            ],
+          };
+        return { system: sysSet('ihka46_3'), sets: [{ JOB_STATUS: 'OKAY' }] };
+      });
+      const kui = fakeUi();
+      const kp = new IpoProgram(kecu, kexec, kui);
+      await kp.start();
+      await kp.openMenu('m_status');
+      const an = kp.items.find((it) =>
+        /analog/i.test(it.label || it.legendLabel || '')
+      );
+      await kp.press(an.nr);
+      // the evaporator bar: analogout(v, 3, 43, -10.0, 40.0, -10.0, 40.0, "3.0")
+      const ev = [...kp.cells.values()].find(
+        (c) => c.key === 'STAT_TVERDAMPFER_WERT'
+      );
+      assert.ok(ev, 'evaporator gauge painted');
+      assert.strictEqual(ev.col, 43, `column from the script: ${ev.col}`);
+      assert.deepStrictEqual(
+        [ev.meta.min, ev.meta.max, ev.meta.lo, ev.meta.hi],
+        [-10, 40, -10, 40],
+        `scale: ${JSON.stringify(ev.meta)}`
+      );
+      ok('IHKA46: `10.0 neg` negates the 10, not the column before it');
+      kp.close();
+    }
+  }
+
   // stop every refresh timer so the process can exit
   p.close();
+  if (lp) lp.close();
   if (qp) qp.close();
   if (mp) mp.close();
   if (sp) sp.close();

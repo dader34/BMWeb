@@ -257,6 +257,12 @@ class IpoProgram {
     this.busy = false; // a key body or a cycle is on the wire
     this.bandTops = new Map(); // absolute row a logical line begins at -> its height
     this.lineFilter = null; // Select's choice of logical lines, null = all
+    // THE USER ACTION a job belongs to: the key press (or the machine it
+    // started, or the screen it set) that caused it. Sent with every job so
+    // a remote owner approves the ACTION once, not each job it sends.
+    this.action = null; // {id, label, jobs}
+    this.actionSeq = 0;
+    this.cycleToken = 0; // bumps on every (re)schedule so a stale tick is dropped
     this.filterChanged = false;
     this.running = false; // a key press, from body to settled menu/screen
     this.queued = null; // the key pressed meanwhile (nr or 'back')
@@ -396,7 +402,12 @@ class IpoProgram {
   // reads VARIANTE) back to the VM. Returns null when the user declined.
   async runJob(sgbd, job, arg, ctx) {
     const target = ipoWireTarget(this.ecu, sgbd);
-    const write = ipoNeedsConfirm(job);
+    // Only what the USER activates asks. inpainit is the script identifying
+    // the module -- INPA sends its jobs without a word, and a default-deny
+    // classifier reading LWR_VORHANDEN ("is headlight levelling fitted?")
+    // as a write turned opening the LSZ into a dialog.
+    const entry = !!(ctx && (ctx.scope === 'entry' || ctx.scope === 'exit'));
+    const write = !entry && ipoNeedsConfirm(job);
     const ckey = `${ctx && ctx.scope ? ctx.scope : '*'}:${job}`;
     if (
       write &&
@@ -422,6 +433,8 @@ class IpoProgram {
         arg != null && arg !== '' ? `?arg=${encodeURIComponent(arg)}` : '';
       const d = await api(`/api/ecu/${target}/run/${job}${q}`, {
         method: 'POST',
+        // the action this job serves; a remote owner gates on it
+        action: this.action || undefined,
       });
       for (const [k, v] of Object.entries(d.system || {}))
         fed.set(k, String(v));
@@ -453,7 +466,17 @@ class IpoProgram {
           );
       }
     } catch (e) {
-      status = 'ERROR_NO_ANSWER';
+      // the script prints JOB_STATUS in its own box, so the reason a
+      // remote owner refused reads there in plain words rather than as a
+      // wire timeout it was not
+      const m = String((e && e.message) || '');
+      status = /remote: .*declined/i.test(m)
+        ? 'The host rejected your request'
+        : /remote: .*read-only/i.test(m)
+          ? 'The host shared this car read-only'
+          : /remote: .*not admitted/i.test(m)
+            ? 'The host has not admitted you yet'
+            : 'ERROR_NO_ANSWER';
       fed.set('JOB_STATUS', status);
       fed.sets = [{}]; // no sets came back
       if (
@@ -714,6 +737,19 @@ class IpoProgram {
 
   scheduleCycle(gen) {
     this.stopCycle();
+    // the tick runs on the bus's worker-backed timer where one exists: a
+    // hidden tab's setTimeout fires once a second at best, which stretched a
+    // 600 ms screen cycle to a second or more for a remote helper
+    const my = ++this.cycleToken;
+    if (typeof bmwSleep === 'function') {
+      this.cycleTimer = true;
+      bmwSleep(IPO_TICK_MS).then(() => {
+        if (this.cycleToken !== my || this.closed) return;
+        this.cycleTimer = null;
+        this.cycle(gen);
+      });
+      return;
+    }
     this.cycleTimer = setTimeout(() => {
       this.cycleTimer = null;
       this.cycle(gen);
@@ -724,6 +760,7 @@ class IpoProgram {
   }
 
   stopCycle() {
+    this.cycleToken = (this.cycleToken || 0) + 1; // orphan a pending tick
     if (this.cycleTimer) {
       clearTimeout(this.cycleTimer);
       this.cycleTimer = null;
@@ -845,6 +882,11 @@ class IpoProgram {
           )
         : [];
     const writes = jobs.filter(ipoNeedsConfirm);
+    this.action = {
+      id: `${Date.now().toString(36)}-${++this.actionSeq}`,
+      label: it.label || it.legendLabel || `F${it.nr}`,
+      jobs: jobs.slice(0, 30),
+    };
     let preConfirmed = false;
     if (writes.length) {
       const ok = await this.ui.confirmKey(this, it, jobs, writes);
@@ -1380,7 +1422,12 @@ function ipoMakeUi(ecu, container, back) {
   build();
 
   const ui = {
-    sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
+    // the bus's worker-backed timer: a hidden tab's setTimeout is throttled
+    // to once a second, which stretched every scripted wait and screen tick
+    sleep: (ms) =>
+      typeof bmwSleep === 'function'
+        ? bmwSleep(ms)
+        : new Promise((r) => setTimeout(r, ms)),
     loadExec: async (sgbd) => {
       try {
         return typeof irLiveExec === 'function' ? await irLiveExec(sgbd) : null;
@@ -1436,9 +1483,14 @@ function ipoMakeUi(ecu, container, back) {
     pickComponent: async (p, step) => {
       // INPA's togglelist lists the ACTIVE screen's LINE declarations: the
       // name is the LINE's label, the argument its key string (SHD46's
-      // s_steuern_digital: "Switch Sunroof Open" / SSHDA ...)
-      const rows = ipoScreenComponents(p.exec, p.screen).map((l) => ({
-        key: String(l.keys).split(';')[0],
+      // s_steuern_digital: "Switch Sunroof Open" / SSHDA ...). With
+      // MultipleSelectFlag set (LSZ's in/output selection) it is a tick list
+      // and the script gets every picked key, ";"-joined, as one argument;
+      // with ArgNumFlag set it gets the lines' numbers instead of their keys.
+      const multiple = !!(step && step.multiple);
+      const argnum = !!(step && step.argnum);
+      const rows = ipoScreenComponents(p.exec, p.screen).map((l, i) => ({
+        key: argnum ? String(i + 1) : String(l.keys).split(';')[0],
         caption: ipoText(l.label || String(l.keys).split(';')[0]),
       }));
       if (!rows.length) {
@@ -1457,30 +1509,41 @@ function ipoMakeUi(ecu, container, back) {
           settled = true;
           resolveRaw(v);
         };
+        const type = multiple ? 'checkbox' : 'radio';
+        const actions = multiple
+          ? `<button class="btn" data-x="cancel">Cancel</button>
+             <button class="btn primary" data-x="ok">Select</button>`
+          : `<button class="btn" data-x="cancel">Cancel</button>
+             <button class="btn" data-x="off">Off</button>
+             <button class="btn primary" data-x="on">On</button>`;
         const { overlay, close } = openModal(
           `<div class="modal" role="dialog" aria-modal="true">
-            <div class="modal-title">Select component</div>
-            <div class="modal-body ipo-pick">${rows
+            <div class="modal-title">${multiple ? 'Select components' : 'Select component'}</div>
+            <div class="modal-body ipo-pick${rows.length > 12 ? ' ipo-pick-long' : ''}">${rows
               .map(
                 (r, i) =>
-                  `<label class="ipo-pick-row"><input type="radio" name="ipo-pick" value="${i}"${i === 0 ? ' checked' : ''}/> ` +
+                  `<label class="ipo-pick-row"><input type="${type}" name="ipo-pick" value="${i}"${!multiple && i === 0 ? ' checked' : ''}/> ` +
                   `<span>${esc(r.caption)}</span> <span class="mono ipo-pick-key">${esc(r.key)}</span></label>`
               )
               .join('')}</div>
-            <div class="modal-actions">
-              <button class="btn" data-x="cancel">Cancel</button>
-              <button class="btn" data-x="off">Off</button>
-              <button class="btn primary" data-x="on">On</button>
-            </div></div>`,
+            ${
+              rows.length > 12
+                ? `<div class="ipo-pick-hint">${rows.length} components · scroll the list for more</div>`
+                : ''
+            }
+            <div class="modal-actions">${actions}</div></div>`,
           { onClose: () => resolve(null) }
         );
         overlay.querySelectorAll('[data-x]').forEach((b) => {
           b.onclick = () => {
             const x = b.dataset.x;
-            const sel = overlay.querySelector('input[name="ipo-pick"]:checked');
-            const r = rows[Number(sel ? sel.value : 0)];
-            if (x === 'cancel' || !r) resolve(null);
-            else resolve({ ort: r.key, ein: x === 'on' ? 0 : 1 });
+            const picked = [
+              ...overlay.querySelectorAll('input[name="ipo-pick"]:checked'),
+            ].map((el) => rows[Number(el.value)]);
+            if (x === 'cancel' || !picked.length) resolve(null);
+            else if (multiple)
+              resolve({ ort: picked.map((r) => r.key).join(';'), ein: 0 });
+            else resolve({ ort: picked[0].key, ein: x === 'on' ? 0 : 1 });
             close();
           };
         });
@@ -1552,6 +1615,9 @@ function ipoMakeUi(ecu, container, back) {
           resolve(v);
         };
         const t = setTimeout(() => done('tick'), IPO_TICK_MS);
+        // ...and on the worker clock too, for a hidden tab (done() is idempotent)
+        if (typeof bmwSleep === 'function')
+          bmwSleep(IPO_TICK_MS).then(() => done('tick'));
         const c = machineEl.querySelector('.ipo-continue');
         if (c) c.onclick = () => done('press');
         machineEl.querySelector('.ipo-stop').onclick = () => {
@@ -1691,9 +1757,47 @@ function ipoMakeUi(ecu, container, back) {
 // Open the live program for a module. Returns true when it took the view
 // (even if the script stopped itself: the reason is shown), false when this
 // module cannot run live (no exec) so the caller falls back.
+// ONE DRIVER AT A TIME. While the owner has admitted a helper, the helper's
+// runtime is what runs on the cable. The owner's own module screens would
+// cycle their jobs on the same K-line every tick and the helper's requests
+// would queue behind them, seconds at a time; so an owner opening a module
+// during a live share sees a notice instead, and a share being admitted
+// closes whatever the owner had running.
+function ipoRemoteDriving() {
+  return (
+    typeof Remote !== 'undefined' &&
+    Remote &&
+    Remote.role === 'owner' &&
+    !!Remote.accepted
+  );
+}
+function ipoPauseForRemote() {
+  if (_ipoCurrent) {
+    _ipoCurrent.close();
+    _ipoCurrent = null;
+  }
+}
+
 async function ipoProgramOpen(ecu, container, back, openMenu) {
   if (typeof IpoVm === 'undefined' || typeof FeedHost === 'undefined')
     return false;
+  if (ipoRemoteDriving()) {
+    container.className = 'results-panel';
+    container.innerHTML =
+      `<div class="empty"><div class="empty-big" style="color:var(--amber)">A helper is driving your car</div>` +
+      `<div>Your own module screens stay off while the remote session is live, so the helper's reads are not queued behind them. End the session to use this module yourself.</div></div>`;
+    sbLeft.textContent = `${ecu.sgbd}.prg · remote session live`;
+    setActions([
+      {
+        key: 'Escape',
+        keyLabel: 'Esc',
+        label: 'Back',
+        kind: 'back',
+        fn: () => back(),
+      },
+    ]);
+    return true;
+  }
   if (typeof irLiveExec !== 'function' || typeof irExecSgbd !== 'function')
     return false;
   const exec = await irLiveExec(irExecSgbd(ecu));
@@ -1766,6 +1870,7 @@ async function ipoProgramOpen(ecu, container, back, openMenu) {
 
 if (typeof window !== 'undefined') {
   window.ipoProgramOpen = ipoProgramOpen;
+  window.ipoPauseForRemote = ipoPauseForRemote;
   window.ipoLiveEnabled = ipoLiveEnabled;
   window.IpoProgram = IpoProgram;
   window.ipoMenuItems = ipoMenuItems;

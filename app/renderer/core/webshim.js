@@ -20,6 +20,52 @@ const KDCAN = { baudRate: 115200, dataBits: 8, stopBits: 1, parity: 'none' };
 const UTILITY_UBATT_MIN_MV = 10000;
 const UTILITY_NOMINAL_MV = 12000;
 
+// TIMERS THAT KEEP TIME IN A BACKGROUND TAB. Chrome throttles a hidden
+// page's setTimeout to one wake per second (and further after minutes). The
+// K-line exchange holds DTR for the telegram's byte time (a few ms), paces
+// reads in single-digit ms and enforces a 25 ms regeneration gap -- each of
+// which became a full second when the owner's tab was not in front, so a
+// remote helper saw every job take ~1 s while the same tab in front took
+// 150 ms. A dedicated worker's timers are not throttled that way: the bus's
+// waits run there. Falls back to setTimeout where workers are unavailable
+// (node, a blocked blob URL) so nothing else changes.
+const bmwSleep = (() => {
+  let worker = null;
+  let seq = 0;
+  const waits = new Map();
+  try {
+    if (typeof Worker !== 'undefined' && typeof Blob !== 'undefined') {
+      const src =
+        'onmessage=(e)=>{const{id,ms}=e.data;setTimeout(()=>postMessage(id),ms)}';
+      worker = new Worker(
+        URL.createObjectURL(new Blob([src], { type: 'text/javascript' }))
+      );
+      worker.onmessage = (e) => {
+        const r = waits.get(e.data);
+        if (r) {
+          waits.delete(e.data);
+          r();
+        }
+      };
+      worker.onerror = () => {
+        worker = null;
+        for (const r of waits.values()) r();
+        waits.clear();
+      };
+    }
+  } catch {
+    worker = null;
+  }
+  return (ms) =>
+    new Promise((r) => {
+      const t = Math.max(0, Number(ms) || 0);
+      if (!worker) return setTimeout(r, t);
+      const id = ++seq;
+      waits.set(id, r);
+      worker.postMessage({ id, ms: t });
+    });
+})();
+
 // ---- concept-aware framing.
 //
 // The SGBD's telegram EXCLUDES its trailing checksum -- appending it is the
@@ -354,7 +400,7 @@ async function readFrame(sent, timeoutMs, pump, comm) {
     if (!echoLen && buf.length) break;
     const got = await pump();
     if (got && got.length) buf.push(...got);
-    else await new Promise((r) => setTimeout(r, 4));
+    else await bmwSleep(4);
   }
   if (echoLen && at < 0) {
     throw ifhError(
@@ -388,7 +434,7 @@ async function readFrame(sent, timeoutMs, pump, comm) {
         started = true;
         frameDeadline = Date.now() + Math.max(timeoutMs, 3000);
       }
-    } else await new Promise((r) => setTimeout(r, 4));
+    } else await bmwSleep(4);
   }
   // A half-received frame is NOT an answer -- handing it to the VM decodes
   // garbage. Distinguish it from silence so the error means something.
@@ -448,7 +494,7 @@ async function runExchange(bus, out, comm) {
   const timeoutMs = (comm && comm.timeout) || 2000;
   // a `wait` in the SGBD paces the bus: honor it before writing
   if (comm && comm.waitMs) {
-    await new Promise((r) => setTimeout(r, Math.min(comm.waitMs, 5000)));
+    await bmwSleep(Math.min(comm.waitMs, 5000));
   }
   // ParRegenTime: a MANDATORY quiet gap between the ECU's last answer and the
   // next request, measured from the response (EdInterfaceObd.cs:4127). The
@@ -460,7 +506,7 @@ async function runExchange(bus, out, comm) {
   if (regenMs && bus.lastResponseAt) {
     const since = Date.now() - bus.lastResponseAt;
     if (since < regenMs) {
-      await new Promise((r) => setTimeout(r, regenMs - since));
+      await bmwSleep(regenMs - since);
     }
   }
   // NO FRAMING FALLBACK HERE. The SGBD owns that: tracing EDIABAS showed
@@ -937,7 +983,7 @@ class WebSerialBus extends SerialTransportBase {
     const t0 = Date.now();
     const until = async (ms) => {
       const left = ms - (Date.now() - t0);
-      if (left > 0) await new Promise((r) => setTimeout(r, left));
+      if (left > 0) await bmwSleep(left);
     };
     await this.port.setSignals({ dataTerminalReady: true, break: true });
     await until(25);
@@ -992,7 +1038,7 @@ class WebSerialBus extends SerialTransportBase {
     bits.push(1);
     for (const b of bits) {
       await this.port.setSignals({ break: b === 0 });
-      await new Promise((r) => setTimeout(r, 200));
+      await bmwSleep(200);
     }
     await this.port.setSignals({ break: false });
 
@@ -1023,7 +1069,7 @@ class WebSerialBus extends SerialTransportBase {
     const kb2 = hdr[sync + 2];
 
     // Tester sends ~KB2; the ECU replies ~addr. W4 is 25-50 ms.
-    await new Promise((r) => setTimeout(r, 30));
+    await bmwSleep(30);
     await this.writer.write(new Uint8Array([~kb2 & 0xff]));
     const ackDeadline = Date.now() + 400;
     const ack = [];
@@ -1148,9 +1194,7 @@ class WebSerialBus extends SerialTransportBase {
           `DTR held ${Math.max(1, Math.round(ms + 0.3))}ms for ${framed.length}B` +
             ` @${this.config && this.config.baudRate}/${this.config && this.config.parity}`
         );
-        await new Promise((r) =>
-          setTimeout(r, Math.max(1, Math.round(ms + 0.3)))
-        );
+        await bmwSleep(Math.max(1, Math.round(ms + 0.3)));
         await this.port.setSignals({ dataTerminalReady: false });
       }
     }
@@ -1204,7 +1248,7 @@ class WebSerialBus extends SerialTransportBase {
     for (let i = 0; i < 64 && this.pending; i++) {
       const settled = await Promise.race([
         this.pending.then((r) => ({ hit: true, r })),
-        new Promise((res) => setTimeout(() => res({ hit: false }), 2)),
+        bmwSleep(2).then(() => ({ hit: false })),
       ]);
       if (!settled.hit) return; // still outstanding: leave it be
       const { value, done } = settled.r || {};
@@ -1227,19 +1271,14 @@ class WebSerialBus extends SerialTransportBase {
         }
       );
     }
-    let timer;
-    const timeout = new Promise((res) => {
-      timer = setTimeout(() => res(TIMED_OUT), ms);
-    });
-    try {
-      const r = await Promise.race([this.pending, timeout]);
-      // Timed out: the read stays on this.pending for the next call. Report
-      // "nothing yet" rather than done -- done means the port closed.
-      if (r === TIMED_OUT) return { value: null, done: false };
-      return r;
-    } finally {
-      clearTimeout(timer);
-    }
+    // a worker-timed race: a late wake resolves an orphaned promise, nothing
+    // else, so there is no timer to clear
+    const timeout = bmwSleep(ms).then(() => TIMED_OUT);
+    const r = await Promise.race([this.pending, timeout]);
+    // Timed out: the read stays on this.pending for the next call. Report
+    // "nothing yet" rather than done -- done means the port closed.
+    if (r === TIMED_OUT) return { value: null, done: false };
+    return r;
   }
 }
 

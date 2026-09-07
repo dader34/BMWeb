@@ -623,8 +623,11 @@ class IpoVm {
         }
         this._write(t, frame, val);
       } else if (op === 'binop') {
+        // neg (0x6d) is UNARY: it takes the top value only. Popping two ate
+        // the operand underneath (`3, 43, 10.0 neg` negated the 43 and lost
+        // the 10.0), shifting every later argument of the call.
         const b = stack.length ? stack.pop() : null;
-        const a = stack.length ? stack.pop() : null;
+        const a = t.name === 'neg' ? null : stack.length ? stack.pop() : null;
         if (['eq', 'ne', 'lt', 'gt', 'le', 'ge'].includes(t.name)) {
           for (const x of [a, b]) {
             if (isBound(x) && x.key) this.out.predicateReads.add(x.key);
@@ -1057,7 +1060,7 @@ class IpoVm {
       this._write(t, s.frame, val);
     } else if (op === 'binop') {
       const b = stack.length ? stack.pop() : null;
-      const a = stack.length ? stack.pop() : null;
+      const a = t.name === 'neg' ? null : stack.length ? stack.pop() : null; // unary
       stack.push(binop(t.name, a, b));
     } else if (op === 'jfalse') {
       const cond = stack.length ? stack.pop() : false;
@@ -1271,7 +1274,18 @@ class IpoVm {
     // A LIVE togglelist is INPA's component picker: park until the renderer
     // hands back the pick ({ort, ein}); resume re-runs the builtin with it.
     if (this.wireJobs && name === 'builtin_16' && this._pickInput == null) {
-      return { kind: 'toggle', stack, out: this.out };
+      // togglelist(MultipleSelectFlag, ArgNumFlag, ->ApiToggleString)
+      const flag = (i) => {
+        const v = stack[i];
+        return !!(isFloat(v) ? v.v : isBound(v) ? Number(v.s) : Number(v));
+      };
+      return {
+        kind: 'toggle',
+        stack,
+        multiple: stack.length > 0 && flag(0),
+        argnum: stack.length > 1 && flag(1),
+        out: this.out,
+      };
     }
     if (this.wireJobs && BUILTINS[name] === bExit) {
       this._builtin(t, stack, null);
@@ -1385,8 +1399,8 @@ class IpoVm {
   // structure's long at offset 0 (what the formatters just wrote), or the
   // argument itself when it is not a handle.
   _dllcall(stack) {
-    const fmt = stack.find((x) => isPlainStr(x) && x.includes('%'));
     const refs = stack.filter(isRef);
+    const fmt = stack.find((x) => isPlainStr(x) && x.includes('%'));
     if (!fmt || !refs.length) return;
     const refVal = (r) =>
       r[1] === 2 && this.frame ? this.frame.get(r[2]) : this.globals.get(r[2]);
@@ -1813,6 +1827,17 @@ function field(vm, stack, kind) {
   if (ints.length >= 2) {
     el.row = ints[0];
     el.col = ints[1];
+  }
+  // LIVE, the value comes first and may itself be an int (digitalout's bool
+  // arrives as 1/0 from a result compare), so the first two ints are then the
+  // value and the row. Inpa.h: (val, row, col, ...) -- take them by position.
+  // Offline keeps the int scan the Python twin uses, for byte-identical IR.
+  if (vm.wireJobs && stack.length >= 3) {
+    const isInt = (x) => isPlainInt(x) && typeof x !== 'boolean';
+    if (isInt(stack[1]) && isInt(stack[2])) {
+      el.row = stack[1];
+      el.col = stack[2];
+    }
   }
   let key = keyed(stack);
   if (key == null) {

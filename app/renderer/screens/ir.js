@@ -1041,6 +1041,20 @@ async function irAskInput(step, fallbackTitle) {
     if (yes == null) return null;
     return yes ? 1 : 0;
   }
+  // (out, title, text) with nothing else: INPA's plain OK/Cancel box -- the
+  // fault-memory clear asks "Do you really want to delete the error-memory?
+  // <OK>-Key or <Return>-Key clears!" and then tests getinputstate == 0.
+  // There is no value to type; asking for a number blocked the clear.
+  if (name === 'builtin_3f' && step.prompts.length <= 2 && refs === 1) {
+    const yes = await confirmDialog({
+      title: tr(p0),
+      body: tr(p1),
+      confirmLabel: 'OK',
+      cancelLabel: 'Cancel',
+      dismissValue: null,
+    });
+    return yes ? 0 : null;
+  }
   const hex = /hex/i.test(name);
   const vals = [];
   for (let k = 0; k < refs; k++) {

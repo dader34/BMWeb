@@ -298,14 +298,23 @@ function showOwnerConsole(code, opts = {}) {
   // session allows writes and confirm is on; reads never reach here.
   Remote.onGate = (j) =>
     new Promise((resolve) => {
+      const act = j.action || null;
+      const jobs = act && act.jobs && act.jobs.length ? act.jobs : [];
       remoteOverlay({
         kind: 'approve',
-        title: 'Helper wants to run an action on your car',
+        title:
+          act && act.label
+            ? `Helper wants to press "${act.label}"`
+            : 'Helper wants to run an action on your car',
         body: `<div class="ro-detail mono">${esc(j.sgbd || '')} &middot; ${esc(j.job || '')}${
           j.arg ? ` (${esc(String(j.arg).slice(0, 60))})` : ''
-        }</div>
-        <p>This writes to or activates hardware on the car. Allow it only if you
-        expect it.</p>`,
+        }</div>${
+          jobs.length
+            ? `<div class="ro-detail">This key can send: <span class="mono">${esc(jobs.join(' · '))}</span></div>`
+            : ''
+        }
+        <p>This writes to or activates hardware on the car. Allowing it covers
+        everything this one key press sends; the next key asks again.</p>`,
         actions: [
           { label: 'Allow', cls: 'primary', fn: () => resolve(true) },
           { label: 'Deny', cls: 'danger', fn: () => resolve(false) },
@@ -370,6 +379,31 @@ function showRemoteBar() {
   b.innerHTML = `<span class="rb-dot"></span>REMOTE
     <button class="rb-end" id="rb-end">disconnect</button>`;
   document.body.appendChild(b);
+  // A write or activation waits on the owner's Allow, not on the car: the
+  // same full-screen card the admit wait uses, up until the owner answers.
+  // No buttons: the request is already with the owner, and their answer
+  // (allow or deny) is what closes it.
+  let awaitCard = null;
+  Remote.onAwait = (waiting, path) => {
+    if (waiting) {
+      if (awaitCard) return;
+      const m = /\/(run|clear|write|flash)\/([^/?]+)/.exec(String(path || ''));
+      const what = m ? decodeURIComponent(m[2]) : 'this action';
+      awaitCard = remoteOverlay({
+        kind: 'wait',
+        title: 'Waiting for the host to accept your request',
+        body: `<div class="ro-detail mono">${esc(what)}</div>
+          <p>This writes to or activates hardware on their car, so the owner
+          has to allow it on their screen. Their answer closes this.</p>`,
+        actions: [],
+      });
+      if (typeof sbLeft !== 'undefined')
+        sbLeft.textContent = 'waiting for the host to accept your request…';
+    } else if (awaitCard) {
+      awaitCard.close();
+      awaitCard = null;
+    }
+  };
   b.querySelector('#rb-end').onclick = () => {
     Remote.end('you disconnected');
   };

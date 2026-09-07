@@ -10314,10 +10314,41 @@ body.remote-helper::after {
 .ipo-machine-state {
   font-family: ui-monospace, Menlo, monospace;
 }
+/* a long component list (LSZ: 37 in/outputs) scrolls inside the dialog,
+   and says so: an inset box, an always-visible scrollbar, a fade at the
+   bottom edge and a count under it */
 .ipo-pick {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+.ipo-pick.ipo-pick-long {
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 8px 10px;
+  overflow-y: scroll;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent);
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    #000 calc(100% - 28px),
+    transparent
+  );
+}
+.ipo-pick.ipo-pick-long::-webkit-scrollbar {
+  width: 10px;
+}
+.ipo-pick.ipo-pick-long::-webkit-scrollbar-thumb {
+  background: var(--ink-faint, #888);
+  border-radius: 5px;
+}
+.ipo-pick-hint {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--ink-faint, #888);
 }
 .ipo-pick-row {
   display: flex;

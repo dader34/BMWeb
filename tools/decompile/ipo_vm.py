@@ -27,6 +27,7 @@ stays behind bestvm's write gate in the app, unchanged.
 """
 
 import os
+import re
 import sys
 
 sys.path[:0] = [os.path.join(os.path.dirname(os.path.abspath(__file__)), d)
@@ -301,7 +302,9 @@ class VM:
                 self._write(t, frame, val)
             elif op == "binop":
                 b = stack.pop() if stack else None
-                a = stack.pop() if stack else None
+                # neg (0x6d) is UNARY: the top value only. Popping two ate the
+                # operand underneath and shifted every later call argument.
+                a = None if t.get("name") == "neg" else (stack.pop() if stack else None)
                 # A READING CONSUMED BY A COMPARISON IS A CONTROL VALUE. The
                 # script reads STAT_GETRIEBE_NR only to gate `if == 1` on the
                 # transmission block, never to show it; recording the key here
@@ -605,7 +608,16 @@ def _binop(name, a, b):
     if name == "or":
         return _truthy(a) or _truthy(b)
     if name == "neg":
-        return not _truthy(b if a is None else a)
+        # unary minus on a number (llerh's -10, the clamp bounds); boolean
+        # not only ever fit guard shapes
+        x = b if a is None else a
+        if isinstance(x, bool):
+            return not x
+        if isinstance(x, (int, float)):
+            return -x
+        if isinstance(x, str) and re.fullmatch(r"-?\d+(\.\d+)?", x.strip()):
+            return -float(x) if "." in x else -int(x)
+        return not _truthy(x)
     return None
 
 
