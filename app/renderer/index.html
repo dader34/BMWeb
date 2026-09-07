@@ -185,7 +185,22 @@
   <script src="core/offline-fs.js"></script>
   <script src="core/webshim.js"></script>
   <script src="core/bestvm.js"></script>
-  <script src="core/ipovm.js"></script>
+  <!-- The .IPO VM: values before the operators over them, the hosts and
+       emissions before the builtins that fill them, the builtin table after
+       the builtins it names, the executor last (it exports the API). -->
+  <script src="core/ipovm/values.js"></script>
+  <script src="core/ipovm/operators.js"></script>
+  <script src="core/ipovm/hosts.js"></script>
+  <script src="core/ipovm/emissions.js"></script>
+  <script src="core/ipovm/tape.js"></script>
+  <script src="core/ipovm/builtin-helpers.js"></script>
+  <script src="core/ipovm/builtins-screen.js"></script>
+  <script src="core/ipovm/builtins-api.js"></script>
+  <script src="core/ipovm/builtins-text.js"></script>
+  <script src="core/ipovm/builtins-table.js"></script>
+  <script src="core/ipovm/structures.js"></script>
+  <script src="core/ipovm/suspensions.js"></script>
+  <script src="core/ipovm/vm.js"></script>
   <script src="core/core.js"></script>
   <script src="core/journal.js"></script>
   <script src="core/remote.js"></script>

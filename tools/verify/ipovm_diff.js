@@ -1,12 +1,12 @@
 #!/usr/bin/env node
-// Headless comparison: run the Python ipo_vm.py deriver AND the JS ipovm.js on
-// the SAME proc of the SAME ECU, and diff the emissions. The bar: ipovm.js
-// reproduces ipo_vm.py's output.
+// Headless comparison: run the Python ipo_vm.py deriver AND the JS VM
+// (app/renderer/core/ipovm/) on the SAME proc of the SAME ECU, and diff the
+// emissions. The bar: the JS VM reproduces ipo_vm.py's output.
 //
 //   node tools/verify/ipovm_diff.js
 //
 // For each case it spawns python3 to get the reference emissions (as JSON),
-// loads the ipo_exec.py dump, runs ipovm.js, and compares the fields that
+// loads the ipo_exec.py dump, runs the JS VM, and compares the fields that
 // matter (title/menu/screen, items, jobs, reads, drawn lines/elements,
 // messages, states, calls).
 
@@ -15,7 +15,8 @@ const fs = require('fs');
 const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..', '..');
-const { IpoVm } = require(path.join(ROOT, 'app/renderer/core/ipovm.js'));
+const { loadClassic } = require('./lib/load_classic.js');
+const { IpoVm } = loadClassic('core/ipovm/');
 
 // ---- reference: drive ipo_vm.py in a subprocess, emit JSON --------------
 

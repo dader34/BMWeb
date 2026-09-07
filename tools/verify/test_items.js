@@ -11,14 +11,33 @@ const fs = require('fs');
 const path = require('path');
 const zlib = require('zlib');
 const assert = require('assert');
-const { IpoVm, FeedHost } = require('../../app/renderer/core/ipovm.js');
+const { loadClassic } = require('./lib/load_classic.js');
+const { IpoVm, FeedHost } = loadClassic('core/ipovm/');
 
 const ROOT = path.join(__dirname, '..', '..');
+
+// the E46 folder for an SGBD: named by the menu CODE (MS450) or by the
+// variant itself (ms450ds0); found by its ecu.json's sgbd, then by name
+function ecuFolder(chassis, sgbd) {
+  const tree = path.join(ROOT, 'data', 'chassis', chassis);
+  const want = sgbd.toLowerCase();
+  for (const d of fs.readdirSync(tree)) {
+    if (d.toLowerCase() === want) return path.join(tree, d);
+    try {
+      const meta = JSON.parse(
+        fs.readFileSync(path.join(tree, d, 'ecu.json'), 'utf8')
+      );
+      if (String(meta.sgbd || '').toLowerCase() === want)
+        return path.join(tree, d);
+    } catch (e) {
+      /* not an ECU folder */
+    }
+  }
+  throw new Error(`no ${sgbd} under data/chassis/${chassis}`);
+}
 const exec = JSON.parse(
   zlib.gunzipSync(
-    fs.readFileSync(
-      path.join(ROOT, 'data/chassis/E46/ms450ds0/ipoexec.json.gz')
-    )
+    fs.readFileSync(path.join(ecuFolder('E46', 'ms450ds0'), 'ipoexec.json.gz'))
   )
 );
 
