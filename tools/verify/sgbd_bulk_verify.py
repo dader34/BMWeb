@@ -59,7 +59,7 @@ WORK = os.path.join(ROOT, "data", "sim-captures", "bulk")
 CLI = os.path.join(ROOT, "src", "InpaMac.Cli")
 
 # Is a job a WRITE (changes the ECU) or a READ? Kept IDENTICAL to isWriteJob in
-# app/renderer/core/bestvm.js -- see the long note there. The old leading-verb
+# app/renderer/core/bestvm/write-guard.js -- see the long note there. The old leading-verb
 # regex missed ~1100 writes (START_/STOP_SYSTEMCHECK, ABGLEICH_, SET_, ...), so
 # this is token-based with read-wins and default-deny for the unknown tail.
 # INFO is the one WEAK read token, checked AFTER the write tokens: `_` is a

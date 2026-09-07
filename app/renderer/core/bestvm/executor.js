@@ -1,98 +1,32 @@
-// BEST2 virtual machine: EXECUTE ECU job programs in the browser.
-//
-// Lifting a job to a declarative spec tops out near 71% of results (the tail is
-// structural: branch-chosen layouts, multi-telegram streaming, byte-by-byte
-// strings); executing the program handles all of it, which is why EDIABAS is
-// flawless. Input is tools/sgbd_code.py output (ops array, jumps as indices);
-// telegram I/O is a callback, so one VM runs live cable / .sim / fixture.
-// Semantics ported from vendored EdiabasLib (EdOperations.cs, EdiabasNet.cs),
-// the engine tools/sgbd_bulk_verify.py diffs against and test_bestvm.js checks.
-//
-// THE REGISTER MODEL, which nothing else here makes sense without:
-// B/I/L/A are VIEWS over one 32-byte array, LITTLE-endian within a view, so
-// writing B0 changes what L0 reads. S registers are separate byte buffers
-// (raw bytes that may contain NULs). F are doubles.
+/**
+ * @file The executor: the opcode `step` switch and the flag arithmetic it
+ * leans on. Extends Best2Vm (machine.js).
+ *
+ * THE SWITCH IS A 1:1 OPCODE TABLE, on purpose. One `case` per BEST2
+ * opcode, in the reference's grouping, each carrying the engine fact that
+ * makes it right. It is not a dispatch table and not per-opcode methods:
+ * the value of reading an opcode's semantics in one place, next to its
+ * neighbours, outweighs the length. Helpers and tables live AROUND it
+ * (this file's top, operands.js, environment.js); the case bodies keep
+ * their order and semantics.
+ */
 
-// The register file is 32 bytes, overlaid THREE ways (EdiabasNet
-// RegisterList): B0..BF = bytes 0..15 and A0..AF = bytes 16..31; I0..I7
-// pair over the B range and I8..IF over the A range; L0..L3 quad over B
-// and L4..L7 over A. So L1 IS bytes 4..7 IS I2+I3 IS B4..B7.
-const REG_BYTES = 32;
-
-class VmError extends Error {}
-
-// Is a job a WRITE (changes the ECU) or a READ (queries it)? BEST2 gives us no
-// flag -- the bytecode builds the telegram dynamically, so the service byte
-// isn't statically knowable, and the old prefix regex (^STEUERN|^FLASH|...) was
-// leaky: it missed START_/STOP_SYSTEMCHECK actuator jobs, ABGLEICH_/ADAPTION
-// calibrations, SET_/AUTHENTIS/SLEEP, ~1100 writes in all.
-//
-// The systematic signal is still the SGBD authors' NAMING CONTRACT, applied
-// correctly rather than by leading verb, over a corpus of 27k jobs:
-//   1. A STRONG READ TOKEN anywhere (LESEN/READ/STATUS/IDENT/ABFRAGE/ANZEIGE/
-//      ZUSTAND/ANZAHL) means read -- so ABGLEICH_LESEN_HFM ("read the calibr-
-//      ation") is a read despite the write-ish ABGLEICH_ prefix. Read wins.
-//   2. Otherwise a WRITE TOKEN (STEUERN/SCHREIB/SETZEN/LOESCH/FLASH/START/STOP/
-//      RESET/CODIER/ABGLEICH/ADAPTION/AUTHENTIS/SET/...) means write.
-//   3. Otherwise INFO means read. INFO is a WEAK read token, checked AFTER the
-//      write tokens, because it earned demotion twice over: the old \bINFO
-//      never matched *_INFO at all (`_` is a word character, so there is no \b
-//      between STEUERGERAETE_ and INFO -- every *_INFO job fell to default-
-//      deny and legitimate info reads were blocked in the UI), while at the
-//      START of a name \b DID match, so an INFO_SCHREIBEN-shaped name would
-//      have been called a read by rule 1. Read-wins is only safe for tokens
-//      that cannot prefix a write verb; INFO can, so writes are checked first.
-//      Measured over the 6147 unique job names in data/chassis (2026-08-17):
-//      exactly 3 jobs flip write->read (CBS_INFO, MODUL_INFO,
-//      DEBUGGING_INFORMATION -- all true reads), 0 flip read->write.
-//   4. Otherwise DEFAULT-DENY: an unrecognised job is treated as a write, so a
-//      new or oddly-named job is guarded, never silently run.
-// START/STOP match after `_` too ((?:\b|_)): \bSTOP missed STEUERN_ROE_STOP-
-// style names. Default-deny already guarded those, so nothing observable
-// changed in the corpus -- but with INFO checked after writes (rule 3), a
-// hypothetical SYSTEMCHECK_STOP_INFO must hit the write tier, not fall
-// through to the INFO tier. Relaxing a WRITE token is the safe direction.
-// Kept identical to the classifier in tools/verify/sgbd_bulk_verify.py --
-// two different answers to "is this a write?" is worse than either alone.
-// test_write_gate.js check 3 enforces the twin token-by-token.
-const READ_TOKEN = new RegExp(
-  '(LESEN|_LES\\b|\\bLES_|READ|STATUS|IDENT|ANZEIGE|ABFRAG' +
-    '|ANZAHL|ZUSTAND|GET_)',
-  'i'
-);
-// CONFIG names a read ONLY when nothing else in the name says otherwise. MS45
-// exposes ECU_CONFIG (83 12 F1 30 A8 01 -- a three-byte query for the
-// vehicle-equipment list) and ECU_CONFIG_RESET (9B 12 F1 30 A8 04 00 ... --
-// 27 bytes written back); they share service 0x30, so only the name separates
-// them. This is checked BEFORE the write token but requires the write token to
-// be absent, so read-wins ordering is preserved for everything else --
-// CODIERUNG_LESEN stays a read because READ_TOKEN still runs first.
-const CONFIG_READ_TOKEN = new RegExp('CONFIG', 'i');
-const WRITE_TOKEN = new RegExp(
-  '(SCHREIB|STEUERN|_SETZEN|SETZEN|LOESCH|FLASH|PROGRAMMIER|(?:\\b|_)START' +
-    '|(?:\\b|_)STOP|RESET|CODIER|WRITE|\\bSET\\b|DOWNLOAD|UPLOAD|ABGLEICH' +
-    '|ADAPTION|SLEEP|WAKEUP|POWER_?DOWN|AUTHENTIS|INITIALISIER|EINSTELL' +
-    '|AKTIVIER|DEAKTIVIER|TILGUNG|ANLERN|TEACH|CLEAR)',
-  'i'
-);
-const INFO_READ_TOKEN = new RegExp('(?:\\b|_)INFO', 'i');
-
-function isWriteJob(name) {
-  const n = String(name || '');
-  if (READ_TOKEN.test(n)) return false; // a read of anything is a read
-  // a *_CONFIG read, but only when no write verb rides along (_RESET etc.)
-  if (CONFIG_READ_TOKEN.test(n) && !WRITE_TOKEN.test(n)) return false;
-  if (WRITE_TOKEN.test(n)) return true; // a named write verb
-  if (INFO_READ_TOKEN.test(n)) return false; // *_INFO read, AFTER write check
-  return true; // default-deny: unknown => guarded
+if (typeof require === 'function' && typeof module !== 'undefined') {
+  Object.assign(
+    globalThis,
+    require('./machine.js'),
+    require('./operands.js'),
+    require('./environment.js')
+  );
 }
 
-// kept for callers that referenced the old constant; the classifier is the
-// real contract now.
-const WRITE_JOB = WRITE_TOKEN;
-
-// Which flag combination each conditional jump tests (EdOperations' jump
-// handlers). Named exactly as the disassembler emits them.
+/**
+ * Which flag combination each conditional jump tests (EdOperations' jump
+ * handlers). Named exactly as the disassembler emits them. jt/jnt are
+ * handled in step(): they test the TRAP REGISTER with an optional bit
+ * selector, not a boolean flag.
+ * @type {Object<string, (f: import('./machine.js').VmFlags) => boolean>}
+ */
 const JUMP_TESTS = {
   jz: (f) => f.zero,
   jnz: (f) => !f.zero,
@@ -110,683 +44,169 @@ const JUMP_TESTS = {
   jge: (f) => f.sign === f.overflow,
   jl: (f) => f.sign !== f.overflow,
   jle: (f) => f.zero || f.sign !== f.overflow,
-  // jt/jnt are handled in step(): they test the TRAP REGISTER with an
-  // optional bit selector, not a boolean flag.
 };
 
-class Best2Vm {
-  // code    parsed sgbd JSON from tools/sgbd_code.py
-  // opts.send(bytes) -> Uint8Array|number[]   the ECU exchange
-  // opts.tables {NAME: [row, ...]}            SGBD tables
-  // opts.extTables {SGBD: {NAME: [row, ...]}} tables in OTHER best files,
-  //                reached by `tabsetex "Name", "file"` -- group SGBDs pull
-  //                ZuordnungsTabelle from t_grtb this way (128 of the 249
-  //                groups in data/groups). Keyed by the bare file name.
-  // opts.args string                          job arguments, ';' separated
-  constructor(code, opts = {}) {
-    this.code = code;
-    this.send =
-      opts.send ||
-      (() => {
-        throw new VmError('no telegram sink');
-      });
-    this.tables = opts.tables || {};
-    this.extTables = opts.extTables || {};
-    this.argText = opts.args || '';
-    this.maxSteps = opts.maxSteps || 2_000_000;
-    // the job's declared array size (ArrayMaxBufSize); 1024 is EDIABAS's
-    // default and every E46 job fits it
-    this.arraySize = opts.arraySize || 1024;
-    // process-wide shared data (shmset/shmget), persists across jobs
-    this.shared = opts.shared || new Map();
-    // A SESSION runs INITIALISIERUNG once when the SGBD is loaded, not once
-    // per job. Callers that keep a session (webshim) pass inited:true on
-    // every job after the first, so the implicit init below is skipped --
-    // which is both what the engine does and one less telegram per job.
-    this._inited = !!opts.inited;
-    // Permission to transmit for a job that CHANGES the ECU. Off by
-    // default: a caller has to say so, and saying so is the point where a
-    // UI can put a confirmation in front of the user.
-    // WRITES ARE PERMITTED BY DEFAULT (owner's decision, 2026-08-19).
-    //
-    // This used to default to false, so actuator tests -- STEUERN_E_LUEFTER
-    // and friends -- never reached the wire: the fan screen's "Activate at
-    // 15%" appeared to do nothing while the readback sat at the DME's own 92.
-    // The classifier cannot tell a temporary actuator drive from a permanent
-    // EEPROM write (both are "write jobs"), so unblocking one unblocks both.
-    //
-    // What that means in practice: CODIERDATEN_SCHREIBEN, FS_LOESCHEN and the
-    // FLASH_* family now transmit. Those are unrecoverable on a real module.
-    // Pass {allowWrites: false} to restore the old refuse-everything behaviour.
-    this.allowWrites = opts.allowWrites !== false;
-    // Wire parameters from xsetpar. Seeded from the SESSION: xsetpar lives
-    // in INITIALISIERUNG, which runs once per session -- a fresh VM for a
-    // later job never executes it, so the caller carries comm forward the
-    // same way it carries `shared`. Without this seed every ordinary job
-    // transmitted with comm=null, i.e. BMW-FAST 115200 8N1, and every
-    // K-line module got line noise.
-    this.comm = opts.comm || null;
-    // A fixed clock for date/time, when the caller needs determinism.
-    // webshim re-runs a job's bytecode once per telegram fetched, and the
-    // answer memo is keyed on request bytes -- a timestamp that ticks
-    // between passes changes the bytes, misses the memo, and re-transmits
-    // a telegram that already went out.
-    this.now = opts.now || null;
-  }
+/**
+ * Each erg* opcode has a FIXED width and signedness, independent of the
+ * operand's own type (the reference's result table). Publishing ergi
+ * unsigned reported SMG2's coolant temperature as 65531 where the engine
+ * says -5.
+ * @type {Object<string, [number, boolean]>} opcode -> [width, signed]
+ */
+const ERG_SPECS = {
+  ergb: [1, false],
+  ergw: [2, false],
+  ergd: [4, false],
+  ergi: [2, true],
+  ergl: [4, true],
+};
 
-  reset() {
-    // Per the reference: a job start clears the stack, flags, string
-    // registers, results and traps. It does NOT clear byte/float registers,
-    // and shared data is process-wide -- so neither is reset here.
-    this.regBuf = this.regBuf || new Uint8Array(REG_BYTES);
-    this.sregs = new Map(); // name -> {buf, len}
-    this.fregs = new Map(); // name -> number
-    this.stack = []; // BYTE stack (push writes N bytes)
-    this.flags = {
-      zero: false,
-      sign: false,
-      carry: false,
-      overflow: false,
-      tested: false,
-    };
-    this.results = []; // completed result sets
-    this.cur = new Map(); // set being built
-    this.wanted = null; // etag filter, null = everything
-    this.table = null; // {rows, cols, row}
-    // The trap register: -1 = clean, 0 = an error with no mapped bit,
-    // 2..29 = a mapped EDIABAS error (BIP_0010 -> 10 is the table error),
-    // >= 0x40000000 = a user trap from `sett`. jt/jnt test THIS, not a
-    // generic "tested" flag -- a tabset that SUCCEEDS must leave it clean,
-    // and mine left a stale flag so `jt err,#10` fired after a good tabset
-    // and 31 jobs reported ERROR_TABLE.
-    this.trapBit = -1;
-    this.trapMask = 0; // set_trap_mask (settmr/gettmr), see OpSettmr
-    this.answer = new Uint8Array(0);
-    this.tokenSep = ''; // setspc separators for stoken
-    this.tokenIdx = 0; // 1-based token number, 0 = unset
-    // this.comm is deliberately NOT cleared: xsetpar runs in
-    // INITIALISIERUNG, and a job start that wiped it sent every subsequent
-    // telegram with default (BMW-FAST) framing. Comm lives as long as the
-    // VM / session, like shared data.
-    this.steps = 0;
-  }
+/**
+ * Bits of the flags WORD that `pushf` writes and `popf` reads.
+ */
+const FLAG_CARRY = 1;
+const FLAG_ZERO = 2;
+const FLAG_SIGN = 4;
+const FLAG_OVERFLOW = 8;
 
-  // ---- register access ------------------------------------------------
-  static regSpan(name) {
-    const kind = name[0];
-    const idx = parseInt(name.slice(1), 16);
-    if (!Number.isFinite(idx)) return null;
-    // A registers are byte registers at index+16, NOT a wider type
-    if (kind === 'B') return [idx, 1];
-    if (kind === 'A') return [16 + idx, 1];
-    if (kind === 'I') return [idx * 2, 2];
-    if (kind === 'L') return [idx * 4, 4];
-    return null;
-  }
+/** `jt target, 32` aliases the unmapped trap bit 0. */
+const TRAP_BIT_ALIAS_UNMAPPED = 32;
 
-  getReg(name) {
-    if (name[0] === 'F') return this.fregs.get(name) || 0;
-    if (name[0] === 'S') return this.getS(name);
-    const span = Best2Vm.regSpan(name);
-    if (!span) throw new VmError(`unknown register ${name}`);
-    // LITTLE-endian within the view: byte 0 is the LOW byte
-    // (Register.GetValueData -- reg[off] + reg[off+1]<<8 + ...). Reading
-    // these big-endian made `move B0,x` show up as x*256 in I0, so a
-    // one-byte flag published as 256.
-    let v = 0;
-    for (let i = span[1] - 1; i >= 0; i--)
-      v = v * 256 + this.regBuf[span[0] + i];
-    return v;
-  }
+/**
+ * What `xtype` reports: EdInterfaceObd's name for the K+DCAN cable this
+ * app drives. SGBDs (carb) branch on it to pick their concept.
+ */
+const INTERFACE_TYPE = 'OBD';
 
-  setReg(name, value) {
-    if (name[0] === 'F') {
-      this.fregs.set(name, value);
-      return;
-    }
-    if (name[0] === 'S') {
-      this.setS(name, value);
-      return;
-    }
-    const span = Best2Vm.regSpan(name);
-    if (!span) throw new VmError(`unknown register ${name}`);
-    let v = Math.trunc(Number(value));
-    if (v < 0) v += 2 ** (8 * span[1]); // two's complement in-width
-    for (let i = 0; i < span[1]; i++) {
-      // low byte first
-      this.regBuf[span[0] + i] = v & 0xff;
-      v = Math.floor(v / 256);
-    }
-  }
+/**
+ * What `xvers` reports: EdInterfaceObd.InterfaceVersion, 209 (0xD1). Not
+ * the engine's 7.3.0 -- the INTERFACE's version, which is what the SGBD
+ * asks.
+ */
+const INTERFACE_VERSION = 209;
 
-  // A string register is a FIXED-CAPACITY buffer plus a logical length,
-  // exactly like EdiabasNet's StringData -- not a JS array that shrinks.
-  // The distinction is observable: `clear` zeroes the length but reads at an
-  // index past it still see whatever bytes are in the buffer
-  // (Operand.GetRawData uses GetArrayData(TRUE), the complete buffer), and
-  // MS450's IDENT publishes ID_SG_ADR from exactly such a stale byte.
-  sd(name) {
-    let d = this.sregs.get(name);
-    if (!d) {
-      d = { buf: new Uint8Array(this.arraySize), len: 0 };
-      this.sregs.set(name, d);
-    }
-    return d;
-  }
+/**
+ * A CommParameter blob DECLARES its own element width in byte 1
+ * (EdOperations.OpXsetpar): 0x00 = 16-bit words, 0x01 = 32-bit dwords,
+ * 0xFF = bytes; anything else is not a CommParameter.
+ * @type {Object<number, number>}
+ */
+const COMM_PARAM_WIDTHS = { 0x00: 2, 0x01: 4, 0xff: 1 };
 
-  // logical contents
-  getS(name) {
-    const d = this.sd(name);
-    return d.buf.subarray(0, d.len);
-  }
+/** The largest protocol concept number a CommParameter blob can name. */
+const COMM_CONCEPT_MAX = 0x1ff;
 
-  // the complete buffer, stale bytes included -- what indexed reads see
-  getSraw(name) {
-    return this.sd(name).buf;
-  }
+/** BEST/2 `wait` is in SECONDS; the transport pauses in milliseconds. */
+const MS_PER_SECOND = 1000;
 
-  setS(name, bytes, keepLength) {
-    const d = this.sd(name);
-    const src =
-      bytes instanceof Uint8Array ? bytes : Uint8Array.from(bytes || []);
-    if (src.length > d.buf.length) {
-      // over capacity: StringData.SetData raises EDIABAS_BIP_0001 (no
-      // mapped trap bit -> 0) and does NOT write. Returning silently left
-      // the register holding stale bytes with a clean trap register.
-      this.trapBit = 0;
-      return;
-    }
-    d.buf.set(src, 0);
-    if (!keepLength) d.len = src.length;
-  }
+/**
+ * Reduce a value to the unsigned range of a width: `value mod 2^(8*width)`,
+ * non-negative even for a negative input.
+ * @param {number} value - The value.
+ * @param {number} width - The width in bytes.
+ * @returns {number} The wrapped value.
+ */
+function wrapToWidth(value, width) {
+  const lim = 2 ** (8 * width);
+  return ((value % lim) + lim) % lim;
+}
 
-  // `clear` on a string register zeroes the whole buffer AND the length
-  clearS(name) {
-    const d = this.sd(name);
-    d.buf.fill(0);
-    d.len = 0;
-  }
+/**
+ * Two's-complement negation in FULL 32 bits, `(uint)(-value)` -- what the
+ * engine feeds SetOverflow for a subtraction.
+ * @param {number} value - An unsigned value.
+ * @returns {number} Its 32-bit negation, unsigned.
+ */
+function negateU32(value) {
+  return (0x100000000 - value) % 0x100000000;
+}
 
-  // ---- operands -------------------------------------------------------
-  // [mode, ...payload] as emitted by sgbd_code.py
-  resolveIdx(mode, a) {
-    // ranged/indexed modes name either an immediate index or a register
-    if (mode === 9 || mode === 12 || mode === 13) return a; // imm
-    return this.getReg(a); // reg
-  }
+/**
+ * Read an unsigned 32-bit pattern as a signed integer.
+ * @param {number} value - The unsigned value.
+ * @returns {number} The signed value.
+ */
+function toInt32(value) {
+  return value >= 0x80000000 ? value - 0x100000000 : value;
+}
 
-  resolveLen(mode, a) {
-    if (mode === 12 || mode === 14) return a; // imm
-    return this.getReg(a);
-  }
+/**
+ * Zero-pad a number to two digits, for the `date`/`time` texts.
+ * @param {number} n - The number.
+ * @returns {string} Two or more digits.
+ */
+function twoDigits(n) {
+  return String(n).padStart(2, '0');
+}
 
-  // Numeric read. `width` is the DESTINATION's width, and for byte-array
-  // sources it decides how many bytes are folded -- Operand.GetValueData
-  // takes dataLen from the caller and assembles that many bytes
-  // LITTLE-endian, zero-padding when the slice is short.
-  //
-  // This matters far beyond arithmetic: `move I2, S2[B2]` reads TWO bytes
-  // of the response into I2. Reading one byte made every response-length
-  // guard of the form `move I2,S2[B2] / and / comp I5,I4` compare the wrong
-  // number, so jobs reported ERROR_ECU_INCORRECT_LEN and emitted nothing.
-  val(op, width) {
-    const [m, a, b, c] = op;
-    if (m >= 5 && m <= 7) return a;
-    if (m === 8) return 0; // a string literal as number
-    if (m >= 1 && m <= 4) {
-      if (a[0] === 'S') {
-        const buf = this.getS(a);
-        const n = width || buf.length;
-        let v = 0;
-        for (let i = n - 1; i >= 0; i--) v = v * 256 + (buf[i] || 0);
-        return v;
-      }
-      return this.getReg(a);
-    }
-    if (m === 9 || m === 10 || m === 11) {
-      const buf = this.getSraw(a); // complete buffer, stale included
-      let i = m === 9 ? b : this.getReg(b);
-      if (m === 11) i += c || 0;
-      const n = width || 1;
-      let v = 0;
-      for (let k = n - 1; k >= 0; k--) v = v * 256 + (buf[i + k] || 0);
-      return v;
-    }
-    if (m >= 12 && m <= 15) {
-      const buf = this.bytes(op);
-      const n = width || buf.length;
-      let v = 0;
-      for (let i = n - 1; i >= 0; i--) v = v * 256 + (buf[i] || 0);
-      return v;
-    }
-    throw new VmError(`operand mode ${m} as value`);
-  }
-
-  // byte-array read (string registers, ranges, literals)
-  bytes(op) {
-    const [m, a, b, c] = op;
-    if (m === 8) {
-      // a pool entry is either a byte ARRAY (an exact literal, possibly
-      // containing NULs) or a plain string (a result/table name)
-      const lit = this.code.strings[a];
-      return Array.isArray(lit)
-        ? Uint8Array.from(lit)
-        : Best2Vm.strBytes(lit ?? '');
-    }
-    if (m >= 1 && m <= 4) {
-      if (a[0] === 'S') return this.getS(a);
-      const span = Best2Vm.regSpan(a);
-      return this.regBuf.slice(span[0], span[0] + span[1]);
-    }
-    if (m === 9 || m === 10) {
-      const buf = this.getSraw(a);
-      const i = m === 9 ? b : this.getReg(b);
-      return i < buf.length ? buf.slice(i, i + 1) : new Uint8Array(0);
-    }
-    if (m >= 12 && m <= 15) {
-      const buf = this.getSraw(a);
-      const i = this.resolveIdx(m, b);
-      const n = this.resolveLen(m, c);
-      // reads past the current length yield what exists, not an error --
-      // the engine's Operand does the same, and jobs rely on it
-      return buf.slice(i, i + Math.max(0, n));
-    }
-    if (m >= 5 && m <= 7) {
-      return Uint8Array.from([a & 0xff]);
-    }
-    throw new VmError(`operand mode ${m} as bytes`);
-  }
-
-  // write back
-  store(op, value, asBytes) {
-    const [m, a, b, c] = op;
-    if (m >= 1 && m <= 4) {
-      if (asBytes) {
-        if (a[0] === 'S') {
-          this.setS(a, value);
-          return;
-        }
-        const span = Best2Vm.regSpan(a);
-        for (let i = 0; i < span[1]; i++) {
-          this.regBuf[span[0] + i] = i < value.length ? value[i] : 0;
-        }
-        return;
-      }
-      this.setReg(a, value);
-      return;
-    }
-    if (m === 9 || m === 10 || m === 11) {
-      let i = m === 9 ? b : this.getReg(b);
-      if (m === 11) i += c || 0;
-      const d = this.sd(a);
-      if (i >= d.buf.length) return; // over capacity: no write
-      // value is serialized LITTLE-endian across `width` bytes
-      const src = asBytes
-        ? value
-        : (() => {
-            const w = 1;
-            const o = new Uint8Array(w);
-            let v = Number(value);
-            for (let k = 0; k < w; k++) {
-              o[k] = v & 0xff;
-              v = Math.floor(v / 256);
-            }
-            return o;
-          })();
-      for (let k = 0; k < src.length && i + k < d.buf.length; k++) {
-        d.buf[i + k] = src[k];
-      }
-      d.len = Math.max(d.len, i + src.length); // grows, never shrinks
-      return;
-    }
-    if (m >= 12 && m <= 15) {
-      const i = this.resolveIdx(m, b);
-      const n = this.resolveLen(m, c);
-      const src = asBytes ? value : Uint8Array.from([Number(value) & 0xff]);
-      const d = this.sd(a);
-      for (let k = 0; k < n && i + k < d.buf.length; k++) {
-        d.buf[i + k] = k < src.length ? src[k] : 0;
-      }
-      d.len = Math.max(d.len, Math.min(i + Math.max(0, n), d.buf.length));
-      return;
-    }
-    throw new VmError(`operand mode ${m} as destination`);
-  }
-
-  static strBytes(s) {
-    return Best2Vm.strBytesCp1252(String(s ?? ''));
-  }
-
-  // CP1252, the engine's ambient Encoding -- NOT latin-1. Bytes 0x80..0x9F
-  // are printable there (0x96 is an en dash), and decoding them as latin-1
-  // control characters turned "LLR - Solldrehzahl" into a C1 escape.
-  static CP1252_HIGH = [
-    0x20ac, 0x81, 0x201a, 0x0192, 0x201e, 0x2026, 0x2020, 0x2021, 0x02c6,
-    0x2030, 0x0160, 0x2039, 0x0152, 0x8d, 0x017d, 0x8f, 0x90, 0x2018, 0x2019,
-    0x201c, 0x201d, 0x2022, 0x2013, 0x2014, 0x02dc, 0x2122, 0x0161, 0x203a,
-    0x0153, 0x9d, 0x017e, 0x0178,
-  ];
-
-  static bytesStr(b) {
-    let s = '';
-    for (const x of b) {
-      s += String.fromCharCode(
-        x >= 0x80 && x <= 0x9f ? Best2Vm.CP1252_HIGH[x - 0x80] : x
-      );
-    }
-    return s;
-  }
-
-  // ...and the inverse, for text written back into a byte buffer
-  static strBytesCp1252(str) {
-    const out = new Uint8Array(str.length);
-    for (let i = 0; i < str.length; i++) {
-      const c = str.charCodeAt(i);
-      if (c <= 0xff) {
-        out[i] = c;
-        continue;
-      }
-      const k = Best2Vm.CP1252_HIGH.indexOf(c);
-      out[i] = k >= 0 ? 0x80 + k : 0x3f;
-    }
-    return out;
-  }
-
-  // NUL-terminated text, the way result strings are published
-  // set_communication_pars, decoded the way EdInterfaceObd.cs reads it: the
-  // answer timeout, the regeneration gap and the response-pending timeout
-  // sit at a concept-specific index in the CommParameter words. The old
-  // "largest plausible timing word" guess picked ParTimeoutNr78 (5000 ms,
-  // the 0x78 busy-wait) as the answer timeout on every 0x1xx concept, so a
-  // silent KWP2000* probe cost 5 s where EDIABAS waits 500 ms -- the whole
-  // "MS45 takes ages to identify the first time".
-  //   concepts 1,2,3,5,6  (ISO 9141, KWP1281, DS1/DS2): [5] [6] [7]
-  //   0x10B/0x10C/0x10D   (KWP2000 std/BMW/*):          [2] [3] [4], Nr78 [7]
-  //   0x10F               (BMW-FAST):                    [2] [3] [4], Nr78 [6]
-  //   0x110               (D-CAN):                       [7] [8],     Nr78 [9]
-  static decodeCommParams(words) {
-    const c = words[0];
-    const at = (i) => (i < words.length && words[i] > 0 ? words[i] : null);
-    let timeout = null,
-      regen = null,
-      telEnd = null,
-      timeoutNr78 = null;
-    if (c >= 0x1 && c <= 0x6) {
-      timeout = at(5);
-      regen = at(6);
-      telEnd = at(7);
-    } else if (c === 0x10b || c === 0x10c || c === 0x10d) {
-      timeout = at(2);
-      regen = at(3);
-      telEnd = at(4);
-      timeoutNr78 = at(7);
-    } else if (c === 0x10f) {
-      timeout = at(2);
-      regen = at(3);
-      telEnd = at(4);
-      timeoutNr78 = at(6);
-    } else if (c === 0x110) {
-      timeout = at(7);
-      regen = at(8);
-      timeoutNr78 = at(9);
-    }
-    return {
-      concept: c,
-      baud: words[1],
-      timeout,
-      regen,
-      telEnd,
-      timeoutNr78,
-      params: words,
-    };
-  }
-
-  static cstr(b) {
-    const z = b.indexOf(0);
-    return Best2Vm.bytesStr(z < 0 ? b : b.slice(0, z));
-  }
-
-  // Flags.SetOverflow: only when the operands SHARE a sign that differs
-  // from the result's. Operands are compared at the operation width.
+Object.assign(Best2Vm.prototype, {
+  /**
+   * Flags.SetOverflow: only when the operands SHARE a sign that differs
+   * from the result's. Operands are compared at the operation width.
+   * @param {number} v1 - The first operand, unsigned at `width`.
+   * @param {number} v2 - The second operand, unsigned at `width`.
+   * @param {number} result - The raw (unwrapped) result.
+   * @param {number} width - The operation width in bytes.
+   * @returns {void}
+   */
   setOverflow(v1, v2, result, width) {
     const sm = 2 ** (8 * width - 1);
     const s1 = (v1 & sm) !== 0,
       s2 = (v2 & sm) !== 0;
-    const sr =
-      ((((result % 2 ** (8 * width)) + 2 ** (8 * width)) % 2 ** (8 * width)) &
-        sm) !==
-      0;
+    const sr = (wrapToWidth(result, width) & sm) !== 0;
     this.flags.overflow = s1 === s2 && s1 !== sr;
-  }
+  },
 
-  // ---- flags ----------------------------------------------------------
+  /**
+   * Set Zero and Sign from a result at a width.
+   * @param {number} value - The raw (unwrapped) result.
+   * @param {number} width - The width in bytes.
+   * @returns {void}
+   */
   updateFlags(value, width) {
-    const bits = 8 * width;
-    const masked = ((value % 2 ** bits) + 2 ** bits) % 2 ** bits;
+    const masked = wrapToWidth(value, width);
     this.flags.zero = masked === 0;
-    this.flags.sign = masked >= 2 ** (bits - 1);
-  }
+    this.flags.sign = masked >= 2 ** (8 * width - 1);
+  },
 
-  // ---- the loop -------------------------------------------------------
-  // Run a job the way a SESSION does: EDIABAS executes the SGBD's
-  // INITIALISIERUNG job once before the first real job (ExecuteInitJob),
-  // and SGBDs use it to populate shared data that later jobs read -- MS450's
-  // AIF block size and free count arrive that way via shmset/shmget. Without
-  // it those results read zeros.
-  run(jobName, args) {
-    // Refuse a write job BEFORE anything is transmitted -- including the
-    // implicit INITIALISIERUNG, which is itself only a read but still puts
-    // bytes on the wire. "Nothing was sent" is a much easier promise to
-    // reason about than "only harmless things were sent".
-    if (isWriteJob(jobName) && !this.allowWrites) {
-      throw new VmError(
-        `refusing to run write job ${jobName}: ` +
-          'construct the VM with {allowWrites: true} to permit it'
-      );
+  /**
+   * Push a value as `n` bytes, LSB first, so the top of the stack is the
+   * most significant byte.
+   * @param {number} value - The value.
+   * @param {number} n - How many bytes.
+   * @returns {void}
+   */
+  pushBytes(value, n) {
+    let v = value;
+    for (let i = 0; i < n; i++) {
+      this.stack.push(v & 0xff);
+      v = Math.floor(v / 256);
     }
-    const init = this.code.jobs.INITIALISIERUNG;
-    if (
-      init !== undefined &&
-      !this._inited &&
-      String(jobName).toUpperCase() !== 'INITIALISIERUNG'
-    ) {
-      this._inited = true;
-      // The init runs with NO arguments, but the real job's argument may
-      // already be sitting in argText (constructed with {args}); runOne(init,
-      // '') overwrote it and FS_LESEN_DETAIL then saw no F_CODE at all.
-      const jobArgs = args !== undefined ? args : this.argText;
-      let initSets;
-      try {
-        initSets = this.runOne(init, '');
-      } catch (e) {
-        // An init that fails FAILS THE JOB. ExecuteInitJob rethrows any
-        // exception and closes the SGBD to force a reload -- it does not
-        // shrug and continue. Swallowing here converted every loud init
-        // failure (unimplemented opcode, step limit, eerr) into a job that
-        // "succeeded" with empty shared data and published zeros as OKAY.
-        // The needAnswer sentinel (webshim fetching a telegram answer) also
-        // rethrows, and both paths clear _inited so init runs again on the
-        // next attempt.
-        this._inited = false;
-        throw e;
-      }
-      // ExecuteInitJob also demands the init PROVE itself: result set 1
-      // (our set 0; the engine's set 0 is synthetic) must carry DONE=1, or
-      // the engine reports EDIABAS_SYS_0010 and unloads the SGBD.
-      const done =
-        initSets && initSets.length && Number(initSets[0].DONE) === 1;
-      if (!done) {
-        this._inited = false;
-        throw new VmError(
-          'INITIALISIERUNG did not report DONE=1 (EDIABAS_SYS_0010)'
-        );
-      }
-      this.argText = jobArgs;
-    }
-    return this.runOne(undefined, args, jobName);
-  }
+  },
 
-  runOne(entryIdx, args, jobName) {
-    const entry =
-      entryIdx !== undefined
-        ? entryIdx
-        : (this.code.jobs[jobName] ?? this.code.jobs[jobName?.toUpperCase()]);
-    if (entry === undefined) throw new VmError(`no job ${jobName}`);
-    this.jobName = jobName || this.jobName;
-    // INITIALISIERUNG runs implicitly before a real job; it is never a
-    // write, and must not inherit the target job's classification.
-    this.writeJob = entryIdx !== undefined ? false : isWriteJob(jobName);
-    this.reset();
-    if (args !== undefined) this.argText = args;
-    this.argBytes = Best2Vm.strBytes(this.argText);
-    this._args = undefined;
-    let pc = entry;
-    const ops = this.code.ops;
-    while (pc >= 0 && pc < ops.length) {
-      if (++this.steps > this.maxSteps) {
-        throw new VmError(`step limit at op ${pc}`);
-      }
-      const [name, a] = ops[pc];
-      const next = this.step(name, a, pc);
-      if (next === STOP) break;
-      pc = next === undefined ? pc + 1 : next;
-    }
-    this.flush();
-    return this.results;
-  }
+  /**
+   * Pop `n` bytes and rebuild the value: push wrote LSB first, so the MSB
+   * is on top, and popping MSB-first while shifting left reassembles
+   * exactly what was pushed. The caller checks the stack is deep enough.
+   * @param {number} n - How many bytes.
+   * @returns {number} The value.
+   */
+  popValue(n) {
+    let v = 0;
+    for (let i = 0; i < n; i++) v = v * 256 + this.stack.pop();
+    return v;
+  },
 
-  flush() {
-    if (this.cur.size) {
-      this.results.push(Object.fromEntries(this.cur));
-      this.cur = new Map();
-    }
-  }
-
-  // Store TEXT into a string register the way Operand.SetStringData does:
-  // the bytes PLUS one appended NUL when non-empty (an empty string stores a
-  // zero-length array with no NUL). This is observable, not cosmetic --
-  // `scmp` is byte-exact, and the compiler's literals carry the terminator
-  // ("6\0"), so a stored "6" without one never matched and MS420's VANOS
-  // jobs fell through to ERROR_FUNCTION_*.
-  storeText(op, txt) {
-    const b = Best2Vm.strBytes(String(txt ?? ''));
-    if (b.length === 0) {
-      this.store(op, b, true);
-      return;
-    }
-    const out = new Uint8Array(b.length + 1);
-    out.set(b);
-    this.store(op, out, true);
-  }
-
-  // A shared-data key. GetStringData stops at the first NUL, so a key that
-  // IS a NUL byte reads as the empty string -- which is a perfectly valid
-  // key, and the one MS450's AIF block uses. Uppercased, as the engine does.
-  shmKey(op) {
-    const raw = op[0] === 8 ? this.code.strings[op[1]] : this.bytes(op);
-    const bytes = Array.isArray(raw) ? Uint8Array.from(raw) : raw;
-    return Best2Vm.cstr(bytes).toUpperCase();
-  }
-
-  // A result NAME is arg0.GetStringData(): usually an inline literal, but
-  // it can equally be a REGISTER -- MS420's VANOS jobs name a result from a
-  // register still holding response bytes, and the engine faithfully
-  // publishes the resulting garbage key. Assuming a pool index dropped the
-  // name to the empty string.
-  resName(op) {
-    if (op[0] === 8) return this.lit(op[1]);
-    return Best2Vm.cstr(this.bytes(op));
-  }
-
-  // A pool entry as TEXT: a byte-array literal is NUL-terminated text.
-  lit(i) {
-    const v = this.code.strings[i];
-    if (Array.isArray(v)) return Best2Vm.cstr(Uint8Array.from(v));
-    return v ?? '';
-  }
-
-  // Job arguments split on ';'. An EMPTY argument string is ZERO
-  // parameters (GetActiveArgStrings only splits when length > 0), not one
-  // empty string -- otherwise `parn` reports 1 and every arg guard inverts.
-  args() {
-    if (this._args === undefined) {
-      this._args = this.argText.length > 0 ? this.argText.split(';') : [];
-    }
-    return this._args;
-  }
-
-  // Case-insensitive table lookup, with the exact name preferred.
-  findTable(name) {
-    if (!name) return null;
-    if (this.tables[name]) return this.tables[name];
-    const want = String(name).toUpperCase();
-    if (!this._tabIndex) {
-      this._tabIndex = new Map();
-      for (const k of Object.keys(this.tables)) {
-        this._tabIndex.set(k.toUpperCase(), this.tables[k]);
-      }
-    }
-    return this._tabIndex.get(want) || null;
-  }
-
-  // A table in ANOTHER best file (`tabsetex "Name", "file"`). Both levels
-  // case-insensitive, like TableNameDict and the engine's file lookup.
-  // Per OpTabsetex (EdOperations.cs): a NON-empty file name switches the
-  // table stream to that file and looks the table up THERE -- there is no
-  // fallback to the current SGBD's own tables.
-  findExtTable(file, name) {
-    if (!file || !name) return null;
-    const wantFile = String(file).toUpperCase();
-    let group = null;
-    for (const k of Object.keys(this.extTables)) {
-      if (k.toUpperCase() === wantFile) {
-        group = this.extTables[k];
-        break;
-      }
-    }
-    if (!group) return null;
-    if (group[name]) return group[name];
-    const want = String(name).toUpperCase();
-    for (const k of Object.keys(group)) {
-      if (k.toUpperCase() === want) return group[k];
-    }
-    return null;
-  }
-
-  // Publish a result. The KEY IS UPPERCASED (SetResultData keys
-  // _resultDict on Name.ToUpper), so ZKE5's "STAT_IFFHMax_WERT" is
-  // published as STAT_IFFHMAX_WERT -- the values were already right, only
-  // the key case differed, and a caller looking up the engine's name found
-  // nothing. Last write wins, as the engine's dictionary assignment does.
-  emit(name, value) {
-    const key = String(name).toUpperCase();
-    if (this.wanted && !this.wanted.has(key) && !key.startsWith('JOB_')) {
-      return;
-    }
-    this.cur.set(key, value);
-  }
-
-  // THE width rule: GetArgsValueLength returns arg0.GetDataLen(TRUE) and
-  // ignores arg1 entirely, so every arithmetic/move width comes from the
-  // DESTINATION in write mode. write=true is what makes a plain indexed
-  // destination (S0[i]) exactly one byte wide.
-  widthOf(op) {
-    const m = op[0];
-    if (m >= 1 && m <= 4) {
-      const r = op[1];
-      if (r[0] === 'S') return this.getS(r).length;
-      const span = Best2Vm.regSpan(r);
-      return span ? span[1] : 4;
-    }
-    if (m === 5) return 1;
-    if (m === 6) return 2;
-    if (m === 7) return 4;
-    if (m === 8) return this.bytes(op).length;
-    if (m === 9 || m === 10 || m === 11) return 1; // write mode
-    if (m >= 12 && m <= 15) return this.bytes(op).length;
-    return 0;
-  }
-
+  /**
+   * Execute one instruction.
+   * @param {string} name - The opcode name as sgbd_code.py emits it.
+   * @param {import('./machine.js').Operand[]} a - Its operands.
+   * @param {number} pc - Its index in `ops`, for error messages.
+   * @returns {number|symbol|undefined} The next `pc` for a taken jump,
+   *   STOP at `eoj`, or undefined to fall through to `pc + 1`.
+   * @throws {VmError} An unimplemented opcode, an unresolved jump, a
+   *   refused write, an oversized answer, or an `eerr`.
+   */
   step(name, a, pc) {
     const A = a[0],
       B = a[1];
@@ -805,18 +225,12 @@ class Best2Vm {
       case 'push': {
         const w = this.widthOf(A);
         let v = this.val(A);
-        if (A[0] >= 5 && A[0] <= 7) {
+        if (opIsImm(A[0])) {
           // an immediate pushes 4 bytes (EdValueType width)
-          for (let i = 0; i < 4; i++) {
-            this.stack.push(v & 0xff);
-            v = Math.floor(v / 256);
-          }
+          this.pushBytes(v, 4);
           return;
         }
-        for (let i = 0; i < w; i++) {
-          this.stack.push(v & 0xff);
-          v = Math.floor(v / 256);
-        }
+        this.pushBytes(v, w);
         return;
       }
       case 'pop': {
@@ -828,8 +242,7 @@ class Best2Vm {
           this.updateFlags(0, w);
           return;
         }
-        let v = 0;
-        for (let i = 0; i < w; i++) v = v * 256 + this.stack.pop();
+        const v = this.popValue(w);
         this.store(A, v);
         this.flags.overflow = false;
         this.updateFlags(v, w);
@@ -857,31 +270,25 @@ class Best2Vm {
       case 'pushf': {
         // the flags WORD (bit0 carry, bit1 zero, bit2 sign, bit3 overflow),
         // 4 bytes LSB-first like any other push -- not four zeros
-        let v =
-          (f.carry ? 1 : 0) |
-          (f.zero ? 2 : 0) |
-          (f.sign ? 4 : 0) |
-          (f.overflow ? 8 : 0);
-        for (let i = 0; i < 4; i++) {
-          this.stack.push(v & 0xff);
-          v >>= 8;
-        }
+        const v =
+          (f.carry ? FLAG_CARRY : 0) |
+          (f.zero ? FLAG_ZERO : 0) |
+          (f.sign ? FLAG_SIGN : 0) |
+          (f.overflow ? FLAG_OVERFLOW : 0);
+        this.pushBytes(v, 4);
         return;
       }
       case 'popf': {
-        let v = 0;
-        if (this.stack.length >= 4) {
-          for (let i = 0; i < 4; i++) v = v * 256 + this.stack.pop();
-        }
-        f.carry = !!(v & 1);
-        f.zero = !!(v & 2);
-        f.sign = !!(v & 4);
-        f.overflow = !!(v & 8);
+        const v = this.stack.length >= 4 ? this.popValue(4) : 0;
+        f.carry = !!(v & FLAG_CARRY);
+        f.zero = !!(v & FLAG_ZERO);
+        f.sign = !!(v & FLAG_SIGN);
+        f.overflow = !!(v & FLAG_OVERFLOW);
         return;
       }
 
       case 'clear': {
-        if (A[0] >= 1 && A[0] <= 4 && A[1][0] === 'S') {
+        if (opIsStringReg(A)) {
           this.clearS(A[1]);
         } else {
           this.store(A, 0, false);
@@ -901,10 +308,10 @@ class Best2Vm {
         // destination takes bytes. Reading a string source into a numeric
         // destination folds big-endian (Operand.GetValueData).
         const dstIsBytes =
-          (A[0] >= 1 && A[0] <= 4 && A[1][0] === 'S') ||
-          A[0] >= 12 ||
-          B[0] === 8 ||
-          (B[0] >= 1 && B[0] <= 4 && B[1] && B[1][0] === 'S');
+          opIsStringReg(A) ||
+          opIsRange(A[0]) ||
+          B[0] === OpMode.IMM_STR ||
+          opIsStringReg(B);
         if (dstIsBytes) {
           this.store(A, this.bytes(B), true);
           return;
@@ -938,11 +345,10 @@ class Best2Vm {
         const w = this.widthOf(A);
         const x = this.val(A, w),
           y = this.val(B, w) + (name === 'subc' && f.carry ? 1 : 0);
-        const lim = 2 ** (8 * w);
         const diff = x - y;
         f.carry = diff < 0;
-        this.setOverflow(x, (0x100000000 - y) % 0x100000000, diff, w);
-        this.store(A, ((diff % lim) + lim) % lim);
+        this.setOverflow(x, negateU32(y), diff, w);
+        this.store(A, wrapToWidth(diff, w));
         this.updateFlags(diff, w);
         return;
       }
@@ -958,7 +364,7 @@ class Best2Vm {
           y = this.val(B, w);
         const diff = x - y;
         f.carry = diff < 0;
-        this.setOverflow(x, (0x100000000 - y) % 0x100000000, diff, w);
+        this.setOverflow(x, negateU32(y), diff, w);
         this.updateFlags(diff, w);
         return;
       }
@@ -991,7 +397,7 @@ class Best2Vm {
         this.store(A, result % lim);
         f.overflow = false;
         this.updateFlags(result, w);
-        if (B && B[0] >= 1 && B[0] <= 4 && String(B[1])[0] !== 'S') {
+        if (opIsNumReg(B)) {
           this.store(B, Math.floor(result / lim) % lim);
         }
         return;
@@ -1006,10 +412,8 @@ class Best2Vm {
         // 0xFFFFFB38 = -1224, and -1224/100 = -12, which is 65524 as an
         // unsigned 16-bit result.
         const w = this.widthOf(A);
-        const toI32 = (v) => (v >= 0x80000000 ? v - 0x100000000 : v);
-        const x = toI32(this.val(A, w)),
-          y = toI32(this.val(B, w));
-        const lim = 2 ** (8 * w);
+        const x = toInt32(this.val(A, w)),
+          y = toInt32(this.val(B, w));
         if (y === 0) {
           // OpDivs on a zero divisor raises EDIABAS_BIP_0007 (which has no
           // mapped trap bit -> 0), KEEPS arg0's value, and still writes a
@@ -1017,22 +421,22 @@ class Best2Vm {
           // count byte into 0-valued results published as OKAY. The
           // trap-mask layer is not modeled (see generr), so trapping is
           // the conservative choice over aborting the job.
-          this.trapBit = 0;
+          this.trapBit = TRAP_UNMAPPED;
           f.overflow = false;
           this.updateFlags(0, w);
-          if (B && B[0] >= 1 && B[0] <= 4 && String(B[1])[0] !== 'S') {
+          if (opIsNumReg(B)) {
             this.store(B, 0);
           }
           return;
         }
         const q = Math.trunc(x / y),
           rem = x % y;
-        const stored = ((q % lim) + lim) % lim;
+        const stored = wrapToWidth(q, w);
         this.store(A, stored);
         f.overflow = false;
         this.updateFlags(stored, w);
-        if (B && B[0] >= 1 && B[0] <= 4 && String(B[1])[0] !== 'S') {
-          this.store(B, ((rem % lim) + lim) % lim);
+        if (opIsNumReg(B)) {
+          this.store(B, wrapToWidth(rem, w));
         }
         return;
       }
@@ -1095,7 +499,7 @@ class Best2Vm {
           f.carry = Math.floor(u / 2 ** (n - 1)) % 2 === 1;
         }
         const r = Math.floor(v / 2 ** n);
-        this.store(A, ((r % lim) + lim) % lim);
+        this.store(A, wrapToWidth(r, w));
         this.updateFlags(r, w);
         return;
       }
@@ -1120,7 +524,7 @@ class Best2Vm {
       case 'flt2fix': {
         const w = this.widthOf(A);
         const v = Math.trunc(this.getReg(B[1]));
-        this.store(A, ((v % 2 ** (8 * w)) + 2 ** (8 * w)) % 2 ** (8 * w));
+        this.store(A, wrapToWidth(v, w));
         this.updateFlags(v, w);
         return;
       }
@@ -1129,12 +533,7 @@ class Best2Vm {
       case 'fmul':
       case 'fdiv': {
         const x = this.getReg(A[1]);
-        const y =
-          B[0] === 8
-            ? Best2Vm.parseNum(this.lit(B[1]))
-            : B[1] && String(B[1])[0] === 'F'
-              ? this.getReg(B[1])
-              : this.val(B);
+        const y = this.floatOf(B);
         let r = x;
         if (name === 'fadd') r = x + y;
         else if (name === 'fsub') r = x - y;
@@ -1144,7 +543,7 @@ class Best2Vm {
           // infinite or NaN quotient raises EDIABAS_BIP_0011 (trap bit 8).
           // Storing a silent 0 hid the division by zero entirely.
           r = x / y;
-          if (!Number.isFinite(r)) this.trapBit = 8;
+          if (!Number.isFinite(r)) this.trapBit = TRAP_FLOAT;
         }
         this.fregs.set(A[1], r);
         return;
@@ -1154,14 +553,8 @@ class Best2Vm {
         // borrow arithmetic here -- zero/sign carry the ordering and
         // overflow stays clear, which is exactly what makes jl/jg/jle/jge
         // (sign vs overflow) and jc/jb (carry) all read as plain < and >.
-        const fv = (op) =>
-          op[0] === 8
-            ? Best2Vm.parseNum(this.lit(op[1]))
-            : op[1] && String(op[1])[0] === 'F'
-              ? this.getReg(op[1])
-              : this.val(op);
-        const x = fv(A),
-          y = fv(B);
+        const x = this.floatOf(A),
+          y = this.floatOf(B);
         f.zero = x === y;
         f.sign = x < y;
         f.carry = x < y;
@@ -1176,10 +569,10 @@ class Best2Vm {
         const n = name === 'y42flt' ? 4 : 8;
         const [m, a, b, c] = B;
         let src;
-        if (m >= 9 && m <= 11) {
+        if (opIsIndexed(m)) {
           const raw = this.getSraw(a);
-          let i = m === 9 ? b : this.getReg(b);
-          if (m === 11) i += c || 0;
+          let i = m === OpMode.IDX_IMM ? b : this.getReg(b);
+          if (m === OpMode.IDX_REG_IMM) i += c || 0;
           src = raw.slice(i, i + n);
         } else {
           src = Uint8Array.from(this.bytes(B)).slice(0, n);
@@ -1205,8 +598,8 @@ class Best2Vm {
         return;
       }
       case 'a2flt': {
-        const txt = B[0] === 8 ? this.lit(B[1]) : Best2Vm.cstr(this.bytes(B));
-        this.fregs.set(A[1], Best2Vm.parseNum(txt));
+        const txt = this.textOf(B);
+        this.fregs.set(A[1], Best2Codec.parseNum(txt));
         return;
       }
       case 'a2fix': {
@@ -1215,9 +608,9 @@ class Best2Vm {
         // stops at the 'x' and yields 0 -- so every table-driven bit test
         // masked with 0 and reported the bit set.
         const w = this.widthOf(A);
-        const txt = B[0] === 8 ? this.lit(B[1]) : Best2Vm.cstr(this.bytes(B));
-        const v = Best2Vm.strToValue(txt);
-        this.store(A, ((v % 2 ** (8 * w)) + 2 ** (8 * w)) % 2 ** (8 * w));
+        const txt = this.textOf(B);
+        const v = Best2Codec.strToValue(txt);
+        this.store(A, wrapToWidth(v, w));
         // a2fix forces Zero and Sign false regardless of the value
         f.zero = false;
         f.sign = false;
@@ -1225,7 +618,7 @@ class Best2Vm {
         return;
       }
       case 'flt2a': {
-        this.storeText(A, Best2Vm.fltText(this.getReg(B[1])));
+        this.storeText(A, Best2Codec.fltText(this.getReg(B[1])));
         return;
       }
       case 'fix2a':
@@ -1283,7 +676,7 @@ class Best2Vm {
         return;
       }
       case 'hex2y': {
-        const txt = Best2Vm.cstr(this.bytes(B)).replace(/[^0-9A-Fa-f]/g, '');
+        const txt = Best2Codec.cstr(this.bytes(B)).replace(/[^0-9A-Fa-f]/g, '');
         const out = new Uint8Array(Math.floor(txt.length / 2));
         for (let i = 0; i < out.length; i++) {
           out[i] = parseInt(txt.substr(i * 2, 2), 16);
@@ -1296,7 +689,7 @@ class Best2Vm {
       case 'slen':
       case 'strlen': {
         const b = this.bytes(B);
-        const n = name === 'strlen' ? Best2Vm.cstr(b).length : b.length;
+        const n = name === 'strlen' ? Best2Codec.cstr(b).length : b.length;
         this.store(A, n);
         this.updateFlags(n, this.widthOf(A));
         return;
@@ -1305,8 +698,10 @@ class Best2Vm {
       case 'strcat': {
         const x = this.bytes(A),
           y = this.bytes(B);
-        const base = name === 'strcat' ? Best2Vm.strBytes(Best2Vm.cstr(x)) : x;
-        const add = name === 'strcat' ? Best2Vm.strBytes(Best2Vm.cstr(y)) : y;
+        const base =
+          name === 'strcat' ? Best2Codec.strBytes(Best2Codec.cstr(x)) : x;
+        const add =
+          name === 'strcat' ? Best2Codec.strBytes(Best2Codec.cstr(y)) : y;
         const out = new Uint8Array(base.length + add.length);
         out.set(base);
         out.set(add, base.length);
@@ -1346,7 +741,7 @@ class Best2Vm {
         // INSERT (datainsert), shifting the tail right -- not an overwrite.
         // Inserting at or past the current logical end is a silent no-op.
         const reg = A[1];
-        const idx = A[0] === 9 ? A[2] : this.getReg(A[2]);
+        const idx = A[0] === OpMode.IDX_IMM ? A[2] : this.getReg(A[2]);
         const src = this.bytes(B);
         const buf = this.getS(reg);
         if (idx >= buf.length) return;
@@ -1371,16 +766,16 @@ class Best2Vm {
         // every `strcmp S2,"BUSY" / jz done` status check read as "still
         // busy" on an OKAY response, so all 28 BMS46 jobs retried the
         // telegram until the step limit.
-        const xs = Best2Vm.cstr(this.bytes(A));
-        const ys = B[0] === 8 ? this.lit(B[1]) : Best2Vm.cstr(this.bytes(B));
-        f.zero = xs !== String(ys ?? '');
+        const xs = Best2Codec.cstr(this.bytes(A));
+        const ys = this.textOf(B);
+        f.zero = xs !== ys;
         return;
       }
       case 'serase': {
         // delete `len` bytes at arg0's index, closing the gap (dataerase).
         // arg0 must be an indexed operand; the index names the position.
         const reg = A[1];
-        const idx = A[0] === 9 ? A[2] : this.getReg(A[2]);
+        const idx = A[0] === OpMode.IDX_IMM ? A[2] : this.getReg(A[2]);
         const n = this.val(B);
         const buf = this.getS(reg);
         // The gap is CLIPPED to the string: an erase at or past the end
@@ -1406,7 +801,7 @@ class Best2Vm {
       case 'strim': {
         this.store(
           A,
-          Best2Vm.strBytes(Best2Vm.cstr(this.bytes(A)).trim()),
+          Best2Codec.strBytes(Best2Codec.cstr(this.bytes(A)).trim()),
           true
         );
         return;
@@ -1428,7 +823,7 @@ class Best2Vm {
         // Sets the split parameters the NEXT stoken uses: arg0 is the
         // separator characters (a pool string like " " or ", "), arg1 the
         // 1-based token number.
-        this.tokenSep = Best2Vm.cstr(this.bytes(A));
+        this.tokenSep = Best2Codec.cstr(this.bytes(A));
         this.tokenIdx = this.val(B);
         return;
       }
@@ -1439,7 +834,7 @@ class Best2Vm {
         // fail`. Runs of separators collapse: the seps here are " " and
         // ", ", where keeping empty tokens would make every second token
         // blank.
-        const src = Best2Vm.cstr(this.bytes(B));
+        const src = Best2Codec.cstr(this.bytes(B));
         const seps = this.tokenSep || ' ';
         const parts = src
           .split(
@@ -1469,7 +864,7 @@ class Best2Vm {
         f.overflow = false;
         return;
       case 'sett':
-        this.trapBit = this.val(A) || 0x40000000;
+        this.trapBit = this.val(A) || TRAP_USER;
         return;
       case 'ssize': {
         const n = this.bytes(A).length;
@@ -1490,14 +885,16 @@ class Best2Vm {
         // (tests >= 0x40000000, so it effectively always jumps); that is
         // emulated deliberately, since SGBDs are compiled against it.
         let hit;
-        if (B && B[0] !== 0) {
+        if (B && B[0] !== OpMode.NONE) {
           const bit = this.val(B, 1);
           hit =
             bit > 0
-              ? this.trapBit === bit || (this.trapBit === 0 && bit === 32)
-              : this.trapBit >= 0x40000000;
+              ? this.trapBit === bit ||
+                (this.trapBit === TRAP_UNMAPPED &&
+                  bit === TRAP_BIT_ALIAS_UNMAPPED)
+              : this.trapBit >= TRAP_USER;
         } else {
-          hit = name === 'jt' ? this.trapBit >= 0 : this.trapBit >= 0x40000000;
+          hit = name === 'jt' ? this.trapBit >= 0 : this.trapBit >= TRAP_USER;
         }
         if (name === 'jnt') hit = !hit;
         if (!hit) return;
@@ -1505,7 +902,7 @@ class Best2Vm {
         return A[1];
       }
       case 'clrt':
-        this.trapBit = -1;
+        this.trapBit = TRAP_CLEAN;
         return;
       case 'jz':
       case 'jnz':
@@ -1532,57 +929,49 @@ class Best2Vm {
 
       // ---- results
       // Each erg* opcode has a FIXED width and signedness, independent of
-      // the operand's own type (the reference's result table):
+      // the operand's own type (the reference's result table, ERG_SPECS):
       //   ergb  unsigned 8    ergc  SIGNED 8
       //   ergw  unsigned 16   ergi  SIGNED 16
       //   ergd  unsigned 32   ergl  SIGNED 32
       // Publishing ergi unsigned reported SMG2's coolant temperature as
       // 65531 where the engine says -5.
+      //
+      // The result NAME is arg0.GetStringData() (textOf): usually an
+      // inline literal, but it can equally be a REGISTER -- MS420's VANOS
+      // jobs name a result from a register still holding response bytes,
+      // and the engine faithfully publishes the resulting garbage key.
+      // Assuming a pool index dropped the name to the empty string.
       case 'ergb':
       case 'ergw':
       case 'ergd':
       case 'ergi':
       case 'ergl': {
-        const spec = {
-          ergb: [1, false],
-          ergw: [2, false],
-          ergd: [4, false],
-          ergi: [2, true],
-          ergl: [4, true],
-        }[name];
-        const [w, signed] = spec;
+        const [w, signed] = ERG_SPECS[name];
         let v = this.val(B, w) % 2 ** (8 * w);
         if (signed && v >= 2 ** (8 * w - 1)) v -= 2 ** (8 * w);
-        this.emit(this.resName(A), v);
+        this.emit(this.textOf(A), v);
         return;
       }
       case 'ergr': {
         // arg1 is GetFloatData(): a pool literal parses as a number rather
         // than falling through val()'s m===8 case, which returned 0.
-        this.emit(
-          this.resName(A),
-          B[0] === 8
-            ? Best2Vm.parseNum(this.lit(B[1]))
-            : B[1] && String(B[1])[0] === 'F'
-              ? this.getReg(B[1])
-              : this.val(B)
-        );
+        this.emit(this.textOf(A), this.floatOf(B));
         return;
       }
       case 'ergs': {
-        const txt = B[0] === 8 ? this.lit(B[1]) : Best2Vm.cstr(this.bytes(B));
-        this.emit(this.resName(A), txt);
+        const txt = this.textOf(B);
+        this.emit(this.textOf(A), txt);
         return;
       }
       case 'ergy': {
-        this.emit(this.resName(A), Array.from(this.bytes(B)));
+        this.emit(this.textOf(A), Array.from(this.bytes(B)));
         return;
       }
       case 'ergc': {
         // SIGNED 8-bit, published as a NUMBER (TypeC), not a character
         let v = this.val(B, 1) & 0xff;
         if (v >= 0x80) v -= 0x100;
-        this.emit(this.resName(A), v);
+        this.emit(this.textOf(A), v);
         return;
       }
       case 'enewset':
@@ -1595,12 +984,7 @@ class Best2Vm {
         // "everything is wanted", so the jump is never taken -- which is
         // why treating this as a flag left every result uncomputed.
         if (!this.wanted || this.wanted.size === 0) return;
-        const nm =
-          B && B[0] === 8
-            ? this.lit(B[1])
-            : B
-              ? Best2Vm.cstr(this.bytes(B))
-              : '';
+        const nm = B ? this.textOf(B) : '';
         if (this.wanted.has(String(nm || '').toUpperCase())) return;
         if (A[1] === null) throw new VmError(`unresolved etag at ${pc}`);
         return A[1];
@@ -1623,19 +1007,10 @@ class Best2Vm {
         // (SYS_0002 folded onto bit 10: this VM's trap model has no
         // system-error tier, and the observable effect -- the jz/jt guard
         // after the tabset fires -- is the same).
-        const nameOp = A;
-        const t =
-          nameOp[0] === 8
-            ? this.lit(nameOp[1])
-            : Best2Vm.cstr(this.bytes(nameOp));
+        const t = this.textOf(A);
         let rows;
         if (name === 'tabsetex') {
-          const fileOp = B;
-          const file = !fileOp
-            ? ''
-            : fileOp[0] === 8
-              ? this.lit(fileOp[1])
-              : Best2Vm.cstr(this.bytes(fileOp));
+          const file = B ? this.textOf(B) : '';
           rows = file ? this.findExtTable(file, t) : this.findTable(t);
         } else {
           rows = this.findTable(t);
@@ -1645,14 +1020,14 @@ class Best2Vm {
         // must CLEAR the trap, or the SGBD's `jt err,#10` guard fires on a
         // perfectly good table
         f.zero = !rows;
-        this.trapBit = rows ? -1 : 10;
+        this.trapBit = rows ? TRAP_CLEAN : TRAP_TABLE;
         return;
       }
       case 'tabseek':
       case 'tabseeku': {
         if (!this.table) {
           f.zero = true;
-          this.trapBit = 10;
+          this.trapBit = TRAP_TABLE;
           return;
         }
         // arg0 is always the COLUMN NAME, arg1 the value being sought.
@@ -1671,28 +1046,16 @@ class Best2Vm {
         // ident chars are in [0-9A-Z], so the key it seeks is byte-equal
         // to the cell it must hit. A wildcard-aware seek here would match
         // rows the engine never selects.
-        const col = A[0] === 8 ? this.lit(A[1]) : Best2Vm.cstr(this.bytes(A));
+        const col = this.textOf(A);
         const keyOp = B || A;
         const numeric = name === 'tabseeku';
         const keyNum = numeric ? this.val(keyOp) : null;
-        const keyTxt =
-          keyOp[0] === 8 ? this.lit(keyOp[1]) : Best2Vm.cstr(this.bytes(keyOp));
-        const want = numeric ? [] : [keyTxt];
-        const ci = true;
-        const cellOf = (r) => {
-          if (r[col] !== undefined) return r[col];
-          const k = Object.keys(r).find(
-            (x) => x.toUpperCase() === String(col).toUpperCase()
-          );
-          return k === undefined ? undefined : r[k];
-        };
+        const keyTxt = numeric ? null : this.textOf(keyOp).toLowerCase();
         const hit = this.table.rows.find((r) => {
-          const c = cellOf(r);
+          const c = sgbdTableCell(r, col);
           if (c === undefined) return false;
-          if (numeric) return Best2Vm.strToValue(String(c)) === keyNum;
-          return want.some(
-            (w) => String(c).toLowerCase() === String(w).toLowerCase()
-          );
+          if (numeric) return Best2Codec.strToValue(String(c)) === keyNum;
+          return String(c).toLowerCase() === keyTxt;
         });
         // A VALUE MISS IS NOT AN ERROR: SeekTable returns the LAST data row
         // and reports not-found, because SGBD tables conventionally put a
@@ -1707,17 +1070,11 @@ class Best2Vm {
         // Column name from a pool literal OR a register (lit() never
         // returns nullish, so `lit(B[1]) ?? ...` silently missed every
         // register-held name). Case-insensitive like tabseek.
-        const col = B[0] === 8 ? this.lit(B[1]) : Best2Vm.cstr(this.bytes(B));
-        let cell;
-        if (this.table && this.table.row) {
-          cell = this.table.row[col];
-          if (cell === undefined) {
-            const k = Object.keys(this.table.row).find(
-              (x) => x.toUpperCase() === String(col).toUpperCase()
-            );
-            if (k !== undefined) cell = this.table.row[k];
-          }
-        }
+        const col = this.textOf(B);
+        const cell =
+          this.table && this.table.row
+            ? sgbdTableCell(this.table.row, col)
+            : undefined;
         this.storeText(
           A,
           cell === undefined || cell === null ? '' : String(cell)
@@ -1756,7 +1113,6 @@ class Best2Vm {
         return;
       }
 
-      // ---- job arguments
       // ---- job arguments. ZERO IS THE PRESENCE FLAG, not "value == 0":
       // par* set Zero=true and only clear it when the requested parameter
       // exists and is non-empty. Indices are 1-BASED and the decrement is
@@ -1788,7 +1144,7 @@ class Best2Vm {
         f.overflow = false;
         let v = 0;
         if (i >= 0 && i < parts.length && parts[i] !== '') {
-          v = Best2Vm.strToValue(parts[i]);
+          v = Best2Codec.strToValue(parts[i]);
           f.zero = false;
         }
         this.store(A, v);
@@ -1803,7 +1159,7 @@ class Best2Vm {
         f.overflow = false;
         let v = 0;
         if (i >= 0 && i < parts.length && parts[i] !== '') {
-          v = Best2Vm.parseNum(parts[i]);
+          v = Best2Codec.parseNum(parts[i]);
           f.zero = false;
         }
         this.fregs.set(A[1], v);
@@ -1874,6 +1230,7 @@ class Best2Vm {
       // ---- environment / no-ops for decode purposes. These affect timing,
       // tracing or interface configuration, none of which changes a decoded
       // value, so they are accepted and ignored rather than aborting a job.
+      //
       // Process-wide shared data. `shmset key, value` (arg0 is the KEY,
       // arg1 the value); `shmget dest, key` (arg0 is the DEST). Keys are
       // uppercased, values persist across jobs in a session -- which is how
@@ -1901,18 +1258,15 @@ class Best2Vm {
         // The VM does not touch the port; it surfaces {concept, baud,
         // timeout, ...} to send(), which owns framing and the wire.
         const raw = Array.from(this.bytes(A));
-        const width =
-          raw.length >= 2 ? { 0x00: 2, 0x01: 4, 0xff: 1 }[raw[1]] || 0 : 0;
+        const width = raw.length >= 2 ? COMM_PARAM_WIDTHS[raw[1]] || 0 : 0;
         let words = [];
         if (width && raw.length % width === 0) {
           for (let i = 0; i + width - 1 < raw.length; i += width) {
-            let v = 0;
-            for (let k = width - 1; k >= 0; k--) v = v * 0x100 + raw[i + k];
-            words.push(v);
+            words.push(Best2Codec.leValue(raw, i, width));
           }
         }
-        if (words.length >= 2 && words[0] > 0 && words[0] <= 0x1ff) {
-          this.comm = Best2Vm.decodeCommParams(words);
+        if (words.length >= 2 && words[0] > 0 && words[0] <= COMM_CONCEPT_MAX) {
+          this.comm = Best2Codec.decodeCommParams(words);
           if (this.answerLen) this.comm.answerLen = this.answerLen;
         }
         return;
@@ -1921,7 +1275,7 @@ class Best2Vm {
         // ASCII hex -> bytes: "AB0102" (separators tolerated) into a byte
         // array. Carry reports a character that is not hex -- conversion
         // stops there, keeping the bytes parsed so far.
-        const txt = Best2Vm.cstr(this.bytes(B)).trim();
+        const txt = Best2Codec.cstr(this.bytes(B)).trim();
         const clean = txt.replace(/^0x/i, '');
         const out = [];
         let bad = false;
@@ -1956,13 +1310,13 @@ class Best2Vm {
         // Interface type name. EdInterfaceObd reports "OBD" for the K+DCAN
         // cable this app drives; SGBDs (carb) branch on it to pick their
         // concept.
-        this.store(A, Best2Vm.strBytes('OBD'), true);
+        this.store(A, Best2Codec.strBytes(INTERFACE_TYPE), true);
         return;
       }
       case 'xvers': {
         // EdInterfaceObd.InterfaceVersion: 209 (0xD1). Not the engine's
         // 7.3.0 -- the INTERFACE's version, which is what the SGBD asks.
-        this.store(A, 209);
+        this.store(A, INTERFACE_VERSION);
         return;
       }
       case 'settmr': {
@@ -1987,19 +1341,17 @@ class Best2Vm {
         // this.now (when the caller set one) keeps the bytes identical
         // across webshim's replay passes -- see the constructor.
         const d = this.now || new Date();
-        const p = (n) => String(n).padStart(2, '0');
         this.storeText(
           A,
-          `${p(d.getDate())}.${p(d.getMonth() + 1)}.${d.getFullYear()}`
+          `${twoDigits(d.getDate())}.${twoDigits(d.getMonth() + 1)}.${d.getFullYear()}`
         );
         return;
       }
       case 'time': {
         const d = this.now || new Date();
-        const p = (n) => String(n).padStart(2, '0');
         this.storeText(
           A,
-          `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`
+          `${twoDigits(d.getHours())}:${twoDigits(d.getMinutes())}:${twoDigits(d.getSeconds())}`
         );
         return;
       }
@@ -2015,7 +1367,8 @@ class Best2Vm {
         // authentisierung_start key ~1 s too early -- the DME was still
         // busy, answered nothing, and the retransmit collided with the
         // late answer into an IFH-0003 cascade. `waitex` is the ms variant.
-        this.pendingWaitMs = (this.pendingWaitMs || 0) + this.val(A) * 1000;
+        this.pendingWaitMs =
+          (this.pendingWaitMs || 0) + this.val(A) * MS_PER_SECOND;
         return;
       }
       case 'waitex': {
@@ -2030,7 +1383,7 @@ class Best2Vm {
         // terminates when the error is unmasked; the trap-mask layer is
         // not decoded, so trapping is the conservative choice -- a job
         // that meant to die still takes its error path via jt.)
-        this.trapBit = this.val(A) || 0x40000000;
+        this.trapBit = this.val(A) || TRAP_USER;
         return;
       }
       case 'fopen': {
@@ -2105,105 +1458,26 @@ class Best2Vm {
         // implemented instead of guessed.
         throw new VmError(`unimplemented opcode ${name} at ${pc}`);
     }
-  }
+  },
+});
 
-  // EDIABAS's StringToValue: 0x hex, 0y binary, else decimal truncated at
-  // the first '.' or ','. Unparseable yields 0. This is what table cells
-  // are run through by tabseeku, so "0x10" seeks as 16.
-  static strToValue(s) {
-    // StringToValue uses Convert.ToInt64, which is ALL-OR-NOTHING: it
-    // throws on trailing junk and the caller catches it as 0. parseInt
-    // happily takes a valid prefix, and that difference is visible --
-    // y2bcd renders a non-BCD nibble as '*', so LSZ's ID_HW_NR is the text
-    // "2*", which the engine reports as 0 and parseInt would call 2.
-    const t = String(s ?? '').replace(/\s+$/, '');
-    if (!t) return 0;
-    const low = t.toLowerCase();
-    if (low.startsWith('0x')) {
-      const body = t.slice(2);
-      if (!/^[0-9a-fA-F]+$/.test(body)) return 0;
-      const v = parseInt(body, 16);
-      return Number.isFinite(v) ? v : 0;
-    }
-    if (low.startsWith('0y')) {
-      const body = t.slice(2);
-      if (!/^[01]+$/.test(body)) return 0;
-      const v = parseInt(body, 2);
-      return Number.isFinite(v) ? v : 0;
-    }
-    if (low === '-' || low === '--') return 0;
-    if (/^[a-z]/i.test(low)) return 0; // a leading letter rejects it
-    // decimal, truncated at the first '.' or ',' -- then it must be a
-    // COMPLETE integer or the conversion fails
-    const cut = t.trimStart().split(/[.,]/)[0];
-    if (!/^[+-]?[0-9]+$/.test(cut)) return 0;
-    const v = parseInt(cut, 10);
-    return Number.isFinite(v) ? v : 0;
-  }
-
-  // EDIABAS writes float constants with either separator
-  static parseNum(s) {
-    if (s === undefined || s === null) return 0;
-    const v = parseFloat(String(s).replace(',', '.'));
-    return Number.isFinite(v) ? v : 0;
-  }
-
-  // OpFlt2A, ported faithfully: round to floatPrecision (default 4)
-  // SIGNIFICANT digits (RoundToSignificantDigits, Math.Round = half-even),
-  // format invariant, then CUT THE STRING after the Nth digit character --
-  // including the engine's own quirk of truncating an exponent's digits.
-  // JS shortest-roundtrip formatting ("0.30000000000000004") never appears:
-  // the rounding and the cut both bound it.
-  static fltText(value) {
-    const digits = 4; // engine _floatPrecision default
-    let v = Number(value);
-    if (Number.isFinite(v) && v !== 0) {
-      const scale = 10 ** (Math.floor(Math.log10(Math.abs(v))) + 1);
-      const x = (v / scale) * 10 ** digits;
-      let r = Math.round(x); // JS rounds half toward +inf...
-      if (Math.abs(x % 1) === 0.5 && r % 2 !== 0) r -= 1;
-      v = scale * (r / 10 ** digits); // ...Math.Round is half to even
-    }
-    let s = String(v);
-    const em = /^(-?[\d.]+)e([+-])(\d+)$/.exec(s);
-    if (em) s = `${em[1]}E${em[2]}${em[3].padStart(2, '0')}`;
-    let count = 0;
-    for (let i = 0; i < s.length; i++) {
-      if (s[i] >= '0' && s[i] <= '9') {
-        count++;
-        if (count >= digits) {
-          s = s.slice(0, i + 1);
-          break;
-        }
-      }
-    }
-    return s;
-  }
-}
-
-const STOP = Symbol('eoj');
-
-// Loaded two ways: as a <script> in the app (globals) and via require() in
-// tools/test_bestvm.js (module.exports). Both must work from one file.
-if (typeof window !== 'undefined') {
-  window.Best2Vm = Best2Vm;
-  window.VmError = VmError;
-  window.isWriteJob = isWriteJob;
-}
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
-    Best2Vm,
-    VmError,
-    STOP,
     JUMP_TESTS,
-    REG_BYTES,
-    isWriteJob,
-    WRITE_JOB,
-    // the classifier's parts, exported so test_write_gate.js
-    // can compare each against its Python twin in
-    // tools/verify/sgbd_bulk_verify.py pattern-by-pattern
-    READ_TOKEN,
-    WRITE_TOKEN,
-    INFO_READ_TOKEN,
+    ERG_SPECS,
+    FLAG_CARRY,
+    FLAG_ZERO,
+    FLAG_SIGN,
+    FLAG_OVERFLOW,
+    TRAP_BIT_ALIAS_UNMAPPED,
+    INTERFACE_TYPE,
+    INTERFACE_VERSION,
+    COMM_PARAM_WIDTHS,
+    COMM_CONCEPT_MAX,
+    MS_PER_SECOND,
+    wrapToWidth,
+    negateU32,
+    toInt32,
+    twoDigits,
   };
 }

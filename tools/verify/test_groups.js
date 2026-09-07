@@ -67,13 +67,10 @@ check(
 );
 
 // ---- load the VM (and later webshim) the way the other verify tests do
+const { loadBestvm } = require('./load_bestvm.js');
 const ctx = { module: { exports: {} }, console };
 vm.createContext(ctx);
-vm.runInContext(
-  fs.readFileSync(path.join(ROOT, 'app/renderer/core/bestvm.js'), 'utf8'),
-  ctx
-);
-const { Best2Vm, isWriteJob } = ctx.module.exports;
+const { Best2Vm, isWriteJob } = loadBestvm(ctx);
 
 // IDENTIFIKATION is a pure read; the resolver must never need allowWrites.
 // (Asserted, not assumed -- the classifier is pinned by test_write_gate.js
@@ -367,10 +364,7 @@ const A4_IDENT = String([0xa4, 4, 0]);
     };
   };
   vm.createContext(wctx);
-  vm.runInContext(
-    fs.readFileSync(path.join(ROOT, 'app/renderer/core/bestvm.js'), 'utf8'),
-    wctx
-  );
+  loadBestvm(wctx);
   vm.runInContext(
     fs.readFileSync(path.join(ROOT, 'app/renderer/core/webshim.js'), 'utf8'),
     wctx

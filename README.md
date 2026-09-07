@@ -134,7 +134,7 @@ dialogs, and the guided-procedure state machines. The scripts are decompiled
 from BMW's `.IPO` files by `tools/decompile/` into `data/inpa-ir/`, together
 with the per-module caption dictionaries.
 
-**The virtual machine** (`app/renderer/core/bestvm.js`) executes each
+**The virtual machine** (`app/renderer/core/bestvm/`) executes each
 module's diagnostic logic, a 184-opcode instruction set — register file, byte
 stack, string table, table lookups — and turns raw bytes off the wire into
 named results. Diffed offline against a reference engine (`src/InpaMac.Cli`
@@ -191,7 +191,7 @@ saves the report as a `.json` you can attach by hand.
 
 ```
 app/renderer/          the app: script runtime, bytecode VM, transport shim, screens
-  core/                bestvm.js, ipovm.js, webshim.js, coding-write.js, remote.js, journal.js
+  core/                bestvm/ (the job VM, one piece per concern), ipovm.js, webshim.js, coding-write.js, remote.js, journal.js
   screens/             ipo-runtime.js (module view), apps hub, lookup, wiring, etk, tool32, tuning, coding
   data/                generated JS data (fault DB, caption dictionary, coding labels, wiring archives)
 data/ecu-src/          committed source: one gzipped copy per ECU definition

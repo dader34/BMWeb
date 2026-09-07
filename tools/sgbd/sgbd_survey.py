@@ -240,7 +240,7 @@ def walk(data, addr, limit=250_000):
             elif mode == 11:                             # reg[idxreg+#imm]
                 # IdxRegImm: register byte, index-register byte, 16-bit
                 # immediate offset -- exactly the 4 bytes MODE_LEN says.
-                # Provenance: the shipped VM (app/renderer/core/bestvm.js)
+                # Provenance: the shipped VM (app/renderer/core/bestvm/)
                 # decodes operand [11, reg, idxReg, imm] as
                 # `i = getReg(idxReg) + imm`, matching EdiabasNet's
                 # OpAddrMode ordering (IdxReg=10, IdxRegImm=11, then the

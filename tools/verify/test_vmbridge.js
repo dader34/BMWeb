@@ -49,12 +49,11 @@ const ctx = {
 };
 ctx.globalThis = ctx;
 vm.createContext(ctx);
-for (const f of [
-  'app/renderer/core/bestvm.js',
-  'app/renderer/core/vmbridge.js',
-]) {
-  vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), ctx);
-}
+require('./load_bestvm.js').loadBestvm(ctx);
+vm.runInContext(
+  fs.readFileSync(path.join(ROOT, 'app/renderer/core/vmbridge.js'), 'utf8'),
+  ctx
+);
 
 const fixP = path.join(ROOT, 'data/sim-captures/vmfix.json');
 if (!fs.existsSync(fixP)) {

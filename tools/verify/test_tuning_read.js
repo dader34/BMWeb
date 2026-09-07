@@ -43,13 +43,10 @@ const has = (rel) => fs.existsSync(path.join(ROOT, rel));
 // --- the browser globals the module reaches for -----------------------------
 global.Settings = { get: () => '', set: () => {} };
 const F = require(path.join(ROOT, 'app/renderer/core/flasher.js'));
-function loadVm(rel) {
-  const ctx = { module: { exports: {} }, console };
-  vm.createContext(ctx);
-  vm.runInContext(fs.readFileSync(path.join(ROOT, rel), 'utf8'), ctx);
-  return ctx.module.exports;
-}
-const { Best2Vm, isWriteJob } = loadVm('app/renderer/core/bestvm.js');
+const { loadBestvm } = require('./load_bestvm.js');
+const vmCtx = { module: { exports: {} }, console };
+vm.createContext(vmCtx);
+const { Best2Vm, isWriteJob } = loadBestvm(vmCtx);
 
 const dataSets = (sets) =>
   (sets || []).filter((s) => s && typeof s === 'object');

@@ -44,13 +44,10 @@ const {
 } = ctx.exports;
 
 // the VM, for the xsetpar -> comm contract
+const { loadBestvm } = require('./load_bestvm.js');
 const vmCtx = { module: { exports: {} }, console };
 vm.createContext(vmCtx);
-vm.runInContext(
-  fs.readFileSync(path.join(ROOT, 'app/renderer/core/bestvm.js'), 'utf8'),
-  vmCtx
-);
-const { Best2Vm } = vmCtx.module.exports;
+const { Best2Vm } = loadBestvm(vmCtx);
 
 let failures = 0;
 function check(what, ok) {

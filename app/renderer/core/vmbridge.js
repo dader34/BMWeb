@@ -1,13 +1,51 @@
-// NOT LOADED BY THE APP -- only tools/verify/test_vmbridge.js uses it. Replays
-// telegrams the C# engine captured (_TEL_AUFTRAG = request, _TEL_ANTWORT =
-// answer, both published as job results) back through the VM and checks it
-// decodes real wire bytes to the same values. The VM's send() only replays a
-// captured answer, so it never reaches a bus.
+/**
+ * @file NOT LOADED BY THE APP -- only tools/verify/test_vmbridge.js uses it.
+ * Replays telegrams the C# engine captured (_TEL_AUFTRAG = request,
+ * _TEL_ANTWORT = answer, both published as job results) back through the VM
+ * and checks it decodes real wire bytes to the same values. The VM's send()
+ * only replays a captured answer, so it never reaches a bus.
+ */
 
+/** Parsed job code per SGBD (lower-cased name), null when none is shipped. */
 const VM_CODE_CACHE = new Map();
+/** SGBD tables per SGBD (lower-cased name). */
 const VM_TABLE_CACHE = new Map();
 
-// Telegram results come back as "82-12-F1-21-F0" (Diag.Format).
+/** The frame byte's high bit: set on a BMW-FAST header, low bits = length. */
+const FRAME_FLAG = 0x80;
+/** Payload lengths at or above this need the long header form; not re-wrapped. */
+const SHORT_FRAME_MAX = 0x40;
+
+/**
+ * Result names the engine synthesizes into its system set; never diffed.
+ * @type {Set<string>}
+ */
+const VM_SYSTEM_RESULTS = new Set([
+  'OBJECT',
+  'JOBNAME',
+  'VARIANTE',
+  'GRUPPE',
+  'FAMILIE',
+  'SAETZE',
+  'JOBSTATUS',
+  'UBATTCURRENT',
+  'UBATTHISTORY',
+  'IGNITIONCURRENT',
+  'IGNITIONHISTORY',
+  'SPRACHE',
+]);
+
+/** How many disagreeing jobs the tally keeps, newest last. */
+const VM_WORST_KEEP = 40;
+/** How many differing keys each kept job records. */
+const VM_DIFFS_PER_JOB = 6;
+
+/**
+ * Telegram results come back as "82-12-F1-21-F0" (Diag.Format); parse one
+ * into bytes.
+ * @param {string|number[]} s - The published telegram text, or bytes already.
+ * @returns {?number[]} The bytes, or null when the text is not a telegram.
+ */
 function telBytes(s) {
   if (Array.isArray(s)) return s.map(Number);
   if (typeof s !== 'string' || !s) return null;
@@ -21,16 +59,31 @@ function telBytes(s) {
   return out;
 }
 
+/**
+ * Fetch a JSON file from the app's data tree.
+ * @param {string} path - The relative URL.
+ * @returns {Promise<?object>} The parsed JSON, or null on any failure.
+ */
 async function vmFetchJson(path) {
   const res = await fetch(path);
   if (!res.ok) return null;
   return res.json().catch(() => null);
 }
 
-// Which SGBDs have code shipped (E46 only). Consult the manifest first so a
-// browse of another chassis skips silently instead of painting DevTools red
-// with guaranteed 404s that look like faults.
+/**
+ * The shipped-code manifest: a Set of SGBD names, false when no manifest
+ * ships, null until first consulted.
+ * @type {?(Set<string>|false)}
+ */
 let VM_INDEX = null;
+
+/**
+ * Which SGBDs have code shipped (E46 only). Consult the manifest first so a
+ * browse of another chassis skips silently instead of painting DevTools red
+ * with guaranteed 404s that look like faults.
+ * @param {string} key - The SGBD name, lower-cased.
+ * @returns {Promise<boolean>} Whether job code should be fetched for it.
+ */
 async function vmHasCode(key) {
   if (VM_INDEX === null) {
     const idx = await vmFetchJson('data/job-code/index.json');
@@ -41,6 +94,11 @@ async function vmHasCode(key) {
   return VM_INDEX === false || VM_INDEX.has(key);
 }
 
+/**
+ * The parsed job code for an SGBD, cached.
+ * @param {string} sgbd - The SGBD name, any case.
+ * @returns {Promise<?object>} The job code, or null when none ships.
+ */
 async function vmCodeFor(sgbd) {
   const key = String(sgbd).toLowerCase();
   if (!VM_CODE_CACHE.has(key)) {
@@ -53,6 +111,11 @@ async function vmCodeFor(sgbd) {
   return VM_CODE_CACHE.get(key);
 }
 
+/**
+ * The SGBD's tables, cached; an empty object when none ship.
+ * @param {string} sgbd - The SGBD name, any case.
+ * @returns {Promise<Object<string, object[]>>} Table name -> rows.
+ */
 async function vmTablesFor(sgbd) {
   const key = String(sgbd).toLowerCase();
   if (!VM_TABLE_CACHE.has(key)) {
@@ -64,9 +127,23 @@ async function vmTablesFor(sgbd) {
   return VM_TABLE_CACHE.get(key);
 }
 
-// Replay a job through the VM using the telegrams the ENGINE captured.
-// Returns {sets} on success, or {skipped: reason} -- never throws, because a
-// VM problem must not break a screen the engine already answered.
+/**
+ * The outcome of a replay: the VM's result sets, or why it was skipped.
+ * @typedef {Object} VmReplayResult
+ * @property {object[]} [sets] - The VM's result sets on success.
+ * @property {string} [skipped] - The reason nothing was replayed.
+ */
+
+/**
+ * Replay a job through the VM using the telegrams the ENGINE captured.
+ * Returns {sets} on success, or {skipped: reason} -- never throws, because a
+ * VM problem must not break a screen the engine already answered.
+ * @param {string} sgbd - The SGBD the job belongs to.
+ * @param {string} job - The job name.
+ * @param {object[]} engineSets - The engine's published result sets.
+ * @param {?string} arg - The job argument, if any.
+ * @returns {Promise<VmReplayResult>} The replay outcome.
+ */
 async function vmReplay(sgbd, job, engineSets, arg) {
   if (typeof Best2Vm === 'undefined') return { skipped: 'vm not loaded' };
   const code = await vmCodeFor(sgbd);
@@ -110,15 +187,21 @@ async function vmReplay(sgbd, job, engineSets, arg) {
     const framed =
       ans &&
       ans.length >= 4 &&
-      (ans[0] & 0x80) !== 0 &&
+      (ans[0] & FRAME_FLAG) !== 0 &&
       ((ans[0] & 0x3f) === ans.length - 3 ||
         (ans[0] & 0x3f) === ans.length - 4);
-    if (!framed && ans && req && req.length >= 3 && ans.length < 0x40) {
+    if (
+      !framed &&
+      ans &&
+      req &&
+      req.length >= 3 &&
+      ans.length < SHORT_FRAME_MAX
+    ) {
       // header + payload + CHECKSUM. EdInterfaceObd returns the frame with
       // its trailing checksum byte (TelLengthBmwFast + 1) and jobs verify
       // the length including it, so omitting it reads one byte short and
       // every job answers ERROR_ECU_INCORRECT_LEN.
-      const frame = [0x80 | ans.length, req[2], req[1]].concat(ans);
+      const frame = [FRAME_FLAG | ans.length, req[2], req[1]].concat(ans);
       let sum = 0;
       for (const b of frame) sum = (sum + b) & 0xff;
       frame.push(sum);
@@ -129,7 +212,6 @@ async function vmReplay(sgbd, job, engineSets, arg) {
   if (!pairs.length) return { skipped: 'engine published no telegrams' };
   const byReq = new Map(pairs.filter((p) => p[0]).map((p) => [p[0], p[1]]));
   const lastAns = pairs[pairs.length - 1][1];
-  let seq = 0;
   // THE VM SENDS MORE THAN THE ENGINE PUBLISHES. EDIABAS runs the SGBD's
   // INITIALISIERUNG before the first job of a session and publishes only the
   // job's own telegram, so replaying strictly by call order starves the init
@@ -157,33 +239,34 @@ async function vmReplay(sgbd, job, engineSets, arg) {
   }
 }
 
-// Compare one engine set against one VM set. Engine values are strings;
-// numbers are compared numerically so 1.0 and "1" agree.
+/**
+ * One result the VM and the engine disagree on.
+ * @typedef {Object} VmDiff
+ * @property {string} key - The result name.
+ * @property {*} engine - The engine's value.
+ * @property {*} vm - The VM's value.
+ */
+
+/**
+ * Compare the engine's data sets against the VM's, set by set. Engine values
+ * are strings; numbers are compared numerically so 1.0 and "1" agree, and a
+ * VM byte array is rendered "AB-CD" to match the engine's text.
+ * @param {object[]} engineSets - The engine's result sets (system set included).
+ * @param {object[]} vmSets - The VM's result sets.
+ * @returns {{checked: number, diffs: VmDiff[]}} How many results were compared
+ *   and which differed.
+ */
 function vmDiffSets(engineSets, vmSets) {
-  const SYS = new Set([
-    'OBJECT',
-    'JOBNAME',
-    'VARIANTE',
-    'GRUPPE',
-    'FAMILIE',
-    'SAETZE',
-    'JOBSTATUS',
-    'UBATTCURRENT',
-    'UBATTHISTORY',
-    'IGNITIONCURRENT',
-    'IGNITIONHISTORY',
-    'SPRACHE',
-  ]);
   const diffs = [];
   let checked = 0;
   const data = (engineSets || []).filter(
-    (s) => !Object.keys(s).some((k) => SYS.has(k))
+    (s) => !Object.keys(s).some((k) => VM_SYSTEM_RESULTS.has(k))
   );
   for (let i = 0; i < data.length; i++) {
     const want = data[i];
     const got = (vmSets || [])[i] || {};
     for (const [k, wv] of Object.entries(want)) {
-      if (k.startsWith('_') || SYS.has(k)) continue;
+      if (k.startsWith('_') || VM_SYSTEM_RESULTS.has(k)) continue;
       checked++;
       let gv = got[k];
       if (Array.isArray(gv)) {
@@ -205,8 +288,20 @@ function vmDiffSets(engineSets, vmSets) {
   return { checked, diffs };
 }
 
-// Running tally, so a drive produces one honest number rather than a stream
-// of toasts. Read it from the console with vmStats().
+/**
+ * The running tally of a drive, so it produces one honest number rather than
+ * a stream of toasts. Read it from the console with vmStats().
+ * @typedef {Object} VmStats
+ * @property {number} jobs - Jobs replayed and compared.
+ * @property {number} checked - Results compared.
+ * @property {number} disagreed - Results that differed.
+ * @property {number} skipped - Jobs that could not be replayed.
+ * @property {Object<string, number>} bySkip - Skip reason -> count.
+ * @property {Array<{sgbd: string, job: string, diffs: VmDiff[]}>} worst -
+ *   The most recent disagreeing jobs, newest last.
+ */
+
+/** @type {VmStats} */
 const VM_STATS = {
   jobs: 0,
   checked: 0,
@@ -216,11 +311,25 @@ const VM_STATS = {
   worst: [],
 };
 
+/**
+ * The running tally.
+ * @returns {VmStats} The live tally object.
+ */
 function vmStats() {
   return VM_STATS;
 }
 
-// The entry point core.js calls after every successful job run.
+/**
+ * The entry point core.js calls after every successful job run: replay the
+ * job, diff it, and update the tally. Governed by the 'vm' setting: 'off'
+ * does nothing, 'on' also hands the VM's sets back to the caller.
+ * @param {string} sgbd - The SGBD the job belongs to.
+ * @param {string} job - The job name.
+ * @param {object[]} engineSets - The engine's published result sets.
+ * @param {?string} arg - The job argument, if any.
+ * @returns {Promise<?object[]>} The VM's sets when the setting is 'on', else
+ *   null.
+ */
 async function vmObserve(sgbd, job, engineSets, arg) {
   const mode =
     typeof Settings !== 'undefined' ? Settings.get('vm', 'off') : 'off';
@@ -236,11 +345,11 @@ async function vmObserve(sgbd, job, engineSets, arg) {
   VM_STATS.checked += checked;
   VM_STATS.disagreed += diffs.length;
   if (diffs.length) {
-    VM_STATS.worst.push({ sgbd, job, diffs: diffs.slice(0, 6) });
-    if (VM_STATS.worst.length > 40) VM_STATS.worst.shift();
+    VM_STATS.worst.push({ sgbd, job, diffs: diffs.slice(0, VM_DIFFS_PER_JOB) });
+    if (VM_STATS.worst.length > VM_WORST_KEEP) VM_STATS.worst.shift();
     console.warn(
       `[vm] ${sgbd}:${job} ${diffs.length}/${checked} differ`,
-      diffs.slice(0, 6)
+      diffs.slice(0, VM_DIFFS_PER_JOB)
     );
   }
   return mode === 'on' ? r.sets : null;

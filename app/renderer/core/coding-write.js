@@ -14,7 +14,7 @@
 //   cfg-chunked   C_S_AUFTRAG <binbuf> loop -> C_CHECKSUM <binbuf>
 //                 (ZKE5/GM5; needs BINARY job args)
 //
-// SAFETY. The VM itself permits write jobs by default (bestvm.js, owner's
+// SAFETY. The VM itself permits write jobs by default (bestvm/machine.js, owner's
 // decision 2026-08-19: the classifier cannot tell an actuator drive from an
 // EEPROM write, and blocking one blocked both), so the write protection for
 // CODING lives HERE, not in the VM: writeCoding() refuses unless
@@ -33,12 +33,14 @@
 (function (root) {
   'use strict';
 
-  // The VM class. In the browser it is window.Best2Vm (bestvm.js loaded as a
-  // <script> before this one); under require() the test injects it.
+  // The VM class. In the browser it is window.Best2Vm (the bestvm/ pieces
+  // load as <script>s before this one); under require() the test injects it.
   function getVm(opts) {
     if (opts && opts.Best2Vm) return opts.Best2Vm;
     if (typeof root.Best2Vm !== 'undefined') return root.Best2Vm;
-    if (typeof require !== 'undefined') return require('./bestvm.js').Best2Vm;
+    if (typeof require !== 'undefined') {
+      return require('./bestvm/index.js').Best2Vm;
+    }
     throw new Error('coding-write: Best2Vm not available');
   }
 

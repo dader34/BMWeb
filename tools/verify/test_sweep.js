@@ -392,14 +392,11 @@ const SHIPPED = new Set(GROUPS.groups || []);
   // identity data to every module on the car.
   const bv = { window: {}, console };
   vm.createContext(bv);
-  vm.runInContext(
-    fs.readFileSync(path.join(ROOT, 'app/renderer/core/bestvm.js'), 'utf8'),
-    bv
-  );
+  require('./load_bestvm.js').loadBestvm(bv);
   assert.strictEqual(
     typeof bv.isWriteJob,
     'function',
-    'bestvm.js no longer exposes isWriteJob'
+    'bestvm/ no longer exposes isWriteJob'
   );
 
   const pk = { console, isWriteJob: bv.isWriteJob };
