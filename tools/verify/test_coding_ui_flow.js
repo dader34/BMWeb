@@ -3,7 +3,7 @@
 // Verifies that treeReview correctly builds the write payload and calls
 // webWriteCoding with the right structure.
 
-const CodingEncode = require('../../app/renderer/core/coding-encode.js');
+const CodingEncode = require('../../app/renderer/core/coding/encode.js');
 
 // Mock the API surface that treeReview depends on
 let writeCallLog = [];

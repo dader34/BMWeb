@@ -88,7 +88,7 @@ value (that is a GUI-only UTILITY emulation, not a bus job).
 | `coding read [SGBD]` | `coding read zke5` — coding bytes + coding index (safe) |
 | `coding write <SGBD> --data <HEX> --confirm` | see gating below |
 
-Coding **write** mirrors the renderer's `coding-write.js`: it picks the write job
+Coding **write** mirrors the renderer's `core/coding/write.js`: it picks the write job
 from what the SGBD exposes (`CODIERDATEN_SCHREIBEN` / `CODIERUNG_SCHREIBEN`),
 prints exactly what it will do, backs up the previous coding, writes, then
 proves the change by re-reading. It is **doubly gated**: it does nothing unless

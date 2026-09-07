@@ -521,7 +521,7 @@ def main():
     # 6. Ship the coding dispatchers whole: data/coding-dispatch/<cabd>.json
     #    (the derived A_<cabd> program + its dataOrg) plus index.json. The
     #    coding write path fetches these by CABD name to run BMW's own
-    #    dispatcher instead of hand-sequencing (coding-dispatch.js). Optional:
+    #    dispatcher instead of hand-sequencing (core/coding/dispatch.js). Optional:
     #    a build without them falls back to the strategy path, so a missing
     #    dir is a warning, not a failure. Regenerate: coding_dispatch_export.py.
     cd_src = os.path.join(ROOT, "data", "coding-dispatch")

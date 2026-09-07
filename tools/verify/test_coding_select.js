@@ -32,8 +32,8 @@ assert.ok(
 eval(fs.readFileSync(SGET, 'utf8'));
 assert.ok(window.BMW_SGET, 'sget.js did not set BMW_SGET');
 
-global.CodingAuftrag = require('../../app/renderer/core/coding-auftrag.js');
-const S = require('../../app/renderer/core/coding-select.js');
+global.CodingAuftrag = require('../../app/renderer/core/coding/auftrag.js');
+const S = require('../../app/renderer/core/coding/select.js');
 
 // ---- 1. the row is the unit of selection -----------------------------------
 

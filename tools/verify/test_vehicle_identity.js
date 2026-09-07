@@ -43,6 +43,10 @@ assert.ok(
 eval(fs.readFileSync(TABLES, 'utf8'));
 assert.ok(window.BMW_TABLES, 'tables.js did not set BMW_TABLES');
 
+// The ZCS helpers now live under core/coding/; publish them on the window
+// shim first so vehicle-identity.js picks them up the way the renderer
+// does (window.CodingZcs) instead of resolving its own require path.
+global.CodingZcs = require('../../app/renderer/core/coding/zcs.js');
 const VI = require('../../app/renderer/core/vehicle-identity.js');
 
 // ---- 1. SGFAM: who holds the identity --------------------------------------
@@ -533,7 +537,7 @@ const FA = 'E46_#0303*BW32%0A08&N6TT|7531125$205$210$880';
 // can be FOUND instead of guessed.
 
 {
-  const Zcs = require('../../app/renderer/core/coding-zcs.js');
+  const Zcs = require('../../app/renderer/core/coding/zcs.js');
   global.CodingZcs = Zcs;
   const screen = fs.readFileSync(
     path.join(ROOT, 'app', 'renderer', 'screens', 'vehicle-identity.js'),

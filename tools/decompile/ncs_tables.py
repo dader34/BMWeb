@@ -35,7 +35,7 @@ over the car's own ZCS keys and the keywords that hold when they match:
              ^date ^GM(8)  ^SA(16)          ^VN(10)  ^flag ^keywords
 
 The mask widths are 8/16/10 for all 276 E46 rows, matching the GM/SA/VN key
-widths coding-zcs.js already parses out of the 20-byte ZCS region.
+widths core/coding/zcs.js already parses out of the 20-byte ZCS region.
 
 THE NUMBERING BRIDGE. SGET predicates test SA CATALOG NUMBERS (S205, S210);
 a ZCS key yields only BIT INDICES 0..63. Those are different namespaces, and

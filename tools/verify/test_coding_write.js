@@ -19,7 +19,7 @@
 
 const path = require('path');
 const cw = require(
-  path.join(__dirname, '..', '..', 'app/renderer/core/coding-write.js')
+  path.join(__dirname, '..', '..', 'app/renderer/core/coding/write.js')
 );
 
 let failures = 0;

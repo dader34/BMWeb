@@ -14,7 +14,7 @@ const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 
-const A = require('../../app/renderer/core/coding-auftrag.js');
+const A = require('../../app/renderer/core/coding/auftrag.js');
 
 const ROOT = path.join(__dirname, '..', '..');
 let passed = 0;

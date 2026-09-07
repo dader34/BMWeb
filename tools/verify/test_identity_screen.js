@@ -102,8 +102,8 @@ global.loadSaNames = async () => window.BMW_SA_NAMES;
 const bestvm = require(R('core/bestvm/index.js'));
 const { Best2Vm } = bestvm;
 global.isWriteJob = bestvm.isWriteJob;
-global.CodingEncode = require(R('core/coding-encode.js'));
-global.CodingZcs = require(R('core/coding-zcs.js'));
+global.CodingEncode = require(R('core/coding/encode.js'));
+global.CodingZcs = require(R('core/coding/zcs.js'));
 global.VehicleIdentity = require(R('core/vehicle-identity.js'));
 
 // ---- the car ---------------------------------------------------------------

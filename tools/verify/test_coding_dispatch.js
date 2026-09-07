@@ -1,4 +1,4 @@
-// Headless test for the CDH coding-dispatch runtime (coding-dispatch.js): it
+// Headless test for the CDH coding-dispatch runtime (core/coding/dispatch.js): it
 // must execute a derived A_<cabd> dispatcher program end-to-end, route by
 // jobname to the write handler, and produce the BMW coding job sequence with a
 // correctly framed 22-byte request packet -- all against a mock bus, no car.
@@ -13,7 +13,7 @@ const path = require('path');
 const { execFileSync } = require('child_process');
 
 const ROOT = path.join(__dirname, '..', '..');
-const CD = require(path.join(ROOT, 'app/renderer/core/coding-dispatch.js'));
+const CD = require(path.join(ROOT, 'app/renderer/core/coding/dispatch.js'));
 
 let pass = 0,
   fail = 0;
