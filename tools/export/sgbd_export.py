@@ -276,7 +276,7 @@ def _prg_tables(path):
                             strings, row-major; row 0 is the column names
 
     Returns {name: [{col: cell, ...}, ...]} -- data rows only, keyed by the
-    column-name row, which is exactly the shape bestvm.js opts.tables eats
+    column-name row, which is exactly the shape bestvm/ opts.tables eats
     (tabseek scans data rows; tabrows reports len+1 for the header itself).
     Raises ValueError on a malformed region rather than shipping a table
     that silently stops short.
@@ -424,7 +424,7 @@ def export_groups(chassis=None):
         # export without them strands every one of those paths at the first
         # tabseek. Read offline from the .grp (same container layout as .prg,
         # see _prg_tables) and splice in as "tables", the exact rows-by-name
-        # shape bestvm.js opts.tables consumes for ECU tables.
+        # shape bestvm/ opts.tables consumes for ECU tables.
         try:
             tables = _prg_tables(grp_path[g])
         except (ValueError, struct.error) as e:

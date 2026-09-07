@@ -104,7 +104,7 @@ def encode(data, addr_list):
         if m == 10:
             return [m, r, a.get("ir")]
         if m == 11:
-            # reg[idxreg+#imm] -- the [11, reg, idxReg, imm] shape bestvm.js
+            # reg[idxreg+#imm] -- the [11, reg, idxReg, imm] shape bestvm/operands.js
             # already evaluates (`i = getReg(b) + c`). Before the survey
             # decoded mode 11 properly this fell through to the bare [m, r]
             # tail below, so the VM saw the register with no index at all.
