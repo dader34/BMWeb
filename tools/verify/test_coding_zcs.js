@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Test ZCS module: validation, formatting, parsing, SA code extraction
 
-const CodingZcs = require('../../app/renderer/core/coding-zcs.js');
+const CodingZcs = require('../../app/renderer/core/coding/zcs.js');
 
 let pass = 0;
 let fail = 0;

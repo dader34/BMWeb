@@ -1,4 +1,4 @@
-// Guard: coding-encode.js is the EXACT inverse of the coding read decode, so a
+// Guard: core/coding/encode.js is the EXACT inverse of the coding read decode, so a
 // write that stages a value produces bytes an equal read recovers unchanged.
 // A coding write is an EEPROM write against a real ECU -- a decode/encode that
 // disagree by one bit corrupt the car. Every assertion here was a real hazard:
@@ -23,7 +23,7 @@ const R = path.join(__dirname, '..', '..');
 // eval into a window shim so we test the shipped file, not a copy.
 const window = {};
 eval(
-  fs.readFileSync(path.join(R, 'app/renderer/core/coding-encode.js'), 'utf8')
+  fs.readFileSync(path.join(R, 'app/renderer/core/coding/encode.js'), 'utf8')
 );
 const CE = window.CodingEncode;
 

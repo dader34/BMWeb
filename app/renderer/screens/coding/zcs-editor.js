@@ -1,9 +1,115 @@
-// ZCS Editor: edit and write the three ZCS keys (GM, SA, VN)
-//
-// Reached from the coding hub when a ZCS-capable module (KMB, IKE) is selected.
-// Reads the current 20-byte ZCS region, parses it, lets the user edit each key,
-// validates check digits, and writes the new region back.
+/**
+ * @file ZCS Editor: edit and write the three ZCS keys (GM, SA, VN).
+ *
+ * Reached from the coding hub when a ZCS-capable module (KMB, IKE) is
+ * selected. Reads the current 20-byte ZCS region, parses it, lets the user
+ * edit each key, validates check digits, and writes the new region back --
+ * through the same gates as any coding write: confirm, backup first, then
+ * webWriteCoding's prove-by-re-read.
+ */
 
+/** Bytes in the ZCS region. */
+const ZCS_EDITOR_REGION_LEN = 20;
+
+/**
+ * Read a module's coding image and return it as bytes plus the raw hex the
+ * read returned (the hex is what the backup stores).
+ * @param {string} sgbd - the module.
+ * @param {string} noJobMessage - the error when the module has no read job.
+ * @returns {Promise<{netto: number[], nettoHex: unknown}>} the image.
+ * @throws {Error} when there is no read job or the read returned no netto.
+ */
+async function zcsReadNetto(sgbd, noJobMessage) {
+  const entry = typeof codingFor === 'function' ? await codingFor(sgbd) : null;
+  if (!entry || !entry.read) {
+    throw new Error(noJobMessage);
+  }
+  const readRes = await api(`/api/ecu/${sgbd}/run/${entry.read}`, {
+    method: 'POST',
+  });
+  const nettoHex = codingNettoOf(new Map(flatResults(readRes.sets)));
+  if (!nettoHex) {
+    throw new Error('Read did not return netto');
+  }
+  return { netto: codingNettoBytes(nettoHex), nettoHex };
+}
+
+/**
+ * Where the ZCS region sits in a module's netto, per its DATEN description:
+ * the word of the first field named GM_SCHLUESSEL / ZCS on the car's chassis.
+ * @param {string} sgbd - the module.
+ * @param {string} chassisId - chassis id.
+ * @returns {Promise<number>} the byte offset (0 when DATEN does not say).
+ */
+async function zcsRegionOffset(sgbd, chassisId) {
+  const daten = typeof datenFor === 'function' ? await datenFor(sgbd) : null;
+  let zcsOffset = 0;
+  if (daten && daten.chassis) {
+    const chId = String(chassisId || '').toUpperCase();
+    const chassis =
+      daten.chassis[chId] || daten.chassis[Object.keys(daten.chassis)[0]];
+    if (chassis) {
+      // Look for a field named ZCS or GM_SCHLUESSEL to find the offset
+      const keys = Object.keys(chassis);
+      for (const vk of keys) {
+        for (const f of chassis[vk]) {
+          if (f.name && /GM_SCHLUESSEL|ZCS/i.test(f.name)) {
+            zcsOffset = f.word || 0;
+            break;
+          }
+        }
+        if (zcsOffset) break;
+      }
+    }
+  }
+  return zcsOffset;
+}
+
+/**
+ * One key's editor row.
+ * @param {string} id - input id (zcs-gm / zcs-sa / zcs-vn).
+ * @param {string} title - the row label.
+ * @param {string} value - the body being edited.
+ * @param {number} maxlength - body length in hex chars.
+ * @param {string} currentValue - the key as currently on the ECU.
+ * @param {string|null} err - the validation error, if any.
+ * @param {string} withCheck - the key with its check char, when valid.
+ * @param {string} [extra] - extra HTML under the row.
+ * @returns {string} HTML.
+ */
+function zcsKeyRow(
+  id,
+  title,
+  value,
+  maxlength,
+  currentValue,
+  err,
+  withCheck,
+  extra
+) {
+  return `
+        <div class="zcs-row">
+          <label class="zcs-label">${title}</label>
+          <div class="zcs-input-wrap">
+            <input class="zcs-input mono" id="${id}" type="text"
+                   value="${esc(value)}" maxlength="${maxlength}"
+                   placeholder="${maxlength} hex chars">
+            <span class="zcs-current mono" title="Current value">
+              ${esc(currentValue)}</span>
+          </div>
+          ${err ? `<div class="zcs-error">${esc(err)}</div>` : ''}
+          ${withCheck ? `<div class="zcs-check">With check: <span class="mono">${esc(withCheck)}</span></div>` : ''}
+          ${extra || ''}
+        </div>`;
+}
+
+/**
+ * The ZCS editor screen.
+ * @param {string} chassisId - chassis id.
+ * @param {string} sgbd - the module holding the ZCS keys.
+ * @param {() => void} back - the Back action.
+ * @returns {Promise<void>} resolves once drawn.
+ */
 async function showZcsEditor(chassisId, sgbd, back) {
   lastScreen = () => showZcsEditor(chassisId, sgbd, back);
   setCrumbs([
@@ -29,56 +135,16 @@ async function showZcsEditor(chassisId, sgbd, back) {
   panel.innerHTML =
     '<div class="coding-scan"><div class="coding-scan-title">Reading ZCS…</div></div>';
 
-  let currentZcs = null;
+  /** @type {ZcsRegion} */
+  let currentZcs;
   try {
-    const entry =
-      typeof codingFor === 'function' ? await codingFor(sgbd) : null;
-    if (!entry || !entry.read) {
-      throw new Error('No coding read job for this module');
-    }
-
-    const readRes = await api(`/api/ecu/${sgbd}/run/${entry.read}`, {
-      method: 'POST',
-    });
-    const flatRes = new Map(flatResults(readRes.sets));
-    const nettoHex =
-      flatRes.get('COD_WERT_NETTO') || flatRes.get('CODIER_WERT_NETTO');
-    if (!nettoHex) {
-      throw new Error('Read did not return netto');
-    }
-
-    // Parse netto to find ZCS region
-    const netto = [];
-    const hex = String(nettoHex).replace(/^0x/i, '').replace(/\s/g, '');
-    for (let i = 0; i + 1 < hex.length; i += 2) {
-      netto.push(parseInt(hex.substr(i, 2), 16));
-    }
-
-    // Find ZCS region (20 bytes) - typically at a known offset per DATEN
-    // For now, assume it's at the start or we can find it via DATEN
-    const daten = typeof datenFor === 'function' ? await datenFor(sgbd) : null;
-    let zcsOffset = 0;
-    if (daten && daten.chassis) {
-      const chId = String(chassisId || '').toUpperCase();
-      const chassis =
-        daten.chassis[chId] || daten.chassis[Object.keys(daten.chassis)[0]];
-      if (chassis) {
-        // Look for a field named ZCS or GM_SCHLUESSEL to find the offset
-        const keys = Object.keys(chassis);
-        for (const vk of keys) {
-          for (const f of chassis[vk]) {
-            if (f.name && /GM_SCHLUESSEL|ZCS/i.test(f.name)) {
-              zcsOffset = f.word || 0;
-              break;
-            }
-          }
-          if (zcsOffset) break;
-        }
-      }
-    }
-
-    const zcsBytes = netto.slice(zcsOffset, zcsOffset + 20);
-    if (zcsBytes.length < 20) {
+    const { netto } = await zcsReadNetto(
+      sgbd,
+      'No coding read job for this module'
+    );
+    const zcsOffset = await zcsRegionOffset(sgbd, chassisId);
+    const zcsBytes = netto.slice(zcsOffset, zcsOffset + ZCS_EDITOR_REGION_LEN);
+    if (zcsBytes.length < ZCS_EDITOR_REGION_LEN) {
       throw new Error('Netto too short to contain ZCS region');
     }
 
@@ -111,53 +177,18 @@ async function showZcsEditor(chassisId, sgbd, back) {
       state.sa !== currentZcs.sa.body ||
       state.vn !== currentZcs.vn.body;
 
+    const saCodes =
+      !saValid && state.sa
+        ? `<div class="zcs-sa-codes">SA codes: ${
+            CodingZcs.extractSaCodes(state.sa).join(', ') || 'none'
+          }</div>`
+        : '';
+
     panel.innerHTML = `
       <div class="zcs-editor">
-        <div class="zcs-row">
-          <label class="zcs-label">GM (Grundmodell)</label>
-          <div class="zcs-input-wrap">
-            <input class="zcs-input mono" id="zcs-gm" type="text"
-                   value="${esc(state.gm)}" maxlength="8"
-                   placeholder="8 hex chars">
-            <span class="zcs-current mono" title="Current value">
-              ${esc(currentZcs.gm.value)}</span>
-          </div>
-          ${gmValid ? `<div class="zcs-error">${esc(gmValid)}</div>` : ''}
-          ${gmFmt ? `<div class="zcs-check">With check: <span class="mono">${esc(gmFmt)}</span></div>` : ''}
-        </div>
-
-        <div class="zcs-row">
-          <label class="zcs-label">SA (Sonderausstattung)</label>
-          <div class="zcs-input-wrap">
-            <input class="zcs-input mono" id="zcs-sa" type="text"
-                   value="${esc(state.sa)}" maxlength="16"
-                   placeholder="16 hex chars">
-            <span class="zcs-current mono" title="Current value">
-              ${esc(currentZcs.sa.value)}</span>
-          </div>
-          ${saValid ? `<div class="zcs-error">${esc(saValid)}</div>` : ''}
-          ${saFmt ? `<div class="zcs-check">With check: <span class="mono">${esc(saFmt)}</span></div>` : ''}
-          ${
-            !saValid && state.sa
-              ? `<div class="zcs-sa-codes">SA codes: ${
-                  CodingZcs.extractSaCodes(state.sa).join(', ') || 'none'
-                }</div>`
-              : ''
-          }
-        </div>
-
-        <div class="zcs-row">
-          <label class="zcs-label">VN (Versionsnummer)</label>
-          <div class="zcs-input-wrap">
-            <input class="zcs-input mono" id="zcs-vn" type="text"
-                   value="${esc(state.vn)}" maxlength="10"
-                   placeholder="10 hex chars">
-            <span class="zcs-current mono" title="Current value">
-              ${esc(currentZcs.vn.value)}</span>
-          </div>
-          ${vnValid ? `<div class="zcs-error">${esc(vnValid)}</div>` : ''}
-          ${vnFmt ? `<div class="zcs-check">With check: <span class="mono">${esc(vnFmt)}</span></div>` : ''}
-        </div>
+        ${zcsKeyRow('zcs-gm', 'GM (Grundmodell)', state.gm, 8, currentZcs.gm.value, gmValid, gmFmt)}
+        ${zcsKeyRow('zcs-sa', 'SA (Sonderausstattung)', state.sa, 16, currentZcs.sa.value, saValid, saFmt, saCodes)}
+        ${zcsKeyRow('zcs-vn', 'VN (Versionsnummer)', state.vn, 10, currentZcs.vn.value, vnValid, vnFmt)}
 
         <div class="zcs-actions">
           <button class="btn" id="zcs-write" ${allValid && changed ? '' : 'disabled'}>
@@ -229,37 +260,15 @@ async function showZcsEditor(chassisId, sgbd, back) {
 
     try {
       // Read current netto
-      const entry =
-        typeof codingFor === 'function' ? await codingFor(sgbd) : null;
-      if (!entry || !entry.read) {
-        throw new Error('No read job');
-      }
-
-      const readRes = await api(`/api/ecu/${sgbd}/run/${entry.read}`, {
-        method: 'POST',
-      });
-      const flatRes = new Map(flatResults(readRes.sets));
-      const nettoHex =
-        flatRes.get('COD_WERT_NETTO') || flatRes.get('CODIER_WERT_NETTO');
-      if (!nettoHex) {
-        throw new Error('Read did not return netto');
-      }
-
-      const netto = [];
-      const hex = String(nettoHex).replace(/^0x/i, '').replace(/\s/g, '');
-      for (let i = 0; i + 1 < hex.length; i += 2) {
-        netto.push(parseInt(hex.substr(i, 2), 16));
-      }
+      const { netto, nettoHex } = await zcsReadNetto(sgbd, 'No read job');
 
       // Build new ZCS region and splice it
       const zcsRegion = CodingZcs.buildZcsRegion(state.gm, state.sa, state.vn);
-      for (let i = 0; i < 20; i++) {
+      for (let i = 0; i < ZCS_EDITOR_REGION_LEN; i++) {
         netto[currentZcs.offset + i] = zcsRegion[i];
       }
 
-      const modHex = netto
-        .map((b) => ('0' + (b & 0xff).toString(16)).slice(-2))
-        .join('');
+      const modHex = codingNettoHex(netto);
 
       // Write via webWriteCoding
       if (typeof webWriteCoding !== 'function') {

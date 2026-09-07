@@ -5,7 +5,7 @@
 // The dangerous property here is address correctness. A custom row carries a
 // mask the user typed; if shift is computed wrong, or the overlay hands the
 // codec a shape it does not expect, the write lands on the wrong bits. So the
-// last section runs custom fields through coding-encode itself rather than
+// last section runs custom fields through the codec (core/coding/encode.js) itself rather than
 // asserting on the object.
 //
 //   node tools/verify/test_coding_custom.js
@@ -25,8 +25,8 @@ global.localStorage = {
   },
 };
 
-const C = require('../../app/renderer/core/coding-custom.js');
-const E = require('../../app/renderer/core/coding-encode.js');
+const C = require('../../app/renderer/core/coding/custom.js');
+const E = require('../../app/renderer/core/coding/encode.js');
 
 let passed = 0;
 const ok = (what) => {

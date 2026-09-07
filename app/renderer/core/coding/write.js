@@ -1,50 +1,126 @@
-// Coding WRITE dispatcher: run the per-ECU-family write job SEQUENCE on the
-// BEST2 VM, over the live bus.
-//
-// We cannot run A_*.ipo (the coding dispatcher .ipo that INPA/ISTA execute
-// host-side); we replicate its job sequence by driving the module's OWN SGBD
-// jobs in the right order over our VM. The sequence DIFFERS per ECU family,
-// keyed off which jobs the SGBD exposes:
-//
-//   codierdaten   AUTHENTISIERUNG -> NORMALER_DATENVERKEHR "NEIN"
-//                 -> CODIERDATEN_SCHREIBEN <netto-hex>
-//                 -> NORMALER_DATENVERKEHR "JA" -> SG_RESET
-//                 (E46 body/others; netto as ASCII-hex string arg)
-//   codierung     CODIERUNG_SCHREIBEN <netto-hex>   (IHKA46 and kin)
-//   cfg-chunked   C_S_AUFTRAG <binbuf> loop -> C_CHECKSUM <binbuf>
-//                 (ZKE5/GM5; needs BINARY job args)
-//
-// SAFETY. The VM itself permits write jobs by default (bestvm.js, owner's
-// decision 2026-08-19: the classifier cannot tell an actuator drive from an
-// EEPROM write, and blocking one blocked both), so the write protection for
-// CODING lives HERE, not in the VM: writeCoding() refuses unless
-// opts.confirmed is set by the UI's review dialog, the read steps in this
-// module explicitly pass allowWrites:false, and every write is proved by
-// re-read (below) before it is reported as a success.
-//
-// PROVE-BY-RE-READ. After the write sequence reports JOB_STATUS OKAY, we
-// re-read the coding block and assert it now equals what we asked to write.
-// A mismatch throws ERROR_VERIFY -- the strongest form of the app's
-// prove-by-re-read hardware-safety contract, applied to the write path.
-//
-// app/renderer/core/*.js style: browser global, no imports. Dual-exported
-// for require() so tools/verify/test_coding_write.js can drive it headless.
+/**
+ * @file The coding WRITE runner: execute a module's write sequence on the
+ * BEST2 VM over the live bus, behind the confirm gate, and prove it by
+ * re-read. Published as the `codingWrite` global, with `writeCoding` and
+ * `codingWriteStrategy` also on the root.
+ *
+ * Two ways to produce the write telegrams:
+ *   - the DISPATCHER path (core/coding/dispatch.js) runs BMW's own derived
+ *     A_<cabd> program when one is shipped for the module;
+ *   - the STRATEGY path (core/coding/write-strategy.js) replays the family's
+ *     job sequence by hand when none is.
+ * Both end here, in the same prove-by-re-read.
+ *
+ * SAFETY. The VM itself permits write jobs by default (bestvm.js, owner's
+ * decision 2026-08-19: the classifier cannot tell an actuator drive from an
+ * EEPROM write, and blocking one blocked both), so the write protection for
+ * CODING lives HERE, not in the VM: writeCoding() refuses unless
+ * opts.confirmed is set by the UI's review dialog, the read steps in this
+ * module explicitly pass allowWrites:false, and every write is proved by
+ * re-read (below) before it is reported as a success.
+ *
+ * PROVE-BY-RE-READ. After the write sequence reports JOB_STATUS OKAY, we
+ * re-read the coding block and assert it now equals what we asked to write.
+ * A mismatch throws ERROR_VERIFY -- the strongest form of the app's
+ * prove-by-re-read hardware-safety contract, applied to the write path.
+ *
+ * app/renderer/core/*.js style: browser global, no imports. Dual-exported
+ * for require() so tools/verify/test_coding_write.js can drive it headless.
+ */
+
+/**
+ * The bus session carried across one write sequence.
+ * @typedef {Object} WriteSession
+ * @property {Map<string, unknown>} shared - the VM's shared memory.
+ * @property {boolean} inited - has the SGBD's INITIALISIERUNG run?
+ * @property {unknown} comm - the VM's comm parameters after the last job.
+ */
+
+/**
+ * Options for writeCoding.
+ * @typedef {Object} WriteOptions
+ * @property {boolean} confirmed - REQUIRED true -- the UI's actuate confirmation.
+ * @property {(out: number[], comm: unknown) => Promise<number[]>} exchange -
+ *   the (bus-locked) wire: request bytes in, answer bytes out.
+ * @property {{jobs?: Record<string, unknown>, tables?: Record<string, unknown>}} [code]
+ *   - the SGBD program.
+ * @property {Record<string, unknown>} [tables] - the SGBD's tables.
+ * @property {JobList} [jobs] - the SGBD's job list.
+ * @property {WriteSession} [session] - carried across the sequence.
+ * @property {Function} [Best2Vm] - VM class (test injection; defaults to the root's).
+ * @property {Date} [now] - fixed clock (determinism for the replay memo).
+ * @property {DispatcherProgram|null} [dispatch] - the derived dispatcher, when shipped.
+ * @property {DataOrg|null} [dataOrg] - the CABD's word width / byte order.
+ * @property {string} [jobname] - the dispatcher jobname (default SG_CODIEREN).
+ */
+
+/**
+ * The runner context threaded through one sequence.
+ * @typedef {Object} WriteContext
+ * @property {Function} Best2Vm - the VM class.
+ * @property {unknown} code - the SGBD program.
+ * @property {Record<string, unknown>} tables - the SGBD's tables.
+ * @property {(out: number[], comm: unknown) => Promise<number[]>} exchange - the wire.
+ * @property {WriteSession} session - the bus session.
+ * @property {Date|null} now - fixed clock, or null for wall time.
+ * @property {boolean} [allowWrites] - THE write permission for this call.
+ */
+
+/**
+ * What writeCoding returns.
+ * @typedef {Object} WriteResult
+ * @property {boolean} ok - always true (a failure throws).
+ * @property {number[]|null} before - the netto before the write (null when
+ *   there was no read job, or on the dispatcher path).
+ * @property {number[]|null} after - the netto read back after the write.
+ * @property {Array<[string, string]>} [sequence] - `[job, JOB_STATUS]` per step.
+ * @property {WriteStrategy|'dispatch'} strategy - which path ran.
+ * @property {WireLogEntry[]} [log] - the dispatcher's wire log.
+ * @property {string} [note] - why nothing was transmitted / not re-read.
+ */
 
 (function (root) {
   'use strict';
 
-  // The VM class. In the browser it is window.Best2Vm (bestvm.js loaded as a
-  // <script> before this one); under require() the test injects it.
+  const Strategy =
+    typeof root !== 'undefined' && root.CodingWriteStrategy
+      ? root.CodingWriteStrategy
+      : require('./write-strategy.js');
+  const Backup =
+    typeof root !== 'undefined' && root.CodingBackup
+      ? root.CodingBackup
+      : require('./backup.js');
+  const { codingWriteStrategy, readJobFor, writeSteps, toHex } = Strategy;
+  const { saveCodingBackup, listCodingBackups } = Backup;
+
+  /** Most bus exchanges one job may need before the replay is called stuck. */
+  const MAX_EXCHANGES = 128;
+  /** The JOB_STATUS EDIABAS publishes on success. */
+  const JOB_OK = 'OKAY';
+  /** The dispatcher jobname that means "code the module". */
+  const DEFAULT_JOBNAME = 'SG_CODIEREN';
+
+  /**
+   * The VM class. In the browser it is window.Best2Vm (bestvm.js loaded as a
+   * script before this one); under require() the test injects it.
+   * @param {WriteOptions} [opts] - may carry `Best2Vm`.
+   * @returns {Function} the VM class.
+   * @throws {Error} when no VM is reachable.
+   */
   function getVm(opts) {
     if (opts && opts.Best2Vm) return opts.Best2Vm;
     if (typeof root.Best2Vm !== 'undefined') return root.Best2Vm;
-    if (typeof require !== 'undefined') return require('./bestvm.js').Best2Vm;
+    if (typeof require !== 'undefined') return require('../bestvm.js').Best2Vm;
     throw new Error('coding-write: Best2Vm not available');
   }
 
   // ---- netto <-> hex/bytes -------------------------------------------------
 
-  // Accept netto as a hex string ("A1B2...") or a byte array; normalise both.
+  /**
+   * Accept netto as a hex string ("A1B2...") or a byte array; normalise both.
+   * @param {string|ArrayLike<number>|null|undefined} netto - the netto.
+   * @returns {number[]} the bytes.
+   */
   function toBytes(netto) {
     if (netto == null) return [];
     if (typeof netto === 'string') {
@@ -58,12 +134,12 @@
     return Array.from(netto, (b) => b & 0xff);
   }
 
-  function toHex(bytes) {
-    return Array.from(bytes, (b) => (b & 0xff).toString(16).padStart(2, '0'))
-      .join('')
-      .toUpperCase();
-  }
-
+  /**
+   * Byte-wise equality.
+   * @param {ArrayLike<number>} a - left.
+   * @param {ArrayLike<number>} b - right.
+   * @returns {boolean} equal length and contents?
+   */
   function bytesEqual(a, b) {
     if (a.length !== b.length) return false;
     for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
@@ -76,96 +152,15 @@
   // String.fromCharCode(...bytes) round-trips any byte 0..255 into argBytes,
   // which `pary` reads whole. `;` is NOT special to pary (only to the
   // ';'-splitting parb/parl/... family), so a raw blob survives intact.
+  /**
+   * Binary blob -> args string whose char codes ARE the bytes.
+   * @param {ArrayLike<number>} bytes - the blob.
+   * @returns {string} the argument string.
+   */
   function bytesToArgString(bytes) {
     let s = '';
     for (const b of bytes) s += String.fromCharCode(b & 0xff);
     return s;
-  }
-
-  // ---- job list detection --------------------------------------------------
-
-  // Normalise a jobs list to an uppercase Set. Accepts an array of names, an
-  // object keyed by name (the shape of code.jobs), or a Set.
-  function jobSet(jobs) {
-    const s = new Set();
-    if (!jobs) return s;
-    const add = (n) => {
-      if (n) s.add(String(n).toUpperCase());
-    };
-    if (jobs instanceof Set || Array.isArray(jobs)) {
-      for (const n of jobs) add(n);
-    } else if (typeof jobs === 'object') {
-      for (const n of Object.keys(jobs)) add(n);
-    }
-    return s;
-  }
-
-  // Pick the write strategy from which jobs the SGBD exposes. Order matters:
-  // a module that has BOTH a chunked cfg path and a plain CODIERDATEN one is
-  // written the cfg way (that is the family's real dispatcher). Returns the
-  // strategy name or null when the SGBD exposes no write path we know.
-  function codingWriteStrategy(sgbd, jobs) {
-    const j = jobSet(jobs);
-    if (j.has('C_S_AUFTRAG')) return 'cfg-chunked';
-    if (j.has('CODIERDATEN_SCHREIBEN')) return 'codierdaten';
-    if (j.has('CODIERUNG_SCHREIBEN')) return 'codierung';
-    return null;
-  }
-
-  // Which job reads the current netto back, per strategy. cfg-chunked and
-  // codierdaten both read via CODIERDATEN_LESEN when present; codierung reads
-  // via CODIERUNG_LESEN. Returns null if the read job is absent (we then skip
-  // the before-read but STILL prove by re-read after the write, comparing to
-  // what we asked to write).
-  function readJobFor(strategy, jobs) {
-    const j = jobSet(jobs);
-    if (strategy === 'codierung') {
-      return j.has('CODIERUNG_LESEN') ? 'CODIERUNG_LESEN' : null;
-    }
-    return j.has('CODIERDATEN_LESEN')
-      ? 'CODIERDATEN_LESEN'
-      : j.has('CODIERUNG_LESEN')
-        ? 'CODIERUNG_LESEN'
-        : null;
-  }
-
-  // The ordered write steps for a strategy. Each step is {job, arg} where arg
-  // is a string (hex or literal) or {bin: [...bytes]} for a binary job arg.
-  // <netto-hex> is substituted per-call. Steps whose job the SGBD lacks are
-  // dropped (SG_RESET / NORMALER_DATENVERKEHR are optional on many modules).
-  function writeSteps(strategy, nettoBytes, jobs) {
-    const j = jobSet(jobs);
-    const hex = toHex(nettoBytes);
-    let steps;
-    if (strategy === 'codierdaten') {
-      steps = [
-        { job: 'AUTHENTISIERUNG', arg: '' },
-        { job: 'NORMALER_DATENVERKEHR', arg: 'NEIN' },
-        { job: 'CODIERDATEN_SCHREIBEN', arg: hex, required: true },
-        { job: 'NORMALER_DATENVERKEHR', arg: 'JA' },
-        { job: 'SG_RESET', arg: '' },
-      ];
-    } else if (strategy === 'codierung') {
-      steps = [{ job: 'CODIERUNG_SCHREIBEN', arg: hex, required: true }];
-    } else if (strategy === 'cfg-chunked') {
-      // The SGBD's C_S_AUFTRAG takes the whole netto as a binary buffer and
-      // writes it into the coding region itself (it walks its own slot table
-      // internally, exactly as CDHGetApiJobData/CDHapiJobData feed it). We
-      // hand it the whole blob once; C_CHECKSUM then validates the region.
-      steps = [
-        {
-          job: 'C_S_AUFTRAG',
-          arg: { bin: nettoBytes.slice() },
-          required: true,
-        },
-        { job: 'C_CHECKSUM', arg: { bin: nettoBytes.slice() } },
-      ];
-    } else {
-      return null;
-    }
-    return steps.filter(
-      (s) => s.required || j.has(String(s.job).toUpperCase())
-    );
   }
 
   // ---- the VM job runner (write-capable) -----------------------------------
@@ -180,6 +175,15 @@
   // the caller instead of fixed: the read steps of a coding sequence run
   // with the gate CLOSED, so only the confirmed write steps can transmit a
   // write job even if a read job were misclassified.
+  /**
+   * Run one SGBD job over the bus with the context's write permission.
+   * @param {WriteContext} ctx - the runner context.
+   * @param {string} sgbd - the module (for messages).
+   * @param {string} job - the job name.
+   * @param {string | {bin: number[]} | null | undefined} arg - the argument.
+   * @returns {Promise<Array<Record<string, string>>>} the result sets.
+   * @throws {Error} when the VM throws, or the job does not settle.
+   */
   async function runJobOverBus(ctx, sgbd, job, arg) {
     const Vm = ctx.Best2Vm;
     const code = ctx.code;
@@ -194,7 +198,7 @@
           ? ''
           : String(arg);
 
-    for (let attempt = 0; attempt < 128; attempt++) {
+    for (let attempt = 0; attempt < MAX_EXCHANGES; attempt++) {
       let missing = null;
       let sendSeq = 0;
       const vm = new Vm(code, {
@@ -230,8 +234,12 @@
     throw new Error(`coding job ${job} did not settle after 128 exchanges`);
   }
 
-  // JOB_STATUS across the returned sets. EDIABAS publishes it as OKAY on
-  // success; anything else (ERROR_ECU_*, Codierfehler, empty) is a failure.
+  /**
+   * JOB_STATUS across the returned sets. EDIABAS publishes it as OKAY on
+   * success; anything else (ERROR_ECU_*, Codierfehler, empty) is a failure.
+   * @param {Array<Record<string, string>>|null|undefined} sets - result sets.
+   * @returns {string|null} the last non-empty JOB_STATUS, or null.
+   */
   function jobStatusOf(sets) {
     for (let i = (sets || []).length - 1; i >= 0; i--) {
       const st = sets[i] && sets[i].JOB_STATUS;
@@ -240,10 +248,15 @@
     return null;
   }
 
-  // Read the current netto via the strategy's read job. Returns a byte array,
-  // or null when the SGBD exposes no read job. The netto is published either
-  // as a hex string or as dash/space-separated hex in a result field; we
-  // search the last set for the first field that decodes to bytes.
+  /**
+   * Read the current netto via the strategy's read job (a READ; allowWrites
+   * is forced false).
+   * @param {WriteContext} ctx - the runner context.
+   * @param {string} sgbd - the module.
+   * @param {string|null} readJob - the read job, or null when the SGBD has none.
+   * @returns {Promise<number[]|null>} the bytes, or null with no read job.
+   * @throws {Error} ERROR_VERIFY when the read job reports a non-OKAY status.
+   */
   async function readNetto(ctx, sgbd, readJob) {
     if (!readJob) return null;
     const sets = await runJobOverBus(
@@ -253,27 +266,33 @@
       ''
     );
     const st = jobStatusOf(sets);
-    if (st && st !== 'OKAY') {
+    if (st && st !== JOB_OK) {
       throw errVerify(`re-read job ${readJob} returned JOB_STATUS ${st}`);
     }
     return extractNetto(sets);
   }
 
-  // Pull the coding bytes out of a read job's result sets. Prefers an explicit
-  // CODIERDATEN / CODIERDATENSATZ / CODIERUNG field, else the first field
-  // whose value looks like packed or dash-separated hex.
+  /** Result names that carry the coding bytes, in preference order. */
+  const NETTO_RESULT_NAMES = [
+    'CODIERDATEN',
+    'CODIERDATENSATZ',
+    'CODIERUNG',
+    'CODIERSTRING',
+    'NETTODATEN',
+    'DATEN',
+  ];
+
+  /**
+   * Pull the coding bytes out of a read job's result sets. Prefers an explicit
+   * CODIERDATEN / CODIERDATENSATZ / CODIERUNG field, else the first field
+   * whose value looks like packed or dash-separated hex.
+   * @param {Array<Record<string, string>>|null|undefined} sets - result sets.
+   * @returns {number[]|null} the bytes, or null when nothing decodes.
+   */
   function extractNetto(sets) {
-    const PREF = [
-      'CODIERDATEN',
-      'CODIERDATENSATZ',
-      'CODIERUNG',
-      'CODIERSTRING',
-      'NETTODATEN',
-      'DATEN',
-    ];
     for (const set of sets || []) {
       if (!set || typeof set !== 'object') continue;
-      for (const key of PREF) {
+      for (const key of NETTO_RESULT_NAMES) {
         if (typeof set[key] === 'string' && set[key]) {
           const b = decodeHexField(set[key]);
           if (b) return b;
@@ -294,7 +313,11 @@
     return null;
   }
 
-  // "A1B2C3" or "A1-B2-C3" or "A1 B2 C3" -> bytes; null if it is not hex.
+  /**
+   * "A1B2C3" or "A1-B2-C3" or "A1 B2 C3" -> bytes.
+   * @param {string} v - the field text.
+   * @returns {number[]|null} the bytes, or null if it is not hex.
+   */
   function decodeHexField(v) {
     const clean = v.trim();
     if (!/^[0-9a-fA-F]([\s-]?[0-9a-fA-F]{2})*[0-9a-fA-F]?$/.test(clean)) {
@@ -309,29 +332,36 @@
     return out;
   }
 
+  /**
+   * Build the verification failure the write path throws.
+   * @param {string} msg - what did not verify.
+   * @returns {Error & {code: 'ERROR_VERIFY'}} the error.
+   */
   function errVerify(msg) {
-    const e = new Error(`ERROR_VERIFY: ${msg}`);
+    const e = /** @type {Error & {code: 'ERROR_VERIFY'}} */ (
+      new Error(`ERROR_VERIFY: ${msg}`)
+    );
     e.code = 'ERROR_VERIFY';
     return e;
   }
 
   // ---- the entry point -----------------------------------------------------
 
-  // writeCoding(sgbd, nettoBytes, opts) -> {ok, before, after, sequence}
-  //
-  //   sgbd        SGBD name (for messages / job lookup)
-  //   nettoBytes  the FULL netto to write, as a hex string or byte array
-  //   opts.confirmed   REQUIRED true -- the UI's actuate confirmation
-  //   opts.code / opts.tables / opts.jobs   the SGBD program + tables + job list
-  //   opts.exchange(out, comm) -> answer bytes   the (bus-locked) wire
-  //   opts.session     { shared, inited, comm } carried across the sequence
-  //   opts.Best2Vm     VM class (test injection; defaults to window.Best2Vm)
-  //   opts.now         fixed clock (determinism for the replay memo)
-  //
   // Sequence: read current netto (before) -> run the strategy's write steps,
   // asserting JOB_STATUS OKAY at each -> PROVE-BY-RE-READ: read it back and
   // assert it equals nettoBytes, else throw ERROR_VERIFY.
-  async function writeCoding(sgbd, nettoBytes, opts = {}) {
+  /**
+   * Write a module's FULL netto, behind the confirm gate, and prove it.
+   * @param {string} sgbd - SGBD name (for messages / job lookup).
+   * @param {string|ArrayLike<number>} nettoBytes - the FULL netto to write,
+   *   as a hex string or byte array.
+   * @param {WriteOptions} opts - see {@link WriteOptions}.
+   * @returns {Promise<WriteResult>} the outcome.
+   * @throws {Error} when not confirmed, the netto is empty, no exchange is
+   *   given, or the SGBD exposes no known write path; ERROR_VERIFY when a
+   *   step reports failure or the re-read does not match.
+   */
+  async function writeCoding(sgbd, nettoBytes, opts = /** @type {any} */ ({})) {
     if (!opts.confirmed) {
       throw new Error(
         'coding write refused: opts.confirmed must be set ' +
@@ -350,6 +380,7 @@
       inited: false,
       comm: null,
     };
+    /** @type {WriteContext} */
     const baseCtx = {
       Best2Vm,
       code: opts.code,
@@ -362,9 +393,9 @@
     // DISPATCHER PATH. When the caller ships the derived A_<cabd> program
     // (opts.dispatch), execute BMW's own coding dispatcher instead of the
     // hand-sequenced strategy: it picks the jobs and builds the wire packet
-    // itself (coding-dispatch.js). We still prove the write by re-read below,
-    // using whichever read job the SGBD exposes. Falls through to the strategy
-    // path when no dispatcher is shipped for this module.
+    // itself (core/coding/dispatch.js). We still prove the write by re-read
+    // below, using whichever read job the SGBD exposes. Falls through to the
+    // strategy path when no dispatcher is shipped for this module.
     if (opts.dispatch && typeof root.runCodingDispatch === 'function') {
       return writeViaDispatch(sgbd, want, baseCtx, opts);
     }
@@ -379,12 +410,12 @@
     }
 
     const readJob = readJobFor(strategy, jobs);
+    /** @type {Array<[string, string]>} */
     const sequence = [];
 
     // --- before: current netto (a READ; allowWrites stays false)
     const before = await readNetto(baseCtx, sgbd, readJob);
-    if (readJob)
-      sequence.push([readJob, jobStatusOf([{ JOB_STATUS: 'OKAY' }])]);
+    if (readJob) sequence.push([readJob, JOB_OK]);
 
     // Already equal? Nothing to transmit -- do NOT open the write gate.
     if (before && bytesEqual(before, want)) {
@@ -410,17 +441,17 @@
     for (const step of steps) {
       const sets = await runJobOverBus(writeCtx, sgbd, step.job, step.arg);
       const st = jobStatusOf(sets);
-      sequence.push([step.job, st == null ? 'OKAY' : st]);
+      sequence.push([step.job, st == null ? JOB_OK : st]);
       // A step that reports an explicit non-OKAY status aborts the sequence:
       // do not keep pushing writes at a module that rejected the last one.
-      if (st != null && st !== 'OKAY') {
+      if (st != null && st !== JOB_OK) {
         throw errVerify(`step ${step.job} returned JOB_STATUS ${st}`);
       }
     }
 
     // --- PROVE BY RE-READ (a READ; allowWrites false again)
     const after = await readNetto(baseCtx, sgbd, readJob);
-    if (readJob) sequence.push([readJob, 'OKAY']);
+    if (readJob) sequence.push([readJob, JOB_OK]);
     if (after == null) {
       throw errVerify(
         'cannot prove the write: SGBD exposes no coding read job ' +
@@ -445,6 +476,16 @@
   // read back and prove equality. The dispatcher owns the job order and the
   // wire-packet framing; we own the confirm gate, the slot/data-org seeding,
   // and the prove-by-re-read.
+  /**
+   * Write via the derived dispatcher, then prove by re-read.
+   * @param {string} sgbd - the module.
+   * @param {number[]} want - the FULL netto to write.
+   * @param {WriteContext} baseCtx - the runner context (gate closed).
+   * @param {WriteOptions} opts - the caller's options (dispatch, dataOrg, jobs).
+   * @returns {Promise<WriteResult>} the outcome.
+   * @throws {Error} ERROR_VERIFY when the dispatcher reports failure or the
+   *   re-read does not match.
+   */
   async function writeViaDispatch(sgbd, want, baseCtx, opts) {
     // data-org: word width (1 byte / 2 word), byte order (0 low-first).
     // The CABD SPEICHERORG STRUKTUR: BYTE -> wb 1; WORDMSB/WORDLSB -> wb 2,
@@ -464,6 +505,7 @@
     // runJob for the dispatcher: the SAME memoised bus replay the strategy
     // path uses, with allowWrites threaded per call. Reads (the dispatcher's
     // own ident/index/current-netto) come with the gate closed.
+    /** @type {CdhRunJob} */
     const runJob = async (jobSgbd, job, argText, o) => {
       const ctx = { ...baseCtx, allowWrites: !!(o && o.allowWrites) };
       const arg =
@@ -480,7 +522,7 @@
     const result = await root.runCodingDispatch(opts.dispatch, {
       sgbd,
       slots,
-      jobname: opts.jobname || 'SG_CODIEREN',
+      jobname: opts.jobname || DEFAULT_JOBNAME,
       dataOrg: { wortBreite: wb, byteFolge, adrMode: 0 },
       confirmed: true,
       runJob,
@@ -525,69 +567,6 @@
     };
   }
 
-  // ---- pre-write backup ----------------------------------------------------
-  //
-  // The bytes an ECU held before we wrote are the ONLY way back from a bad
-  // write, and they exist for exactly one moment: after the read, before the
-  // transmit. Persist them there or they are gone. Kept deliberately dumb --
-  // append-only, newest first, capped -- because the one job it has is to
-  // still be there after a write goes wrong.
-  const BACKUP_KEY = 'bmweb.coding.backups';
-  const BACKUP_MAX = 50;
-
-  function backupStore() {
-    try {
-      if (typeof localStorage !== 'undefined') return localStorage;
-    } catch (e) {
-      /* private mode / disabled: fall through */
-    }
-    return null;
-  }
-
-  // saveCodingBackup(sgbd, nettoHex, meta) -> the stored record (or null when
-  // there is no storage). NEVER throws: a backup failure must not abort a
-  // write the user already confirmed, so it returns null and the caller
-  // decides. The caller is what surfaces "unbacked" to the user.
-  function saveCodingBackup(sgbd, nettoHex, meta = {}) {
-    const store = backupStore();
-    if (!store) return null;
-    const rec = {
-      sgbd: String(sgbd),
-      netto: String(nettoHex || '')
-        .replace(/[^0-9a-fA-F]/g, '')
-        .toUpperCase(),
-      at: (meta.now instanceof Date ? meta.now : new Date()).toISOString(),
-      chassis: meta.chassis || null,
-      ci: meta.ci == null ? null : meta.ci,
-      note: meta.note || null,
-    };
-    if (!rec.netto) return null;
-    try {
-      const prev = JSON.parse(store.getItem(BACKUP_KEY) || '[]');
-      const list = Array.isArray(prev) ? prev : [];
-      list.unshift(rec);
-      store.setItem(BACKUP_KEY, JSON.stringify(list.slice(0, BACKUP_MAX)));
-      return rec;
-    } catch (e) {
-      return null; // quota, serialisation, whatever: never block the write
-    }
-  }
-
-  // Every stored backup, newest first.
-  function listCodingBackups(sgbd) {
-    const store = backupStore();
-    if (!store) return [];
-    try {
-      const list = JSON.parse(store.getItem(BACKUP_KEY) || '[]');
-      if (!Array.isArray(list)) return [];
-      return sgbd
-        ? list.filter((r) => r && String(r.sgbd) === String(sgbd))
-        : list;
-    } catch (e) {
-      return [];
-    }
-  }
-
   const api = {
     codingWriteStrategy,
     writeCoding,
@@ -605,8 +584,6 @@
   if (typeof root !== 'undefined') {
     root.codingWriteStrategy = codingWriteStrategy;
     root.writeCoding = writeCoding;
-    root.saveCodingBackup = saveCodingBackup;
-    root.listCodingBackups = listCodingBackups;
     root.codingWrite = api;
   }
   if (typeof module !== 'undefined' && module.exports) {

@@ -1,38 +1,69 @@
-// coding-custom: user-defined coding parameters, overlaid on BMW's DATEN.
-//
-// BMW's DATEN describes a lot of a coding block, but not all of it -- every
-// module has bytes no PARZUWEISUNG_FSW row claims. Community coding knowledge
-// lives exactly there ("byte 5 bit 2 is the welcome-light delay"), and today
-// that knowledge has nowhere to go: the app renders BMW's description and
-// nothing else.
-//
-// A custom parameter is a row the USER adds: a name, an address (block, byte
-// offset, mask) and a value list. Once added it renders, filters, stages and
-// writes exactly like a BMW-described field, because it IS one -- the same
-// {name, block, word, byte, mask, shift, values} shape datenmap.js emits, so
-// coding-encode's splice and the write path need no special case.
-//
-// TWO RULES, both load-bearing:
-//
-//   1. VENDOR DATA IS READ-ONLY. Nothing here mutates BMW_DATEN_MAP. The
-//      overlay lives in localStorage and is merged into a COPY at read time.
-//      Re-generating datenmap.js never destroys a user's parameters, and a
-//      user's parameter never corrupts the shipped description.
-//
-//   2. SYNTHETIC IDS START AT 0xF000. BMW's FSW ids are well below that, so a
-//      custom row can never collide with a real one, and `isCustom()` is a
-//      cheap numeric test rather than a lookup.
-//
-// The address is the dangerous part -- a wrong mask writes the wrong bits --
-// so addCustom() validates hard and refuses anything it cannot place.
+/**
+ * @file User-defined coding parameters, overlaid on BMW's DATEN. Published as
+ * the `CodingCustom` global.
+ *
+ * BMW's DATEN describes a lot of a coding block, but not all of it -- every
+ * module has bytes no PARZUWEISUNG_FSW row claims. Community coding knowledge
+ * lives exactly there ("byte 5 bit 2 is the welcome-light delay"), and today
+ * that knowledge has nowhere to go: the app renders BMW's description and
+ * nothing else.
+ *
+ * A custom parameter is a row the USER adds: a name, an address (block, byte
+ * offset, mask) and a value list. Once added it renders, filters, stages and
+ * writes exactly like a BMW-described field, because it IS one -- the same
+ * {name, block, word, byte, mask, shift, values} shape datenmap.js emits, so
+ * the codec's splice and the write path need no special case.
+ *
+ * TWO RULES, both load-bearing:
+ *
+ *   1. VENDOR DATA IS READ-ONLY. Nothing here mutates BMW_DATEN_MAP. The
+ *      overlay lives in localStorage and is merged into a COPY at read time.
+ *      Re-generating datenmap.js never destroys a user's parameters, and a
+ *      user's parameter never corrupts the shipped description.
+ *
+ *   2. SYNTHETIC IDS START AT 0xF000. BMW's FSW ids are well below that, so a
+ *      custom row can never collide with a real one, and `isCustom()` is a
+ *      cheap numeric test rather than a lookup.
+ *
+ * The address is the dangerous part -- a wrong mask writes the wrong bits --
+ * so addCustom() validates hard and refuses anything it cannot place.
+ */
+
+/**
+ * A custom row as the user submits it, before validation.
+ * @typedef {Object} CustomRowInput
+ * @property {string} name - parameter name.
+ * @property {number|string} word - byte offset into the netto.
+ * @property {number|string} [byte] - width in bytes (default 1).
+ * @property {number|string} [mask] - first-byte mask (default 0xFF).
+ * @property {number|string} [block] - coding block (default 0).
+ * @property {Array<[string, string]>} [values] - `[label, hex]` pairs.
+ * @property {string} [note] - free text (kept to 200 chars).
+ */
+
+/**
+ * The result of addCustom.
+ * @typedef {{ok: true, field: DatenField} | {ok: false, err: string}} AddCustomResult
+ */
 
 (function (root) {
   'use strict';
 
+  /** localStorage key holding every module's overlay. */
   const STORE_KEY = 'bmweb.coding.custom';
-  const ID_BASE = 0xf000; // synthetic ids start here
+  /** Synthetic ids start here, above every FSW id BMW ships. */
+  const ID_BASE = 0xf000;
+  /** Highest synthetic id. */
   const ID_MAX = 0xffff;
+  /** Longest note kept on a row. */
+  const NOTE_MAX = 200;
+  /** Widest custom field, in bytes. */
+  const WIDTH_MAX = 64;
 
+  /**
+   * The storage backend, or null when unavailable (private mode, disabled).
+   * @returns {Storage|null} localStorage or null.
+   */
   function store() {
     try {
       if (typeof localStorage !== 'undefined') return localStorage;
@@ -42,6 +73,11 @@
     return null;
   }
 
+  /**
+   * Every overlay, keyed by module key.
+   * @returns {Record<string, DatenField[]>} the stored overlays (empty when
+   *   storage is missing or corrupt).
+   */
   function readAll() {
     const s = store();
     if (!s) return {};
@@ -53,6 +89,11 @@
     }
   }
 
+  /**
+   * Persist every overlay.
+   * @param {Record<string, DatenField[]>} all - the overlays.
+   * @returns {boolean} false when storage is missing or full (never throws).
+   */
   function writeAll(all) {
     const s = store();
     if (!s) return false;
@@ -68,6 +109,13 @@
   // byte means different things across variants -- that is the whole reason
   // BMW ships one file per coding index -- so a custom row must not leak
   // between them.
+  /**
+   * The overlay key for one module on one chassis and coding variant.
+   * @param {string} sgbd - module name.
+   * @param {string} chassis - chassis id.
+   * @param {string} variant - coding variant key (e.g. `C05+C06`).
+   * @returns {string} `sgbd|CHASSIS|variant`.
+   */
   function keyOf(sgbd, chassis, variant) {
     return [
       String(sgbd || '').toLowerCase(),
@@ -76,14 +124,25 @@
     ].join('|');
   }
 
+  /**
+   * Is this field a user-defined row?
+   * @param {DatenField|null|undefined} field - the field.
+   * @returns {boolean} true for a custom row.
+   */
   function isCustom(field) {
     return !!(field && field.custom);
   }
 
   // ---- validation ----------------------------------------------------------
 
-  // Everything that must hold before a row can address real bytes. Returns an
-  // error STRING (so the UI can show it) or null when the row is placeable.
+  /**
+   * Everything that must hold before a row can address real bytes.
+   * @param {CustomRowInput} row - the candidate row.
+   * @param {DatenField[]} [existing] - the module's current fields (BMW's plus
+   *   any custom), for the name-collision check.
+   * @returns {string|null} an error STRING (so the UI can show it) or null
+   *   when the row is placeable.
+   */
   function validate(row, existing) {
     if (!row || typeof row !== 'object') return 'no parameter given';
 
@@ -102,7 +161,7 @@
     }
 
     const width = Number(row.byte == null ? 1 : row.byte);
-    if (!Number.isInteger(width) || width < 1 || width > 64) {
+    if (!Number.isInteger(width) || width < 1 || width > WIDTH_MAX) {
       return 'width must be a whole number of bytes between 1 and 64';
     }
 
@@ -146,9 +205,14 @@
     return null;
   }
 
-  // Does this row's mask overlap a BMW-described field at the same address?
-  // Not fatal -- overlapping a known field is sometimes exactly the point --
-  // but the UI should say so before the user writes it.
+  /**
+   * Which BMW-described fields at the same address does this row's mask
+   * overlap? Not fatal -- overlapping a known field is sometimes exactly the
+   * point -- but the UI should say so before the user writes it.
+   * @param {CustomRowInput} row - the candidate row.
+   * @param {DatenField[]} [fields] - the module's fields.
+   * @returns {string[]} the names of overlapping fields.
+   */
   function overlaps(row, fields) {
     const hits = [];
     const word = Number(row.word);
@@ -163,12 +227,24 @@
 
   // ---- CRUD ----------------------------------------------------------------
 
+  /**
+   * The custom rows for one module/chassis/variant.
+   * @param {string} sgbd - module name.
+   * @param {string} chassis - chassis id.
+   * @param {string} variant - coding variant key.
+   * @returns {DatenField[]} the rows (empty when none).
+   */
   function list(sgbd, chassis, variant) {
     const all = readAll();
     const rows = all[keyOf(sgbd, chassis, variant)];
     return Array.isArray(rows) ? rows : [];
   }
 
+  /**
+   * The lowest unused synthetic id.
+   * @param {DatenField[]} rows - existing custom rows.
+   * @returns {number} an id in 0xF000..0xFFFF.
+   */
   function nextId(rows) {
     let id = ID_BASE;
     const used = new Set((rows || []).map((r) => Number(r.id)));
@@ -176,9 +252,16 @@
     return id;
   }
 
-  // addCustom(...) -> {ok:true, field} | {ok:false, err}
-  // `existing` is the module's current field list (BMW's + any custom), used
-  // for the name-collision and overlap checks.
+  /**
+   * Validate and store a custom row.
+   * @param {string} sgbd - module name.
+   * @param {string} chassis - chassis id.
+   * @param {string} variant - coding variant key.
+   * @param {CustomRowInput} row - the row to add.
+   * @param {DatenField[]} [existing] - the module's current field list (BMW's
+   *   + any custom), used for the name-collision and overlap checks.
+   * @returns {AddCustomResult} the stored field, or the reason it was refused.
+   */
   function addCustom(sgbd, chassis, variant, row, existing) {
     const err = validate(row, existing);
     if (err) return { ok: false, err };
@@ -186,11 +269,12 @@
     const rows = list(sgbd, chassis, variant);
     const width = Number(row.byte == null ? 1 : row.byte);
     const mask = Number(row.mask == null ? 0xff : row.mask);
-    // shift = trailing-zero count of the mask, the same geometry
-    // coding-encode uses to place a value inside its byte
+    // shift = trailing-zero count of the mask, the same geometry the codec
+    // uses to place a value inside its byte
     let shift = 0;
     while (shift < 8 && !((mask >> shift) & 1)) shift++;
 
+    /** @type {DatenField} */
     const field = {
       id: nextId(rows),
       name: String(row.name).trim(),
@@ -204,7 +288,7 @@
         String(v[1]).toUpperCase(),
       ]),
       custom: true,
-      note: row.note ? String(row.note).slice(0, 200) : undefined,
+      note: row.note ? String(row.note).slice(0, NOTE_MAX) : undefined,
     };
 
     rows.push(field);
@@ -219,6 +303,14 @@
     return { ok: true, field };
   }
 
+  /**
+   * Remove a custom row by id.
+   * @param {string} sgbd - module name.
+   * @param {string} chassis - chassis id.
+   * @param {string} variant - coding variant key.
+   * @param {number} id - the row's synthetic id.
+   * @returns {boolean} true when a row was removed and the store saved.
+   */
   function removeCustom(sgbd, chassis, variant, id) {
     const all = readAll();
     const k = keyOf(sgbd, chassis, variant);
@@ -232,9 +324,17 @@
 
   // ---- the overlay ---------------------------------------------------------
 
-  // Merge a module's custom rows onto BMW's field list. Returns a NEW array;
-  // the input (which is BMW_DATEN_MAP's own array) is never touched. Custom
-  // rows sort into their block so they appear under the right group header.
+  /**
+   * Merge a module's custom rows onto BMW's field list. Returns a NEW array;
+   * the input (which is BMW_DATEN_MAP's own array) is never touched. Custom
+   * rows sort into their block so they appear under the right group header.
+   * @param {DatenField[]} fields - BMW's fields.
+   * @param {string} sgbd - module name.
+   * @param {string} chassis - chassis id.
+   * @param {string} variant - coding variant key.
+   * @returns {DatenField[]} the merged list (the input itself when there is
+   *   no overlay).
+   */
   function mergeCustom(fields, sgbd, chassis, variant) {
     const rows = list(sgbd, chassis, variant);
     if (!rows.length) return fields;
@@ -254,11 +354,20 @@
     return out;
   }
 
-  // Everything the user has defined, for an export / manage view.
+  /**
+   * Everything the user has defined, for an export / manage view.
+   * @returns {Record<string, DatenField[]>} overlays keyed by module key.
+   */
   function exportAll() {
     return readAll();
   }
 
+  /**
+   * Import overlays, merging onto (or replacing) what is stored.
+   * @param {Record<string, DatenField[]>} obj - overlays keyed by module key.
+   * @param {{merge?: boolean}} [opts] - `merge: false` replaces the store.
+   * @returns {boolean} true when saved.
+   */
   function importAll(obj, { merge = true } = {}) {
     if (!obj || typeof obj !== 'object') return false;
     const all = merge ? readAll() : {};

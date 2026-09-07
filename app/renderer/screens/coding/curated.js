@@ -1,15 +1,38 @@
-// Curated feature-toggle coding: a hand-picked shortlist of owner-facing E46
-// options, the friendly tier over the expert tree (showDatenReference).
-//
-// NOT a write tool. It reads the module, shows each option as a toggle at the
-// car's current value, and stages changes -- the send path still does not exist
-// (see coding-edit.js's header and the four write gates).
-//
-// E46-first. Values come from the DATEN map at runtime, so an entry only shows
-// when the car's module actually carries it.
+/**
+ * @file Curated feature-toggle coding: a hand-picked shortlist of owner-facing
+ * E46 options, the friendly tier over the expert tree.
+ *
+ * NOT a write tool. It reads the module, shows each option as a toggle at the
+ * car's current value, and stages changes -- the send path for this tier does
+ * not exist (the expert tree is the only screen that writes, through the four
+ * write gates; see screens/coding/write-review.js).
+ *
+ * E46-first. Values come from the DATEN map at runtime, so an entry only shows
+ * when the car's module actually carries it.
+ */
 
-// group -> ordered [sgbd, FSW keyword]. Keywords verified present in
-// BMW_DATEN_MAP for E46; a missing one is skipped.
+/**
+ * One curated feature, resolved against the DATEN map.
+ * @typedef {Object} CuratedItem
+ * @property {string} sgbd - the module.
+ * @property {string} name - the DATEN keyword.
+ * @property {string} label - the display label.
+ * @property {number} on - the mask-normalised "on" value.
+ * @property {number} off - the mask-normalised "off" value.
+ */
+
+/**
+ * A named group of curated features.
+ * @typedef {Object} CuratedGroup
+ * @property {string} group - the group heading.
+ * @property {CuratedItem[]} items - the features.
+ */
+
+/**
+ * group -> ordered [sgbd, FSW keyword]. Keywords verified present in
+ * BMW_DATEN_MAP for E46; a missing one is skipped.
+ * @type {Record<string, Array<[string, string]>>}
+ */
 const CURATED_E46 = {
   Mirrors: [
     ['zke5', 'BEIKLAPPEN_GM'], // folding outside mirrors
@@ -46,17 +69,34 @@ const CURATED_E46 = {
   ],
 };
 
-// per-chassis curated maps (only E46 for now; others fall back to none)
+/**
+ * Per-chassis curated maps (only E46 for now; others fall back to none).
+ * @type {Record<string, Record<string, Array<[string, string]>>>}
+ */
 const CURATED = { E46: CURATED_E46 };
 
-// Does this chassis have a curated feature list?
+/** Value names meaning "off" -- tested FIRST: "nicht_aktiv" also ends in "aktiv". */
+const CURATED_OFF_RE = /nicht_aktiv|^inaktiv$|^aus$|^nein$|^nicht_|^ohne_/;
+/** Value names meaning "on". */
+const CURATED_ON_RE = /^aktiv$|^ein$|^ja$|^mit_/;
+
+/**
+ * Does this chassis have a curated feature list?
+ * @param {string} chassisId - chassis id (any case).
+ * @returns {boolean} true when a curated map exists.
+ */
 function hasCurated(chassisId) {
   return !!CURATED[String(chassisId || '').toUpperCase()];
 }
 
-// Resolve one curated entry against the DATEN map: {sgbd, name, label, on, off}
-// or null if not all present. on/off are the mask-normalised numbers, read from
-// DATEN so a flipped enum (LICHTWARNUNG is aktiv=00) is handled.
+/**
+ * Resolve one curated entry against the DATEN map. on/off are the
+ * mask-normalised numbers, read from DATEN so a flipped enum (LICHTWARNUNG is
+ * aktiv=00) is handled.
+ * @param {string} sgbd - the module.
+ * @param {string} kw - the DATEN keyword.
+ * @returns {Promise<CuratedItem|null>} the item, or null if not all present.
+ */
 async function curatedResolve(sgbd, kw) {
   const daten = typeof datenFor === 'function' ? await datenFor(sgbd) : null;
   if (!daten) return null;
@@ -74,9 +114,9 @@ async function curatedResolve(sgbd, kw) {
       if (Number.isNaN(num)) continue;
       const nl = String(n).toLowerCase();
       // OFF first: "nicht_aktiv" also ends in "aktiv", so match negatives first
-      if (/nicht_aktiv|^inaktiv$|^aus$|^nein$|^nicht_|^ohne_/.test(nl)) {
+      if (CURATED_OFF_RE.test(nl)) {
         off = num;
-      } else if (/^aktiv$|^ein$|^ja$|^mit_/.test(nl)) {
+      } else if (CURATED_ON_RE.test(nl)) {
         on = num;
       }
     }
@@ -92,7 +132,12 @@ async function curatedResolve(sgbd, kw) {
   return null;
 }
 
-// Build the resolved, grouped feature list for a chassis: [{group, items:[...]}]
+/**
+ * Build the resolved, grouped feature list for a chassis.
+ * @param {string} chassisId - chassis id.
+ * @returns {Promise<CuratedGroup[]>} the groups that resolved to at least
+ *   one feature.
+ */
 async function curatedFeatures(chassisId) {
   const map = CURATED[String(chassisId || '').toUpperCase()];
   if (!map) return [];
@@ -108,8 +153,16 @@ async function curatedFeatures(chassisId) {
   return out;
 }
 
-// The curated feature screen: reads each module once, shows every option as a
-// toggle at the car's current value, and stages changes -- nothing is sent.
+/**
+ * The curated feature screen: reads each module once, shows every option as
+ * a toggle at the car's current value, and stages changes -- nothing is sent.
+ * @param {string} chassisId - chassis id.
+ * @param {HTMLElement} [container] - where to draw (default: the main view).
+ * @param {(() => void)|null} [back] - the Back action.
+ * @param {ScanCache|null} [scan] - the hub's scan, when opened from it.
+ * @param {(() => Promise<void>)|null} [reScan] - the hub's re-read, when any.
+ * @returns {Promise<void>} resolves once drawn and read.
+ */
 async function showCuratedCoding(chassisId, container, back, scan, reScan) {
   const cont = container || view;
   const setPanel = () => {
@@ -185,7 +238,7 @@ async function showCuratedCoding(chassisId, container, back, scan, reScan) {
     for (const g of groups)
       for (const it of g.items) {
         const got = cache && cache.get(it.sgbd);
-        let hit = got ? curatedMatchResult(it.name, got) : null;
+        let hit = got ? codMatchRead(it.name, got) : null;
         // Nothing NAMED matched. Modules that answer with the raw coding blob
         // (zke5's COD_DATEN, szm46's CODE) name nothing at all, so every feature
         // on them read as unknown and drew as off -- the library default shown
@@ -218,7 +271,7 @@ async function showCuratedCoding(chassisId, container, back, scan, reScan) {
     }
     const cache = new Map();
     for (const sgbd of sgbds) {
-      let entry = null;
+      let entry;
       try {
         entry = await readJobFor(sgbd);
       } catch {
@@ -356,15 +409,15 @@ async function showCuratedCoding(chassisId, container, back, scan, reScan) {
   draw();
 }
 
-// Pair a DATEN keyword to a value in the SGBD's coding read, which names the
-// setting differently -- match on shared tokens, reduce to the on/off numbers.
-// thin wrapper over the shared coding-edit.js matcher (returns the raw number)
-function curatedMatchResult(kw, got) {
-  return typeof codMatchRead === 'function' ? codMatchRead(kw, got) : null;
-}
-
-// The staged-changes review: what WOULD be sent. It says the write is not
-// sent.
+/**
+ * The staged-changes review: what WOULD be sent. It says the write is not
+ * sent.
+ * @param {string} chassisId - chassis id (unused; kept for the call shape).
+ * @param {CuratedGroup[]} groups - the features.
+ * @param {Map<string, number>} staged - "sgbd:name" -> staged value.
+ * @param {Map<string, number>} current - "sgbd:name" -> current value.
+ * @returns {void}
+ */
 function curatedReview(chassisId, groups, staged, current) {
   const rows = [];
   for (const g of groups)
@@ -384,37 +437,7 @@ function curatedReview(chassisId, groups, staged, current) {
   confirmDialog(codingReviewDialog('Staged features', rows));
 }
 
-// One review row: label, keyword + from->to. Shared by curated + expert reviews.
-function codingReviewRow(label, sub, from, to) {
-  return (
-    `<div class="cod-rev-row">` +
-    `<div class="cod-rev-label">${esc(label)}</div>` +
-    `<div class="cod-rev-sub mono">${esc(sub)}</div>` +
-    `<div class="cod-rev-change mono">${esc(from)} ` +
-    `<span class="cod-rev-arrow">→</span> <b>${esc(to)}</b></div></div>`
-  );
-}
-
-// The dialog body: the write is refused (unverified). Keep the "not sent" /
-// EEPROM rationale below.
-function codingReviewDialog(title, rows) {
-  const foot =
-    `<b>Not sent.</b> These map onto each module's coding write, but sending ` +
-    `is disabled: a coding write is an EEPROM write, and this app has not ` +
-    `verified a round-trip on a car that can be recovered.`;
-  return {
-    title,
-    body:
-      `<div class="cod-rev-list">${rows.join('')}</div>` +
-      `<div class="cod-rev-foot">${foot}</div>`,
-    confirmLabel: 'OK',
-    cancelLabel: 'Close',
-  };
-}
-
 if (typeof window !== 'undefined') {
   window.showCuratedCoding = showCuratedCoding;
   window.hasCurated = hasCurated;
-  window.codingReviewRow = codingReviewRow;
-  window.codingReviewDialog = codingReviewDialog;
 }
