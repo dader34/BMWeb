@@ -2,7 +2,12 @@
 # Clears the download quarantine flag so macOS stops calling BMacW "damaged".
 # The app is unsigned (no Apple Developer account); this is the standard step
 # for any unsigned Mac app. Run it after dragging BMacW to Applications.
-set -e
+#
+#   scripts/setup/install-macos.sh [/path/to/BMacW.app]
+#
+# Input: the app bundle (default /Applications/BMacW.app). Output: the same
+# bundle with its quarantine attribute cleared and an ad-hoc signature.
+set -euo pipefail
 
 APP="${1:-/Applications/BMacW.app}"
 

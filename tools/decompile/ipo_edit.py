@@ -33,10 +33,13 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # tools/
+from _cli import parse_args                                     # noqa: E402
 import ipo_codec as C                                          # noqa: E402
 
 
 def _fmt(t, v):
+    """A pool entry as `<type> <repr>` for listings."""
     name = C.VT_NAMES.get(t, f"0x{t:02x}")
     if t == C.VT_STRING:
         return f"{name} {v.decode('latin-1')!r}"
@@ -44,6 +47,14 @@ def _fmt(t, v):
 
 
 def load(path):
+    """Read an .IPO and locate its constant pool.
+
+    Returns:
+        ``(IpoFile, constants Block)``.
+
+    Raises:
+        ipo_codec.IpoError: When the file has no constant pool.
+    """
     f = C.read(open(path, "rb").read())
     cb = f.constants_block()
     if cb is None:
@@ -63,6 +74,15 @@ def coerce(t, s):
 
 
 def set_const(path, index, value_str, out_path):
+    """Replace pool entry `index` with `value_str` (coerced to its type) and
+    write the result to `out_path`.
+
+    Returns:
+        0, for the process exit code.
+
+    Raises:
+        ipo_codec.IpoError: When the index is out of range.
+    """
     f, cb = load(path)
     entries = cb.constants()
     if not 0 <= index < len(entries):
@@ -79,6 +99,7 @@ def set_const(path, index, value_str, out_path):
 
 
 def list_consts(path):
+    """Print every pool entry with its index; returns the exit code 0."""
     _, cb = load(path)
     entries = cb.constants()
     print(f"{path}: {len(entries)} constants")
@@ -88,6 +109,7 @@ def list_consts(path):
 
 
 def grep_consts(path, needle):
+    """Print the string entries containing `needle` (case-insensitive)."""
     _, cb = load(path)
     n = needle.encode("latin-1")
     hits = 0
@@ -100,15 +122,20 @@ def grep_consts(path, needle):
 
 
 def main():
-    a = sys.argv[1:]
-    if not a or a[0] in ("-h", "--help"):
+    """CLI entry: `list FILE`, `grep FILE TEXT` or `set FILE INDEX VALUE [-o OUT]`.
+
+    Returns:
+        The process exit code (2 for an unknown command).
+    """
+    ns = parse_args(__doc__,
+                    positional=("args", "*",
+                                "list FILE | grep FILE TEXT | set FILE INDEX VALUE"),
+                    options={"-o": ("FILE", "for set: write here instead of in place")})
+    a = ns.args
+    if not a:
         print(__doc__)
         return 0
-    out = None
-    if "-o" in a:
-        k = a.index("-o")
-        out = a[k + 1]
-        del a[k:k + 2]
+    out = ns.o
     cmd = a[0]
     if cmd == "list":
         return list_consts(a[1])

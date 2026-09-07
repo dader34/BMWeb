@@ -30,8 +30,6 @@ frame plumbing.
 """
 
 import argparse
-import gzip
-import io
 import json
 import os
 import re
@@ -132,6 +130,7 @@ def parse_tree(path):
 
 
 def collect_docs(node, out):
+    """Add every document id reachable from `node` to the set `out`."""
     if 'doc' in node:
         out.add(node['doc'])
     for c in node.get('children', ()):
@@ -159,6 +158,8 @@ def clean_description(html, images=None, unsafe=None):
 
     # ../../zi_images/B030024C.png -> img/B030024C.png, and remember the name
     def take(m):
+        """Rewrite one image src to `img/<name>`, recording it; a name that
+        could escape the output directory is left untouched and flagged."""
         name = m.group(1)
         # The name becomes a zip entry AND (with --images-out) a filesystem
         # write path, so a crafted "../..."-style src would escape the output
@@ -176,6 +177,20 @@ def clean_description(html, images=None, unsafe=None):
 
 def build(wds_root, app_chassis, wds_dirs, out_dir, quiet=False,
           images_out=None):
+    """Pack one chassis' WDS trees into `<out_dir>/<chassis>.wiring`.
+
+    Args:
+        wds_root: The WDS release directory.
+        app_chassis: The app's chassis id (the archive name).
+        wds_dirs: The WDS per-chassis folders that make up this car.
+        out_dir: Where the archive goes.
+        quiet: Suppress the per-chassis summary line.
+        images_out: Write images here as loose files instead of into the
+            archive (see ``--images-out``).
+
+    Returns:
+        The archive path, or None when the release has no tree for it.
+    """
     trees = []
     for d in wds_dirs:
         tdir = os.path.join(wds_root, d, 'tree')
@@ -263,6 +278,7 @@ def build(wds_root, app_chassis, wds_dirs, out_dir, quiet=False,
 
 
 def main():
+    """CLI entry: build the .wiring archive for one or every mapped chassis."""
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--wds', required=True,

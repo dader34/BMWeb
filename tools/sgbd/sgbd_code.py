@@ -46,6 +46,7 @@ import struct
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 import _engine                            # noqa: E402,F401  sys.path setup
+from _cli import parse_args                                   # noqa: E402
 import sgbd_survey as S                                       # noqa: E402
 import sgbd_spec as SP                                        # noqa: E402
 
@@ -70,6 +71,7 @@ def encode(data, addr_list):
     spool = {}
 
     def sref(s):
+        """Index of string literal `s` in the pool, interning it on first use."""
         # keyed by the exact byte tuple so two literals differing only past a
         # NUL are not merged
         if s not in spool:
@@ -78,6 +80,7 @@ def encode(data, addr_list):
         return spool[s]
 
     def bref(raw):
+        """Index of raw byte literal `raw` in the pool, interned as a byte list."""
         # A literal is BYTES. Storing it as a JSON string round-trips through
         # an encoding and mangles anything outside CP1252; a byte array is
         # exact, and the VM reads pool entries as bytes either way.
@@ -88,6 +91,7 @@ def encode(data, addr_list):
         return spool[key]
 
     def enc_arg(name, a):
+        """One decoded operand as the compact list the VM evaluates."""
         m = a.get("m")
         if "s" in a:
             # the RAW bytes, not the NUL-truncated text: a literal doubles as
@@ -159,6 +163,18 @@ def relocate(ops, index):
 
 
 def export(sgbd, write=True, all_jobs=False, dest=None):
+    """Encode one SGBD's job code for the VM.
+
+    Args:
+        sgbd: The SGBD name.
+        write: Store the gzipped JSON (into the chassis tree, or `dest`).
+        all_jobs: Export every declared job, not just the IR-referenced ones.
+        dest: An explicit output path, bypassing the chassis tree.
+
+    Returns:
+        ``(sgbd, n_jobs, n_ops, n_unresolved_jumps, bytes_written)``, or None
+        when no job qualifies.
+    """
     data, jobs = SP.load(sgbd)
     ir = S.ir_jobs_for(sgbd)
     # INITIALISIERUNG is not referenced by any screen, but EDIABAS RUNS IT
@@ -211,12 +227,22 @@ def export(sgbd, write=True, all_jobs=False, dest=None):
 
 
 def main():
-    args = [a.lower() for a in sys.argv[1:] if not a.startswith("--")]
-    all_jobs = "--all-jobs" in sys.argv
+    """CLI entry: export job code for the named SGBDs (default: E46's, or
+    every shipped one with ``--all-chassis``), then rewrite the index.
+
+    Returns:
+        The process exit code (1 when any .prg failed to parse).
+    """
+    ns = parse_args(__doc__,
+                    positional=("sgbd", "*", "SGBDs to export (default: E46's)"),
+                    flags={"--all-jobs": "every declared job, not just the IR-referenced ones",
+                           "--all-chassis": "every SGBD any shipped ECU names (implies --all-jobs)"})
+    args = [a.lower() for a in ns.sgbd]
+    all_jobs = ns.all_jobs
     # --all-chassis: every SGBD any shipped ECU names, not just E46's. Implies
     # --all-jobs, because the point of widening the SGBD set is coverage and a
     # chassis without lifted screens would otherwise export three jobs each.
-    if "--all-chassis" in sys.argv:
+    if ns.all_chassis:
         targets = args or S.all_shipped_sgbds()
         all_jobs = True
     else:

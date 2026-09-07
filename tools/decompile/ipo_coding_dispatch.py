@@ -32,11 +32,17 @@ push) indexes the resulting flat slot list. Validated: A_KMB46 resolves
 C_S_AUFTRAG/C_CHECKSUM/C_S_LESEN/IDENT at the pc's where the write engine
 calls them; the parser reaches EOF on every E46 dispatcher.
 """
+import glob
+import glob
 import os
 import sys
 import json
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # tools/
+from _cli import parse_args                                     # noqa: E402
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # tools/
+from _cli import parse_args                                     # noqa: E402
 import ipo_cdh                                                    # noqa: E402
 import ipo_disasm as D                                            # noqa: E402
 
@@ -197,9 +203,18 @@ def derive(ecu):
 
 
 def main():
-    args = [a for a in sys.argv[1:] if not a.startswith("--")]
-    if "--corpus" in sys.argv:
-        import glob
+    """CLI entry: dump one dispatcher (``--json`` for the program), or
+    measure pool-decode coverage over every A_*.IPO with ``--corpus``.
+
+    Returns:
+        The process exit code.
+    """
+    ns = parse_args(__doc__,
+                    positional=("dispatcher", "*", "an A_<CABD> dispatcher (.IPO stem)"),
+                    flags={"--corpus": "pool-decode coverage over every A_*.IPO",
+                           "--json": "print the derived program as JSON"})
+    args = ns.dispatcher
+    if ns.corpus:
         sgdat = D.L1.SGDAT
         files = sorted(glob.glob(os.path.join(sgdat, "A_*.IPO")) +
                        glob.glob(os.path.join(sgdat, "a_*.ipo")))
@@ -218,7 +233,7 @@ def main():
         print(__doc__)
         return 0
     prog, pool = derive(args[0])
-    if "--json" in sys.argv:
+    if ns.json:
         print(json.dumps(prog, ensure_ascii=False, indent=1))
         return 0
     print(f"{prog['ecu']}: pool {len(pool)} slots")

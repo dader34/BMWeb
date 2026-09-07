@@ -1,5 +1,7 @@
 #!/usr/bin/env node
-// Build the single-file release, headlessly.
+/**
+ * @file Build the single-file release, headlessly.
+ */
 //
 //   node tools/export/build_single.js <CHASSIS|all> <outdir> [--faults]
 //
@@ -40,6 +42,12 @@ if (!fs.existsSync(ROOT)) {
 // that escapes ('../...', absolute) answers 404 exactly as the browser's
 // fetch would have.
 const BASE = path.resolve(ROOT);
+/**
+ * A fetch() stand-in that serves the built site off disk.
+ * @param {string} u - the URL the exporter asked for, relative to the page
+ * @returns {Promise<{ok: boolean, status: number, arrayBuffer?: Function,
+ *   json?: Function, text?: Function}>} a minimal Response look-alike
+ */
 const get = async (u) => {
   const rel = String(u)
     .replace(/^FILEBASE\//, '')
@@ -60,6 +68,12 @@ const get = async (u) => {
   };
 };
 
+/**
+ * A fresh VM context holding the real exporter with its four browser
+ * dependencies stubbed (fetch, Blob, URL, document).
+ * @returns {{ctx: object, saved: () => Uint8Array|null}} the context and a
+ *   getter for the bytes the last Blob captured
+ */
 function makeContext() {
   let saved = null;
   const ctx = {

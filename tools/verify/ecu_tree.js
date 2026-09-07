@@ -1,4 +1,6 @@
-// Find an ECU's generated files in the per-car tree.
+/**
+ * @file Find an ECU's generated files in the per-car tree.
+ */
 //
 // data/chassis/<CHASSIS>/<ECU>/ holds everything for one ECU, and an SGBD used
 // by several cars is written into each of them. The copies are written
@@ -17,7 +19,10 @@ const CONFIG = path.join(ROOT, 'data', 'chassis-config');
 
 let _owners = null;
 
-// {sgbd: [[chassis, ecuCode], ...]} from INPA's resolved config
+/**
+ * Which cars use each SGBD, from INPA's resolved config (cached).
+ * @returns {Object<string, Array<[string, string]>>} sgbd -> [[chassis, ecuCode], ...]
+ */
 function owners() {
   if (_owners) return _owners;
   _owners = {};
@@ -42,14 +47,23 @@ function owners() {
   return _owners;
 }
 
+/**
+ * Every tree folder holding this SGBD's files, one per owning car.
+ * @param {string} sgbd - the SGBD name, any case
+ * @returns {string[]} absolute folder paths
+ */
 function ecuDirs(sgbd) {
   return (owners()[String(sgbd).toLowerCase()] || []).map(([cid, code]) =>
     path.join(TREE, cid, code)
   );
 }
 
-// Read one file for an SGBD, transparently inflating a .gz sibling. Returns
-// null when no car ships it.
+/**
+ * Read one file for an SGBD, transparently inflating a .gz sibling.
+ * @param {string} sgbd - the SGBD name
+ * @param {string} name - the file name inside the ECU folder
+ * @returns {string|null} the file's text, or null when no car ships it
+ */
 function readEcu(sgbd, name) {
   for (const d of ecuDirs(sgbd)) {
     const p = path.join(d, name);
@@ -61,6 +75,12 @@ function readEcu(sgbd, name) {
   return null;
 }
 
+/**
+ * readEcu(), parsed as JSON.
+ * @param {string} sgbd - the SGBD name
+ * @param {string} name - the file name inside the ECU folder
+ * @returns {*} the parsed value, or null when absent or unparsable
+ */
 function readEcuJson(sgbd, name) {
   const s = readEcu(sgbd, name);
   if (s == null) return null;
@@ -71,9 +91,12 @@ function readEcuJson(sgbd, name) {
   }
 }
 
-// Every screens.json in the tree, ONCE each. An SGBD in several cars has a
-// copy per car; walking the folders blind would count it many times over, so
-// key by SGBD and take the first. Returns [{sgbd, chassis, code, path}].
+/**
+ * Every screens.json in the tree, ONCE each. An SGBD in several cars has a
+ * copy per car; walking the folders blind would count it many times over, so
+ * key by SGBD and take the first.
+ * @returns {Array<{sgbd: string, chassis: string, code: string, path: string}>}
+ */
 function screenCorpus() {
   const seen = new Set();
   const out = [];

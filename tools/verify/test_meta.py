@@ -23,11 +23,13 @@ sys.path[:0] = [os.path.join(os.path.dirname(HERE), d)
 import sgbd_survey as S                                       # noqa: E402
 import sgbd_meta as M                                         # noqa: E402
 import sgbd_spec as SP                                        # noqa: E402
+from _cli import parse_args                                   # noqa: E402
 
 ROOT = os.path.join(HERE, "..", "..")
 
 
 def engine(port, path):
+    """GET a JSON endpoint from the app on `port`; None on any failure."""
     try:
         with urllib.request.urlopen(f"http://127.0.0.1:{port}{path}",
                                     timeout=60) as r:
@@ -37,11 +39,17 @@ def engine(port, path):
 
 
 def main():
+    """CLI entry: compare our job/result metadata with the running app's
+    for the named SGBDs (default: twelve E46 ones); skips without BMACW_PORT.
+
+    Returns:
+        The process exit code (1 on a mismatch).
+    """
     port = os.environ.get("BMACW_PORT")
     if not port:
         print("BMACW_PORT not set; skipping metadata comparison")
         return 0
-    args = [a.lower() for a in sys.argv[1:] if not a.startswith("--")]
+    args = [a.lower() for a in parse_args(__doc__, positional=("sgbd", "*", "SGBDs to compare")).sgbd]
     targets = args or S.e46_sgbds()[:12]
 
     tot_jobs = miss_jobs = extra_jobs = 0

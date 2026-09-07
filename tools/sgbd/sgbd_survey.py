@@ -34,6 +34,8 @@ import struct
 import collections
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.dirname(HERE))                    # tools/, for _cli
+from _cli import parse_args                                   # noqa: E402
 ROOT = os.path.join(HERE, "..", "..")
 ECU_DIR = os.path.join(ROOT, "vendor", "EDIABAS", "Ecu")
 IR_DIR = os.path.join(ROOT, "data", "inpa-ir")
@@ -99,6 +101,7 @@ _GRP_PATHS = None      # *.grp / *.GRP only
 
 
 def _scan_ecu_dir():
+    """Index the Ecu directory once: lowered stem -> path, .prg and .grp."""
     global _PRG_PATHS, _GRP_PATHS
     if _PRG_PATHS is not None:
         return
@@ -175,6 +178,7 @@ REGS = json.load(open(_REGS_PATH)) if os.path.exists(_REGS_PATH) else {}
 
 
 def _reg(b):
+    """A register byte's name (`B0`, `S1`...), or `rNN` when unknown."""
     return REGS.get(str(b), f"r{b:02x}")
 
 
@@ -322,6 +326,7 @@ def classify(data, addr, ops=None):
              if n in JUMPS and a and "v" in a[0] and addr <= a[0]["v"] < st]
 
     def in_loop(a):
+        """Is address `a` inside any detected loop body?"""
         return any(lo <= a <= hi for lo, hi in loops)
 
     for start, name, args in ops:
@@ -492,9 +497,19 @@ def ir_jobs_for(sgbd):
 
 
 def main():
-    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    """CLI entry: classify every job of the named SGBDs (default: E46's, or
+    ``--all``), or ``--dump SGBD JOB`` one job's bytecode listing.
 
-    if "--dump" in sys.argv:
+    Returns:
+        The process exit code (1 when any .prg failed to parse).
+    """
+    ns = parse_args(__doc__,
+                    positional=("args", "*", "SGBDs, or `SGBD JOB` with --dump"),
+                    flags={"--dump": "print one job's bytecode listing",
+                           "--all": "every .prg in the Ecu directory"})
+    args = ns.args
+
+    if ns.dump:
         sgbd, want = args[0].lower(), args[1].upper()
         path = sgbd_path(sgbd)
         if not path:
@@ -510,7 +525,7 @@ def main():
                                                            for a in args))
         return 0
 
-    if "--all" in sys.argv:
+    if ns.all:
         # either extension case, deduped by lowered stem (see have_prg)
         _scan_ecu_dir()
         targets = sorted(_PRG_PATHS)

@@ -1,3 +1,6 @@
+/**
+ * @file Generate the fault-code database and lookup index from data/faults.
+ */
 // Generates app/renderer/data/faultdb.js from the fault translation files.
 //   node scripts/build/build-faultdb.mjs
 //
@@ -69,6 +72,12 @@ let codeFiles = 0,
 // filter by chassis and ECU. one entry per per-ECU file with a non-empty faults map.
 const index = []; // [{ chassis, module, sgbd, scheme, faults: [[key, en], ...] }]
 
+/**
+ * Record one hex DTC -> English entry in the flat code map, validating both.
+ * @param {string} key - the hex code (2-6 hex digits, any case)
+ * @param {string} val - the English description
+ * @param {string} where - the source file, for error messages
+ */
 function addCode(key, val, where) {
   key = String(key).toUpperCase();
   if (!/^[0-9A-F]{2,6}$/.test(key)) {
@@ -83,6 +92,12 @@ function addCode(key, val, where) {
     errors.push(`${where}: German chars in "${key}": ${val}`);
   codes[key] = val;
 }
+/**
+ * Record one German fault text -> English entry in the phrase map.
+ * @param {string} de - the German text as the SGBD returns it
+ * @param {string} en - the English translation
+ * @param {string} where - the source file, for error messages
+ */
 function addPhrase(de, en, where) {
   if (typeof de !== 'string' || !de.trim()) return;
   if (typeof en !== 'string' || !en.trim()) {

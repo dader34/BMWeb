@@ -27,7 +27,9 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                 "..", "decompile"))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # tools/
 import ipo_vm as V                                              # noqa: E402
+from _cli import parse_args                                   # noqa: E402
 
 
 def export(ecu, budget=50000, vm=None, coding=False, cabd_path=None):
@@ -65,17 +67,25 @@ def export(ecu, budget=50000, vm=None, coding=False, cabd_path=None):
 
 
 def main(argv):
+    """Write one ECU's runnable dump: `ECU [OUT] [--coding] [--cabd=PATH]`.
+
+    Args:
+        argv: The command-line arguments (without the program name).
+
+    Returns:
+        0, for the process exit code.
+    """
     if not argv:
         print(__doc__)
         return 0
-    coding = "--coding" in argv
-    cabd_path = None
-    for a in argv:
-        if a.startswith("--cabd="):
-            cabd_path = a.split("=", 1)[1]
-    argv = [a for a in argv if a != "--coding" and not a.startswith("--cabd=")]
-    ecu = argv[0]
-    out = argv[1] if len(argv) > 1 else f"{ecu}.ipoexec.json"
+    ns = parse_args(__doc__, argv=argv,
+                    positional=("args", "+", "ECU [OUT]: the .IPO stem and the output path"),
+                    flags={"--coding": "the .IPO is a coding dispatcher (A_<CABD>)"},
+                    options={"--cabd": ("PATH", "the CABD's .C0x descriptor, for its data organisation")})
+    coding = ns.coding
+    cabd_path = ns.cabd
+    ecu = ns.args[0]
+    out = ns.args[1] if len(ns.args) > 1 else f"{ecu}.ipoexec.json"
     data = export(ecu, coding=coding, cabd_path=cabd_path)
     with open(out, "w") as f:
         json.dump(data, f)

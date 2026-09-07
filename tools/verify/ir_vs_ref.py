@@ -18,13 +18,16 @@ import sys
 
 R = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path[:0] = [os.path.join(R, "tools", "decompile"),
-                os.path.join(R, "tools", "verify")]
+                os.path.join(R, "tools", "verify"),
+                os.path.join(R, "tools")]
 import ipo_disasm as D                                          # noqa: E402
 import xref_diff as X                                           # noqa: E402
 from ir_build import build_ir                                   # noqa: E402
+from _cli import parse_args                                   # noqa: E402
 
 
 def _vm_keys(scr):
+    """Every result key (and paired unit key) a VM-built screen reads."""
     keys = set()
     for ln in scr.get("lines", []):
         for e in ln.get("elements", []):
@@ -79,6 +82,7 @@ def _one(ecu):
 
 
 def _corpus():
+    """Compare every .IPO in SGDAT and print the coverage totals; returns 0."""
     sgdat = os.path.join(R, "vendor", "EC-APPS", "INPA", "SGDAT")
     stems = sorted({os.path.basename(p)[:-4]
                     for p in glob.glob(os.path.join(sgdat, "*.IPO"))
@@ -106,9 +110,21 @@ def _corpus():
 
 
 def main(argv):
+    """CLI entry: one ECU (`ECU`) or, with no argument, the whole corpus.
+
+    Args:
+        argv: The full command line, program name included.
+
+    Returns:
+        The process exit code (1 when the named ECU has no IR).
+
+    Raises:
+        SystemExit: When XREF_CMD is not set.
+    """
     if not X.XREF_CMD:
         raise SystemExit("set XREF_CMD to the reference decoder command")
-    ecu = next((a for a in argv[1:] if not a.startswith("-")), None)
+    ecu = parse_args(__doc__, positional=("ecu", "?", "an ECU (.IPO stem)"),
+                     argv=argv[1:]).ecu
     if not ecu:
         return _corpus()
     res = _one(ecu)

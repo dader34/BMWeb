@@ -35,6 +35,7 @@ is what the editor and the compiler round-trip stand on.
 Read-only against cars: this only ever touches files.
 """
 import struct
+from typing import List, Optional, Tuple
 
 MAGIC_DEFAULT = b"TEST-Infotext"
 SEP = 0x0a
@@ -91,7 +92,7 @@ NAME_TO_VT = {v: k for k, v in VT_NAMES.items()}
 
 
 class IpoError(Exception):
-    pass
+    """A malformed .IPO container, constant pool or listing."""
 
 
 class Block:
@@ -107,6 +108,7 @@ class Block:
 
     def __init__(self, type, name, block_id, flags, arg1, arg2, marker, size,
                  payload):
+        """Hold one header (as read) and its payload bytes verbatim."""
         self.type = type
         self.name = name            # bytes, latin-1 on the wire
         self.block_id = block_id
@@ -119,7 +121,8 @@ class Block:
 
     # -- typed views ---------------------------------------------------------
 
-    def is_code(self):
+    def is_code(self) -> bool:
+        """Is this a code block (proc, screen, menu, state machine)?"""
         return self.type in CODE_BLOCKS
 
     def instructions(self):
@@ -133,6 +136,7 @@ class Block:
         return out
 
     def set_instructions(self, instrs):
+        """Replace the payload with `(op, a, c)` triples re-packed as words."""
         buf = bytearray()
         for op, a, b in instrs:
             w = (op & 0xff) | ((a & 0xff) << 8) | ((b & 0xffff) << 16)
@@ -158,13 +162,20 @@ class Block:
         return _decode_constants(self.payload, self.size)
 
     def set_constants(self, entries):
+        """Replace the payload with `(type, value)` entries re-encoded."""
         self.payload = _encode_constants(entries)
         self.size = len(entries)
 
 
 # ---------------------------------------------------------------- constants -
 
-def _decode_constants(payload, count):
+def _decode_constants(payload: bytes, count: int) -> List[Tuple[int, object]]:
+    """The constant pool as `(type_byte, value)` pairs.
+
+    Raises:
+        IpoError: On a truncated pool, an unterminated string or an unknown
+            type byte.
+    """
     out, i, n = [], 0, len(payload)
     for _ in range(count):
         if i >= n:
@@ -197,7 +208,12 @@ def _decode_constants(payload, count):
     return out
 
 
-def _encode_constants(entries):
+def _encode_constants(entries) -> bytes:
+    """`(type_byte, value)` pairs back to pool bytes; inverse of decode.
+
+    Raises:
+        IpoError: On a type byte that has no encoding.
+    """
     buf = bytearray()
     for t, v in entries:
         buf.append(t)
@@ -221,7 +237,8 @@ def _encode_constants(entries):
     return bytes(buf)
 
 
-def _as_s32(v):
+def _as_s32(v: int) -> int:
+    """An integer wrapped to the signed 32-bit range the pool stores."""
     v &= 0xffffffff
     return v - 0x100000000 if v >= 0x80000000 else v
 
@@ -234,23 +251,28 @@ class IpoFile:
     __slots__ = ("ver_hi", "ver_lo", "magic", "blocks")
 
     def __init__(self, ver_hi, ver_lo, magic, blocks):
+        """Hold the header fields and the ordered block list."""
         self.ver_hi = ver_hi
         self.ver_lo = ver_lo
         self.magic = magic          # bytes
         self.blocks = blocks
 
-    def find(self, type):
+    def find(self, type: int) -> list:
+        """Every block of the given type, in file order."""
         return [b for b in self.blocks if b.type == type]
 
-    def constants_block(self):
+    def constants_block(self) -> Optional[Block]:
+        """The constant-pool block, or None."""
         b = self.find(BLOCK_CONSTANTDATA)
         return b[0] if b else None
 
-    def globals_block(self):
+    def globals_block(self) -> Optional[Block]:
+        """The global-declarations block, or None."""
         b = self.find(BLOCK_GLOBALDATA)
         return b[0] if b else None
 
-    def write(self):
+    def write(self) -> bytes:
+        """The whole file as bytes; the exact inverse of `read`."""
         out = bytearray()
         out.append(self.ver_hi & 0xff)
         out.append(self.ver_lo & 0xff)
@@ -272,22 +294,32 @@ class IpoFile:
 
 
 class _Reader:
+    """A cursor over the file bytes with the three primitive reads."""
+
     def __init__(self, data):
+        """Start at offset 0 of `data`."""
         self.d = data
         self.i = 0
         self.n = len(data)
 
-    def u8(self):
+    def u8(self) -> int:
+        """One unsigned byte."""
         v = self.d[self.i]
         self.i += 1
         return v
 
-    def u16(self):
+    def u16(self) -> int:
+        """One little-endian unsigned 16-bit word."""
         v = struct.unpack_from("<H", self.d, self.i)[0]
         self.i += 2
         return v
 
-    def strz(self):
+    def strz(self) -> bytes:
+        """The bytes up to the next separator, which is consumed.
+
+        Raises:
+            IpoError: When no separator follows.
+        """
         j = self.d.find(b"\n", self.i)
         if j < 0:
             raise IpoError(f"unterminated string at {self.i}")
@@ -357,15 +389,24 @@ def read(data):
     return IpoFile(ver_hi, ver_lo, magic, blocks)
 
 
-if __name__ == "__main__":
+def main():
+    """CLI entry: list an .IPO's blocks and prove read().write() is the identity.
+
+    Returns:
+        The process exit code (1 when the round-trip is not byte-identical).
+    """
+    import os
     import sys
-    if len(sys.argv) < 2:
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    from _cli import parse_args
+    ns = parse_args(__doc__, positional=("file", "?", "an .IPO file"))
+    if not ns.file:
         print(__doc__)
-        sys.exit(0)
-    data = open(sys.argv[1], "rb").read()
+        return 0
+    data = open(ns.file, "rb").read()
     f = read(data)
     ok = f.write() == data
-    print(f"{sys.argv[1]}: v{f.ver_hi}.{f.ver_lo} magic={f.magic!r} "
+    print(f"{ns.file}: v{f.ver_hi}.{f.ver_lo} magic={f.magic!r} "
           f"{len(f.blocks)} blocks  round-trip={'OK' if ok else 'MISMATCH'}")
     for b in f.blocks:
         extra = ""
@@ -377,4 +418,8 @@ if __name__ == "__main__":
             extra = f"  ({b.size} instr)"
         print(f"  {BLOCK_NAMES.get(b.type, hex(b.type)):13} "
               f"id={b.block_id:<4} name={b.name.decode('latin-1')!r}{extra}")
-    sys.exit(0 if ok else 1)
+    return 0 if ok else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

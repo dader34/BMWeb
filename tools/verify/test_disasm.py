@@ -27,6 +27,11 @@ ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")
 
 
 def main():
+    """Run every decoder check; print OK or the failures.
+
+    Returns:
+        The process exit code (1 on any failure).
+    """
     failures = []
 
     # -- MUST_EXX pool anchor ------------------------------------------------

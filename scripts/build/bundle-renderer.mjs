@@ -1,4 +1,7 @@
 #!/usr/bin/env node
+/**
+ * @file Concatenate the renderer's classic script files in index.html order.
+ */
 // Bundle the renderer's classic <script> files into ONE file, in the exact
 // order index.html loads them. The renderer still shares one global scope (the
 // full ESM migration is a later step), so this is a faithful concatenation, not

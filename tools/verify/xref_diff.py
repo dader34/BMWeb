@@ -34,8 +34,9 @@ import sys
 from collections import Counter
 
 R = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path[:0] = [os.path.join(R, "tools", "decompile")]
+sys.path[:0] = [os.path.join(R, "tools", "decompile"), os.path.join(R, "tools")]
 import ipo_disasm as D                                          # noqa: E402
+from _cli import parse_args                                   # noqa: E402
 
 XREF_CMD = os.environ.get("XREF_CMD")
 
@@ -152,6 +153,12 @@ def _same_keys(ref, got):
 
 
 def compare(ecu, verbose=False):
+    """Count how one ECU's screens agree between the two decoders.
+
+    Returns:
+        A Counter of screens, exact/differing draw sequences and key sets,
+        and screens only one side found.
+    """
     path = D.L1.ipo_path(ecu)
     theirs = xref_screens(path)
     mine = ours(ecu)
@@ -188,7 +195,18 @@ def compare(ecu, verbose=False):
 
 
 def main(argv):
-    if "--corpus" in argv:
+    """CLI entry: one ECU verbosely, or ``--corpus`` every .IPO as totals.
+
+    Args:
+        argv: The full command line, program name included.
+
+    Returns:
+        0, for the process exit code.
+    """
+    ns = parse_args(__doc__, positional=("ecu", "?", "an ECU (.IPO stem)"),
+                    flags={"--corpus": "every .IPO in SGDAT, totals only"},
+                    argv=argv[1:])
+    if ns.corpus:
         import glob
         import time
         # the tree holds both .IPO and .ipo -- a case-sensitive glob saw
@@ -220,7 +238,7 @@ def main(argv):
         print(f"\n  screens only they found  {tot['we-miss-screen']:6}")
         print(f"  screens only we found    {tot['we-have-extra']:6}")
         return 0
-    ecu = next((a for a in argv[1:] if not a.startswith("-")), None)
+    ecu = ns.ecu
     if not ecu:
         raise SystemExit(__doc__)
     t = compare(ecu, verbose=True)

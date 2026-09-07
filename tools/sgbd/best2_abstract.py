@@ -30,6 +30,7 @@ and their offsets differ by the stride.
 import sys
 
 import _engine                            # noqa: E402,F401  sys.path setup
+from _cli import parse_args                                   # noqa: E402
 import sgbd_survey as S                                       # noqa: E402
 
 
@@ -38,11 +39,13 @@ class Unknown:
     _inst = None
 
     def __new__(cls):
+        """One shared instance, so `is UNKNOWN` works everywhere."""
         if cls._inst is None:
             cls._inst = super().__new__(cls)
         return cls._inst
 
     def __repr__(self):
+        """Render as `?`."""
         return "?"
 
 
@@ -63,18 +66,22 @@ class Byte:
     __slots__ = ("offset", "scale")
 
     def __init__(self, offset, scale=1):
+        """Response byte at `offset`, multiplied by `scale`."""
         self.offset = offset
         self.scale = scale
 
     def __repr__(self):
+        """Render as `resp[n]` with a `*scale` suffix when scaled."""
         return f"resp[{self.offset}]" + (f"*{self.scale}" if self.scale != 1
                                          else "")
 
     def __eq__(self, o):
+        """Equal when offset and scale match."""
         return (isinstance(o, Byte) and o.offset == self.offset
                 and o.scale == self.scale)
 
     def __hash__(self):
+        """Hash by (offset, scale)."""
         return hash((self.offset, self.scale))
 
 
@@ -92,15 +99,19 @@ class Slot:
     __slots__ = ("idx",)
 
     def __init__(self, idx):
+        """The S0 scratch slot at index `idx`."""
         self.idx = idx
 
     def __repr__(self):
+        """Render as `S0[n]`."""
         return f"S0[{self.idx}]"
 
     def __eq__(self, o):
+        """Equal when the slot index matches."""
         return isinstance(o, Slot) and o.idx == self.idx
 
     def __hash__(self):
+        """Hash by slot index."""
         return hash(("slot", self.idx))
 
 
@@ -110,10 +121,12 @@ class Sum:
     __slots__ = ("terms", "const")
 
     def __init__(self, terms, const=0):
+        """A sum of abstract terms plus an integer constant."""
         self.terms = list(terms)
         self.const = const
 
     def __repr__(self):
+        """Render as `a + b + const`, or `0` when empty."""
         parts = [repr(t) for t in self.terms]
         if self.const:
             parts.append(str(self.const))
@@ -143,6 +156,7 @@ def _add(a, b):
 
 
 def _mul(a, b):
+    """Abstract multiply: scales a response byte, folds two ints, else UNKNOWN."""
     if a is UNKNOWN or b is UNKNOWN:
         return UNKNOWN
     if isinstance(a, int) and isinstance(b, int):
@@ -155,6 +169,7 @@ def _mul(a, b):
 
 
 def _shl(a, b):
+    """Abstract shift-left as a multiply by 2**b (b < 32), else UNKNOWN."""
     return _mul(a, 1 << b) if isinstance(b, int) and b < 32 else UNKNOWN
 
 
@@ -201,6 +216,7 @@ class Machine:
     """Abstract machine state for one linear pass over a job's bytecode."""
 
     def __init__(self):
+        """Empty machine: no stack, registers or scratch, nothing sent yet."""
         self.stack = []
         self.regs = {}
         self.slots = {}          # S0[n] scratch
@@ -226,6 +242,8 @@ class Machine:
         self.regs[reg] = val
 
     def get(self, arg):
+        """The abstract value an operand denotes: an immediate, a register,
+        a scratch slot, or a (ranged) read of the response telegram."""
         if arg is None:
             return UNKNOWN
         if "v" in arg:
@@ -262,6 +280,7 @@ class Machine:
         return self.regs.get(r, UNKNOWN)
 
     def step(self, name, args):
+        """Execute one opcode abstractly, updating stack, registers and slots."""
         a0 = args[0] if args else None
         a1 = args[1] if len(args) > 1 else None
 
@@ -671,7 +690,13 @@ def detect_loop(data, addr, ops=None):
 
 
 def main():
-    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    """CLI entry: resolve one job's result bytes by dataflow and list them.
+
+    Returns:
+        0, for the process exit code.
+    """
+    ns = parse_args(__doc__, positional=("args", "*", "SGBD JOB"))
+    args = ns.args
     if len(args) < 2:
         print(__doc__)
         return 0

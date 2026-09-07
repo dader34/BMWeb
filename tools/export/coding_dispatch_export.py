@@ -31,11 +31,12 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.join(HERE, "..", "..")
 sys.path.insert(0, os.path.join(HERE, "..", "decompile"))
 sys.path.insert(0, HERE)
+sys.path.insert(0, os.path.dirname(HERE))                      # tools/, for _cli
 import ncs_tables as NT                                          # noqa: E402
 import ncs_daten as ND                                          # noqa: E402
 import ipo_exec as EX                                           # noqa: E402
-import ipo_coding_dispatch as CD                                # noqa: E402
 import ipo_screens as L1                                        # noqa: E402
+from _cli import parse_args                                   # noqa: E402
 
 OUT = os.path.join(ROOT, "data", "coding-dispatch")
 DATEN = os.path.join(ROOT, "vendor", "EC-APPS", "NCSEXPER", "DATEN")
@@ -64,6 +65,7 @@ def cabd_c0x(cabd):
 
 
 def data_org(cabd):
+    """The memory organisation of a CABD's .C0x descriptor, or None."""
     p = cabd_c0x(cabd)
     if not p:
         return None
@@ -103,6 +105,14 @@ def codable_units(chassis):
 
 
 def main(argv):
+    """Build every codable CABD's dispatcher for the given chassis.
+
+    Args:
+        argv: Chassis ids; empty means every chassis with NCS tables.
+
+    Returns:
+        0, for the process exit code.
+    """
     chassis = argv or sorted(NT.corpus().keys())
     os.makedirs(OUT, exist_ok=True)
     written = {}      # cabd(lower) -> asw, so we build each CABD once
@@ -139,4 +149,4 @@ def main(argv):
 
 
 if __name__ == "__main__":
-    sys.exit(main([a for a in sys.argv[1:] if not a.startswith("--")]))
+    sys.exit(main(parse_args(__doc__, positional=("chassis", "*", "chassis ids (default: all)")).chassis))

@@ -1,4 +1,7 @@
 #!/usr/bin/env node
+/**
+ * @file Package a built dist-web into downloadable offline web builds.
+ */
 // Package a built dist-web into downloadable OFFLINE web builds, in variants.
 //
 // dist-web is already the whole static site (index.html + every file it loads),
@@ -39,6 +42,12 @@ import {
 } from 'node:fs';
 import { join, basename } from 'node:path';
 
+/**
+ * The value following `--<name>` on the command line, or a default.
+ * @param {string} name - the option name without the leading dashes
+ * @param {string} def - the value when the option is absent
+ * @returns {string} the option value
+ */
 function arg(name, def) {
   const i = process.argv.indexOf(`--${name}`);
   return i >= 0 && process.argv[i + 1] ? process.argv[i + 1] : def;
@@ -54,7 +63,10 @@ if (!existsSync(join(DIST, 'index.html'))) {
   process.exit(1);
 }
 
-// the version the web build stamped into version.js (window.BMACW_VERSION=...)
+/**
+ * The version the web build stamped into version.js (window.BMACW_VERSION=...).
+ * @returns {string} the version, or '0.0.0' when none was stamped
+ */
 function readVersion() {
   try {
     const v = readFileSync(join(DIST, 'version.js'), 'utf8');
@@ -123,6 +135,11 @@ if (VARIANTS.some((v) => !v.dropParts)) {
 const PARTS_OFF_JS = 'window.BMACW_NO_PARTS=true;\n';
 const OFFLINE_JS = 'window.BMACW_OFFLINE=true;\n';
 
+/**
+ * A byte count as a short human-readable size ("1.5 MB").
+ * @param {number} bytes - the size in bytes
+ * @returns {string} the formatted size
+ */
 function humanSize(bytes) {
   const u = ['B', 'KB', 'MB', 'GB'];
   let i = 0,
@@ -133,6 +150,11 @@ function humanSize(bytes) {
   }
   return `${n.toFixed(n < 10 && i > 0 ? 1 : 0)} ${u[i]}`;
 }
+/**
+ * The total size of every file under a directory, recursively.
+ * @param {string} dir - the directory to measure
+ * @returns {number} the size in bytes
+ */
 function dirSize(dir) {
   let total = 0;
   for (const e of readdirSync(dir, { withFileTypes: true })) {

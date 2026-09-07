@@ -1,3 +1,6 @@
+/**
+ * @file BMWeb beta report collector and remote-session signaling mailbox.
+ */
 // BMWeb beta report collector -- a Cloudflare Worker in front of a KV
 // namespace (R2 needs a dashboard opt-in; KV does not, and a beta's report
 // volume sits well inside KV's free tier). POST /report stores a JSON
@@ -19,6 +22,14 @@ const CORS = {
 const MAX_BYTES = 1_000_000; // a report with a full wire ring is ~50-200 KB
 
 export default {
+  /**
+   * Route one request: CORS preflight, /rtc/* signaling, POST /report, and
+   * the token-gated GET /reports and GET /report?key= readers.
+   * @param {Request} req - the incoming request
+   * @param {{BETA: KVNamespace, TOKEN: string}} env - the bound KV namespace
+   *   and the reader token
+   * @returns {Promise<Response>} the JSON response
+   */
   async fetch(req, env) {
     const url = new URL(req.url);
     if (req.method === 'OPTIONS') return new Response(null, { headers: CORS });
@@ -147,6 +158,12 @@ export default {
   },
 };
 
+/**
+ * A JSON response with the CORS headers attached.
+ * @param {*} o - the body, serialised with JSON.stringify
+ * @param {number} [status=200] - the HTTP status
+ * @returns {Response} the response
+ */
 function json(o, status = 200) {
   return new Response(JSON.stringify(o), {
     status,

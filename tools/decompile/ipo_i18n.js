@@ -1,5 +1,7 @@
 #!/usr/bin/env node
-// Resolve every caption an ECU displays, once, into its IR.
+/**
+ * @file Resolve every caption an ECU displays, once, into its IR.
+ */
 //
 // Each ECU gets its own layer:
 //
@@ -44,8 +46,12 @@ const SHARED = (() => {
 const GERMAN_HINT =
   /[\u00e4\u00f6\u00fc\u00c4\u00d6\u00dc\u00df]|\b(und|nicht|oder|der|die|das|mit|ohne|ein|eine|ist|bei|nach|von|vor|zu|auf|aus|ueber|unter|lesen|loeschen|l\u00f6schen|schreiben|ansteuern|ansteuerung|fehler|speicher|zur\u00fcck|zurueck|weiter|abbruch|ende|ja|nein|wert|werte|z\u00e4hler|zaehler|drehzahl|temperatur|spannung|druck|geschwindigkeit|kennung|auswahl|pr\u00fcfen|pruefen|motor|k\u00fchl|kuehl|luft|oel|\u00f6l|wasser|heizung|schalter|ventil|pumpe|relais|lampe|leuchte|t\u00fcr|tuer|fenster|sitz|spiegel|dach|bremse|kupplung|getriebe|gang|hinten|vorne|links|rechts|oben|unten|innen|aussen|au\u00dfen|eingabe|anzeige|steuerger\u00e4t|steuergeraet|einstellen|abgleich|programmierung|codierung|bitte|taste|dr\u00fccken|druecken|beenden|starten|aktiv|inaktiv|vorhanden|betrieb)\b/i;
 
-// every caption an IR displays, for the check path (the emitter supplies the
-// same list as `strings` on a fresh build)
+/**
+ * Every caption an IR displays, for the check path (the emitter supplies the
+ * same list as `strings` on a fresh build).
+ * @param {object} ir - one ECU's IR as loaded from data/inpa-ir
+ * @returns {string[]} the distinct captions, sorted
+ */
 function captionsOf(ir) {
   const out = new Set();
   for (const m of Object.values(ir.menus || {})) {
@@ -77,6 +83,11 @@ const OVR_FILES = new Map(
     .filter((f) => f.endsWith('.json') && !f.startsWith('_'))
     .map((f) => [f.slice(0, -5).toLowerCase(), path.join(OVR_DIR, f)])
 );
+/**
+ * The per-ECU override dictionary, or null when the ECU has none.
+ * @param {string} ecu - the ECU name as the IR spells it
+ * @returns {Object<string,string>|null} German caption -> English caption
+ */
 function overridesFor(ecu) {
   const p = OVR_FILES.get(String(ecu).toLowerCase());
   if (!p) return null;
@@ -94,6 +105,12 @@ function overridesFor(ecu) {
 // actually looked up ("Haeufigkeitszaehler1"), so both spellings ship. A
 // COMMA-split caption is deliberately not aliased -- its halves label
 // different rows and each needs its own translation.
+/**
+ * The spellings a resolved caption ships under: the raw string and, when it
+ * differs, the trimmed form without a trailing ":" or "=".
+ * @param {string} s - the caption as written in the .IPO
+ * @returns {string[]} one or two keys
+ */
 function keyForms(s) {
   const t = String(s)
     .trim()
@@ -101,6 +118,12 @@ function keyForms(s) {
   return t && t !== s ? [s, t] : [s];
 }
 
+/**
+ * The lookup form of a caption: whitespace collapsed, trimmed, no trailing
+ * ":" or "=".
+ * @param {string} s - a caption
+ * @returns {string} the normalised key
+ */
 function normKey(s) {
   return String(s)
     .replace(/\s+/g, ' ')
@@ -108,6 +131,14 @@ function normKey(s) {
     .replace(/\s*[:=]\s*$/, '');
 }
 
+/**
+ * Resolve an ECU's captions against its override file and the shared table.
+ * @param {string} ecu - the ECU name
+ * @param {string[]} strings - every caption the IR displays
+ * @returns {{map: Object<string,string>, fromOvr: number, fromShared: number,
+ *   hasOvr: boolean, gaps: string[]}} the resolved map, where each hit came
+ *   from, and the captions neither dictionary carries
+ */
 function resolve(ecu, strings) {
   const ovr = overridesFor(ecu);
   // exact spelling first, collapsed spelling second; an override written for
@@ -152,6 +183,10 @@ function resolve(ecu, strings) {
   return { map: out, fromOvr, fromShared, hasOvr: !!ovr, gaps };
 }
 
+/**
+ * Write the shared table as app/renderer/data/i18n-shared.js so the runtime
+ * can translate SGBD-supplied strings; left untouched when already current.
+ */
 function writeSharedRuntime() {
   const p = path.join(R, 'app/renderer/data/i18n-shared.js');
   const body =
@@ -166,6 +201,10 @@ function writeSharedRuntime() {
     fs.writeFileSync(p, body);
 }
 
+/**
+ * CLI entry: resolve every IR (or the named ECUs), or report with --check or
+ * --gaps. Sets a nonzero exit code when --check finds an IR out of step.
+ */
 function main() {
   const args = process.argv.slice(2);
   const check = args.includes('--check');

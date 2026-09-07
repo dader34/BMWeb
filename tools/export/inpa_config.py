@@ -62,8 +62,12 @@ import os
 import re
 import sys
 import json
+from typing import Optional
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.dirname(HERE))                    # tools/, for _cli
+from _cli import parse_args                                   # noqa: E402
+
 ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
 CFGDAT = os.path.join(ROOT, "vendor", "EC-APPS", "INPA", "CFGDAT")
 SGDAT = os.path.join(ROOT, "vendor", "EC-APPS", "INPA", "SGDAT")
@@ -134,6 +138,8 @@ def _same_module(code, token):
 # the SGBD list a script declares carries version suffixes and dsN variants
 # ("ZKE3_GM5/V0.07", "MS410DS1") -- compare on the bare stem
 def _sgbd_stems(decl):
+    """Every spelling a declared SGBD list can match under: each token,
+    its base before "/", and the base without a `dsN` suffix."""
     out = set()
     for x in re.split(r"[,;\s]+", decl or ""):
         x = x.strip().lower()
@@ -147,6 +153,7 @@ def _sgbd_stems(decl):
 
 
 def _declared_match(token, declared):
+    """Does an .IPO token name one of the SGBDs the script declares?"""
     t = token.lower()
     base = re.sub(r"ds\d$", "", t.split("/")[0])
     return t in declared or base in declared
@@ -172,6 +179,7 @@ class Resolver:
     """The SGBD/group resolution half of InpaConfig, over preloaded listings."""
 
     def __init__(self, legacy=False):
+        """Scan the .prg/.grp and .IPO directories once into lookup maps."""
         self.legacy = legacy
         ecu_names = sorted(os.listdir(ECU)) if os.path.isdir(ECU) else []
         # stem (lower) -> on-disk stem casing, any .prg/.PRG
@@ -197,6 +205,7 @@ class Resolver:
         self._ipo_text = {}
 
     def _read_sgdat(self, name):
+        """The text of an SGDAT file (cp1252, cached; "" when unreadable)."""
         if name not in self._ipo_text:
             try:
                 with open(os.path.join(SGDAT, name), "r", encoding=ENC,
@@ -261,6 +270,8 @@ class Resolver:
         return out
 
     def _read_declared(self, key):
+        """The SGBD stems an .IPO stores into its SGBD slot at startup, read
+        by executing the decompiled startup proc; None when undecodable."""
         import ipo_disasm as D                      # decompiler, optional dep
         data, ps, pool, decls = D.load(key)
         if ps is None:
@@ -297,6 +308,7 @@ class Resolver:
         return None
 
     def sgbd_from_ipo(self, code):
+        """The `SGBD:`/`SGBD=` declaration in an ECU's .IPO text, or None."""
         n = self.ipo.get(code.lower())
         if not n:
             return None
@@ -304,6 +316,8 @@ class Resolver:
         return m.group(1) if m else None
 
     def sgbd_variants_from_ipo(self, code, chassis_id):
+        """Uppercase tokens of an ECU's .IPO, best SGBD candidates first
+        (prefixed by the ECU code, then naming the chassis number)."""
         n = self.ipo.get(code.lower())
         if not n:
             return []
@@ -319,6 +333,7 @@ class Resolver:
         chassis_num = mnum.group(0) if mnum else ""
 
         def rank(t):
+            """0 = code prefix and chassis number, 1 = code prefix, 2 = rest."""
             prefix = t.upper().startswith(code_up)
             if prefix and chassis_num and chassis_num in t:
                 return 0
@@ -595,6 +610,7 @@ class Resolver:
                  if self.find_grp(t)]
 
         def named_rank(token):
+            """0 when the group token's stem shares a prefix with the ECU."""
             stem = token[2:].upper()
             return 0 if alpha and (stem.startswith(alpha)
                                    or alpha.startswith(stem)) else 1
@@ -604,19 +620,23 @@ class Resolver:
         return suffix_hit
 
 
-def pretty(root_key):
+def pretty(root_key: str) -> str:
+    """A ROOT_* key as a capitalised word ("ROOT_MOTOR" -> "Motor")."""
     s = root_key.replace("ROOT_", "").lower()
     return (s[0].upper() + s[1:]) if s else root_key
 
 
-def section_name(key, legacy):
+def section_name(key: str, legacy: bool) -> Optional[str]:
+    """The English section name for a ROOT_* key, or None when it is not
+    surfaced (legacy mode surfaces only LEGACY_KEYS)."""
     for k, name in SECTION_ORDER:
         if k == key.upper():
             return None if (legacy and k not in LEGACY_KEYS) else name
     return None
 
 
-def section_index(key):
+def section_index(key: str) -> int:
+    """The display position of a ROOT_* key; unknown keys sort last."""
     for i, (k, _) in enumerate(SECTION_ORDER):
         if k == key.upper():
             return i
@@ -675,7 +695,8 @@ def load_chassis(chassis_id, path, res, drops, legacy=False):
     return {"id": chassis_id, "description": description, "sections": sections}
 
 
-def section_index_of_section(s):
+def section_index_of_section(s: dict) -> int:
+    """`section_index` over a built section record."""
     return section_index(s["key"])
 
 
@@ -902,20 +923,25 @@ def build(legacy=False):
     return ids, out
 
 
-def dumps(obj):
+def dumps(obj) -> str:
+    """Compact JSON, the exact form the committed cache files use."""
     return json.dumps(obj, ensure_ascii=False, separators=(",", ":"))
 
 
 def main():
-    legacy = "--legacy" in sys.argv
-    check = "--check" in sys.argv
-    out_dir = OUT
-    if "--out" in sys.argv:
-        i = sys.argv.index("--out")
-        if i + 1 >= len(sys.argv):
-            # a trailing --out used to die with a bare IndexError
-            sys.exit("--out needs a directory argument")
-        out_dir = sys.argv[i + 1]
+    """CLI entry: write the chassis config (``--out DIR`` elsewhere), or
+    ``--check`` it against the committed cache.
+
+    Returns:
+        The process exit code (1 when ``--check`` finds a difference).
+    """
+    ns = parse_args(__doc__,
+                    flags={"--legacy": "the pre-2026 section set (LEGACY_KEYS only)",
+                           "--check": "compare against data/chassis-config; exit 1 on drift"},
+                    options={"--out": ("DIR", "write the files here instead of data/chassis-config")})
+    legacy = ns.legacy
+    check = ns.check
+    out_dir = ns.out or OUT
 
     ids, chassis = build(legacy=legacy)
 

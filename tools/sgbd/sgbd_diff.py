@@ -35,6 +35,7 @@ import urllib.parse
 import urllib.request
 
 import _engine                            # noqa: E402  sys.path setup
+from _cli import parse_args                                   # noqa: E402
 import sgbd_survey as S                                       # noqa: E402
 import sgbd_spec as SP                                        # noqa: E402
 
@@ -51,12 +52,14 @@ INTERNAL = S.INTERNAL
 
 
 def api(port, path):
+    """GET a JSON endpoint from the running engine on `port`."""
     url = f"http://127.0.0.1:{port}{path}"
     with urllib.request.urlopen(url, timeout=20) as r:
         return json.load(r)
 
 
 def find_port():
+    """The running engine's port; exits with a message when none is found."""
     # discovery (env vars, 8777 probe, lsof/pgrep) lives in _engine, shared
     # with sgbd_harvest -- each used to carry a drifted copy of this
     port = _engine.find_port()
@@ -84,6 +87,13 @@ def engine_results(port, sgbd, job):
 
 
 def diff_job(port, data, addr, sgbd, job):
+    """Compare one job's lifted result names with the engine's _RESULTS.
+
+    Returns:
+        ``(spec, verdict, missing, extra)`` -- the lifted spec, a verdict
+        string, the names only the engine declares and the names only the
+        spec lifted.
+    """
     spec = SP.extract(data, addr, sgbd, job)
     want = engine_results(port, sgbd, job)
     got = [r["name"] for r in spec.get("results", [])]
@@ -130,17 +140,26 @@ def diff_job(port, data, addr, sgbd, job):
 
 
 def main():
-    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    """CLI entry: one job verbosely (`SGBD JOB`), or a per-SGBD verdict table
+    over one SGBD or every E46 SGBD (``--e46``).
+
+    Returns:
+        0, for the process exit code.
+    """
+    ns = parse_args(__doc__,
+                    positional=("args", "*", "SGBD [JOB]"),
+                    flags={"--e46": "every E46 SGBD"})
+    args = ns.args
     port = find_port()
 
-    targets = S.e46_sgbds() if "--e46" in sys.argv else (
+    targets = S.e46_sgbds() if ns.e46 else (
         [args[0].lower()] if args else [])
     if not targets:
         print(__doc__)
         return 0
 
     # one job, verbose
-    if len(args) >= 2 and "--e46" not in sys.argv:
+    if len(args) >= 2 and not ns.e46:
         sgbd, job = args[0].lower(), args[1].upper()
         data, jobs = SP.load(sgbd)
         addr = SP.job_addr(data, jobs, job)

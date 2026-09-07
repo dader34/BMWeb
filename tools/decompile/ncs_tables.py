@@ -75,6 +75,9 @@ import os
 import re
 import sys
 
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # tools/
+from _cli import parse_args                                     # noqa: E402
+
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..')
 DATEN = os.path.join(ROOT, 'vendor', 'EC-APPS', 'NCSEXPER', 'DATEN')
 OUT = os.path.join(ROOT, 'data', 'ncs-tables.json')
@@ -397,6 +400,8 @@ def corpus():
 
 
 def build():
+    """Every chassis' parsed tables: ``{chassis: {sgfam, at, zst, sabits}}``
+    (each key present only when that file exists for the chassis)."""
     out = {}
     for ch, paths in sorted(corpus().items()):
         entry = {}
@@ -414,14 +419,19 @@ def build():
 
 
 def main():
+    """CLI entry: summarise the tables, ``--check`` their invariants (exit 1
+    on failure), or ``--write`` the JSON and JS outputs."""
+    ns = parse_args(__doc__,
+                    flags={'--write': 'write data/ncs-tables.json and the renderer JS',
+                           '--check': 'verify the invariants; exit 1 on failure'})
     data = build()
     idents = identity_jobs()
     if not data:
         sys.exit(f'no SGFAM/AT/ZST files under {DATEN} '
                  '(run scripts/setup/fetch.sh)')
 
-    write = '--write' in sys.argv
-    check = '--check' in sys.argv
+    write = ns.write
+    check = ns.check
 
     masters = 0
     for ch, e in sorted(data.items()):

@@ -109,6 +109,7 @@ import json
 import os
 import re
 import sys
+from typing import Set
 
 DATEN = 'vendor/EC-APPS/NCSEXPER/DATEN'
 
@@ -212,6 +213,14 @@ def records(data):
 
 
 def _take(code, p, i):
+    """Read one signature field of type `code` from payload `p` at `i`.
+
+    Returns:
+        ``(value, next_offset)``; an `A` field yields its decoded op list.
+
+    Raises:
+        ValueError: On a truncated field or an unsupported type code.
+    """
     if code == 'L':
         if i + 4 > len(p):
             raise ValueError('short L')
@@ -257,6 +266,7 @@ def _take(code, p, i):
 # DATEN); the rest are implemented for completeness. Applied left-to-right to
 # the value already folded from source bytes per EINHEIT.
 def _apply_ops(value, ops):
+    """Apply a CABD OPERATION list to a 32-bit value, in order."""
     for op, n in ops:
         if op == '!':
             value ^= 0xFFFFFFFF
@@ -607,6 +617,7 @@ def rows(data, kw=None, chassis=None):
 
 
 def summarise(path, verbose=False):
+    """Print one file's section and coding-row summary; returns its schema."""
     data = open(path, 'rb').read()
     secs = schema(data)
     name = os.path.basename(path)
@@ -673,6 +684,14 @@ def corpus():
     print(f'bit collisions within a (block, word): {collisions}')
 
 
+def stem_tokens(name: str) -> Set[str]:
+    """The vocabulary of one coding keyword: its `_`-separated tokens longer
+    than two characters, with the read/write prefixes (COD_, STAT_, STATUS_,
+    CODIER_) dropped so an SGBD result and a DATEN keyword meet."""
+    s = re.sub(r'^(COD|STAT|STATUS|CODIER)_', '', name.upper())
+    return set(t for t in s.split('_') if len(t) > 2)
+
+
 def validate():
     """Check the decoded names against BMW's OTHER description of the same
     modules.
@@ -692,11 +711,10 @@ def validate():
     """
     import random
 
-    def stem(s):
-        s = re.sub(r'^(COD|STAT|STATUS|CODIER)_', '', s.upper())
-        return set(t for t in s.split('_') if len(t) > 2)
+    stem = stem_tokens
 
     def covered(toks, want):
+        """The fraction of `want` matched by a token in `toks`, prefix-tolerant."""
         hits = sum(1 for w in want
                    if any(t.startswith(w) or w.startswith(t) for t in toks))
         return hits / max(1, len(want))
@@ -732,6 +750,8 @@ def validate():
             continue
 
         def rank(names, want):
+            """Where `want`'s SGBD family ranks (1 = best) when `names` are
+            scored against every coding map; None with nothing to score."""
             toks = set()
             for n in names:
                 toks |= stem(n)
@@ -773,6 +793,8 @@ def validate():
 
 
 def main():
+    """CLI entry: summarise one file, ``--corpus`` every file, or ``--validate``
+    the decoded names against the SGBD coding maps."""
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('file', nargs='?', help='a .C0x file (name or path)')

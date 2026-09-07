@@ -77,9 +77,12 @@ TEXT_TYPES = [
 # A superset of ista_extract._collect_blocks that also emits sub-headings as
 # {"t":"h"} so repair steps and multi-section docs keep their structure.
 def _blocks(el):
+    """Flatten an element into heading/paragraph/bullet/table blocks."""
     out = []
 
     def walk(node):
+        """Append each block-level child in document order, recursing into
+        containers."""
         for child in node:
             tag = child.tag
             if tag == "HEADING":
@@ -187,6 +190,7 @@ def parse_pinassignments(root):
 
 
 def _trim_empty_cols(rows):
+    """Drop table columns that are empty in every body row."""
     if not rows:
         return rows
     ncol = max(len(r) for r in rows)
@@ -286,12 +290,16 @@ def parse_body(xml):
 
 # ---- resolution chain -------------------------------------------------------
 class Store:
+    """The two ISTA databases (DiagDocDb and the content store) as one object."""
+
     def __init__(self, diag, content):
+        """Open both databases and keep a cursor on each."""
         self.d = sqlite3.connect(diag)
         self.c = sqlite3.connect(content)
         self.dc, self.cc = self.d.cursor(), self.c.cursor()
 
     def body(self, infoobj_id):
+        """The English XML body of an info object, or None when it has none."""
         row = self.dc.execute(
             "SELECT CONTROLID FROM XEP_INFOOBJECTS WHERE ID=?",
             (infoobj_id,)).fetchone()
@@ -319,6 +327,7 @@ class Store:
     # "Control unit, General Module"), and XEP_REFDIAGNOSISTREE gives its parent
     # chain up to the "Components" root -- exactly the component browser tree.
     def load_tree(self):
+        """Load the diagnosis tree (parent map and node names) once."""
         if getattr(self, "_parent", None) is not None:
             return
         self._parent = {}
@@ -398,11 +407,14 @@ def chassis_doc_ids(store, chassis, types, applic):
 
 
 def _sp_of(ident):
+    """The SP document number inside an identifier, or None."""
     m = re.search(r"(SP\d{10})", ident or "")
     return m.group(1) if m else None
 
 
 def main():
+    """CLI entry: extract one chassis' reference documents into a .docs bundle
+    with its pruned component tree and manifest."""
     ap = argparse.ArgumentParser(description="Extract ISTA reference documents")
     ap.add_argument("--diagdoc", required=True)
     ap.add_argument("--content", required=True)
@@ -524,6 +536,7 @@ def build_tree(nodes):
             roots.append(cid)
 
     def build(cid):
+        """One tree node with its sorted children and documents."""
         n = nodes[cid]
         kids = [build(k) for k in children.get(cid, [])]
         kids.sort(key=lambda c: c["name"].lower())
