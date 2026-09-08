@@ -157,6 +157,8 @@ class IpoProgram {
     this.confirmedWrites = new Set();
     /** @type {Array<{target: string, job: string, arg: string|null, status: string}>} sent jobs, newest last */
     this.log = [];
+    /** @type {IpoWireRead[]} the current body's answers (protocol.js) */
+    this.wireReads = [];
     /** @type {IpoMessage[]} messageboxes shown, in order */
     this.messages = [];
     this.hops = 0;
@@ -426,6 +428,15 @@ class IpoProgram {
       // numbered as EDIABAS numbers them: 0 = system record, 1..n = the
       // job's sets, so INPAapiResultInt(->x, "F_ORT_NR", i) reads fault i
       fed.sets = [d.system || {}, ...sets];
+      // what the body put on the wire, kept so a protocol it writes can be
+      // shown as data too (protocol.js)
+      this.wireReads.push({
+        target,
+        variant: d.system && d.system.VARIANTE ? String(d.system.VARIANTE) : '',
+        job,
+        arg: arg == null ? null : String(arg),
+        sets,
+      });
       if (!fed.has('JOB_STATUS')) fed.set('JOB_STATUS', 'OKAY');
       status = String(fed.get('JOB_STATUS'));
       // the group probe's variant outranks the engine's synthetic one
@@ -444,6 +455,12 @@ class IpoProgram {
       status = IpoProgram.failStatus(m);
       fed.set('JOB_STATUS', status);
       fed.sets = [{}]; // no sets came back
+      this.wireReads.push({
+        target,
+        job,
+        arg: arg == null ? null : String(arg),
+        error: status,
+      });
       // no adapter at all: the script cannot ask the car anything, and the
       // module view says so instead of running inpainit's error branch
       if (/no cable/i.test(m)) this.noCable = true;
@@ -1103,6 +1120,8 @@ class IpoProgram {
   async _runForKey(it, gen, ctx, start, cancelLabel, followMachine) {
     this.busy = true;
     this.cancelRequested = false;
+    /** @type {IpoWireRead[]} every answer this body got, in order */
+    this.wireReads = [];
     const out = this.fresh();
     let result;
     try {
@@ -1131,8 +1150,15 @@ class IpoProgram {
     if (out.scriptChange)
       return this._changeScript(String(out.scriptChange), gen);
     // viewopen: the file the body wrote (a whole-vehicle fault protocol) is
-    // the view now, until the script opens another menu or screen
-    if (out.view) this.view = out.view;
+    // the view now, until the script opens another menu or screen -- shown
+    // as the data behind it where the body read fault memories
+    if (out.view) {
+      this.view = out.view;
+      if (typeof ipoProtocolReport === 'function') {
+        const rep = ipoProtocolReport(this.wireReads, out.view.lines);
+        this.view.report = rep.modules.length ? rep : null;
+      }
+    }
     // the body painted (userbox text, a result line): show it with the screen
     this.takeCells(out);
     if (followMachine && out.stateEnter && this.exec.procs[out.stateEnter]) {

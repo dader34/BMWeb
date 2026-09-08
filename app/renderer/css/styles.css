@@ -8277,6 +8277,15 @@ body.remote-helper::after {
   }
 }
 
+/* a protocol's fault rows open the lookup */
+.quick-detail-row.ipo-protocol-link {
+  cursor: pointer;
+}
+
+.quick-detail-row.ipo-protocol-link:hover {
+  background: var(--panel, rgba(127, 127, 127, 0.1));
+}
+
 /* viewopen: the file a script wrote and asked INPA to show (a whole-vehicle
    fault protocol), in the screen's place */
 .ipo-protocol {

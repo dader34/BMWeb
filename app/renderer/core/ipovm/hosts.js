@@ -134,6 +134,23 @@ class FeedHost {
    * @param {{integer?: boolean, set?: number, default?: *}} [opts] - read options
    * @returns {string|number}
    */
+  /**
+   * The value behind a key as the wire delivered it (a binary result is
+   * bytes, not text): from the numbered set when one is named, else the
+   * flat map.
+   * @param {string} key - the result name
+   * @param {{set?: number}} [opts]
+   * @returns {*}
+   */
+  raw(key, opts = {}) {
+    const si = opts.set;
+    if (this.sets && si != null && si >= 0 && si < this.sets.length) {
+      const s = this.sets[si] || {};
+      return Object.prototype.hasOwnProperty.call(s, key) ? s[key] : undefined;
+    }
+    return this.map.get(key);
+  }
+
   result(key, opts = {}) {
     let v;
     const si = opts.set;

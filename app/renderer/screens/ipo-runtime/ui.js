@@ -185,9 +185,13 @@ function ipoMakeUi(ecu, container, back) {
       if (p.view) {
         if (p.view !== paintedView) {
           paintedView = p.view;
-          gridEl.innerHTML = `<pre class="ipo-protocol mono">${esc(
-            (p.view.lines || []).join('\n')
-          )}</pre>`;
+          if (p.view.report && typeof ipoProtocolRender === 'function') {
+            ipoProtocolRender(gridEl, p);
+          } else {
+            gridEl.innerHTML = `<pre class="ipo-protocol mono">${esc(
+              (p.view.lines || []).join('\n')
+            )}</pre>`;
+          }
         }
         return;
       }

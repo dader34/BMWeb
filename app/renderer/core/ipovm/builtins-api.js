@@ -205,11 +205,67 @@ function bStrArraySize(vm, stack) {
 }
 
 function bResultBinary(vm, stack) {
-  const key = stack.find(isPlainStr) || null;
+  // INPAapiResultBinary(&rc, key, set): the key is a literal or a variable
+  // holding one (protokoll_hexcode passes its parameter), the set a number
+  let key = null;
+  let set = null;
+  for (const a of stack) {
+    if (isRef(a)) continue;
+    const s = asStr(a);
+    if (key == null && /^[A-Za-z_]/.test(s)) key = s;
+    else if (set == null && s !== '' && Number.isFinite(Number(s)))
+      set = Math.trunc(Number(s));
+  }
   if (key) {
     vm.globals.set('__pending_binary__', key);
+    // the set it was asked of, for the live read behind GetBinaryDataString
+    vm.globals.set('__pending_binary_set__', set);
     vm.out.reads.push(key);
   }
+  // rc: the script prints "????" for a code it could not read; live that
+  // is a result the wire did not carry, offline every read succeeds
+  const refs = stack.filter(isRef);
+  if (refs.length) {
+    const have =
+      !vm.wireJobs ||
+      (key &&
+        vm.host &&
+        typeof vm.host.raw === 'function' &&
+        vm.host.raw(key, { set: set == null ? undefined : set }) != null);
+    storeOut(vm, [refs[0]], have ? 1 : 0);
+  }
+}
+
+/**
+ * A binary result as the hex text INPA's GetBinaryDataString hands the
+ * script ("27C3"): bytes from a typed array, a plain array, or the object
+ * a typed array turns into through JSON; a string with its separators
+ * dropped ("27-C3", "0x27C3"); a number as four digits.
+ * @param {*} v - the result value
+ * @returns {string}
+ */
+function ipoBinaryHex(v) {
+  if (v == null || v === '') return '';
+  const byte = (b) =>
+    (Number(b) & 0xff).toString(16).toUpperCase().padStart(2, '0');
+  if (Array.isArray(v) || ArrayBuffer.isView(v))
+    return Array.from(v, byte).join('');
+  if (typeof v === 'number')
+    return Number.isFinite(v)
+      ? (v >>> 0).toString(16).toUpperCase().padStart(4, '0')
+      : '';
+  if (typeof v === 'object') {
+    const keys = Object.keys(v).filter((k) => /^\d+$/.test(k));
+    if (keys.length)
+      return keys
+        .sort((a, b) => a - b)
+        .map((k) => byte(v[k]))
+        .join('');
+  }
+  return String(v)
+    .replace(/^0x/i, '')
+    .replace(/[^0-9a-fA-F]/g, '')
+    .toUpperCase();
 }
 
 /**
@@ -222,6 +278,23 @@ function bGetBinaryDataString(vm, stack) {
   if (refs.length < 2) return;
   const dst = refs[0],
     src = refs[1];
+  // a live run: GetBinaryDataString(&text, &length) gives the script the
+  // bytes of the last INPAapiResultBinary as hex text, and their length in
+  // characters (E46.IPO's protokoll_hexcode walks it two characters a byte)
+  if (vm.wireJobs) {
+    const key = vm.globals.get('__pending_binary__');
+    const set = vm.globals.get('__pending_binary_set__');
+    if (key && vm.host && typeof vm.host.raw === 'function') {
+      const hex = ipoBinaryHex(
+        vm.host.raw(key, { set: set == null ? undefined : set })
+      );
+      vm.globals.delete('__pending_binary__');
+      vm.globals.delete('__pending_binary_set__');
+      storeOut(vm, [dst], mkBound(null, hex, key), key);
+      storeOut(vm, [src], hex.length);
+      return;
+    }
+  }
   const dsc = dst[1] === IPO_REF_LOCAL && vm.frame != null ? LOCAL : GLOBAL;
   const ssc = src[1] === IPO_REF_LOCAL && vm.frame != null ? LOCAL : GLOBAL;
   let key = vm.bindKey(ssc, src[2]);

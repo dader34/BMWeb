@@ -1735,7 +1735,7 @@ const sysSet = (sgbd) => ({
       F_UW1_TEXT: 'Kilometerstand',
       F_UW1_WERT: 123456,
       F_UW1_EINH: 'km',
-      F_VERSION: 1,
+      F_VERSION: 2,
       JOB_STATUS: 'OKAY',
     };
     const vsent = fakeApi((job, arg, target) => {
@@ -1755,6 +1755,16 @@ const sysSet = (sgbd) => ({
         };
       if (job === 'FS_LESEN' && variant === 'ms450ds0')
         return { system: sys, sets: [fault, { JOB_STATUS: 'OKAY' }] };
+      if (job === 'FS_LESEN_DETAIL')
+        return {
+          system: sys,
+          sets: [
+            // the detail carries the memory's fields again, the hex as the
+            // bytes the SGBD's `binary` result is, plus the P-code
+            { ...fault, F_HEX_CODE: [0x27, 0xc3], F_PCODE_STRING: 'P0135' },
+            { JOB_STATUS: 'OKAY' },
+          ],
+        };
       if (job === 'FS_LESEN')
         return { system: sys, sets: [{ F_VERSION: 1, JOB_STATUS: 'OKAY' }] };
       return { system: sys, sets: [{ JOB_STATUS: 'OKAY' }] };
@@ -1867,16 +1877,56 @@ const sysSet = (sgbd) => ({
       'the detail block names the variant'
     );
     assert.ok(has(/1 Fehler im Fehlerspeicher/), 'the detail block counts');
-    assert.ok(has(/Fehlerort\s+:.*Lambdasonde/), 'the fault text');
-    assert.ok(has(/Fehlerort\s+:\s+0x0005:/), 'the fault number in hex');
+    // a KWP2000 module (F_VERSION 2): the detail read supplies the entry
+    const around = () =>
+      lines.filter((l) => /Lambda|0x00|Fehlercode/.test(l)).join(' | ');
+    assert.ok(
+      has(/0x0005\s+(Lambdasonde|Thermal oil level sensor)/),
+      `the fault number and text: ${around()}`
+    );
+    assert.ok(
+      has(/Fehlercode:\s+27 C3/),
+      `the hex code from the binary result: ${around()}`
+    );
     assert.ok(has(/Kilometerstand.*123456/), 'the freeze-frame value');
     ok('E46.IPO: the protocol INPA writes (header, overview, details)');
+
+    // the same read as data: one record per module that answered, the
+    // detail pass merged into its fault, the silent addresses listed
+    const rep = vp.view.report;
+    assert.ok(rep && rep.modules.length, 'the view carries a report');
+    const eng = rep.modules.find((m) => m.sgbd === 'ms450ds0');
+    assert.ok(
+      eng,
+      `the engine is one module: ${rep.modules.map((m) => m.sgbd)}`
+    );
+    assert.strictEqual(eng.via, 'd_motor', 'reached through its group');
+    assert.strictEqual(eng.label, 'Motor', "the script's name for it");
+    assert.strictEqual(eng.codes.length, 1);
+    assert.strictEqual(eng.codes[0].F_ORT_TEXT, 'Lambdasonde');
+    assert.strictEqual(
+      eng.codes[0].F_PCODE_STRING,
+      'P0135',
+      'the detail read merged into the fault'
+    );
+    assert.strictEqual(
+      rep.modules.filter((m) => m.sgbd === 'ms450ds0').length,
+      1,
+      'the detail pass by variant name does not add a second module'
+    );
+    assert.ok(
+      rep.silent.some((s) => s.target === 'd_00a4' && /Airbag/.test(s.label)),
+      `silent addresses carry the script's label: ${JSON.stringify(rep.silent)}`
+    );
+    const clean = rep.modules.find((m) => m.sgbd === 'd_0080');
+    assert.ok(clean && clean.codes.length === 0, 'a clean module is listed');
+    ok('E46.IPO: the protocol as a report (modules, faults, detail, silent)');
 
     if (typeof ipoPrintDocument === 'function') {
       const doc = ipoPrintDocument(vp, vecu, true);
       const html = JSON.stringify(doc);
       assert.ok(
-        html.includes('Lambdasonde'),
+        /Lambdasonde|Thermal oil level sensor/.test(html),
         'the protocol is the print sheet'
       );
       ok('E46.IPO: printing the protocol');
