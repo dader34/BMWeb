@@ -253,9 +253,15 @@ const PRINT_CSS = `
     .pr-screen-table .pr-unit { color: #666; white-space: nowrap; }
     .pr-screen-table .pr-note { color: #555; padding-top: 6px; }
     .pr-screen-table tr.pr-band td { border-top: 2px solid #ddd; padding-top: 7px; }
-    .pr-keys td:first-child { width: 90px; color: #555; }
-    .pr-keys td:nth-child(2) { width: 30%; font-weight: 600; }
-    .pr-keys .pr-legend { color: #555; }
+    /* the F-key bar under a printed screen: ten slots, a Shift row when needed */
+    .pr-keys { margin: 6px 0 0; }
+    .pr-fkeys { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 4px; margin-top: 4px; }
+    .pr-fkey { display: flex; flex-direction: column; gap: 1px; min-height: 30px; padding: 4px 5px;
+               border: 1px solid #ccc; border-radius: 4px; background: #fafafa; min-width: 0; }
+    .pr-fkey.empty { background: #fff; border-color: #e2e2e2; }
+    .pr-fkey-k { font: 600 8.5px "SF Mono", Menlo, Consolas, monospace; color: #777; }
+    .pr-fkey-l { font-size: 10px; font-weight: 600; line-height: 1.2; overflow-wrap: anywhere; }
+    .pr-fkey-s { font-size: 8.5px; color: #666; line-height: 1.2; overflow-wrap: anywhere; }
     /* text blocks */
     .pr-p { margin: 0 0 6px; }
     .pr-bullet { padding-left: 16px; position: relative; }

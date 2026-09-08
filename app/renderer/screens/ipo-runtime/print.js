@@ -113,39 +113,48 @@ function ipoPrintRowsHtml(rows) {
 }
 
 /**
- * The keys the script offers on this menu, as INPA's own legend reads.
+ * The keys the script offers on this menu, drawn as the F-key bar the app
+ * shows under the screen: ten slots F1..F10 with the short caption, a
+ * second row for the Shift keys when the menu has any, and the menu's own
+ * legend text under a caption where it says more. Empty slots stay as
+ * blank boxes, as on the bar.
  * @param {IpoProgram} p - the program
  * @returns {string} HTML, empty when the menu has no keys
  */
 function ipoPrintKeysHtml(p) {
   const items = (p.items || []).filter((it) => it.nr !== 20);
   if (!items.length) return '';
-  // a menu screen's own legend ("< F1 >  Digitalwerte") says more than the
-  // key's short caption ("Digital"): both go on the sheet when it has one
   const menu = ipoMenuTiles(p);
   const legend = new Map();
   for (const t of (menu && menu.tiles) || []) {
     if (t.legend) legend.set(`${t.shift ? 's' : ''}${t.nr}`, t.legend);
   }
-  const rows = items
-    .map((it) => {
-      const key = it.shift ? `Shift+F${it.nr - IPO_SHIFT_BASE}` : `F${it.nr}`;
-      const label = ipoKeyLabel(p, it);
-      if (!label) return '';
-      const lg = legend.get(`${it.shift ? 's' : ''}${it.nr}`);
-      const more =
+  const byKey = new Map(items.map((it) => [it.nr, it]));
+  const row = (shift) => {
+    let any = false;
+    const slots = [];
+    for (let k = 1; k <= 10; k++) {
+      const nr = shift ? IPO_SHIFT_BASE + k : k;
+      const it = byKey.get(nr);
+      const label = it ? ipoKeyLabel(p, it) : '';
+      if (label) any = true;
+      const lg = it ? legend.get(`${shift ? 's' : ''}${nr}`) : null;
+      const sub =
         lg && ipoText(lg).trim() !== label.trim()
-          ? `<td class="pr-legend">${esc(ipoText(lg).trim())}</td>`
-          : '<td></td>';
-      return `<tr><td class="pr-mono">${esc(key)}</td><td>${esc(label)}</td>${more}</tr>`;
-    })
-    .filter(Boolean)
-    .join('');
-  if (!rows) return '';
-  return (
-    `<h2 class="pr-h2">Keys</h2>` +
-    `<table class="pr-table pr-keys"><tbody>${rows}</tbody></table>`
-  );
+          ? `<span class="pr-fkey-s">${esc(ipoText(lg).trim())}</span>`
+          : '';
+      slots.push(
+        `<span class="pr-fkey${label ? '' : ' empty'}">` +
+          `<span class="pr-fkey-k">${shift ? '⇧' : ''}F${k}</span>` +
+          `<span class="pr-fkey-l">${esc(label)}</span>${sub}</span>`
+      );
+    }
+    return any ? `<div class="pr-fkeys">${slots.join('')}</div>` : '';
+  };
+  const plain = row(false);
+  const shifted = row(true);
+  if (!plain && !shifted) return '';
+  return `<div class="pr-keys">${plain}${shifted}</div>`;
 }
 
 /**
