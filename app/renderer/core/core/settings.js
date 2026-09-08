@@ -20,7 +20,7 @@ const API =
  * @typedef {Object} AppSettings
  * @property {string} [theme] - Skin id from {@link THEMES} ('instrument' by default).
  * @property {'en'|'orig'} [lang] - Translated captions, or raw EDIABAS names.
- * @property {'on'|'off'} [inpaScreens] - INPA-faithful layout on desktop.
+ * @property {'on'|'off'} [inpaScreens] - INPA-faithful layout on desktop; on by default.
  * @property {'on'|'off'} [confirmActuators] - Ask before firing an actuator test.
  * @property {boolean} [betaReports] - Show the Report button and auto-file wire errors.
  * @property {string} [betaEndpoint] - Collector / signaling worker URL.

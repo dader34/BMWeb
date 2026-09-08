@@ -80,7 +80,7 @@ function showSettings() {
           { val: 'on', label: 'INPA layout' },
           { val: 'off', label: 'Modern' },
         ],
-        Settings.get('inpaScreens', 'off'),
+        Settings.get('inpaScreens', 'on'),
         // re-render: this screen is itself laid out differently per mode
         (v) => {
           Settings.set('inpaScreens', v);

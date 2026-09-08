@@ -110,7 +110,7 @@ const isMobileViewport = () =>
  * @returns {boolean}
  */
 const inpaMode = () =>
-  Settings.get('inpaScreens', 'off') === 'on' && !isMobileViewport();
+  Settings.get('inpaScreens', 'on') === 'on' && !isMobileViewport();
 
 /**
  * Draw the breadcrumb strip and mirror the screen into the URL.
