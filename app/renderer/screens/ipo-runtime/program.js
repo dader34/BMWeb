@@ -233,6 +233,10 @@ class IpoProgram {
     while (step && step.kind !== 'done') {
       if (++n > IPO_MAX_STEPS) throw new Error('script did not settle');
       if (this.closed) return { done: false, cancelled: true };
+      if (this.cancelRequested) {
+        this.cancelRequested = false;
+        return { done: false, cancelled: true };
+      }
       if (step.kind === 'job') {
         const fed = await this.runJob(step.sgbd, step.job, step.arg, ctx);
         if (fed == null) return { done: false, cancelled: true };
@@ -725,6 +729,27 @@ class IpoProgram {
   }
 
   /**
+   * The user pressed Cancel on the progress window: the running body ends
+   * before its next job (the one on the wire finishes first).
+   * @returns {void}
+   */
+  cancel() {
+    if (this.busy) this.cancelRequested = true;
+  }
+
+  /**
+   * A body that ended without reaching its userboxclose (cancelled, or it
+   * raised an error) leaves no progress window behind.
+   * @returns {void}
+   */
+  closeUserbox() {
+    if (this.vm && this.vm.userbox) {
+      this.vm.userbox = null;
+      if (typeof this.ui.userbox === 'function') this.ui.userbox(this, null);
+    }
+  }
+
+  /**
    * setitem() from a body or a screen cycle: INPA relabels the key and shows
    * or hides it while the menu is up (E46.IPO's read turns F9 into "FS
    * drucken" once there is a protocol). The bar redraws when something
@@ -1077,11 +1102,13 @@ class IpoProgram {
    */
   async _runForKey(it, gen, ctx, start, cancelLabel, followMachine) {
     this.busy = true;
+    this.cancelRequested = false;
     const out = this.fresh();
     let result;
     try {
       result = await this.drive(start(), ctx);
     } catch (e) {
+      this.closeUserbox();
       this.ui.error(this, e.message);
       this.busy = false;
       this._rescheduleIfFrequent(gen);
@@ -1092,6 +1119,7 @@ class IpoProgram {
     if (this.closed || gen !== this.gen) return true;
     if (result.exit || out.exit) return this.leaveModule();
     if (result.cancelled) {
+      this.closeUserbox();
       this.ui.status(this, `${cancelLabel} · cancelled`);
       this._rescheduleIfFrequent(gen);
       return true;

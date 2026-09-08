@@ -1832,6 +1832,30 @@ const sysSet = (sgbd) => ({
     assert.ok(k1 && !k1.hidden && k1.label === 'FS lesen', 'F1 stays');
     ok('E46.IPO: setitem relabels and shows keys live');
 
+    // Cancel on the progress window: the body ends before its next job and
+    // the window closes; the menu is still up
+    vsent.length = 0;
+    vui.boxes = [];
+    let cancelAt = 0;
+    global.api = ((orig) => async (url, opts) => {
+      const r = await orig(url, opts);
+      if (/d_0080/.test(url) && !cancelAt) {
+        cancelAt = vsent.length;
+        vp.cancel();
+      }
+      return r;
+    })(global.api);
+    await vp.press(lesen.nr);
+    await vuntil(() => !vp.busy);
+    assert.ok(cancelAt > 0, 'the cancel fired during the read');
+    assert.ok(
+      vsent.length <= cancelAt + 1,
+      `no further jobs after Cancel: ${vsent.length} vs ${cancelAt}`
+    );
+    assert.strictEqual(vui.boxes[vui.boxes.length - 1], null, 'window closed');
+    assert.strictEqual(vp.menu, 'm_fs', 'the menu stays');
+    ok('E46.IPO: Cancel ends the read between two jobs');
+
     const lines = vp.view.lines;
     const has = (re) => lines.some((l) => re.test(l));
     assert.ok(has(/F E H L E R S P E I C H E R/), 'protocol title');

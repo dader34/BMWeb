@@ -4,9 +4,6 @@
  * (modern), the app's own dialogs for INPA's prompts, and the status line.
  */
 
-/** how many of the progress window's lines stay on screen */
-const IPO_USERBOX_LINES = 8;
-
 /**
  * The Back action for a menu without its own F10 (kind 'back' answers Esc).
  * @param {() => void} fn - what Back does
@@ -28,8 +25,9 @@ function ipoMakeUi(ecu, container, back) {
   let gridEl = null,
     titleEl = null,
     statusEl = null,
-    machineEl = null,
-    userboxEl = null;
+    machineEl = null;
+  /** INPA's progress window while a body has one open (progressDialog) */
+  let progress = null;
   /** the viewopen file currently in the DOM (paint keeps it across cycles) */
   let paintedView = null;
 
@@ -37,14 +35,12 @@ function ipoMakeUi(ecu, container, back) {
     container.className = inpa ? 'ipo-view ipo-inpa' : 'ipo-view results-panel';
     container.innerHTML =
       `<div class="ipo-title"></div>` +
-      `<div class="ipo-userbox" hidden></div>` +
       `<div class="ipo-screen"></div>` +
       `<div class="ipo-machine" hidden></div>` +
       `<div class="ipo-status mono"></div>`;
     titleEl = container.querySelector('.ipo-title');
     gridEl = container.querySelector('.ipo-screen');
     machineEl = container.querySelector('.ipo-machine');
-    userboxEl = container.querySelector('.ipo-userbox');
     statusEl = container.querySelector('.ipo-status');
   };
   build();
@@ -155,43 +151,29 @@ function ipoMakeUi(ecu, container, back) {
     resolveScriptEcu: (from, script, exec) =>
       ipoResolveScriptEcu(from, script, exec),
     machineTick: (p, step, guards) => ipoMachineTick(machineEl, step, guards),
-    // INPA's progress window: the title, then the lines the script writes
-    // into it (the module it is asking right now), newest last
+    // INPA's progress window: a popup with the title, the line the script
+    // wrote last (the module it is asking right now) and Cancel, which ends
+    // the body between two jobs
     userbox: (p, box) => {
-      if (!userboxEl) return;
       if (!box) {
-        userboxEl.hidden = true;
-        userboxEl.innerHTML = '';
+        if (progress) progress.close();
+        progress = null;
         return;
       }
-      const lines = (box.lines || []).slice(-IPO_USERBOX_LINES);
-      userboxEl.innerHTML =
-        `<div class="ipo-userbox-title">${esc(ipoText(box.title || ''))}</div>` +
-        `<div class="ipo-userbox-lines mono">${lines
-          .map((l) => `<div>${esc(ipoText(l))}</div>`)
-          .join('')}</div>` +
-        `<div class="ipo-userbox-busy" aria-hidden="true"></div>`;
-      userboxEl.hidden = false;
-    },
-    renderKeys,
-    paint: (p) => {
-      if (!gridEl) return;
-      if (titleEl) titleEl.textContent = ipoText(p.title || '');
-      // viewopen: INPA's viewer window with the file the script wrote. The
-      // menu's screen cycle keeps painting behind it; the same file stays
-      // in the DOM so the reader's scroll position survives each cycle.
-      if (p.view) {
-        if (p.view !== paintedView) {
-          paintedView = p.view;
-          gridEl.innerHTML = `<pre class="ipo-protocol mono">${esc(
-            (p.view.lines || []).join('\n')
-          )}</pre>`;
-        }
-        return;
+      const lines = box.lines || [];
+      const text = lines.length ? ipoText(lines[lines.length - 1]) : '';
+      if (!progress) {
+        progress = progressDialog({
+          title: esc(ipoText(box.title || '')),
+          text,
+          onCancel: () => {
+            progress = null;
+            p.cancel();
+          },
+        });
+      } else {
+        progress.update(text);
       }
-      paintedView = null;
-      if (inpa) ipoPaintGrid(gridEl, p);
-      else ipoPaintLines(gridEl, p);
     },
     left: () => {
       ipoProgramLeft();

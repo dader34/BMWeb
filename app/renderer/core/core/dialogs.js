@@ -115,6 +115,56 @@ function confirmDialog({
  * @param {boolean} [opts.danger=false] - Red styling.
  * @returns {Promise<true>} Resolves when dismissed.
  */
+/**
+ * A progress popup: a title, one status line that the caller updates, and
+ * a Cancel button. The backdrop does not dismiss it (the work is still
+ * running); Esc or the button cancels.
+ * @param {{title: string, text?: string, cancelLabel?: string, onCancel?: () => void}} opts
+ * @returns {{update: (text: string) => void, close: () => void}}
+ */
+function progressDialog({
+  title,
+  text = '',
+  cancelLabel = 'Cancel',
+  onCancel,
+}) {
+  let open = true;
+  const { overlay, close } = openModal(
+    `
+    <div class="modal modal-progress" role="dialog" aria-modal="true" aria-live="polite">
+      <div class="modal-title">${title}</div>
+      <div class="modal-body"><span class="modal-spinner" aria-hidden="true"></span><span class="modal-progress-text">${esc(text)}</span></div>
+      <div class="modal-actions">
+        <button class="btn modal-cancel">${cancelLabel}<span class="modal-key">Esc</span></button>
+      </div>
+    </div>`,
+    {
+      onClose: (val) => {
+        open = false;
+        if (val === true && onCancel) onCancel();
+      },
+      onKey: (e, c) => {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          e.stopPropagation();
+          c(true);
+        }
+      },
+    }
+  );
+  overlay.onclick = null;
+  const line = overlay.querySelector('.modal-progress-text');
+  overlay.querySelector('.modal-cancel').onclick = () => close(true);
+  return {
+    update: (t) => {
+      if (line) line.textContent = t == null ? '' : String(t);
+    },
+    close: () => {
+      if (open) close(false);
+    },
+  };
+}
+
 function messageDialog({ title, body, danger = false }) {
   return new Promise((resolve) => {
     const { overlay, close } = openModal(
