@@ -507,8 +507,6 @@ html.no-chrome body.apps-section .topbar {
 .nav-back[hidden] {
   display: none !important;
 }
-/* Battery / Ignition indicators *
-/* outline ring, fills solid when on (no glow) *
 .icon-btn {
   -webkit-app-region: no-drag;
   cursor: pointer;
@@ -6038,7 +6036,6 @@ body.apps-section .view {
      status 97px + two buttons at 74px each = 373px in a
      199px track, so Flashing and Settings sat off the end of a scroll
      nobody would find. Cut every label down to the glyph that carries it. */
-  /* "Battery" / "Ignition" *
   /* the connection LED is the signal; the text is a desktop luxury */
   .status #link-text {
     display: none;
@@ -6843,20 +6840,21 @@ body.apps-section .view {
     gap: 22px;
     min-width: 0;
   }
-  /* the indicator row: a lamp OR a value, always vertically centred in an
-     18px band so all three baselines match *
-  /* battery: the voltage IS the readout, so drop its lamp */
-  #bat-led.on {
-    background: #34c759;
-    box-shadow: 0 0 7px 1px rgba(52, 199, 89, 0.7);
+  /* the cable lamp: always vertically centred in an 18px band so the
+     baselines match */
+  .mtab-status .status {
+    display: grid;
+    grid-template-rows: 12px 18px;
+    row-gap: 4px;
+    justify-items: center;
+    align-content: center;
+    background: none;
+    border: 0;
+    padding: 0;
   }
-  /* ignition: a single lamp, no text value doubling it up */
-  #ign-led.on {
-    background: var(--ios-amber);
-    box-shadow: 0 0 6px 1px rgba(255, 158, 44, 0.7);
-  }
-  #ign-val {
-    display: none;
+  .mtab-status .status .led {
+    grid-row: 2;
+    align-self: center;
   }
   /* cable link: a LINK-labelled lamp in the same two-row grid */
   .mtab-status .status::before {
