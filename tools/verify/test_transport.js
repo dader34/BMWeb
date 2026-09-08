@@ -30,6 +30,7 @@ vm.runInContext(
   exports.verifyChecksum = verifyChecksum;
   exports.portConfig = portConfig;
   exports.isResponsePending = isResponsePending;
+  exports.assertReachable = assertReachable;
   exports.ifhError = ifhError;`,
   ctx
 );
@@ -39,6 +40,7 @@ const {
   verifyChecksum,
   portConfig,
   isResponsePending,
+  assertReachable,
 } = ctx.exports;
 
 // the VM, for the xsetpar -> comm contract
@@ -181,6 +183,42 @@ check(
   'BMW-FAST stays 115200 8N1',
   portConfig(FAST).baudRate === 115200 && portConfig(FAST).parity === 'none'
 );
+// The idle DTR level travels with the port settings, as in the reference's
+// concept switch (stateDtr = HasAdapterEcho for 0x10F/0x110 only): high on
+// BMW-FAST and D-CAN, low on every K-line concept and on ISO 9141.
+check('BMW-FAST idles with DTR high', portConfig(FAST).dtr === true);
+check(
+  'D-CAN idles with DTR high',
+  portConfig({ concept: 0x110, baud: 500000 }).dtr === true
+);
+check('DS2 idles with DTR low', portConfig(DS2).dtr === false);
+check('KWP2000* idles with DTR low', portConfig(KWP).dtr === false);
+check(
+  'ISO 9141 idles with DTR low',
+  portConfig({ concept: 0x10c }).dtr === false
+);
+{
+  // ADS-only concepts (1, 2, 3) are refused with the reference's IFH-0006
+  // before the port is touched; the cable has no L line to reach them.
+  const refused = (c) => {
+    try {
+      assertReachable({ concept: c, baud: 9600 });
+      return null;
+    } catch (e) {
+      return e.ifh;
+    }
+  };
+  check('concept 1 (ADS) is refused with IFH-0006', refused(1) === 'IFH-0006');
+  check(
+    'concept 2 (ISO 9141 / KWP1281) is refused with IFH-0006',
+    refused(2) === 'IFH-0006'
+  );
+  check('concept 3 is refused with IFH-0006', refused(3) === 'IFH-0006');
+  check('DS2 is reachable', refused(6) === null);
+  check('KWP2000* is reachable', refused(0x10d) === null);
+  check('BMW-FAST is reachable', refused(0x10f) === null);
+  check('D-CAN is reachable', refused(0x110) === null);
+}
 {
   // no CommParameter = no wire: EDIABAS refuses (IFH-0056) and so do we,
   // instead of assuming BMW-FAST and signing a DS2 request wrong
@@ -428,10 +466,6 @@ console.log('\nDS2 answer length without xawlen');
   check(
     'an explicit xawlen still wins',
     frameTotal(lws, { concept: 6, answerLen: [12] }) === 12
-  );
-  check(
-    'concept 1 default is byte 2',
-    frameTotal([0, 0, 9], { concept: 1 }) === 9
   );
 }
 

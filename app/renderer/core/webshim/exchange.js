@@ -232,6 +232,9 @@ async function paceBeforeWrite(bus, comm) {
  *   error that is not a garbled answer.
  */
 async function runExchange(bus, out, comm) {
+  // An ADS-only concept (1, 2, 3) fails here with its reason, before the
+  // port is touched -- the reference refuses them the same way (IFH-0006).
+  assertReachable(comm);
   bus.sessionConcept = conceptOf(comm);
   await bus.ensureConfig(portConfig(comm));
   const framed = withChecksum(out, comm);

@@ -85,9 +85,37 @@ class WebSerialBus extends SerialTransportBase {
     this.config = KDCAN;
     this.writer = this.port.writable.getWriter();
     this.reader = this.port.readable.getReader();
+    await this._applyIdleSignals(KDCAN);
     this._resetWireState();
     this._watchPort();
     return this.portLabel();
+  }
+
+  /**
+   * Put the modem lines where the concept wants them for the whole session:
+   * DTR at the config's idle level, RTS always low.
+   *
+   * The reference interface does this in the same switch that picks baud and
+   * parity: on a plain FTDI/COM cable (an "echoing adapter" to it) DTR is
+   * held HIGH for BMW-FAST and D-CAN and LOW for every K-line concept, and
+   * RTS is never raised. What the browser leaves on the lines after open()
+   * is platform-dependent (Windows asserts both, WICG/serial#177), and a
+   * K-line exchange here ends with DTR dropped -- so without this step a
+   * BMW-FAST/D-CAN module was driven with DTR low after the first K-line
+   * probe of the session, which is the one way this transport differed
+   * from the reference on an E60/E65/E90 bus. Ports without setSignals
+   * (nothing to drive) are left alone.
+   * @param {PortConfig} cfg - The settings the session runs on.
+   * @returns {Promise<void>}
+   */
+  async _applyIdleSignals(cfg) {
+    if (!this.port || !this.port.setSignals) return;
+    const dtr = !!(cfg && cfg.dtr);
+    await this.port.setSignals({
+      dataTerminalReady: dtr,
+      requestToSend: false,
+    });
+    busTrace.add('kline', null, `idle DTR=${dtr ? 'high' : 'low'} RTS=low`);
   }
 
   /**
@@ -200,6 +228,7 @@ class WebSerialBus extends SerialTransportBase {
     this.config = KDCAN;
     this.writer = this.port.writable.getWriter();
     this.reader = this.port.readable.getReader();
+    await this._applyIdleSignals(KDCAN);
     this._resetWireState();
     this._watchPort();
     console.info(
@@ -239,15 +268,26 @@ class WebSerialBus extends SerialTransportBase {
     this.config = cfg;
     this.writer = this.port.writable.getWriter();
     this.reader = this.port.readable.getReader();
+    // a reopened port comes back with whatever lines the platform asserts
+    await this._applyIdleSignals(cfg);
   }
 
   /**
    * Close/reopen with a concept's wire settings. Reopening an already-
    * granted port needs no user gesture, only the first requestPort() does.
+   * A change in the idle DTR level alone (BMW-FAST after a K-line probe, or
+   * back) does not drop the port: only the lines move.
    * @param {PortConfig} cfg - The settings the next telegram needs.
    */
   async ensureConfig(cfg) {
-    if (this._configUnchanged(cfg)) return;
+    if (this._configUnchanged(cfg)) {
+      const want = !!(cfg && cfg.dtr);
+      if (!!(this.config && this.config.dtr) !== want) {
+        this.config = { ...this.config, dtr: want };
+        await this._applyIdleSignals(this.config);
+      }
+      return;
+    }
     await this._releaseStreams();
     await this._reopenStreams(cfg);
   }

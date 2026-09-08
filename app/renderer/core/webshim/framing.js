@@ -18,7 +18,7 @@
  * rule and no length rule -- EDIABAS refuses it (IFH-0056), so do we, rather
  * than assume BMW-FAST and sign a DS2 request with the wrong checksum.
  */
-/* exported KDCAN, UTILITY_NOMINAL_MV, KLINE_DEFAULT_BAUD, conceptOf, isDs2, isIso9141, isKline, ISO9141_INIT_ADDR, ISO9141_BAUD, ifhError, withChecksum, frameTotal, verifyChecksum, portConfig */
+/* exported KDCAN, UTILITY_NOMINAL_MV, KLINE_DEFAULT_BAUD, conceptOf, isDs2, isIso9141, isKline, isBmwFast, assertReachable, ISO9141_INIT_ADDR, ISO9141_BAUD, ifhError, withChecksum, frameTotal, verifyChecksum, portConfig */
 
 /**
  * The wire parameters an SGBD declares with xsetpar (Best2Vm.decodeCommParams),
@@ -46,14 +46,22 @@
  * @property {number} dataBits - Always 8 here.
  * @property {number} stopBits - Always 1 here.
  * @property {'none'|'even'} parity - 8N1 for BMW-FAST/ISO 9141, 8E1 on the K line.
+ * @property {boolean} [dtr] - The IDLE level of DTR for this concept: high on
+ *   BMW-FAST/D-CAN, low on every K-line concept (see portConfig).
  */
 
 /**
  * K+DCAN over Web Serial. Default until a job's SGBD declares its own via
- * xsetpar: BMW-FAST 115200 8N1 (the USB cable's default concept).
+ * xsetpar: BMW-FAST 115200 8N1 (the USB cable's default concept), DTR high.
  * @type {PortConfig}
  */
-const KDCAN = { baudRate: 115200, dataBits: 8, stopBits: 1, parity: 'none' };
+const KDCAN = {
+  baudRate: 115200,
+  dataBits: 8,
+  stopBits: 1,
+  parity: 'none',
+  dtr: true,
+};
 /**
  * UTILITY.PRG's own number, read out of its BEST/2 bytecode: UTILITY /
  * INTERFACE substitutes 12000 mV when the interface cannot measure at all,
@@ -96,6 +104,42 @@ const isIso9141 = (c) => c === 0x10c;
  * @returns {boolean}
  */
 const isKline = (c) => isDs2(c) || c === 0x10d;
+/**
+ * BMW-FAST (0x10F) and D-CAN (0x110): the two concepts on which the reference
+ * interface holds DTR HIGH for the whole session on a plain FTDI/COM cable
+ * (`stateDtr = HasAdapterEcho`, set in exactly these two cases and nowhere
+ * else). Every other concept idles with DTR low.
+ * @param {number} c - The concept id.
+ * @returns {boolean}
+ */
+const isBmwFast = (c) => c === 0x10f || c === 0x110;
+/**
+ * Concepts that only the old BMW ADS interface can drive: concept 1, concept
+ * 2 (ISO 9141 / KWP1281 5-baud) and concept 3. They need the L line on OBD
+ * pin 20 and ADS-style line control; the reference interface refuses all
+ * three on any echoing adapter ("only with ADS adapter", IFH-0006), and a
+ * K+DCAN cable is one. The 76 SGBDs that declare them are the early E31,
+ * E34, E36, E38 and E39 modules (Motronic 1.7 to 5.2.1, DDE 2.1, ZF EGS,
+ * the first ABS and IHKA). Refusing here, with the reason, beats signing a
+ * request the cable can never deliver and reporting "no answer".
+ */
+const ADS_ONLY_CONCEPTS = new Set([1, 2, 3]);
+/**
+ * Refuse a concept this cable cannot physically reach, before anything is
+ * configured or written.
+ * @param {CommParams|null|undefined} comm - The telegram's wire parameters.
+ * @throws {Error} IFH-0006 for an ADS-only concept.
+ */
+function assertReachable(comm) {
+  const c = conceptOf(comm);
+  if (ADS_ONLY_CONCEPTS.has(c)) {
+    throw ifhError(
+      'IFH-0006',
+      `concept ${c} needs the ADS interface (L line, OBD pin 20); ` +
+        'a K+DCAN cable cannot reach this module'
+    );
+  }
+}
 /**
  * Verified on a real E46 (M54 / MS45): the DME answers the ISO 9141 generic
  * tester address at 10400 baud, NOT its own KWP address at 9600. Sending a
@@ -255,24 +299,33 @@ function portConfig(comm) {
   const c = conceptOf(comm);
   if (isIso9141(c)) {
     // 8N1 after the handshake -- the init itself is bit-banged, not framed.
+    // DTR idles low: the reference raises the idle level for BMW-FAST and
+    // D-CAN only, never for 0x10C.
     return {
       baudRate: (comm && comm.baud) || ISO9141_BAUD,
       dataBits: 8,
       stopBits: 1,
       parity: 'none',
+      dtr: false,
     };
   }
   if (isKline(c)) {
     // DS2 and KWP2000* are 8E1 at the rate the SGBD names (concept 6 in the
     // reference interface: parity = Even, baudRate = CommParameter[1]). An
     // earlier 10400 8N1 override here came from an ISO 9141 experiment and
-    // does not belong on these concepts.
+    // does not belong on these concepts. DTR idles LOW: held high it keeps
+    // the cable transmitting and the answer is lost (real E46, MS45).
     return {
       baudRate: (comm && comm.baud) || KLINE_DEFAULT_BAUD,
       dataBits: 8,
       stopBits: 1,
       parity: 'even',
+      dtr: false,
     };
   }
-  return KDCAN;
+  // BMW-FAST / D-CAN: 115200 8N1 with DTR held HIGH for the session, the way
+  // the reference drives a plain cable (stateDtr = HasAdapterEcho). Dropping
+  // it after a K-line probe and leaving it there is the one thing this
+  // transport did differently from the reference on an E60/E65/E90 bus.
+  return { ...KDCAN, dtr: isBmwFast(c) };
 }

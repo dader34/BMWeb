@@ -5,13 +5,17 @@
 // EVERY FIXTURE IS REAL WIRE DATA, captured by tracing EDIABAS itself against
 // the car (IfhTrace=3, tools/verify + BMACW_IFH_TRACE):
 //
+//   xsetpar 0x10F (BMW-FAST 115200)
 //   Send: 82 12 F1 1A 80 1F          -> echo, "*** No header received", IFH-0009
+//   xsetpar 0x10D (KWP2000* 9600 8E1)
 //   Send: B8 12 F1 02 1A 80 C3       -> B8 F1 12 1F 5A 80 ...   (36 bytes)
 //   Send: B8 12 F1 04 18 02 FF FF 45 -> B8 F1 12 1A 58 08 29 9A 88 ...
 //
 // Three separate rules fall out of that, and each was got wrong at least once:
-//   1. the checksum follows the FRAME FORM (82 = sum8, B8 = XOR)
-//   2. a B8 frame's length is BYTE 3, not the low 6 bits
+//   1. the checksum follows the CONCEPT the SGBD set before the telegram
+//      (0x10F = sum8, 0x10D = XOR) -- the 0xB8 byte is not a discriminator,
+//      it is the tester address both concepts use
+//   2. a KWP2000* (0x10D) frame's length is BYTE 3, not the low 6 bits
 //   3. the fallback belongs to the SGBD, not the transport
 
 let failures = 0;
@@ -59,21 +63,22 @@ const sandbox = new Function(
     'return { withChecksum, frameTotal, verifyChecksum };'
 )();
 
-console.log('1. the checksum follows the FRAME FORM');
+console.log('1. the checksum follows the CONCEPT');
 {
   const sign = (b, c) => sandbox.withChecksum(b, { concept: c || 0x10f });
   ok(
     hex(sign([0x82, 0x12, 0xf1, 0x1a, 0x80])) === '82 12 f1 1a 80 1f',
-    'short form is sum8: 82 12 f1 1a 80 1f'
+    'BMW-FAST is sum8:  82 12 f1 1a 80 1f'
   );
   ok(
-    hex(sign([0xb8, 0x12, 0xf1, 0x02, 0x1a, 0x80])) === 'b8 12 f1 02 1a 80 c3',
-    'long form is XOR:  b8 12 f1 02 1a 80 c3'
+    hex(sign([0xb8, 0x12, 0xf1, 0x02, 0x1a, 0x80], 0x10d)) ===
+      'b8 12 f1 02 1a 80 c3',
+    'KWP2000* is XOR:   b8 12 f1 02 1a 80 c3'
   );
   ok(
-    hex(sign([0xb8, 0x12, 0xf1, 0x04, 0x18, 0x02, 0xff, 0xff])) ===
+    hex(sign([0xb8, 0x12, 0xf1, 0x04, 0x18, 0x02, 0xff, 0xff], 0x10d)) ===
       'b8 12 f1 04 18 02 ff ff 45',
-    'long FS_LESEN:     b8 12 f1 04 18 02 ff ff 45'
+    'KWP2000* FS_LESEN: b8 12 f1 04 18 02 ff ff 45'
   );
   ok(
     hex(sign([0x12, 0x04, 0x00], 0x06)) === '12 04 00 16',
@@ -90,15 +95,16 @@ console.log('1. the checksum follows the FRAME FORM');
   ok(longSum === 0x57, 'signing the long form sum8 would give 0x57 (wrong)');
 }
 
-console.log('\n2. a 0xB8 frame is sized from BYTE 3');
+console.log('\n2. a KWP2000* frame is sized from BYTE 3');
 {
   // The car's ident reply is exactly 36 bytes and byte[3] = 0x1F = 31.
+  const KWP = { concept: 0x10d };
   ok(
-    sandbox.frameTotal([0xb8, 0xf1, 0x12, 0x1f], {}) === 36,
+    sandbox.frameTotal([0xb8, 0xf1, 0x12, 0x1f], KWP) === 36,
     'ident reply: 4 + 31 + 1 = 36'
   );
   ok(
-    sandbox.frameTotal([0xb8, 0xf1, 0x12, 0x1a], {}) === 31,
+    sandbox.frameTotal([0xb8, 0xf1, 0x12, 0x1a], KWP) === 31,
     'fault reply: 4 + 26 + 1 = 31'
   );
   ok(
@@ -116,21 +122,21 @@ console.log('\n3. checksums verify with the same rule');
   let threw = null;
   try {
     sandbox.verifyChecksum([0xb8, 0x12, 0xf1, 0x02, 0x1a, 0x80, 0xc3], {
-      concept: 0x10f,
+      concept: 0x10d,
     });
   } catch (e) {
     threw = e;
   }
-  ok(threw === null, 'an XOR-signed 0xB8 frame passes');
+  ok(threw === null, 'an XOR-signed KWP2000* frame passes');
   let threw2 = null;
   try {
     sandbox.verifyChecksum([0xb8, 0x12, 0xf1, 0x02, 0x1a, 0x80, 0x57], {
-      concept: 0x10f,
+      concept: 0x10d,
     });
   } catch (e) {
     threw2 = e;
   }
-  ok(threw2 !== null, 'a sum8 checksum on a 0xB8 frame is rejected');
+  ok(threw2 !== null, 'a sum8 checksum on a KWP2000* frame is rejected');
 }
 
 console.log('\n4. the SGBD owns the fallback, not the transport');
