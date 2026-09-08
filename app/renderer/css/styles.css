@@ -8277,6 +8277,13 @@ body.remote-helper::after {
   }
 }
 
+/* the protocol view shows one side at a time: the rows' own display rule
+   would otherwise outrank the hidden attribute */
+.ipo-protocol-report .quick-rows[hidden],
+.ipo-protocol-report .ipo-protocol[hidden] {
+  display: none;
+}
+
 /* a protocol's fault rows open the lookup */
 .quick-detail-row.ipo-protocol-link {
   cursor: pointer;
