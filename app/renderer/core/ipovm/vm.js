@@ -17,6 +17,26 @@
 const IPO_DEFAULT_BUDGET = 200000;
 
 /** How many reference hops _refTarget follows before giving up. */
+/**
+ * Whether the argument at `i` belongs to a structure read call: the tokens
+ * after it up to the call are the remaining arguments.
+ * @param {IpoToken[]} toks - the proc's tokens
+ * @param {number} i - the argument token's index
+ * @returns {boolean}
+ */
+function ipoArgFeedsStructRead(toks, i) {
+  for (let j = i + 1; j < toks.length; j++) {
+    const op = toks[j].op;
+    if (op === 'var' || op === 'const' || op === 'procref') continue;
+    return (
+      op === 'call' &&
+      typeof IPO_STRUCT_FNS !== 'undefined' &&
+      IPO_STRUCT_FNS.has(toks[j].name)
+    );
+  }
+  return false;
+}
+
 /** the comparisons a never-written local takes its default in */
 const IPO_CMP_OPS = new Set(['eq', 'ne', 'lt', 'gt', 'le', 'ge']);
 
@@ -315,6 +335,13 @@ class IpoVm {
         stack.push(t.t === 'd' ? mkFloat(t.v) : t.v);
       } else if (op === 'var') {
         let val = this._read(t, frame);
+        // see the driven path: a by-reference parameter handed on to a
+        // structure read stays a reference in a live VM (user functions
+        // called from a driven run execute here)
+        if (this.wireJobs && ipoArgFeedsStructRead(toks, i)) {
+          const raw = this._rawSlot(t, frame);
+          if (isRef(raw)) val = raw;
+        }
         if (val == null) val = mkSlot(t.sc == null ? GLOBAL : t.sc, t.n);
         stack.push(val);
       } else if (op === 'procref') {
@@ -805,6 +832,13 @@ class IpoVm {
       stack.push(t.t === 'd' ? mkFloat(t.v) : t.v);
     } else if (op === 'var') {
       let val = this._read(t, s.frame);
+      // a by-reference parameter handed on to a structure read is the
+      // reference itself, as a procref would carry it: chr() reads the
+      // byte it packed back into the CALLER's string through its parameter
+      if (this.wireJobs && ipoArgFeedsStructRead(s.toks, s.i)) {
+        const raw = this._rawSlot(t, s.frame);
+        if (isRef(raw)) val = raw;
+      }
       if (val == null) val = mkSlot(t.sc == null ? GLOBAL : t.sc, t.n);
       stack.push(val);
     } else if (op === 'procref') {
@@ -1003,6 +1037,20 @@ class IpoVm {
    * @param {Map<number, IpoValue>} frame - the current frame
    * @returns {IpoValue|null}
    */
+  /**
+   * A slot's content as stored, a reference included (what `_read` would
+   * follow).
+   * @param {IpoToken} t - the var token
+   * @param {Map<number, IpoValue>|null} frame - the current frame
+   * @returns {IpoValue}
+   */
+  _rawSlot(t, frame) {
+    const sc = t.sc == null ? GLOBAL : t.sc;
+    if (sc === GLOBAL)
+      return this.globals.has(t.n) ? this.globals.get(t.n) : null;
+    return frame && frame.has(t.n) ? frame.get(t.n) : null;
+  }
+
   _read(t, frame) {
     const sc = t.sc == null ? GLOBAL : t.sc;
     let v;

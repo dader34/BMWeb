@@ -131,7 +131,9 @@ function ipoStructureCall(vm, name, stack) {
     return;
   }
   // StructureString(handle, offset, len, out string | string)
-  const len = nums.length > 2 ? nums[2] : st.buf.length - off;
+  // StructureString(handle, offset, length, &text): length 0 means "to the
+  // NUL", which is how chr() reads the one byte it packed back as a string
+  const len = nums.length > 2 && nums[2] > 0 ? nums[2] : st.buf.length - off;
   if (mode === IPO_STRUCT_WRITE) {
     let sv = stack.find((x) => isPlainStr(x) || (isBound(x) && !isRef(x)));
     if (sv == null && refs.length) sv = ipoRefValue(vm, refs[refs.length - 1]);
