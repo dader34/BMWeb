@@ -8291,8 +8291,7 @@ body.remote-helper::after {
 .ipo-protocol {
   margin: 0;
   padding: 12px 14px;
-  max-height: 70vh;
-  overflow: auto;
+  overflow-x: auto;
   white-space: pre;
   font-size: 12px;
   line-height: 1.45;

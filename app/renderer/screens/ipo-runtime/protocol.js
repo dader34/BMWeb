@@ -161,43 +161,46 @@ async function ipoProtocolRender(el, p) {
     `${withFaults.length} module${withFaults.length === 1 ? '' : 's'} with faults · ` +
     `${total} fault${total === 1 ? '' : 's'} · ` +
     `${rep.modules.length} read · ${rep.silent.length} no response`;
+  // the bar (counts + the toggle) stays whichever side is showing
   el.innerHTML =
     `<div class="quick-sweep ipo-protocol-report">` +
     `<div class="quick-bar"><div class="quick-head">${esc(head)}</div>` +
-    `<div class="quick-bar-btns"><button class="btn ipo-protocol-toggle">` +
-    `${rep.showText ? 'Report' : 'INPA text'}</button></div></div>` +
-    `<div class="quick-rows"></div></div>` +
-    `<pre class="ipo-protocol mono" ${rep.showText ? '' : 'hidden'}>${esc(
-      (view.lines || []).join('\n')
-    )}</pre>`;
+    `<div class="quick-bar-btns"><button class="btn ipo-protocol-toggle"></button></div></div>` +
+    `<div class="quick-rows"></div>` +
+    `<pre class="ipo-protocol mono" hidden></pre></div>`;
   const rowsEl = el.querySelector('.quick-rows');
   const pre = el.querySelector('.ipo-protocol');
-  const sweep = el.querySelector('.quick-sweep');
-  sweep.hidden = !!rep.showText;
-  el.querySelector('.ipo-protocol-toggle').onclick = () => {
-    rep.showText = !rep.showText;
-    sweep.hidden = rep.showText;
+  const toggle = el.querySelector('.ipo-protocol-toggle');
+  pre.textContent = (view.lines || []).join('\n');
+  const side = () => {
+    rowsEl.hidden = !!rep.showText;
     pre.hidden = !rep.showText;
-    el.querySelector('.ipo-protocol-toggle').textContent = rep.showText
-      ? 'Report'
-      : 'INPA text';
+    toggle.textContent = rep.showText ? 'Report' : 'INPA text';
   };
+  toggle.onclick = () => {
+    rep.showText = !rep.showText;
+    side();
+  };
+  side();
   if (typeof loadFaultDb === 'function') await loadFaultDb();
   if (p.view !== view) return; // the script moved on while the DB loaded
-  const label = (m) => ipoText(m.label || m.sgbd);
   for (const m of rep.modules) {
-    const row = addSweepRow(rowsEl, label(m));
-    const status = row.querySelector('.quick-status');
+    const row = addSweepRow(rowsEl, ipoText(m.label || m.sgbd));
     if (!m.codes.length) {
       row.classList.add('clean');
-      status.textContent = 'OK';
+      row.querySelector('.quick-status').textContent = 'OK';
     } else {
+      // the scan's row: the count and a Clear that runs FS_LOESCHEN on the
+      // module and re-reads it (sweep/rows.js clearModule)
       row.classList.add('has-faults');
-      status.innerHTML = faultCountHtml(m.codes.length);
+      const f = { row, codes: m.codes, ecu: { sgbd: m.sgbd, label: m.label } };
+      setRowFaultStatus(f);
       appendFaultDetailRows(row, m.codes, m.sgbd);
       ipoProtocolLinkLookup(row.nextElementSibling, m);
+      ipoProtocolBetterLabel(m, row, f);
+      continue;
     }
-    ipoProtocolBetterLabel(m, row);
+    ipoProtocolBetterLabel(m, row, null);
   }
   for (const s of rep.silent) {
     const row = addSweepRow(rowsEl, ipoText(s.label));
@@ -210,14 +213,16 @@ async function ipoProtocolRender(el, p) {
  * known: the script's German label is what the row shows until then.
  * @param {IpoProtocolModule} m
  * @param {HTMLElement} row
+ * @param {object|null} f - the row's clear record, whose label follows
  * @returns {void}
  */
-function ipoProtocolBetterLabel(m, row) {
+function ipoProtocolBetterLabel(m, row, f) {
   if (typeof variantLabel !== 'function') return;
   variantLabel(m.sgbd)
     .then((name) => {
       if (name && row.isConnected) {
         m.label = name;
+        if (f) f.ecu.label = name;
         setRowLabel(row, name, `${m.sgbd} via ${m.via}`);
       }
     })

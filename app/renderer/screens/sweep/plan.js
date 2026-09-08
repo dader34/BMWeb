@@ -3,7 +3,7 @@
  * a target is named before and after the car answers.
  *
  * First piece of screens/sweep/. The folder holds the sweep engine for ANY
- * chassis: quickErrorSweep reads fault memory on every module;
+ * chassis: the identification sweep asks every module who it is;
  * quickIdentSweep reads identification. Both walk the SAME plan, built by
  * sweepPlan() below, so a module that is skipped as absent by one is
  * skipped by the other for the same reason.

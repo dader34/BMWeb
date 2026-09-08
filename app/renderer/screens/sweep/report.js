@@ -360,55 +360,6 @@ async function printFaultReport(chassisId, faulty, stats) {
 }
 
 /**
- * Whole-car quick-sweep export: one module block per faulty ECU (or a
- * clean-bill note), saved as a PDF. Driven from the sweep screen's Export
- * PDF button.
- * @param {string} chassisId - Chassis id.
- * @param {FaultyModule[]} faulty - The modules with faults.
- * @param {SweepStats} stats - The sweep's tallies.
- * @returns {Promise<void>} Resolves once the save finishes or fails.
- */
-async function exportFaultPdf(chassisId, faulty, stats) {
-  // ensure ISTA P-code / name data is loaded so the printed report shows P-codes
-  if (typeof loadFaultMeta === 'function') await loadFaultMeta();
-  if (typeof loadPcodes === 'function') await loadPcodes();
-  const now = new Date();
-  const totalFaults = faulty.reduce((n, f) => n + f.codes.length, 0);
-  const body = faulty.length
-    ? faulty
-        .map((f) => faultModuleBlock(f.ecu.label, f.ecu.sgbd, f.codes))
-        .join('')
-    : `<div class="clean-note">No stored faults. ${stats.scanned} module${stats.scanned === 1 ? '' : 's'} read, ${stats.skipped} skipped.</div>`;
-  const html = faultReportHtml(
-    `${dispChassis(chassisId)} · fault memory across all modules`,
-    [
-      ['Generated', now.toLocaleString()],
-      ['Modules with faults', faulty.length],
-      ['Total faults', totalFaults],
-      ['Read', `${stats.scanned} · skipped ${stats.skipped}`],
-    ],
-    body
-  );
-
-  const name = `${APP_NAME}-faults-${dispChassis(chassisId)}-${now.toISOString().slice(0, 10)}.pdf`;
-  const btn = document.getElementById('quick-pdf');
-  if (btn) {
-    btn.disabled = true;
-    btn.textContent = 'Saving…';
-  }
-  try {
-    const res = await window.bmacw.savePdf(name, html);
-    if (btn) btn.textContent = res && res.ok ? 'Saved' : 'Export PDF';
-    if (btn) btn.disabled = false;
-  } catch {
-    if (btn) {
-      btn.textContent = 'Export PDF';
-      btn.disabled = false;
-    }
-  }
-}
-
-/**
  * Identification report (Functional Jobs F2): every module the car answered
  * for, grouped by the chassis section it lives in, in sweep order. Printed
  * through the same shared helper as the fault report, so both sheets look

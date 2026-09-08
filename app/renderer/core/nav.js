@@ -361,12 +361,15 @@ async function showScriptSelection(chassisId) {
 
 // INPA "Functional Jobs" menu: F2 Identification, F4 Fault Memory (sweeps in sweep.js)
 /**
- * The whole-vehicle Functional Jobs menu.
+ * Functional Jobs: INPA's own whole-vehicle script where one ships (E46.IPO
+ * reads every module's fault memory and writes the protocol), else the
+ * identification sweep.
  * @param {string} chassisId - Chassis id.
- * @returns {void}
+ * @returns {Promise<void>}
  */
-function showFunctionalJobs(chassisId) {
+async function showFunctionalJobs(chassisId) {
   const id = chassisId || 'E46';
+  if (await vehicleScriptShipped(id)) return showVehicleScript(id);
   setCrumbs([
     { label: 'Vehicles', fn: showChassis },
     { label: dispChassis(id) },
@@ -381,68 +384,28 @@ function showFunctionalJobs(chassisId) {
   const grid = document.createElement('div');
   grid.className = 'group-grid stagger';
   view.appendChild(grid);
-
-  const jobs = [
-    {
-      key: '2',
-      name: 'Identification',
-      desc: 'Identify every module on the car: which are fitted, and each one\u2019s variant and build',
-      fn: () => quickIdentSweep(id),
-    },
-    {
-      key: '4',
-      name: 'Full Module Error Scan',
-      desc: 'Read fault memory across every module and show which have stored faults',
-      fn: () => quickErrorSweep(id),
-    },
-  ];
-  const acts = [
+  const tile = document.createElement('div');
+  tile.className = 'group-tile';
+  tile.innerHTML = `<div class="group-name">F2 · Identification</div>
+      <div class="group-count">Identify every module on the car: which are fitted, and each one\u2019s variant and build</div><div class="group-arrow">→</div>`;
+  tile.onclick = () => quickIdentSweep(id);
+  grid.appendChild(tile);
+  stagger(grid, 40);
+  setActions([
     {
       key: '2',
       label: 'Identification',
       kind: 'primary',
       fn: () => quickIdentSweep(id),
     },
-    { key: '4', label: 'Error Scan', fn: () => quickErrorSweep(id) },
-  ];
-  const tile = (j) => {
-    const el = document.createElement('div');
-    el.className = 'group-tile';
-    el.innerHTML = `<div class="group-name">F${j.key} · ${j.name}</div>
-      <div class="group-count">${j.desc}</div><div class="group-arrow">→</div>`;
-    el.onclick = j.fn;
-    grid.appendChild(el);
-  };
-  jobs.forEach(tile);
-  const done = () => {
-    stagger(grid, 40);
-    setActions([
-      ...acts,
-      {
-        key: 'Escape',
-        keyLabel: 'Esc',
-        label: 'Back',
-        kind: 'back',
-        fn: () => showChassis(),
-      },
-    ]);
-  };
-  // INPA's own whole-vehicle script for this chassis (E46.IPO), where one
-  // ships: its fault-memory read walks every module by group and writes
-  // the protocol INPA prints
-  vehicleScriptShipped(id).then((yes) => {
-    if (yes) {
-      const j = {
-        key: '6',
-        name: `INPA ${dispChassis(id)} script`,
-        desc: `Run INPA\u2019s own whole-vehicle script: identification, fault memory of every module, protocol`,
-        fn: () => showVehicleScript(id),
-      };
-      tile(j);
-      acts.push({ key: j.key, label: 'INPA script', fn: j.fn });
-    }
-    done();
-  });
+    {
+      key: 'Escape',
+      keyLabel: 'Esc',
+      label: 'Back',
+      kind: 'back',
+      fn: () => showChassis(),
+    },
+  ]);
 }
 
 /**
@@ -676,13 +639,17 @@ async function showSections(id, selectIndex = 0) {
       });
   }
 
-  // whole-vehicle fault scan (Functional Jobs F4), reachable from the modern layout too
-  const scan = document.createElement('button');
-  scan.className = 'sys-item sys-scan';
-  scan.innerHTML = `<span class="nav-name">Error scan</span>
+  // INPA's whole-vehicle script (every module's fault memory as a report),
+  // reachable from the modern layout too, where one ships for this car
+  const hasScript = await vehicleScriptShipped(id);
+  if (hasScript) {
+    const scan = document.createElement('button');
+    scan.className = 'sys-item sys-scan';
+    scan.innerHTML = `<span class="nav-name">INPA script</span>
                     <span class="nav-count">all</span>`;
-  scan.onclick = () => quickErrorSweep(id);
-  nav.appendChild(scan);
+    scan.onclick = () => showVehicleScript(id);
+    nav.appendChild(scan);
+  }
 
   // Wiring shortcut so an already-open car doesn't have to go back out to reach its diagrams
   if (typeof hasWiring === 'function' && (await hasWiring(id))) {
@@ -703,11 +670,13 @@ async function showSections(id, selectIndex = 0) {
     label: s.name,
     fn: () => selectSection(i),
   }));
-  actions.push({
-    key: '9',
-    label: 'Error scan',
-    fn: () => quickErrorSweep(id),
-  });
+  if (hasScript) {
+    actions.push({
+      key: '9',
+      label: 'INPA script',
+      fn: () => showVehicleScript(id),
+    });
+  }
   if (wiringKey) actions.push(wiringKey);
   actions.push({
     key: 'Escape',

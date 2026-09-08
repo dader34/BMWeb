@@ -92,7 +92,6 @@ const OFFLINE_SHELL = [
   'screens/sweep/resolve.js',
   'screens/sweep/wire.js',
   'screens/sweep/rows.js',
-  'screens/sweep/error-sweep.js',
   'screens/sweep/ident-sweep.js',
   'screens/sweep/autoscan.js',
   'screens/sweep/report.js',
