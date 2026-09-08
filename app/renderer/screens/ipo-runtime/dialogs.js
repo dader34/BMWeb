@@ -91,7 +91,16 @@ async function ipoPickComponent(p, step) {
  * @returns {Promise<string[]|null>} the names to keep ([] = show all), or
  *   null when cancelled
  */
-function ipoPickLines(names, multiple, current) {
+function ipoPickLines(names, multiple, current, hints) {
+  const where = (hints || []).length
+    ? `<div class="ipo-pick-hint">On this menu, Select works after one of these keys:</div>` +
+      `<div class="ipo-pick-keys">${(hints || [])
+        .map(
+          (h) =>
+            `<span class="ipo-pick-key"><b>${esc(h.key)}</b> ${esc(h.label)} <span class="ipo-pick-n">${h.lines} lines</span></span>`
+        )
+        .join('')}</div>`
+    : '';
   return new Promise((resolve) => {
     const { overlay, close } = openModal(
       `<div class="modal" role="dialog" aria-modal="true">
@@ -106,13 +115,15 @@ function ipoPickLines(names, multiple, current) {
                         }/> <span>${esc(ipoText(n))}</span></label>`
                     )
                     .join('')
-                : `<div class="ipo-pick-hint">This screen has no named lines to choose from. Select works on screens that list several entries, such as a fault memory: pick the entries to keep on screen, and Deselect shows them all again.</div>`
+                : `<div class="ipo-pick-hint">This screen has no lines to choose from. Select keeps only the entries you pick on a screen that lists several; Deselect shows them all again.</div>${where}`
             }</div>
-            <div class="modal-actions">
-              <button class="btn" data-x="cancel">Cancel</button>
+            <div class="modal-actions">${
+              names.length
+                ? `<button class="btn" data-x="cancel">Cancel</button>
               <button class="btn" data-x="all">Show all</button>
-              <button class="btn primary" data-x="ok">Show selected</button>
-            </div></div>`,
+              <button class="btn primary" data-x="ok">Show selected</button>`
+                : `<button class="btn primary" data-x="cancel">Close</button>`
+            }</div></div>`,
       { onClose: () => resolve(null) }
     );
     let settled = false;

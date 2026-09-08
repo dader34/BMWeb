@@ -8297,6 +8297,26 @@ body.remote-helper::after {
   background: var(--ink-faint, #888);
   border-radius: 5px;
 }
+.ipo-pick-keys {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+}
+.ipo-pick-key {
+  font-size: 13px;
+  color: var(--ink);
+}
+.ipo-pick-key b {
+  font-family: var(--mono);
+  color: var(--amber);
+  margin-right: 6px;
+}
+.ipo-pick-n {
+  color: var(--ink-faint);
+  font-size: 11.5px;
+  margin-left: 6px;
+}
 .ipo-pick-hint {
   margin-top: 6px;
   font-size: 12px;

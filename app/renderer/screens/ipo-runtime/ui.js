@@ -140,8 +140,8 @@ function ipoMakeUi(ecu, container, back) {
         danger: true,
       }),
     pickComponent: (p, step) => ipoPickComponent(p, step),
-    pickLines: (p, names, multiple, current) =>
-      ipoPickLines(names, multiple, current),
+    pickLines: (p, names, multiple, current, hints) =>
+      ipoPickLines(names, multiple, current, hints),
     // INPA's printscreen: the module view as a clean sheet (print.js)
     printScreen: (p) => ipoPrintScreen(p, p.ecu || ecu, inpa),
     resolveScriptEcu: (from, script, exec) =>

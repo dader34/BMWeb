@@ -101,7 +101,7 @@ const IPO_SILENT_RE = /IFH-0009|IFH-0019|no answer/i;
  * @property {(p: IpoProgram, it: IpoMenuItem, jobs: string[], writes: string[]) => Promise<boolean>} confirmKey - confirm a key whose body can write
  * @property {(p: IpoProgram, job: string, arg: string|null, ctx: IpoRunContext) => Promise<boolean>} confirmWrite - confirm one write
  * @property {(p: IpoProgram, step: IpoStep) => Promise<IpoPick|null>} pickComponent - the togglelist picker
- * @property {(p: IpoProgram, names: string[], multiple: boolean, current: Set<string>|null) => Promise<string[]|null>} pickLines - INPA's Select
+ * @property {(p: IpoProgram, names: string[], multiple: boolean, current: Set<string>|null, hints?: Array<{key: string, label: string, lines: number}>) => Promise<string[]|null>} pickLines - INPA's Select
  * @property {(p: IpoProgram) => void} printScreen - INPA's printscreen
  * @property {(ecu: EcuRecord, script: string, exec: IpoExec) => Promise<EcuRecord|null>} [resolveScriptEcu] -
  *   the module a scriptchange target addresses, identified by the car
@@ -264,11 +264,24 @@ class IpoProgram {
         // A screen with none still opens the box (INPA shows an empty
         // list), so the key visibly does something and says why.
         const names = ipoScreenLineNames(this.exec, this.screen);
+        // ...and, when there is nothing here, which keys lead to a screen
+        // that has lines to choose from
+        const hints = names.length
+          ? []
+          : ipoSelectableKeys(this.exec, this.menu, this.items).map((h) => {
+              const it = this.items.find((x) => x.nr === h.nr);
+              return {
+                key: h.shift ? `Shift+F${h.nr - IPO_SHIFT_BASE}` : `F${h.nr}`,
+                label: it ? ipoKeyLabel(this, it) : h.screen,
+                lines: h.lines,
+              };
+            });
         const pick = await this.ui.pickLines(
           this,
           names,
           step.multiple,
-          this.lineFilter
+          this.lineFilter,
+          hints
         );
         if (pick != null) this.setLineFilter(pick.length ? pick : null);
         step = vm.resume();

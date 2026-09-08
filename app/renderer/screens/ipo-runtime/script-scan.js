@@ -164,9 +164,39 @@ function ipoScreenLineNames(exec, screen) {
   return out;
 }
 
+/**
+ * The keys of a menu whose body sets a screen that has named lines: what
+ * Select can filter once that key is pressed. Shown in the Select box when
+ * the current screen has nothing to choose from.
+ * @param {object} exec - the decoded script
+ * @param {string} menuName - the menu proc
+ * @param {IpoMenuItem[]} items - the menu's keys (ipoMenuItems)
+ * @returns {Array<{nr: number, shift: boolean, screen: string, lines: number}>}
+ */
+function ipoSelectableKeys(exec, menuName, items) {
+  const toks = exec && exec.procs && exec.procs[menuName];
+  if (!Array.isArray(toks)) return [];
+  const byid = exec.byid || {};
+  const out = [];
+  for (const it of items || []) {
+    let screen = null;
+    for (let j = it.start; j < it.end; j++) {
+      if (toks[j].op === 'call' && toks[j].name === 'setscreen') {
+        const a = ipoSetscreenArgs(toks, j, byid);
+        if (a) screen = a.screen;
+      }
+    }
+    if (!screen) continue;
+    const lines = ipoScreenLineNames(exec, screen).length;
+    if (lines) out.push({ nr: it.nr, shift: !!it.shift, screen, lines });
+  }
+  return out;
+}
+
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     IPO_SHIFT_BASE,
+    ipoSelectableKeys,
     ipoMenuItems,
     ipoPrologueEnd,
     ipoScreenForMenu,
