@@ -25,83 +25,34 @@
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&display=swap" rel="stylesheet">
-
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="site.css">
   <style>
-    * { box-sizing: border-box; margin: 0; }
-    html, body { background: #0c1015; }
-    body {
-      font-family: 'Atkinson Hyperlegible', system-ui, sans-serif;
-      background: #0c1015; color: #cdd5dc;
-      font-size: 17px; line-height: 1.65;
-      -webkit-font-smoothing: antialiased;
+    /* Page-specific: the hero with its carousel, the three-card rows and the
+       questions. Chrome, tokens and type come from site.css, the same
+       surface the docs and photo pages stand on. */
+    .hero {
+      display: grid; grid-template-columns: 1.15fr .85fr; gap: 48px; align-items: center;
+      padding: clamp(28px, 5vw, 56px) 0 clamp(28px, 4vw, 44px);
     }
-    .col { margin: 0 auto; padding: 48px clamp(28px, 5vw, 72px) 88px; }
-
-    .brand { display: flex; align-items: center; gap: 14px; margin-bottom: 44px; }
-    .brand .n { font-weight: 700; font-size: 19px; color: #eef2f5; }
-    .brand a { margin-left: auto; color: #6e7a86; font-size: 15px; text-decoration: none; }
-    .brand a:hover { color: #eef2f5; }
-
-    /* ---- hero: two columns so the page carries its width ---- */
-    .hero { display: grid; grid-template-columns: 1.25fr .75fr; gap: 48px; align-items: center; }
-    h1 {
-      font-size: clamp(32px, 4.6vw, 46px); font-weight: 700;
-      line-height: 1.12; color: #eef2f5; text-wrap: balance;
-      margin-bottom: 16px;
+    .hero h1 {
+      margin: 0 0 16px; font-size: clamp(30px, 4.4vw, 44px); line-height: 1.12;
+      letter-spacing: -.032em; font-weight: 600; text-wrap: balance;
     }
-    .lede { font-size: 19px; color: #98a2ac; margin-bottom: 28px; max-width: 34em; }
-    .lede b { color: #eef2f5; }
-    .go {
-      display: inline-block; background: #e8891d; color: #fff;
-      font-weight: 700; font-size: 18px; text-decoration: none;
-      padding: 13px 28px; border-radius: 6px;
-    }
-    .go:hover { background: #f5981f; }
-    .go:focus-visible { outline: 3px solid #ffb95e; outline-offset: 3px; }
-    .go-sub { display: block; margin-top: 10px; color: #6e7a86; font-size: 14.5px; }
+    .lede { margin: 0 0 26px; max-width: 34em; color: var(--dim); font-size: 17px; line-height: 1.62; }
+    .lede b { color: var(--ink); font-weight: 500; }
+    .go { font-size: 15.5px; padding: 13px 24px; }
+    .go-sub { display: block; margin-top: 12px; color: var(--faint); font-size: 13.5px; }
 
-    /* hero art: a carousel of real BMWeb screens */
+    /* the carousel of real screens */
     .shots {
-      position: relative; border: 1px solid #232b35; border-radius: 10px;
-      overflow: hidden; box-shadow: 0 10px 28px rgba(0,0,0,.45); background: #0c1015;
-      aspect-ratio: 1500 / 722;
+      position: relative; border-radius: var(--r); overflow: hidden;
+      background: #0c1015; aspect-ratio: 1500 / 722;
+      box-shadow: 0 10px 28px rgba(0,0,0,.45);
     }
     .shots figure { margin: 0; position: absolute; inset: 0; opacity: 0; transition: opacity .5s ease; }
     .shots figure.on { opacity: 1; }
     .shots img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top center; cursor: zoom-in; }
-    /* lightbox: click a slide to see it full-size */
-    .lb {
-      position: fixed; inset: 0; z-index: 50; display: none;
-      background: rgba(6,9,12,.92); align-items: center; justify-content: center;
-      padding: 32px; opacity: 0; transition: opacity .18s ease;
-    }
-    .lb.on { display: flex; opacity: 1; }
-    .lb img {
-      max-width: 100%; max-height: 100%; width: auto; height: auto;
-      border-radius: 8px; box-shadow: 0 18px 60px rgba(0,0,0,.6); cursor: zoom-out;
-      object-fit: contain;
-    }
-    .lb-close {
-      position: absolute; top: 14px; right: 18px; width: 40px; height: 40px;
-      border: 0; border-radius: 50%; background: rgba(20,26,33,.85); color: #eef2f5;
-      font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center;
-    }
-    .lb-close:hover { background: rgba(30,38,48,.95); }
-    .lb-nav {
-      position: absolute; top: 50%; transform: translateY(-50%);
-      width: 46px; height: 46px; border: 0; border-radius: 50%;
-      background: rgba(20,26,33,.8); color: #eef2f5; font-size: 22px; cursor: pointer;
-      display: flex; align-items: center; justify-content: center;
-    }
-    .lb-nav:hover { background: rgba(30,38,48,.95); }
-    .lb-nav.prev { left: 16px; } .lb-nav.next { right: 16px; }
-    .lb-close:focus-visible, .lb-nav:focus-visible { outline: 2px solid #ffb95e; outline-offset: 2px; }
-    .lb-cap {
-      position: absolute; left: 0; right: 0; bottom: 18px; text-align: center;
-      color: #9aa6b2; font-size: 13.5px; padding: 0 60px;
-    }
-    /* dots */
     .shots-dots {
       position: absolute; left: 0; right: 0; bottom: 10px; display: flex; gap: 7px;
       justify-content: center; z-index: 2;
@@ -111,98 +62,120 @@
       background: rgba(255,255,255,.28); cursor: pointer; transition: background .2s, transform .2s;
     }
     .shots-dots button:hover { background: rgba(255,255,255,.55); }
-    .shots-dots button[aria-current="true"] { background: #e8891d; transform: scale(1.25); }
-    .shots-dots button:focus-visible { outline: 2px solid #ffb95e; outline-offset: 2px; }
-    /* prev/next, revealed on hover */
+    .shots-dots button[aria-current="true"] { background: var(--amber); transform: scale(1.25); }
     .shots-nav {
       position: absolute; top: 50%; transform: translateY(-50%); z-index: 2;
       width: 34px; height: 34px; border: 0; border-radius: 50%;
-      background: rgba(12,16,21,.7); color: #eef2f5; font-size: 17px; cursor: pointer;
+      background: rgba(12,16,21,.7); color: var(--ink); font-size: 17px; cursor: pointer;
       display: flex; align-items: center; justify-content: center;
       opacity: 0; transition: opacity .2s;
     }
-    .shots:hover .shots-nav { opacity: 1; }
+    .shots:hover .shots-nav, .shots-nav:focus-visible { opacity: 1; }
     .shots-nav:hover { background: rgba(12,16,21,.92); }
     .shots-nav.prev { left: 8px; } .shots-nav.next { right: 8px; }
-    .shots-nav:focus-visible { opacity: 1; outline: 2px solid #ffb95e; }
-    .cap { color: #6e7a86; font-size: 13.5px; margin-top: 10px; text-align: center; }
-    .cap a { color: #ff9e2c; }
+    .cap { color: var(--faint); font-size: 13.5px; margin-top: 12px; text-align: center; }
+    .cap a { color: var(--dim); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--faint); }
+    .cap a:hover { color: var(--amber); text-decoration-color: var(--amber); }
 
-    h2 {
-      font-size: 15px; font-weight: 700; letter-spacing: .09em;
-      text-transform: uppercase; color: #6e7a86; margin: 54px 0 16px;
+    /* lightbox: click a slide to see it full size */
+    .lb {
+      position: fixed; inset: 0; z-index: 50; display: none;
+      background: rgba(6,9,12,.94); align-items: center; justify-content: center;
+      padding: 32px; opacity: 0; transition: opacity .18s ease;
+    }
+    .lb.on { display: flex; opacity: 1; }
+    .lb img {
+      max-width: 100%; max-height: calc(100% - 44px); width: auto; height: auto;
+      border-radius: 8px; box-shadow: 0 18px 60px rgba(0,0,0,.6); cursor: zoom-out; object-fit: contain;
+    }
+    .lb-close {
+      position: absolute; top: 14px; right: 18px; width: 40px; height: 40px;
+      border: 0; border-radius: 50%; background: rgba(20,26,33,.85); color: var(--ink);
+      font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+    }
+    .lb-close:hover { background: rgba(30,38,48,.95); }
+    .lb-nav {
+      position: absolute; top: 50%; transform: translateY(-50%);
+      width: 46px; height: 46px; border: 0; border-radius: 50%;
+      background: rgba(20,26,33,.8); color: var(--ink); font-size: 22px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .lb-nav:hover { background: rgba(30,38,48,.95); }
+    .lb-nav.prev { left: 16px; } .lb-nav.next { right: 16px; }
+    .lb-cap {
+      position: absolute; left: 0; right: 0; bottom: 14px; text-align: center;
+      color: var(--dim); font-size: 13.5px; padding: 0 70px;
     }
 
-    /* ---- What you need: three cards across ---- */
-    .needs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
-    .need {
-      background: #141a21; border: 1px solid #232b35; border-radius: 10px;
-      padding: 22px 22px 20px;
-    }
+    /* sections */
+    section { padding: 8px 0 40px; }
+    section h2 { margin: 0 0 16px; font-size: 22px; font-weight: 600; letter-spacing: -.022em; }
+
+    .needs, .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+    .need, .step { background: var(--surface); border-radius: var(--r); padding: 22px 24px 20px; }
     .need .ic { height: 44px; margin-bottom: 12px; display: flex; align-items: center; }
-    .need b { display: block; color: #eef2f5; font-size: 17px; margin-bottom: 4px; }
-    .need span { color: #98a2ac; font-size: 15.5px; }
-    .need a { color: #ff9e2c; }
-
-    /* ---- steps: numbered row ---- */
-    .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; counter-reset: s; }
-    .step {
-      background: #141a21; border: 1px solid #232b35; border-radius: 10px;
-      padding: 20px 22px; counter-increment: s;
-    }
+    .need b, .step b { display: block; color: var(--ink); font-weight: 500; font-size: 16px; margin-bottom: 4px; }
+    .need span, .step span { color: var(--dim); font-size: 14.5px; line-height: 1.55; }
+    .steps { counter-reset: s; }
+    .step { counter-increment: s; }
     .step::before {
-      content: counter(s);
-      font-family: 'Source Serif 4', Georgia, serif; font-weight: 700;
-      font-size: 30px; color: #e8891d; display: block; margin-bottom: 6px;
+      content: counter(s); display: block; margin-bottom: 8px;
+      font-family: var(--mono); font-size: 13px; color: var(--amber);
     }
-    .step b { color: #eef2f5; display: block; margin-bottom: 3px; }
-    .step span { color: #98a2ac; font-size: 15.5px; }
 
-    /* ---- questions: two columns ---- */
-    .qa { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 40px; }
-    .qa .q { padding: 14px 0; border-top: 1px solid #232b35; }
-    .qa dt { font-weight: 700; color: #eef2f5; }
-    .qa dd { margin: 4px 0 0; color: #98a2ac; font-size: 15.5px; }
-    .qa a { color: #ff9e2c; }
-
-    .foot {
-      margin-top: 56px; padding-top: 18px; border-top: 1px solid #232b35;
-      display: flex; gap: 24px; flex-wrap: wrap; font-size: 14.5px; color: #6e7a86;
-    }
-    .foot a { color: #6e7a86; }
-    .foot a:hover { color: #eef2f5; }
+    .qa { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 40px; margin: 0; }
+    .qa .q { padding: 16px 0 4px; border-top: 1px solid var(--line); }
+    .qa dt { font-weight: 500; color: var(--ink); }
+    .qa dd { margin: 4px 0 0; color: var(--dim); font-size: 14.5px; line-height: 1.55; }
+    .qa a { color: var(--dim); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--faint); }
+    .qa a:hover { color: var(--amber); text-decoration-color: var(--amber); }
 
     @media (max-width: 860px) {
       .hero { grid-template-columns: 1fr; gap: 28px; }
-      .needs, .steps { grid-template-columns: 1fr; }
-      .qa { grid-template-columns: 1fr; }
+      .needs, .steps, .qa { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 720px) {
+      .lb { padding: 12px; }
+      .lb-nav { width: 38px; height: 38px; }
+      .lb-nav.prev { left: 6px; } .lb-nav.next { right: 6px; }
+      .lb-cap { padding: 0 48px; font-size: 12.5px; }
     }
   </style>
 </head>
 <body>
 
-<div class="col">
-  <div class="brand">
-    <svg width="40" height="40" viewBox="0 0 100 100" aria-hidden="true">
-      <circle cx="50" cy="50" r="48" fill="#11161c" stroke="#9aa6b2" stroke-width="3"/>
-      <clipPath id="d1"><circle cx="50" cy="50" r="31"/></clipPath>
-      <g clip-path="url(#d1)">
-        <rect x="19" y="19" width="31" height="31" fill="#eef2f5"/><rect x="50" y="50" width="31" height="31" fill="#eef2f5"/>
-        <rect x="50" y="19" width="31" height="31" fill="#ff9e2c"/><rect x="19" y="50" width="31" height="31" fill="#ff9e2c"/>
-      </g>
-      <circle cx="50" cy="50" r="31" fill="none" stroke="#0a0d11" stroke-width="2"/>
-    </svg>
-    <span class="n">BMWeb</span>
-    <a href="docs.html">Docs</a>
+<header class="masthead">
+  <div class="wrap wrap-wide masthead-in">
+    <a class="brand" href="install.html">
+      <svg class="logo" viewBox="0 0 100 100" role="img" aria-label="BMWeb">
+        <circle class="logo-ring" cx="50" cy="50" r="48"/>
+        <clipPath id="d1"><circle cx="50" cy="50" r="31"/></clipPath>
+        <g clip-path="url(#d1)">
+          <rect class="q-white" x="19" y="19" width="31" height="31"/>
+          <rect class="q-white" x="50" y="50" width="31" height="31"/>
+          <rect class="q-color" x="50" y="19" width="31" height="31"/>
+          <rect class="q-color" x="19" y="50" width="31" height="31"/>
+        </g>
+        <circle class="logo-ring" cx="50" cy="50" r="31"/>
+      </svg>
+      <span class="name">BMWeb</span>
+    </a>
+    <nav class="nav-links">
+      <a href="docs.html" class="nav-btn">Docs</a>
+      <a href="demo.html" class="nav-btn">Photos</a>
+      <a href="app.html" class="nav-btn" data-applink>Open the app</a>
+    </nav>
   </div>
+</header>
 
+<main class="wrap wrap-wide">
   <div class="hero">
     <div>
       <h1>Find out what's wrong with your BMW, right in your browser.</h1>
       <p class="lede">Plug a cheap diagnostic cable into your car, open BMWeb,
       and see what the dealer's computer sees: fault codes in plain English,
       live engine data, and component tests. <b>Free, nothing to install.</b></p>
-      <a class="go" href="app.html" data-applink>Open BMWeb</a>
+      <a class="btn solid inline go" href="app.html" data-applink>Open BMWeb</a>
       <span class="go-sub">Works with 1996 to 2006 BMWs (E36, E39, E46, E53 and more)</span>
     </div>
 
@@ -305,7 +278,8 @@
     }());
   </script>
 
-  <h2>What you need</h2>
+  <section>
+    <h2>What you need</h2>
   <div class="needs">
     <div class="need">
       <div class="ic">
@@ -350,7 +324,10 @@
     </div>
   </div>
 
-  <h2>Three steps</h2>
+  </section>
+
+  <section>
+    <h2>Three steps</h2>
   <div class="steps">
     <div class="step"><b>Plug in the cable.</b>
       <span>One end in the car, the other in your computer. Turn the
@@ -363,7 +340,10 @@
       components. The same screens BMW technicians used.</span></div>
   </div>
 
-  <h2>Common questions</h2>
+  </section>
+
+  <section>
+    <h2>Common questions</h2>
   <dl class="qa">
     <div class="q">
       <dt>Is it safe to poke around?</dt>
@@ -391,12 +371,19 @@
     </div>
   </dl>
 
-  <div class="foot">
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap wrap-wide footer-in">
     <span>BMWeb, free and open source</span>
-    <a href="https://github.com/dader34/BMWeb">GitHub</a>
-    <a href="https://github.com/dader34/BMWeb/releases">Offline downloads</a>
+    <span>
+      <a href="https://github.com/dader34/BMWeb">GitHub</a>
+      &nbsp;&middot;&nbsp;
+      <a href="https://github.com/dader34/BMWeb/releases">Offline downloads</a>
+    </span>
   </div>
-</div>
+</footer>
 
 <script>
 (function () {
