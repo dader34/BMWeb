@@ -179,7 +179,7 @@ async function showEcuDeep(chassisId, sgbd, menuName) {
     if (hit) return showEcu(chassisId, sec.name, hit, menuName);
   }
   sbLeft.textContent = `${sgbd} not in ${dispChassis(chassisId)}`;
-  return showSections(chassisId);
+  return backToModules(chassisId);
 }
 
 // ECU main menu: the running .IPO (screens/ipo-runtime.js). inpainit names

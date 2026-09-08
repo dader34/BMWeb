@@ -1884,6 +1884,40 @@ const sysSet = (sgbd) => ({
     vp.close();
   }
 
+  // the real UI factory (not the fake above) exposes every method the
+  // program calls -- an edit that drops one breaks the module view silently
+  {
+    const container = {
+      className: '',
+      innerHTML: '',
+      querySelector: () => null,
+    };
+    const real = ipoMakeUi({ sgbd: 'e46', label: 'E46' }, container, () => {});
+    for (const m of [
+      'sleep',
+      'loadExec',
+      'route',
+      'status',
+      'error',
+      'message',
+      'askInput',
+      'confirmKey',
+      'confirmWrite',
+      'pickComponent',
+      'pickLines',
+      'printScreen',
+      'resolveScriptEcu',
+      'machineTick',
+      'renderKeys',
+      'paint',
+      'userbox',
+      'left',
+    ]) {
+      assert.strictEqual(typeof real[m], 'function', `ui.${m} is a function`);
+    }
+    ok('ipoMakeUi: every method the program calls is there');
+  }
+
   // stop every refresh timer so the process can exit
   p.close();
   if (lp) lp.close();

@@ -175,6 +175,26 @@ function ipoMakeUi(ecu, container, back) {
         progress.update(text);
       }
     },
+    renderKeys,
+    paint: (p) => {
+      if (!gridEl) return;
+      if (titleEl) titleEl.textContent = ipoText(p.title || '');
+      // viewopen: INPA's viewer window with the file the script wrote. The
+      // menu's screen cycle keeps painting behind it; the same file stays
+      // in the DOM so the reader's scroll position survives each cycle.
+      if (p.view) {
+        if (p.view !== paintedView) {
+          paintedView = p.view;
+          gridEl.innerHTML = `<pre class="ipo-protocol mono">${esc(
+            (p.view.lines || []).join('\n')
+          )}</pre>`;
+        }
+        return;
+      }
+      paintedView = null;
+      if (inpa) ipoPaintGrid(gridEl, p);
+      else ipoPaintLines(gridEl, p);
+    },
     left: () => {
       ipoProgramLeft();
       if (typeof back === 'function') back();
