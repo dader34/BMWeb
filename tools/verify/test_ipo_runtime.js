@@ -1618,6 +1618,55 @@ const sysSet = (sgbd) => ({
     ok('scriptchange from a key: SM46 -> B_SM46 (passenger seat) and back');
   }
 
+  // ===========================================================================
+  // Modern rows for INPA's status idiom: captions on one screen row, the
+  // lamps under them on the next, column by column. Each lamp pairs with
+  // the caption over it; "Motor steht" is not "Klemme 15"'s value.
+  // ===========================================================================
+  {
+    const { ipoLineRows } = RT;
+    const sexec2 = loadExec('E46', 'ms450ds0');
+    const secu = {
+      sgbd: 'ms450ds0',
+      label: 'MS45',
+      _variant: 'MS450DS0',
+      chassis: 'E46',
+    };
+    fakeApi(() => ({
+      system: sysSet('ms450ds0'),
+      sets: [{ JOB_STATUS: 'OKAY', STAT_KL15_EIN: '1', STAT_MOTOR_STEHT: '1' }],
+    }));
+    const sui = fakeUi();
+    const sp = new IpoProgram(secu, sexec2, sui);
+    await sp.start();
+    await sp.openMenu('m_digital');
+    await sp.press(1);
+    for (let n = 0; n < 100; n++) {
+      if (sp.lines.some((l) => (l.elements || []).some((e) => e.t === 'lamp')))
+        break;
+      await new Promise((r) => setTimeout(r, 30));
+    }
+    const rows = ipoLineRows(sp);
+    const kl15 = rows.find((r) => r.caption === 'Klemme 15');
+    assert.ok(
+      kl15,
+      `Klemme 15 has its own row: ${JSON.stringify(rows.map((r) => r.caption))}`
+    );
+    assert.strictEqual(kl15.cells.length, 1);
+    assert.strictEqual(kl15.cells[0].kind, 'lamp', 'its lamp sits beside it');
+    const motor = rows.find((r) => r.caption === 'Motor steht');
+    assert.ok(
+      motor && motor.cells.length === 1 && motor.cells[0].kind === 'lamp',
+      'the second column pairs with its own lamp'
+    );
+    assert.ok(
+      !rows.some((r) => !r.caption && r.cells.some((c) => c.kind === 'lamp')),
+      'no anonymous lamp row'
+    );
+    sp.close();
+    ok('modern rows: caption row + lamp row pair by column');
+  }
+
   // stop every refresh timer so the process can exit
   p.close();
   if (lp) lp.close();

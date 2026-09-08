@@ -74,7 +74,24 @@ function ipoLineRows(p) {
       byRow.get(el.row).push(el);
     }
     let first = true;
-    for (const group of byRow.values()) {
+    const groups = [...byRow.values()];
+    for (let gi = 0; gi < groups.length; gi++) {
+      const group = groups[gi];
+      // INPA's status idiom: captions on one screen row, the lamps or bars
+      // under them on the next, column by column ("Klemme 15" at col 1 over
+      // its lamp at col 1, "Motor steht" at col 30 over its own). Read as
+      // rows those were a caption row with the second caption taken for a
+      // value, then an anonymous row of lamps. Pair each cell with the
+      // caption standing over it and emit one row per pair.
+      const paired = ipoPairCaptionRow(group, groups[gi + 1], cellOf);
+      if (paired) {
+        for (const r of paired) {
+          rows.push({ ...r, band: first });
+          first = false;
+        }
+        gi += 1; // the cell row is consumed
+        continue;
+      }
       const caption = [];
       const cells = [];
       const trailer = [];
@@ -119,6 +136,58 @@ function ipoLineRows(p) {
     }
   }
   return rows;
+}
+
+/**
+ * A caption row over a cell row, paired by column: each lamp/bar takes the
+ * nearest caption at or left of its column. Null when the two rows are not
+ * that shape (the top row has a non-text element, the bottom row has text,
+ * or two cells would share a caption -- a heading over several lamps stays
+ * a heading).
+ * @param {IpoElement[]} top - the elements of one screen row
+ * @param {IpoElement[]|undefined} bottom - the elements of the next row
+ * @param {(el: IpoElement) => IpoCell|undefined} cellOf - the painted cell for an element
+ * @returns {Array<{caption: string, parts: string[], cells: IpoRowCell[], trailer: string}>|null}
+ */
+function ipoPairCaptionRow(top, bottom, cellOf) {
+  if (!bottom || !bottom.length) return null;
+  if (top.some((el) => el.t !== 'text')) return null;
+  if (bottom.some((el) => el.t === 'text')) return null;
+  const caps = top
+    .map((el) => ({
+      col: el.col,
+      text: ((cellOf(el) || {}).text || '').trim(),
+    }))
+    .filter((c) => c.text)
+    .sort((a, b) => a.col - b.col);
+  if (!caps.length) return null;
+  const cells = [...bottom].sort((a, b) => a.col - b.col);
+  const used = new Set();
+  const out = [];
+  for (const el of cells) {
+    let cap = null;
+    for (const c of caps) if (c.col <= el.col + 1) cap = c;
+    if (!cap) cap = caps[0];
+    if (used.has(cap)) return null;
+    used.add(cap);
+    const c = cellOf(el);
+    out.push({
+      caption: cap.text,
+      parts: [cap.text],
+      cells: [
+        {
+          kind: el.t,
+          key: el.key || null,
+          text: c ? c.text : '',
+          on: el.on,
+          off: el.off,
+          meta: c ? c.meta : null,
+        },
+      ],
+      trailer: '',
+    });
+  }
+  return out;
 }
 
 /**
@@ -325,6 +394,7 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     IPO_KEY_LEGEND,
     ipoLineRows,
+    ipoPairCaptionRow,
     ipoJobCategory,
     ipoLegendMap,
     ipoMenuTiles,
