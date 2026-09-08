@@ -684,7 +684,9 @@ def _b_setitem(vm, stack, item):
     nr = next((x for x in stack if isinstance(x, int)), None)
     cap = next((x for x in stack if isinstance(x, str)), None)
     if nr is not None:
-        vm.out.items.append({"nr": nr, "label": cap, "fromSetitem": True})
+        ints = [x for x in stack if isinstance(x, int) and not isinstance(x, bool)]
+        on = ints[-1] if len(ints) > 1 else None
+        vm.out.items.append({"nr": nr, "label": cap, "on": on, "fromSetitem": True})
 
 
 def _b_setmenu(vm, stack, item):

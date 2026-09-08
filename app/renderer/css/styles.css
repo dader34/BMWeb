@@ -8246,6 +8246,46 @@ body.remote-helper::after {
   color: var(--ink-faint, #888);
   padding: 14px 10px;
 }
+/* userboxopen: INPA's progress window over a long read */
+.ipo-userbox {
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--line, #333);
+  border-radius: 6px;
+  background: var(--panel, rgba(127, 127, 127, 0.08));
+  position: relative;
+}
+
+.ipo-userbox-title {
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.ipo-userbox-lines {
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre;
+  overflow-x: auto;
+}
+
+.ipo-userbox-busy {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  width: 12px;
+  height: 12px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: ipo-userbox-spin 0.9s linear infinite;
+}
+
+@keyframes ipo-userbox-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 /* viewopen: the file a script wrote and asked INPA to show (a whole-vehicle
    fault protocol), in the screen's place */
 .ipo-protocol {

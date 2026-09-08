@@ -183,6 +183,11 @@ class IpoProgram {
       wireJobs: true,
       host: new FeedHost(),
     });
+    // INPA's progress window (userboxopen / userboxftextout): shown as the
+    // script fills it, so a 38-module read says which module it is on
+    vm.onUserbox = (box) => {
+      if (typeof this.ui.userbox === 'function') this.ui.userbox(this, box);
+    };
     if (exec.procs.__inpa_startup__) {
       try {
         let st = vm.stepStart('__inpa_startup__');
@@ -720,6 +725,34 @@ class IpoProgram {
   }
 
   /**
+   * setitem() from a body or a screen cycle: INPA relabels the key and shows
+   * or hides it while the menu is up (E46.IPO's read turns F9 into "FS
+   * drucken" once there is a protocol). The bar redraws when something
+   * changed.
+   * @param {IpoOut} out - the run's emissions
+   * @returns {void}
+   */
+  applySetitems(out) {
+    let changed = false;
+    for (const s of out.items || []) {
+      if (!s.fromSetitem) continue;
+      const it = this.items.find((x) => x.nr === s.nr);
+      if (!it) continue;
+      const cap = s.label == null ? '' : String(s.label);
+      if (cap.trim() && cap !== it.label) {
+        it.label = cap;
+        it.hidden = false;
+        changed = true;
+      }
+      if (s.on != null && it.hidden !== !s.on) {
+        it.hidden = !s.on;
+        changed = true;
+      }
+    }
+    if (changed) this.ui.renderKeys(this);
+  }
+
+  /**
    * An ITEM with no caption is still a key (SHD46's Select, its quit-mode
    * pair): INPA's bar shows it blank and the screen's legend names it. Take
    * that legend line as the key's label.
@@ -858,6 +891,7 @@ class IpoProgram {
    * @returns {void}
    */
   takeCells(out) {
+    this.applySetitems(out);
     if (out.blank) {
       this.cells = new Map();
       this.lines = [];

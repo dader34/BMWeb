@@ -41,6 +41,7 @@
  * @property {number} nr - F-key number (11..20 = shifted)
  * @property {string} [label] - caption
  * @property {boolean} [fromSetitem] - declared by setitem() rather than an ITEM token
+ * @property {number|null} [on] - setitem's third argument: 1 shows the key, 0 hides it
  * @property {string} [menu] - the menu it opens
  * @property {string} [screen] - the screen it sets
  * @property {string} [job] - the job it sends

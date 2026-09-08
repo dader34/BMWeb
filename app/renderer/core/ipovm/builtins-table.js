@@ -29,7 +29,7 @@ const BUILTINS = {
   ftextout: bTextout,
   textout: bTextout,
   text: bTextout,
-  userboxftextout: bTextout,
+  userboxftextout: bUserboxTextout,
   messagebox: bMessage,
   builtin_53: bMessage,
   exit: bExit,
@@ -53,8 +53,8 @@ const BUILTINS = {
   StructureString: bNoop,
   StructureInt: bNoop,
   StructureLong: bNoop,
-  userboxopen: bNoop,
-  userboxclose: bNoop,
+  userboxopen: bUserboxOpen,
+  userboxclose: bUserboxClose,
   viewopen: bViewopen,
   viewclose: bNoop,
   setstate: bSetstate,
@@ -123,7 +123,7 @@ const BUILTINS = {
   testtimer: bTesttimer,
   builtin_09: bSettimer,
   builtin_0a: bTesttimer,
-  builtin_57: bNoop, // userboxclear
+  builtin_57: bUserboxClear, // userboxclear
   builtin_58: bNoop, // userboxsetcolor
 };
 

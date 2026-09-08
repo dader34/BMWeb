@@ -265,6 +265,12 @@ function fakeUi(opts = {}) {
       return opts.decline ? false : true;
     },
     pickComponent: async () => (opts.pick != null ? opts.pick : null),
+    // INPA's progress window as the script fills it (null = closed)
+    userbox: (p, box) => {
+      ui.boxes = (ui.boxes || []).concat(
+        box ? { title: box.title, lines: box.lines.slice() } : null
+      );
+    },
     prints: 0,
     printScreen: () => {
       ui.prints += 1;
@@ -1791,6 +1797,40 @@ const sysSet = (sgbd) => ({
       `the detail pass names the module the group resolved to: ${reads.slice(-6)}`
     );
     ok('E46.IPO: every module read through its group, details by variant');
+
+    // the progress window INPA shows over the read: opened with its title,
+    // one line per module asked, closed before the protocol opens
+    const boxes = vui.boxes || [];
+    assert.ok(
+      boxes.some((b) => b && b.title === 'Fehlerspeicher lesen'),
+      `the read opens its progress window: ${JSON.stringify(boxes.slice(0, 2))}`
+    );
+    const fullest = boxes.reduce(
+      (m, b) => (b && b.lines.length > (m ? m.lines.length : 0) ? b : m),
+      null
+    );
+    assert.ok(
+      fullest && fullest.lines.some((l) => /Steuerger/.test(l)),
+      `the window names the module being asked: ${JSON.stringify(fullest && fullest.lines.slice(-3))}`
+    );
+    assert.strictEqual(boxes[boxes.length - 1], null, 'closed at the end');
+    ok('E46.IPO: the progress window fills as the modules are read');
+
+    // the read's tail relabels the keys: F9 prints the protocol, Shift+F9
+    // saves it (setitem(nr, text, 1) shows the key; 0 hides it)
+    const k9 = vp.items.find((it) => it.nr === 9);
+    const k19 = vp.items.find((it) => it.nr === 19);
+    assert.ok(
+      k9 && k9.label === 'FS drucken' && !k9.hidden,
+      `F9: ${JSON.stringify(k9)}`
+    );
+    assert.ok(
+      k19 && k19.label === 'FS speichern' && !k19.hidden,
+      `Shift+F9: ${JSON.stringify(k19)}`
+    );
+    const k1 = vp.items.find((it) => it.nr === 1);
+    assert.ok(k1 && !k1.hidden && k1.label === 'FS lesen', 'F1 stays');
+    ok('E46.IPO: setitem relabels and shows keys live');
 
     const lines = vp.view.lines;
     const has = (re) => lines.some((l) => re.test(l));
