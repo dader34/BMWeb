@@ -168,7 +168,12 @@ function ipoPrintKeysHtml(p) {
 function ipoPrintDocument(p, ecu, inpa) {
   const title = ipoText(p.title || '') || p.menu || '';
   const sections = [];
-  if (inpa) {
+  if (p.view) {
+    // viewopen: the file the script wrote (a whole-vehicle fault protocol)
+    sections.push({
+      html: `<pre class="pr-screen">${esc((p.view.lines || []).join('\n'))}</pre>`,
+    });
+  } else if (inpa) {
     const lines = ipoPrintGridText(p);
     if (lines.length) {
       sections.push({

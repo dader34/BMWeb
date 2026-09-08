@@ -74,6 +74,17 @@ function structNum(v) {
  * @param {IpoValue[]} stack - the call's arguments
  * @returns {void}
  */
+/**
+ * The current value behind a reference (through chained refs).
+ * @param {IpoVm} vm - the running VM
+ * @param {IpoRef} r - the reference
+ * @returns {*}
+ */
+function ipoRefValue(vm, r) {
+  const { n, map } = vm._refTarget(r, vm.frame);
+  return map.get(n);
+}
+
 function ipoStructureCall(vm, name, stack) {
   if (!vm.structs) vm.structs = new Map();
   const refs = stack.filter(isRef);
@@ -101,8 +112,14 @@ function ipoStructureCall(vm, name, stack) {
   const mode = vm._structMode || IPO_STRUCT_WRITE;
   if (width) {
     if (mode === IPO_STRUCT_WRITE) {
+      // the value comes by value or, as longtohexstring packs its number,
+      // by reference (StructureLong(handle, 0, &value))
       const vals = stack.filter((x) => !isRef(x));
-      const v = structNum(vals[vals.length - 1]);
+      const v = structNum(
+        refs.length
+          ? ipoRefValue(vm, refs[refs.length - 1])
+          : vals[vals.length - 1]
+      );
       for (let i = 0; i < width; i++) {
         if (off + i < st.buf.length) st.buf[off + i] = (v >>> (8 * i)) & 0xff;
       }
@@ -116,7 +133,8 @@ function ipoStructureCall(vm, name, stack) {
   // StructureString(handle, offset, len, out string | string)
   const len = nums.length > 2 ? nums[2] : st.buf.length - off;
   if (mode === IPO_STRUCT_WRITE) {
-    const sv = stack.find((x) => isPlainStr(x) || (isBound(x) && !isRef(x)));
+    let sv = stack.find((x) => isPlainStr(x) || (isBound(x) && !isRef(x)));
+    if (sv == null && refs.length) sv = ipoRefValue(vm, refs[refs.length - 1]);
     const bytes = ipoStringBytes(asStr(sv == null ? '' : sv));
     for (let i = 0; i < Math.min(len, bytes.length); i++) {
       if (off + i < st.buf.length) st.buf[off + i] = bytes[i];
@@ -146,15 +164,15 @@ function ipoStructureCall(vm, name, stack) {
  */
 function ipoDllCall(vm, stack) {
   const refs = stack.filter(isRef);
-  const fmt = stack.find((x) => isPlainStr(x) && x.includes('%'));
-  if (!fmt || !refs.length) return;
-  const refVal = (r) =>
-    r[1] === IPO_REF_LOCAL && vm.frame
-      ? vm.frame.get(r[2])
-      : vm.globals.get(r[2]);
+  // the format is usually computed ('%0' + width + 'lX'), so a bound string
+  const fmtArg = stack.find(
+    (x) => (isPlainStr(x) || isBound(x)) && asStr(x).includes('%')
+  );
+  if (!fmtArg || !refs.length) return;
+  const fmt = asStr(fmtArg);
   let value = 0;
   if (refs.length > 1) {
-    const raw = refVal(refs[1]);
+    const raw = ipoRefValue(vm, refs[1]);
     const n = Number(isBound(raw) ? raw.s : isFloat(raw) ? raw.v : raw);
     const st = vm.structs && vm.structs.get(n);
     if (st) {

@@ -55,7 +55,7 @@ const BUILTINS = {
   StructureLong: bNoop,
   userboxopen: bNoop,
   userboxclose: bNoop,
-  viewopen: bNoop,
+  viewopen: bViewopen,
   viewclose: bNoop,
   setstate: bSetstate,
   start: bSetstate,
@@ -115,6 +115,7 @@ const BUILTINS = {
   INP1apiResultBinary: bResultBinary,
   builtin_74: bResult, // INP1apiResultReal(rc, val, KEY, set)
   builtin_14: bNoop, // stop
+  builtin_90: bStrArraySize, // string array length, out-param
   builtin_1a: bNoop, // setcolor
   builtin_51: bBlankscreen, // blankscreen
   blankscreen: bBlankscreen,

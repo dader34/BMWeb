@@ -26,6 +26,9 @@
 const IPO_PLUMBING =
   /^(INITIALISIERUNG|IDENT|IDENT_\w+|INFO|DIAGNOSE_(AUFRECHT|ENDE|MODE)|ENDE)$/i;
 
+/** a group SGBD's name: D_ + the diagnostic address or a family (D_MOTOR) */
+const IPO_GROUP_SGBD_RE = /^d_[a-z0-9_]+$/;
+
 /**
  * The wire target for a job the script addresses. The script's own variable
  * holds INPA's dispatch LIST ("IHKA46,IHKA46_2,IHKA46_3") until inpainit
@@ -46,6 +49,13 @@ function ipoWireTarget(ecu, sgbd) {
   if (s === base) return mine;
   const known = ecu && ecu._ipoKnownSgbds;
   if (known && known.has(s)) return s;
+  // a group SGBD (D_0044, D_MOTOR): a script addresses a module by its group
+  // and lets EDIABAS find the variant on the wire -- the whole-vehicle
+  // scripts do it for every module, a module's script for its own startup
+  // (IHKA46 goes through D_005B) or a neighbour (GS30 asks D_0044). The
+  // shim's run route resolves the group the same way EDIABAS does and
+  // caches the answer, so the group stays the target (api-router.js).
+  if (IPO_GROUP_SGBD_RE.test(s)) return s;
   return mine;
 }
 

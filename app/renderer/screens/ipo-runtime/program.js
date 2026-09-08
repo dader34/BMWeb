@@ -443,7 +443,11 @@ class IpoProgram {
     }
     this.log.push({ target, job, arg: arg || null, status });
     if (this.log.length > IPO_LOG_MAX) this.log.shift();
-    this.ui.status(this, `${job}${arg ? ` ${arg}` : ''} · ${status}`);
+    const where =
+      target !== String(this.ecu.sgbd || '').toLowerCase()
+        ? `${target} > `
+        : '';
+    this.ui.status(this, `${where}${job}${arg ? ` ${arg}` : ''} · ${status}`);
     return fed;
   }
 
@@ -579,6 +583,7 @@ class IpoProgram {
    * @returns {Promise<boolean>} false when the menu does not exist
    */
   async openMenu(name, opts = {}) {
+    this.view = null;
     if (!this.exec.procs[name]) return false;
     this.stopCycle();
     const gen = ++this.gen;
@@ -700,6 +705,7 @@ class IpoProgram {
    * @returns {Promise<void>}
    */
   async showScreen(name, frequent) {
+    this.view = null;
     if (!this.exec.procs[name]) {
       this.ui.paint(this);
       return;
@@ -1062,6 +1068,9 @@ class IpoProgram {
     // different module on its own address
     if (out.scriptChange)
       return this._changeScript(String(out.scriptChange), gen);
+    // viewopen: the file the body wrote (a whole-vehicle fault protocol) is
+    // the view now, until the script opens another menu or screen
+    if (out.view) this.view = out.view;
     // the body painted (userbox text, a result line): show it with the screen
     this.takeCells(out);
     if (followMachine && out.stateEnter && this.exec.procs[out.stateEnter]) {

@@ -169,6 +169,9 @@ async function showEcuDeep(chassisId, sgbd, menuName) {
   );
   if (!ch) return;
   const want = String(sgbd).toLowerCase();
+  // the whole-vehicle script is reached by its chassis stem (#car/E46/e46)
+  if (want === String(chassisId).toLowerCase())
+    return showVehicleScript(chassisId, menuName);
   for (const sec of ch.sections || []) {
     const hit = (sec.ecus || []).find(
       (e) => String(e.sgbd).toLowerCase() === want

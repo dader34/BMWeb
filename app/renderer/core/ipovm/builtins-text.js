@@ -27,7 +27,7 @@ function bStrlen(vm, stack) {
 }
 
 /**
- * midstr(->dst, src, start, len): a 1-based substring of the LAST
+ * midstr(->dst, src, start, len): a 0-based substring of the LAST
  * string-like argument (bound values included), bound to the source's key.
  * @type {IpoBuiltin}
  */
@@ -35,7 +35,11 @@ function bMidstr(vm, stack) {
   const strs = stack.filter((x) => isPlainStr(x) || isBound(x)).map(asStr);
   const ints = allInts(stack);
   const src = strs.length ? strs[strs.length - 1] : '';
-  const a = ints.length ? ints[0] - 1 : 0;
+  // midstr(dest, source, start, count): start is 0-based. E46.IPO's own
+  // instr() probes from 0 and takes midstr(text, 0, 2) for a mode prefix and
+  // midstr(text, 2, n) for the name after it; the coding screens chunk a hex
+  // string at 0, 2, 4, ... -- none of which works 1-based.
+  const a = ints.length ? ints[0] : 0;
   const n = ints.length > 1 ? ints[1] : src.length;
   storeOut(
     vm,

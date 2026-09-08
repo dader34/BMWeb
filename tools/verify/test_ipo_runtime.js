@@ -199,6 +199,14 @@ function loadExec(chassis, ecu) {
 // ---- a fake car -----------------------------------------------------------------
 //
 // answers(job, arg) -> {sets, system}. Records every POST in `sent`.
+// the shim's run route resolves a group SGBD to the module on the wire
+// (api-router.js); the fake car answers these groups
+const FAKE_GROUPS = {
+  d_005b: 'ihka46_3',
+  d_0072: 'sm46_4',
+  d_00da: 'b_sm46_3',
+};
+
 function fakeApi(answers) {
   const sent = [];
   global.api = async (url, opts) => {
@@ -206,11 +214,13 @@ function fakeApi(answers) {
       /^\/api\/ecu\/([^/]+)\/run\/([^?]+)(?:\?arg=(.*))?$/
     );
     if (!m) throw new Error(`unexpected api ${url}`);
-    const target = m[1],
+    const raw = m[1],
+      target = FAKE_GROUPS[raw] || raw,
       job = decodeURIComponent(m[2]),
       arg = m[3] != null ? decodeURIComponent(m[3]) : null;
     sent.push({
       target,
+      group: target === raw ? null : raw,
       job,
       arg,
       method: (opts && opts.method) || 'GET',
@@ -1665,6 +1675,149 @@ const sysSet = (sgbd) => ({
     );
     sp.close();
     ok('modern rows: caption row + lamp row pair by column');
+  }
+
+  // ===========================================================================
+  // INPA's whole-vehicle script (E46.IPO): "Fehler -> FS lesen" reads every
+  // module's fault memory through its GROUP SGBD, exactly as INPA does, and
+  // writes the protocol INPA shows in its viewer
+  // ===========================================================================
+  {
+    const vexec = loadExec('vehicle', 'e46');
+    assert.ok(
+      vexec && vexec.procs.inpainit,
+      'e46 vehicle exec missing (data/chassis/vehicle/e46)'
+    );
+    const vecu = {
+      sgbd: 'e46',
+      code: 'E46',
+      label: 'INPA E46 script',
+      chassis: 'E46',
+      kind: 'vehicle',
+      group: null,
+      _ipoKnownSgbds: new Set(['e46', 'ms450ds0', 'ihka46_3']),
+    };
+    // a group SGBD stays the wire target: the shim resolves it to the module
+    // the car names (api-router.js); a module's own startup group too
+    assert.strictEqual(ipoWireTarget(vecu, 'D_MOTOR'), 'd_motor');
+    assert.strictEqual(
+      ipoWireTarget({ sgbd: 'ihka46_3', group: 'D_005B' }, 'D_005B'),
+      'd_005b'
+    );
+    assert.strictEqual(
+      ipoWireTarget({ sgbd: 'ihka46_3' }, 'IHKA46,IHKA46_2,IHKA46_3'),
+      'ihka46_3',
+      'inpainit dispatch list -> the identified module'
+    );
+    assert.strictEqual(ipoWireTarget(vecu, 'MS450DS0'), 'ms450ds0');
+    ok('wire target: group SGBDs route to the resolver');
+
+    // the car: the engine has one fault, two addresses are silent, the
+    // rest answer clean. FS_LESEN returns one set per fault plus the status
+    // set, as EDIABAS does (the script counts sets - 1).
+    const fault = {
+      F_ORT_NR: 5,
+      F_ORT_TEXT: 'Lambdasonde',
+      F_HEX_CODE: '0x27C3',
+      F_ART_ANZ: 1,
+      F_ART1_NR: 1,
+      F_ART1_TEXT: 'sporadisch',
+      F_HFK: 3,
+      F_LZ: 40,
+      F_UW_ANZ: 1,
+      F_UW_SATZ: 1,
+      F_UW1_TEXT: 'Kilometerstand',
+      F_UW1_WERT: 123456,
+      F_UW1_EINH: 'km',
+      F_VERSION: 1,
+      JOB_STATUS: 'OKAY',
+    };
+    const vsent = fakeApi((job, arg, target) => {
+      if (target === 'd_00a4' || target === 'd_009c')
+        return new Error(`${target}: no module answered on the wire`);
+      const variant = target === 'd_motor' ? 'ms450ds0' : target;
+      const sys = {
+        OBJECT: target,
+        VARIANTE: variant.toUpperCase(),
+        JOBNAME: job,
+        SAETZE: 1,
+      };
+      if (job === 'FGNR_LESEN')
+        return {
+          system: sys,
+          sets: [{ FGNR: 'WBAET37001NJ12345', JOB_STATUS: 'OKAY' }],
+        };
+      if (job === 'FS_LESEN' && variant === 'ms450ds0')
+        return { system: sys, sets: [fault, { JOB_STATUS: 'OKAY' }] };
+      if (job === 'FS_LESEN')
+        return { system: sys, sets: [{ F_VERSION: 1, JOB_STATUS: 'OKAY' }] };
+      return { system: sys, sets: [{ JOB_STATUS: 'OKAY' }] };
+    });
+    const vui = fakeUi();
+    const vp = new IpoProgram(vecu, vexec, vui);
+    const vr = await vp.start();
+    assert.strictEqual(vr.ok, true, `e46 start: ${vr.reason}`);
+    assert.strictEqual(vp.menu, 'm_main', 'the script opens its main menu');
+    const vuntil = async (cond) => {
+      for (let n = 0; n < 400 && !cond(); n++)
+        await new Promise((r) => setTimeout(r, 10));
+    };
+    const fehler = vp.items.find((it) => it.label === 'Fehler');
+    assert.ok(
+      fehler,
+      `Fehler key: ${JSON.stringify(vp.items.map((i) => i.label))}`
+    );
+    await vp.press(fehler.nr);
+    await vuntil(() => vp.menu === 'm_fs' && !vp.busy);
+    assert.strictEqual(vp.menu, 'm_fs', 'the fault-memory menu');
+    const lesen = vp.items.find((it) => it.label === 'FS lesen');
+    assert.ok(lesen, 'FS lesen key');
+    vsent.length = 0;
+    await vp.press(lesen.nr);
+    await vuntil(() => !vp.busy && !!vp.view);
+    assert.ok(
+      vp.view,
+      `viewopen showed the protocol: ${(vui.errors || []).join('; ')}`
+    );
+
+    const reads = vsent
+      .filter((s) => s.job === 'FS_LESEN')
+      .map((s) => s.target);
+    for (const g of ['d_0044', 'd_00a4', 'd_motor', 'd_0080', 'd_zuheiz'])
+      assert.ok(reads.includes(g), `FS_LESEN went to the group ${g}`);
+    assert.ok(!reads.includes('e46'), 'nothing was sent to the script itself');
+    assert.ok(
+      reads.includes('ms450ds0'),
+      `the detail pass names the module the group resolved to: ${reads.slice(-6)}`
+    );
+    ok('E46.IPO: every module read through its group, details by variant');
+
+    const lines = vp.view.lines;
+    const has = (re) => lines.some((l) => re.test(l));
+    assert.ok(has(/F E H L E R S P E I C H E R/), 'protocol title');
+    assert.ok(has(/^D_00A4 \*/), 'a silent module is marked *');
+    assert.ok(has(/^MS450DS0 1\s+Motor/), 'the engine counts one fault');
+    assert.ok(has(/^D_0080 0\s+Instrumentenkombi/), 'a clean module counts 0');
+    assert.ok(
+      has(/^Variante\s+:\s+MS450DS0\.PRG/),
+      'the detail block names the variant'
+    );
+    assert.ok(has(/1 Fehler im Fehlerspeicher/), 'the detail block counts');
+    assert.ok(has(/Fehlerort\s+:.*Lambdasonde/), 'the fault text');
+    assert.ok(has(/Fehlerort\s+:\s+0x0005:/), 'the fault number in hex');
+    assert.ok(has(/Kilometerstand.*123456/), 'the freeze-frame value');
+    ok('E46.IPO: the protocol INPA writes (header, overview, details)');
+
+    if (typeof ipoPrintDocument === 'function') {
+      const doc = ipoPrintDocument(vp, vecu, true);
+      const html = JSON.stringify(doc);
+      assert.ok(
+        html.includes('Lambdasonde'),
+        'the protocol is the print sheet'
+      );
+      ok('E46.IPO: printing the protocol');
+    }
+    vp.close();
   }
 
   // stop every refresh timer so the process can exit

@@ -347,8 +347,13 @@ def main():
     # never an .ecu and irLiveExec 404ed. Pack the script (its runnable twin,
     # screens, captions) under its stem, into the same catch-all, so a
     # hand-off resolves through the one path everything else uses.
+    # The whole-vehicle scripts (INPA's per-chassis "functional jobs":
+    # E46.IPO reads every module's fault memory through the group SGBDs)
+    # live under data/chassis/vehicle and ship the same way, under the
+    # chassis stem (e46), so the runtime can open them as a module.
     n_script = 0
-    for d in sorted(glob.glob(os.path.join(T.TREE, "other", "*"))):
+    for d in sorted(glob.glob(os.path.join(T.TREE, "other", "*"))
+                    + glob.glob(os.path.join(T.TREE, "vehicle", "*"))):
         try:
             with open(os.path.join(d, "ecu.json")) as f:
                 stem = (json.load(f).get("sgbd") or "").lower()

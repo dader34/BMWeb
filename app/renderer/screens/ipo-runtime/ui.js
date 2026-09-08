@@ -151,6 +151,13 @@ function ipoMakeUi(ecu, container, back) {
     paint: (p) => {
       if (!gridEl) return;
       if (titleEl) titleEl.textContent = ipoText(p.title || '');
+      // viewopen: INPA's viewer window with the file the script wrote
+      if (p.view) {
+        gridEl.innerHTML = `<pre class="ipo-protocol mono">${esc(
+          (p.view.lines || []).join('\n')
+        )}</pre>`;
+        return;
+      }
       if (inpa) ipoPaintGrid(gridEl, p);
       else ipoPaintLines(gridEl, p);
     },

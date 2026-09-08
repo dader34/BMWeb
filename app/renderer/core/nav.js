@@ -396,16 +396,7 @@ function showFunctionalJobs(chassisId) {
       fn: () => quickErrorSweep(id),
     },
   ];
-  jobs.forEach((j) => {
-    const tile = document.createElement('div');
-    tile.className = 'group-tile';
-    tile.innerHTML = `<div class="group-name">F${j.key} · ${j.name}</div>
-      <div class="group-count">${j.desc}</div><div class="group-arrow">→</div>`;
-    tile.onclick = j.fn;
-    grid.appendChild(tile);
-  });
-  stagger(grid, 40);
-  setActions([
+  const acts = [
     {
       key: '2',
       label: 'Identification',
@@ -413,14 +404,86 @@ function showFunctionalJobs(chassisId) {
       fn: () => quickIdentSweep(id),
     },
     { key: '4', label: 'Error Scan', fn: () => quickErrorSweep(id) },
+  ];
+  const tile = (j) => {
+    const el = document.createElement('div');
+    el.className = 'group-tile';
+    el.innerHTML = `<div class="group-name">F${j.key} · ${j.name}</div>
+      <div class="group-count">${j.desc}</div><div class="group-arrow">→</div>`;
+    el.onclick = j.fn;
+    grid.appendChild(el);
+  };
+  jobs.forEach(tile);
+  const done = () => {
+    stagger(grid, 40);
+    setActions([
+      ...acts,
+      {
+        key: 'Escape',
+        keyLabel: 'Esc',
+        label: 'Back',
+        kind: 'back',
+        fn: () => showChassis(),
+      },
+    ]);
+  };
+  // INPA's own whole-vehicle script for this chassis (E46.IPO), where one
+  // ships: its fault-memory read walks every module by group and writes
+  // the protocol INPA prints
+  vehicleScriptShipped(id).then((yes) => {
+    if (yes) {
+      const j = {
+        key: '6',
+        name: `INPA ${dispChassis(id)} script`,
+        desc: `Run INPA\u2019s own whole-vehicle script: identification, fault memory of every module, protocol`,
+        fn: () => showVehicleScript(id),
+      };
+      tile(j);
+      acts.push({ key: j.key, label: 'INPA script', fn: j.fn });
+    }
+    done();
+  });
+}
+
+/**
+ * Whether INPA's whole-vehicle script for a chassis ships (e46.prg-less
+ * E46.IPO packed under the chassis stem by the export).
+ * @param {string} chassisId - Chassis id.
+ * @returns {Promise<boolean>}
+ */
+async function vehicleScriptShipped(chassisId) {
+  try {
+    const idx = await fetch('api/ecu-index.json').then((r) =>
+      r.ok ? r.json() : null
+    );
+    return !!(idx && idx[String(chassisId).toLowerCase()]);
+  } catch (e) {
+    return false;
+  }
+}
+
+/**
+ * The whole-vehicle script as a module: INPA's E46.IPO opens like any
+ * other script, its keys send to the groups and the run route resolves
+ * each group to the module on the wire.
+ * @param {string} chassisId - Chassis id.
+ * @param {string|null} [openMenu] - a menu to open (a deep link)
+ * @returns {Promise<void>}
+ */
+function showVehicleScript(chassisId, openMenu) {
+  const id = String(chassisId);
+  return showEcu(
+    id,
+    'Functional Jobs',
     {
-      key: 'Escape',
-      keyLabel: 'Esc',
-      label: 'Back',
-      kind: 'back',
-      fn: () => showChassis(),
+      code: id,
+      sgbd: id.toLowerCase(),
+      label: `INPA ${dispChassis(id)} script`,
+      group: null,
+      kind: 'vehicle',
     },
-  ]);
+    openMenu || null
+  );
 }
 
 // "Old models" popup (INPA Shift+F9): chassis hidden from the main list

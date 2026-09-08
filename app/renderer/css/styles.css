@@ -8246,6 +8246,18 @@ body.remote-helper::after {
   color: var(--ink-faint, #888);
   padding: 14px 10px;
 }
+/* viewopen: the file a script wrote and asked INPA to show (a whole-vehicle
+   fault protocol), in the screen's place */
+.ipo-protocol {
+  margin: 0;
+  padding: 12px 14px;
+  max-height: 70vh;
+  overflow: auto;
+  white-space: pre;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 .ipo-status {
   font-size: 12px;
   color: var(--ink-faint, #888);

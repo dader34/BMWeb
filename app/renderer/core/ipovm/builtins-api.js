@@ -154,15 +154,14 @@ function bStrArrayCreate(vm, stack) {
  * @type {IpoBuiltin}
  */
 function bStrArrayWrite(vm, stack) {
-  const ints = stack
-    .filter(
-      (x) => (typeof x === 'number' || isBound(x)) && typeof x !== 'boolean'
-    )
-    .map((x) => Math.trunc(num(x)));
-  const txt = stack.find((x) => isPlainStr(x));
-  if (ints.length >= 2 && txt != null && vm.strArrays.has(ints[0])) {
-    vm.strArrays.get(ints[0]).set(ints[1], txt);
-  }
+  // StrArrayWrite(array, index, text): the text is usually computed (a
+  // module's name + its fault count), not a literal
+  const args = stack.filter((x) => !isRef(x));
+  if (args.length < 3) return;
+  const id = Math.trunc(num(args[0]));
+  const idx = Math.trunc(num(args[1]));
+  const txt = asStr(args[2]);
+  if (vm.strArrays.has(id)) vm.strArrays.get(id).set(idx, txt);
 }
 
 /**
@@ -189,6 +188,22 @@ function bStrArrayRead(vm, stack) {
  * GetBinaryDataString) binds to the key.
  * @type {IpoBuiltin}
  */
+/**
+ * builtin_90(array, &n): how many entries a string array holds. The
+ * whole-vehicle scripts fill an array with the modules that answered with
+ * faults and walk it `for (i = 0; i < n; i++)` to write the short overview
+ * of the protocol, so n must be the real count, not a slot.
+ * @param {Best2Vm} vm
+ * @param {*[]} stack
+ */
+function bStrArraySize(vm, stack) {
+  const vals = stack.filter((x) => !isRef(x));
+  const arr = vals.length
+    ? vm.strArrays.get(Math.trunc(num(vals[0]))) || new Map()
+    : new Map();
+  storeOut(vm, stack, arr.size);
+}
+
 function bResultBinary(vm, stack) {
   const key = stack.find(isPlainStr) || null;
   if (key) {
@@ -280,19 +295,19 @@ function bInputDigital(vm, stack, item) {
  * @type {IpoBuiltin}
  */
 function bFileopen(vm, stack) {
-  const path = stack
-    .filter((x) => (isPlainStr(x) || isSlot(x)) && !['r', 'w', 'a'].includes(x))
-    .map(asStr)
-    .join('');
+  // fileopen(path, mode): the path is usually computed (folder + name +
+  // extension), so take whatever string value the expression produced
+  const args = stack.filter((x) => !isRef(x));
   let mode = 'r';
-  for (let k = stack.length - 1; k >= 0; k--) {
-    if (isPlainStr(stack[k]) && ['r', 'w', 'a'].includes(stack[k])) {
-      mode = stack[k];
-      break;
-    }
+  const last = args.length > 1 ? asStr(args[args.length - 1]) : '';
+  if (['r', 'w', 'a'].includes(last)) {
+    mode = last;
+    args.pop();
   }
+  const path = args.map(asStr).join('');
   if (mode === 'w') vm.files.set(path, []);
   else if (mode === 'a' && !vm.files.has(path)) vm.files.set(path, []);
+  if (mode !== 'r') vm.lastWritten = path;
   vm.fh = { path, mode, line: 0 };
 }
 
@@ -305,12 +320,35 @@ function bFileclose(vm) {
 }
 
 /**
+ * viewopen(path): INPA opens the file the script just wrote in its viewer
+ * window (the whole-vehicle fault protocol). The runtime shows the same
+ * text as the screen and prints it as the sheet.
+ * @param {Best2Vm} vm
+ * @param {*[]} stack
+ */
+function bViewopen(vm, stack) {
+  // viewopen(path, title): the path is computed (folder + name + extension),
+  // the title is the window caption
+  const args = stack.filter((x) => !isRef(x)).map(asStr);
+  let path = args[0] || '';
+  if (!vm.files.has(path) && vm.lastWritten && vm.files.has(vm.lastWritten))
+    path = vm.lastWritten;
+  vm.out.view = {
+    path,
+    title: args.length > 1 ? args[args.length - 1] : '',
+    lines: [...(vm.files.get(path) || [])],
+  };
+}
+
+/**
  * filewrite(text): append a line to the open file.
  * @type {IpoBuiltin}
  */
 function bFilewrite(vm, stack) {
   if (!vm.fh || vm.fh.mode === 'r') return;
-  const txt = stack.find(isPlainStr) || '';
+  // the line is usually computed (caption + value), not a literal
+  const args = stack.filter((x) => !isRef(x));
+  const txt = args.length ? asStr(args[0]) : '';
   if (!vm.files.has(vm.fh.path)) vm.files.set(vm.fh.path, []);
   vm.files.get(vm.fh.path).push(txt);
 }

@@ -98,6 +98,12 @@ class Emissions {
     /** @type {string|null} the .IPO a scriptchange() handed control to */
     this.scriptChange = null;
     /**
+     * viewopen(file): the text file the script wrote and asked INPA to show
+     * (a whole-vehicle fault protocol), as its lines.
+     * @type {{path: string, lines: string[]}|null}
+     */
+    this.view = null;
+    /**
      * setscreen's second argument: TRUE = a frequent screen, re-run its cycle
      * while it is current (INPA's WM_TIMER loop); null = no setscreen.
      * @type {boolean|null}

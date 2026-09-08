@@ -423,7 +423,12 @@ class IpoVm {
       const { dsc, n, map } = this._refTarget(ref, this.frame);
       const cur = map.get(n);
       if (isBound(cur) && cur.key) continue;
-      const val = mkBound(mkSlot(dsc, n), '0', inKey);
+      // Offline the callee's arithmetic is opaque and the lift only needs
+      // the key on the slot. A live run computed the value (E46.IPO's
+      // inttohexstring formats F_ORT_NR through a DLL printf), so the key
+      // rides along with it instead of replacing it.
+      const keep = this.wireJobs && cur != null && cur !== '';
+      const val = mkBound(mkSlot(dsc, n), keep ? asStr(cur) : '0', inKey);
       this.setBind(dsc, n, inKey);
       map.set(n, val);
     }
