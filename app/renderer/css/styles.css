@@ -49,6 +49,76 @@
   --logo-inner-border: #0a0d11;
 }
 
+/* RADIOS AND CHECKBOXES, DRAWN BY THE APP. The browser's own controls
+   came out blue and glossy on every skin; these are the app's: a ring or a
+   rounded square on the panel colour, amber when set, the same on every
+   screen that uses a native input (remote-session access, component
+   pickers, tuning toggles, the parts identifier). Theme sheets may override. */
+input[type='radio'],
+input[type='checkbox'] {
+  -webkit-appearance: none;
+  appearance: none;
+  box-sizing: border-box;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  flex: none;
+  vertical-align: -3px;
+  position: relative;
+  border: 1.5px solid var(--ink-faint);
+  background: var(--panel);
+  cursor: pointer;
+  transition:
+    border-color 0.12s ease,
+    background-color 0.12s ease,
+    box-shadow 0.12s ease;
+}
+input[type='radio'] {
+  border-radius: 50%;
+}
+input[type='checkbox'] {
+  border-radius: 4px;
+}
+input[type='radio']:hover,
+input[type='checkbox']:hover {
+  border-color: var(--ink-dim);
+}
+input[type='radio']:checked,
+input[type='checkbox']:checked {
+  border-color: var(--amber);
+}
+input[type='radio']:checked::after {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  border-radius: 50%;
+  background: var(--amber);
+}
+input[type='checkbox']:checked {
+  background: var(--amber);
+}
+input[type='checkbox']:checked::after {
+  content: '';
+  position: absolute;
+  left: 4.5px;
+  top: 1.5px;
+  width: 4px;
+  height: 8px;
+  border: solid #11161c;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+input[type='radio']:focus-visible,
+input[type='checkbox']:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 2px;
+}
+input[type='radio']:disabled,
+input[type='checkbox']:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
 * {
   box-sizing: border-box;
   margin: 0;
@@ -1523,7 +1593,6 @@ html.no-chrome body.apps-section .topbar {
   white-space: nowrap;
 }
 .etk-idradio input {
-  accent-color: var(--amber);
   margin: 0;
 }
 .etk-idreq {
