@@ -262,6 +262,14 @@ const PRINT_CSS = `
     .pr-fkey-k { font: 600 8.5px "SF Mono", Menlo, Consolas, monospace; color: #777; }
     .pr-fkey-l { font-size: 10px; font-weight: 600; line-height: 1.2; overflow-wrap: anywhere; }
     .pr-fkey-s { font-size: 8.5px; color: #666; line-height: 1.2; overflow-wrap: anywhere; }
+    /* the INPA layout's bar: key numbers over flat boxes, captions centred */
+    .pr-ikeys { margin-top: 6px; }
+    .pr-ikey-nums, .pr-ikey-btns { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 4px; }
+    .pr-ikey-num { font: 700 8.5px -apple-system, "Helvetica Neue", Arial, sans-serif; color: #888; text-align: center; line-height: 12px; }
+    .pr-ikey { display: block; height: 22px; line-height: 22px; padding: 0 3px; border: 1px solid #bbb; border-radius: 3px;
+               background: #f3f3f3; font-size: 10px; font-weight: 700; text-align: center; white-space: nowrap;
+               overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+    .pr-ikey.empty { background: #fff; border-color: #e2e2e2; }
     /* text blocks */
     .pr-p { margin: 0 0 6px; }
     .pr-bullet { padding-left: 16px; position: relative; }

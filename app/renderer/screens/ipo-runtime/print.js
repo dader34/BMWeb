@@ -121,9 +121,10 @@ function ipoPrintRowsHtml(rows) {
  * @param {IpoProgram} p - the program
  * @returns {string} HTML, empty when the menu has no keys
  */
-function ipoPrintKeysHtml(p) {
+function ipoPrintKeysHtml(p, inpa) {
   const items = (p.items || []).filter((it) => it.nr !== 20);
   if (!items.length) return '';
+  if (inpa) return ipoPrintInpaKeysHtml(p, items);
   const menu = ipoMenuTiles(p);
   const legend = new Map();
   for (const t of (menu && menu.tiles) || []) {
@@ -165,6 +166,40 @@ function ipoPrintKeysHtml(p) {
  * @param {boolean} inpa - INPA layout (the text grid) rather than the modern rows
  * @returns {PrintDocOptions}
  */
+/**
+ * The key bar the way the INPA layout draws it on screen: a row of key
+ * numbers over a row of flat boxes with the caption centred, and a Shift
+ * row below when the menu has shifted keys.
+ * @param {object} p - the running program
+ * @param {object[]} items - the menu's keys (Shift+F10 excluded)
+ * @returns {string} HTML
+ */
+function ipoPrintInpaKeysHtml(p, items) {
+  const byKey = new Map(items.map((it) => [it.nr, it]));
+  const row = (shift) => {
+    let any = false;
+    const nums = [];
+    const btns = [];
+    for (let k = 1; k <= 10; k++) {
+      const it = byKey.get(shift ? IPO_SHIFT_BASE + k : k);
+      const label = it ? ipoKeyLabel(p, it) : '';
+      if (label) any = true;
+      nums.push(`<span class="pr-ikey-num">${shift ? '⇧' : ''}F${k}</span>`);
+      btns.push(
+        `<span class="pr-ikey${label ? '' : ' empty'}">${esc(label)}</span>`
+      );
+    }
+    return any
+      ? `<div class="pr-ikeys"><div class="pr-ikey-nums">${nums.join('')}</div>` +
+          `<div class="pr-ikey-btns">${btns.join('')}</div></div>`
+      : '';
+  };
+  const plain = row(false);
+  const shifted = row(true);
+  if (!plain && !shifted) return '';
+  return `<div class="pr-keys">${plain}${shifted}</div>`;
+}
+
 function ipoPrintDocument(p, ecu, inpa) {
   const title = ipoText(p.title || '') || p.menu || '';
   const sections = [];
@@ -193,7 +228,7 @@ function ipoPrintDocument(p, ecu, inpa) {
     const html = ipoPrintRowsHtml(rows);
     if (html) sections.push({ html });
   }
-  const keys = ipoPrintKeysHtml(p);
+  const keys = ipoPrintKeysHtml(p, inpa);
   if (keys) sections.push({ html: keys, avoidBreak: true });
   if (!sections.length) {
     sections.push({
