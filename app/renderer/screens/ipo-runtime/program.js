@@ -260,11 +260,16 @@ class IpoProgram {
         this.ui.printScreen(this);
         step = vm.resume();
       } else if (step.kind === 'select') {
-        // INPA's Select: which of the screen's named logical lines to show
+        // INPA's Select: which of the screen's named logical lines to show.
+        // A screen with none still opens the box (INPA shows an empty
+        // list), so the key visibly does something and says why.
         const names = ipoScreenLineNames(this.exec, this.screen);
-        const pick = names.length
-          ? await this.ui.pickLines(this, names, step.multiple, this.lineFilter)
-          : null;
+        const pick = await this.ui.pickLines(
+          this,
+          names,
+          step.multiple,
+          this.lineFilter
+        );
         if (pick != null) this.setLineFilter(pick.length ? pick : null);
         step = vm.resume();
       } else if (step.kind === 'exit') {

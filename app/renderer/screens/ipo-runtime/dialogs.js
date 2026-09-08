@@ -96,14 +96,18 @@ function ipoPickLines(names, multiple, current) {
     const { overlay, close } = openModal(
       `<div class="modal" role="dialog" aria-modal="true">
             <div class="modal-title">Select lines</div>
-            <div class="modal-body ipo-pick">${names
-              .map(
-                (n, i) =>
-                  `<label class="ipo-pick-row"><input type="${multiple ? 'checkbox' : 'radio'}" name="ipo-lines" value="${i}"${
-                    current ? (current.has(n) ? ' checked' : '') : ''
-                  }/> <span>${esc(ipoText(n))}</span></label>`
-              )
-              .join('')}</div>
+            <div class="modal-body ipo-pick">${
+              names.length
+                ? names
+                    .map(
+                      (n, i) =>
+                        `<label class="ipo-pick-row"><input type="${multiple ? 'checkbox' : 'radio'}" name="ipo-lines" value="${i}"${
+                          current ? (current.has(n) ? ' checked' : '') : ''
+                        }/> <span>${esc(ipoText(n))}</span></label>`
+                    )
+                    .join('')
+                : `<div class="ipo-pick-hint">This screen has no named lines to choose from. Select works on screens that list several entries, such as a fault memory: pick the entries to keep on screen, and Deselect shows them all again.</div>`
+            }</div>
             <div class="modal-actions">
               <button class="btn" data-x="cancel">Cancel</button>
               <button class="btn" data-x="all">Show all</button>

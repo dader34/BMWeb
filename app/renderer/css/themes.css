@@ -1521,7 +1521,7 @@ html .fkey-nums .fkey-num::before {
      - gauge tracks/fills, whose pill shape reads as a meter
      - toggle switches, where the pill IS the affordance */
 html[data-theme='brackets']
-  *:not(.logo-ring):not(.logo-inner-ring):not(circle) {
+  *:not(.logo-ring):not(.logo-inner-ring):not(circle):not(input[type='radio']) {
   border-radius: 0 !important;
 }
 html[data-theme='brackets'] .gauge-track,

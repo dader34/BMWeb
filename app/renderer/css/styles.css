@@ -73,8 +73,9 @@ input[type='checkbox'] {
     background-color 0.12s ease,
     box-shadow 0.12s ease;
 }
+/* a radio stays round on every skin, even the flat ones that square boxes */
 input[type='radio'] {
-  border-radius: 50%;
+  border-radius: 50% !important;
 }
 input[type='checkbox'] {
   border-radius: 4px;
@@ -90,7 +91,7 @@ input[type='checkbox']:checked {
 input[type='radio']:checked::after {
   content: '';
   position: absolute;
-  inset: 3px;
+  inset: 22%;
   border-radius: 50%;
   background: var(--amber);
 }
@@ -98,15 +99,16 @@ input[type='checkbox']:checked {
   background: var(--amber);
 }
 input[type='checkbox']:checked::after {
+  /* the tick, centred whatever size a skin gives the box */
   content: '';
   position: absolute;
-  left: 4.5px;
-  top: 1.5px;
-  width: 4px;
-  height: 8px;
+  left: 50%;
+  top: 50%;
+  width: 26%;
+  height: 52%;
   border: solid #11161c;
   border-width: 0 2px 2px 0;
-  transform: rotate(45deg);
+  transform: translate(-50%, -60%) rotate(45deg);
 }
 input[type='radio']:focus-visible,
 input[type='checkbox']:focus-visible {
