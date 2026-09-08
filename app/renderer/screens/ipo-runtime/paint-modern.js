@@ -151,20 +151,39 @@ function ipoLineRows(p) {
  */
 function ipoPairCaptionRow(top, bottom, cellOf) {
   if (!bottom || !bottom.length) return null;
-  if (top.some((el) => el.t !== 'text')) return null;
-  if (bottom.some((el) => el.t === 'text')) return null;
+  const textOf = (el) => ((cellOf(el) || {}).text || '').trim();
+  // a caption is printed text, or a result printed as text that reads as a
+  // label (a measurement block prints STAT_MESSWERTn_TEXT over each bar)
+  const isLabel = (el) =>
+    el.t === 'text' ||
+    (el.t === 'value' &&
+      /[A-Za-z]/.test(textOf(el)) &&
+      !/^-?\d/.test(textOf(el)));
+  if (!top.every(isLabel)) return null;
+  // the row under it holds lamps or bars, plus printed units after them
+  if (!bottom.some((el) => el.t === 'lamp' || el.t === 'gauge')) return null;
+  if (
+    bottom.some((el) => el.t !== 'lamp' && el.t !== 'gauge' && el.t !== 'text')
+  )
+    return null;
   const caps = top
-    .map((el) => ({
-      col: el.col,
-      text: ((cellOf(el) || {}).text || '').trim(),
-    }))
-    .filter((c) => c.text)
+    .map((el) => ({ col: el.col, text: textOf(el) }))
     .sort((a, b) => a.col - b.col);
   if (!caps.length) return null;
-  const cells = [...bottom].sort((a, b) => a.col - b.col);
+  const sorted = [...bottom].sort((a, b) => a.col - b.col);
   const used = new Set();
   const out = [];
-  for (const el of cells) {
+  for (const el of sorted) {
+    if (el.t === 'text') {
+      // a unit or note printed after a cell belongs to that cell
+      const t = textOf(el);
+      if (!out.length) return null;
+      if (t) {
+        const last = out[out.length - 1];
+        last.trailer = `${last.trailer} ${t}`.trim();
+      }
+      continue;
+    }
     let cap = null;
     for (const c of caps) if (c.col <= el.col + 1) cap = c;
     if (!cap) cap = caps[0];
@@ -173,7 +192,7 @@ function ipoPairCaptionRow(top, bottom, cellOf) {
     const c = cellOf(el);
     out.push({
       caption: cap.text,
-      parts: [cap.text],
+      parts: cap.text ? [cap.text] : [],
       cells: [
         {
           kind: el.t,
