@@ -144,6 +144,10 @@ function ipoMakeUi(ecu, container, back) {
         danger: true,
       }),
     pickComponent: (p, step) => ipoPickComponent(p, step),
+    // INPA's save-as dialog: the browser's own picker where it has one
+    // (Chrome, Edge), else a name for a download
+    saveFile: (p, step) => ipoSaveFilePick(p, step),
+    writeFile: (p, picked, lines) => ipoSaveFileWrite(picked, lines),
     pickLines: (p, names, multiple, current, hints) =>
       ipoPickLines(names, multiple, current, hints),
     // INPA's printscreen: the module view as a clean sheet (print.js)

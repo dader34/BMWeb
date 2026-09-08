@@ -168,7 +168,8 @@ function ipoDllCall(vm, stack) {
   const fmtArg = stack.find(
     (x) => (isPlainStr(x) || isBound(x)) && asStr(x).includes('%')
   );
-  if (!fmtArg || !refs.length) return;
+  if (!fmtArg) return ipoDllFileDialog(vm, stack, refs);
+  if (!refs.length) return;
   const fmt = asStr(fmtArg);
   let value = 0;
   if (refs.length > 1) {
@@ -196,9 +197,50 @@ function ipoDllCall(vm, stack) {
   if (refs.length > 2) storeOut(vm, [refs[refs.length - 1]], text.length);
 }
 
+/**
+ * The other import the scripts call: the "save as" dialog. The whole-vehicle
+ * scripts allocate a 256-byte buffer, call the dialog with (filter, &buffer,
+ * length, &rc), and take the buffer as the file name when rc > 0. Live, the
+ * runtime shows the platform's own picker: the call suspends, and the
+ * resume value (the chosen name, '' for cancel) fills the buffer and rc.
+ * The alloc/free calls around it carry no format and no such shape: no-ops.
+ * @param {IpoVm} vm - the running VM
+ * @param {IpoValue[]} stack - the call's arguments
+ * @param {IpoRef[]} refs - its references
+ * @returns {object|null} a 'file' suspension, or null
+ */
+function ipoDllFileDialog(vm, stack, refs) {
+  const plain = stack.filter((x) => !isRef(x));
+  const isDialog =
+    refs.length === 2 &&
+    plain.length === 2 &&
+    (isPlainStr(plain[0]) || isBound(plain[0])) &&
+    isPlainInt(plain[1]);
+  if (!isDialog) return null;
+  return { kind: 'file', filter: asStr(plain[0]), stack, out: vm.out };
+}
+
+/**
+ * The picker's answer into the dialog's refs: the buffer takes the name,
+ * rc its length (0 = cancelled, the script then does nothing).
+ * @param {IpoVm} vm - the running VM
+ * @param {IpoValue[]} stack - the parked call's arguments
+ * @param {string} name - the chosen file name ('' when cancelled)
+ * @returns {void}
+ */
+function ipoDllFileAnswer(vm, stack, name) {
+  const refs = stack.filter(isRef);
+  const text = name == null ? '' : String(name);
+  if (refs.length < 2) return;
+  storeOut(vm, [refs[0]], text);
+  storeOut(vm, [refs[1]], text.length);
+}
+
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     IPO_STRUCT_FNS,
+    ipoDllFileDialog,
+    ipoDllFileAnswer,
     ipoStringBytes,
     ipoStructureCall,
     ipoDllCall,

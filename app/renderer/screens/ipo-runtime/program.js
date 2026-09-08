@@ -159,6 +159,12 @@ class IpoProgram {
     this.log = [];
     /** @type {IpoWireRead[]} the current body's answers (protocol.js) */
     this.wireReads = [];
+    /**
+     * Files the save-as dialog named this body, by name: the picker's
+     * handle (or null for a download) until the body's end writes them.
+     * @type {Map<string, {name: string, handle?: object}>}
+     */
+    this.pendingSaves = new Map();
     /** @type {IpoMessage[]} messageboxes shown, in order */
     this.messages = [];
     this.hops = 0;
@@ -255,6 +261,15 @@ class IpoProgram {
         const got = await this.ui.askInput(step, ctx && ctx.label);
         if (got == null) return { done: false, cancelled: true };
         step = vm.resume(got);
+      } else if (step.kind === 'file') {
+        // INPA's save-as dialog: the platform's picker names the file; the
+        // script writes it in the VM and the body's end hands it over
+        const picked =
+          typeof this.ui.saveFile === 'function'
+            ? await this.ui.saveFile(this, step)
+            : null;
+        if (picked && picked.name) this.pendingSaves.set(picked.name, picked);
+        step = vm.resume(picked ? picked.name : '');
       } else if (step.kind === 'message') {
         this.reflect(vm.out);
         this.messages.push({ title: step.title, body: step.body });
@@ -746,6 +761,24 @@ class IpoProgram {
   }
 
   /**
+   * The files the body wrote under names the save-as dialog chose go to
+   * the platform: through the picker's handle, else as a download.
+   * @returns {Promise<void>}
+   */
+  async flushSavedFiles() {
+    for (const [name, picked] of this.pendingSaves) {
+      const lines = this.vm && this.vm.files ? this.vm.files.get(name) : null;
+      if (!lines || typeof this.ui.writeFile !== 'function') continue;
+      try {
+        await this.ui.writeFile(this, picked, lines);
+      } catch (e) {
+        this.ui.error(this, `save ${name}: ${e.message}`);
+      }
+    }
+    this.pendingSaves.clear();
+  }
+
+  /**
    * The user pressed Cancel on the progress window: the running body ends
    * before its next job (the one on the wire finishes first).
    * @returns {void}
@@ -1136,6 +1169,7 @@ class IpoProgram {
       this.busy = false;
     }
     if (this.closed || gen !== this.gen) return true;
+    await this.flushSavedFiles();
     if (result.exit || out.exit) return this.leaveModule();
     if (result.cancelled) {
       this.closeUserbox();

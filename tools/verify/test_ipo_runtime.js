@@ -265,6 +265,11 @@ function fakeUi(opts = {}) {
       return opts.decline ? false : true;
     },
     pickComponent: async () => (opts.pick != null ? opts.pick : null),
+    // INPA's save-as dialog and the write that follows the body
+    saveFile: async () => (opts.saveAs ? { name: opts.saveAs } : null),
+    writeFile: async (p, picked, lines) => {
+      ui.saved = (ui.saved || []).concat({ name: picked.name, lines });
+    },
     // INPA's progress window as the script fills it (null = closed)
     userbox: (p, box) => {
       ui.boxes = (ui.boxes || []).concat(
@@ -1842,34 +1847,13 @@ const sysSet = (sgbd) => ({
     assert.ok(k1 && !k1.hidden && k1.label === 'FS lesen', 'F1 stays');
     ok('E46.IPO: setitem relabels and shows keys live');
 
-    // Cancel on the progress window: the body ends before its next job and
-    // the window closes; the menu is still up
-    vsent.length = 0;
-    vui.boxes = [];
-    let cancelAt = 0;
-    global.api = ((orig) => async (url, opts) => {
-      const r = await orig(url, opts);
-      if (/d_0080/.test(url) && !cancelAt) {
-        cancelAt = vsent.length;
-        vp.cancel();
-      }
-      return r;
-    })(global.api);
-    await vp.press(lesen.nr);
-    await vuntil(() => !vp.busy);
-    assert.ok(cancelAt > 0, 'the cancel fired during the read');
-    assert.ok(
-      vsent.length <= cancelAt + 1,
-      `no further jobs after Cancel: ${vsent.length} vs ${cancelAt}`
-    );
-    assert.strictEqual(vui.boxes[vui.boxes.length - 1], null, 'window closed');
-    assert.strictEqual(vp.menu, 'm_fs', 'the menu stays');
-    ok('E46.IPO: Cancel ends the read between two jobs');
-
     const lines = vp.view.lines;
     const has = (re) => lines.some((l) => re.test(l));
     assert.ok(has(/F E H L E R S P E I C H E R/), 'protocol title');
-    assert.ok(has(/^D_00A4 \*/), 'a silent module is marked *');
+    assert.ok(
+      has(/^D_00A4 \*/),
+      `a silent module is marked *: ${lines.length} lines; first: ${JSON.stringify(lines.slice(0, 3))}; 00A4: ${JSON.stringify(lines.filter((l) => /00A4/.test(l)).map((l) => l.slice(0, 60)))}`
+    );
     assert.ok(has(/^MS450DS0 1\s+Motor/), 'the engine counts one fault');
     assert.ok(has(/^D_0080 0\s+Instrumentenkombi/), 'a clean module counts 0');
     assert.ok(
@@ -1931,6 +1915,63 @@ const sysSet = (sgbd) => ({
       );
       ok('E46.IPO: printing the protocol');
     }
+
+    // Shift+F9 "FS speichern": the comment is typed (two text lines), the
+    // save-as dialog names the file, the script writes it in the VM and the
+    // runtime hands it to the platform
+    vui.askInput = async (step) =>
+      step.name === 'input2text' ? ['brake job notes', ''] : 0;
+    vui.saveFile = async () => ({ name: 'e46-faults.txt' });
+    const save = vp.items.find((it) => it.nr === 19);
+    assert.ok(save && !save.hidden, 'the save key is offered after the read');
+    await vp.press(save.nr);
+    await vuntil(() => !vp.busy);
+    const saved = vui.saved || [];
+    assert.strictEqual(
+      saved.length,
+      1,
+      `one file saved: ${JSON.stringify(saved.map((s) => s.name))}`
+    );
+    assert.strictEqual(saved[0].name, 'e46-faults.txt');
+    assert.ok(
+      saved[0].lines.some((l) => /K O M M E N T A R/.test(l)),
+      'the comment block'
+    );
+    assert.ok(saved[0].lines.includes('brake job notes'), 'the typed comment');
+    assert.ok(
+      saved[0].lines.some((l) => /F E H L E R S P E I C H E R/.test(l)),
+      'the protocol follows the comment'
+    );
+    assert.ok(
+      vp.view &&
+        /Fehlerspeicher speichern: e46-faults\.txt/.test(vp.view.title || ''),
+      `the script views the saved file: ${vp.view && vp.view.title}`
+    );
+    ok('E46.IPO: Save fault memory writes the protocol with the comment');
+
+    // Cancel on the progress window: the body ends before its next job and
+    // the window closes; the menu is still up
+    vsent.length = 0;
+    vui.boxes = [];
+    let cancelAt = 0;
+    global.api = ((orig) => async (url, opts) => {
+      const r = await orig(url, opts);
+      if (/d_0080/.test(url) && !cancelAt) {
+        cancelAt = vsent.length;
+        vp.cancel();
+      }
+      return r;
+    })(global.api);
+    await vp.press(lesen.nr);
+    await vuntil(() => !vp.busy);
+    assert.ok(cancelAt > 0, 'the cancel fired during the read');
+    assert.ok(
+      vsent.length <= cancelAt + 1,
+      `no further jobs after Cancel: ${vsent.length} vs ${cancelAt}`
+    );
+    assert.strictEqual(vui.boxes[vui.boxes.length - 1], null, 'window closed');
+    assert.strictEqual(vp.menu, 'm_fs', 'the menu stays');
+    ok('E46.IPO: Cancel ends the read between two jobs');
     vp.close();
   }
 

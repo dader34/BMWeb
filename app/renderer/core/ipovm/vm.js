@@ -17,6 +17,19 @@
 const IPO_DEFAULT_BUDGET = 200000;
 
 /** How many reference hops _refTarget follows before giving up. */
+/** the comparisons a never-written local takes its default in */
+const IPO_CMP_OPS = new Set(['eq', 'ne', 'lt', 'gt', 'le', 'ge']);
+
+/**
+ * What an unwritten local is worth beside `other` at run time: '' beside a
+ * string, 0 otherwise.
+ * @param {IpoValue} other - the operand on the other side
+ * @returns {IpoValue}
+ */
+function ipoSlotDefault(other) {
+  return isPlainStr(other) || isBound(other) ? '' : 0;
+}
+
 const IPO_REF_MAX_HOPS = 8;
 
 /** How far back of a Result* call _harvestReads looks for its key. */
@@ -614,6 +627,18 @@ class IpoVm {
         this._storeInputAnswer(s, value);
         s.pendingStack = null;
       }
+    } else if (s.pending === 'file') {
+      // the picker's answer: the chosen name, '' when cancelled
+      if (s.pendingStack) {
+        const prevFrame = this.frame;
+        this.frame = s.frame;
+        try {
+          ipoDllFileAnswer(this, s.pendingStack, value);
+        } finally {
+          this.frame = prevFrame;
+        }
+        s.pendingStack = null;
+      }
     } else if (s.pending === 'toggle') {
       // the pick: run the parked togglelist with it, then step past it
       if (value != null) {
@@ -742,7 +767,11 @@ class IpoVm {
           // user prompt / message / picker (it asks and hands the answer
           // back), or the script's own exit
           s.pending = sig.kind;
-          if (sig.kind === 'input' || sig.kind === 'toggle')
+          if (
+            sig.kind === 'input' ||
+            sig.kind === 'toggle' ||
+            sig.kind === 'file'
+          )
             s.pendingStack = sig.stack;
           return sig;
         }
@@ -791,8 +820,15 @@ class IpoVm {
       val = this._bindPendingBinary(sc, t.n, val);
       this._write(t, s.frame, val);
     } else if (op === 'binop') {
-      const b = stack.length ? stack.pop() : null;
-      const a = t.name === 'neg' ? null : stack.length ? stack.pop() : null; // unary
+      let b = stack.length ? stack.pop() : null;
+      let a = t.name === 'neg' ? null : stack.length ? stack.pop() : null; // unary
+      // a local the script never wrote is 0 (or '' beside a string) when it
+      // runs, as INPA zero-fills its declarations; the offline lift keeps
+      // the slot so a compare on it stays undecided there
+      if (this.wireJobs && IPO_CMP_OPS.has(t.name)) {
+        if (isSlot(a)) a = ipoSlotDefault(b);
+        if (isSlot(b)) b = ipoSlotDefault(a);
+      }
       stack.push(binop(t.name, a, b));
     } else if (op === 'jfalse') {
       const cond = stack.length ? stack.pop() : false;
@@ -817,9 +853,11 @@ class IpoVm {
       s.stack = [];
       if (sig) return sig; // a pending action
     } else if (op === 'dllcall') {
-      // an import32 call: only a live run answers it (see ipoDllCall)
-      if (this.wireJobs) ipoDllCall(this, stack);
+      // an import32 call: only a live run answers it (see ipoDllCall); the
+      // save-as dialog among them is a pending action like an input
+      const sig = this.wireJobs ? ipoDllCall(this, stack) : null;
       s.stack = [];
+      if (sig) return sig;
     } else if (op === 'calluser') {
       const entered = this._pushCall(s, t, stack);
       s.stack = [];

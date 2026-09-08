@@ -189,6 +189,66 @@ function ipoMachineTick(machineEl, step, guards) {
   });
 }
 
+/** what the save-as dialog suggests: the module's protocol as text */
+const IPO_SAVE_SUGGESTED = 'fault-memory.txt';
+
+/**
+ * INPA's save-as dialog. Chrome and Edge open the platform's own picker
+ * (File System Access); elsewhere a name is asked for and the file is
+ * downloaded when the script has written it.
+ * @param {object} p - the running program
+ * @param {{filter: string}} step - the 'file' suspension
+ * @returns {Promise<{name: string, handle?: object}|null>} null = cancelled
+ */
+async function ipoSaveFilePick(p, step) {
+  const suggested = IPO_SAVE_SUGGESTED;
+  if (typeof window.showSaveFilePicker === 'function') {
+    try {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: suggested,
+        types: [{ description: 'Text', accept: { 'text/plain': ['.txt'] } }],
+      });
+      return { name: handle.name, handle };
+    } catch (e) {
+      return null; // AbortError: the user cancelled
+    }
+  }
+  const name = await inputDialog({
+    title: 'Save as',
+    body: 'File name for the download.',
+    kind: 'text',
+    example: suggested,
+    confirmLabel: 'Save',
+  });
+  if (name == null || !String(name).trim()) return null;
+  return { name: String(name).trim() };
+}
+
+/**
+ * Write the lines the script produced to what the picker chose.
+ * @param {{name: string, handle?: object}} picked - the dialog's answer
+ * @param {string[]} lines - the file's lines
+ * @returns {Promise<void>}
+ */
+async function ipoSaveFileWrite(picked, lines) {
+  const text = lines.join('\r\n') + '\r\n';
+  if (picked.handle && typeof picked.handle.createWritable === 'function') {
+    const w = await picked.handle.createWritable();
+    await w.write(text);
+    await w.close();
+    return;
+  }
+  const blob = new Blob([text], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = picked.name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = { ipoPickComponent, ipoPickLines, ipoMachineTick };
 }

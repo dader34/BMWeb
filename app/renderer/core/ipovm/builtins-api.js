@@ -431,15 +431,21 @@ function bFilewrite(vm, stack) {
  * @type {IpoBuiltin}
  */
 function bFileread(vm, stack) {
+  // fileread(&line, &status): status 0 while a line came, else the end --
+  // the save keys copy the protocol with `while (status == 0)`
   let line = '';
+  let status = 1;
   if (vm.fh && vm.fh.mode === 'r') {
     const lines = vm.files.get(vm.fh.path) || [];
     if (vm.fh.line < lines.length) {
       line = lines[vm.fh.line];
       vm.fh.line += 1;
+      status = 0;
     }
   }
-  storeOut(vm, stack, line);
+  const refs = stack.filter(isRef);
+  if (refs.length) storeOut(vm, [refs[0]], line);
+  if (refs.length > 1) storeOut(vm, [refs[1]], status);
 }
 
 /**
