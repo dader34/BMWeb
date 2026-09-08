@@ -507,50 +507,8 @@ html.no-chrome body.apps-section .topbar {
 .nav-back[hidden] {
   display: none !important;
 }
-/* Battery / Ignition indicators */
-.kl-state {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 5px 12px;
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  background: var(--panel);
-}
-.kl {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-/* outline ring, fills solid when on (no glow) */
-.kl-led {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: transparent;
-  border: 1.5px solid var(--ink);
-  flex: none;
-}
-.kl-led.on {
-  background: var(--ink);
-  border-color: var(--ink);
-}
-.kl-led.off {
-  background: transparent;
-}
-.kl-lbl {
-  font-family: var(--mono);
-  font-size: 10px;
-  letter-spacing: 0.04em;
-  color: var(--ink-dim);
-}
-.kl-val {
-  font-family: var(--mono);
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--ink);
-  min-width: 32px;
-}
+/* Battery / Ignition indicators *
+/* outline ring, fills solid when on (no glow) *
 .icon-btn {
   -webkit-app-region: no-drag;
   cursor: pointer;
@@ -6077,19 +6035,10 @@ body.apps-section .view {
     flex: 0 0 auto;
   }
   /* THE BAR HOLDS FOUR THINGS AND HAS ROOM FOR TWO. Measured at 320px:
-     kl-state 128px + status 97px + two buttons at 74px each = 373px in a
+     status 97px + two buttons at 74px each = 373px in a
      199px track, so Flashing and Settings sat off the end of a scroll
      nobody would find. Cut every label down to the glyph that carries it. */
-  .kl-lbl {
-    display: none;
-  } /* "Battery" / "Ignition" */
-  .kl-state {
-    padding: 4px 6px;
-    gap: 8px;
-  }
-  .kl-val {
-    min-width: 0;
-  }
+  /* "Battery" / "Ignition" *
   /* the connection LED is the signal; the text is a desktop luxury */
   .status #link-text {
     display: none;
@@ -6894,68 +6843,12 @@ body.apps-section .view {
     gap: 22px;
     min-width: 0;
   }
-  .mtab-status .kl-state {
-    display: flex;
-    align-items: stretch;
-    gap: 22px;
-    background: none;
-    border: 0;
-    padding: 0;
-  }
-  .mtab-status .kl,
-  .mtab-status .status {
-    display: grid;
-    grid-template-rows: 12px 18px;
-    row-gap: 4px;
-    justify-items: center;
-    align-content: center;
-    background: none;
-    border: 0;
-    padding: 0;
-  }
-  .mtab-status .kl-lbl {
-    grid-row: 1;
-    display: block;
-    font-size: 9px;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    line-height: 12px;
-    text-transform: uppercase;
-    color: var(--ios-faint);
-  }
   /* the indicator row: a lamp OR a value, always vertically centred in an
-     18px band so all three baselines match */
-  .mtab-status .kl-led,
-  .mtab-status .status .led {
-    grid-row: 2;
-    align-self: center;
-    width: 9px;
-    height: 9px;
-    border-radius: 50%;
-    background: #3a3f47;
-    transition:
-      box-shadow 0.2s,
-      background 0.2s;
-  }
-  .mtab-status .kl-val {
-    grid-row: 2;
-    align-self: center;
-    font-size: 14px;
-    font-weight: 700;
-    color: var(--ios-dim);
-    font-variant-numeric: tabular-nums;
-    line-height: 18px;
-  }
+     18px band so all three baselines match *
   /* battery: the voltage IS the readout, so drop its lamp */
-  .kl:has(#bat-val) .kl-led {
-    display: none;
-  }
   #bat-led.on {
     background: #34c759;
     box-shadow: 0 0 7px 1px rgba(52, 199, 89, 0.7);
-  }
-  .kl:has(#bat-led.on) #bat-val {
-    color: #34c759;
   }
   /* ignition: a single lamp, no text value doubling it up */
   #ign-led.on {

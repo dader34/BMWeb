@@ -272,24 +272,16 @@ function settingRow(title, desc, options, current, onChange) {
 }
 
 // ---------- connection status ----------
-// Battery (KL30) + Ignition (KL15) refs at module scope: nav.js syncVselState mirrors them into its own KL display
-const batLed = document.getElementById('bat-led');
-const batVal = document.getElementById('bat-val');
-const ignLed = document.getElementById('ign-led');
-const ignVal = document.getElementById('ign-val');
-
-// Connection-status poller. Paints #led (host/cable) fast, and KL30/KL15
-// (battery+ignition, a real DME transaction) slowly. Driven via refresh()/start().
+// Connection-status poller: paints #led (engine/cable). The cable also
+// announces itself (the bus fires 'bmweb-cable' on unplug/replug), so the
+// chip changes at once rather than on the next tick. Driven via refresh()/start().
 /**
- * The topbar connection poller: a fast engine/cable check and a slow
- * battery/ignition read, each painting its indicators.
+ * The topbar connection poller: an engine/cable check painting the chip.
  */
 class StatusPoller {
   constructor() {
     /** Whether the diagnostic engine answered its health check. */
     this.engineUp = false;
-    /** Timestamp of the last battery/ignition read, for the slow cadence. */
-    this.lastStatePoll = 0;
     /** The poll interval handle. @type {ReturnType<typeof setInterval>|null} */
     this.timer = null;
   }
@@ -335,75 +327,14 @@ class StatusPoller {
   }
 
   /**
-   * Read battery (KL30) and ignition (KL15) and paint their indicators; a flash
-   * in progress holds the bus, so the read is skipped.
-   * @param {string|null} port - The attached port, or null to clear.
-   * @returns {Promise<void>}
-   */
-  async _pollState(port) {
-    if (!this.engineUp || !port || flashing) {
-      // during a flash, leave the last reading and skip the bus
-      if (!flashing) {
-        batLed.className = 'kl-led off';
-        batVal.textContent = '-';
-        ignLed.className = 'kl-led off';
-        ignVal.textContent = '-';
-      }
-      return;
-    }
-    try {
-      const s = await api(
-        '/api/state' +
-          (stateSgbd ? `?sgbd=${encodeURIComponent(stateSgbd)}` : '')
-      );
-      if (s.battery != null) {
-        batLed.className = 'kl-led on';
-        // on/off, like INPA's own start screen -- it shows a lamp and the word,
-        // never a number. A measured voltage would be worth printing; the value
-        // we have for a sense-less adapter is UTILITY's nominal, so showing it
-        // would read as a measurement it isn't.
-        batVal.textContent = 'on';
-      } else {
-        batLed.className = 'kl-led off';
-        batVal.textContent = 'off';
-      }
-      const klEl = document.getElementById('kl-state');
-      if (klEl && s.detail) klEl.title = s.detail;
-      if (s.ignition === true) {
-        ignLed.className = 'kl-led on';
-        ignVal.textContent = 'on';
-      } else if (s.ignition === false) {
-        ignLed.className = 'kl-led off';
-        ignVal.textContent = 'off';
-      } else {
-        ignLed.className = 'kl-led off';
-        ignVal.textContent = '-';
-      }
-    } catch {
-      batLed.className = 'kl-led off';
-      batVal.textContent = '-';
-      ignLed.className = 'kl-led off';
-      ignVal.textContent = '-';
-    }
-  }
-
-  // poll battery/ignition slowly (~12s) and only with a cable: hammering the DME collides with other reads and can wake/sleep the bus
-  /**
-   * One poll cycle: engine, cable, and (throttled) battery/ignition.
+   * One poll cycle: engine, then cable; the INPA start screen's own lamps
+   * follow the cable.
    * @returns {Promise<void>}
    */
   async refresh() {
     await this._pollEngine();
-    const port = await this._pollCable();
-    const now = Date.now();
-    if (port && now - this.lastStatePoll > 12000) {
-      this.lastStatePoll = now;
-      await this._pollState(port);
-      if (typeof syncVselState === 'function') syncVselState();
-    } else if (!port) {
-      await this._pollState(null); // clear the indicators when unplugged
-      if (typeof syncVselState === 'function') syncVselState();
-    }
+    await this._pollCable();
+    if (typeof syncVselState === 'function') syncVselState();
   }
 
   /**
@@ -533,15 +464,12 @@ function setupMobileTabbar() {
   if (gear)
     gear.onclick = () =>
       typeof showSettings === 'function' ? showSettings() : null;
-  const kl = document.getElementById('kl-state');
   const cable = document.getElementById('link-status');
   if (isMobile) {
-    if (kl && kl.parentElement !== host) host.appendChild(kl);
     if (cable && cable.parentElement !== host) host.appendChild(cable);
   } else {
     // restore to the top bar if the viewport grew past the breakpoint
     const right = document.querySelector('.topbar-right');
-    if (right && kl && kl.parentElement === host) right.prepend(kl);
     if (right && cable && cable.parentElement === host) {
       const btn = document.getElementById('settings-btn');
       right.insertBefore(cable, btn);
@@ -594,7 +522,6 @@ function setupMobileTabbar() {
         linkText.textContent = e.message;
         return;
       }
-      statusPoller.lastStatePoll = 0; // show battery/ignition now, not in 12 s
       await statusPoller.refresh();
     };
 
@@ -604,6 +531,12 @@ function setupMobileTabbar() {
     // the PORT PICKER, a user gesture the browser refuses on page load. The
     // native bridge exposes no reconnect() -- its shell owns the port -- so
     // the chip click is the only entry there.
+    // the bus fires this when the port goes away or comes back (Web Serial's
+    // own disconnect/connect events), so the chip never claims a cable that
+    // was pulled minutes ago
+    window.addEventListener('bmweb-cable', () => {
+      statusPoller.refresh();
+    });
     const canSilentReconnect = typeof webBus.reconnect === 'function';
     if (canSilentReconnect && !webBus.connected) {
       linkText.textContent = 'reconnecting…';
@@ -618,7 +551,6 @@ function setupMobileTabbar() {
             linkText.textContent = 'no cable';
             return;
           }
-          statusPoller.lastStatePoll = 0;
           return statusPoller.refresh();
         })
         .catch(() => {

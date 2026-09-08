@@ -173,16 +173,6 @@ function tourSteps() {
         'not. With no cable connected you can still browse every screen ' +
         'offline, so feel free to explore before you plug in.',
     },
-    {
-      screen: 'home',
-      sel: '#kl-state',
-      title: 'Battery & ignition',
-      body:
-        'Live battery voltage and ignition state, read from the engine ' +
-        'ECU once a cable is connected. If the voltage shows but ' +
-        'ignition stays off, turn the key to position 2 before running ' +
-        'diagnostics.',
-    },
     classic
       ? {
           screen: 'home',

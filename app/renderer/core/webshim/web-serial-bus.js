@@ -86,7 +86,69 @@ class WebSerialBus extends SerialTransportBase {
     this.writer = this.port.writable.getWriter();
     this.reader = this.port.readable.getReader();
     this._resetWireState();
+    this._watchPort();
     return this.portLabel();
+  }
+
+  /**
+   * Hear the cable being pulled. Web Serial fires `disconnect` on the port
+   * when its device goes away; until then a pulled cable looked connected
+   * (`this.port` was still set) and the chip said so until a reload. Drop
+   * the wire state and tell the app (a `bmweb-cable` event on window), then
+   * watch for the device coming back and reopen it silently.
+   * @returns {void}
+   */
+  _watchPort() {
+    const port = this.port;
+    if (!port || typeof port.addEventListener !== 'function') return;
+    port.addEventListener('disconnect', () => this._portGone(port), {
+      once: true,
+    });
+    if (!this._replugWatched && typeof navigator !== 'undefined') {
+      const serial = navigator.serial;
+      if (serial && typeof serial.addEventListener === 'function') {
+        this._replugWatched = true;
+        serial.addEventListener('connect', () => {
+          if (this.connected) return;
+          this.reconnect()
+            .then((label) => {
+              if (label) this._announce(true);
+            })
+            .catch(() => {});
+        });
+      }
+    }
+  }
+
+  /**
+   * The port's device is gone: forget it without trying to close it (there
+   * is nothing to close), then announce.
+   * @param {SerialPort} port - the port that fired
+   * @returns {void}
+   */
+  _portGone(port) {
+    if (this.port !== port) return; // already replaced
+    console.info('[serial] the cable was unplugged');
+    this._releaseStreams().catch(() => {});
+    this.port = this.reader = this.writer = null;
+    this._resetWireState();
+    this._announce(false);
+  }
+
+  /**
+   * Tell the app the cable state changed.
+   * @param {boolean} connected - whether a port is open now
+   * @returns {void}
+   */
+  _announce(connected) {
+    if (typeof window === 'undefined' || !window.dispatchEvent) return;
+    try {
+      window.dispatchEvent(
+        new CustomEvent('bmweb-cable', { detail: { connected } })
+      );
+    } catch {
+      /* no CustomEvent: nothing to announce to */
+    }
   }
 
   /**
@@ -139,6 +201,7 @@ class WebSerialBus extends SerialTransportBase {
     this.writer = this.port.writable.getWriter();
     this.reader = this.port.readable.getReader();
     this._resetWireState();
+    this._watchPort();
     console.info(
       '[serial] reconnected to a previously-granted port, no picker'
     );

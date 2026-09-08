@@ -454,22 +454,29 @@ function showOtherModels(ids) {
   );
 }
 
-// mirror topbar Battery/Ignition state into the INPA vehicle-select indicators
 /**
- * Mirror the topbar KL30/KL15 state into the INPA vehicle-select lamps.
- * No-op when that screen is not up.
- * @returns {void}
+ * INPA's start screen shows Battery / Ignition lamps; paint them from the
+ * cable's modem lines (/api/state, the same DSR read INPA makes). No-op when
+ * that screen is not up; off with no cable.
+ * @returns {Promise<void>}
  */
-function syncVselState() {
+async function syncVselState() {
   const bs = document.getElementById('vsel-bat'),
     bv = document.getElementById('vsel-bat-s');
   const is = document.getElementById('vsel-ign'),
     iv = document.getElementById('vsel-ign-s');
   if (!bs) return;
-  const batOn = batLed && batLed.classList.contains('on');
-  const ignOn = ignLed && ignLed.classList.contains('on');
+  let st = { battery: null, ignition: null };
+  try {
+    st = await api('/api/state');
+  } catch {
+    /* no engine: lamps off */
+  }
+  if (!document.getElementById('vsel-bat')) return; // screen changed meanwhile
+  const batOn = st.battery != null;
+  const ignOn = st.ignition === true;
   bs.className = 'inpa-kl-led' + (batOn ? ' on' : '');
-  bv.textContent = batOn ? batVal.textContent : 'off';
+  bv.textContent = batOn ? 'on' : 'off';
   is.className = 'inpa-kl-led' + (ignOn ? ' on' : '');
   iv.textContent = ignOn ? 'on' : 'off';
 }
