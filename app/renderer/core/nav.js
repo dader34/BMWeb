@@ -408,6 +408,9 @@ async function showFunctionalJobs(chassisId) {
   ]);
 }
 
+/** the whole-vehicle scripts' fault-memory menu (E46.IPO: m_fs) */
+const IPO_VEHICLE_FAULT_MENU = 'm_fs';
+
 /**
  * Whether INPA's whole-vehicle script for a chassis ships (e46.prg-less
  * E46.IPO packed under the chassis stem by the export).
@@ -645,9 +648,9 @@ async function showSections(id, selectIndex = 0) {
   if (hasScript) {
     const scan = document.createElement('button');
     scan.className = 'sys-item sys-scan';
-    scan.innerHTML = `<span class="nav-name">INPA script</span>
+    scan.innerHTML = `<span class="nav-name">Error scan</span>
                     <span class="nav-count">all</span>`;
-    scan.onclick = () => showVehicleScript(id);
+    scan.onclick = () => showVehicleScript(id, IPO_VEHICLE_FAULT_MENU);
     nav.appendChild(scan);
   }
 
@@ -673,8 +676,8 @@ async function showSections(id, selectIndex = 0) {
   if (hasScript) {
     actions.push({
       key: '9',
-      label: 'INPA script',
-      fn: () => showVehicleScript(id),
+      label: 'Error scan',
+      fn: () => showVehicleScript(id, IPO_VEHICLE_FAULT_MENU),
     });
   }
   if (wiringKey) actions.push(wiringKey);

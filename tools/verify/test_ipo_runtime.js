@@ -1758,6 +1758,37 @@ const sysSet = (sgbd) => ({
           system: sys,
           sets: [{ FGNR: 'WBAET37001NJ12345', JOB_STATUS: 'OKAY' }],
         };
+      if (job === 'INFO')
+        return {
+          system: sys,
+          sets: [
+            {
+              REVISION: '2.01',
+              ECU: variant.toUpperCase(),
+              JOB_STATUS: 'OKAY',
+            },
+          ],
+        };
+      if (job === 'IDENT')
+        return {
+          system: sys,
+          sets: [
+            {
+              JOB_STATUS: 'OKAY',
+              VARIANTE: variant.toUpperCase(),
+              ID_DATUM_KW: '03',
+              ID_DATUM_JAHR: '02',
+              ID_BMW_NR: '7514586',
+              ID_HW_NR: '00',
+              ID_SW_NR: '02',
+              ID_LIEF_TEXT: 'Siemens',
+              ID_LIEF_NR: 1,
+              ID_COD_INDEX: 5,
+              ID_VAR_INDEX: 3,
+              ID_DIAG_INDEX: 7,
+            },
+          ],
+        };
       if (job === 'FS_LESEN' && variant === 'ms450ds0')
         return { system: sys, sets: [fault, { JOB_STATUS: 'OKAY' }] };
       if (job === 'FS_LESEN_DETAIL')
@@ -1972,6 +2003,45 @@ const sysSet = (sgbd) => ({
     assert.strictEqual(vui.boxes[vui.boxes.length - 1], null, 'window closed');
     assert.strictEqual(vp.menu, 'm_fs', 'the menu stays');
     ok('E46.IPO: Cancel ends the read between two jobs');
+
+    // F2 Ident from the main menu: one IDENT per group, the protocol is an
+    // identification report (kind 'ident') with the module's record
+    await vp.press(10); // Zurück: back to m_main
+    await vuntil(() => vp.menu === 'm_main' && !vp.busy);
+    const identKey = vp.items.find((it) => it.label === 'Ident');
+    assert.ok(
+      identKey,
+      `Ident key: ${JSON.stringify(vp.items.map((i) => i.label))}`
+    );
+    vsent.length = 0;
+    await vp.press(identKey.nr);
+    await vuntil(() => !vp.busy && !!vp.view && vp.view.report);
+    const irep = vp.view.report;
+    assert.ok(
+      irep && irep.kind === 'ident',
+      `an ident report: ${irep && irep.kind}`
+    );
+    // the climate module: its group resolves to ihka46_3 in the fake car
+    const ieng = irep.modules.find((m) => m.sgbd === 'ihka46_3');
+    assert.ok(
+      ieng && ieng.ident,
+      `the climate module answered IDENT: ${JSON.stringify(irep.modules.map((x) => x.sgbd))}`
+    );
+    assert.strictEqual(ieng.ident.ID_BMW_NR, '7514586', 'its part number');
+    assert.strictEqual(
+      ieng.ident.REVISION,
+      '2.01',
+      "INFO's revision rides along"
+    );
+    assert.ok(
+      irep.silent.some((s) => s.target === 'd_00a4'),
+      `silent addresses listed: ${JSON.stringify(irep.silent.map((s) => s.target))}`
+    );
+    assert.ok(
+      vsent.filter((s) => s.job === 'IDENT').length >= 30,
+      `IDENT went to every group: ${vsent.filter((s) => s.job === 'IDENT').length}`
+    );
+    ok('E46.IPO: Ident reads every module into an identification report');
     vp.close();
   }
 

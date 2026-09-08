@@ -12,6 +12,31 @@
 const IPO_FAULT_READ_RE = /^(FS|IS)_LESEN$/;
 /** the per-fault detail read the same script sends afterwards */
 const IPO_FAULT_DETAIL_RE = /^(FS|IS)_LESEN_DETAIL$/;
+/** the identification read the same script sends per module (F2 Ident) */
+const IPO_IDENT_READ_RE = /^IDENT$/;
+/** the module info read that precedes it (REVISION, ECU) */
+const IPO_INFO_READ_RE = /^INFO$/;
+/**
+ * The identification fields the script prints, in its order, with the
+ * caption each row gets. A pair of keys is one row (week / year).
+ * @type {Array<[string[], string]>}
+ */
+const IPO_IDENT_ROWS = [
+  [['VARIANTE'], 'Variant'],
+  [['REVISION'], 'Version'],
+  [['ID_BMW_NR'], 'BMW part number'],
+  [['ID_HW_NR'], 'Hardware number'],
+  [['ID_SW_NR'], 'Software number'],
+  [['ID_LIEF_TEXT'], 'Supplier'],
+  [['ID_LIEF_NR'], 'Supplier number'],
+  [['ID_COD_INDEX'], 'Coding index'],
+  [['ID_VAR_INDEX'], 'Variant index'],
+  [['ID_DIAG_INDEX'], 'Diagnosis index'],
+  [['ID_BUS_INDEX'], 'Bus index'],
+  [['ID_DATUM_KW', 'ID_DATUM_JAHR'], 'Build date (week/year)'],
+  [['FG_NR'], 'Chassis number'],
+  [['COD_AE_INDEX'], 'Coding data change index'],
+];
 /** the protocol's overview line: "MRS4 2    Airbag ..." / "D_009C *    Cabrio ..." */
 const IPO_PROTOCOL_OVERVIEW_RE = /^(\S+)\s+(\d+|\*)\s+(\S.*)$/;
 
@@ -31,10 +56,12 @@ const IPO_PROTOCOL_OVERVIEW_RE = /^(\S+)\s+(\d+|\*)\s+(\S.*)$/;
  * @property {string} via - the group it was reached through
  * @property {string} label - the module's name (the script's, or the app's)
  * @property {object[]} codes - FS_LESEN entries, detail merged in
+ * @property {object} [ident] - the IDENT answer (and INFO's REVISION) for an ident read
  */
 
 /**
  * @typedef {object} IpoProtocolReport
+ * @property {'faults'|'ident'} kind - what the read was: fault memories, or identifications
  * @property {IpoProtocolModule[]} modules - every module that answered, script order
  * @property {{target: string, label: string, error: string}[]} silent - addresses that did not
  * @property {boolean} showText - the viewer is on INPA's text, not the table
@@ -50,15 +77,45 @@ function ipoProtocolReport(reads, lines) {
   const names = ipoProtocolNames(lines);
   const modules = new Map();
   const silent = new Map();
+  let kind = 'faults';
+  const first = (sets) => (sets || []).find((s) => Object.keys(s).length) || {};
+  /** INFO answers by module: the script asks INFO before IDENT */
+  const revisions = new Map();
   for (const r of reads || []) {
     const job = String(r.job || '').toUpperCase();
     if (r.error) {
-      if (IPO_FAULT_READ_RE.test(job) && !silent.has(r.target))
+      if (
+        (IPO_FAULT_READ_RE.test(job) || IPO_IDENT_READ_RE.test(job)) &&
+        !silent.has(r.target)
+      )
         silent.set(r.target, r.error);
       continue;
     }
     const sgbd = String(r.variant || r.target).toLowerCase();
-    if (IPO_FAULT_READ_RE.test(job)) {
+    if (IPO_IDENT_READ_RE.test(job)) {
+      // F2 Ident: one IDENT per group, its answer is the module's record
+      kind = 'ident';
+      silent.delete(r.target);
+      if (!modules.has(sgbd)) {
+        modules.set(sgbd, {
+          sgbd,
+          via: String(r.target).toLowerCase(),
+          label:
+            names.get(sgbd) ||
+            names.get(String(r.target).toLowerCase()) ||
+            sgbd,
+          codes: [],
+          ident: { REVISION: revisions.get(sgbd), ...first(r.sets) },
+        });
+      }
+    } else if (IPO_INFO_READ_RE.test(job)) {
+      // INFO runs first: its REVISION is the version the script prints
+      const rev = first(r.sets).REVISION;
+      if (rev != null) revisions.set(sgbd, rev);
+      const m = modules.get(sgbd);
+      if (m && m.ident && rev != null && m.ident.REVISION == null)
+        m.ident.REVISION = rev;
+    } else if (IPO_FAULT_READ_RE.test(job)) {
       silent.delete(r.target);
       const codes = (r.sets || []).filter((c) => c.F_HEX_CODE || c.F_ORT_NR);
       const m = modules.get(sgbd);
@@ -91,6 +148,7 @@ function ipoProtocolReport(reads, lines) {
   }
   // a group the script asked again by its variant name is one module
   return {
+    kind,
     modules: [...modules.values()],
     silent: [...silent.entries()].map(([target, error]) => ({
       target,
@@ -158,9 +216,12 @@ async function ipoProtocolRender(el, p) {
   const withFaults = rep.modules.filter((m) => m.codes.length);
   const total = withFaults.reduce((n, m) => n + m.codes.length, 0);
   const head =
-    `${withFaults.length} module${withFaults.length === 1 ? '' : 's'} with faults · ` +
-    `${total} fault${total === 1 ? '' : 's'} · ` +
-    `${rep.modules.length} read · ${rep.silent.length} no response`;
+    rep.kind === 'ident'
+      ? `${rep.modules.length} module${rep.modules.length === 1 ? '' : 's'} answered · ` +
+        `${rep.silent.length} no response`
+      : `${withFaults.length} module${withFaults.length === 1 ? '' : 's'} with faults · ` +
+        `${total} fault${total === 1 ? '' : 's'} · ` +
+        `${rep.modules.length} read · ${rep.silent.length} no response`;
   // the bar (counts + the toggle) stays whichever side is showing
   el.innerHTML =
     `<div class="quick-sweep ipo-protocol-report">` +
@@ -186,6 +247,14 @@ async function ipoProtocolRender(el, p) {
   if (p.view !== view) return; // the script moved on while the DB loaded
   for (const m of rep.modules) {
     const row = addSweepRow(rowsEl, ipoText(m.label || m.sgbd));
+    if (rep.kind === 'ident') {
+      // identification: the module answered; its record under it
+      row.classList.add('clean');
+      row.querySelector('.quick-status').textContent = m.sgbd;
+      ipoProtocolIdentRows(row, m);
+      ipoProtocolBetterLabel(m, row, null);
+      continue;
+    }
     if (!m.codes.length) {
       row.classList.add('clean');
       row.querySelector('.quick-status').textContent = 'OK';
@@ -206,6 +275,36 @@ async function ipoProtocolRender(el, p) {
     const row = addSweepRow(rowsEl, ipoText(s.label));
     setRowNoResponse(row, 'no response');
   }
+}
+
+/**
+ * The identification record under a module's row: the fields the script
+ * prints, in its order, only those the module answered.
+ * @param {HTMLElement} row - the module's row
+ * @param {IpoProtocolModule} m
+ * @returns {void}
+ */
+function ipoProtocolIdentRows(row, m) {
+  const id = m.ident || {};
+  const val = (keys) =>
+    keys
+      .map((k) => (id[k] == null ? '' : String(id[k]).trim()))
+      .filter((v) => v && !v.startsWith('_'))
+      .join(' / ');
+  const items = IPO_IDENT_ROWS.map(([keys, cap]) => [cap, val(keys)]).filter(
+    ([, v]) => v
+  );
+  if (!items.length) return;
+  const wrap = document.createElement('div');
+  wrap.className = 'quick-detail';
+  wrap.innerHTML = items
+    .map(
+      ([cap, v]) =>
+        `<div class="quick-detail-row"><span class="quick-detail-code">${esc(cap)}</span>` +
+        `<span class="quick-detail-name mono">${esc(v)}</span></div>`
+    )
+    .join('');
+  row.insertAdjacentElement('afterend', wrap);
 }
 
 /**
@@ -263,6 +362,7 @@ function ipoProtocolPrintSections(view) {
   const text = {
     html: `<pre class="pr-screen">${esc((view.lines || []).join('\n'))}</pre>`,
   };
+  if (rep.kind === 'ident') return ipoProtocolIdentPrint(rep, text);
   // the scan report's table helpers (sweep/report.js) draw the tables; a
   // page without them still prints INPA's text
   if (
@@ -305,6 +405,52 @@ function ipoProtocolPrintSections(view) {
   }
   sections.push(printHeading("INPA's protocol"));
   sections.push(text);
+  return sections;
+}
+
+/**
+ * The printed sheet for an identification read: one table of the modules
+ * that answered (part, hardware and software numbers, build week), the
+ * silent addresses, then INPA's text.
+ * @param {IpoProtocolReport} rep
+ * @param {object} text - the section with INPA's text
+ * @returns {object[]} print sections (core/print.js)
+ */
+function ipoProtocolIdentPrint(rep, text) {
+  if (typeof printTable !== 'function') return [text];
+  const sections = [];
+  const t = printTable(
+    ['Module', 'SGBD', 'Part no.', 'HW', 'SW', 'Build wk/yr'],
+    rep.modules.map((m) => {
+      const id = m.ident || {};
+      const v = (k) => (id[k] == null ? '—' : String(id[k]));
+      return [
+        ipoText(m.label),
+        m.sgbd,
+        v('ID_BMW_NR'),
+        v('ID_HW_NR'),
+        v('ID_SW_NR'),
+        `${v('ID_DATUM_KW')}/${v('ID_DATUM_JAHR')}`,
+      ];
+    }),
+    ['', 'pr-code2', 'pr-code2', '', '', '']
+  );
+  t.avoidBreak = false;
+  sections.push(
+    printHeading(
+      `${rep.modules.length} module${rep.modules.length === 1 ? '' : 's'} answered`
+    ),
+    t
+  );
+  if (rep.silent.length)
+    sections.push(
+      printHtml(
+        `<p class="pr-p">No response: ${esc(
+          rep.silent.map((s) => ipoText(s.label)).join(', ')
+        )}</p>`
+      )
+    );
+  sections.push(printHeading("INPA's protocol"), text);
   return sections;
 }
 
