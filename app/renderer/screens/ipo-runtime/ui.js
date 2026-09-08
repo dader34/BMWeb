@@ -26,6 +26,10 @@ function ipoMakeUi(ecu, container, back) {
     titleEl = null,
     statusEl = null,
     machineEl = null;
+  /** INPA's progress window while a body has one open (progressDialog) */
+  let progress = null;
+  /** the viewopen file currently in the DOM (paint keeps it across cycles) */
+  let paintedView = null;
 
   const build = () => {
     container.className = inpa ? 'ipo-view ipo-inpa' : 'ipo-view results-panel';
@@ -140,6 +144,10 @@ function ipoMakeUi(ecu, container, back) {
         danger: true,
       }),
     pickComponent: (p, step) => ipoPickComponent(p, step),
+    // INPA's save-as dialog: the browser's own picker where it has one
+    // (Chrome, Edge), else a name for a download
+    saveFile: (p, step) => ipoSaveFilePick(p, step),
+    writeFile: (p, picked, lines) => ipoSaveFileWrite(picked, lines),
     pickLines: (p, names, multiple, current, hints) =>
       ipoPickLines(names, multiple, current, hints),
     // INPA's printscreen: the module view as a clean sheet (print.js)
@@ -147,10 +155,51 @@ function ipoMakeUi(ecu, container, back) {
     resolveScriptEcu: (from, script, exec) =>
       ipoResolveScriptEcu(from, script, exec),
     machineTick: (p, step, guards) => ipoMachineTick(machineEl, step, guards),
+    // INPA's progress window: a popup with the title, the line the script
+    // wrote last (the module it is asking right now) and Cancel, which ends
+    // the body between two jobs
+    userbox: (p, box) => {
+      if (!box) {
+        if (progress) progress.close();
+        progress = null;
+        return;
+      }
+      const lines = box.lines || [];
+      const text = lines.length ? ipoText(lines[lines.length - 1]) : '';
+      if (!progress) {
+        progress = progressDialog({
+          title: esc(ipoText(box.title || '')),
+          text,
+          onCancel: () => {
+            progress = null;
+            p.cancel();
+          },
+        });
+      } else {
+        progress.update(text);
+      }
+    },
     renderKeys,
     paint: (p) => {
       if (!gridEl) return;
       if (titleEl) titleEl.textContent = ipoText(p.title || '');
+      // viewopen: INPA's viewer window with the file the script wrote. The
+      // menu's screen cycle keeps painting behind it; the same file stays
+      // in the DOM so the reader's scroll position survives each cycle.
+      if (p.view) {
+        if (p.view !== paintedView) {
+          paintedView = p.view;
+          if (p.view.report && typeof ipoProtocolRender === 'function') {
+            ipoProtocolRender(gridEl, p);
+          } else {
+            gridEl.innerHTML = `<pre class="ipo-protocol mono">${esc(
+              (p.view.lines || []).join('\n')
+            )}</pre>`;
+          }
+        }
+        return;
+      }
+      paintedView = null;
       if (inpa) ipoPaintGrid(gridEl, p);
       else ipoPaintLines(gridEl, p);
     },

@@ -16,7 +16,7 @@
  * Why the last webResolveVariant call answered what it did.
  * @typedef {object} ResolveDiag
  * @property {string} group - The group name (lowercased).
- * @property {'no-probe-shipped'|'probe-error'|'bus-silent'|'resolved'|'answered-but-unmatched'} path -
+ * @property {'no-probe-shipped'|'silent-recently'|'probe-error'|'bus-silent'|'resolved'|'answered-but-unmatched'} path -
  *   Which exit the resolver took.
  * @property {string} [variant] - The resolved SGBD name.
  * @property {string} [error] - The probe's error text.
@@ -39,6 +39,17 @@ let groupVariantsPromise = null;
  * @type {Map<string, string>}
  */
 const groupVariantCache = new Map();
+/**
+ * Groups that answered NOTHING, by the time they were last probed. A
+ * whole-vehicle script asks each group two or three jobs in a row (INFO,
+ * FS_LESEN); an address that is not fitted must not eat a full probe
+ * timeout for each of them. Short-lived on purpose: the next module the
+ * user plugs in, or the ignition coming on, must be found again.
+ * @type {Map<string, number>}
+ */
+const groupMissCache = new Map();
+/** how long a silent address stays silent without re-probing (ms) */
+const GROUP_MISS_TTL_MS = 15000;
 
 /**
  * Load a group's VM bytecode from data/groups/<name>.json.gz, once.
@@ -70,6 +81,7 @@ function loadGroupVariants() {
  */
 function forgetResolvedVariants() {
   groupVariantCache.clear();
+  groupMissCache.clear();
 }
 
 /**
@@ -162,6 +174,11 @@ function noteResolve(key, path, extra) {
 async function webResolveVariant(groupName) {
   const key = String(groupName).toLowerCase();
   if (groupVariantCache.has(key)) return groupVariantCache.get(key);
+  const missedAt = groupMissCache.get(key);
+  if (missedAt != null && Date.now() - missedAt < GROUP_MISS_TTL_MS) {
+    noteResolve(key, 'silent-recently');
+    return null;
+  }
   const code = await loadGroupCode(key);
   if (!code || !code.jobs || code.jobs.IDENTIFIKATION === undefined) {
     noteResolve(key, 'no-probe-shipped');
@@ -199,6 +216,7 @@ async function webResolveVariant(groupName) {
       empty: tally.empty,
       real: tally.real,
     });
+    groupMissCache.set(key, Date.now());
     return null;
   }
   // Nothing on this address answered anything: the module is genuinely not
@@ -206,6 +224,7 @@ async function webResolveVariant(groupName) {
   // which is a shipped-tables problem rather than a silent bus.
   if (tally.empty && !tally.real) {
     noteResolve(key, 'bus-silent', { empty: tally.empty });
+    groupMissCache.set(key, Date.now());
     return null;
   }
   for (const s of sets || []) {
@@ -225,5 +244,6 @@ async function webResolveVariant(groupName) {
     real: tally.real,
     sets: (sets || []).length,
   });
+  groupMissCache.set(key, Date.now());
   return null;
 }

@@ -78,6 +78,10 @@ function resolveRoute(route) {
     if (sgbd && typeof showEcuDeep === 'function') {
       return () => showEcuDeep(chassis, sgbd, menu);
     }
+    // the car's module list in the layout the user chose: INPA's script
+    // selection or the modern sections (backToModules picks)
+    if (typeof backToModules === 'function')
+      return () => backToModules(chassis);
     if (typeof showSections === 'function') return () => showSections(chassis);
   }
   // #apps/wiring/<CHASSIS>[/<DOC>]

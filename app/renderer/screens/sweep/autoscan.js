@@ -125,7 +125,7 @@ async function autoScan(chassisId, ch) {
       // the read target), a group it can't keeps the legacy
       // try-each-configured-variant read.
       if (await groupRunnable(t.group)) {
-        // STRICT group semantics, exactly quickErrorSweep's: the group's
+        // STRICT group semantics, the sweep's own: the group's
         // IDENTIFIKATION is the module-present test and names the variant
         // the fault read targets. Silence = module absent -- this is a
         // background scan, so absent modules and unreadable variants both

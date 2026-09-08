@@ -684,7 +684,9 @@ def _b_setitem(vm, stack, item):
     nr = next((x for x in stack if isinstance(x, int)), None)
     cap = next((x for x in stack if isinstance(x, str)), None)
     if nr is not None:
-        vm.out.items.append({"nr": nr, "label": cap, "fromSetitem": True})
+        ints = [x for x in stack if isinstance(x, int) and not isinstance(x, bool)]
+        on = ints[-1] if len(ints) > 1 else None
+        vm.out.items.append({"nr": nr, "label": cap, "on": on, "fromSetitem": True})
 
 
 def _b_setmenu(vm, stack, item):
@@ -1092,11 +1094,12 @@ def _b_strlen(vm, stack, item):
 
 
 def _b_midstr(vm, stack, item):
-    # midstr(dest, source, start, count) -- INPA is 1-based
+    # midstr(dest, source, start, count) -- start is 0-based (E46.IPO's own
+    # instr() probes from 0; the coding screens chunk hex at 0, 2, 4, ...)
     strs = [x for x in stack if isinstance(x, str)]
     ints = [x for x in stack if isinstance(x, int)]
     src = strs[-1] if strs else ""
-    a = (ints[0] - 1) if ints else 0
+    a = ints[0] if ints else 0
     n = ints[1] if len(ints) > 1 else len(src)
     _store_out(vm, stack, src[max(0, a):max(0, a) + max(0, n)], _keyed(stack))
 

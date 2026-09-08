@@ -338,6 +338,9 @@ async function routeState() {
   });
 }
 
+/** a group SGBD's name: D_ + the diagnostic address or a family (D_MOTOR) */
+const GROUP_SGBD_RE = /^d_[a-z0-9_]+$/i;
+
 /**
  * /api/ecu/<sgbd>/run/<job>?arg=...: run the job in the VM over the bus.
  *
@@ -358,9 +361,11 @@ async function routeRun(rel, sgbd, jobRaw) {
   const q = new URLSearchParams(rel.split('?')[1] || '');
   const arg = q.get('arg');
   const job = decodeURIComponent(jobRaw);
-  const systemSet = (sets) => ({
+  // OBJECT is what the caller loaded, VARIANTE what answered: for a group
+  // SGBD (D_0044) the two differ, exactly as EDIABAS reports them
+  const systemSet = (sets, variant) => ({
     OBJECT: sgbd.toLowerCase(),
-    VARIANTE: sgbd.toUpperCase(),
+    VARIANTE: String(variant || sgbd).toUpperCase(),
     JOBNAME: job.toUpperCase(),
     SAETZE: (sets || []).length,
   });
@@ -369,8 +374,21 @@ async function routeRun(rel, sgbd, jobRaw) {
     // One SGBD is "loaded" at a time, like the engine: moving to a
     // different ECU ends the previous session (ENDE) before the new
     // one initialises.
-    await switchSession(sgbd);
-    const r = await webRunJob(sgbd, job, arg);
+    // A group SGBD is how INPA's whole-vehicle scripts address a module:
+    // EDIABAS runs the group's IDENTIFIKATION on the wire, loads the variant
+    // it names and hands the job to that. Same here (the variant is what
+    // gets loaded, so a run of jobs on one module keeps its session), and
+    // a silent address is a job error the script reports as such.
+    let variant = null;
+    if (GROUP_SGBD_RE.test(sgbd)) {
+      variant = await webResolveVariant(sgbd);
+      if (!variant) {
+        apiTrace.add({ sgbd, job, arg, error: 'no module answered' });
+        return errorResponse(`${sgbd}: no module answered on the wire`);
+      }
+    }
+    await switchSession(variant || sgbd);
+    const r = await webRunJob(variant || sgbd, job, arg);
     apiTrace.add({
       sgbd,
       job,
@@ -381,7 +399,7 @@ async function routeRun(rel, sgbd, jobRaw) {
     return jsonResponse({
       job: jobRaw,
       sets: r.sets,
-      system: systemSet(r.sets),
+      system: systemSet(r.sets, variant),
     });
   } catch (e) {
     apiTrace.add({ sgbd, job, arg, error: e.message });

@@ -29,7 +29,7 @@ const BUILTINS = {
   ftextout: bTextout,
   textout: bTextout,
   text: bTextout,
-  userboxftextout: bTextout,
+  userboxftextout: bUserboxTextout,
   messagebox: bMessage,
   builtin_53: bMessage,
   exit: bExit,
@@ -53,9 +53,9 @@ const BUILTINS = {
   StructureString: bNoop,
   StructureInt: bNoop,
   StructureLong: bNoop,
-  userboxopen: bNoop,
-  userboxclose: bNoop,
-  viewopen: bNoop,
+  userboxopen: bUserboxOpen,
+  userboxclose: bUserboxClose,
+  viewopen: bViewopen,
   viewclose: bNoop,
   setstate: bSetstate,
   start: bSetstate,
@@ -115,6 +115,7 @@ const BUILTINS = {
   INP1apiResultBinary: bResultBinary,
   builtin_74: bResult, // INP1apiResultReal(rc, val, KEY, set)
   builtin_14: bNoop, // stop
+  builtin_90: bStrArraySize, // string array length, out-param
   builtin_1a: bNoop, // setcolor
   builtin_51: bBlankscreen, // blankscreen
   blankscreen: bBlankscreen,
@@ -122,7 +123,7 @@ const BUILTINS = {
   testtimer: bTesttimer,
   builtin_09: bSettimer,
   builtin_0a: bTesttimer,
-  builtin_57: bNoop, // userboxclear
+  builtin_57: bUserboxClear, // userboxclear
   builtin_58: bNoop, // userboxsetcolor
 };
 

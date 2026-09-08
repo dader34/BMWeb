@@ -74,6 +74,17 @@ function structNum(v) {
  * @param {IpoValue[]} stack - the call's arguments
  * @returns {void}
  */
+/**
+ * The current value behind a reference (through chained refs).
+ * @param {IpoVm} vm - the running VM
+ * @param {IpoRef} r - the reference
+ * @returns {*}
+ */
+function ipoRefValue(vm, r) {
+  const { n, map } = vm._refTarget(r, vm.frame);
+  return map.get(n);
+}
+
 function ipoStructureCall(vm, name, stack) {
   if (!vm.structs) vm.structs = new Map();
   const refs = stack.filter(isRef);
@@ -101,8 +112,14 @@ function ipoStructureCall(vm, name, stack) {
   const mode = vm._structMode || IPO_STRUCT_WRITE;
   if (width) {
     if (mode === IPO_STRUCT_WRITE) {
+      // the value comes by value or, as longtohexstring packs its number,
+      // by reference (StructureLong(handle, 0, &value))
       const vals = stack.filter((x) => !isRef(x));
-      const v = structNum(vals[vals.length - 1]);
+      const v = structNum(
+        refs.length
+          ? ipoRefValue(vm, refs[refs.length - 1])
+          : vals[vals.length - 1]
+      );
       for (let i = 0; i < width; i++) {
         if (off + i < st.buf.length) st.buf[off + i] = (v >>> (8 * i)) & 0xff;
       }
@@ -114,9 +131,12 @@ function ipoStructureCall(vm, name, stack) {
     return;
   }
   // StructureString(handle, offset, len, out string | string)
-  const len = nums.length > 2 ? nums[2] : st.buf.length - off;
+  // StructureString(handle, offset, length, &text): length 0 means "to the
+  // NUL", which is how chr() reads the one byte it packed back as a string
+  const len = nums.length > 2 && nums[2] > 0 ? nums[2] : st.buf.length - off;
   if (mode === IPO_STRUCT_WRITE) {
-    const sv = stack.find((x) => isPlainStr(x) || (isBound(x) && !isRef(x)));
+    let sv = stack.find((x) => isPlainStr(x) || (isBound(x) && !isRef(x)));
+    if (sv == null && refs.length) sv = ipoRefValue(vm, refs[refs.length - 1]);
     const bytes = ipoStringBytes(asStr(sv == null ? '' : sv));
     for (let i = 0; i < Math.min(len, bytes.length); i++) {
       if (off + i < st.buf.length) st.buf[off + i] = bytes[i];
@@ -146,15 +166,16 @@ function ipoStructureCall(vm, name, stack) {
  */
 function ipoDllCall(vm, stack) {
   const refs = stack.filter(isRef);
-  const fmt = stack.find((x) => isPlainStr(x) && x.includes('%'));
-  if (!fmt || !refs.length) return;
-  const refVal = (r) =>
-    r[1] === IPO_REF_LOCAL && vm.frame
-      ? vm.frame.get(r[2])
-      : vm.globals.get(r[2]);
+  // the format is usually computed ('%0' + width + 'lX'), so a bound string
+  const fmtArg = stack.find(
+    (x) => (isPlainStr(x) || isBound(x)) && asStr(x).includes('%')
+  );
+  if (!fmtArg) return ipoDllFileDialog(vm, stack, refs);
+  if (!refs.length) return;
+  const fmt = asStr(fmtArg);
   let value = 0;
   if (refs.length > 1) {
-    const raw = refVal(refs[1]);
+    const raw = ipoRefValue(vm, refs[1]);
     const n = Number(isBound(raw) ? raw.s : isFloat(raw) ? raw.v : raw);
     const st = vm.structs && vm.structs.get(n);
     if (st) {
@@ -178,9 +199,50 @@ function ipoDllCall(vm, stack) {
   if (refs.length > 2) storeOut(vm, [refs[refs.length - 1]], text.length);
 }
 
+/**
+ * The other import the scripts call: the "save as" dialog. The whole-vehicle
+ * scripts allocate a 256-byte buffer, call the dialog with (filter, &buffer,
+ * length, &rc), and take the buffer as the file name when rc > 0. Live, the
+ * runtime shows the platform's own picker: the call suspends, and the
+ * resume value (the chosen name, '' for cancel) fills the buffer and rc.
+ * The alloc/free calls around it carry no format and no such shape: no-ops.
+ * @param {IpoVm} vm - the running VM
+ * @param {IpoValue[]} stack - the call's arguments
+ * @param {IpoRef[]} refs - its references
+ * @returns {object|null} a 'file' suspension, or null
+ */
+function ipoDllFileDialog(vm, stack, refs) {
+  const plain = stack.filter((x) => !isRef(x));
+  const isDialog =
+    refs.length === 2 &&
+    plain.length === 2 &&
+    (isPlainStr(plain[0]) || isBound(plain[0])) &&
+    isPlainInt(plain[1]);
+  if (!isDialog) return null;
+  return { kind: 'file', filter: asStr(plain[0]), stack, out: vm.out };
+}
+
+/**
+ * The picker's answer into the dialog's refs: the buffer takes the name,
+ * rc its length (0 = cancelled, the script then does nothing).
+ * @param {IpoVm} vm - the running VM
+ * @param {IpoValue[]} stack - the parked call's arguments
+ * @param {string} name - the chosen file name ('' when cancelled)
+ * @returns {void}
+ */
+function ipoDllFileAnswer(vm, stack, name) {
+  const refs = stack.filter(isRef);
+  const text = name == null ? '' : String(name);
+  if (refs.length < 2) return;
+  storeOut(vm, [refs[0]], text);
+  storeOut(vm, [refs[1]], text.length);
+}
+
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     IPO_STRUCT_FNS,
+    ipoDllFileDialog,
+    ipoDllFileAnswer,
     ipoStringBytes,
     ipoStructureCall,
     ipoDllCall,

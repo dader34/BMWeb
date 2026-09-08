@@ -17,6 +17,39 @@
 const IPO_DEFAULT_BUDGET = 200000;
 
 /** How many reference hops _refTarget follows before giving up. */
+/**
+ * Whether the argument at `i` belongs to a structure read call: the tokens
+ * after it up to the call are the remaining arguments.
+ * @param {IpoToken[]} toks - the proc's tokens
+ * @param {number} i - the argument token's index
+ * @returns {boolean}
+ */
+function ipoArgFeedsStructRead(toks, i) {
+  for (let j = i + 1; j < toks.length; j++) {
+    const op = toks[j].op;
+    if (op === 'var' || op === 'const' || op === 'procref') continue;
+    return (
+      op === 'call' &&
+      typeof IPO_STRUCT_FNS !== 'undefined' &&
+      IPO_STRUCT_FNS.has(toks[j].name)
+    );
+  }
+  return false;
+}
+
+/** the comparisons a never-written local takes its default in */
+const IPO_CMP_OPS = new Set(['eq', 'ne', 'lt', 'gt', 'le', 'ge']);
+
+/**
+ * What an unwritten local is worth beside `other` at run time: '' beside a
+ * string, 0 otherwise.
+ * @param {IpoValue} other - the operand on the other side
+ * @returns {IpoValue}
+ */
+function ipoSlotDefault(other) {
+  return isPlainStr(other) || isBound(other) ? '' : 0;
+}
+
 const IPO_REF_MAX_HOPS = 8;
 
 /** How far back of a Result* call _harvestReads looks for its key. */
@@ -302,6 +335,13 @@ class IpoVm {
         stack.push(t.t === 'd' ? mkFloat(t.v) : t.v);
       } else if (op === 'var') {
         let val = this._read(t, frame);
+        // see the driven path: a by-reference parameter handed on to a
+        // structure read stays a reference in a live VM (user functions
+        // called from a driven run execute here)
+        if (this.wireJobs && ipoArgFeedsStructRead(toks, i)) {
+          const raw = this._rawSlot(t, frame);
+          if (isRef(raw)) val = raw;
+        }
         if (val == null) val = mkSlot(t.sc == null ? GLOBAL : t.sc, t.n);
         stack.push(val);
       } else if (op === 'procref') {
@@ -423,7 +463,12 @@ class IpoVm {
       const { dsc, n, map } = this._refTarget(ref, this.frame);
       const cur = map.get(n);
       if (isBound(cur) && cur.key) continue;
-      const val = mkBound(mkSlot(dsc, n), '0', inKey);
+      // Offline the callee's arithmetic is opaque and the lift only needs
+      // the key on the slot. A live run computed the value (E46.IPO's
+      // inttohexstring formats F_ORT_NR through a DLL printf), so the key
+      // rides along with it instead of replacing it.
+      const keep = this.wireJobs && cur != null && cur !== '';
+      const val = mkBound(mkSlot(dsc, n), keep ? asStr(cur) : '0', inKey);
       this.setBind(dsc, n, inKey);
       map.set(n, val);
     }
@@ -609,6 +654,18 @@ class IpoVm {
         this._storeInputAnswer(s, value);
         s.pendingStack = null;
       }
+    } else if (s.pending === 'file') {
+      // the picker's answer: the chosen name, '' when cancelled
+      if (s.pendingStack) {
+        const prevFrame = this.frame;
+        this.frame = s.frame;
+        try {
+          ipoDllFileAnswer(this, s.pendingStack, value);
+        } finally {
+          this.frame = prevFrame;
+        }
+        s.pendingStack = null;
+      }
     } else if (s.pending === 'toggle') {
       // the pick: run the parked togglelist with it, then step past it
       if (value != null) {
@@ -737,7 +794,11 @@ class IpoVm {
           // user prompt / message / picker (it asks and hands the answer
           // back), or the script's own exit
           s.pending = sig.kind;
-          if (sig.kind === 'input' || sig.kind === 'toggle')
+          if (
+            sig.kind === 'input' ||
+            sig.kind === 'toggle' ||
+            sig.kind === 'file'
+          )
             s.pendingStack = sig.stack;
           return sig;
         }
@@ -771,6 +832,13 @@ class IpoVm {
       stack.push(t.t === 'd' ? mkFloat(t.v) : t.v);
     } else if (op === 'var') {
       let val = this._read(t, s.frame);
+      // a by-reference parameter handed on to a structure read is the
+      // reference itself, as a procref would carry it: chr() reads the
+      // byte it packed back into the CALLER's string through its parameter
+      if (this.wireJobs && ipoArgFeedsStructRead(s.toks, s.i)) {
+        const raw = this._rawSlot(t, s.frame);
+        if (isRef(raw)) val = raw;
+      }
       if (val == null) val = mkSlot(t.sc == null ? GLOBAL : t.sc, t.n);
       stack.push(val);
     } else if (op === 'procref') {
@@ -786,8 +854,15 @@ class IpoVm {
       val = this._bindPendingBinary(sc, t.n, val);
       this._write(t, s.frame, val);
     } else if (op === 'binop') {
-      const b = stack.length ? stack.pop() : null;
-      const a = t.name === 'neg' ? null : stack.length ? stack.pop() : null; // unary
+      let b = stack.length ? stack.pop() : null;
+      let a = t.name === 'neg' ? null : stack.length ? stack.pop() : null; // unary
+      // a local the script never wrote is 0 (or '' beside a string) when it
+      // runs, as INPA zero-fills its declarations; the offline lift keeps
+      // the slot so a compare on it stays undecided there
+      if (this.wireJobs && IPO_CMP_OPS.has(t.name)) {
+        if (isSlot(a)) a = ipoSlotDefault(b);
+        if (isSlot(b)) b = ipoSlotDefault(a);
+      }
       stack.push(binop(t.name, a, b));
     } else if (op === 'jfalse') {
       const cond = stack.length ? stack.pop() : false;
@@ -812,9 +887,11 @@ class IpoVm {
       s.stack = [];
       if (sig) return sig; // a pending action
     } else if (op === 'dllcall') {
-      // an import32 call: only a live run answers it (see ipoDllCall)
-      if (this.wireJobs) ipoDllCall(this, stack);
+      // an import32 call: only a live run answers it (see ipoDllCall); the
+      // save-as dialog among them is a pending action like an input
+      const sig = this.wireJobs ? ipoDllCall(this, stack) : null;
       s.stack = [];
+      if (sig) return sig;
     } else if (op === 'calluser') {
       const entered = this._pushCall(s, t, stack);
       s.stack = [];
@@ -960,6 +1037,20 @@ class IpoVm {
    * @param {Map<number, IpoValue>} frame - the current frame
    * @returns {IpoValue|null}
    */
+  /**
+   * A slot's content as stored, a reference included (what `_read` would
+   * follow).
+   * @param {IpoToken} t - the var token
+   * @param {Map<number, IpoValue>|null} frame - the current frame
+   * @returns {IpoValue}
+   */
+  _rawSlot(t, frame) {
+    const sc = t.sc == null ? GLOBAL : t.sc;
+    if (sc === GLOBAL)
+      return this.globals.has(t.n) ? this.globals.get(t.n) : null;
+    return frame && frame.has(t.n) ? frame.get(t.n) : null;
+  }
+
   _read(t, frame) {
     const sc = t.sc == null ? GLOBAL : t.sc;
     let v;

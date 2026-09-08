@@ -154,15 +154,14 @@ function bStrArrayCreate(vm, stack) {
  * @type {IpoBuiltin}
  */
 function bStrArrayWrite(vm, stack) {
-  const ints = stack
-    .filter(
-      (x) => (typeof x === 'number' || isBound(x)) && typeof x !== 'boolean'
-    )
-    .map((x) => Math.trunc(num(x)));
-  const txt = stack.find((x) => isPlainStr(x));
-  if (ints.length >= 2 && txt != null && vm.strArrays.has(ints[0])) {
-    vm.strArrays.get(ints[0]).set(ints[1], txt);
-  }
+  // StrArrayWrite(array, index, text): the text is usually computed (a
+  // module's name + its fault count), not a literal
+  const args = stack.filter((x) => !isRef(x));
+  if (args.length < 3) return;
+  const id = Math.trunc(num(args[0]));
+  const idx = Math.trunc(num(args[1]));
+  const txt = asStr(args[2]);
+  if (vm.strArrays.has(id)) vm.strArrays.get(id).set(idx, txt);
 }
 
 /**
@@ -189,12 +188,84 @@ function bStrArrayRead(vm, stack) {
  * GetBinaryDataString) binds to the key.
  * @type {IpoBuiltin}
  */
+/**
+ * builtin_90(array, &n): how many entries a string array holds. The
+ * whole-vehicle scripts fill an array with the modules that answered with
+ * faults and walk it `for (i = 0; i < n; i++)` to write the short overview
+ * of the protocol, so n must be the real count, not a slot.
+ * @param {Best2Vm} vm
+ * @param {*[]} stack
+ */
+function bStrArraySize(vm, stack) {
+  const vals = stack.filter((x) => !isRef(x));
+  const arr = vals.length
+    ? vm.strArrays.get(Math.trunc(num(vals[0]))) || new Map()
+    : new Map();
+  storeOut(vm, stack, arr.size);
+}
+
 function bResultBinary(vm, stack) {
-  const key = stack.find(isPlainStr) || null;
+  // INPAapiResultBinary(&rc, key, set): the key is a literal or a variable
+  // holding one (protokoll_hexcode passes its parameter), the set a number
+  let key = null;
+  let set = null;
+  for (const a of stack) {
+    if (isRef(a)) continue;
+    const s = asStr(a);
+    if (key == null && /^[A-Za-z_]/.test(s)) key = s;
+    else if (set == null && s !== '' && Number.isFinite(Number(s)))
+      set = Math.trunc(Number(s));
+  }
   if (key) {
     vm.globals.set('__pending_binary__', key);
+    // the set it was asked of, for the live read behind GetBinaryDataString
+    vm.globals.set('__pending_binary_set__', set);
     vm.out.reads.push(key);
   }
+  // rc: the script prints "????" for a code it could not read; live that
+  // is a result the wire did not carry, offline every read succeeds
+  const refs = stack.filter(isRef);
+  if (refs.length) {
+    const have =
+      !vm.wireJobs ||
+      (key &&
+        vm.host &&
+        typeof vm.host.raw === 'function' &&
+        vm.host.raw(key, { set: set == null ? undefined : set }) != null);
+    storeOut(vm, [refs[0]], have ? 1 : 0);
+  }
+}
+
+/**
+ * A binary result as the hex text INPA's GetBinaryDataString hands the
+ * script ("27C3"): bytes from a typed array, a plain array, or the object
+ * a typed array turns into through JSON; a string with its separators
+ * dropped ("27-C3", "0x27C3"); a number as four digits.
+ * @param {*} v - the result value
+ * @returns {string}
+ */
+function ipoBinaryHex(v) {
+  if (v == null || v === '') return '';
+  const byte = (b) =>
+    (Number(b) & 0xff).toString(16).toUpperCase().padStart(2, '0');
+  if (Array.isArray(v) || ArrayBuffer.isView(v))
+    return Array.from(v, byte).join('');
+  if (typeof v === 'number')
+    return Number.isFinite(v)
+      ? (v >>> 0).toString(16).toUpperCase().padStart(4, '0')
+      : '';
+  if (typeof v === 'object') {
+    const keys = Object.keys(v).filter((k) => /^\d+$/.test(k));
+    if (keys.length)
+      return keys
+        .sort((a, b) => a - b)
+        .map((k) => byte(v[k]))
+        .join('');
+  }
+  return String(v)
+    .replace(/^0x/i, '')
+    .replace(/[^0-9a-fA-F]/g, '')
+    .toUpperCase();
 }
 
 /**
@@ -207,6 +278,23 @@ function bGetBinaryDataString(vm, stack) {
   if (refs.length < 2) return;
   const dst = refs[0],
     src = refs[1];
+  // a live run: GetBinaryDataString(&text, &length) gives the script the
+  // bytes of the last INPAapiResultBinary as hex text, and their length in
+  // characters (E46.IPO's protokoll_hexcode walks it two characters a byte)
+  if (vm.wireJobs) {
+    const key = vm.globals.get('__pending_binary__');
+    const set = vm.globals.get('__pending_binary_set__');
+    if (key && vm.host && typeof vm.host.raw === 'function') {
+      const hex = ipoBinaryHex(
+        vm.host.raw(key, { set: set == null ? undefined : set })
+      );
+      vm.globals.delete('__pending_binary__');
+      vm.globals.delete('__pending_binary_set__');
+      storeOut(vm, [dst], mkBound(null, hex, key), key);
+      storeOut(vm, [src], hex.length);
+      return;
+    }
+  }
   const dsc = dst[1] === IPO_REF_LOCAL && vm.frame != null ? LOCAL : GLOBAL;
   const ssc = src[1] === IPO_REF_LOCAL && vm.frame != null ? LOCAL : GLOBAL;
   let key = vm.bindKey(ssc, src[2]);
@@ -280,19 +368,19 @@ function bInputDigital(vm, stack, item) {
  * @type {IpoBuiltin}
  */
 function bFileopen(vm, stack) {
-  const path = stack
-    .filter((x) => (isPlainStr(x) || isSlot(x)) && !['r', 'w', 'a'].includes(x))
-    .map(asStr)
-    .join('');
+  // fileopen(path, mode): the path is usually computed (folder + name +
+  // extension), so take whatever string value the expression produced
+  const args = stack.filter((x) => !isRef(x));
   let mode = 'r';
-  for (let k = stack.length - 1; k >= 0; k--) {
-    if (isPlainStr(stack[k]) && ['r', 'w', 'a'].includes(stack[k])) {
-      mode = stack[k];
-      break;
-    }
+  const last = args.length > 1 ? asStr(args[args.length - 1]) : '';
+  if (['r', 'w', 'a'].includes(last)) {
+    mode = last;
+    args.pop();
   }
+  const path = args.map(asStr).join('');
   if (mode === 'w') vm.files.set(path, []);
   else if (mode === 'a' && !vm.files.has(path)) vm.files.set(path, []);
+  if (mode !== 'r') vm.lastWritten = path;
   vm.fh = { path, mode, line: 0 };
 }
 
@@ -305,12 +393,35 @@ function bFileclose(vm) {
 }
 
 /**
+ * viewopen(path): INPA opens the file the script just wrote in its viewer
+ * window (the whole-vehicle fault protocol). The runtime shows the same
+ * text as the screen and prints it as the sheet.
+ * @param {Best2Vm} vm
+ * @param {*[]} stack
+ */
+function bViewopen(vm, stack) {
+  // viewopen(path, title): the path is computed (folder + name + extension),
+  // the title is the window caption
+  const args = stack.filter((x) => !isRef(x)).map(asStr);
+  let path = args[0] || '';
+  if (!vm.files.has(path) && vm.lastWritten && vm.files.has(vm.lastWritten))
+    path = vm.lastWritten;
+  vm.out.view = {
+    path,
+    title: args.length > 1 ? args[args.length - 1] : '',
+    lines: [...(vm.files.get(path) || [])],
+  };
+}
+
+/**
  * filewrite(text): append a line to the open file.
  * @type {IpoBuiltin}
  */
 function bFilewrite(vm, stack) {
   if (!vm.fh || vm.fh.mode === 'r') return;
-  const txt = stack.find(isPlainStr) || '';
+  // the line is usually computed (caption + value), not a literal
+  const args = stack.filter((x) => !isRef(x));
+  const txt = args.length ? asStr(args[0]) : '';
   if (!vm.files.has(vm.fh.path)) vm.files.set(vm.fh.path, []);
   vm.files.get(vm.fh.path).push(txt);
 }
@@ -320,15 +431,21 @@ function bFilewrite(vm, stack) {
  * @type {IpoBuiltin}
  */
 function bFileread(vm, stack) {
+  // fileread(&line, &status): status 0 while a line came, else the end --
+  // the save keys copy the protocol with `while (status == 0)`
   let line = '';
+  let status = 1;
   if (vm.fh && vm.fh.mode === 'r') {
     const lines = vm.files.get(vm.fh.path) || [];
     if (vm.fh.line < lines.length) {
       line = lines[vm.fh.line];
       vm.fh.line += 1;
+      status = 0;
     }
   }
-  storeOut(vm, stack, line);
+  const refs = stack.filter(isRef);
+  if (refs.length) storeOut(vm, [refs[0]], line);
+  if (refs.length > 1) storeOut(vm, [refs[1]], status);
 }
 
 /**

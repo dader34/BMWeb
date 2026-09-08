@@ -26,9 +26,14 @@ function bSetTitle(vm, stack) {
  * @type {IpoBuiltin}
  */
 function bSetitem(vm, stack) {
-  const nr = stack.find(isPlainInt);
+  // setitem(nr, caption[, shown]): the third argument shows (1) or hides
+  // (0) the key -- E46.IPO's read enables "FS drucken" on F9 once there is
+  // a protocol to print, and the save keys hide it again
+  const ints = allInts(stack);
+  const nr = ints.length ? ints[0] : null;
   const cap = stack.find(isPlainStr);
-  if (nr != null) vm.out.items.push({ nr, label: cap, fromSetitem: true });
+  const on = ints.length > 1 ? ints[ints.length - 1] : null;
+  if (nr != null) vm.out.items.push({ nr, label: cap, on, fromSetitem: true });
 }
 
 /**
@@ -77,6 +82,53 @@ function currentLine(vm) {
  * becoming an element of its own.
  * @type {IpoBuiltin}
  */
+/**
+ * userboxopen(x, y, w, title, ...): INPA's progress window. The
+ * whole-vehicle scripts open one over a long read and write the module
+ * being asked into it (userboxftextout); a live run shows it as it fills.
+ * @type {IpoBuiltin}
+ */
+function bUserboxOpen(vm, stack) {
+  const strs = stack.filter((x) => isPlainStr(x) || isBound(x)).map(asStr);
+  vm.userbox = { title: strs.find((s) => s.trim()) || '', lines: [] };
+  if (vm.onUserbox) vm.onUserbox(vm.userbox);
+}
+
+/**
+ * userboxclose(): the progress window goes away.
+ * @type {IpoBuiltin}
+ */
+function bUserboxClose(vm) {
+  vm.userbox = null;
+  if (vm.onUserbox) vm.onUserbox(null);
+}
+
+/**
+ * userboxclear(): the window stays, its lines go.
+ * @type {IpoBuiltin}
+ */
+function bUserboxClear(vm) {
+  if (!vm.userbox) return;
+  vm.userbox.lines = [];
+  if (vm.onUserbox) vm.onUserbox(vm.userbox);
+}
+
+/**
+ * userboxftextout(text, row, col ...): a line of the progress window. It is
+ * also a textout, so a body without a box paints it with the screen.
+ * @type {IpoBuiltin}
+ */
+function bUserboxTextout(vm, stack) {
+  if (vm.userbox) {
+    const t = firstText(stack);
+    if (t != null && String(asStr(t)).trim()) {
+      vm.userbox.lines.push(asStr(t));
+      if (vm.onUserbox) vm.onUserbox(vm.userbox);
+    }
+  }
+  bTextout(vm, stack);
+}
+
 function bTextout(vm, stack) {
   if (vm.onText) {
     const t = firstText(stack);

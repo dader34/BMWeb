@@ -89,7 +89,7 @@ are translated through exact per-module dictionaries; anything without an
 entry shows as BMW wrote it.
 
 - **Fault memory** — read stored codes with English text and detail, clear them.
-- **Error scan** — sweep every module in the car in one pass, export a PDF report.
+- **Whole-car scan** — INPA's own vehicle script reads every module's fault memory; the result is a report joined with the fault lookup, printable.
 - **Live values** — gauges updating continuously, several at once, CSV logging.
 - **Activations** — drive real components; held actuators release when you leave.
 - **Coding** — read a module's coding, stage changes, see exactly what would be

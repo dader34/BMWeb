@@ -168,6 +168,12 @@ function updateDockIcon() {
     </svg>
   `;
 
+  // the spinners are this logo turning (styles.css --app-logo)
+  document.documentElement.style.setProperty(
+    '--app-logo',
+    `url("data:image/svg+xml,${encodeURIComponent(resolvedSvg.replace(/\s+/g, ' ').trim())}")`
+  );
+
   const img = new Image();
   const svgBlob = new Blob([resolvedSvg], {
     type: 'image/svg+xml;charset=utf-8',

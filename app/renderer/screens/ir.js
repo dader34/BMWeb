@@ -100,6 +100,9 @@ async function irAskInput(step, fallbackTitle) {
     return yes ? 0 : null;
   }
   const hex = /hex/i.test(name);
+  // input2text and its kin ask for words (a comment to save with the
+  // protocol), and an empty line is an answer there, not a cancel
+  const text = /text/i.test(name);
   const vals = [];
   for (let k = 0; k < refs; k++) {
     // a two-field form captions each field after the title/help pair
@@ -112,11 +115,16 @@ async function irAskInput(step, fallbackTitle) {
         (step.lo != null && step.hi != null && !hex
           ? `<br><br>Accepted range <b>${step.lo}</b> to <b>${step.hi}</b>.`
           : ''),
-      kind: hex ? 'text' : 'number',
-      example: hex ? '' : step.lo != null ? String(step.lo) : '',
+      kind: hex || text ? 'text' : 'number',
+      example: hex || text ? '' : step.lo != null ? String(step.lo) : '',
       confirmLabel: 'OK',
     });
-    if (asked == null || String(asked).trim() === '') return null;
+    if (asked == null) return null;
+    if (text) {
+      vals.push(String(asked));
+      continue;
+    }
+    if (String(asked).trim() === '') return null;
     if (hex) {
       vals.push(String(asked).trim());
       continue;

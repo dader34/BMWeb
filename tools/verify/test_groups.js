@@ -399,6 +399,12 @@ const A4_IDENT = String([0xa4, 4, 0]);
     answer = null;
     const v3 = await wctx.window.webResolveVariant('d_0032');
     check('webResolveVariant returns null when nothing answers', v3 === null);
+    const quiet = exchanges;
+    const v3b = await wctx.window.webResolveVariant('d_0032');
+    check(
+      'a silent group is not probed again within the miss window',
+      v3b === null && exchanges === quiet
+    );
     const v4 = await wctx.window.webResolveVariant('no_such_group');
     check('webResolveVariant returns null for an unshipped group', v4 === null);
 

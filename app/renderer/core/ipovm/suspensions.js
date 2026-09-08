@@ -39,6 +39,7 @@
  * @type {Set<string>}
  */
 const IPO_SUSPEND_KINDS = new Set([
+  'file', // the save-as dialog (structures.js ipoDllFileDialog)
   'job',
   'wait',
   'input',

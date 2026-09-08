@@ -199,6 +199,14 @@ function loadExec(chassis, ecu) {
 // ---- a fake car -----------------------------------------------------------------
 //
 // answers(job, arg) -> {sets, system}. Records every POST in `sent`.
+// the shim's run route resolves a group SGBD to the module on the wire
+// (api-router.js); the fake car answers these groups
+const FAKE_GROUPS = {
+  d_005b: 'ihka46_3',
+  d_0072: 'sm46_4',
+  d_00da: 'b_sm46_3',
+};
+
 function fakeApi(answers) {
   const sent = [];
   global.api = async (url, opts) => {
@@ -206,11 +214,13 @@ function fakeApi(answers) {
       /^\/api\/ecu\/([^/]+)\/run\/([^?]+)(?:\?arg=(.*))?$/
     );
     if (!m) throw new Error(`unexpected api ${url}`);
-    const target = m[1],
+    const raw = m[1],
+      target = FAKE_GROUPS[raw] || raw,
       job = decodeURIComponent(m[2]),
       arg = m[3] != null ? decodeURIComponent(m[3]) : null;
     sent.push({
       target,
+      group: target === raw ? null : raw,
       job,
       arg,
       method: (opts && opts.method) || 'GET',
@@ -255,6 +265,17 @@ function fakeUi(opts = {}) {
       return opts.decline ? false : true;
     },
     pickComponent: async () => (opts.pick != null ? opts.pick : null),
+    // INPA's save-as dialog and the write that follows the body
+    saveFile: async () => (opts.saveAs ? { name: opts.saveAs } : null),
+    writeFile: async (p, picked, lines) => {
+      ui.saved = (ui.saved || []).concat({ name: picked.name, lines });
+    },
+    // INPA's progress window as the script fills it (null = closed)
+    userbox: (p, box) => {
+      ui.boxes = (ui.boxes || []).concat(
+        box ? { title: box.title, lines: box.lines.slice() } : null
+      );
+    },
     prints: 0,
     printScreen: () => {
       ui.prints += 1;
@@ -1665,6 +1686,397 @@ const sysSet = (sgbd) => ({
     );
     sp.close();
     ok('modern rows: caption row + lamp row pair by column');
+  }
+
+  // ===========================================================================
+  // INPA's whole-vehicle script (E46.IPO): "Fehler -> FS lesen" reads every
+  // module's fault memory through its GROUP SGBD, exactly as INPA does, and
+  // writes the protocol INPA shows in its viewer
+  // ===========================================================================
+  {
+    const vexec = loadExec('vehicle', 'e46');
+    assert.ok(
+      vexec && vexec.procs.inpainit,
+      'e46 vehicle exec missing (data/chassis/vehicle/e46)'
+    );
+    const vecu = {
+      sgbd: 'e46',
+      code: 'E46',
+      label: 'INPA E46 script',
+      chassis: 'E46',
+      kind: 'vehicle',
+      group: null,
+      _ipoKnownSgbds: new Set(['e46', 'ms450ds0', 'ihka46_3']),
+    };
+    // a group SGBD stays the wire target: the shim resolves it to the module
+    // the car names (api-router.js); a module's own startup group too
+    assert.strictEqual(ipoWireTarget(vecu, 'D_MOTOR'), 'd_motor');
+    assert.strictEqual(
+      ipoWireTarget({ sgbd: 'ihka46_3', group: 'D_005B' }, 'D_005B'),
+      'd_005b'
+    );
+    assert.strictEqual(
+      ipoWireTarget({ sgbd: 'ihka46_3' }, 'IHKA46,IHKA46_2,IHKA46_3'),
+      'ihka46_3',
+      'inpainit dispatch list -> the identified module'
+    );
+    assert.strictEqual(ipoWireTarget(vecu, 'MS450DS0'), 'ms450ds0');
+    ok('wire target: group SGBDs route to the resolver');
+
+    // the car: the engine has one fault, two addresses are silent, the
+    // rest answer clean. FS_LESEN returns one set per fault plus the status
+    // set, as EDIABAS does (the script counts sets - 1).
+    const fault = {
+      F_ORT_NR: 5,
+      F_ORT_TEXT: 'Lambdasonde',
+      F_HEX_CODE: '0x27C3',
+      F_ART_ANZ: 1,
+      F_ART1_NR: 1,
+      F_ART1_TEXT: 'sporadisch',
+      F_HFK: 3,
+      F_LZ: 40,
+      F_UW_ANZ: 1,
+      F_UW_SATZ: 1,
+      F_UW1_TEXT: 'Kilometerstand',
+      F_UW1_WERT: 123456,
+      F_UW1_EINH: 'km',
+      F_VERSION: 2,
+      JOB_STATUS: 'OKAY',
+    };
+    const vsent = fakeApi((job, arg, target) => {
+      if (target === 'd_00a4' || target === 'd_009c')
+        return new Error(`${target}: no module answered on the wire`);
+      const variant = target === 'd_motor' ? 'ms450ds0' : target;
+      const sys = {
+        OBJECT: target,
+        VARIANTE: variant.toUpperCase(),
+        JOBNAME: job,
+        SAETZE: 1,
+      };
+      if (job === 'FGNR_LESEN')
+        return {
+          system: sys,
+          sets: [{ FGNR: 'WBAET37001NJ12345', JOB_STATUS: 'OKAY' }],
+        };
+      if (job === 'INFO')
+        return {
+          system: sys,
+          sets: [
+            {
+              REVISION: '2.01',
+              ECU: variant.toUpperCase(),
+              JOB_STATUS: 'OKAY',
+            },
+          ],
+        };
+      if (job === 'IDENT')
+        return {
+          system: sys,
+          sets: [
+            {
+              JOB_STATUS: 'OKAY',
+              VARIANTE: variant.toUpperCase(),
+              ID_DATUM_KW: '03',
+              ID_DATUM_JAHR: '02',
+              ID_BMW_NR: '7514586',
+              ID_HW_NR: '00',
+              ID_SW_NR: '02',
+              ID_LIEF_TEXT: 'Siemens',
+              ID_LIEF_NR: 1,
+              ID_COD_INDEX: 5,
+              ID_VAR_INDEX: 3,
+              ID_DIAG_INDEX: 7,
+            },
+          ],
+        };
+      if (job === 'FS_LESEN' && variant === 'ms450ds0')
+        return { system: sys, sets: [fault, { JOB_STATUS: 'OKAY' }] };
+      if (job === 'FS_LESEN_DETAIL')
+        return {
+          system: sys,
+          sets: [
+            // the detail carries the memory's fields again, the hex as the
+            // bytes the SGBD's `binary` result is, plus the P-code
+            { ...fault, F_HEX_CODE: [0x27, 0xc3], F_PCODE_STRING: 'P0135' },
+            { JOB_STATUS: 'OKAY' },
+          ],
+        };
+      if (job === 'FS_LESEN')
+        return { system: sys, sets: [{ F_VERSION: 1, JOB_STATUS: 'OKAY' }] };
+      return { system: sys, sets: [{ JOB_STATUS: 'OKAY' }] };
+    });
+    const vui = fakeUi();
+    const vp = new IpoProgram(vecu, vexec, vui);
+    const vr = await vp.start();
+    assert.strictEqual(vr.ok, true, `e46 start: ${vr.reason}`);
+    assert.strictEqual(vp.menu, 'm_main', 'the script opens its main menu');
+    const vuntil = async (cond) => {
+      for (let n = 0; n < 400 && !cond(); n++)
+        await new Promise((r) => setTimeout(r, 10));
+    };
+    const fehler = vp.items.find((it) => it.label === 'Fehler');
+    assert.ok(
+      fehler,
+      `Fehler key: ${JSON.stringify(vp.items.map((i) => i.label))}`
+    );
+    await vp.press(fehler.nr);
+    await vuntil(() => vp.menu === 'm_fs' && !vp.busy);
+    assert.strictEqual(vp.menu, 'm_fs', 'the fault-memory menu');
+    const lesen = vp.items.find((it) => it.label === 'FS lesen');
+    assert.ok(lesen, 'FS lesen key');
+    vsent.length = 0;
+    await vp.press(lesen.nr);
+    await vuntil(() => !vp.busy && !!vp.view);
+    assert.ok(
+      vp.view,
+      `viewopen showed the protocol: ${(vui.errors || []).join('; ')}`
+    );
+
+    const reads = vsent
+      .filter((s) => s.job === 'FS_LESEN')
+      .map((s) => s.target);
+    for (const g of ['d_0044', 'd_00a4', 'd_motor', 'd_0080', 'd_zuheiz'])
+      assert.ok(reads.includes(g), `FS_LESEN went to the group ${g}`);
+    assert.ok(!reads.includes('e46'), 'nothing was sent to the script itself');
+    assert.ok(
+      reads.includes('ms450ds0'),
+      `the detail pass names the module the group resolved to: ${reads.slice(-6)}`
+    );
+    ok('E46.IPO: every module read through its group, details by variant');
+
+    // the progress window INPA shows over the read: opened with its title,
+    // one line per module asked, closed before the protocol opens
+    const boxes = vui.boxes || [];
+    assert.ok(
+      boxes.some((b) => b && b.title === 'Fehlerspeicher lesen'),
+      `the read opens its progress window: ${JSON.stringify(boxes.slice(0, 2))}`
+    );
+    const fullest = boxes.reduce(
+      (m, b) => (b && b.lines.length > (m ? m.lines.length : 0) ? b : m),
+      null
+    );
+    assert.ok(
+      fullest && fullest.lines.some((l) => /Steuerger/.test(l)),
+      `the window names the module being asked: ${JSON.stringify(fullest && fullest.lines.slice(-3))}`
+    );
+    assert.strictEqual(boxes[boxes.length - 1], null, 'closed at the end');
+    ok('E46.IPO: the progress window fills as the modules are read');
+
+    // the read's tail relabels the keys: F9 prints the protocol, Shift+F9
+    // saves it (setitem(nr, text, 1) shows the key; 0 hides it)
+    const k9 = vp.items.find((it) => it.nr === 9);
+    const k19 = vp.items.find((it) => it.nr === 19);
+    assert.ok(
+      k9 && k9.label === 'FS drucken' && !k9.hidden,
+      `F9: ${JSON.stringify(k9)}`
+    );
+    assert.ok(
+      k19 && k19.label === 'FS speichern' && !k19.hidden,
+      `Shift+F9: ${JSON.stringify(k19)}`
+    );
+    const k1 = vp.items.find((it) => it.nr === 1);
+    assert.ok(k1 && !k1.hidden && k1.label === 'FS lesen', 'F1 stays');
+    ok('E46.IPO: setitem relabels and shows keys live');
+
+    const lines = vp.view.lines;
+    const has = (re) => lines.some((l) => re.test(l));
+    assert.ok(has(/F E H L E R S P E I C H E R/), 'protocol title');
+    assert.ok(
+      has(/^D_00A4 \*/),
+      `a silent module is marked *: ${lines.length} lines; first: ${JSON.stringify(lines.slice(0, 3))}; 00A4: ${JSON.stringify(lines.filter((l) => /00A4/.test(l)).map((l) => l.slice(0, 60)))}`
+    );
+    assert.ok(has(/^MS450DS0 1\s+Motor/), 'the engine counts one fault');
+    assert.ok(has(/^D_0080 0\s+Instrumentenkombi/), 'a clean module counts 0');
+    assert.ok(
+      has(/^Variante\s+:\s+MS450DS0\.PRG/),
+      'the detail block names the variant'
+    );
+    assert.ok(has(/1 Fehler im Fehlerspeicher/), 'the detail block counts');
+    // a KWP2000 module (F_VERSION 2): the detail read supplies the entry
+    const around = () =>
+      lines.filter((l) => /Lambda|0x00|Fehlercode/.test(l)).join(' | ');
+    assert.ok(
+      has(/0x0005\s+(Lambdasonde|Thermal oil level sensor)/),
+      `the fault number and text: ${around()}`
+    );
+    assert.ok(
+      has(/Fehlercode:\s+27 C3/),
+      `the hex code from the binary result: ${around()}`
+    );
+    assert.ok(has(/Kilometerstand.*123456/), 'the freeze-frame value');
+    ok('E46.IPO: the protocol INPA writes (header, overview, details)');
+
+    // the same read as data: one record per module that answered, the
+    // detail pass merged into its fault, the silent addresses listed
+    const rep = vp.view.report;
+    assert.ok(rep && rep.modules.length, 'the view carries a report');
+    const eng = rep.modules.find((m) => m.sgbd === 'ms450ds0');
+    assert.ok(
+      eng,
+      `the engine is one module: ${rep.modules.map((m) => m.sgbd)}`
+    );
+    assert.strictEqual(eng.via, 'd_motor', 'reached through its group');
+    assert.strictEqual(eng.label, 'Motor', "the script's name for it");
+    assert.strictEqual(eng.codes.length, 1);
+    assert.strictEqual(eng.codes[0].F_ORT_TEXT, 'Lambdasonde');
+    assert.strictEqual(
+      eng.codes[0].F_PCODE_STRING,
+      'P0135',
+      'the detail read merged into the fault'
+    );
+    assert.strictEqual(
+      rep.modules.filter((m) => m.sgbd === 'ms450ds0').length,
+      1,
+      'the detail pass by variant name does not add a second module'
+    );
+    assert.ok(
+      rep.silent.some((s) => s.target === 'd_00a4' && /Airbag/.test(s.label)),
+      `silent addresses carry the script's label: ${JSON.stringify(rep.silent)}`
+    );
+    const clean = rep.modules.find((m) => m.sgbd === 'd_0080');
+    assert.ok(clean && clean.codes.length === 0, 'a clean module is listed');
+    ok('E46.IPO: the protocol as a report (modules, faults, detail, silent)');
+
+    if (typeof ipoPrintDocument === 'function') {
+      const doc = ipoPrintDocument(vp, vecu, true);
+      const html = JSON.stringify(doc);
+      assert.ok(
+        /Lambdasonde|Thermal oil level sensor/.test(html),
+        'the protocol is the print sheet'
+      );
+      ok('E46.IPO: printing the protocol');
+    }
+
+    // Shift+F9 "FS speichern": the comment is typed (two text lines), the
+    // save-as dialog names the file, the script writes it in the VM and the
+    // runtime hands it to the platform
+    vui.askInput = async (step) =>
+      step.name === 'input2text' ? ['brake job notes', ''] : 0;
+    vui.saveFile = async () => ({ name: 'e46-faults.txt' });
+    const save = vp.items.find((it) => it.nr === 19);
+    assert.ok(save && !save.hidden, 'the save key is offered after the read');
+    await vp.press(save.nr);
+    await vuntil(() => !vp.busy);
+    const saved = vui.saved || [];
+    assert.strictEqual(
+      saved.length,
+      1,
+      `one file saved: ${JSON.stringify(saved.map((s) => s.name))}`
+    );
+    assert.strictEqual(saved[0].name, 'e46-faults.txt');
+    assert.ok(
+      saved[0].lines.some((l) => /K O M M E N T A R/.test(l)),
+      'the comment block'
+    );
+    assert.ok(saved[0].lines.includes('brake job notes'), 'the typed comment');
+    assert.ok(
+      saved[0].lines.some((l) => /F E H L E R S P E I C H E R/.test(l)),
+      'the protocol follows the comment'
+    );
+    assert.ok(
+      vp.view &&
+        /Fehlerspeicher speichern: e46-faults\.txt/.test(vp.view.title || ''),
+      `the script views the saved file: ${vp.view && vp.view.title}`
+    );
+    ok('E46.IPO: Save fault memory writes the protocol with the comment');
+
+    // Cancel on the progress window: the body ends before its next job and
+    // the window closes; the menu is still up
+    vsent.length = 0;
+    vui.boxes = [];
+    let cancelAt = 0;
+    global.api = ((orig) => async (url, opts) => {
+      const r = await orig(url, opts);
+      if (/d_0080/.test(url) && !cancelAt) {
+        cancelAt = vsent.length;
+        vp.cancel();
+      }
+      return r;
+    })(global.api);
+    await vp.press(lesen.nr);
+    await vuntil(() => !vp.busy);
+    assert.ok(cancelAt > 0, 'the cancel fired during the read');
+    assert.ok(
+      vsent.length <= cancelAt + 1,
+      `no further jobs after Cancel: ${vsent.length} vs ${cancelAt}`
+    );
+    assert.strictEqual(vui.boxes[vui.boxes.length - 1], null, 'window closed');
+    assert.strictEqual(vp.menu, 'm_fs', 'the menu stays');
+    ok('E46.IPO: Cancel ends the read between two jobs');
+
+    // F2 Ident from the main menu: one IDENT per group, the protocol is an
+    // identification report (kind 'ident') with the module's record
+    await vp.press(10); // Zurück: back to m_main
+    await vuntil(() => vp.menu === 'm_main' && !vp.busy);
+    const identKey = vp.items.find((it) => it.label === 'Ident');
+    assert.ok(
+      identKey,
+      `Ident key: ${JSON.stringify(vp.items.map((i) => i.label))}`
+    );
+    vsent.length = 0;
+    await vp.press(identKey.nr);
+    await vuntil(() => !vp.busy && !!vp.view && vp.view.report);
+    const irep = vp.view.report;
+    assert.ok(
+      irep && irep.kind === 'ident',
+      `an ident report: ${irep && irep.kind}`
+    );
+    // the climate module: its group resolves to ihka46_3 in the fake car
+    const ieng = irep.modules.find((m) => m.sgbd === 'ihka46_3');
+    assert.ok(
+      ieng && ieng.ident,
+      `the climate module answered IDENT: ${JSON.stringify(irep.modules.map((x) => x.sgbd))}`
+    );
+    assert.strictEqual(ieng.ident.ID_BMW_NR, '7514586', 'its part number');
+    assert.strictEqual(
+      ieng.ident.REVISION,
+      '2.01',
+      "INFO's revision rides along"
+    );
+    assert.ok(
+      irep.silent.some((s) => s.target === 'd_00a4'),
+      `silent addresses listed: ${JSON.stringify(irep.silent.map((s) => s.target))}`
+    );
+    assert.ok(
+      vsent.filter((s) => s.job === 'IDENT').length >= 30,
+      `IDENT went to every group: ${vsent.filter((s) => s.job === 'IDENT').length}`
+    );
+    ok('E46.IPO: Ident reads every module into an identification report');
+    vp.close();
+  }
+
+  // the real UI factory (not the fake above) exposes every method the
+  // program calls -- an edit that drops one breaks the module view silently
+  {
+    const container = {
+      className: '',
+      innerHTML: '',
+      querySelector: () => null,
+    };
+    const real = ipoMakeUi({ sgbd: 'e46', label: 'E46' }, container, () => {});
+    for (const m of [
+      'sleep',
+      'loadExec',
+      'route',
+      'status',
+      'error',
+      'message',
+      'askInput',
+      'confirmKey',
+      'confirmWrite',
+      'pickComponent',
+      'pickLines',
+      'printScreen',
+      'resolveScriptEcu',
+      'machineTick',
+      'renderKeys',
+      'paint',
+      'userbox',
+      'left',
+    ]) {
+      assert.strictEqual(typeof real[m], 'function', `ui.${m} is a function`);
+    }
+    ok('ipoMakeUi: every method the program calls is there');
   }
 
   // stop every refresh timer so the process can exit

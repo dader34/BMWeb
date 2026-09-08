@@ -157,6 +157,14 @@ class IpoProgram {
     this.confirmedWrites = new Set();
     /** @type {Array<{target: string, job: string, arg: string|null, status: string}>} sent jobs, newest last */
     this.log = [];
+    /** @type {IpoWireRead[]} the current body's answers (protocol.js) */
+    this.wireReads = [];
+    /**
+     * Files the save-as dialog named this body, by name: the picker's
+     * handle (or null for a download) until the body's end writes them.
+     * @type {Map<string, {name: string, handle?: object}>}
+     */
+    this.pendingSaves = new Map();
     /** @type {IpoMessage[]} messageboxes shown, in order */
     this.messages = [];
     this.hops = 0;
@@ -183,6 +191,11 @@ class IpoProgram {
       wireJobs: true,
       host: new FeedHost(),
     });
+    // INPA's progress window (userboxopen / userboxftextout): shown as the
+    // script fills it, so a 38-module read says which module it is on
+    vm.onUserbox = (box) => {
+      if (typeof this.ui.userbox === 'function') this.ui.userbox(this, box);
+    };
     if (exec.procs.__inpa_startup__) {
       try {
         let st = vm.stepStart('__inpa_startup__');
@@ -228,6 +241,10 @@ class IpoProgram {
     while (step && step.kind !== 'done') {
       if (++n > IPO_MAX_STEPS) throw new Error('script did not settle');
       if (this.closed) return { done: false, cancelled: true };
+      if (this.cancelRequested) {
+        this.cancelRequested = false;
+        return { done: false, cancelled: true };
+      }
       if (step.kind === 'job') {
         const fed = await this.runJob(step.sgbd, step.job, step.arg, ctx);
         if (fed == null) return { done: false, cancelled: true };
@@ -244,6 +261,15 @@ class IpoProgram {
         const got = await this.ui.askInput(step, ctx && ctx.label);
         if (got == null) return { done: false, cancelled: true };
         step = vm.resume(got);
+      } else if (step.kind === 'file') {
+        // INPA's save-as dialog: the platform's picker names the file; the
+        // script writes it in the VM and the body's end hands it over
+        const picked =
+          typeof this.ui.saveFile === 'function'
+            ? await this.ui.saveFile(this, step)
+            : null;
+        if (picked && picked.name) this.pendingSaves.set(picked.name, picked);
+        step = vm.resume(picked ? picked.name : '');
       } else if (step.kind === 'message') {
         this.reflect(vm.out);
         this.messages.push({ title: step.title, body: step.body });
@@ -417,6 +443,15 @@ class IpoProgram {
       // numbered as EDIABAS numbers them: 0 = system record, 1..n = the
       // job's sets, so INPAapiResultInt(->x, "F_ORT_NR", i) reads fault i
       fed.sets = [d.system || {}, ...sets];
+      // what the body put on the wire, kept so a protocol it writes can be
+      // shown as data too (protocol.js)
+      this.wireReads.push({
+        target,
+        variant: d.system && d.system.VARIANTE ? String(d.system.VARIANTE) : '',
+        job,
+        arg: arg == null ? null : String(arg),
+        sets,
+      });
       if (!fed.has('JOB_STATUS')) fed.set('JOB_STATUS', 'OKAY');
       status = String(fed.get('JOB_STATUS'));
       // the group probe's variant outranks the engine's synthetic one
@@ -435,6 +470,12 @@ class IpoProgram {
       status = IpoProgram.failStatus(m);
       fed.set('JOB_STATUS', status);
       fed.sets = [{}]; // no sets came back
+      this.wireReads.push({
+        target,
+        job,
+        arg: arg == null ? null : String(arg),
+        error: status,
+      });
       // no adapter at all: the script cannot ask the car anything, and the
       // module view says so instead of running inpainit's error branch
       if (/no cable/i.test(m)) this.noCable = true;
@@ -443,7 +484,11 @@ class IpoProgram {
     }
     this.log.push({ target, job, arg: arg || null, status });
     if (this.log.length > IPO_LOG_MAX) this.log.shift();
-    this.ui.status(this, `${job}${arg ? ` ${arg}` : ''} · ${status}`);
+    const where =
+      target !== String(this.ecu.sgbd || '').toLowerCase()
+        ? `${target} > `
+        : '';
+    this.ui.status(this, `${where}${job}${arg ? ` ${arg}` : ''} · ${status}`);
     return fed;
   }
 
@@ -579,6 +624,7 @@ class IpoProgram {
    * @returns {Promise<boolean>} false when the menu does not exist
    */
   async openMenu(name, opts = {}) {
+    this.view = null;
     if (!this.exec.procs[name]) return false;
     this.stopCycle();
     const gen = ++this.gen;
@@ -700,6 +746,7 @@ class IpoProgram {
    * @returns {Promise<void>}
    */
   async showScreen(name, frequent) {
+    this.view = null;
     if (!this.exec.procs[name]) {
       this.ui.paint(this);
       return;
@@ -711,6 +758,73 @@ class IpoProgram {
     this.lines = [];
     await this.cycle(this.gen);
     this.relabelFromLegend();
+  }
+
+  /**
+   * The files the body wrote under names the save-as dialog chose go to
+   * the platform: through the picker's handle, else as a download.
+   * @returns {Promise<void>}
+   */
+  async flushSavedFiles() {
+    for (const [name, picked] of this.pendingSaves) {
+      const lines = this.vm && this.vm.files ? this.vm.files.get(name) : null;
+      if (!lines || typeof this.ui.writeFile !== 'function') continue;
+      try {
+        await this.ui.writeFile(this, picked, lines);
+      } catch (e) {
+        this.ui.error(this, `save ${name}: ${e.message}`);
+      }
+    }
+    this.pendingSaves.clear();
+  }
+
+  /**
+   * The user pressed Cancel on the progress window: the running body ends
+   * before its next job (the one on the wire finishes first).
+   * @returns {void}
+   */
+  cancel() {
+    if (this.busy) this.cancelRequested = true;
+  }
+
+  /**
+   * A body that ended without reaching its userboxclose (cancelled, or it
+   * raised an error) leaves no progress window behind.
+   * @returns {void}
+   */
+  closeUserbox() {
+    if (this.vm && this.vm.userbox) {
+      this.vm.userbox = null;
+      if (typeof this.ui.userbox === 'function') this.ui.userbox(this, null);
+    }
+  }
+
+  /**
+   * setitem() from a body or a screen cycle: INPA relabels the key and shows
+   * or hides it while the menu is up (E46.IPO's read turns F9 into "FS
+   * drucken" once there is a protocol). The bar redraws when something
+   * changed.
+   * @param {IpoOut} out - the run's emissions
+   * @returns {void}
+   */
+  applySetitems(out) {
+    let changed = false;
+    for (const s of out.items || []) {
+      if (!s.fromSetitem) continue;
+      const it = this.items.find((x) => x.nr === s.nr);
+      if (!it) continue;
+      const cap = s.label == null ? '' : String(s.label);
+      if (cap.trim() && cap !== it.label) {
+        it.label = cap;
+        it.hidden = false;
+        changed = true;
+      }
+      if (s.on != null && it.hidden !== !s.on) {
+        it.hidden = !s.on;
+        changed = true;
+      }
+    }
+    if (changed) this.ui.renderKeys(this);
   }
 
   /**
@@ -852,6 +966,7 @@ class IpoProgram {
    * @returns {void}
    */
   takeCells(out) {
+    this.applySetitems(out);
     if (out.blank) {
       this.cells = new Map();
       this.lines = [];
@@ -1037,11 +1152,15 @@ class IpoProgram {
    */
   async _runForKey(it, gen, ctx, start, cancelLabel, followMachine) {
     this.busy = true;
+    this.cancelRequested = false;
+    /** @type {IpoWireRead[]} every answer this body got, in order */
+    this.wireReads = [];
     const out = this.fresh();
     let result;
     try {
       result = await this.drive(start(), ctx);
     } catch (e) {
+      this.closeUserbox();
       this.ui.error(this, e.message);
       this.busy = false;
       this._rescheduleIfFrequent(gen);
@@ -1050,8 +1169,10 @@ class IpoProgram {
       this.busy = false;
     }
     if (this.closed || gen !== this.gen) return true;
+    await this.flushSavedFiles();
     if (result.exit || out.exit) return this.leaveModule();
     if (result.cancelled) {
+      this.closeUserbox();
       this.ui.status(this, `${cancelLabel} · cancelled`);
       this._rescheduleIfFrequent(gen);
       return true;
@@ -1062,6 +1183,16 @@ class IpoProgram {
     // different module on its own address
     if (out.scriptChange)
       return this._changeScript(String(out.scriptChange), gen);
+    // viewopen: the file the body wrote (a whole-vehicle fault protocol) is
+    // the view now, until the script opens another menu or screen -- shown
+    // as the data behind it where the body read fault memories
+    if (out.view) {
+      this.view = out.view;
+      if (typeof ipoProtocolReport === 'function') {
+        const rep = ipoProtocolReport(this.wireReads, out.view.lines);
+        this.view.report = rep.modules.length ? rep : null;
+      }
+    }
     // the body painted (userbox text, a result line): show it with the screen
     this.takeCells(out);
     if (followMachine && out.stateEnter && this.exec.procs[out.stateEnter]) {
