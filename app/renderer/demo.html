@@ -1,0 +1,600 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>BMWeb in pictures</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg%20width%3D%22100%22%20height%3D%22100%22%20viewBox%3D%220%200%20100%20100%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%20%3Ccircle%20cx%3D%2250%22%20cy%3D%2250%22%20r%3D%2248%22%20fill%3D%22%2311161c%22%20stroke%3D%22%239aa6b2%22%20stroke-width%3D%223%22%2F%3E%20%3CclipPath%20id%3D%22disc%22%3E%3Ccircle%20cx%3D%2250%22%20cy%3D%2250%22%20r%3D%2231%22%2F%3E%3C%2FclipPath%3E%20%3Cg%20clip-path%3D%22url%28%23disc%29%22%3E%20%3Crect%20x%3D%2219%22%20y%3D%2219%22%20width%3D%2231%22%20height%3D%2231%22%20fill%3D%22%23eef2f5%22%2F%3E%20%3Crect%20x%3D%2250%22%20y%3D%2250%22%20width%3D%2231%22%20height%3D%2231%22%20fill%3D%22%23eef2f5%22%2F%3E%20%3Crect%20x%3D%2250%22%20y%3D%2219%22%20width%3D%2231%22%20height%3D%2231%22%20fill%3D%22%23ff9e2c%22%2F%3E%20%3Crect%20x%3D%2219%22%20y%3D%2250%22%20width%3D%2231%22%20height%3D%2231%22%20fill%3D%22%23ff9e2c%22%2F%3E%20%3C%2Fg%3E%20%3Ccircle%20cx%3D%2250%22%20cy%3D%2250%22%20r%3D%2231%22%20fill%3D%22none%22%20stroke%3D%22%230a0d11%22%20stroke-width%3D%222%22%2F%3E%20%3C%2Fsvg%3E">
+  <meta name="theme-color" content="#0d1217">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="site.css">
+  <style>
+    /* Page-specific: the contents rail (shared with the docs page) and the
+       figure grid. Shared chrome comes from site.css. */
+
+    .doc-grid { display: block; }
+    @media (min-width: 900px) {
+      .doc-grid {
+        display: grid;
+        grid-template-columns: 13rem minmax(0, 1fr);
+        gap: 56px;
+        align-items: start;
+      }
+    }
+
+    .toc { display: none; }
+    @media (min-width: 900px) {
+      .toc { display: block; position: sticky; top: 28px; padding-bottom: 40px; }
+    }
+    .toc-label {
+      font-size: 12px; font-weight: 600; color: var(--faint);
+      letter-spacing: .02em; margin: 0 0 12px; padding-left: 10px;
+    }
+    .toc a {
+      display: block; padding: 6px 10px; border-radius: 6px;
+      color: var(--dim); font-size: 13.5px; text-decoration: none;
+      transition: color .14s ease, background-color .14s ease;
+    }
+    .toc a:hover { color: var(--ink); background: var(--surface); }
+    .toc a.current { color: var(--amber); background: rgba(255,158,44,.08); }
+
+    .doc { min-width: 0; padding-bottom: 40px; }
+    .doc section { padding-bottom: 48px; scroll-margin-top: 24px; }
+    .doc h2 { margin: 0 0 6px; font-size: 22px; font-weight: 600; letter-spacing: -.022em; }
+    .doc .section-note { margin: 0 0 18px; color: var(--dim); font-size: 15px; line-height: 1.62; max-width: 46rem; }
+    .doc a:not(.nav-btn) {
+      color: var(--dim); text-decoration: underline;
+      text-underline-offset: 3px; text-decoration-color: var(--faint);
+    }
+    .doc a:not(.nav-btn):hover { color: var(--amber); text-decoration-color: var(--amber); }
+
+    /* Figures: two across on a wide screen, one on a phone. */
+    .shots { display: grid; grid-template-columns: 1fr; gap: 18px; }
+    @media (min-width: 720px) { .shots { grid-template-columns: 1fr 1fr; } }
+    .shots figure {
+      margin: 0; background: var(--surface); border-radius: var(--r);
+      overflow: hidden; display: flex; flex-direction: column;
+    }
+    .shots figure.wide { grid-column: 1 / -1; }
+    .shots img {
+      display: block; width: 100%; height: auto; aspect-ratio: 1440 / 900;
+      object-fit: cover; object-position: top center; cursor: zoom-in;
+      background: #0c1015;
+    }
+    .shots figcaption {
+      padding: 12px 16px 14px; color: var(--dim); font-size: 13.5px; line-height: 1.55;
+    }
+    .shots figcaption b { color: var(--ink); font-weight: 500; }
+    .shots .tag {
+      display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 4px;
+      font-family: var(--mono); font-size: 11px; color: var(--faint);
+      background: rgba(255,255,255,.06); vertical-align: 1px;
+    }
+
+    /* Lightbox: click a figure to see it full size. */
+    .lb {
+      position: fixed; inset: 0; z-index: 50; display: none;
+      background: rgba(6,9,12,.94); align-items: center; justify-content: center;
+      padding: 32px; opacity: 0; transition: opacity .18s ease;
+    }
+    .lb.on { display: flex; opacity: 1; }
+    .lb img {
+      max-width: 100%; max-height: calc(100% - 44px); width: auto; height: auto;
+      border-radius: 8px; box-shadow: 0 18px 60px rgba(0,0,0,.6); cursor: zoom-out;
+      object-fit: contain;
+    }
+    .lb-close {
+      position: absolute; top: 14px; right: 18px; width: 40px; height: 40px;
+      border: 0; border-radius: 50%; background: rgba(20,26,33,.85); color: var(--ink);
+      font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+    }
+    .lb-close:hover { background: rgba(30,38,48,.95); }
+    .lb-nav {
+      position: absolute; top: 50%; transform: translateY(-50%);
+      width: 46px; height: 46px; border: 0; border-radius: 50%;
+      background: rgba(20,26,33,.8); color: var(--ink); font-size: 22px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .lb-nav:hover { background: rgba(30,38,48,.95); }
+    .lb-nav.prev { left: 16px; } .lb-nav.next { right: 16px; }
+    .lb-cap {
+      position: absolute; left: 0; right: 0; bottom: 14px; text-align: center;
+      color: var(--dim); font-size: 13.5px; padding: 0 70px;
+    }
+    @media (max-width: 720px) {
+      .lb { padding: 12px; }
+      .lb-nav { width: 38px; height: 38px; }
+      .lb-nav.prev { left: 6px; } .lb-nav.next { right: 6px; }
+      .lb-cap { padding: 0 48px; font-size: 12.5px; }
+    }
+  </style>
+
+<script>
+// The Pages build renames index.html -> app.html and install.html ->
+// index.html, so the same href cannot be right in both layouts. Links are
+// written with the local layout and rewritten only once app.html is
+// confirmed, so a failed probe leaves the working local hrefs untouched.
+(function () {
+  fetch('app.html', { method: 'HEAD' }).then(function (r) {
+    if (!r.ok) return;
+    function set(sel, url) {
+      Array.prototype.forEach.call(
+        document.querySelectorAll(sel), function (a) { a.href = url; });
+    }
+    set('[data-link="app"]', 'app.html');
+    set('[data-link="home"]', './');
+  }).catch(function () {});
+}());
+</script>
+</head>
+<body>
+
+<header class="masthead">
+  <div class="wrap wrap-wide masthead-in">
+    <a class="brand" href="install.html" data-link="home">
+      <svg class="logo" viewBox="0 0 100 100" role="img" aria-label="BMWeb">
+        <circle class="logo-ring" cx="50" cy="50" r="48"/>
+        <clipPath id="d"><circle cx="50" cy="50" r="31"/></clipPath>
+        <g clip-path="url(#d)">
+          <rect class="q-white" x="19" y="19" width="31" height="31"/>
+          <rect class="q-white" x="50" y="50" width="31" height="31"/>
+          <rect class="q-color" x="50" y="19" width="31" height="31"/>
+          <rect class="q-color" x="19" y="50" width="31" height="31"/>
+        </g>
+        <circle class="logo-ring" cx="50" cy="50" r="31"/>
+      </svg>
+      <span class="name">BMWeb <span style="color:var(--faint);font-weight:400">Screens</span></span>
+    </a>
+    <nav class="nav-links">
+      <a href="docs.html" class="nav-btn">Docs</a>
+      <a href="demo.html" class="nav-btn" aria-current="page">Screens</a>
+      <a href="index.html" class="nav-btn" data-link="app">Open the app</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap wrap-wide">
+  <div class="page-head">
+    <h1>BMWeb in pictures</h1>
+    <p>Every screen of the app, with a line on what it does for you. The car
+      screens were taken against a 2003 325i idling warm; the reference apps
+      need no car at all. Click any picture to see it full size.</p>
+  </div>
+
+  <div class="doc-grid">
+    <aside class="toc">
+      <p class="toc-label">Contents</p>
+      <nav id="toc-nav">
+        <a href="#vehicles">Vehicles and modules</a>
+        <a href="#faults">Fault memory</a>
+        <a href="#live">Live values</a>
+        <a href="#activations">Activations</a>
+        <a href="#identity">Identity and scans</a>
+        <a href="#printing">Printing</a>
+        <a href="#apps">Reference apps</a>
+        <a href="#lookup">Fault lookup</a>
+        <a href="#wiring">Wiring</a>
+        <a href="#parts">Parts</a>
+        <a href="#tuning">Tuning</a>
+        <a href="#tool32">Job runner</a>
+        <a href="#remote">Remote sessions</a>
+        <a href="#skins">Skins</a>
+      </nav>
+    </aside>
+
+    <article class="doc">
+
+      <section id="vehicles">
+        <h2>Vehicles and modules</h2>
+        <p class="section-note">Pick the car, pick a module, and the module's own
+          menu comes up. On a desktop the default is the classic text layout, with
+          the F-keys along the bottom; Settings switches to a modern layout with the
+          same keys and the same screens.</p>
+        <div class="shots">
+          <figure>
+            <img src="img/demo/vehicles-inpa.webp" alt="The vehicle list: F1 to F8 pick a chassis from E46 to E70, F9 opens other models, F10 opens the apps." width="1440" height="900" loading="lazy" decoding="async">
+            <figcaption><b>Vehicle list.</b> The first screen. Each key is a chassis; the cable and the
+              battery and ignition state show at the top.<span class="tag">classic</span></figcaption>
+          </figure>
+          <figure>
+            <img src="img/demo/modules-inpa.webp" alt="The script selection popup for an E46: systems on the left, the engine modules on the right." width="1440" height="900" loading="lazy" decoding="async">
+            <figcaption><b>Module picker.</b> Systems on the left, the modules in that system on the
+              right, plus Coding and Identity entries and the whole-car jobs.<span class="tag">classic</span></figcaption>
+          </figure>
+          <figure>
+            <img src="img/demo/modules-modern.webp" alt="The E46 module list in the modern layout: a system rail and module cards with the module code, name and file." width="1440" height="900" loading="lazy" decoding="async">
+            <figcaption><b>Module list.</b> The same list as cards: each shows the module's code, its
+              name and the definition file it talks with.<span class="tag">modern</span></figcaption>
+          </figure>
+          <figure>
+            <img src="img/demo/module-menu-inpa.webp" alt="The MS45 engine module's main menu as a text screen: F1 info, F2 identification, F4 fault memory, F5 status, F6 activations and more." width="1440" height="900" loading="lazy" decoding="async">
+            <figcaption><b>Module main menu.</b> The engine module's own menu, drawn by the module's
+              script exactly as the dealer tool draws it. The F-keys below are live.<span class="tag">classic</span></figcaption>
+          </figure>
+          <figure class="wide">
+            <img src="img/demo/module-menu-modern.webp" alt="The same MS45 main menu as tiles: one tile per key, each with its legend line." width="1440" height="900" loading="lazy" decoding="async">
+            <figcaption><b>Module main menu.</b> The same script, one tile per key, described by the
+              menu's own legend.<span class="tag">modern</span></figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <section id="faults">
+        <h2>Fault memory</h2>
+        <p class="section-note">Read the stored faults of any module, with the
+          module's own wording and status flags, and look at the conditions the
+          module recorded when each fault was set.</p>
+        <div class="shots">
+          <figure>
+            <img src="img/demo/faults-inpa.webp" alt="The MS45 fault list: three faults with their number, name, type, readiness, present or stored and MIL status." width="1440" height="900" loading="lazy" decoding="async">
+            <figcaption><b>Fault list.</b> Three stored faults on the engine module, each with its
+              type, readiness, whether it is present now, and whether it lit the warning
+              lamp.<span class="tag">classic</span></figcaption>
+          </figure>
+          <figure>
+            <img src="img/demo/faults-modern.webp" alt="The same three faults in the modern layout, each as a card of labelled rows." width="1440" height="900" loading="lazy" decoding="async">
+            <figcaption><b>Fault list.</b> The same read, laid out as labelled rows.<span class="tag">modern</span></figcaption>
+          </figure>
+          <figure class="wide">
+            <img src="img/demo/freeze-frame-inpa.webp" alt="The freeze frame view: for each fault, how often it was seen, the mileage, and the engine conditions at the time." width="1440" height="900" loading="lazy" decoding="async">
+            <figcaption><b>Freeze frame.</b> What the module recorded when the fault was set: how often,
+              at what mileage, and the coolant temperature, load, lambda and engine speed at that
+              moment.<span class="tag">classic</span></figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <section id="live">
+        <h2>Live values</h2>
+        <p class="section-note">Switch positions, sensor readings and measurement
+          blocks, refreshed continuously while the screen is open. Bars carry the
+          module's own scale and its good and bad bands.</p>
+        <div class="shots">
+          <figure>
+            <img src="img/demo/lamps-inpa.webp" alt="Switch position lamps: terminal 15 on, engine stopped off, clutch, brake light and brake test switches off, A/C request on." width="1440" height="900" loading="lazy" decoding="async">
+            <figcaption><b>Switch positions.</b> A lamp per input: ignition on, engine running, clutch
+              and brake switches, the air-conditioning request.<span class="tag">classic</span></figcaption>
+          </figure>
+          <figure>
+            <img src="img/demo/lamps-modern.webp" alt="The same switch positions as a list of labelled rows with a lamp beside each." width="1440" height="900" loading="lazy" decoding="async">
+            <figcaption><b>Switch positions.</b> The same inputs as rows.<span class="tag">modern</span></figcaption>
+          </figure>
+          <figure>
+            <img src="img/demo/measurement-block-inpa.webp" alt="An OBD-II measurement block: coolant and intake temperatures, load, ignition timing, throttle, air mass, lambda, fuel trims, battery voltage, each as a bar." width="1440" height="900" loading="lazy" decoding="async">
+            <figcaption><b>Measurement block.</b> The standard emissions values in one screen:
+              temperatures, load, timing, throttle, air mass, lambda and fuel trims.<span class="tag">classic</span></figcaption>
+          </figure>
+          <figure>
+            <img src="img/demo/measurement-block-modern.webp" alt="The same measurement block in the modern layout, values grouped per line with their bars." width="1440" height="900" loading="lazy" decoding="async">
+            <figcaption><b>Measurement block.</b> The same values, grouped the way the script
+              prints them.<span class="tag">modern</span></figcaption>
+          </figure>
+          <figure class="wide">
+            <img src="img/demo/rough-running-bars-inpa.webp" alt="Six cylinder rough-running bars and two oxygen sensor voltages, plus the segment adaptation lamp." width="1440" height="900" loading="lazy" decoding="async">
+            <figcaption><b>Rough running.</b> One bar per cylinder for misfire detection, the two
+              oxygen sensor voltages, and whether the crank sensor adaptation has
+              finished. A weak cylinder stands out at a glance.<span class="tag">classic</span></figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <section id="activations">
+        <h2>Activations</h2>
+        <p class="section-note">Drive a component from the keyboard: injectors, the
+          fan, the fuel pump, valves. Anything that changes the car asks first and
+          names exactly what it is about to send.</p>
+        <div class="shots">
+          <figure>
+            <img src="img/demo/activation-menu-inpa.webp" alt="The injector activation menu: F1 to F6 pick a cylinder, shifted keys set engine speed and pulse width." width="1440" height="900" loading="lazy" decoding="async">
+            <figcaption><b>Injector test.</b> F1 to F6 fire one injector each; the shifted keys set
+              the speed and pulse width the test runs at.<span class="tag">classic</span></figcaption>
+          </figure>
+          <figure>
+            <img src="img/demo/activation-confirm.webp" alt="A confirmation dialog: Send STEUERN_EV_1 on MS45.1 for M54? with Cancel and Send buttons." width="1440" height="900" loading="lazy" decoding="async">
+            <figcaption><b>Confirm before sending.</b> The exact job and argument the screen wants
+              to send, and a Cancel key. Reads never prompt; writes and activations
+              always do.</figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <section id="identity">
+        <h2>Identity and scans</h2>
+        <p class="section-note">Ask the car what it is, and ask every module at
+          once whether it has anything stored.</p>
+        <div class="shots">
+          <figure class="wide">
+            <img src="img/demo/identity.webp" alt="The vehicle identity screen: VIN, odometer, build date, paint and upholstery per module, and the option list decoded from the build record." width="1440" height="900" loading="lazy" decoding="async">
+            <figcaption><b>Vehicle identity.</b> The build record as each module stores it, side by
+              side: VIN, stored odometer, order date, paint, upholstery and the option
+              codes decoded into words. Copies that disagree are a finding.</figcaption>
+          </figure>
+          <figure>
+            <img src="img/demo/error-scan.webp" alt="The full module error scan: 35 modules read, two with stored faults, each module a row with its fault count or OK." width="1440" height="900" loading="lazy" decoding="async">
+            <figcaption><b>Full module error scan.</b> Every module on the car read in one pass, with
+              a Clear key per module and a report at the end.</figcaption>
+          </figure>
+          <figure>
+            <img src="img/demo/error-scan-report.webp" alt="The printed fault report: each faulty module with its codes, count, state and the conditions at code entry." width="1440" height="900" loading="lazy" decoding="async">
+            <figcaption><b>Fault report.</b> The scan as a clean sheet for printing or saving as
+              PDF: codes, how often, present or stored, and the conditions when each
+              was set.</figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <section id="printing">
+        <h2>Printing</h2>
+        <p class="section-note">Any module screen prints as a plain sheet, in either
+          layout, with the module, the menu and the time on it.</p>
+        <div class="shots">
+          <figure>
+            <img src="img/demo/print-inpa.webp" alt="A print sheet of the fault list in the classic text form, with the key legend underneath." width="1440" height="900" loading="lazy" decoding="async">
+            <figcaption><b>Print sheet.</b> The fault list as the screen showed it, with the keys
+              that were available.<span class="tag">classic</span></figcaption>
+          </figure>
+          <figure>
+            <img src="img/demo/print-modern.webp" alt="The same print sheet in the modern form: a labelled table of the fault rows." width="1440" height="900" loading="lazy" decoding="async">
+            <figcaption><b>Print sheet.</b> The same content as a table.<span class="tag">modern</span></figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <section id="apps">
+        <h2>Reference apps</h2>
+        <p class="section-note">Everything past this point works without a cable
+          and without a car: the reference material from the dealer software, in the
+          browser.</p>
+        <div class="shots">
+          <figure class="wide">
+            <img src="img/demo/apps-hub.webp" alt="The Apps hub: fault lookup, wiring and documents, parts catalogue, ECU backup, Tool32 and tuning." width="1440" height="900" loading="lazy" decoding="async">
+            <figcaption><b>Apps hub.</b> Fault lookup, wiring and repair documents, the parts
+              catalogue, a read-only firmware backup, a raw job runner, and a
+              firmware editor.</figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <section id="lookup">
+        <h2>Fault lookup</h2>
+        <p class="section-note">Search fault codes and descriptions across every
+          chassis and module, then open one for its service data and, where the
+          dealer software has one, the step-by-step diagnostic procedure.</p>
+        <div class="shots">
+          <figure>
+            <img src="img/demo/lookup-search.webp" alt="A search for the code 9DF7: the matching fault on an E60 trailer module, with its code and English name." width="1440" height="900" loading="lazy" decoding="async">
+            <figcaption><b>Search.</b> Type a code or a few words; results are grouped by chassis
+              and module, with the original wording beside the English. Rows with a
+              chevron have more behind them.</figcaption>
+          </figure>
+          <figure>
+            <img src="img/demo/lookup-fault.webp" alt="An opened fault: its code and name, then the service document: set condition, monitoring, time condition, service measures and the effect on the car." width="1440" height="900" loading="lazy" decoding="async">
+            <figcaption><b>Service document.</b> What sets the fault, how it is monitored, and
+              the service measures to take, followed by the diagnostic procedure
+              where the dealer software has one. Printable.</figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <section id="wiring">
+        <h2>Wiring</h2>
+        <p class="section-note">The factory wiring diagrams, component locations,
+          pin assignments and repair documents for each chassis. Diagrams are vector:
+          scroll to zoom, drag to pan, and open several as tabs.</p>
+        <div class="shots">
+          <figure>
+            <img src="img/demo/wiring-inpa.webp" alt="An engine management wiring diagram in the classic grey diagram-system frame: a tree of systems on the left, the schematic on the right." width="1440" height="900" loading="lazy" decoding="async">
+            <figcaption><b>Wiring diagram.</b> With the classic skin on, the diagram viewer takes on
+              the grey frame of the original: series, print, search and pane buttons
+              where they always were.<span class="tag">classic skin</span></figcaption>
+          </figure>
+          <figure>
+            <img src="img/demo/wiring-modern.webp" alt="The same engine management wiring diagram in the default dark skin, with a toolbar for diagrams, components, repair documents and search." width="1440" height="900" loading="lazy" decoding="async">
+            <figcaption><b>Wiring diagram.</b> The same schematic in the default skin. The
+              toolbar switches between diagrams, component information and repair
+              instructions.<span class="tag">default skin</span></figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <section id="parts">
+        <h2>Parts</h2>
+        <p class="section-note">The parts catalogue by chassis: main groups,
+          exploded diagrams, and the part numbers behind each callout.</p>
+        <div class="shots">
+          <figure>
+            <img src="img/demo/parts-groups.webp" alt="The E46 parts catalogue main groups: engine, fuel, exhaust, clutch, transmission, axles, brakes, body and more, each with a picture." width="1440" height="900" loading="lazy" decoding="async">
+            <figcaption><b>Main groups.</b> Pick a variant to filter, then a group.</figcaption>
+          </figure>
+          <figure>
+            <img src="img/demo/parts-diagram.webp" alt="A cylinder head exploded diagram with numbered callouts, the group tree on the left." width="1440" height="900" loading="lazy" decoding="async">
+            <figcaption><b>Diagram.</b> Numbered callouts with the part table underneath; the tree
+              on the left walks the rest of the group.</figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <section id="tuning">
+        <h2>Tuning</h2>
+        <p class="section-note">Open a firmware image, add a definition file, and
+          edit named constants and tables in engineering units, with the raw hex
+          beside them. Saving writes a file on your computer, never the car.</p>
+        <div class="shots">
+          <figure>
+            <img src="img/demo/tuning-hex.webp" alt="The firmware editor: a definition tree on the left with a scalar opened in its editor, the hex view on the right with the bytes of that parameter highlighted." width="1440" height="900" loading="lazy" decoding="async">
+            <figcaption><b>Constants and hex.</b> Filter the definition tree, open a value, and
+              the bytes it lives in light up in the hex view with a data inspector.</figcaption>
+          </figure>
+          <figure>
+            <img src="img/demo/tuning-table.webp" alt="A one by eight ignition efficiency table opened in the table editor, heat coloured, with set, interpolate, smooth, undo and revert tools." width="1440" height="900" loading="lazy" decoding="async">
+            <figcaption><b>Table editor.</b> Heat-coloured cells with the axis in real units; set,
+              scale, interpolate and smooth, with undo and a diff against the
+              original.</figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <section id="tool32">
+        <h2>Job runner</h2>
+        <p class="section-note">For when you know the job name: pick a definition
+          file and a job, give it an argument, and read the raw result registers.
+          Jobs that write are marked.</p>
+        <div class="shots">
+          <figure class="wide">
+            <img src="img/demo/tool32.webp" alt="Tool32: a filterable list of definition files, the jobs of the selected one with write jobs marked, and the result of STATUS_MOTORDREHZAHL: 752 rpm, setpoint 720." width="1440" height="900" loading="lazy" decoding="async">
+            <figcaption><b>Tool32.</b> The engine speed job run against the engine module: three
+              result values, a repeat timer, and a wire trace underneath.</figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <section id="remote">
+        <h2>Remote sessions</h2>
+        <p class="section-note">Share your cabled car with someone who knows the
+          diagnostics better, or connect to theirs. The car stays on its own
+          machine; only jobs cross, and every write is approved at the car.</p>
+        <div class="shots">
+          <figure>
+            <img src="img/demo/remote-share.webp" alt="The Share my car panel: read and write or read only access, and a checkbox to confirm each of the helper's actions." width="1440" height="900" loading="lazy" decoding="async">
+            <figcaption><b>Share my car.</b> Choose read-only or read-and-write, and whether every
+              write needs your approval first. Then get a short code to pass on.</figcaption>
+          </figure>
+          <figure>
+            <img src="img/landing/08-remote-waiting.webp" alt="The helper's view: connected to the shared car, waiting for the owner to admit them." width="1500" height="722" loading="lazy" decoding="async">
+            <figcaption><b>Waiting to be admitted.</b> The helper enters the code and waits; nothing
+              reaches the car until the owner lets them in.</figcaption>
+          </figure>
+          <figure>
+            <img src="img/landing/10-remote-approve.webp" alt="The owner is asked to approve the exact action the helper wants to run." width="1500" height="722" loading="lazy" decoding="async">
+            <figcaption><b>Approve a write.</b> The owner sees the exact job before it goes to the
+              car and can refuse it.</figcaption>
+          </figure>
+          <figure>
+            <img src="img/landing/11-remote-connected.webp" alt="A live remote session: a red REMOTE badge and an orange frame while the helper drives the car." width="1500" height="722" loading="lazy" decoding="async">
+            <figcaption><b>Live session.</b> A red badge and an orange frame the whole time
+              someone else is driving the screens.</figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <section id="skins">
+        <h2>Skins</h2>
+        <p class="section-note">Six looks for the same screens, picked in Settings.
+          The skin changes colours and chrome only; the layout switch is separate.</p>
+        <div class="shots">
+          <figure class="wide">
+            <img src="img/demo/settings.webp" alt="The Settings screen: the skin picker with six cards, function labels, layout, actuator confirmation, tutorial and remote session rows." width="1440" height="900" loading="lazy" decoding="async">
+            <figcaption><b>Settings.</b> The skin picker, English or original job names, the
+              layout switch, whether activations ask first, and the remote session
+              entry.</figcaption>
+          </figure>
+          <figure>
+            <img src="img/demo/skin-inpa.webp" alt="The engine module main menu in the INPA skin: black text on white with a green RUNNING marker over the key bar." width="1440" height="900" loading="lazy" decoding="async">
+            <figcaption><b>INPA skin.</b> White screen, black text, the green marker above the
+              keys.</figcaption>
+          </figure>
+          <figure>
+            <img src="img/demo/skin-inpa-faults.webp" alt="The fault list in the INPA skin." width="1440" height="900" loading="lazy" decoding="async">
+            <figcaption><b>INPA skin.</b> The fault list in the same look.</figcaption>
+          </figure>
+          <figure>
+            <img src="img/demo/skin-aero.webp" alt="The engine module main menu in the Frutiger skin: a translucent blue gradient with pill-shaped keys." width="1440" height="900" loading="lazy" decoding="async">
+            <figcaption><b>Frutiger skin.</b> Blue glass and pill keys.</figcaption>
+          </figure>
+          <figure>
+            <img src="img/demo/skin-metal.webp" alt="The engine module main menu in the Brushed Metal skin: grey brushed panels and bevelled keys." width="1440" height="900" loading="lazy" decoding="async">
+            <figcaption><b>Brushed Metal skin.</b> Grey panels and bevelled keys.</figcaption>
+          </figure>
+          <figure>
+            <img src="img/demo/skin-gt1.webp" alt="The engine module main menu in the GT1 skin: a yellow header bar over a light grey screen." width="1440" height="900" loading="lazy" decoding="async">
+            <figcaption><b>GT1 skin.</b> Yellow bar, light grey screen.</figcaption>
+          </figure>
+          <figure>
+            <img src="img/demo/skin-brackets.webp" alt="The engine module main menu in the Brackets skin: a flat dark grey with muted keys." width="1440" height="900" loading="lazy" decoding="async">
+            <figcaption><b>Brackets skin.</b> Flat dark grey, quiet keys.</figcaption>
+          </figure>
+        </div>
+      </section>
+
+    </article>
+  </div>
+</main>
+
+<!-- full-size viewer; opened by clicking a figure -->
+<div class="lb" id="lightbox" role="dialog" aria-modal="true" aria-label="Enlarged screen">
+  <button class="lb-close" type="button" aria-label="Close">&times;</button>
+  <button class="lb-nav prev" type="button" aria-label="Previous screen">&#8249;</button>
+  <img id="lb-img" src="" alt="">
+  <button class="lb-nav next" type="button" aria-label="Next screen">&#8250;</button>
+  <div class="lb-cap" id="lb-cap"></div>
+</div>
+
+<footer class="site-footer">
+  <div class="wrap wrap-wide footer-in">
+    <span>BMWeb, BMW diagnostics without Windows</span>
+    <a href="https://github.com/dader34/BMWeb">github.com/dader34/BMWeb</a>
+  </div>
+</footer>
+
+<script>
+(function () {
+  // Lightbox over every figure on the page, in document order. Prev/next and
+  // the arrow keys walk the whole sequence; Escape or a click closes it.
+  var imgs = Array.prototype.slice.call(document.querySelectorAll('.shots img'));
+  var lb = document.getElementById('lightbox');
+  var lbImg = document.getElementById('lb-img');
+  var lbCap = document.getElementById('lb-cap');
+  var i = 0, open = false;
+  function captionOf(img) {
+    var fig = img.closest('figure');
+    var cap = fig && fig.querySelector('figcaption');
+    return cap ? cap.textContent.replace(/\s+/g, ' ').trim() : (img.alt || '');
+  }
+  function paint() {
+    var src = imgs[i];
+    lbImg.src = src.currentSrc || src.src;
+    lbImg.alt = src.alt || '';
+    lbCap.textContent = captionOf(src);
+  }
+  function show(n) { i = (n + imgs.length) % imgs.length; paint(); }
+  function openLb(n) { open = true; show(n); lb.classList.add('on'); }
+  function closeLb() { open = false; lb.classList.remove('on'); lbImg.src = ''; }
+  imgs.forEach(function (img, n) { img.addEventListener('click', function () { openLb(n); }); });
+  lb.querySelector('.lb-close').addEventListener('click', closeLb);
+  lb.querySelector('.lb-nav.next').addEventListener('click', function () { show(i + 1); });
+  lb.querySelector('.lb-nav.prev').addEventListener('click', function () { show(i - 1); });
+  lbImg.addEventListener('click', closeLb);
+  lb.addEventListener('click', function (e) { if (e.target === lb) closeLb(); });
+  document.addEventListener('keydown', function (e) {
+    if (!open) return;
+    if (e.key === 'Escape') closeLb();
+    else if (e.key === 'ArrowRight') show(i + 1);
+    else if (e.key === 'ArrowLeft') show(i - 1);
+  });
+
+  // Highlight the contents entry for whatever section is on screen.
+  var links = Array.prototype.slice.call(document.querySelectorAll('#toc-nav a'));
+  var byId = {};
+  links.forEach(function (a) { byId[a.getAttribute('href').slice(1)] = a; });
+  var sections = Array.prototype.slice.call(document.querySelectorAll('.doc section'));
+  if (!sections.length || !('IntersectionObserver' in window)) return;
+  var visible = {};
+  var io = new IntersectionObserver(function (entries) {
+    entries.forEach(function (e) { visible[e.target.id] = e.isIntersecting; });
+    for (var k = 0; k < sections.length; k++) {
+      if (visible[sections[k].id]) {
+        links.forEach(function (a) { a.classList.remove('current'); });
+        var hit = byId[sections[k].id];
+        if (hit) hit.classList.add('current');
+        break;
+      }
+    }
+  }, { rootMargin: '-10% 0px -70% 0px' });
+  sections.forEach(function (s) { io.observe(s); });
+}());
+</script>
+</body>
+</html>
