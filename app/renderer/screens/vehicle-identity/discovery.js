@@ -415,12 +415,24 @@ async function viProbeEcu(e, chassisId) {
  * @returns {Promise<ViIdentityModule[]>} The masters, in chassis-config order.
  */
 async function viIdentityModules(chassisId) {
+  const probes = await viIdentityProbes(chassisId);
+  const probed = await Promise.all(probes);
+  return probed.filter(Boolean);
+}
+
+/**
+ * One probe per module of the chassis, started together. Kept apart from
+ * the list so a caller that only needs to know whether ANY module answers
+ * can stop at the first hit instead of waiting for all fifty-odd archives.
+ * @param {string|null|undefined} chassisId - Chassis id, any case.
+ * @returns {Promise<Array<Promise<ViIdentityModule|null>>>} The probes.
+ */
+async function viIdentityProbes(chassisId) {
   const id = String(chassisId || '').toUpperCase();
   const ecus = await viConfigEcus(id);
   if (!ecus.length) return [];
   if (typeof loadTables === 'function') await loadTables();
-  const probed = await Promise.all(ecus.map((e) => viProbeEcu(e, id)));
-  return probed.filter(Boolean);
+  return ecus.map((e) => viProbeEcu(e, id).catch(() => null));
 }
 
 /**
@@ -432,16 +444,45 @@ async function viIdentityModules(chassisId) {
 const _viIdentCache = new Map();
 
 /**
+ * The chassis's probes, memoised for the session: `all` is the full list
+ * (the screen), `any` settles true at the FIRST module that answers (the
+ * nav row), so a menu does not wait on every archive before it can show
+ * the entry. Both share the same underlying fetches.
+ * @param {string|null|undefined} chassisId - Chassis id, any case.
+ * @returns {{all: Promise<ViIdentityModule[]>, any: Promise<boolean>}}
+ */
+function viIdentityCached(chassisId) {
+  const id = String(chassisId || '').toUpperCase();
+  if (_viIdentCache.has(id)) return _viIdentCache.get(id);
+  const probesP = viIdentityProbes(id);
+  const all = probesP
+    .then((ps) => Promise.all(ps))
+    .then((list) => list.filter(Boolean));
+  const any = probesP.then(
+    (ps) =>
+      new Promise((resolve) => {
+        if (!ps.length) return resolve(false);
+        let left = ps.length;
+        for (const p of ps) {
+          p.then((r) => {
+            if (r) resolve(true);
+            if (--left === 0) resolve(false);
+          });
+        }
+      })
+  );
+  const rec = { all, any };
+  _viIdentCache.set(id, rec);
+  return rec;
+}
+
+/**
  * viIdentityModules, memoised per chassis for the session.
  * @param {string|null|undefined} chassisId - Chassis id, any case.
  * @returns {Promise<ViIdentityModule[]>} The masters.
  */
-async function viIdentityModulesCached(chassisId) {
-  const id = String(chassisId || '').toUpperCase();
-  if (_viIdentCache.has(id)) return _viIdentCache.get(id);
-  const p = viIdentityModules(id);
-  _viIdentCache.set(id, p);
-  return p;
+function viIdentityModulesCached(chassisId) {
+  return viIdentityCached(chassisId).all;
 }
 
 /**
@@ -452,7 +493,7 @@ async function viIdentityModulesCached(chassisId) {
  */
 async function chassisHasIdentity(chassisId) {
   try {
-    return (await viIdentityModulesCached(chassisId)).length > 0;
+    return await viIdentityCached(chassisId).any;
   } catch (e) {
     return false;
   }

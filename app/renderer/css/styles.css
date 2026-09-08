@@ -3306,6 +3306,9 @@ html[data-theme='inpa'] .inpa-fault-name {
   flex-direction: column;
   gap: 2px;
 }
+.sys-item[hidden] {
+  display: none !important;
+}
 .sys-item {
   -webkit-app-region: no-drag;
   cursor: pointer;

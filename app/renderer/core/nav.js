@@ -593,16 +593,24 @@ async function showSections(id, selectIndex = 0) {
   // Vehicle identity, shown only where a module can actually answer. The test
   // is the same one the screen uses -- an ECU declaring a job that returns the
   // coding key or the vehicle order -- so the tile never opens a dead end.
-  if (
-    typeof chassisHasIdentity === 'function' &&
-    (await chassisHasIdentity(id))
-  ) {
+  // Drawn hidden in its place and revealed when the probe answers (it
+  // settles at the first module that carries an identity job), so the
+  // sections never wait on it.
+  if (typeof chassisHasIdentity === 'function') {
     const ident = document.createElement('button');
     ident.className = 'sys-item sys-identity';
+    ident.hidden = true;
     ident.innerHTML = `<span class="nav-name">Identity</span>
                       <span class="nav-count">read</span>`;
     ident.onclick = () => showVehicleIdentity(id);
     nav.appendChild(ident);
+    chassisHasIdentity(id)
+      .then((has) => {
+        if (has) ident.hidden = false;
+      })
+      .catch(() => {
+        /* the row stays hidden */
+      });
   }
 
   // whole-vehicle fault scan (Functional Jobs F4), reachable from the modern layout too
