@@ -13,7 +13,7 @@ const WIRING_PICKER_HOTKEYS = 9;
  * One car on the picker: an F-key row in INPA mode, a card otherwise.
  * @param {string} id - chassis code
  * @param {number} i - position in the list (numbers the F-key row)
- * @param {boolean} classic - INPA mode
+ * @param {boolean} classic - the INPA skin is on (WDS chrome)
  * @returns {HTMLButtonElement}
  */
 function wiringChassisCard(id, i, classic) {
@@ -93,7 +93,8 @@ async function showWiringChassis() {
   // returning user is one Enter away from their car.
   view.appendChild(buildWiringVinBox());
 
-  const classic = typeof inpaMode === 'function' && inpaMode();
+  // the WDS look follows the INPA skin, not the layout mode
+  const classic = typeof inpaTheme === 'function' && inpaTheme();
   const grid = document.createElement('div');
   grid.className = classic ? 'inpa-vlist' : 'chassis-grid stagger';
 

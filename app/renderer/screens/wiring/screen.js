@@ -137,7 +137,7 @@ function wiringModernToolbarHtml() {
  * The whole frame. INPA mode wears WDS's own chrome; same code underneath,
  * only the frame changes. Both layouts carry the same controls.
  * @param {string} chassisId - chassis code
- * @param {boolean} classic - INPA mode
+ * @param {boolean} classic - the INPA skin is on (WDS chrome)
  * @returns {string}
  */
 function wiringFrameHtml(chassisId, classic) {
@@ -509,7 +509,8 @@ function showWiring(chassisId, openDoc = null, vin = null, category = null) {
   // you are
   view.innerHTML = '';
 
-  const classic = typeof inpaMode === 'function' && inpaMode();
+  // the WDS look follows the INPA skin, not the layout mode
+  const classic = typeof inpaTheme === 'function' && inpaTheme();
   // no F-key bar either mode: both layouts carry Back/print/help on their own
   // chrome, and the bar would cost the diagram 52px. setCrumbs restores it.
   document.body.classList.add('wds-nofkeys');

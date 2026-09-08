@@ -113,6 +113,16 @@ const inpaMode = () =>
   Settings.get('inpaScreens', 'on') === 'on' && !isMobileViewport();
 
 /**
+ * The INPA skin is on (Settings 'theme'). Apps that carry a period chrome
+ * of their own (the wiring viewer's WDS frame) follow the skin, not the
+ * layout mode: a modern layout under the INPA skin still wants the frame,
+ * and vice versa. Off on a phone, like the layout.
+ * @returns {boolean}
+ */
+const inpaTheme = () =>
+  Settings.get('theme', 'instrument') === 'inpa' && !isMobileViewport();
+
+/**
  * Draw the breadcrumb strip and mirror the screen into the URL.
  * @param {Crumb[]} items - Crumbs, root first.
  * @returns {void}
