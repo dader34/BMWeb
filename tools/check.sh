@@ -1,8 +1,8 @@
 #!/bin/sh
 # Every guard on the generated-screen pipeline, in one command.
 #
-# Run this after touching anything under tools/ipo_*.py, tools/sgbd_harvest.py
-# or MenuGen's activation code. The generators write data for hundreds of ECUs
+# Run this after touching anything under tools/decompile, tools/sgbd or
+# tools/export. The generators write data for hundreds of ECUs
 # at once, so a quiet mistake is a quiet mistake everywhere -- these are the
 # checks that turn that into a loud one.
 #
@@ -15,8 +15,11 @@
 # SOME GENERATORS ARE RUN BY HAND and so are named by no code. They look
 # orphaned to a grep -- a reference count says 1, itself -- but their output
 # is load-bearing. Do not delete them:
-#   vm_fixtures.py      -> vmfix.json      (input to test_bestvm.js)
 #   sgbd_code.py        -> data/job-code/  (input to the VM)
+# data/sim-captures/vmfix.json is a COMMITTED capture: the result sets the
+# real EDIABAS engine produced for the replayed telegrams. The engine that
+# wrote it (the .NET reference CLI) was removed from the repo in 2026-09,
+# so the fixture cannot be regenerated -- restore it from git.
 # (actuator captions live in the IR itself now: ir_build emits them; the
 # old reference-dump generators whose _*.json nothing read are gone)
 #
@@ -103,20 +106,6 @@ node tools/verify/test_global_collisions.js
 echo
 echo "== INPA config export matches the shipped chassis-config =="
 python3 tools/export/inpa_config.py --check || exit 1
-
-if [ -n "$BMACW_PORT" ]; then
-  echo
-  echo "== job metadata matches the engine =="
-  python3 tools/verify/test_meta.py || exit 1
-  echo
-  echo "== lifted specs decode bytes the way the engine does =="
-  # needs the .NET engine (vendor/ediabaslib-src); returns 1 on disagreement
-  python3 tools/verify/sgbd_value_diff.py --selftest || exit 1
-else
-  echo
-  echo "SKIP (engine not running): test_meta.py, sgbd_value_diff.py --selftest"
-  echo "      set BMACW_PORT to run the engine-backed checks"
-fi
 
 echo
 echo "== the VM against captured telegrams =="

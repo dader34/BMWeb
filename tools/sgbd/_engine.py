@@ -8,7 +8,7 @@ It lives here once so the list of directories cannot drift between copies.
 
 It also owns find_port()/find_base(): three scripts each carried their own
 copy of "where is the running engine listening?", and the copies had already
-drifted -- sgbd_diff probed `pgrep -f BMacW` and env BMACW_PORT while
+drifted -- one probed `pgrep -f BMacW` and env BMACW_PORT while
 sgbd_harvest used `lsof -c InpaMac.A` and env BMACW_API, so a
 port that one tool found the next tool missed.
 """

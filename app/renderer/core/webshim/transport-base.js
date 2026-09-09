@@ -20,9 +20,9 @@
  * here): SerialProxy.cs is the byte-mover behind NativeSerialBus (open/write/
  * readAvailable/close/flush). Bytes cross that bridge as a JSON int[]
  * (BmacwBridge.cs AsNumberArray), NOT base64 -- base64 corrupted the
- * echo/checksum. src/EdiabasMac is LEGACY (its InpaMac.Api server is deleted);
- * it is reference for what JS reimplemented, not a transport, and is
- * deliberately NOT part of this interface.
+ * echo/checksum. The former C# engine (deleted with its InpaMac.Api server) was
+ * reference for what JS reimplemented, not a transport, and was never part
+ * of this interface.
  */
 /* exported SerialTransportBase */
 

@@ -41,9 +41,7 @@ if (typeof module !== 'undefined' && module.exports) {
     JUMP_TESTS,
     REG_BYTES,
     isWriteJob,
-    // the classifier's parts, exported so test_write_gate.js
-    // can compare each against its Python twin in
-    // tools/verify/sgbd_bulk_verify.py pattern-by-pattern
+    // the classifier's parts, exported for tests and tooling
     READ_TOKEN,
     CONFIG_READ_TOKEN,
     WRITE_TOKEN,

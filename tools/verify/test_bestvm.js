@@ -7,13 +7,14 @@
 // engine executes, so the honest target here is 100% -- and any gap is a
 // concrete VM bug, not an unliftable idiom.
 //
-// Input is a fixture bundle written by tools/vm_fixtures.py: for each job,
-// the request/response telegrams and the result sets the ENGINE produced
-// from them. The VM replays the identical bytes and the results are diffed
-// key by key.
+// Input is the committed fixture bundle data/sim-captures/vmfix.json: for
+// each job, the request/response telegrams and the result sets the real
+// EDIABAS ENGINE produced from them. The VM replays the identical bytes and
+// the results are diffed key by key. The .NET engine that wrote the bundle
+// left the repo in 2026-09, so the fixture is restored from git, never
+// regenerated.
 //
-//   python3 tools/vm_fixtures.py > data/sim-captures/vmfix.json
-//   node tools/test_bestvm.js [--verbose] [--sgbd <name>]
+//   node tools/verify/test_bestvm.js [--verbose] [--sgbd <name>]
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
@@ -27,9 +28,7 @@ const { Best2Vm, VmError } = loadBestvm(vmCtx);
 const fixPath = path.join(ROOT, 'data/sim-captures/vmfix.json');
 if (!fs.existsSync(fixPath)) {
   console.error('missing ' + path.relative(ROOT, fixPath));
-  console.error(
-    'run: python3 tools/vm_fixtures.py > ' + path.relative(ROOT, fixPath)
-  );
+  console.error('restore it from git (the engine that produced it is gone)');
   process.exit(2);
 }
 const fix = JSON.parse(fs.readFileSync(fixPath, 'utf8'));
@@ -241,8 +240,8 @@ if (!only && jobs < MIN_JOBS) {
   console.error(`FAIL: only ${jobs} jobs replayed (< ${MIN_JOBS}).`);
   console.error(
     'data/chassis or vmfix.json is missing/mislaid -- the VM was' +
-      ' not actually exercised. Regenerate with tools/sgbd/ecu_tree.py and' +
-      ' tools/vm_fixtures.py.'
+      ' not actually exercised. Regenerate data/chassis with' +
+      ' tools/sgbd/ecu_tree.py and restore vmfix.json from git.'
   );
   process.exit(1);
 }
