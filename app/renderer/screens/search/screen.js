@@ -39,7 +39,7 @@ function jobSearchControls() {
       <span class="lookup-search-icon">⌕</span>
       <input class="lookup-input" type="text" spellcheck="false"
              autocomplete="off"
-             placeholder="Search every INPA screen — fault memory, lambda, FS_LESEN…"
+             placeholder="Search every INPA screen: fault memory, lambda, FS_LESEN…"
              value="${esc(jobSearchState.q)}" />
       <button class="lookup-clear" title="Clear" hidden>×</button>
     </div>`;
@@ -214,7 +214,7 @@ function jobSearchEmptyHtml() {
   return `
     <div class="empty">
       <div class="empty-big">Search INPA's scripts</div>
-      <div>Every menu key and screen in every module this build ships —
+      <div>Every menu key and screen in every module this build ships,
         by its label in English or German, the screen it opens, the jobs it
         sends, or the result keys it reads.</div>
       <div class="job-search-hints">
