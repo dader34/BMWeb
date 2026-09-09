@@ -1,0 +1,10 @@
+# Copies of app/renderer files, made by scripts/sync-runtime.mjs at build
+# time so the tarball is self-contained while the repo keeps one source.
+runtime/
+# The LICENSE is copied from the repo root the same way.
+LICENSE
+# esbuild output
+dist/
+dist-test/
+node_modules/
+*.tgz

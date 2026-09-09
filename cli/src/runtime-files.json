@@ -1,0 +1,21 @@
+[
+  "core/ipovm/values.js",
+  "core/ipofile/pool.js",
+  "core/ipofile/decls.js",
+  "core/ipofile/walk.js",
+  "core/ipofile/exec.js",
+  "core/ipofile/lex.js",
+  "core/ipofile/parse.js",
+  "core/ipofile/emit.js",
+  "core/ipofile/compile.js",
+  "core/bestvm/write-guard.js",
+  "screens/ipo-runtime/script-scan.js",
+  "screens/ipo-runtime/wire-policy.js",
+  "screens/ipo-runtime/protocol.js",
+  "screens/garage/store.js",
+  "screens/garage/diff.js",
+  "screens/garage/share.js",
+  "screens/search/data.js",
+  "screens/search/match.js",
+  "screens/search/open.js"
+]

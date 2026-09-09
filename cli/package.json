@@ -1,0 +1,50 @@
+{
+  "name": "bmweb-cli",
+  "version": "0.1.0",
+  "description": "BMWeb's tools as a command line: read INPA .IPO scripts, compile .IPS sources, search the corpus job index, decode and diff shared Garage reports.",
+  "license": "GPL-3.0-only",
+  "type": "module",
+  "bin": {
+    "bmweb": "dist/bmweb.js"
+  },
+  "files": [
+    "dist/",
+    "runtime/",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dader34/BMWeb.git",
+    "directory": "cli"
+  },
+  "homepage": "https://bmweb.danner.ink/",
+  "bugs": {
+    "url": "https://github.com/dader34/BMWeb/issues"
+  },
+  "keywords": [
+    "bmw",
+    "inpa",
+    "diagnostics",
+    "ediabas",
+    "obd",
+    "cli"
+  ],
+  "scripts": {
+    "sync": "node scripts/sync-runtime.mjs",
+    "build": "npm run sync && node scripts/build.mjs && tsc --noEmit -p tsconfig.json",
+    "test": "node --test dist-test/*.test.js",
+    "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\" \"scripts/**/*.mjs\"",
+    "format:check": "prettier --check \"src/**/*.ts\" \"test/**/*.ts\" \"scripts/**/*.mjs\"",
+    "prepack": "npm run build"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.0",
+    "esbuild": "^0.28.2",
+    "prettier": "^3.9.6",
+    "typescript": "^7.0.2"
+  }
+}
