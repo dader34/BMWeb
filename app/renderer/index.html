@@ -389,6 +389,14 @@
   <script src="screens/tree/layout.js"></script>
   <script src="screens/tree/render.js"></script>
   <script src="screens/tree/screen.js"></script>
+  <!-- Service functions (screens/service/): the Apps-hub app that maps a
+       named service task (steering angle calibration, transmission
+       adaptation reset) to the INPA key that performs it on the chosen car.
+       data.js loads the exported mapping, open.js hands a resolved key to
+       the live runtime, screen.js is the app screen -- so it loads last. -->
+  <script src="screens/service/data.js"></script>
+  <script src="screens/service/open.js"></script>
+  <script src="screens/service/screen.js"></script>
   <script src="screens/tool32.js"></script>
   <script src="screens/flasher.js"></script>
   <script src="screens/tuning/memory-spec.js"></script>

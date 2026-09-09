@@ -59,6 +59,13 @@ data/faults/*
 # ORT fault-code map (build input for faultindex.js: text-scheme German -> ORT
 # hex per SGBD variant, dumped offline by the retired reference CLI). Small, shipped.
 !data/ort-codes.json
+# Service-function catalogue: OUR OWN curated list of the service tasks a
+# workshop asks for, and how to recognise the INPA key that performs each one.
+# Hand-maintained source, so it is committed. The per-chassis resolution beside
+# it (service-functions.chassis.json) is DERIVED from this plus data/chassis by
+# tools/export/service_functions.py, so it stays ignored like the rest of the
+# generated tree.
+!data/service-functions.json
 # VM regression fixture: the replay corpus test_bestvm.js and test_vmbridge.js
 # run against (449 KB). Committed so CI and a fresh clone can run the VM tests;
 # the raw .sim captures and traces beside it stay local.

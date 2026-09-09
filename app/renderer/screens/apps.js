@@ -75,6 +75,22 @@ const APP_REGISTRY = [
       (await ecuTreeIndexPresent()),
   },
   {
+    id: 'service',
+    icon: '⚙',
+    title: 'Service functions',
+    desc: 'Calibrations, adaptation resets and service routines, by what they do',
+    tag: 'IPO',
+    open: () => (typeof showService === 'function' ? showService() : null),
+    // the per-chassis mapping is an export artifact; a build without it
+    // shows the card greyed rather than opening a screen that can only say
+    // "no mapping". Asks whether the file is THERE, so drawing the hub does
+    // not cost the download the app itself costs.
+    hasData: async () =>
+      typeof showService === 'function' &&
+      typeof serviceIndexPresent === 'function' &&
+      (await serviceIndexPresent()),
+  },
+  {
     id: 'wiring',
     icon: '⌁',
     title: 'Wiring & Documents',

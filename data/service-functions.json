@@ -1,0 +1,1130 @@
+{
+  "v": 1,
+  "_note": "Our own curated catalogue of service tasks, written for this app. Each task says in plain English what the job is, what must be true before it runs, and how to recognise the INPA key that performs it. Nothing here is copied from BMW documentation: the only BMW strings are job and menu-proc names, which are identifiers the scripts themselves carry and which the resolver has to match on. tools/export/service_functions.py turns this file plus the decoded IR into data/service-functions.chassis.json, the per-chassis mapping the app reads.",
+  "_match": "A task resolves against one menu item of one module script. `modules` narrows which scripts may answer (matched against the SGBD and the module's label, case-insensitive). `jobs` matches the item's job name; `keys` matches its printed label. `deny` rejects an item whose label matches it, and exists because INPA reuses one job name across keys that mean different things. An item must satisfy the module filter AND (a job hit OR a label hit), and its write-ness must agree with `risk` -- a task marked write never resolves onto a read-only key, which is the failure that would send someone to a key that does nothing.",
+  "categories": [
+    "Calibration",
+    "Adaptation reset",
+    "Service reset",
+    "Alignment/Registration",
+    "Bleeding/Test"
+  ],
+  "tasks": [
+    {
+      "id": "lws-calibration",
+      "name": "Steering angle sensor calibration",
+      "category": "Calibration",
+      "what": "Teaches the steering angle sensor where straight ahead is, by writing the current wheel position as the zero offset. Needed after the sensor, the steering rack or the airbag clock spring is disturbed, and whenever DSC reports an implausible steering angle.",
+      "before": [
+        "ignition on, engine off",
+        "wheels pointing straight ahead, car on level ground",
+        "steering wheel centred and not held under load"
+      ],
+      "after": "Read the adjustment values back and confirm the offset now reads near zero with the wheels straight.",
+      "risk": "write",
+      "match": {
+        "modules": [
+          "lws",
+          "szl",
+          "dsc",
+          "asc",
+          "abs",
+          "steering",
+          "lenkwink",
+          "afs",
+          "acc",
+          "edc_k",
+          "dxc"
+        ],
+        "jobs": [
+          "ABGLEICH_SCHREIBEN",
+          "ABGLEICH_PROGRAMMIEREN",
+          "ABGLEICH_PROG",
+          "LENKWINKEL_DSC_ABGLEICHEN",
+          "STEUERN_LWS_ABGLEICH",
+          "START_SUMMENLENKWINKEL_OFFSET_ABGLEICH",
+          "abgleich_lenkwinkelsensor",
+          "LenkwinkelOffset_Reset",
+          "abgleich_lenkwinkelsensor_ruecksetzen",
+          "START_CALIBRATION"
+        ],
+        "keys": [
+          "Program adjust values",
+          "Programmieren der Abgleichswerte",
+          "Abgleich Lenkwinkelsensor",
+          "steering angle calibration",
+          "calibration Steering angle",
+          "Steering angle sensor (LWS) Adjustment",
+          "LWS adjustment",
+          "Steering angle Offset reset",
+          "Lenkwinkeloffset ruecksetzen",
+          "Lenkwinkeloffset rücksetzen",
+          "Reset des Lenkwinkeloffsets"
+        ],
+        "deny": [
+          "read",
+          "lesen",
+          "status",
+          "anzeige",
+          "display",
+          "input adjust",
+          "eingabe",
+          "fahrgestellnummer",
+          "fg-nr"
+        ]
+      }
+    },
+    {
+      "id": "egs-adaptation-reset",
+      "name": "Transmission adaptation reset",
+      "category": "Adaptation reset",
+      "what": "Clears the shift and clutch-fill values the automatic transmission control unit learned over its life, so it relearns them from the base map. Used after a valve body, torque converter or fluid service, and to clear harsh shifting that survives a fluid change.",
+      "before": [
+        "engine at operating temperature",
+        "selector in P, engine idling or ignition on per the script's own prompt",
+        "no transmission faults stored that would immediately re-adapt to a defect"
+      ],
+      "after": "Drive the car gently through the full shift range so the module relearns; shifts are often rough for the first few miles.",
+      "risk": "write",
+      "match": {
+        "modules": [
+          "egs",
+          "gs1",
+          "gs2",
+          "gs3",
+          "gs8",
+          "ags",
+          "getriebe",
+          "smg",
+          "ssg",
+          "gearbox",
+          "transmis",
+          "cvt",
+          "zf",
+          "tcm",
+          "gs19",
+          "gs20"
+        ],
+        "jobs": [
+          "STEUERN_ADAPTIONEN_LOESCHEN",
+          "STEUERN_ADAPTIONEN_LOESCHEN_NEU",
+          "STEUERN_ADAPTIONSWERTE_RUECKSETZEN",
+          "STEUERN_ADAPTIONSWERTE_LOESCHEN",
+          "ADAPTIONEN_LOESCHEN",
+          "ADAPTIVWERT_LOESCHEN",
+          "RESET_ADAPTION",
+          "RESET_ADAPTION_81",
+          "adapt_loeschen",
+          "adaptionen_loeschen",
+          "adaptionen2_loeschen",
+          "steuern_adapts_reset_plant",
+          "STEUERN_ADAPTS_RESET_WITHOUT_TCC",
+          "STEUERN_TCC_ADAPTS_RESET"
+        ],
+        "keys": [
+          "Adaptionen loeschen",
+          "Adaptionen löschen",
+          "Adaptionswerte löschen",
+          "Löschen der Adaptionswerte",
+          "Delete adaption values",
+          "clear adaptation values",
+          "all adaption values delete",
+          "erasing adaption",
+          "Alle Adaptionen",
+          "all adaptions",
+          "Adaptionen selektiv löschen",
+          "Adaptionen Selektiv loeschen",
+          "Adaptionswerte selektiv löschen"
+        ],
+        "deny": [
+          "lesen",
+          "read",
+          "status",
+          "ausgabe",
+          "in datei",
+          "messwerte",
+          "anzeige"
+        ]
+      }
+    },
+    {
+      "id": "dme-adaptation-reset",
+      "name": "Engine adaptation reset",
+      "category": "Adaptation reset",
+      "what": "Clears the values the engine control unit learned about this particular engine: mixture trims, idle position, knock retard. Used after intake or fuelling work so the module stops compensating for a fault that has been repaired.",
+      "before": [
+        "engine at operating temperature",
+        "no unresolved intake leaks or fuelling faults, or the module simply relearns the same trims",
+        "engine idling or ignition on as the script asks"
+      ],
+      "after": "Let the engine idle until the fans cycle, then drive through part and full load so the trims relearn.",
+      "risk": "write",
+      "match": {
+        "modules": [
+          "ms4",
+          "ms5",
+          "me7",
+          "me9",
+          "mev",
+          "msd",
+          "msv",
+          "mss",
+          "dde",
+          "dme",
+          "motor",
+          "bms",
+          "d50m",
+          "engine"
+        ],
+        "jobs": [
+          "STEUERN_ADAPTIONEN_LOESCHEN",
+          "STEUERN_ADAPTIONEN_LOESCHEN_NEU",
+          "STEUERN_ADAPTIONSWERTE_RUECKSETZEN",
+          "STEUERN_ADAPTIONSWERTE_LOESCHEN",
+          "ADAPTIONEN_LOESCHEN",
+          "ADAPTIVWERT_LOESCHEN",
+          "adapt_loeschen",
+          "adaptionen_loeschen",
+          "ADAPT_VARIANTEN_LOESCHEN",
+          "ADAP_SELEKTIV_LOESCHEN",
+          "START_ADAP_SELEKTIV_LOESCHEN"
+        ],
+        "keys": [
+          "Adaptionen loeschen",
+          "Adaptionen löschen",
+          "Adaptionswerte löschen",
+          "Löschen der Adaptionswerte",
+          "Delete adaption values",
+          "clear adaptation values",
+          "all adaption values delete",
+          "erasing adaption",
+          "Alle Adaptionen",
+          "all adaptions",
+          "All adaptions"
+        ],
+        "deny": [
+          "lesen",
+          "read",
+          "status",
+          "ausgabe",
+          "in datei",
+          "messwerte",
+          "anzeige",
+          "getriebe",
+          "kupplung"
+        ]
+      }
+    },
+    {
+      "id": "throttle-idle-adaptation",
+      "name": "Throttle and idle adaptation reset",
+      "category": "Adaptation reset",
+      "what": "Clears just the throttle body and idle control adaptations, leaving the rest of the engine's learned values alone. The usual fix after cleaning or replacing a throttle body, when idle hangs or hunts because the module is still compensating for the old part.",
+      "before": [
+        "engine at operating temperature",
+        "throttle body clean and fully seated, electrical connector home",
+        "no throttle position faults stored"
+      ],
+      "after": "Let the engine idle undisturbed for a couple of minutes without touching the throttle so the base position relearns.",
+      "risk": "write",
+      "match": {
+        "modules": [
+          "ms4",
+          "ms5",
+          "me7",
+          "me9",
+          "mev",
+          "msd",
+          "msv",
+          "mss",
+          "dme",
+          "motor",
+          "bms",
+          "engine"
+        ],
+        "jobs": [
+          "ADAPT_DROSSELKLAPPE_LOESCHEN",
+          "ADAPT_LEERLAUF_LOESCHEN",
+          "ADAP_SELEKTIV_LOESCHEN",
+          "START_ADAP_SELEKTIV_LOESCHEN"
+        ],
+        "keys": [
+          "adaption Throttle valve clearing",
+          "Throttle valves adaptation",
+          "Drosselklappen Adaption",
+          "Adaption Drosselklappe",
+          "Clear Idle Speed Adaption",
+          "Clear ECT throttle Adaption",
+          "adaption value idle speed regulation delete",
+          "adaption value idle-speed regulation delete",
+          "adaption values Idle control delete",
+          "adaption Idle-speed fluid control clearing",
+          "Leerlauf Adaption",
+          "Leerlaufabgleich",
+          "Drosselklappe",
+          "idlecomparison",
+          "idle alignment",
+          "throttle valve"
+        ],
+        "deny": [
+          "lesen",
+          "read",
+          "status",
+          "messwerte",
+          "anzeige",
+          "display"
+        ]
+      }
+    },
+    {
+      "id": "mixture-adaptation-reset",
+      "name": "Mixture and knock adaptation reset",
+      "category": "Adaptation reset",
+      "what": "Clears the fuel-trim and knock-control values learned from the lambda sensors and knock sensors. Used after fixing a vacuum leak, a lambda sensor or a fuelling fault, so the module stops carrying the old correction.",
+      "before": [
+        "engine at operating temperature",
+        "the underlying fuelling or intake fault actually repaired first",
+        "lambda sensors working and their faults cleared"
+      ],
+      "after": "Drive through idle, part load and full load so the trims relearn; recheck them afterwards to confirm they settle near zero.",
+      "risk": "write",
+      "match": {
+        "modules": [
+          "ms4",
+          "ms5",
+          "me7",
+          "me9",
+          "mev",
+          "msd",
+          "msv",
+          "mss",
+          "dme",
+          "motor",
+          "bms",
+          "engine"
+        ],
+        "jobs": [
+          "ADAPT_LAMBDA_LOESCHEN",
+          "ADAPT_KLOPFREGELUNG_LOESCHEN",
+          "ADAPT_LAUFUNRUHE_LOESCHEN",
+          "ADAPT_LM_SENSOR_LOESCHEN",
+          "ADAP_SELEKTIV_LOESCHEN",
+          "START_ADAP_SELEKTIV_LOESCHEN"
+        ],
+        "keys": [
+          "Kraftstoff-Luftgemisch-Adaption",
+          "Adaption Gemisch",
+          "Lambda Adaption",
+          "Klopfadaption",
+          "Klopf Adaption",
+          "Aussetzer Adaption",
+          "Gemischadaption löschen",
+          "Klopfen",
+          "Lambdasonden",
+          "Lambdaregelung",
+          "Verbrennungsregelung",
+          "Lambda adaptation",
+          "Lambda adaption",
+          "lambda probe adaption",
+          "Lambdasonden Adaption",
+          "lambda probe",
+          "lambda control",
+          "Klopf",
+          "Adaptionswert Klopfregelung loeschen"
+        ],
+        "deny": [
+          "lesen",
+          "read",
+          "status",
+          "messwerte",
+          "anzeige",
+          "display",
+          "sperr"
+        ]
+      }
+    },
+    {
+      "id": "service-reset",
+      "name": "Service interval / CBS reset",
+      "category": "Service reset",
+      "what": "Resets the service counters the instrument cluster counts down: oil service and the distance or time inspection on SI cars, or the individual Condition Based Service items on later ones. Run it after the work is actually done, not before.",
+      "before": [
+        "ignition on, engine off",
+        "the service the counter tracks actually carried out",
+        "on CBS cars, know which item you are resetting; they reset one at a time"
+      ],
+      "after": "Read the service data back and confirm the counter has returned to its full interval.",
+      "risk": "write",
+      "match": {
+        "modules": [
+          "kombi",
+          "instrument",
+          "cluster",
+          "kmb",
+          "ike",
+          "anzeige",
+          "cas",
+          "frm"
+        ],
+        "jobs": [
+          "CBS_RESET",
+          "ZEITINSPEKTION_VORZIEHEN",
+          "ZEITINSPEKTIONSDATUM_SCHREIBEN",
+          "STEUERN_ZEITINSPEKTIONSDATUM_SCHREIBEN",
+          "STEUERN_ZEITINSPEKTION_DEAKTIVIEREN",
+          "steuern_service_date",
+          "SIA_RESET",
+          "STEUERN_SIA_RESET"
+        ],
+        "keys": [
+          "SII reset oil service",
+          "SII reset oilservice",
+          "SII reset time inspection",
+          "SII reset time inspektion",
+          "SII reset distance inspection",
+          "SII reset distance inspektion",
+          "SII reset automatic transmission",
+          "CBS-Reset Oelintervalle",
+          "CBS Reset VA",
+          "CBS Reset HA",
+          "CBSReset",
+          "reset when oil service",
+          "Ruecksetzen bei Oelwechsel"
+        ],
+        "deny": [
+          "lesen",
+          "read",
+          "status",
+          "anzeige",
+          "display",
+          "daten lesen",
+          "only for analysis",
+          "deselect"
+        ]
+      }
+    },
+    {
+      "id": "battery-registration",
+      "name": "Battery replacement registration",
+      "category": "Alignment/Registration",
+      "what": "Tells the power management that a new battery is fitted, so the charging strategy and the state-of-charge model start from a fresh battery instead of the tired one they were tracking. Cars with an intelligent battery sensor (IBS) need this or the new battery is chronically undercharged.",
+      "before": [
+        "the new battery actually fitted and its terminals tight",
+        "ignition on, engine off",
+        "battery capacity and type match what the car expects, or register the change too where the script offers it"
+      ],
+      "after": "Read the power management values back and confirm the registration counter or date has moved.",
+      "risk": "write",
+      "match": {
+        "modules": [
+          "kombi",
+          "cas",
+          "frm",
+          "jbe",
+          "sgm",
+          "zgm",
+          "dme",
+          "motor",
+          "power",
+          "ibs",
+          "batt",
+          "ms4",
+          "ms5",
+          "me9",
+          "mev",
+          "msd",
+          "msv",
+          "mss",
+          "dde",
+          "d50m",
+          "d60m",
+          "energie"
+        ],
+        "jobs": [
+          "STEUERN_BATTERIETAUSCH_REGISTRIEREN",
+          "steuern_batterietausch_registrieren"
+        ],
+        "keys": [
+          "Batterietausch registrieren",
+          "Steuern Batterietausch Registrieren",
+          "Register battery replacement",
+          "battery change",
+          "Batteriewechsel"
+        ],
+        "deny": [
+          "lesen",
+          "read",
+          "status",
+          "messwerte",
+          "anzeige",
+          "ident",
+          "histogram",
+          "wechsel"
+        ]
+      }
+    },
+    {
+      "id": "ews-alignment",
+      "name": "DME to EWS alignment",
+      "category": "Alignment/Registration",
+      "what": "Re-synchronises the rolling start value the engine control unit and the immobiliser (EWS, later CAS) share, so the immobiliser will release the engine. Needed after either module is replaced or swapped between cars, when the engine cranks but will not fire.",
+      "before": [
+        "ignition on, engine off",
+        "both the engine module and the immobiliser present on the bus and answering",
+        "the correct key in the ignition, not a spare that was never taught"
+      ],
+      "after": "Try to start the engine; a successful alignment lets it fire and clears the immobiliser fault.",
+      "risk": "write",
+      "match": {
+        "modules": [
+          "ews",
+          "cas",
+          "ms4",
+          "ms5",
+          "me7",
+          "me9",
+          "mev",
+          "msd",
+          "msv",
+          "mss",
+          "dde",
+          "dme",
+          "motor",
+          "bms",
+          "engine"
+        ],
+        "jobs": [
+          "EWS_STARTWERT",
+          "STEUERN_EWS4_SK",
+          "_STEUERN_EWS4_E_SK_MEX17",
+          "DME_STARTWERT_ABGLEICH",
+          "EWS_EMPFANG"
+        ],
+        "keys": [
+          "EWS-Startwert  uebertragen",
+          "EWS-Startwert  übertragen",
+          "EWS-Startwert zurücksetzen",
+          "EWS - Startwertabgleich",
+          "EWS4 - Startwertabgleich",
+          "EWS 3 Startwert synchronisieren",
+          "EWS 3 start value synch.",
+          "EWS 3 start value synchronize",
+          "EWS 3 startvalue synchronisation",
+          "Synchronize EWS 3 initial value",
+          "synchronize EWS/CAS start value",
+          "syncronize EWS start value",
+          "EWS start value synch.",
+          "EWS-start value transmited",
+          "EWS4 - start value comparison",
+          "EWS4 - startvalue alignment",
+          "EWS - Start value comparison",
+          "EWS - adjustment of start value",
+          "EWS adjustment",
+          "Abgleich mit EWS-Steuergerät",
+          "Abgleich mit einem CAS-Steuergerät"
+        ],
+        "deny": [
+          "lesen",
+          "read",
+          "status",
+          "version",
+          "anzeige",
+          "display",
+          "umfänge",
+          "umfaenge",
+          "seed",
+          "clientsk",
+          "serversk",
+          "empf",
+          "receive",
+          "lock"
+        ]
+      }
+    },
+    {
+      "id": "injector-coding",
+      "name": "Injector coding (IMA values)",
+      "category": "Alignment/Registration",
+      "what": "Writes each injector's own flow-correction code into the engine control unit, so it can compensate for the spread between injectors. Every injector carries this code on its body; it must be re-entered whenever an injector is moved or replaced, or that cylinder runs rich or lean.",
+      "before": [
+        "ignition on, engine off",
+        "the IMA code read off each injector and matched to its cylinder number",
+        "injectors installed in the cylinders whose codes you are about to enter"
+      ],
+      "after": "Read the coded values back per cylinder and confirm each one matches the code on that injector.",
+      "risk": "write",
+      "match": {
+        "modules": [
+          "dde",
+          "ms4",
+          "ms5",
+          "msd",
+          "msv",
+          "mss",
+          "mev",
+          "me9",
+          "dme",
+          "motor",
+          "engine"
+        ],
+        "jobs": [
+          "ABGLEICH_PROGRAMMIEREN_IMA",
+          "ABGLEICH_PROGRAMMIEREN_IMA_ZYL",
+          "ABGLEICH_IMA_ABGLEICHFLAG_VORGEBEN",
+          "STEUERN_PROGRAMM_IMA_ZYL"
+        ],
+        "keys": [
+          "IMA-Werte für alle Zylinder schreiben",
+          "IMA-Wert für einzelnen Zylinder schreiben",
+          "Write IMA values for all cylinders",
+          "Write IMA value for single cylinder",
+          "Codierung IMA-Werte",
+          "Injektor-Codierung IMA",
+          "IMA Abgleich",
+          "IMA Adjustment",
+          "IMA adjustment",
+          "IMA Change",
+          "change IMA"
+        ],
+        "deny": [
+          "lesen",
+          "read",
+          "status",
+          "anzeige",
+          "display",
+          "messwerte",
+          "ansteuern",
+          "activate",
+          "actuation",
+          "cyl.1",
+          "cyl.2",
+          "off",
+          "test"
+        ]
+      }
+    },
+    {
+      "id": "injector-adaptation-reset",
+      "name": "Injector adaptation reset",
+      "category": "Adaptation reset",
+      "what": "Clears the per-injector delivery corrections the engine control unit learned, separately from the IMA codes written on the injector bodies. Run it after injectors are swapped or replaced so the module relearns against the new parts rather than the old ones.",
+      "before": [
+        "the injector work finished and the IMA codes entered first, where the engine uses them",
+        "engine at operating temperature",
+        "no injector faults stored"
+      ],
+      "after": "Run the engine through idle and load so the corrections relearn, then read them back.",
+      "risk": "write",
+      "match": {
+        "modules": [
+          "dde",
+          "ms4",
+          "ms5",
+          "msd",
+          "msv",
+          "mss",
+          "mev",
+          "me9",
+          "dme",
+          "motor",
+          "engine"
+        ],
+        "jobs": [
+          "STEUERN_PULSADAPTIONSWERTE_LOESCHEN",
+          "ADAPT_SCHLIESSZEIT_LOESCHEN"
+        ],
+        "keys": [
+          "Injektor Adaption",
+          "Energieadaption Injektoren",
+          "Energieabgleich Injektoren",
+          "Injektorwerte zurücksetzen",
+          "Injektorabgleich - Lernbits",
+          "Cilc-Adaptionswerte Injektortausch Bank 1",
+          "Cilc-Adaptionswerte Injektortausch Bank 2",
+          "Kleinstmengenadaption"
+        ],
+        "deny": [
+          "lesen",
+          "read",
+          "status",
+          "anzeige",
+          "display",
+          "messwerte"
+        ]
+      }
+    },
+    {
+      "id": "dsc-bleeding",
+      "name": "Brake bleeding (DSC pump routine)",
+      "category": "Bleeding/Test",
+      "what": "Cycles the DSC or ABS hydraulic unit's valves and pump so trapped air is pushed out of the control block, which a pedal-only bleed cannot reach. Run as part of a bleed after the hydraulic unit or its lines have been opened.",
+      "before": [
+        "reservoir topped up and kept topped up throughout; running it dry pulls air back in",
+        "ignition on, engine off",
+        "a bleed bottle on each caliper and a helper or pressure bleeder ready",
+        "the conventional bleed at each caliper done first, in the order the routine asks"
+      ],
+      "after": "Finish the conventional bleed at each corner, check pedal feel and top the reservoir to the mark.",
+      "risk": "write",
+      "match": {
+        "modules": [
+          "dsc",
+          "abs",
+          "asc",
+          "mk20",
+          "mk60",
+          "mk4",
+          "sba",
+          "brake",
+          "brems",
+          "dsc_",
+          "mk6",
+          "dxc"
+        ],
+        "jobs": [
+          "STEUERN_REPAIR_BLEEDING",
+          "STEUERN_REP_ENTLUEFTUNG",
+          "NA_ENTLUEFTUNG_LI",
+          "NA_ENTLUEFTUNG_RE",
+          "R50_ASC_DSC_BLEEDMASTER_FA",
+          "R50_ASC_DSC_BLEEDMASTER_RA",
+          "R50_ABS_BLEEDMASTER_FA",
+          "R50_ABS_BLEEDMASTER_RA"
+        ],
+        "keys": [
+          "DSC Vorentlueftung",
+          "DSC Nacharbeit Entlueftung VL",
+          "DSC Nacharbeit Entlueftung VR",
+          "DSC Nacharbeit Entlueftung HL",
+          "DSC Nacharbeit Entlueftung HR",
+          "Entlueftung Bremssystem",
+          "rework bleeding",
+          "valve control/bleeding routine",
+          "Bleed VL",
+          "Bleed VR",
+          "Bleed HR",
+          "bleedRL"
+        ],
+        "deny": [
+          "tank",
+          "tev",
+          "kurbelgehäuse",
+          "kurbelgehaeuse",
+          "crank casing",
+          "kühlsystem",
+          "kuehlsystem",
+          "cooling system",
+          "kupplung",
+          "clutch",
+          "lesen",
+          "read",
+          "status",
+          "kgeh",
+          "wdh.",
+          "phase",
+          "relay",
+          "relais",
+          "heating"
+        ]
+      }
+    },
+    {
+      "id": "sensor-cluster-offset",
+      "name": "DSC sensor offset calibration",
+      "category": "Calibration",
+      "what": "Zeroes the yaw rate, lateral and longitudinal acceleration and brake pressure sensors DSC uses to decide the car is sliding. Needed after the sensor cluster or the hydraulic unit is replaced, and whenever DSC reports an implausible sensor offset.",
+      "before": [
+        "car standing still on level ground, ignition on, engine off",
+        "nobody moving in or around the car while it runs; the sensors read the disturbance",
+        "steering straight ahead and the brake pedal released"
+      ],
+      "after": "Read the sensor status back and confirm the offsets sit near zero with the car stationary.",
+      "risk": "write",
+      "match": {
+        "modules": [
+          "dsc",
+          "abs",
+          "asc",
+          "mk20",
+          "mk60",
+          "mk4",
+          "sba",
+          "brake",
+          "brems",
+          "sensor",
+          "dsc_",
+          "dxc",
+          "edcs",
+          "rdc"
+        ],
+        "jobs": [
+          "START_SENSORCLUSTER_OFFSET_ABGLEICH",
+          "LAENGSBESCHLEUNIGUNG_DSC_ABGLEICHEN",
+          "QUERBESCHLEUNIGUNG_DSC_ABGLEICHEN",
+          "DRUCKSENSOR_DSC_ABGLEICHEN",
+          "START_GIERRATENEMPFINDLICHKEIT_ABGLEICH"
+        ],
+        "keys": [
+          "acceleration calibration",
+          "calibration yaw rate",
+          "Kalibrieranforderung",
+          "Calibration Request"
+        ],
+        "deny": [
+          "lesen",
+          "read",
+          "status",
+          "anzeige",
+          "display",
+          "lenkwinkel",
+          "steering",
+          "fahrgestellnummer",
+          "fg-nr"
+        ]
+      }
+    },
+    {
+      "id": "ride-height-calibration",
+      "name": "Ride height calibration",
+      "category": "Calibration",
+      "what": "Writes the current suspension height as the target the self-levelling or air suspension control unit holds. Needed after a height sensor, a link or an air strut is replaced, or the car sits at the wrong height with no fault stored.",
+      "before": [
+        "car on level ground at its correct kerb weight, doors and boot shut",
+        "ride height measured and set to specification mechanically first",
+        "ignition on, engine off, suspension settled"
+      ],
+      "after": "Let the suspension settle, then re-measure the height at each corner to confirm it holds the new target.",
+      "risk": "write",
+      "match": {
+        "modules": [
+          "ehc",
+          "luft",
+          "level",
+          "niveau",
+          "eds",
+          "vdc",
+          "edc",
+          "susp",
+          "fahrwerk",
+          "achs"
+        ],
+        "jobs": [
+          "FAHRZEUG_HOEHE_ABGLEICHEN",
+          "CALIBRATE_VEHICLE_HEIGHT",
+          "STEUERN_ABGLEICH_HOEHENSTAND"
+        ],
+        "keys": [
+          "Fahrzeughöhe abgleichen",
+          "calibrate vehicle height"
+        ],
+        "deny": [
+          "lesen",
+          "read",
+          "status",
+          "anzeige",
+          "display"
+        ]
+      }
+    },
+    {
+      "id": "window-initialisation",
+      "name": "Power window initialisation",
+      "category": "Calibration",
+      "what": "Reteaches each window its fully-up and fully-down stops so one-touch and anti-trap work again. Needed after the battery is disconnected on some cars, or after a regulator, motor or door module is replaced, when a window only moves while the switch is held.",
+      "before": [
+        "ignition on, doors shut",
+        "window glass free to travel its full range and the run channels clear",
+        "battery healthy; a low battery mid-cycle leaves the window unnormalised"
+      ],
+      "after": "Test one-touch up and down on each window, and check the anti-trap reverses on an obstruction.",
+      "risk": "write",
+      "match": {
+        "modules": [
+          "zke",
+          "gm",
+          "ars",
+          "tuer",
+          "door",
+          "frm",
+          "jbe",
+          "sgm",
+          "body",
+          "kbm",
+          "kgm",
+          "frm_",
+          "kbm_",
+          "tms"
+        ],
+        "jobs": [
+          "STEUERN_FENSTERHEBER_EINLERNEN",
+          "STEUERN_FENSTERHEBER_DENORMIEREN",
+          "STEUERN_FENSTERHEBER_MIT_EKS_EINLERNEN"
+        ],
+        "keys": [
+          "Fensterheber initialisieren",
+          "Init alle Fensterheber",
+          "Init vordere Fensterheber",
+          "Init hintere Fensterheber",
+          "init. Window regulator",
+          "Window regulator initialisation",
+          "Denormierung alle Fensterheber",
+          "Denormierung vordere Fensterheber",
+          "Denormierung hintere Fensterheber"
+        ],
+        "deny": [
+          "lesen",
+          "read",
+          "status",
+          "anzeige",
+          "display",
+          "logger"
+        ]
+      }
+    },
+    {
+      "id": "sunroof-initialisation",
+      "name": "Sunroof initialisation",
+      "category": "Calibration",
+      "what": "Reteaches the sunroof its end positions so it runs its full travel and closes properly. Needed after the roof module or motor is replaced, the roof is manually cranked, or it stops part way and refuses to close.",
+      "before": [
+        "ignition on",
+        "roof aperture clear, seals and guides free of debris",
+        "roof mechanically free through its whole travel"
+      ],
+      "after": "Cycle the roof fully open and fully closed once and confirm it reaches both stops on its own.",
+      "risk": "write",
+      "match": {
+        "modules": [
+          "shd",
+          "sda",
+          "schiebedach",
+          "sunroof",
+          "roof",
+          "zke",
+          "gm",
+          "frm",
+          "body",
+          "fzd",
+          "sd_kwp",
+          "cas"
+        ],
+        "jobs": [
+          "STEUERN_SHD_INITIALISIEREN",
+          "STEUERN_SHD_NORMIEREN",
+          "STEUERN_SCHIEBEDACH_INITIALISIEREN",
+          "STEUERN_AUTOINIT",
+          "STEUERN_DIGITAL_SHD"
+        ],
+        "keys": [
+          "Sliding roof Initialise",
+          "Automatic Initialisation sunroof",
+          "Schiebedach initialisieren",
+          "Schiebedach normieren",
+          "Complete initialisation"
+        ],
+        "deny": [
+          "lesen",
+          "read",
+          "status",
+          "anzeige",
+          "display"
+        ]
+      }
+    },
+    {
+      "id": "clutch-adaptation",
+      "name": "Clutch adaptation (SMG / SSG)",
+      "category": "Adaptation reset",
+      "what": "Reteaches the automated manual gearbox where its clutch bites and where the shift rails sit. Needed after clutch, actuator or hydraulic work on an SMG or SSG car, when engagement is harsh or the car will not select a gear.",
+      "before": [
+        "engine at operating temperature",
+        "hydraulic system bled and pressurised, no actuator faults stored",
+        "car on level ground, wheels free or as the script asks, handbrake set"
+      ],
+      "after": "Cycle through the gears and confirm engagement is smooth; some cars want a short low-speed drive to finish learning.",
+      "risk": "write",
+      "match": {
+        "modules": [
+          "smg",
+          "ssg",
+          "gs2",
+          "gs3",
+          "gs7",
+          "egs",
+          "getriebe",
+          "cvt",
+          "clutch",
+          "kupplung",
+          "gs30",
+          "ems2k",
+          "dxc"
+        ],
+        "jobs": [
+          "STEUERN_KUPPLUNGSSCHLEIFPUNKT_EINLERNEN",
+          "STEUERN_GETRIEBE_EINLERNEN",
+          "STEUERN_KUPPLUNGS_TEST"
+        ],
+        "keys": [
+          "Kupplungsschleifpunkt 1 + 2 einlernen",
+          "Getriebe einlernen",
+          "Getriebe einlernen ( Schaltstangen )",
+          "CVT clutch adaption",
+          "Bleed clutch"
+        ],
+        "deny": [
+          "lesen",
+          "read",
+          "status",
+          "anzeige",
+          "display",
+          "adaptionswerte kupplung",
+          "read adaption",
+          "identification",
+          "clutch open",
+          "clutch close",
+          "bleed clutch"
+        ]
+      }
+    },
+    {
+      "id": "co-adjustment",
+      "name": "CO / idle mixture adjustment",
+      "category": "Calibration",
+      "what": "Writes the idle mixture (CO) trim on the early engines that carry an adjustable one, in place of the mechanical screw. Used when setting idle emissions on cars from before closed-loop control did all of it.",
+      "before": [
+        "engine at operating temperature and idling steadily",
+        "exhaust and intake leak free; a leak makes the reading meaningless",
+        "a gas analyser on the tailpipe, or the value you intend to write already known"
+      ],
+      "after": "Re-measure at the tailpipe and confirm the reading has moved the way the change intended.",
+      "risk": "write",
+      "match": {
+        "modules": [
+          "ms4",
+          "me7",
+          "motor",
+          "dme",
+          "bms",
+          "m1",
+          "m3",
+          "m5",
+          "engine"
+        ],
+        "jobs": [
+          "STEUERN_CO_ABGLEICH_PROGRAMMIEREN",
+          "STEUERN_CO_ABGLEICH_VERSTELLEN",
+          "STEUERN_CO_ABGLEICH_VERSTELL",
+          "STEUERN_CO_ABGLEICH_RESET",
+          "ABGLEICH_VERSTELLEN"
+        ],
+        "keys": [
+          "LL-CO Abgleich",
+          "CO Abgleich programmieren",
+          "Progr",
+          "Program trimming",
+          "programing the trim",
+          "Vertrimmung programmieren"
+        ],
+        "deny": [
+          "lesen",
+          "read",
+          "status",
+          "anzeige",
+          "display"
+        ]
+      }
+    },
+    {
+      "id": "ecu-reset",
+      "name": "Control unit reset",
+      "category": "Service reset",
+      "what": "Restarts the control unit the way a power cycle would, without pulling a fuse. Used to make a coding or adaptation change take effect, and to clear a module that has latched into a fault state.",
+      "before": [
+        "ignition on, engine off",
+        "no write in progress; a reset during a coding or flash write can leave the module unusable",
+        "engine not running, and the car stationary"
+      ],
+      "after": "Wait for the module to come back on the bus, then read its fault memory and identification to confirm it restarted.",
+      "risk": "write",
+      "match": {
+        "modules": [],
+        "jobs": [
+          "SG_RESET",
+          "RESET_EGS",
+          "STEUERGERAETE_RESET",
+          "SG_RESET_OHNE_UHR_DATUM",
+          "STEUERN_SG_RESET"
+        ],
+        "keys": [
+          "Reset of ECU",
+          "Steuergeraete Reset",
+          "EGS Reset (Ausführungsbedingungen beachten!)",
+          "ECU Reset",
+          "Control unit RESET",
+          "ECU Reset without clock/date",
+          "SG Reset without time/date"
+        ],
+        "deny": [
+          "lesen",
+          "read",
+          "status",
+          "anzeige",
+          "display"
+        ]
+      }
+    },
+    {
+      "id": "vanos-adaptation",
+      "name": "VANOS adaptation reset",
+      "category": "Adaptation reset",
+      "what": "Clears the learned camshaft timing offsets so the engine relearns where the VANOS units actually reach. Used after VANOS solenoid, seal or timing work when the module still holds the old offsets.",
+      "before": [
+        "engine at operating temperature",
+        "timing correct and VANOS faults repaired first",
+        "oil level correct and the oil not overdue; VANOS runs on oil pressure"
+      ],
+      "after": "Let the engine idle and then run it up through the rev range so the offsets relearn, and recheck the VANOS values.",
+      "risk": "write",
+      "match": {
+        "modules": [
+          "ms4",
+          "ms5",
+          "me7",
+          "me9",
+          "mev",
+          "msd",
+          "msv",
+          "mss",
+          "dme",
+          "motor",
+          "engine"
+        ],
+        "jobs": [
+          "STEUERN_VANOS_ADAPTION_LOESCHEN",
+          "ADAP_SELEKTIV_LOESCHEN",
+          "START_ADAP_SELEKTIV_LOESCHEN"
+        ],
+        "keys": [
+          "Vanos Adaption",
+          "VANOS Adaption löschen",
+          "VANOS",
+          "VVT",
+          "VVT adaption"
+        ],
+        "deny": [
+          "lesen",
+          "read",
+          "status",
+          "anzeige",
+          "display",
+          "ventil",
+          "valve",
+          "spuelen",
+          "spülen",
+          "systemtest",
+          "leak"
+        ]
+      }
+    }
+  ]
+}
