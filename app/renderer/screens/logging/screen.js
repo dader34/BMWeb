@@ -357,11 +357,10 @@ async function showLoggingChassis(chassis) {
     <span class="log-win"></span>
     <span class="log-spacer"></span>
     <button class="btn log-preset-save">Save preset</button>
-    <select class="log-preset-load modal-input"><option value="">Load preset…</option></select>
+    <span class="log-preset-slot"></span>
     <button class="btn log-csv">Export CSV</button>`;
   const startBtn = barEl.querySelector('.log-start');
   const winEl = barEl.querySelector('.log-win');
-  const presetSel = barEl.querySelector('.log-preset-load');
 
   LOG_WINDOWS.forEach((w) => {
     const b = document.createElement('button');
@@ -377,33 +376,48 @@ async function showLoggingChassis(chassis) {
   });
 
   /**
+   * The saved presets as dropdown rows: the name, and how many readings it
+   * holds at the right.
+   * @returns {Array<{val: string, label: string, count: number}>}
+   */
+  const presetRows = () => {
+    const saved = logPresetsGet(car);
+    return Object.keys(saved)
+      .sort()
+      .map((n) => ({ val: n, label: n, count: saved[n].length }));
+  };
+
+  /**
+   * Load a preset by name: the selection becomes it, the samples go, the
+   * tree's checkboxes follow.
+   * @param {string} name - The preset name.
+   * @returns {void}
+   */
+  const loadPreset = (name) => {
+    const saved = name && logPresetsGet(car)[name];
+    if (!saved) return;
+    selection.fromJSON(saved);
+    store.clear();
+    syncCharts();
+    paintTree(searchEl.value); // checkboxes follow the loaded selection
+    sbLeft.textContent = `preset "${name}"`;
+  };
+
+  // the fault lookup's dropdown (screens/lookup/filters.js), so the two
+  // pickers read alike; it is a loader, not a state, so it shows the
+  // placeholder again after each choice
+  const presetDd = lookupDropdown('Load preset…', presetRows(), '', (name) => {
+    loadPreset(name);
+    presetDd.set('');
+  });
+  presetDd.el.classList.add('log-preset-load');
+  barEl.querySelector('.log-preset-slot').replaceWith(presetDd.el);
+
+  /**
    * Refresh the preset dropdown from the store.
    * @returns {void}
    */
-  const paintPresets = () => {
-    const saved = logPresetsGet(car);
-    presetSel.innerHTML =
-      '<option value="">Load preset…</option>' +
-      Object.keys(saved)
-        .sort()
-        .map((n) => `<option value="${esc(n)}">${esc(n)}</option>`)
-        .join('');
-  };
-  paintPresets();
-
-  presetSel.onchange = () => {
-    const name = presetSel.value;
-    if (!name) return;
-    const saved = logPresetsGet(car)[name];
-    if (saved) {
-      selection.fromJSON(saved);
-      store.clear();
-      syncCharts();
-      paintTree(searchEl.value); // checkboxes follow the loaded selection
-      sbLeft.textContent = `preset "${name}"`;
-    }
-    presetSel.value = '';
-  };
+  const paintPresets = () => presetDd.setOptions(presetRows(), '');
 
   barEl.querySelector('.log-preset-save').onclick = async () => {
     if (!selection.size) return;

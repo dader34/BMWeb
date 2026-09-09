@@ -8726,6 +8726,11 @@ body.remote-helper::after {
   align-items: center;
   flex-wrap: wrap;
 }
+/* the preset loader: the lookup dropdown at the bar's button height */
+.log-bar .log-preset-load .lkd-btn {
+  min-width: 180px;
+  padding: 8px 12px;
+}
 .log-spacer {
   flex: 1 1 auto;
 }
