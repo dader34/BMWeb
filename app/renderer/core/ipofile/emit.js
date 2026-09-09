@@ -17,7 +17,12 @@
 
 /** Literal type -> the pool's type letter. */
 const IPOF_LIT_TAG = {
-  bool: 'b', byte: 'y', int: 'i', long: 'l', real: 'd', string: 's',
+  bool: 'b',
+  byte: 'y',
+  int: 'i',
+  long: 'l',
+  real: 'd',
+  string: 's',
 };
 
 /** Slot scopes, as the walker reports them. */
@@ -40,10 +45,10 @@ class IpofProcEmitter {
     this.c = c;
     this.proc = proc;
     this.toks = [];
-    this.fixups = [];        // {tok, label}
+    this.fixups = []; // {tok, label}
     this.labels = new Map(); // label -> token index
-    this.slots = new Map();  // name -> {n, scope, ref}
-    this.base = 0;           // token index the current block's jumps count from
+    this.slots = new Map(); // name -> {n, scope, ref}
+    this.base = 0; // token index the current block's jumps count from
   }
 
   /**
@@ -121,7 +126,7 @@ class IpofProcEmitter {
       t.at = at;
       at += IpofProcEmitter.size(t);
     }
-    offs.push(at);                       // a jump past the last token
+    offs.push(at); // a jump past the last token
     for (const f of this.fixups) {
       const idx = this.labels.get(f.label);
       f.tok.to = offs[idx === undefined ? this.toks.length : idx];
@@ -148,10 +153,10 @@ class IpofCompiler {
     this.imports = o.imports || [];
     this.protos = o.protos || {};
     this.errors = [];
-    this.globals = new Map();            // name -> slot
-    this.procIds = new Map();            // name -> {kind, id}
-    this.procKinds = new Map();          // name -> kind
-    this.paramModes = new Map();         // name -> ['in'|'out'|'inout', ...]
+    this.globals = new Map(); // name -> slot
+    this.procIds = new Map(); // name -> {kind, id}
+    this.procKinds = new Map(); // name -> kind
+    this.paramModes = new Map(); // name -> ['in'|'out'|'inout', ...]
   }
 
   /**
@@ -178,7 +183,11 @@ class IpofCompiler {
     // ids are per declaration TABLE, and the walker's procref reads them that
     // way: a screen id and a menu id may both be 3 without colliding
     const nextId = {
-      func: 0, menu: 0, screen: 0, statemachine: 0, state: 0,
+      func: 0,
+      menu: 0,
+      screen: 0,
+      statemachine: 0,
+      state: 0,
     };
     // A script that already carries a library function's body -- as every
     // decompiled file does, the includes having been compiled in -- must not
@@ -214,13 +223,16 @@ class IpofCompiler {
         if (!(err instanceof IpofSyntaxError)) throw err;
         this.error(err.message.replace(/^line \d+: /, ''), err.line);
       }
-      at = e.finish(at) + 32;            // a gap for the next declaration header
+      at = e.finish(at) + 32; // a gap for the next declaration header
       procs[p.name] = e.toks;
       const id = this.procIds.get(p.name);
       if (id) byid[`${id.kind}:${id.id}`] = p.name;
     }
     return {
-      ecu: this.ecu || 'script', procs, byid, errors: this.errors,
+      ecu: this.ecu || 'script',
+      procs,
+      byid,
+      errors: this.errors,
     };
   }
 
@@ -266,7 +278,11 @@ class IpofCompiler {
           const outs = (call && this.protos[call.name]) || [];
           for (let k = 0; k < ((call && call.args) || []).length; k += 1) {
             const a = call.args[k];
-            if (a && a.node === 'name' && (outs[k] === 'out' || outs[k] === 'inout')) {
+            if (
+              a &&
+              a.node === 'name' &&
+              (outs[k] === 'out' || outs[k] === 'inout')
+            ) {
               markOut(a.name);
             }
           }
@@ -290,7 +306,10 @@ class IpofCompiler {
     const body = this.ast.globals
       .filter((g) => g.init)
       .map((g) => ({
-        node: 'assign', name: g.name, value: g.init, line: g.line,
+        node: 'assign',
+        name: g.name,
+        value: g.init,
+        line: g.line,
       }));
     if (!body.length) return null;
     const name = '__inpa_startup__';
@@ -298,7 +317,13 @@ class IpofCompiler {
     this.procIds.set(name, { kind: 'func', id: 900 });
     this.procKinds.set(name, 'func');
     return {
-      node: 'proc', kind: 'func', name, params: [], locals: [], body, line: 0,
+      node: 'proc',
+      kind: 'func',
+      name,
+      params: [],
+      locals: [],
+      body,
+      line: 0,
     };
   }
 
@@ -313,7 +338,9 @@ class IpofCompiler {
     let n = 0;
     for (const par of p.params) {
       e.slots.set(par.name, {
-        n: n++, scope: IPOF_SC_LOCAL, ref: par.mode === 'out' || par.mode === 'inout',
+        n: n++,
+        scope: IPOF_SC_LOCAL,
+        ref: par.mode === 'out' || par.mode === 'inout',
       });
     }
     for (const l of p.locals) {
@@ -350,10 +377,17 @@ class IpofCompiler {
    */
   emitSection(e, s, p) {
     if (s.node === 'STATE') {
-      e.push({ op: 'state', name: `%${s.name}`, index: this.stateIndex(s.name) });
+      e.push({
+        op: 'state',
+        name: `%${s.name}`,
+        index: this.stateIndex(s.name),
+      });
     } else {
       const t = {
-        op: s.node, nr: s.nr, label: s.label, dwords: 0,
+        op: s.node,
+        nr: s.nr,
+        label: s.label,
+        dwords: 0,
       };
       if (s.keys) t.keys = s.keys;
       e.push(t);
@@ -401,9 +435,16 @@ class IpofCompiler {
    */
   emitStmt(e, s, p) {
     if (s.node === 'empty') return;
-    if (s.node === 'block') { this.emitBlock(e, s.body, p); return; }
+    if (s.node === 'block') {
+      this.emitBlock(e, s.body, p);
+      return;
+    }
     if (s.node === 'label') {
-      e.push({ op: 'state', name: `%${s.name}`, index: this.stateIndex(s.name) });
+      e.push({
+        op: 'state',
+        name: `%${s.name}`,
+        index: this.stateIndex(s.name),
+      });
       return;
     }
     if (s.node === 'return') {
@@ -423,8 +464,15 @@ class IpofCompiler {
       e.push({ op: 'stmt', n: 1 });
       return;
     }
-    if (s.node === 'callstmt') { this.emitCall(e, s.call, p); return; }
-    if (s.node === 'expr') { this.emitExpr(e, s.value, p); e.push({ op: 'stmt', n: 1 }); return; }
+    if (s.node === 'callstmt') {
+      this.emitCall(e, s.call, p);
+      return;
+    }
+    if (s.node === 'expr') {
+      this.emitExpr(e, s.value, p);
+      e.push({ op: 'stmt', n: 1 });
+      return;
+    }
     if (s.node === 'if') {
       this.emitExpr(e, s.cond, p);
       e.push({ op: 'stmt', n: 1 });
@@ -469,9 +517,10 @@ class IpofCompiler {
     const proc = this.procIds.get(c.name);
     // an out/inout parameter is passed by reference: the argument compiles to
     // a procref carrying the slot, not to an ordinary push
-    const modes = (proc && proc.kind === 'func')
-      ? (this.paramModes.get(c.name) || [])
-      : (this.protos[c.name] || []);
+    const modes =
+      proc && proc.kind === 'func'
+        ? this.paramModes.get(c.name) || []
+        : this.protos[c.name] || [];
     c.args.forEach((a, k) => {
       const byRef = modes[k] === 'out' || modes[k] === 'inout';
       this.emitArg(e, a, p, byRef);
@@ -490,7 +539,10 @@ class IpofCompiler {
     if (n === undefined) {
       // a builtin the tables do not number cannot be compiled: there is no
       // opcode to emit, and inventing one would send an unknown call to the car
-      this.error(`unknown function "${c.name}" -- no builtin number for it`, c.line);
+      this.error(
+        `unknown function "${c.name}" -- no builtin number for it`,
+        c.line
+      );
       e.push({ op: 'stmt', n: 1 });
       return;
     }
@@ -509,11 +561,19 @@ class IpofCompiler {
    * @returns {void}
    */
   emitArg(e, a, p, byRef) {
-    if (a.node === 'name' && this.procIds.has(a.name) && !e.slots.has(a.name)
-        && !this.globals.has(a.name)) {
+    if (
+      a.node === 'name' &&
+      this.procIds.has(a.name) &&
+      !e.slots.has(a.name) &&
+      !this.globals.has(a.name)
+    ) {
       const r = this.procIds.get(a.name);
       const kind = {
-        screen: 0x40, menu: 0x41, state: 0x42, statemachine: 0x43, func: 0x00,
+        screen: 0x40,
+        menu: 0x41,
+        state: 0x42,
+        statemachine: 0x43,
+        func: 0x00,
       }[r.kind];
       e.push({ op: 'procref', kind, n: r.id });
       return;
@@ -566,12 +626,19 @@ class IpofCompiler {
       // JS boolean, which would not compare equal to a decoded file's value
       const v = x.type === 'bool' ? (x.value ? 1 : 0) : x.value;
       e.push({
-        op: 'const', n: this.constSlot(x), t: IPOF_LIT_TAG[x.type], v,
+        op: 'const',
+        n: this.constSlot(x),
+        t: IPOF_LIT_TAG[x.type],
+        v,
       });
       return;
     }
     if (x.node === 'name') {
-      if (!e.slots.has(x.name) && !this.globals.has(x.name) && this.procIds.has(x.name)) {
+      if (
+        !e.slots.has(x.name) &&
+        !this.globals.has(x.name) &&
+        this.procIds.has(x.name)
+      ) {
         this.emitArg(e, x, p);
         return;
       }
@@ -581,7 +648,10 @@ class IpofCompiler {
       e.push(t);
       return;
     }
-    if (x.node === 'call') { this.emitCall(e, x, p); return; }
+    if (x.node === 'call') {
+      this.emitCall(e, x, p);
+      return;
+    }
     if (x.node === 'binop') {
       this.emitExpr(e, x.left, p);
       this.emitExpr(e, x.right, p);
@@ -630,6 +700,9 @@ function ipofBuiltinNameFor(n, names) {
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
-    IpofCompiler, IpofProcEmitter, ipofBuiltinNameFor, IPOF_LIT_TAG,
+    IpofCompiler,
+    IpofProcEmitter,
+    ipofBuiltinNameFor,
+    IPOF_LIT_TAG,
   };
 }

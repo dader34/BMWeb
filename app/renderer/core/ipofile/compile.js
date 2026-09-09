@@ -88,7 +88,9 @@ function ipofBuiltinTable() {
 function ipofScanPrototypes(files) {
   const out = {};
   for (const name of Object.keys(files || {})) {
-    const text = String(files[name]).replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
+    const text = String(files[name])
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/\/\/[^\n]*/g, '');
     const re = /(?:extern|import32|import)\b[^(;]*?(\w+)\s*\(([^)]*)\)\s*;/g;
     let m = re.exec(text);
     while (m) {
@@ -124,7 +126,9 @@ function ipofScanImports(files) {
   // entry-point name -> the script-side name that holds the slot
   out.alias = {};
   for (const name of Object.keys(files || {})) {
-    const text = String(files[name]).replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
+    const text = String(files[name])
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/\/\/[^\n]*/g, '');
     // `import32 "C" lib "kernel32::Entry" Name (...)`: the name is what follows
     // the LIB string, so the calling convention's own quoted "C" has to be
     // stepped over rather than matched non-greedily past.
@@ -288,7 +292,11 @@ function ipofCompileSource(src, opts) {
   }
   if (errors.length) {
     return {
-      ok: false, exec: null, errors, includes: r.used, missing: r.missing,
+      ok: false,
+      exec: null,
+      errors,
+      includes: r.used,
+      missing: r.missing,
     };
   }
   let ast;
@@ -298,23 +306,32 @@ function ipofCompileSource(src, opts) {
     if (!(err instanceof IpofSyntaxError)) throw err;
     errors.push({ line: err.line, message: err.message, text: err.message });
     return {
-      ok: false, exec: null, errors, includes: r.used, missing: r.missing,
+      ok: false,
+      exec: null,
+      errors,
+      includes: r.used,
+      missing: r.missing,
     };
   }
   const c = new IpofCompiler(ast, {
     builtins: ipofBuiltinTable(),
     // the caller's table (a compiled file's own) wins; failing that, what the
     // includes declare, which is the only source a bare .IPS has
-    imports: (o.imports && o.imports.length)
-      ? o.imports
-      : ipofScanImports(o.files || {}),
+    imports:
+      o.imports && o.imports.length
+        ? o.imports
+        : ipofScanImports(o.files || {}),
     protos: ipofScanPrototypes(o.files || {}),
   });
   c.ecu = o.name || 'script';
   const exec = c.compile();
   if (exec.errors.length) {
     return {
-      ok: false, exec: null, errors: exec.errors, includes: r.used, missing: r.missing,
+      ok: false,
+      exec: null,
+      errors: exec.errors,
+      includes: r.used,
+      missing: r.missing,
     };
   }
   return {
@@ -335,8 +352,13 @@ function ipofCompileSource(src, opts) {
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
-    ipofCompileSource, ipofResolveIncludes, ipofScanIncludes, ipofBuiltinTable,
-    ipofScanPrototypes, ipofScanImports,
-    IPOF_BUILTIN_NUMS, IPOF_ALIAS_NUMS,
+    ipofCompileSource,
+    ipofResolveIncludes,
+    ipofScanIncludes,
+    ipofBuiltinTable,
+    ipofScanPrototypes,
+    ipofScanImports,
+    IPOF_BUILTIN_NUMS,
+    IPOF_ALIAS_NUMS,
   };
 }

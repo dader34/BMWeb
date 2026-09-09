@@ -118,7 +118,12 @@ const IPOF_BINOPS = {
 
 /** Local declaration type bytes (opcode 08). */
 const IPOF_DECL_LOCALS = {
-  0x50: 'bool', 0x51: 'int', 0x52: 'byte', 0x53: 'long', 0x54: 'real', 0x55: 'string',
+  0x50: 'bool',
+  0x51: 'int',
+  0x52: 'byte',
+  0x53: 'long',
+  0x54: 'real',
+  0x55: 'string',
 };
 
 /**
@@ -325,7 +330,7 @@ function ipofWalk(data, lo, hi, pool, names) {
   const toks = [];
   let unknown = 0;
   let i = lo;
-  let base = lo + 4;                    // dword 0 of the proc's own block
+  let base = lo + 4; // dword 0 of the proc's own block
   while (i < hi) {
     const start = i;
     const mark = toks.length;
@@ -339,7 +344,7 @@ function ipofWalk(data, lo, hi, pool, names) {
     if (inl) {
       toks.push(inl.tok);
       i = inl.next;
-      base = i;                         // jumps inside this body count from here
+      base = i; // jumps inside this body count from here
       continue;
     }
     if (i + 4 > hi) {
@@ -387,12 +392,17 @@ function ipofWalk(data, lo, hi, pool, names) {
     } else if (b0 === 0x0c && b1 === 0x80) {
       toks.push({ op: 'calluser', n: u16 });
     } else if (b0 === 0x0c && b1 === 0x81) {
-      toks.push({ op: 'call', n: u16, name: callNames[u16] || ipofBuiltinName(u16) });
+      toks.push({
+        op: 'call',
+        n: u16,
+        name: callNames[u16] || ipofBuiltinName(u16),
+      });
     } else if (b0 === 0x0f) {
       toks.push({ op: 'frame' });
     } else {
       let hex = '';
-      for (let k = 0; k < 4; k += 1) hex += data[i + k].toString(16).padStart(2, '0');
+      for (let k = 0; k < 4; k += 1)
+        hex += data[i + k].toString(16).padStart(2, '0');
       toks.push({ op: 'unk', bytes: hex });
       unknown += 4;
     }
@@ -406,7 +416,11 @@ function ipofWalk(data, lo, hi, pool, names) {
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
-    ipofWalk, IPOF_BUILTINS, IPOF_BINOPS, IPOF_DECL_LOCALS, ipofBuiltinName,
+    ipofWalk,
+    IPOF_BUILTINS,
+    IPOF_BINOPS,
+    IPOF_DECL_LOCALS,
+    ipofBuiltinName,
     IPOF_CDH_NAMES,
   };
 }

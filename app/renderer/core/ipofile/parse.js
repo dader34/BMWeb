@@ -14,18 +14,42 @@
 
 /** Binary operator precedence, the decompiler's table read backwards. */
 const IPOF_PREC = {
-  '||': 1, '^^': 1, '&&': 2, '&': 3, '|': 3, '^': 3,
-  '==': 4, '!=': 4, '<': 5, '>': 5, '<=': 5, '>=': 5,
-  '+': 6, '-': 6, '*': 7, '/': 7,
+  '||': 1,
+  '^^': 1,
+  '&&': 2,
+  '&': 3,
+  '|': 3,
+  '^': 3,
+  '==': 4,
+  '!=': 4,
+  '<': 5,
+  '>': 5,
+  '<=': 5,
+  '>=': 5,
+  '+': 6,
+  '-': 6,
+  '*': 7,
+  '/': 7,
 };
 
 /** Source operator text -> the binop opcode the walker names. */
 const IPOF_OP_CODE = {
-  '+': 0x60, '-': 0x61, '*': 0x62, '/': 0x63,
-  '<': 0x64, '>': 0x65, '<=': 0x66, '>=': 0x67,
-  '==': 0x68, '!=': 0x69,
-  '&&': 0x6a, '||': 0x6b, '^^': 0x6c,
-  '&': 0x6f, '|': 0x70, '^': 0x71,
+  '+': 0x60,
+  '-': 0x61,
+  '*': 0x62,
+  '/': 0x63,
+  '<': 0x64,
+  '>': 0x65,
+  '<=': 0x66,
+  '>=': 0x67,
+  '==': 0x68,
+  '!=': 0x69,
+  '&&': 0x6a,
+  '||': 0x6b,
+  '^^': 0x6c,
+  '&': 0x6f,
+  '|': 0x70,
+  '^': 0x71,
 };
 
 /** Unary operator text -> opcode. */
@@ -96,7 +120,8 @@ class IpofParser {
     const t = this.peek();
     if (!this.at(kind, value)) {
       const want = value === undefined ? kind : JSON.stringify(value);
-      const got = t.kind === 'eof' ? 'end of file' : JSON.stringify(String(t.value));
+      const got =
+        t.kind === 'eof' ? 'end of file' : JSON.stringify(String(t.value));
       throw new IpofSyntaxError(`expected ${want}, found ${got}`, t.line);
     }
     return this.next();
@@ -137,7 +162,11 @@ class IpofParser {
       let init = null;
       if (this.accept('op', '=')) init = this.parseExpr();
       out.push({
-        node: 'var', type, name: nameTok.value, init, line: nameTok.line,
+        node: 'var',
+        type,
+        name: nameTok.value,
+        init,
+        line: nameTok.line,
       });
     } while (this.accept('op', ','));
     this.expect('op', ';');
@@ -150,9 +179,17 @@ class IpofParser {
    */
   parseProc() {
     const t = this.peek();
-    if (this.at('kw', 'MENU') || this.at('kw', 'SCREEN') || this.at('kw', 'STATEMACHINE')) {
+    if (
+      this.at('kw', 'MENU') ||
+      this.at('kw', 'SCREEN') ||
+      this.at('kw', 'STATEMACHINE')
+    ) {
       const kw = this.next().value;
-      const kind = { MENU: 'menu', SCREEN: 'screen', STATEMACHINE: 'statemachine' }[kw];
+      const kind = {
+        MENU: 'menu',
+        SCREEN: 'screen',
+        STATEMACHINE: 'statemachine',
+      }[kw];
       const name = this.expect('id').value;
       this.expect('op', '(');
       this.expect('op', ')');
@@ -169,7 +206,13 @@ class IpofParser {
     const body = this.parseStmts();
     this.expect('op', '}');
     return {
-      node: 'proc', kind: 'func', name, params, locals, body, line: t.line,
+      node: 'proc',
+      kind: 'func',
+      name,
+      params,
+      locals,
+      body,
+      line: t.line,
     };
   }
 
@@ -183,13 +226,20 @@ class IpofParser {
     do {
       const modeTok = this.peek();
       let mode = 'in';
-      if (this.at('kw', 'in') || this.at('kw', 'out') || this.at('kw', 'inout')) {
+      if (
+        this.at('kw', 'in') ||
+        this.at('kw', 'out') ||
+        this.at('kw', 'inout')
+      ) {
         mode = this.next().value;
         this.expect('op', ':');
       }
       const type = this.peek().value;
       if (!IPOF_TYPES.has(type)) {
-        throw new IpofSyntaxError(`parameter needs a type, found "${type}"`, modeTok.line);
+        throw new IpofSyntaxError(
+          `parameter needs a type, found "${type}"`,
+          modeTok.line
+        );
       }
       this.next();
       out.push({ mode, type, name: this.expect('id').value });
@@ -203,7 +253,8 @@ class IpofParser {
    */
   parseLocals() {
     const out = [];
-    while (this.at('kw') && IPOF_TYPES.has(this.peek().value)) out.push(...this.parseVarDecl());
+    while (this.at('kw') && IPOF_TYPES.has(this.peek().value))
+      out.push(...this.parseVarDecl());
     return out;
   }
 
@@ -247,7 +298,12 @@ class IpofParser {
         const body = this.parseStmts();
         this.expect('op', '}');
         sections.push({
-          node: head, nr, label, keys, body, line,
+          node: head,
+          nr,
+          label,
+          keys,
+          body,
+          line,
         });
         continue;
       }
@@ -255,9 +311,13 @@ class IpofParser {
         const st = this.next();
         const body = [];
         // a state runs to the next label or the proc's end
-        while (!this.at('op', '}') && !this.at('state')) body.push(this.parseStmt());
+        while (!this.at('op', '}') && !this.at('state'))
+          body.push(this.parseStmt());
         sections.push({
-          node: 'STATE', name: st.value, body, line: st.line,
+          node: 'STATE',
+          name: st.value,
+          body,
+          line: st.line,
         });
         continue;
       }
@@ -265,7 +325,14 @@ class IpofParser {
     }
     this.expect('op', '}');
     return {
-      node: 'proc', kind, name, params: [], locals, body: pre, sections, line,
+      node: 'proc',
+      kind,
+      name,
+      params: [],
+      locals,
+      body: pre,
+      sections,
+      line,
     };
   }
 
@@ -285,7 +352,10 @@ class IpofParser {
    */
   parseStmt() {
     const t = this.peek();
-    if (this.at('op', ';')) { this.next(); return { node: 'empty', line: t.line }; }
+    if (this.at('op', ';')) {
+      this.next();
+      return { node: 'empty', line: t.line };
+    }
     if (this.at('op', '{')) {
       this.next();
       const body = this.parseStmts();
@@ -301,7 +371,11 @@ class IpofParser {
       let alt = null;
       if (this.accept('kw', 'else')) alt = this.parseStmt();
       return {
-        node: 'if', cond, then, alt, line: t.line,
+        node: 'if',
+        cond,
+        then,
+        alt,
+        line: t.line,
       };
     }
     if (this.at('kw', 'while')) {
@@ -311,7 +385,10 @@ class IpofParser {
       this.expect('op', ')');
       const body = this.parseStmt();
       return {
-        node: 'while', cond, body, line: t.line,
+        node: 'while',
+        cond,
+        body,
+        line: t.line,
       };
     }
     if (this.at('kw', 'return')) {
@@ -329,10 +406,16 @@ class IpofParser {
       const value = this.parseExpr();
       this.expect('op', ';');
       if (e.node !== 'name') {
-        throw new IpofSyntaxError('assignment needs a variable on the left', t.line);
+        throw new IpofSyntaxError(
+          'assignment needs a variable on the left',
+          t.line
+        );
       }
       return {
-        node: 'assign', name: e.name, value, line: t.line,
+        node: 'assign',
+        name: e.name,
+        value,
+        line: t.line,
       };
     }
     this.expect('op', ';');
@@ -356,7 +439,11 @@ class IpofParser {
       this.next();
       const right = this.parseExpr(prec + 1);
       left = {
-        node: 'binop', op: t.value, left, right, line: t.line,
+        node: 'binop',
+        op: t.value,
+        left,
+        right,
+        line: t.line,
       };
     }
     return left;
@@ -370,7 +457,12 @@ class IpofParser {
     const t = this.peek();
     if (this.at('op', '-') || this.at('op', '!')) {
       this.next();
-      return { node: 'unop', op: t.value, operand: this.parseUnary(), line: t.line };
+      return {
+        node: 'unop',
+        op: t.value,
+        operand: this.parseUnary(),
+        line: t.line,
+      };
     }
     return this.parseAtom();
   }
@@ -383,17 +475,26 @@ class IpofParser {
     const t = this.next();
     if (t.kind === 'num') {
       return {
-        node: 'lit', type: t.real ? 'real' : 'int', value: t.value, line: t.line,
+        node: 'lit',
+        type: t.real ? 'real' : 'int',
+        value: t.value,
+        line: t.line,
       };
     }
     if (t.kind === 'str') {
       return {
-        node: 'lit', type: 'string', value: t.value, line: t.line,
+        node: 'lit',
+        type: 'string',
+        value: t.value,
+        line: t.line,
       };
     }
     if (t.kind === 'kw' && (t.value === 'TRUE' || t.value === 'FALSE')) {
       return {
-        node: 'lit', type: 'bool', value: t.value === 'TRUE', line: t.line,
+        node: 'lit',
+        type: 'bool',
+        value: t.value === 'TRUE',
+        line: t.line,
       };
     }
     if (t.kind === 'op' && t.value === '(') {
@@ -406,16 +507,22 @@ class IpofParser {
         this.next();
         const args = [];
         if (!this.at('op', ')')) {
-          do { args.push(this.parseExpr()); } while (this.accept('op', ','));
+          do {
+            args.push(this.parseExpr());
+          } while (this.accept('op', ','));
         }
         this.expect('op', ')');
         return {
-          node: 'call', name: t.value, args, line: t.line,
+          node: 'call',
+          name: t.value,
+          args,
+          line: t.line,
         };
       }
       return { node: 'name', name: t.value, line: t.line };
     }
-    const got = t.kind === 'eof' ? 'end of file' : JSON.stringify(String(t.value));
+    const got =
+      t.kind === 'eof' ? 'end of file' : JSON.stringify(String(t.value));
     throw new IpofSyntaxError(`expected a value, found ${got}`, t.line);
   }
 }
@@ -433,6 +540,11 @@ function ipofParse(src) {
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
-    ipofParse, IpofParser, IPOF_PREC, IPOF_OP_CODE, IPOF_UNOP_CODE, IPOF_TYPES,
+    ipofParse,
+    IpofParser,
+    IPOF_PREC,
+    IPOF_OP_CODE,
+    IPOF_UNOP_CODE,
+    IPOF_TYPES,
   };
 }

@@ -32,14 +32,16 @@ function ipofDecodeExec(data, stem) {
     // Decoding them keeps the reader complete and lets the app say what a
     // dropped file actually is instead of reporting an unreadable script.
     const apool = ipofAPool(data);
-    if (!apool) throw new Error(`${stem}: no constant pool -- not an INPA .IPO?`);
+    if (!apool)
+      throw new Error(`${stem}: no constant pool -- not an INPA .IPO?`);
     pool = apool;
     ps = ipofCodeEnd(data, null);
     coding = true;
   }
   const codeEnd = ipofCodeEnd(data, ps);
   const decls = ipofFindDecls(data, codeEnd);
-  if (decls.length < 3) throw new Error(`${stem}: no procedure declarations found`);
+  if (decls.length < 3)
+    throw new Error(`${stem}: no procedure declarations found`);
   const procs = {};
   const byid = {};
   let unknown = 0;
@@ -55,7 +57,8 @@ function ipofDecodeExec(data, stem) {
     bytes += r.len;
   });
   let meta = ipofConstantData(pool);
-  if (!meta.includes.length) meta = { includes: ipofIncludesFromBytes(data), imports: meta.imports };
+  if (!meta.includes.length)
+    meta = { includes: ipofIncludesFromBytes(data), imports: meta.imports };
   return {
     ecu: stem,
     procs,
@@ -77,10 +80,17 @@ function ipofDecodeExec(data, stem) {
  */
 function ipofInventory(exec) {
   const out = {
-    menus: [], screens: [], funcs: [], machines: [],
+    menus: [],
+    screens: [],
+    funcs: [],
+    machines: [],
   };
   const bucket = {
-    menu: 'menus', screen: 'screens', func: 'funcs', statemachine: 'machines', state: 'machines',
+    menu: 'menus',
+    screen: 'screens',
+    func: 'funcs',
+    statemachine: 'machines',
+    state: 'machines',
   };
   for (const key of Object.keys(exec.byid || {})) {
     const kind = key.split(':')[0];
@@ -143,7 +153,12 @@ function ipofStem(name) {
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
-    ipofDecodeExec, ipofInventory, ipofReadBytes, ipofIsCompiled, ipofIsSource,
-    ipofIsInclude, ipofStem,
+    ipofDecodeExec,
+    ipofInventory,
+    ipofReadBytes,
+    ipofIsCompiled,
+    ipofIsSource,
+    ipofIsInclude,
+    ipofStem,
   };
 }

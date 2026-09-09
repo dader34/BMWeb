@@ -14,10 +14,28 @@
 
 /** Keywords the parser branches on, rather than treating as identifiers. */
 const IPOF_KEYWORDS = new Set([
-  'MENU', 'SCREEN', 'STATEMACHINE', 'STATE', 'INIT', 'ITEM', 'LINE',
-  'if', 'else', 'while', 'return', 'in', 'out', 'inout',
-  'bool', 'byte', 'int', 'long', 'real', 'string',
-  'TRUE', 'FALSE',
+  'MENU',
+  'SCREEN',
+  'STATEMACHINE',
+  'STATE',
+  'INIT',
+  'ITEM',
+  'LINE',
+  'if',
+  'else',
+  'while',
+  'return',
+  'in',
+  'out',
+  'inout',
+  'bool',
+  'byte',
+  'int',
+  'long',
+  'real',
+  'string',
+  'TRUE',
+  'FALSE',
 ]);
 
 /**
@@ -125,8 +143,15 @@ function ipofLex(src) {
   let line = 1;
   while (i < src.length) {
     const c = src[i];
-    if (c === '\n') { line += 1; i += 1; continue; }
-    if (c === ' ' || c === '\t' || c === '\r') { i += 1; continue; }
+    if (c === '\n') {
+      line += 1;
+      i += 1;
+      continue;
+    }
+    if (c === ' ' || c === '\t' || c === '\r') {
+      i += 1;
+      continue;
+    }
     if (c === '/' && src[i + 1] === '/') {
       while (i < src.length && src[i] !== '\n') i += 1;
       continue;
@@ -161,7 +186,10 @@ function ipofLex(src) {
     if (/[0-9]/.test(c)) {
       const r = ipofLexNumber(src, i);
       toks.push({
-        kind: 'num', value: r.value, real: r.real, line,
+        kind: 'num',
+        value: r.value,
+        real: r.real,
+        line,
       });
       i = r.next;
       continue;
@@ -178,7 +206,11 @@ function ipofLex(src) {
       let p = i;
       while (p < src.length && /[A-Za-z0-9_]/.test(src[p])) p += 1;
       const word = src.slice(i, p);
-      toks.push({ kind: IPOF_KEYWORDS.has(word) ? 'kw' : 'id', value: word, line });
+      toks.push({
+        kind: IPOF_KEYWORDS.has(word) ? 'kw' : 'id',
+        value: word,
+        line,
+      });
       i = p;
       continue;
     }
@@ -193,7 +225,10 @@ function ipofLex(src) {
       i += 1;
       continue;
     }
-    throw new IpofSyntaxError(`unexpected character ${JSON.stringify(c)}`, line);
+    throw new IpofSyntaxError(
+      `unexpected character ${JSON.stringify(c)}`,
+      line
+    );
   }
   toks.push({ kind: 'eof', value: null, line });
   return toks;
@@ -201,6 +236,8 @@ function ipofLex(src) {
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
-    ipofLex, IpofSyntaxError, IPOF_KEYWORDS,
+    ipofLex,
+    IpofSyntaxError,
+    IPOF_KEYWORDS,
   };
 }

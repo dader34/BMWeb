@@ -124,23 +124,30 @@ function scriptRunnerBuild(script, includes) {
 async function scriptRunnerSgbd(exec, stem) {
   let known;
   try {
-    const idx = await fetch('api/ecu-index.json').then((r) => (r.ok ? r.json() : null));
+    const idx = await fetch('api/ecu-index.json').then((r) =>
+      r.ok ? r.json() : null
+    );
     known = new Set(Object.keys(idx || {}).map((k) => k.toLowerCase()));
   } catch (e) {
     known = new Set();
   }
-  const wants = typeof ipoScriptVariants === 'function'
-    ? ipoScriptVariants(exec, known)
-    : [];
-  if (wants.length && typeof ipoVariantsByGroup === 'function'
-      && typeof webResolveVariant === 'function') {
+  const wants =
+    typeof ipoScriptVariants === 'function'
+      ? ipoScriptVariants(exec, known)
+      : [];
+  if (
+    wants.length &&
+    typeof ipoVariantsByGroup === 'function' &&
+    typeof webResolveVariant === 'function'
+  ) {
     let group = null;
     let best = 0;
     try {
       const byGroup = (await ipoVariantsByGroup()) || {};
       for (const g of Object.keys(byGroup)) {
-        const hits = (byGroup[g] || [])
-          .filter((v) => wants.includes(String(v).toLowerCase())).length;
+        const hits = (byGroup[g] || []).filter((v) =>
+          wants.includes(String(v).toLowerCase())
+        ).length;
         if (hits > best) {
           best = hits;
           group = g;
@@ -183,6 +190,9 @@ async function scriptRunnerSgbd(exec, stem) {
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
-    scriptRunnerRead, scriptRunnerBuild, scriptRunnerSgbd, scriptRunnerText,
+    scriptRunnerRead,
+    scriptRunnerBuild,
+    scriptRunnerSgbd,
+    scriptRunnerText,
   };
 }

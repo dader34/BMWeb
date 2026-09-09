@@ -66,7 +66,8 @@ function ipofLatin1(data, lo, hi) {
  */
 function ipofFindNl(data, from, to) {
   const end = Math.min(to, data.length);
-  for (let i = Math.max(0, from); i < end; i += 1) if (data[i] === 0x0a) return i;
+  for (let i = Math.max(0, from); i < end; i += 1)
+    if (data[i] === 0x0a) return i;
   return -1;
 }
 
@@ -105,7 +106,8 @@ function ipofTokPool(data, start, end) {
       // declaration's entry count validates the walk end to end anyway.
       const j = ipofFindNl(data, i + 1, data.length);
       if (j < 0) return null;
-      for (let k = i + 1; k < j; k += 1) if (!ipofPrintable(data[k])) return null;
+      for (let k = i + 1; k < j; k += 1)
+        if (!ipofPrintable(data[k])) return null;
       entries.push(['s', ipofLatin1(data, i + 1, j)]);
       i = j + 1;
     } else if (t === 0x03) {
@@ -150,7 +152,10 @@ function ipofFindAll(data, pat, from, to) {
   for (let i = from; i <= end; i += 1) {
     let ok = true;
     for (let k = 0; k < pat.length; k += 1) {
-      if (data[i + k] !== pat[k]) { ok = false; break; }
+      if (data[i + k] !== pat[k]) {
+        ok = false;
+        break;
+      }
     }
     if (ok) out.push(i);
   }
@@ -177,7 +182,7 @@ function ipofPoolHeader(data, nameAt) {
   if (data[i] !== 0x0a) return null;
   i += 1;
   if (i + 4 > data.length) return null;
-  i += 4;                                   // the u32 id
+  i += 4; // the u32 id
   if (data[i] !== 0x0a) return null;
   i += 1;
   // the optional version string: up to 32 printable bytes, then a newline
@@ -212,7 +217,7 @@ function ipofFindPool(data) {
     if (entries && (entries.length & 0xffff) === hdr.declared) {
       return { start: hdr.start, entries };
     }
-    break;                                  // the last declaration is the pool
+    break; // the last declaration is the pool
   }
   return ipofFindPoolSuffix(data);
 }
@@ -239,7 +244,11 @@ function ipofFindPoolSuffix(data) {
       const j = ipofFindNl(data, i + 1, i + 221);
       if (j >= 0) {
         let clean = true;
-        for (let k = i + 1; k < j; k += 1) if (!ipofPrintable(data[k])) { clean = false; break; }
+        for (let k = i + 1; k < j; k += 1)
+          if (!ipofPrintable(data[k])) {
+            clean = false;
+            break;
+          }
         if (clean) ok[i] = ok[j + 1];
       }
     } else if (t === 0x03 && i + 3 <= n) ok[i] = ok[i + 3];
@@ -250,7 +259,10 @@ function ipofFindPoolSuffix(data) {
   let good = null;
   let run = 0;
   for (let i = n - 1; i >= 0; i -= 1) {
-    if (ok[i]) { good = i; run = 0; } else {
+    if (ok[i]) {
+      good = i;
+      run = 0;
+    } else {
       run += 1;
       if (good !== null && run > 6000) break;
     }
@@ -290,8 +302,13 @@ function ipofFindPoolSuffix(data) {
     let score = 0;
     for (const r of sample) {
       const j = k + r;
-      if (j + 2 < entries.length && entries[j][0] === 'i'
-          && entries[j + 1][0] === 'i' && entries[j + 2][0] === 's') score += 1;
+      if (
+        j + 2 < entries.length &&
+        entries[j][0] === 'i' &&
+        entries[j + 1][0] === 'i' &&
+        entries[j + 2][0] === 's'
+      )
+        score += 1;
     }
     if (best === null || score > best.score) best = { score, k };
     if (best.score === sample.length && best.score > 0) break;
@@ -314,7 +331,10 @@ function ipofFindPoolSuffix(data) {
  */
 function ipofCodeEnd(data, ps) {
   const end = ps || data.length;
-  const pat = [0x11].concat(Array.from('Global Data').map((c) => c.charCodeAt(0)), [0x0a]);
+  const pat = [0x11].concat(
+    Array.from('Global Data').map((c) => c.charCodeAt(0)),
+    [0x0a]
+  );
   const hits = ipofFindAll(data, pat, 0, end);
   return hits.length ? hits[0] : end;
 }
@@ -333,19 +353,25 @@ function ipofCodeEnd(data, ps) {
  * @returns {Array<Array>|null} The entries, or null.
  */
 function ipofAPool(data) {
-  const marker = [0x12].concat(Array.from('Constant Data').map((c) => c.charCodeAt(0)), [0x0a]);
+  const marker = [0x12].concat(
+    Array.from('Constant Data').map((c) => c.charCodeAt(0)),
+    [0x0a]
+  );
   const hits = ipofFindAll(data, marker, 0, data.length);
   if (!hits.length) return null;
   let p = hits[0] + marker.length;
   if (p + 9 > data.length) return null;
-  p += 4;                                     // the u32 id
+  p += 4; // the u32 id
   while (p < data.length && data[p] === 0x0a) p += 1;
   if (p < data.length && data[p] === 0x00) p += 1;
-  p += 2;                                     // the declared count, not relied on
+  p += 2; // the declared count, not relied on
   const pool = [];
   while (p < data.length) {
     const t = data[p];
-    if (t === 0x0a) { p += 1; continue; }     // a separator, not a slot
+    if (t === 0x0a) {
+      p += 1;
+      continue;
+    } // a separator, not a slot
     if (t === 0x04) {
       const e = ipofFindNl(data, p + 1, data.length);
       if (e < 0) break;
@@ -358,7 +384,7 @@ function ipofAPool(data) {
       pool.push(['b', data[p + 1]]);
       p += 2;
     } else {
-      break;                                  // the trailing DLL signature table
+      break; // the trailing DLL signature table
     }
   }
   return pool;
@@ -366,7 +392,13 @@ function ipofAPool(data) {
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
-    ipofFindPool, ipofCodeEnd, ipofTokPool, ipofUint, ipofLatin1, ipofFindNl,
-    ipofFindAll, ipofAPool,
+    ipofFindPool,
+    ipofCodeEnd,
+    ipofTokPool,
+    ipofUint,
+    ipofLatin1,
+    ipofFindNl,
+    ipofFindAll,
+    ipofAPool,
   };
 }

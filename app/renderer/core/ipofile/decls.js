@@ -13,7 +13,11 @@
 
 /** Declaration type byte -> the table its id indexes. */
 const IPOF_DECL_TYPES = {
-  1: 'screen', 2: 'menu', 3: 'state', 4: 'statemachine', 5: 'func',
+  1: 'screen',
+  2: 'menu',
+  3: 'state',
+  4: 'statemachine',
+  5: 'func',
 };
 
 /**
@@ -155,7 +159,10 @@ function ipofConstantData(entries) {
  * @returns {string[]} The include names.
  */
 function ipofIncludesFromBytes(data) {
-  const marker = [0x12].concat(Array.from('Constant Data').map((c) => c.charCodeAt(0)), [0x0a]);
+  const marker = [0x12].concat(
+    Array.from('Constant Data').map((c) => c.charCodeAt(0)),
+    [0x0a]
+  );
   const hits = ipofFindAll(data, marker, 0, data.length);
   if (!hits.length) return [];
   const out = [];
@@ -171,7 +178,10 @@ function ipofIncludesFromBytes(data) {
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
-    ipofFindDecls, ipofBodyStart, ipofConstantData, ipofIncludesFromBytes,
+    ipofFindDecls,
+    ipofBodyStart,
+    ipofConstantData,
+    ipofIncludesFromBytes,
     IPOF_DECL_TYPES,
   };
 }
