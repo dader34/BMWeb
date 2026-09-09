@@ -294,18 +294,22 @@ function buildVariantDropdown(variants) {
     );
   const allLabel = `All variants (${variants.length})`;
 
-  // A thin wrapper over the shared dropdown (ui/dropdown.js): no drop-up, no
-  // Esc, click-to-close, immediate focus, a row cap and a synthetic "All"
-  // row -- the exact behaviour this control had before.
+  // The shared dropdown (ui/dropdown.js) in the fault lookup's `.lkd` skin,
+  // so this picker reads like the chassis and module filters there; the
+  // behaviour is this control's own: no drop-up, no Esc, click-to-close,
+  // immediate focus, a row cap and a synthetic "All" row.
   const dd = makeDropdown({
     items: order,
     value: ETK_STATE.variant != null ? ETK_STATE.variant : null,
-    classPrefix: 'etk-vdd',
+    classPrefix: 'lkd',
+    parts: { cur: 'val', menu: 'pop', opt: 'item' },
     searchType: 'search',
     searchPlaceholder: 'Search 316i, LHD, N42, 2003…',
     itemValue: (o) => o.i,
     itemLabel: (o) => o.text,
     filterItem: (o, q) => o.text.toLowerCase().includes(q),
+    renderRow: (o) => `<span class="lkd-item-label">${esc(o.text)}</span>`,
+    emptyText: 'No matches',
     synthetic: { value: null, label: allLabel },
     placeholder: allLabel,
     rowCap: ETK_VARIANT_ROW_CAP,
@@ -321,6 +325,7 @@ function buildVariantDropdown(variants) {
       ETK_STATE.variantLabel = idx != null && item ? item.text : null;
     },
   });
+  dd.el.classList.add('etk-vdd');
   return dd.el;
 }
 

@@ -237,7 +237,13 @@ function renderDiagram(data, chassisId, d, viewEl) {
         img.style.width = Math.min(w * ETK_IMG_UPSCALE, ETK_IMG_MAX_PX) + 'px';
     };
     img.src = url;
+    img.title = 'Click to enlarge';
     fig.appendChild(img);
+    const hint = document.createElement('span');
+    hint.className = 'etk-figure-hint';
+    hint.textContent = '⌕ enlarge';
+    fig.appendChild(hint);
+    fig.onclick = () => etkOpenLightbox(url, d.name);
     wrap.appendChild(fig);
   }
 
@@ -262,4 +268,60 @@ function renderDiagram(data, chassisId, d, viewEl) {
   sbRight.textContent =
     `${parts.length} part${parts.length === 1 ? '' : 's'}` +
     (filtered ? ` (of ${d.parts.length})` : '');
+}
+
+/** How much the loupe magnifies the scan. */
+const ETK_LOUPE_ZOOM = 2.5;
+
+/** The loupe's diameter, px. */
+const ETK_LOUPE_PX = 220;
+
+/**
+ * The enlarged view: the scan as big as the window allows on a white plate,
+ * with a round magnifier that follows the pointer over it. Esc, the ×, or a
+ * click on the backdrop closes it.
+ * @param {string} url - the image URL (a blob URL from the archive)
+ * @param {string} name - the diagram's name, for the caption
+ * @returns {void}
+ */
+function etkOpenLightbox(url, name) {
+  if (typeof openModal !== 'function') return;
+  const m = openModal(
+    `<div class="etk-lightbox">
+       <div class="etk-lightbox-head">
+         <span class="etk-lightbox-title">${esc(name)}</span>
+         <span class="etk-lightbox-hint">Move over the drawing to magnify</span>
+         <button type="button" class="etk-lightbox-close" aria-label="Close">×</button>
+       </div>
+       <div class="etk-lightbox-plate">
+         <img class="etk-lightbox-img" alt="${esc(name)}" src="${esc(url)}" />
+         <div class="etk-loupe" hidden></div>
+       </div>
+     </div>`
+  );
+  const box = m.overlay.querySelector('.etk-lightbox');
+  const img = box.querySelector('.etk-lightbox-img');
+  const loupe = box.querySelector('.etk-loupe');
+  box.querySelector('.etk-lightbox-close').onclick = () => m.close();
+  loupe.style.width = loupe.style.height = ETK_LOUPE_PX + 'px';
+  loupe.style.backgroundImage = `url("${url}")`;
+  const plate = box.querySelector('.etk-lightbox-plate');
+  img.onpointermove = (ev) => {
+    const r = img.getBoundingClientRect();
+    const pr = plate.getBoundingClientRect();
+    if (!r.width || !r.height) return;
+    const fx = (ev.clientX - r.left) / r.width;
+    const fy = (ev.clientY - r.top) / r.height;
+    const bw = r.width * ETK_LOUPE_ZOOM;
+    const bh = r.height * ETK_LOUPE_ZOOM;
+    loupe.hidden = false;
+    // the loupe sits in the plate, so it is placed against the plate's box
+    loupe.style.left = ev.clientX - pr.left - ETK_LOUPE_PX / 2 + 'px';
+    loupe.style.top = ev.clientY - pr.top - ETK_LOUPE_PX / 2 + 'px';
+    loupe.style.backgroundSize = `${bw}px ${bh}px`;
+    loupe.style.backgroundPosition = `${ETK_LOUPE_PX / 2 - fx * bw}px ${ETK_LOUPE_PX / 2 - fy * bh}px`;
+  };
+  img.onpointerleave = () => {
+    loupe.hidden = true;
+  };
 }

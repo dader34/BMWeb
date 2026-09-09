@@ -1221,10 +1221,115 @@ html.no-chrome body.apps-section .topbar {
   width: fit-content;
   max-width: calc(100% - 32px);
 }
+.etk-figure {
+  position: relative;
+  cursor: zoom-in;
+}
 .etk-figure img {
   max-width: 100%;
+  /* a first look, not the whole pane: the parts list stays in reach, and a
+     click opens the drawing at full size with the loupe */
+  max-height: min(46vh, 480px);
+  width: auto;
   height: auto;
   image-rendering: -webkit-optimize-contrast;
+}
+.etk-figure-hint {
+  position: absolute;
+  right: 10px;
+  bottom: 8px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: #666;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 2px 6px;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.etk-figure:hover .etk-figure-hint {
+  opacity: 1;
+}
+
+/* the enlarged drawing: as big as the window allows, on a white plate, with
+   a round loupe following the pointer */
+.etk-lightbox {
+  display: flex;
+  flex-direction: column;
+  max-width: 94vw;
+  max-height: 92vh;
+  border: 1px solid var(--line-bright);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.etk-lightbox-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px 10px 16px;
+  border-bottom: 1px solid var(--line);
+}
+.etk-lightbox-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.etk-lightbox-hint {
+  font-size: 12px;
+  color: var(--ink-faint);
+  flex: none;
+}
+.etk-lightbox-close {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: none;
+  color: var(--ink-dim);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+.etk-lightbox-close:hover {
+  color: var(--ink);
+  border-color: var(--line-bright);
+}
+.etk-lightbox-plate {
+  position: relative;
+  background: #fff;
+  padding: 16px;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+}
+.etk-lightbox-img {
+  display: block;
+  max-width: calc(94vw - 34px);
+  max-height: calc(92vh - 82px);
+  width: auto;
+  height: auto;
+  cursor: crosshair;
+  image-rendering: -webkit-optimize-contrast;
+}
+.etk-loupe {
+  position: absolute;
+  pointer-events: none;
+  border-radius: 50%;
+  border: 2px solid var(--amber);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.25),
+    0 6px 20px rgba(0, 0, 0, 0.35);
+  background-color: #fff;
+  background-repeat: no-repeat;
 }
 .etk-parts {
   width: 100%;
@@ -2398,18 +2503,16 @@ html[data-theme='inpa'] .t32-lb {
   flex: none;
 }
 
-/* custom searchable variant dropdown (replaces the unstyleable native select) */
+/* the variant picker: the fault lookup's dropdown skin (css/lookup.css),
+   stretched to the bar; amber when a variant is filtering */
 .etk-vdd {
-  position: relative;
   flex: 1;
   max-width: 520px;
 }
-.etk-vdd-cur {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.etk-vdd .lkd-btn {
+  width: 100%;
 }
-.etk-vdd-cur.etk-vdd-filtered {
+.etk-vdd .lkd-val.etk-vdd-filtered {
   color: var(--amber);
 }
 
