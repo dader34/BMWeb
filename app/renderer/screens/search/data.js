@@ -11,7 +11,7 @@
  * because the index is a static artifact, not a route the shim computes.
  */
 
-/* exported SEARCH_INDEX_VERSION, searchIndexLoad, searchIndexPeek */
+/* exported SEARCH_INDEX_VERSION, searchIndexLoad, searchIndexPeek, searchIndexPresent */
 
 /** The index format this code understands; the builder stamps it as `v`. */
 const SEARCH_INDEX_VERSION = 1;
@@ -107,6 +107,47 @@ function searchIndexPeek() {
   return searchIndex;
 }
 
+/** @type {Promise<boolean>|null} the in-flight presence probe, shared */
+let searchIndexPresentPromise = null;
+
+/**
+ * Whether this build ships an index at all, WITHOUT downloading it.
+ *
+ * The Apps hub greys a card whose data did not ship, and asks every app that
+ * question when it draws. Answering it with a full load would make opening
+ * the hub cost the 2 MB the app itself costs, so this asks for the headers
+ * only. A HEAD a static host does not answer falls back to the loaded index
+ * when one is already in hand, and otherwise reports present -- an app card
+ * wrongly shown opens a screen that explains itself, while one wrongly hidden
+ * cannot be found at all.
+ * @returns {Promise<boolean>}
+ */
+function searchIndexPresent() {
+  if (searchIndex) return Promise.resolve(true);
+  if (searchIndexPresentPromise) return searchIndexPresentPromise;
+  const base = typeof WEB_BASE === 'string' ? WEB_BASE : '';
+  const real =
+    typeof webRealFetch === 'function'
+      ? webRealFetch
+      : window.fetch.bind(window);
+  searchIndexPresentPromise = (async () => {
+    try {
+      const r = await real(`${base}/api/search-index.json.gz`, {
+        method: 'HEAD',
+      });
+      return !!(r && r.ok);
+    } catch {
+      return true;
+    }
+  })();
+  return searchIndexPresentPromise;
+}
+
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { SEARCH_INDEX_VERSION, searchIndexLoad, searchIndexPeek };
+  module.exports = {
+    SEARCH_INDEX_VERSION,
+    searchIndexLoad,
+    searchIndexPeek,
+    searchIndexPresent,
+  };
 }

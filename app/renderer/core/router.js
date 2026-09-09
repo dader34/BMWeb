@@ -32,6 +32,8 @@ const APPS_ROUTES = {
   'apps/parts/vin': () =>
     typeof showVinDecoder === 'function' ? showVinDecoder() : null,
   'apps/tool32': () => (typeof showTool32 === 'function' ? showTool32() : null),
+  'apps/job-search': () =>
+    typeof showJobSearch === 'function' ? showJobSearch('') : null,
   'apps/backup': () =>
     typeof showFlasher === 'function' ? showFlasher() : null,
   'apps/tuning': () => (typeof showTuning === 'function' ? showTuning() : null),
@@ -49,6 +51,7 @@ const ROUTE_FOR_SCREEN = {
   showEtk: 'apps/parts',
   showVinDecoder: 'apps/parts/vin',
   showTool32: 'apps/tool32',
+  showJobSearch: 'apps/job-search',
   showFlasher: 'apps/backup',
   showTuning: 'apps/tuning',
 };
@@ -93,6 +96,13 @@ function resolveRoute(route) {
     if (typeof backToModules === 'function')
       return () => backToModules(chassis);
     if (typeof showSections === 'function') return () => showSections(chassis);
+  }
+  // #apps/job-search/<QUERY> -- a search someone can send as a link. The
+  // query is the whole tail, encoded, so it may hold spaces and slashes.
+  const js = /^apps\/job-search\/(.+)$/.exec(route);
+  if (js && typeof showJobSearch === 'function') {
+    const q = decodeURIComponent(js[1]);
+    return () => showJobSearch(q);
   }
   // #apps/wiring/<CHASSIS>[/<DOC>]
   const w = /^apps\/wiring\/([A-Za-z0-9]+)(?:\/([A-Za-z0-9_-]+))?$/.exec(route);
@@ -340,6 +350,34 @@ function routeSetCarList(chassis) {
   }
 }
 
+// The Job search app writes its query back into the hash as the user types,
+// so a search is a link someone can send. replaceState: a keystroke must not
+// stack a history entry, and Back should leave the app rather than step
+// backwards through every prefix of the query.
+/**
+ * Set the hash to a Job search query: #apps/job-search[/<QUERY>].
+ * @param {string} q - the query; empty clears it back to the bare route
+ * @returns {void}
+ */
+function routeSetJobSearch(q) {
+  if (_routing) return;
+  const query = String(q || '').trim();
+  const route = query
+    ? `apps/job-search/${encodeURIComponent(query)}`
+    : 'apps/job-search';
+  if (currentRoute() === route) {
+    _openRoute = route;
+    return;
+  }
+  _routing = true;
+  try {
+    history.replaceState(null, '', '#' + route);
+    _openRoute = route;
+  } finally {
+    _routing = false;
+  }
+}
+
 // Called by the wiring viewer when a specific document opens, so the URL
 // becomes a shareable deep link (#apps/wiring/<CHASSIS>/<DOC>). replaceState,
 // not a hash push: browsing diagram-to-diagram shouldn't stack history, and
@@ -415,4 +453,5 @@ if (typeof window !== 'undefined') {
   window.routeSetEtkDiagram = routeSetEtkDiagram;
   window.routeSetCar = routeSetCar;
   window.routeSetCarList = routeSetCarList;
+  window.routeSetJobSearch = routeSetJobSearch;
 }

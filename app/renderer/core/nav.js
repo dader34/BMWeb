@@ -67,9 +67,6 @@ async function showChassis() {
         </div>
       </div>`;
     view.appendChild(panel);
-    // Job search (screens/search/), below INPA's own vehicle panel so the
-    // F-key list stays exactly where INPA draws it.
-    if (typeof searchBarMount === 'function') searchBarMount(view);
     panel
       .querySelectorAll('.inpa-fn[data-id]')
       .forEach((b) => (b.onclick = () => showScriptSelection(b.dataset.id)));
@@ -115,13 +112,6 @@ async function showChassis() {
     <span class="lookup-entry-arrow">→</span>`;
   appsCard.onclick = () => showApps();
   view.appendChild(appsCard);
-
-  // Job search: every INPA key and screen in the whole corpus, by what it
-  // does, opening the module at that menu and screen (screens/search/). Above
-  // the chassis grid because the question it answers -- "which screen reads
-  // the steering angle?" -- is asked before a car is picked, and the answer
-  // is what names the car.
-  if (typeof searchBarMount === 'function') searchBarMount(view);
 
   const filterRow = document.createElement('div');
   filterRow.className = 'chassis-filter-row';

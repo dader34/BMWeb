@@ -437,4 +437,51 @@ const run = (q, opts) => S.searchRun(IX, q, opts);
   void seen;
 }
 
+// ---- the app's own route ---------------------------------------------------
+// Job search is an app under the hub, and its query rides in the hash so a
+// search is a link. Both halves are pinned against router.js itself.
+{
+  const src = fs.readFileSync(
+    path.join(ROOT, 'app/renderer/core/router.js'),
+    'utf8'
+  );
+  assert.ok(
+    /'apps\/job-search':/.test(src),
+    'the bare route opens the app from the hub'
+  );
+  assert.ok(
+    /showJobSearch: 'apps\/job-search'/.test(src),
+    'the reverse map keeps the hash in step when the app is opened by click'
+  );
+  ok('#apps/job-search is an exact route, both ways');
+
+  // the query arm: the whole tail, encoded, so a query may hold spaces and
+  // the slashes an SGBD-shaped term can carry
+  const m = src.match(/const js = (\/\^apps[^\n]*?)\.exec\(/);
+  assert.ok(m, 'the query route regex is where this test expects it');
+  const re = new RegExp(m[1].slice(1, m[1].lastIndexOf('/')));
+  const hit = re.exec('apps/job-search/' + encodeURIComponent('fault memory'));
+  assert.ok(hit, 'a query route matches');
+  assert.strictEqual(decodeURIComponent(hit[1]), 'fault memory');
+  assert.strictEqual(
+    re.exec('apps/job-search'),
+    null,
+    'the bare route is the exact one'
+  );
+  ok('#apps/job-search/<query> round-trips a query with a space');
+
+  // THE HOME SCREEN IS UNTOUCHED. The bar used to mount into showChassis and
+  // fought INPA's fixed F1..F10 vehicle list; nothing in nav.js may reach
+  // into this app any more.
+  const nav = fs.readFileSync(
+    path.join(ROOT, 'app/renderer/core/nav.js'),
+    'utf8'
+  );
+  assert.ok(
+    !/searchBarMount|showJobSearch/.test(nav),
+    'nav.js does not mount the search'
+  );
+  ok('the home screen carries no search bar');
+}
+
 console.log(`search: ${passed} checks passed`);

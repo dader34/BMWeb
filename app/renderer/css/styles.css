@@ -8575,62 +8575,36 @@ body.remote-helper::after {
   }
 }
 
-/* Job search (screens/search/): the home screen's search bar over every INPA
-   key and screen in the corpus. The results panel sits inline under the input
-   rather than in an overlay -- the chassis grid below it is what the user
-   falls back to when the search does not answer, so it must stay reachable. */
-.search-bar {
-  display: grid;
-  gap: 10px;
-  margin: 0 0 18px;
-}
-.search-input-row {
+/* Job search (screens/search/): the Apps-hub app over every INPA key and
+   screen in the corpus. The search box, count line and screen head are the
+   fault lookup's own (css/lookup.css) so the two reference apps read alike;
+   only the result rows below are this app's, because what they show -- a key
+   number, the jobs it sends -- has no counterpart there. */
+.job-search-results {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 0 12px;
+  flex-direction: column;
+  gap: 14px;
+}
+.job-search-hints {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+  margin-top: 12px;
+}
+.job-search-hints code {
+  padding: 3px 8px;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 4px;
   background: var(--panel);
-}
-.search-input-row:focus-within {
-  border-color: var(--amber);
-}
-.search-input-icon {
-  color: var(--ink-faint);
-  font-size: 16px;
-}
-.search-input {
-  flex: 1;
-  min-width: 0;
-  padding: 11px 0;
-  border: 0;
-  background: none;
-  color: var(--ink);
-  font: inherit;
-  font-size: 14px;
-  outline: none;
-}
-.search-input::placeholder {
-  color: var(--ink-faint);
-}
-.search-input-count {
   font-family: var(--mono);
   font-size: 11px;
-  color: var(--ink-faint);
-  white-space: nowrap;
-}
-/* Capped so a broad query cannot push the chassis grid off the page. */
-.search-results {
-  display: grid;
-  gap: 14px;
-  max-height: 60vh;
-  overflow-y: auto;
+  color: var(--ink-dim);
 }
 .search-msg {
   padding: 14px 12px;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 4px;
   background: var(--panel);
   color: var(--ink-dim);
   font-size: 13px;
@@ -8684,7 +8658,7 @@ body.remote-helper::after {
   width: 100%;
   padding: 8px 12px;
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: 4px;
   background: var(--panel);
   color: inherit;
   font: inherit;
