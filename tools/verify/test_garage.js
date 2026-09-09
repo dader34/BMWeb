@@ -845,4 +845,52 @@ function faultReport(sgbd, codes, silent) {
   );
 }
 
+// ---- one fault, three spellings: never cleared AND new ----------------------
+{
+  const scan = (codes) => ({
+    kind: 'faults',
+    report: {
+      kind: 'faults',
+      modules: [{ sgbd: 'ms450ds0', label: 'MS45', codes }],
+      silent: [],
+    },
+  });
+  // read 1: hex + location nr + the DTC leading the text
+  const a = scan([
+    {
+      F_HEX_CODE: '27-C3',
+      F_ORT_NR: 10179,
+      F_ORT_TEXT: '27C3 DMTL leak detection',
+    },
+    { F_HEX_CODE: '5E-15', F_ORT_NR: 94, F_ORT_TEXT: '5E15 CAN timeout EGS' },
+  ]);
+  // read 2: no hex, the text without its code -- only the location nr is shared
+  const b = scan([
+    { F_ORT_NR: 10179, F_ORT_TEXT: 'DMTL leak detection' },
+    { F_ORT_NR: 94, F_ORT_TEXT: 'CAN timeout EGS' },
+    { F_HEX_CODE: '30-01', F_ORT_NR: 12289, F_ORT_TEXT: '3001 something new' },
+  ]);
+  const d = G.garageDiffScans(a, b);
+  const m = d.modules[0];
+  assert.strictEqual(
+    m.cleared.length,
+    0,
+    'nothing cleared: both faults are still there'
+  );
+  assert.strictEqual(m.same.length, 2, 'both matched on the location number');
+  assert.strictEqual(m.added.length, 1, 'only the genuinely new one is new');
+  assert.deepStrictEqual(G.garageFaultKeys(a.report.modules[0].codes[0]), [
+    'H:27C3',
+    'N:10179',
+  ]);
+  // and the other way round: hex only in the NEW read, text code only in the old
+  const d2 = G.garageDiffScans(
+    scan([{ F_ORT_TEXT: '27C3 DMTL leak detection' }]),
+    scan([{ F_HEX_CODE: '27C3', F_ORT_TEXT: 'DMTL leak detection' }])
+  );
+  assert.strictEqual(d2.modules[0].cleared.length, 0);
+  assert.strictEqual(d2.modules[0].added.length, 0);
+  ok('a fault matches on any identity it shares with the other read');
+}
+
 console.log(`garage: ${passed} checks passed`);

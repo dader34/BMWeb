@@ -14,7 +14,7 @@
  * fault, and is reported as unchanged rather than as one cleared and one new.
  */
 
-/* exported garageDiffScans, garageFaultKey, garageDiffCounts */
+/* exported garageFaultKeys, garageDiffScans, garageFaultKey, garageDiffCounts */
 
 /**
  * What changed between two scans.
@@ -60,24 +60,47 @@
 
 /**
  * The identity of one fault inside its module: the DTC where the module
- * reports one, else its location number.
+ * reports one, else its location number, else the code its text leads with.
  * @param {object} code - an FS_LESEN entry
- * @returns {string} a stable key, '' when the entry names neither
+ * @returns {string} a stable key, '' when the entry names none of them
  */
 function garageFaultKey(code) {
+  return garageFaultKeys(code)[0] || '';
+}
+
+/**
+ * EVERY identity a fault carries, strongest first. Two reads of the same
+ * module do not always carry the same fields for the same fault: one read
+ * has F_HEX_CODE and the next has only F_ORT_NR, one F_ORT_TEXT leads with
+ * the DTC ("27C3 DMTL ...") and the next is the bare description -- so a
+ * fault is matched on ANY identity it shares with the other read, or the
+ * one fault shows up as cleared AND new.
+ * @param {object} code - an FS_LESEN entry
+ * @returns {string[]} keys: 'H:<hex digits>' (from F_HEX_CODE or the text's leading DTC), 'N:<location nr>'
+ */
+function garageFaultKeys(code) {
   const c = code || {};
-  // the same code arrives as "27C3" from one read and "27-C3" (bytes joined
-  // by hexText) from another; only the hex digits are the identity, or the
-  // one fault shows up as cleared AND new
+  const out = [];
+  // "27C3" from one read and "27-C3" (bytes joined by hexText) from another
+  // are the same hex: only the digits are the identity
   const hex = String(c.F_HEX_CODE == null ? '' : c.F_HEX_CODE)
     .trim()
     .toUpperCase()
     .replace(/^0X/, '')
     .replace(/[^0-9A-F]/g, '');
-  if (hex) return 'H:' + hex;
+  if (hex) out.push('H:' + hex);
   const nr = c.F_ORT_NR;
-  if (nr != null && String(nr).trim() !== '') return 'N:' + String(Number(nr));
-  return '';
+  if (nr != null && String(nr).trim() !== '' && Number.isFinite(Number(nr)))
+    out.push('N:' + String(Number(nr)));
+  // the DTC a fault text leads with IS the hex code, so it shares the hex
+  // namespace: a read that carries only the text still meets one that
+  // carries only F_HEX_CODE
+  const m = /^([0-9A-F]{3,5})\b/i.exec(String(c.F_ORT_TEXT || '').trim());
+  if (m) {
+    const t = 'H:' + m[1].toUpperCase();
+    if (!out.includes(t)) out.push(t);
+  }
+  return out;
 }
 
 /**
@@ -102,10 +125,24 @@ function garageModuleMap(report) {
 function garageFaultMap(mod) {
   const m = new Map();
   for (const c of (mod && mod.codes) || []) {
-    const k = garageFaultKey(c);
-    if (k && !m.has(k)) m.set(k, c);
+    for (const k of garageFaultKeys(c)) if (!m.has(k)) m.set(k, c);
   }
   return m;
+}
+
+/**
+ * The counterpart of a fault in the other read: the entry sharing any of
+ * its identities.
+ * @param {Map<string, object>} map - the other read's fault map
+ * @param {object} code - the fault to find
+ * @returns {object|null}
+ */
+function garageFaultMatch(map, code) {
+  for (const k of garageFaultKeys(code)) {
+    const hit = map.get(k);
+    if (hit) return hit;
+  }
+  return null;
 }
 
 /**
@@ -174,7 +211,6 @@ function garageDiffScans(from, to) {
     const a = A.get(sgbd);
     const b = B.get(sgbd);
     const fa = garageFaultMap(a);
-    const fb = garageFaultMap(b);
     const added = [];
     const cleared = [];
     const same = [];
@@ -182,18 +218,23 @@ function garageDiffScans(from, to) {
     // new occurrence count, or different values captured, means the module
     // logged it again since the last read
     const recurred = [];
-    for (const [k, c] of fb) {
-      if (!fa.has(k)) {
+    const matched = new Set(); // the older read's entries that found a partner
+    for (const c of (b && b.codes) || []) {
+      if (!garageFaultKeys(c).length) continue; // nothing to match on
+      const old = garageFaultMatch(fa, c);
+      if (!old) {
         added.push(c);
         continue;
       }
+      matched.add(old);
       same.push(c);
       if (typeof garageEnvSummary === 'function') {
-        const s = garageEnvSummary(fa.get(k), c);
+        const s = garageEnvSummary(old, c);
         if (s.recurred) recurred.push(c);
       }
     }
-    for (const [k, c] of fa) if (!fb.has(k)) cleared.push(c);
+    for (const c of (a && a.codes) || [])
+      if (garageFaultKeys(c).length && !matched.has(c)) cleared.push(c);
     const fields = kind === 'faults' ? [] : garageIdentFields(a, b);
     modules.push({
       sgbd,
@@ -265,6 +306,7 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     garageDiffScans,
     garageFaultKey,
+    garageFaultKeys,
     garageDiffCounts,
     garageIdentFields,
   };
