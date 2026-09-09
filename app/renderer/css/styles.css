@@ -9031,6 +9031,10 @@ body.remote-helper::after {
 .garage-share {
   white-space: nowrap;
 }
+.garage-scan-share {
+  display: inline-flex;
+  margin-right: 6px;
+}
 .garage-share.copied {
   color: var(--green, #4caf50);
   border-color: var(--green, #4caf50);
