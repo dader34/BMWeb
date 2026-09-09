@@ -328,17 +328,8 @@ function etkNearestVariant(variants, found, prod) {
  * @returns {Promise<void>}
  */
 async function openDecoded(hit) {
-  // the variant is worked out first, so the chassis screen draws its picker
-  // already set to it (the picker is built from ETK_STATE when the screen
-  // renders; patching it afterwards was fragile)
-  let pre = null;
-  try {
-    const data = await loadEtk(hit.chassis);
-    const vs = data.tree.variants || [];
-    const match = etkMatchVariant(vs, hit);
-    if (match >= 0) pre = { variant: match, label: etkVariantLabel(vs[match]) };
-  } catch (e) {
-    /* the chassis still opens; just unfiltered */
-  }
-  await showEtkChassis(hit.chassis, pre);
+  // the chassis screen matches the vehicle to a variant once its archive is
+  // in, so its own progress block shows while that loads and the picker is
+  // drawn already set (patching it afterwards was fragile)
+  await showEtkChassis(hit.chassis, { hit });
 }

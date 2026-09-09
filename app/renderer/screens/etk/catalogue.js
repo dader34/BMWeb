@@ -175,7 +175,7 @@ function etkProgressBlock(id) {
  * main groups, plus a variant selector so parts can be filtered to one exact
  * vehicle. Entering a chassis resets the variant filter.
  * @param {string} chassisId - chassis code, any case
- * @param {{variant: number, label: string}|null} [preselect] - a variant to open filtered to (the index into the chassis's variants, and its label for the print header)
+ * @param {{variant: number, label: string}|{hit: EtkVinHit}|null} [preselect] - a variant to open filtered to (its index and label), or the resolved vehicle to match one from once the archive is in
  * @returns {Promise<void>}
  */
 async function showEtkChassis(chassisId, preselect) {
@@ -209,9 +209,18 @@ async function showEtkChassis(chassisId, preselect) {
   }
   loading.el.remove();
   // entering a chassis clears the filter, unless the caller (a decoded VIN,
-  // a garage car) already knows which variant this is
-  ETK_STATE.variant = preselect ? preselect.variant : null;
-  ETK_STATE.variantLabel = preselect ? preselect.label : null;
+  // a garage car) brought the vehicle it is: that is matched to a variant
+  // here, after the archive is in, so the progress block above covers the
+  // download instead of the previous screen sitting still
+  let pre = preselect || null;
+  if (pre && pre.hit) {
+    const vs = data.tree.variants || [];
+    const m =
+      typeof etkMatchVariant === 'function' ? etkMatchVariant(vs, pre.hit) : -1;
+    pre = m >= 0 ? { variant: m, label: etkVariantLabel(vs[m]) } : null;
+  }
+  ETK_STATE.variant = pre ? pre.variant : null;
+  ETK_STATE.variantLabel = pre ? pre.label : null;
 
   // --- variant selector (custom searchable dropdown) ---
   const vbar = document.createElement('div');
