@@ -48,7 +48,10 @@ const CORPUS = (() => {
   const out = {};
   for (const f of fs.readdirSync(OVR_DIR).sort()) {
     if (!/^_corpus.*\.json$/.test(f)) continue;
-    Object.assign(out, JSON.parse(fs.readFileSync(path.join(OVR_DIR, f), 'utf8')));
+    Object.assign(
+      out,
+      JSON.parse(fs.readFileSync(path.join(OVR_DIR, f), 'utf8'))
+    );
   }
   return out;
 })();
