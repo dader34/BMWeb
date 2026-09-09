@@ -51,14 +51,13 @@ async function showGarageDiff(carId, fromId, toId) {
 
   const wrap = document.createElement('div');
   wrap.className = 'quick-sweep garage-diff';
+  // which modules answered is the scan's own business (each report lists
+  // its silent addresses); the comparison is about the faults
   const headText =
     diff.kind === 'ident'
-      ? `${counts.fields} field${counts.fields === 1 ? '' : 's'} changed · ` +
-        `${counts.silence} answering change${counts.silence === 1 ? '' : 's'}`
+      ? `${counts.fields} field${counts.fields === 1 ? '' : 's'} changed`
       : `${counts.added} new · ${counts.cleared} cleared · ` +
-        `${counts.same} still present` +
-        (counts.recurred ? ` (${counts.recurred} logged again)` : '') +
-        ` · ${counts.silence} answering change${counts.silence === 1 ? '' : 's'}`;
+        `${counts.same} still present`;
   wrap.innerHTML =
     `<div class="quick-bar"><div class="quick-head">${esc(headText)}</div>` +
     `<div class="quick-bar-btns"></div></div><div class="quick-rows"></div>`;
@@ -66,7 +65,7 @@ async function showGarageDiff(carId, fromId, toId) {
   view.appendChild(wrap);
 
   const changed = diff.modules.filter((m) => m.changed);
-  if (!changed.length && !diff.silence.length) {
+  if (!changed.length) {
     const same = document.createElement('div');
     same.className = 'garage-empty';
     same.textContent =
@@ -78,16 +77,6 @@ async function showGarageDiff(carId, fromId, toId) {
 
   for (const m of changed)
     rowsEl.appendChild(garageDiffModuleRow(m, diff.kind));
-  for (const s of diff.silence) {
-    const row = document.createElement('div');
-    row.className = 'quick-row ' + (s.state === 'silent' ? 'noresp' : 'clean');
-    row.innerHTML = `
-      <span class="quick-ecu">${esc(s.label)}</span>
-      <span class="quick-status">${esc(
-        s.state === 'silent' ? 'stopped answering' : 'answers again'
-      )}</span>`;
-    rowsEl.appendChild(row);
-  }
 
   setActions([
     {
@@ -238,7 +227,7 @@ function garagePrintDiff(car, diff, counts) {
   if (typeof printDoc !== 'function') return Promise.resolve();
   const sections = [];
   const changed = diff.modules.filter((m) => m.changed);
-  if (!changed.length && !diff.silence.length) {
+  if (!changed.length) {
     sections.push(
       printHtml('<p class="pr-p">Nothing changed between the two reads.</p>')
     );
@@ -272,18 +261,6 @@ function garagePrintDiff(car, diff, counts) {
     ];
     sections.push({
       html: printTable(['State', 'Code', 'Description', 'Freeze frame'], rows),
-    });
-  }
-  if (diff.silence.length) {
-    sections.push(printHeading('Answering'));
-    sections.push({
-      html: printTable(
-        ['Module', 'Change'],
-        diff.silence.map((s) => [
-          s.label,
-          s.state === 'silent' ? 'stopped answering' : 'answers again',
-        ])
-      ),
     });
   }
   return printDoc({
