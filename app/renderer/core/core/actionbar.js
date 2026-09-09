@@ -235,6 +235,10 @@ class ActionBar {
     // session end having driven nothing. Held by the same repaint guard.
     if (!activationsHeld() && typeof endActivationSession === 'function')
       endActivationSession();
+    // a new set of keys is a new screen: the caption over the bar goes back
+    // to "Select menu" unless the running script names its menu again
+    if (typeof document !== 'undefined')
+      document.documentElement.style.removeProperty('--fkeys-caption');
     this.base = actions;
     this.shift = shifted && shifted.length ? shifted : null;
     this.shiftHeld = false;

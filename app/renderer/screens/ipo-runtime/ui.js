@@ -9,6 +9,20 @@
  * @param {() => void} fn - what Back does
  * @returns {object} an action-bar entry
  */
+/**
+ * The caption over the key bar: the running script's menu title
+ * (setmenutitle), the way INPA shows it; empty restores "Select menu".
+ * @param {string} title
+ * @returns {void}
+ */
+function ipoSetKeysCaption(title) {
+  if (typeof document === 'undefined') return;
+  const st = document.documentElement.style;
+  if (title && title.trim())
+    st.setProperty('--fkeys-caption', JSON.stringify(title));
+  else st.removeProperty('--fkeys-caption');
+}
+
 function ipoBackAction(fn) {
   return { key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn };
 }
@@ -23,7 +37,6 @@ function ipoBackAction(fn) {
 function ipoMakeUi(ecu, container, back) {
   const inpa = typeof inpaMode === 'function' && inpaMode();
   let gridEl = null,
-    titleEl = null,
     statusEl = null,
     machineEl = null;
   /** INPA's progress window while a body has one open (progressDialog) */
@@ -34,11 +47,9 @@ function ipoMakeUi(ecu, container, back) {
   const build = () => {
     container.className = inpa ? 'ipo-view ipo-inpa' : 'ipo-view results-panel';
     container.innerHTML =
-      `<div class="ipo-title"></div>` +
       `<div class="ipo-screen"></div>` +
       `<div class="ipo-machine" hidden></div>` +
       `<div class="ipo-status mono"></div>`;
-    titleEl = container.querySelector('.ipo-title');
     gridEl = container.querySelector('.ipo-screen');
     machineEl = container.querySelector('.ipo-machine');
     statusEl = container.querySelector('.ipo-status');
@@ -79,7 +90,7 @@ function ipoMakeUi(ecu, container, back) {
         keepActivationsDuring(put);
       else put();
     }
-    if (titleEl) titleEl.textContent = ipoText(p.title || '');
+    ipoSetKeysCaption(ipoText(p.title || ''));
     if (machineEl) machineEl.hidden = true;
   };
 
@@ -182,7 +193,7 @@ function ipoMakeUi(ecu, container, back) {
     renderKeys,
     paint: (p) => {
       if (!gridEl) return;
-      if (titleEl) titleEl.textContent = ipoText(p.title || '');
+      ipoSetKeysCaption(ipoText(p.title || ''));
       // viewopen: INPA's viewer window with the file the script wrote. The
       // menu's screen cycle keeps painting behind it; the same file stays
       // in the DOM so the reader's scroll position survives each cycle.
@@ -204,6 +215,7 @@ function ipoMakeUi(ecu, container, back) {
       else ipoPaintLines(gridEl, p);
     },
     left: () => {
+      ipoSetKeysCaption('');
       ipoProgramLeft();
       if (typeof back === 'function') back();
     },
