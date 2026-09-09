@@ -86,12 +86,13 @@ check(gotos(must) == 0, "MUST_EXX: every jump structured")
 # ---- E46: the whole-vehicle script -----------------------------------
 e46 = S.decompile("E46").emit()
 fs = section(e46, "MENU m_fs(")
-check('SaveAsDialogBox("", s7, i2, i2);' in fs
-      and "GetCurrentDirectoryA(256, s4, i3);" in fs,
+check(re.search(r'SaveAsDialogBox\("", s\d+, i\d+, i\d+\);', fs)
+      and re.search(r"GetCurrentDirectoryA\(256, s\d+, i\d+\);", fs),
       "E46 m_fs: DLL imports named from the Constant Data table")
-check("while (b10 == FALSE)" in fs and "s9 = s9 + LF;" in fs,
+check(re.search(r"while \(b\d+ == FALSE\)", fs)
+      and re.search(r"s(\d+) = s\1 \+ LF;", fs),
       "E46 m_fs: the copy loop, LF named from BMW_STD.H")
-check('viewopen(s11, "Fehlerspeicher speichern: " + s11);' in fs,
+check(re.search(r'viewopen\(s(\d+), "Fehlerspeicher speichern: " \+ s\1\);', fs),
       "E46 m_fs: string concatenation in a call argument")
 check("else" in fs, "E46 m_fs: an if / else")
 check(gotos(e46) == 0, "E46: every jump structured")

@@ -208,6 +208,7 @@ class Source:
         self.headers = Headers(self.includes)
         self.id2name = {(typ, pid): name for _, typ, name, pid in self.decls}
         self.procs = self._walk_all()
+        self.arity = self._arities()
         for p in self.procs:
             for t in p["toks"]:
                 if t["op"] == "state":
@@ -268,6 +269,28 @@ class Source:
                     types.setdefault(t["n"], LIT_TYPE.get(toks[i - 1]["t"], "int"))
         inv = {v: k for k, v in VT_TEXT.items()}
         return [0] + [inv.get(types.get(s, "int"), 3) for s in range(1, top + 1)]
+
+    def _arities(self):
+        """How many arguments each user function is called with: the
+        values pushed between the call frame and the call (a binary
+        operator folds two into one)."""
+        arity = {}
+        for p in self.procs:
+            toks = p["toks"]
+            for i, t in enumerate(toks):
+                if t["op"] != "calluser":
+                    continue
+                n = 0
+                j = i - 1
+                while j >= 0 and toks[j]["op"] != "frame":
+                    op = toks[j]["op"]
+                    if op in ("var", "const", "procref"):
+                        n += 1
+                    elif op == "binop" and toks[j].get("name") not in UNOP_TEXT:
+                        n -= 1
+                    j -= 1
+                arity.setdefault(t["n"], n)
+        return arity
 
     def _walk_all(self):
         procs = []
@@ -422,11 +445,13 @@ class Function:
         prologue = []
         while i < len(toks):
             t = toks[i]
+            nxt = toks[i + 1]["op"] if i + 1 < len(toks) else None
             if t["op"] == "decl":
+                # an uninitialised local
                 prologue.append(("decl", t["type"]))
-            elif t["op"] == "const" and i + 1 < len(toks) and \
-                    toks[i + 1]["op"] in ("const", "decl") or \
-                    (t["op"] == "const" and self._prologue_const_end(i)):
+            elif t["op"] == "const" and (nxt in ("const", "decl") or
+                                         self._prologue_const_end(i)):
+                # an initialised local: the literal alone declares it
                 prologue.append(("init", LIT_TYPE.get(t["t"], "int"), t))
             else:
                 break
@@ -439,9 +464,14 @@ class Function:
         refd |= {t["n"] for t in toks
                  if t["op"] == "procref" and t.get("kind") == LOCAL}
         max_slot = max(used) if used else -1
-        n_params = max(0, max_slot + 1 - len(prologue))
-        if prologue and max_slot + 1 - len(prologue) < 0:
+        if self.p["typ"] == "func" and self.p["id"] in self.src.arity:
+            # the call sites say how many arguments the function takes
+            n_params = self.src.arity[self.p["id"]]
+        elif self.p["typ"] != "func":
             n_params = 0
+        else:
+            # never called from this file: whatever the locals leave
+            n_params = max(0, max_slot + 1 - len(prologue))
         hdr = self.src.headers.funcs.get(self.p["name"])
         hdr_params = hdr["params"] if hdr else []
         hdr_locals = hdr["locals"] if hdr else []
@@ -557,6 +587,7 @@ class Function:
     def emit_menu(self):
         toks = self.toks
         lines = [f"MENU {self.p['name']}()", "{"]
+        lines.extend(self.local_decls())
         # INIT: everything before the first ITEM
         first_item = next((i for i, t in enumerate(toks) if t["op"] == "ITEM"),
                           len(toks))
