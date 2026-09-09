@@ -1092,6 +1092,28 @@ html.no-chrome body.apps-section .topbar {
   overflow: hidden;
   background: var(--panel);
 }
+/* the variant header over the tree, with the wiring viewer's toggle */
+.etk-vinbanner {
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel-2);
+}
+.etk-vinbanner-veh {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--amber);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* "my car": diagrams with nothing for the variant, and groups with none
+   left, are hidden */
+.etk-tree.etk-fit-only .etk-tleaf[data-off],
+.etk-tree.etk-fit-only .etk-tgroup[data-off] {
+  display: none;
+}
 .etk-tree {
   overflow-y: auto;
   flex: 1;

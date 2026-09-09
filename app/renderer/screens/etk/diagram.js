@@ -43,9 +43,14 @@ function etkTreeGroup(g, onLeaf) {
   grp.className = 'etk-tgroup';
   const hdr = document.createElement('button');
   hdr.className = 'etk-tgroup-hdr';
+  // with a variant chosen, the count is the diagrams that carry a part for
+  // it; a diagram with none is marked off so the "my car" filter can hide it
+  const fitting = g.diagrams.filter((d) => etkFitParts(d.parts).length > 0);
+  const count = ETK_STATE.variant != null ? fitting.length : g.diagrams.length;
   hdr.innerHTML = `<span class="etk-tw">▾</span>
                      <span class="etk-tname">${esc(g.name)}</span>
-                     <span class="etk-tcount">${g.diagrams.length}</span>`;
+                     <span class="etk-tcount">${count}</span>`;
+  if (ETK_STATE.variant != null && !fitting.length) grp.dataset.off = '1';
   const kids = document.createElement('div');
   kids.className = 'etk-tkids';
   hdr.onclick = () => {
@@ -56,8 +61,10 @@ function etkTreeGroup(g, onLeaf) {
   g.diagrams.forEach((d) => {
     const leaf = document.createElement('button');
     leaf.className = 'etk-tleaf';
+    const n = etkFitParts(d.parts).length;
     leaf.innerHTML = `<span class="etk-lname">${esc(d.name)}</span>
-                        <span class="etk-lcount">${etkFitParts(d.parts).length}</span>`;
+                        <span class="etk-lcount">${n}</span>`;
+    if (ETK_STATE.variant != null && !n) leaf.dataset.off = '1';
     leaf._btnr = d.btnr;
     leaf.onclick = () => onLeaf(leaf, d);
     kids.appendChild(leaf);
@@ -65,6 +72,38 @@ function etkTreeGroup(g, onLeaf) {
   grp.appendChild(hdr);
   grp.appendChild(kids);
   return grp;
+}
+
+/**
+ * The header over the tree when a variant is chosen: the vehicle, and a
+ * My car / Show all toggle like the wiring viewer's. My car (the default)
+ * hides the diagrams and groups that carry nothing for this variant.
+ * @param {HTMLElement} treeEl - the tree whose class carries the filter
+ * @returns {HTMLDivElement}
+ */
+function etkTreeBanner(treeEl) {
+  const banner = document.createElement('div');
+  banner.className = 'etk-vinbanner';
+  banner.innerHTML = `
+    <div class="etk-vinbanner-veh">${esc(ETK_STATE.variantLabel || 'Filtered by variant')}</div>
+    <div class="wiring-vinseg" role="group" aria-label="Diagram filter">
+      <button type="button" class="wiring-vinseg-btn" data-mode="mine">My car</button>
+      <button type="button" class="wiring-vinseg-btn" data-mode="all">Show all</button>
+    </div>`;
+  const seg = banner.querySelector('.wiring-vinseg');
+  const apply = (on) => {
+    treeEl.classList.toggle('etk-fit-only', on);
+    seg
+      .querySelectorAll('.wiring-vinseg-btn')
+      .forEach((b) =>
+        b.classList.toggle('active', b.dataset.mode === (on ? 'mine' : 'all'))
+      );
+  };
+  seg
+    .querySelectorAll('.wiring-vinseg-btn')
+    .forEach((b) => (b.onclick = () => apply(b.dataset.mode === 'mine')));
+  apply(true);
+  return banner;
 }
 
 /**
@@ -102,6 +141,8 @@ function showEtkGroup(data, chassisId, mg, openBtnr = null) {
   view.appendChild(split);
   const treeEl = split.querySelector('#etk-tree');
   const viewEl = split.querySelector('#etk-view');
+  if (ETK_STATE.variant != null)
+    split.querySelector('.etk-nav').prepend(etkTreeBanner(treeEl));
   // On a phone the panes are exclusive, WDS-style: the tree OR the diagram,
   // never both squeezed side by side. data-pane drives the CSS; desktop
   // ignores it (the rules live in the mobile media block).
