@@ -8518,6 +8518,252 @@ body.remote-helper::after {
   padding: 0;
 }
 
+/* ---- Data logging (screens/logging/) --------------------------------------
+   A selection panel beside a grid of charts. Every colour is a token, so the
+   screen follows the skin; the canvases read the same tokens at draw time
+   (logChartColors) because a canvas cannot inherit a custom property. */
+.log-wrap {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  min-height: 0;
+}
+.log-side {
+  flex: 0 0 300px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 70vh;
+  min-height: 0;
+}
+.log-side-head {
+  flex: 0 0 auto;
+}
+.log-search {
+  width: 100%;
+}
+.log-tree {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  padding: 4px;
+}
+.log-mod > summary,
+.log-job > summary {
+  cursor: pointer;
+  padding: 5px 8px;
+  border-radius: 6px;
+  list-style: none;
+  color: var(--ink);
+}
+.log-mod > summary::-webkit-details-marker,
+.log-job > summary::-webkit-details-marker {
+  display: none;
+}
+.log-mod > summary:hover,
+.log-job > summary:hover {
+  background: var(--panel-2);
+}
+.log-mod-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: baseline;
+}
+.log-mod-sgbd {
+  font:
+    11px/1.2 ui-monospace,
+    monospace;
+  color: var(--ink-faint);
+}
+.log-mod-body {
+  padding-left: 10px;
+  border-left: 1px solid var(--line);
+  margin-left: 8px;
+}
+.log-job-head {
+  font:
+    11px/1.4 ui-monospace,
+    monospace;
+  color: var(--ink-dim);
+}
+.log-keys {
+  padding-left: 8px;
+}
+.log-key {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  padding: 3px 4px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+.log-key:hover {
+  background: var(--panel-2);
+}
+.log-key-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.log-key-name {
+  font:
+    11px/1.3 ui-monospace,
+    monospace;
+  color: var(--ink);
+}
+.log-key-unit {
+  font-size: 10px;
+  color: var(--amber);
+}
+.log-key-note {
+  font-size: 10px;
+  color: var(--ink-faint);
+  overflow-wrap: anywhere;
+}
+.log-load {
+  padding: 8px;
+}
+.log-summary {
+  flex: 0 0 auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  padding: 8px;
+  max-height: 26vh;
+  overflow-y: auto;
+}
+.log-sum-head {
+  font-size: 11px;
+  color: var(--ink-dim);
+  margin-bottom: 4px;
+}
+.log-sum-empty {
+  font-size: 11px;
+  color: var(--ink-faint);
+  padding: 8px;
+}
+.log-sum-row {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  font:
+    11px/1.5 ui-monospace,
+    monospace;
+}
+.log-sum-job {
+  flex: 1 1 auto;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.log-sum-n {
+  color: var(--ink-faint);
+}
+.log-sum-rate {
+  color: var(--amber);
+  min-width: 42px;
+  text-align: right;
+}
+.log-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.log-bar {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.log-spacer {
+  flex: 1 1 auto;
+}
+.log-win {
+  display: inline-flex;
+  gap: 2px;
+}
+.log-win-btn.on {
+  background: var(--amber);
+  color: var(--amber-ink);
+  border-color: var(--amber);
+}
+/* the charts: as many across as fit, each wide enough to read a trace on */
+.log-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 10px;
+}
+.log-chart {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.log-chart-head {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.log-chart-title {
+  font-size: 12px;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.log-chart-sub {
+  font:
+    10px/1.3 ui-monospace,
+    monospace;
+  color: var(--ink-faint);
+}
+.log-chart-read {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+.log-now {
+  font:
+    16px/1.1 ui-monospace,
+    monospace;
+  color: var(--amber);
+}
+.log-range {
+  font:
+    10px/1.2 ui-monospace,
+    monospace;
+  color: var(--ink-faint);
+}
+.log-canvas {
+  width: 100%;
+  height: 110px;
+  display: block;
+  cursor: crosshair;
+}
+/* one column on a phone: two charts side by side are unreadable at that width */
+@media (max-width: 760px) {
+  .log-wrap {
+    flex-direction: column;
+  }
+  .log-side {
+    flex: 1 1 auto;
+    width: 100%;
+    max-height: 44vh;
+  }
+  .log-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* PRINTING A SCREEN THAT BUILT NO SHEET. Screens with a Print action hand
    core/print.js a document (body.pr-active) and the rules there take the
    page over. Everything else -- a bare Cmd+P on the vehicle list, an app hub

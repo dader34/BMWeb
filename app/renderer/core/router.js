@@ -35,6 +35,8 @@ const APPS_ROUTES = {
   'apps/backup': () =>
     typeof showFlasher === 'function' ? showFlasher() : null,
   'apps/tuning': () => (typeof showTuning === 'function' ? showTuning() : null),
+  'apps/logging': () =>
+    typeof showLogging === 'function' ? showLogging() : null,
   'apps/documents': () =>
     typeof showWiringChassis === 'function' ? showWiringChassis() : null,
 };
@@ -51,6 +53,7 @@ const ROUTE_FOR_SCREEN = {
   showTool32: 'apps/tool32',
   showFlasher: 'apps/backup',
   showTuning: 'apps/tuning',
+  showLogging: 'apps/logging',
 };
 
 // Some routes carry parameters (a chassis, a specific diagram) so a single
@@ -90,6 +93,13 @@ function resolveRoute(route) {
     const chassis = w[1].toUpperCase();
     const doc = w[2] ? decodeURIComponent(w[2]) : null;
     return () => showWiring(chassis, doc);
+  }
+  // #apps/logging/<CHASSIS> -- the logging workspace for one car. The
+  // selection itself is not in the URL: it is a preset, saved by name.
+  const lg = /^apps\/logging\/([A-Za-z0-9]+)$/.exec(route);
+  if (lg && typeof showLoggingChassis === 'function') {
+    const chassis = lg[1].toUpperCase();
+    return () => showLoggingChassis(chassis);
   }
   // #apps/documents/<CHASSIS>[/<DOCID>] -> the merged wiring/docs screen, doc
   // category; the doc id ("d:"-prefixed internally) opens that document

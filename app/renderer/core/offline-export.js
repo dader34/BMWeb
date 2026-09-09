@@ -200,6 +200,12 @@ const OFFLINE_SHELL = [
   'screens/tuning/read-ecu-dialog.js',
   'screens/tuning/session.js',
   'screens/tuning/screen.js',
+  'screens/logging/store.js',
+  'screens/logging/scheduler.js',
+  'screens/logging/charts.js',
+  'screens/logging/picker.js',
+  'screens/logging/presets.js',
+  'screens/logging/screen.js',
   'screens/apps.js',
   'screens/tutorial.js',
 
