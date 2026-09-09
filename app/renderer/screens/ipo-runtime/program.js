@@ -103,6 +103,8 @@ const IPO_SILENT_RE = /IFH-0009|IFH-0019|no answer/i;
  * @property {(p: IpoProgram, step: IpoStep) => Promise<IpoPick|null>} pickComponent - the togglelist picker
  * @property {(p: IpoProgram, names: string[], multiple: boolean, current: Set<string>|null, hints?: Array<{key: string, label: string, lines: number}>) => Promise<string[]|null>} pickLines - INPA's Select
  * @property {(p: IpoProgram) => void} printScreen - INPA's printscreen
+ * @property {(p: IpoProgram, name: string, lines: string[]) => void} [printFile] -
+ *   INPA's printfile: a file the script wrote, by name, as its lines
  * @property {(ecu: EcuRecord, script: string, exec: IpoExec) => Promise<EcuRecord|null>} [resolveScriptEcu] -
  *   the module a scriptchange target addresses, identified by the car
  * @property {(p: IpoProgram, step: IpoStep, guards: Set<number>) => Promise<'tick'|'press'|'stop'>} machineTick - a %STATE park
@@ -308,6 +310,9 @@ class IpoProgram {
       } else if (step.kind === 'print') {
         this.ui.printScreen(this);
         step = vm.resume();
+      } else if (step.kind === 'printfile') {
+        this.printFile(step.file);
+        step = vm.resume();
       } else if (step.kind === 'select') {
         // INPA's Select: which of the screen's named logical lines to show.
         // A screen with none still opens the box (INPA shows an empty
@@ -349,6 +354,23 @@ class IpoProgram {
       }
     }
     return { done: true, exit: !!(vm.out && vm.out.exit) };
+  }
+
+  /**
+   * INPA's printfile: the named file's lines go to the UI's printer. The
+   * name is what the script computed; when the VM holds no file by it the
+   * last one written stands in, as viewopen's does (the API's fault read
+   * names its file for the script, and a save-as may have renamed it).
+   * @param {string} name - the file name the script passed
+   * @returns {void}
+   */
+  printFile(name) {
+    if (typeof this.ui.printFile !== 'function' || !this.vm) return;
+    const { files, lastWritten } = this.vm;
+    let path = name;
+    if (!files.has(path) && lastWritten && files.has(lastWritten))
+      path = lastWritten;
+    this.ui.printFile(this, path, [...(files.get(path) || [])]);
   }
 
   /**
@@ -1319,6 +1341,10 @@ class IpoProgram {
         const rep = ipoProtocolReport(this.wireReads, out.view.lines);
         this.view.report = rep.modules.length ? rep : null;
       }
+    } else if (out.viewClose) {
+      // viewclose without a viewopen after it: INPA's viewer window is
+      // gone, the screen behind it shows again
+      this.view = null;
     }
     // the body painted (userbox text, a result line): show it with the screen
     this.takeCells(out);
