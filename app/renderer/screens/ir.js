@@ -103,6 +103,8 @@ async function irAskInput(step, fallbackTitle) {
   // input2text and its kin ask for words (a comment to save with the
   // protocol), and an empty line is an answer there, not a cancel
   const text = /text/i.test(name);
+  // inputnum asks for a real: decimals stay
+  const real = name === 'inputnum';
   const vals = [];
   for (let k = 0; k < refs; k++) {
     // a two-field form captions each field after the title/help pair
@@ -129,7 +131,7 @@ async function irAskInput(step, fallbackTitle) {
       vals.push(String(asked).trim());
       continue;
     }
-    const n = Math.trunc(Number(asked));
+    const n = real ? Number(asked) : Math.trunc(Number(asked));
     if (!Number.isFinite(n)) return null;
     if (
       refs === 1 &&

@@ -485,6 +485,39 @@ function bTesttimer(vm, stack) {
  * refinement not needed here).
  * @type {IpoBuiltin}
  */
+/**
+ * callstatemachine(sm): run another machine and come back to this one
+ * when it calls returnstatemachine(). The runtime enters the callee like
+ * a setstatemachine; the caller's name waits on a stack for the return.
+ * @type {IpoBuiltin}
+ */
+function bCallStatemachine(vm, stack, item) {
+  if (!vm.machineReturn) vm.machineReturn = [];
+  vm.machineReturn.push(vm.currentMachine || null);
+  bSetstate(vm, stack, item);
+}
+
+/**
+ * returnstatemachine(): back to the machine that called this one, when
+ * one did; otherwise the machine simply ends.
+ * @type {IpoBuiltin}
+ */
+function bReturnStatemachine(vm) {
+  const back = vm.machineReturn ? vm.machineReturn.pop() : null;
+  if (back && vm.procs[back] && vm.wireJobs) vm.out.stateEnter = back;
+}
+
+/**
+ * An interface the browser has no counterpart for -- the factory line's
+ * PLC (SPS*), the order system (ELDI*), the test management (DTM*, PEM*):
+ * every out-parameter reads 0 / "", so the script takes the path it has
+ * for "not available" instead of running on with unset slots.
+ * @type {IpoBuiltin}
+ */
+function bUnavailable(vm, stack) {
+  for (const r of stack.filter(isRef)) storeOut(vm, [r], 0);
+}
+
 function bSetstate(vm, stack, item) {
   const ref = stack.find(
     (x) => isRef(x) && (x[1] === IPO_REF_STATE || x[1] === IPO_REF_STATE_ALT)

@@ -86,6 +86,14 @@ BUILTIN_ALIASES = {
     "builtin_47": "input2int", "builtin_51": "blankscreen",
     "builtin_57": "userboxclear", "builtin_58": "userboxsetcolor",
     "builtin_74": "INP1apiResultReal",
+    "builtin_07": "callstatemachine", "builtin_08": "returnstatemachine",
+    "builtin_0b": "setjobstatus", "builtin_1b": "delay",
+    "builtin_39": "inputnum", "builtin_3a": "inputtext",
+    "builtin_4f": "ftextclear", "builtin_50": "clearrect",
+    "builtin_92": "SPSInit", "builtin_94": "SPSLeseVonSPS",
+    "builtin_95": "SPSSendeAnSPS", "builtin_97": "ApiJobFsLesenFAB",
+    "builtin_98": "ApiResultFsLesenFAB", "builtin_99": "ELDIOpenStartDialog",
+    "builtin_a1": "setitemrepeat",
 }
 GLOBAL, LOCAL = 0, 2
 INDENT = "  "
