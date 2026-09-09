@@ -73,13 +73,17 @@ async function showEcuTree() {
 }
 
 /**
- * The newest fault scan a saved car holds, for the box colours.
+ * How many addresses the last fault scan of a saved car reached, for the
+ * progress bar's estimate. The tree never colours itself from a stored
+ * scan: what is on screen is only ever what this screen read.
  * @param {string|null} carId - the car
- * @returns {object|null} the scan
+ * @returns {number} 0 when there is no stored scan
  */
-function ecuTreeScanFor(carId) {
-  if (!carId || typeof garageScans !== 'function') return null;
-  return garageScans(carId).find((s) => s.kind === 'faults') || null;
+function ecuTreeLastScanSize(carId) {
+  if (!carId || typeof garageScans !== 'function') return 0;
+  const scan = garageScans(carId).find((s) => s.kind === 'faults');
+  if (!scan || !scan.report) return 0;
+  return (scan.report.modules || []).length + (scan.report.silent || []).length;
 }
 
 /**
@@ -119,7 +123,7 @@ async function showEcuTreeChassis(chassis, carId) {
   wrap.className = 'tree-wrap';
   wrap.innerHTML =
     `<div class="tree-bar">` +
-    `<label class="tree-bar-item">Status from <select class="tree-car modal-input"></select></label>` +
+    `<label class="tree-bar-item">Keep the read under <select class="tree-car modal-input"></select></label>` +
     `<span class="tree-bar-note"></span>` +
     `<span class="tree-bar-spacer"></span>` +
     `<button type="button" class="btn tree-scan" hidden>Fault scan</button>` +
@@ -156,7 +160,7 @@ async function showEcuTreeChassis(chassis, carId) {
 
   // the car whose scan colours the boxes: any saved car of this chassis
   sel.innerHTML =
-    `<option value="">none (topology only)</option>` +
+    `<option value="">nowhere (not kept)</option>` +
     cars
       .map(
         (c) =>
@@ -173,9 +177,10 @@ async function showEcuTreeChassis(chassis, carId) {
   let status = new Map();
   /** the read in progress, when one is: its reads so far, and its line */
   let live = null;
+  /** the read this screen finished, if one did: the only history it shows */
+  let done = null;
   const paint = () => {
-    const scan = live ? null : ecuTreeScanFor(picked ? picked.id : null);
-    const report = live ? live.report : scan ? scan.report : null;
+    const report = live ? live.report : done ? done.report : null;
     status = ecuTreeStatus(tree, report);
     canvas.innerHTML = `<div class="tree-scroll">${ecuTreeSvg(layout, status)}</div>`;
     const n = { ok: 0, faults: 0, silent: 0, unread: 0 };
@@ -183,20 +188,17 @@ async function showEcuTreeChassis(chassis, carId) {
     const counts = `${n.ok + n.faults} answered, ${n.faults} with faults, ${n.silent} not responding`;
     note.textContent = live
       ? `reading${live.text ? `: ${live.text}` : '\u2026'}  ${counts}`
-      : scan
-        ? `scan of ${new Date(scan.at).toLocaleString()}: ${counts}`
-        : picked
-          ? 'no fault scan saved for this car yet'
-          : '';
+      : done
+        ? `${done.stopped ? 'stopped' : 'read'} ${done.at.toLocaleTimeString()}: ${counts}${done.kept ? `, kept under ${done.kept}` : done.unkept ? ', not kept (no Garage car picked)' : ''}`
+        : 'press Fault scan to read the car';
     wrap.classList.toggle('tree-live', !!live);
     // how far the read is: reads so far over what the last scan of this car
     // reached, else over the addresses the tree lists
     progress.hidden = !live;
     if (live) {
-      const last = ecuTreeScanFor(picked ? picked.id : null);
-      const expected = last
-        ? (last.report.modules || []).length + (last.report.silent || []).length
-        : new Set(layout.boxes.flatMap((b) => b.ecu.groups)).size;
+      const expected =
+        ecuTreeLastScanSize(picked ? picked.id : null) ||
+        new Set(layout.boxes.flatMap((b) => b.ecu.groups)).size;
       const sofar = n.ok + n.faults + n.silent;
       const pct = expected
         ? Math.min(100, Math.round((100 * sofar) / expected))
@@ -289,12 +291,21 @@ async function showEcuTreeChassis(chassis, carId) {
       ({ report, lines, cancelled }) => {
         finish();
         const got = report && (report.modules || []).length;
-        if (picked && got && typeof garageAddScan === 'function')
+        done = {
+          report,
+          at: new Date(),
+          stopped: !!cancelled,
+          kept: '',
+          unkept: false,
+        };
+        if (picked && got && typeof garageAddScan === 'function') {
           garageAddScan(picked.id, { report, lines }, { chassis: car });
+          done.kept =
+            typeof garageCarLabel === 'function'
+              ? garageCarLabel(picked)
+              : picked.label || picked.id;
+        } else if (got && !picked) done.unkept = true;
         paint();
-        if (got && !picked)
-          note.textContent += '  (not kept: no Garage car picked)';
-        if (cancelled) note.textContent = `stopped  ${note.textContent}`;
       },
       (e) => {
         finish();
