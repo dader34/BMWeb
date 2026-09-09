@@ -1009,7 +1009,7 @@ html.no-chrome body.apps-section .topbar {
   transform: none;
 }
 
-/* Apps hub: the ported-app cards reuse .lookup-entry, re-stacked into square
+/* Apps hub: the ported-app cards reuse .lookup-entry, re-stacked into
    tiles -- icon, then title and tag, the description, the arrow at the foot --
    on a grid that fills the row; the tag and the greyed-out state for an app
    whose data isn't in the build are the hub's own */
@@ -1028,8 +1028,7 @@ html.no-chrome body.apps-section .topbar {
     flex-direction: column;
     align-items: flex-start;
     gap: 12px;
-    aspect-ratio: 1;
-    padding: 16px;
+    padding: 16px 16px 14px;
     min-width: 0;
   }
   .apps-list .lookup-entry-icon {
@@ -1059,7 +1058,7 @@ html.no-chrome body.apps-section .topbar {
     overflow: hidden;
   }
   .apps-list .lookup-entry-arrow {
-    margin-top: auto;
+    margin-top: 2px;
     align-self: flex-end;
   }
 }
