@@ -418,7 +418,16 @@ async function routeRun(rel, sgbd, jobRaw) {
  * without one (an orphan, or a pre-phase-1 archive) 404s and the renderer
  * falls back to the frozen IR -- so it is optional, not fatal.
  */
-const ECU_FILE_KINDS = new Set(['jobs', 'ir', 'tables', 'ipoexec']);
+const ECU_FILE_KINDS = new Set([
+  'jobs',
+  'ir',
+  'tables',
+  'ipoexec',
+  // the decoded screens, whose gauges carry the min/max/okMin/okMax band the
+  // script's author declared per result key. The garage reads those bands to
+  // say whether a freeze-frame value is outside what the script calls normal.
+  'screens',
+]);
 /** The per-ECU kinds that take a sub-name: results/<JOB>, arguments/<JOB>, table/<NAME>. */
 const ECU_SUB_KINDS = new Set(['results', 'arguments', 'table']);
 

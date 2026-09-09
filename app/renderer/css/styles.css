@@ -8574,3 +8574,453 @@ body.remote-helper::after {
     print-color-adjust: exact;
   }
 }
+
+/* ---- Garage: saved vehicles and their scan history ------------------------ */
+.garage-list {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+.garage-empty {
+  padding: 18px 16px;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--ink-dim);
+  font-size: 13px;
+}
+.garage-car {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+}
+.garage-car:hover {
+  border-color: var(--line-bright);
+}
+.garage-car-open {
+  display: grid;
+  gap: 3px;
+  padding: 12px 14px;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+}
+.garage-car-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.garage-car-bits,
+.garage-car-state {
+  font-size: 12px;
+  color: var(--ink-dim);
+}
+.garage-car-vin {
+  font-size: 11px;
+  color: var(--ink-faint);
+  letter-spacing: 0.04em;
+}
+.garage-bad {
+  color: var(--red);
+}
+.garage-good {
+  color: var(--green);
+}
+.garage-car-del {
+  margin-right: 12px;
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: none;
+  color: var(--ink-faint);
+  cursor: pointer;
+  font-size: 12px;
+}
+.garage-car-del:hover {
+  border-color: var(--red);
+  color: var(--red);
+}
+
+/* the per-car history list */
+.garage-scan-row .quick-ecu {
+  display: grid;
+  gap: 2px;
+}
+.garage-scan-when {
+  font-size: 13px;
+  color: var(--ink);
+}
+.garage-scan-counts {
+  font-size: 11.5px;
+  color: var(--ink-dim);
+}
+.garage-scan-kind {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.garage-scan-del {
+  padding: 3px 7px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: none;
+  color: var(--ink-faint);
+  cursor: pointer;
+}
+.garage-scan-del:hover {
+  border-color: var(--red);
+  color: var(--red);
+}
+.garage-notes {
+  display: grid;
+  gap: 5px;
+  margin-bottom: 16px;
+}
+.garage-notes-label {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.garage-notes-input {
+  width: 100%;
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  resize: vertical;
+}
+.garage-notes-input:focus {
+  outline: none;
+  border-color: var(--amber);
+}
+
+/* comparing two scans */
+.garage-diff-pick {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.garage-diff-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: var(--ink-dim);
+}
+.garage-diff-label select {
+  padding: 5px 8px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--panel);
+  color: var(--ink);
+  font: inherit;
+  font-size: 12px;
+}
+.garage-diff-arrow {
+  color: var(--ink-faint);
+}
+/* the badge carries the meaning, so it is the coloured part of the row */
+.garage-diff-badge {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.garage-diff-new .quick-detail-code,
+.garage-diff-new .garage-diff-badge {
+  color: var(--red);
+}
+.garage-diff-cleared .quick-detail-code,
+.garage-diff-cleared .garage-diff-badge {
+  color: var(--green);
+}
+.garage-diff-changed .quick-detail-code,
+.garage-diff-changed .garage-diff-badge {
+  color: var(--amber);
+}
+.garage-diff-unchanged {
+  opacity: 0.62;
+}
+
+/* the "which vehicle is this?" picker, inside the app's modal */
+.garage-pick {
+  display: grid;
+  gap: 6px;
+  margin: 4px 0 14px;
+  max-height: 46vh;
+  overflow-y: auto;
+}
+.garage-pick-row {
+  display: grid;
+  gap: 2px;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.garage-pick-row:hover {
+  border-color: var(--amber);
+}
+.garage-pick-name {
+  font-size: 13px;
+  color: var(--ink);
+}
+.garage-pick-note {
+  font-size: 11px;
+  color: var(--ink-faint);
+}
+
+/* Job search (screens/search/): the home screen's search bar over every INPA
+   key and screen in the corpus. The results panel sits inline under the input
+   rather than in an overlay -- the chassis grid below it is what the user
+   falls back to when the search does not answer, so it must stay reachable. */
+.search-bar {
+  display: grid;
+  gap: 10px;
+  margin: 0 0 18px;
+}
+.search-input-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+}
+.search-input-row:focus-within {
+  border-color: var(--amber);
+}
+.search-input-icon {
+  color: var(--ink-faint);
+  font-size: 16px;
+}
+.search-input {
+  flex: 1;
+  min-width: 0;
+  padding: 11px 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+  outline: none;
+}
+.search-input::placeholder {
+  color: var(--ink-faint);
+}
+.search-input-count {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-faint);
+  white-space: nowrap;
+}
+/* Capped so a broad query cannot push the chassis grid off the page. */
+.search-results {
+  display: grid;
+  gap: 14px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+.search-msg {
+  padding: 14px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--ink-dim);
+  font-size: 13px;
+}
+.search-group {
+  display: grid;
+  gap: 8px;
+}
+.search-group-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--line);
+}
+.search-group-name {
+  font-family: var(--display);
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--amber);
+}
+.search-group-count {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-faint);
+}
+.search-module {
+  display: grid;
+  gap: 2px;
+}
+.search-module-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 4px 2px;
+  font-size: 12px;
+  color: var(--ink-dim);
+}
+.search-module-sgbd {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ink-faint);
+}
+.search-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.search-row:hover {
+  border-color: var(--amber);
+  background: var(--panel-2);
+}
+/* Fixed width so the labels line up down the list whether the row is a key
+   (F4, Shift+F4) or a screen (no key of its own). */
+.search-row-key {
+  flex: 0 0 44px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-faint);
+}
+.search-row-text {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+.search-row-label {
+  font-size: 13px;
+  color: var(--ink);
+}
+.search-row-sub {
+  font-size: 11px;
+  color: var(--ink-dim);
+}
+.search-row-jobs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.search-row-jobs code {
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: var(--raised);
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--cyan);
+}
+.search-row-more {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ink-faint);
+}
+/* A key that writes to the module. The row still opens -- it lands on the
+   screen with the key unpressed -- so the tag is a warning, not a block. */
+.search-tag {
+  margin-left: 8px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.search-tag-write {
+  background: var(--amber);
+  color: var(--amber-ink);
+}
+.search-row-arrow {
+  color: var(--ink-faint);
+}
+
+/* the freeze frame under a fault row, and the range flags on its values */
+.garage-envrow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  padding: 5px 14px 7px 14px;
+  background: var(--panel-2);
+  border-top: 1px dotted var(--line);
+  font-size: 11.5px;
+}
+.garage-env {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+}
+.garage-env-k {
+  color: var(--ink-faint);
+}
+.garage-env-v {
+  font-family: var(--mono);
+  color: var(--ink-dim);
+}
+/* a flagged reading: the value carries the colour, the tag names the source */
+.garage-env-warn .garage-env-v {
+  color: var(--red);
+  font-weight: 700;
+}
+.garage-env-note .garage-env-v {
+  color: var(--amber);
+}
+.garage-env-flag {
+  padding: 0 4px;
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  font-size: 9.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.garage-env-warn .garage-env-flag {
+  color: var(--red);
+}
+.garage-env-note .garage-env-flag {
+  color: var(--amber);
+}
+/* why it was flagged, spelled out under the values */
+.garage-env-why {
+  flex-basis: 100%;
+  font-size: 10.5px;
+  line-height: 1.45;
+  color: var(--ink-faint);
+}
+.garage-env-why-warn {
+  color: var(--red);
+}
+.garage-diff-recurred .quick-detail-code,
+.garage-diff-recurred .garage-diff-badge {
+  color: var(--amber);
+}
