@@ -110,8 +110,7 @@ function garageEnvSummary(a, b) {
   // the occurrence counter moving is the module saying it logged this again
   const countA = Number(a && (a.F_HFK != null ? a.F_HFK : a.F_LZ));
   const countB = Number(b && (b.F_HFK != null ? b.F_HFK : b.F_LZ));
-  const counted =
-    isFinite(countA) && isFinite(countB) && countB > countA;
+  const counted = isFinite(countA) && isFinite(countB) && countB > countA;
   return { recurred: counted || changed.length > 0, changed };
 }
 

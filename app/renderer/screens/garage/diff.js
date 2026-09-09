@@ -72,8 +72,7 @@ function garageFaultKey(code) {
     .replace(/^0X/, '');
   if (hex) return 'H:' + hex;
   const nr = c.F_ORT_NR;
-  if (nr != null && String(nr).trim() !== '')
-    return 'N:' + String(Number(nr));
+  if (nr != null && String(nr).trim() !== '') return 'N:' + String(Number(nr));
   return '';
 }
 
@@ -122,15 +121,19 @@ function garageIdentFields(a, b) {
       : [[['VARIANTE'], 'Variant']];
   const out = [];
   const seen = new Set();
-  const val = (id, k) =>
-    id && id[k] != null ? String(id[k]).trim() : '';
+  const val = (id, k) => (id && id[k] != null ? String(id[k]).trim() : '');
   for (const [keys, cap] of rows) {
     for (const k of keys) {
       seen.add(k);
       const from = val(ia, k);
       const to = val(ib, k);
       if (from !== to)
-        out.push({ key: k, label: keys.length > 1 ? `${cap} (${k})` : cap, from, to });
+        out.push({
+          key: k,
+          label: keys.length > 1 ? `${cap} (${k})` : cap,
+          from,
+          to,
+        });
     }
   }
   // anything the module answered that the printed table does not cover still
@@ -157,8 +160,7 @@ function garageDiffScans(from, to) {
   const rb = (to && to.report) || { modules: [], silent: [] };
   const A = garageModuleMap(ra);
   const B = garageModuleMap(rb);
-  const kind =
-    ra.kind === rb.kind ? rb.kind || 'faults' : 'mixed';
+  const kind = ra.kind === rb.kind ? rb.kind || 'faults' : 'mixed';
 
   /** @type {GarageDiffModule[]} */
   const modules = [];

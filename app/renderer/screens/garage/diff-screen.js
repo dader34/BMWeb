@@ -70,7 +70,8 @@ async function showGarageDiff(carId, fromId, toId) {
     rowsEl.appendChild(same);
   }
 
-  for (const m of changed) rowsEl.appendChild(garageDiffModuleRow(m, diff.kind));
+  for (const m of changed)
+    rowsEl.appendChild(garageDiffModuleRow(m, diff.kind));
   for (const s of diff.silence) {
     const row = document.createElement('div');
     row.className = 'quick-row ' + (s.state === 'silent' ? 'noresp' : 'clean');
@@ -145,7 +146,8 @@ function garageDiffModuleRow(m, kind) {
   if (m.cleared.length) bits.push(`${m.cleared.length} cleared`);
   if (m.fields.length) bits.push(`${m.fields.length} changed`);
   if (again) bits.push(`${again} logged again`);
-  if (m.same.length - again > 0) bits.push(`${m.same.length - again} unchanged`);
+  if (m.same.length - again > 0)
+    bits.push(`${m.same.length - again} unchanged`);
   row.innerHTML = `
     <span class="quick-ecu" title="${esc(m.sgbd)}">${esc(
       typeof ipoText === 'function' ? ipoText(m.label) : m.label
@@ -164,7 +166,8 @@ function garageDiffModuleRow(m, kind) {
   } else {
     const again = new Set(m.recurred || []);
     for (const c of m.added) parts.push(garageDiffFault('new', c, m.sgbd));
-    for (const c of m.cleared) parts.push(garageDiffFault('cleared', c, m.sgbd));
+    for (const c of m.cleared)
+      parts.push(garageDiffFault('cleared', c, m.sgbd));
     // a fault still stored but logged again since reads as recurred, not
     // unchanged: the freeze frame moved even though the code did not
     for (const c of m.same)
