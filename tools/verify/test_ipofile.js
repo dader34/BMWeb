@@ -56,7 +56,8 @@ function reference(stem) {
   const plain = path.join(IR, `${stem}.ipoexec.json`);
   if (fs.existsSync(plain)) return JSON.parse(fs.readFileSync(plain, 'utf8'));
   const gz = `${plain}.gz`;
-  if (fs.existsSync(gz)) return JSON.parse(zlib.gunzipSync(fs.readFileSync(gz)).toString());
+  if (fs.existsSync(gz))
+    return JSON.parse(zlib.gunzipSync(fs.readFileSync(gz)).toString());
   return null;
 }
 
@@ -139,7 +140,20 @@ if (stale && process.env.V) {
   );
   assert.deepStrictEqual(
     instr.filter((t) => t.op === 'binop').map((t) => t.name),
-    ['neg', 'gt', 'gt', 'sub', 'ge', 'sub', 'eq', 'sub', 'lt', 'and', 'add', 'eq'],
+    [
+      'neg',
+      'gt',
+      'gt',
+      'sub',
+      'ge',
+      'sub',
+      'eq',
+      'sub',
+      'lt',
+      'and',
+      'add',
+      'eq',
+    ],
     'instr binop chain drifted'
   );
   assert.deepStrictEqual(
@@ -167,7 +181,10 @@ if (stale && process.env.V) {
 // `at`, so it must land ON a token. A target that hits no token is how a
 // mis-based block header shows up.
 {
-  const exec = F.ipofDecodeExec(new Uint8Array(fs.readFileSync(ipoPath('IHKA46'))), 'IHKA46');
+  const exec = F.ipofDecodeExec(
+    new Uint8Array(fs.readFileSync(ipoPath('IHKA46'))),
+    'IHKA46'
+  );
   let checked = 0;
   for (const name of Object.keys(exec.procs)) {
     const toks = exec.procs[name];
@@ -209,7 +226,10 @@ if (stale && process.env.V) {
     if (!ref || !ref.procs) continue;
     let got;
     try {
-      got = F.ipofDecodeExec(new Uint8Array(fs.readFileSync(ipoPath(stem))), stem);
+      got = F.ipofDecodeExec(
+        new Uint8Array(fs.readFileSync(ipoPath(stem))),
+        stem
+      );
     } catch (e) {
       // the Python writes an empty dump for a file with no declarations; the
       // reader says so instead, which is the better answer for a drop zone
@@ -218,21 +238,30 @@ if (stale && process.env.V) {
       continue;
     }
     compared += 1;
-    if (JSON.stringify(got.procs) === JSON.stringify(ref.procs)
-        && JSON.stringify(got.byid) === JSON.stringify(ref.byid)) {
+    if (
+      JSON.stringify(got.procs) === JSON.stringify(ref.procs) &&
+      JSON.stringify(got.byid) === JSON.stringify(ref.byid)
+    ) {
       identical += 1;
     } else if (
-      JSON.stringify(withoutCallNames(got.procs)) === JSON.stringify(withoutCallNames(ref.procs))
-      && JSON.stringify(got.byid) === JSON.stringify(ref.byid)
+      JSON.stringify(withoutCallNames(got.procs)) ===
+        JSON.stringify(withoutCallNames(ref.procs)) &&
+      JSON.stringify(got.byid) === JSON.stringify(ref.byid)
     ) {
       staleName += 1;
     } else {
       bad.push(stem);
     }
   }
-  assert.deepStrictEqual(bad, [], `files whose tokens differ: ${bad.slice(0, 8).join(', ')}`);
+  assert.deepStrictEqual(
+    bad,
+    [],
+    `files whose tokens differ: ${bad.slice(0, 8).join(', ')}`
+  );
   assert.ok(compared > 500, `too few files compared (${compared})`);
-  ok(`corpus: ${identical}/${compared} byte-identical, ${staleName} stale-named, 0 differing`);
+  ok(
+    `corpus: ${identical}/${compared} byte-identical, ${staleName} stale-named, 0 differing`
+  );
 }
 
 console.log(`test_ipofile: ${passed} checks passed`);
