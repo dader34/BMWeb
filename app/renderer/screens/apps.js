@@ -180,7 +180,7 @@ async function showApps() {
   setCrumbs([{ label: 'Vehicles', fn: showChassis }, { label: 'Apps' }]);
   document.body.classList.add('apps-section'); // hides the F-key bar on mobile (touch nav)
   sbLeft.textContent = 'apps';
-  view.innerHTML = head('Apps', 'Ported Apps', '');
+  view.innerHTML = head('Apps', 'Apps', '');
   const backAction = {
     key: 'Escape',
     keyLabel: 'Esc',
