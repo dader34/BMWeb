@@ -99,6 +99,8 @@ export interface Terminal {
   readonly rows: number;
   /** subscribe to key presses; returns the unsubscribe */
   onKey(fn: (k: Key) => void): () => void;
+  /** subscribe to size changes; returns the unsubscribe */
+  onResize?(fn: () => void): () => void;
   /** a line of input, null when cancelled (Esc, EOF) */
   readLine(prompt: string): Promise<string | null>;
   close(): void;
@@ -179,6 +181,12 @@ export function nodeTerminal(): Terminal {
         subs.delete(fn);
       };
     },
+    onResize(fn) {
+      output.on('resize', fn);
+      return () => {
+        output.off('resize', fn);
+      };
+    },
     async readLine(prompt) {
       paused = true;
       raw(false);
@@ -204,10 +212,16 @@ export function nodeTerminal(): Terminal {
 /**
  * The terminal UI adapter: the IpoUi contract over a Terminal.
  *
- * Paint redraws the whole screen from the program's cells (INPA's grid,
- * row by row, as the app's INPA mode does), the key bar from its items,
- * then the status and progress lines. Every dialog is a prompt on the same
- * terminal, with raw mode off while the answer is typed.
+ * Paint draws one FRAME from the program's cells (INPA's grid, row by row,
+ * as the app's INPA mode does), the key bar from its items, then the
+ * status and progress lines -- and redraws it IN PLACE: the cursor goes
+ * back up over the last frame and only the lines that changed are written.
+ * The screen is never cleared (ESC[2J lands a copy of the old screen in the
+ * scrollback of Warp and iTerm, which read as a new page every cycle), so a
+ * state machine's ticks paint nothing while nothing changes, and the shell
+ * history above the frame stays where it was. Every dialog is a prompt on
+ * the same terminal, with raw mode off while the answer is typed; it leaves
+ * its trace and the next frame is drawn fresh below it.
  */
 export class TuiUi implements IpoUi {
   readonly term: Terminal;
@@ -217,6 +231,10 @@ export class TuiUi implements IpoUi {
   private stopRequested = false;
   private writeKeys = new Set<number>();
   private program: IpoProgramLike | null = null;
+  /** the lines of the frame on screen, when the cursor sits right below it */
+  private frame: string[] = [];
+  /** the terminal size the frame was drawn for; a change draws fresh */
+  private frameSize = '';
   private leftResolve: (() => void) | null = null;
   /** resolves once the program reports it left the module */
   readonly leftPromise: Promise<void>;
@@ -236,6 +254,20 @@ export class TuiUi implements IpoUi {
     this.leftPromise = new Promise((res) => {
       this.leftResolve = res;
     });
+    if (term.onResize) term.onResize(() => this.resized());
+  }
+
+  /**
+   * The terminal changed size: the frame on screen no longer fits its
+   * rows, so it is erased (as far as the cursor can climb back over it)
+   * and drawn again for the new size.
+   */
+  resized(): void {
+    if (this.frame.length) {
+      this.term.write(`\x1b[${this.frame.length}A\r\x1b[J`);
+      this.frame = [];
+    }
+    if (this.program) this.paint(this.program);
   }
 
   /**
@@ -273,7 +305,7 @@ export class TuiUi implements IpoUi {
             `  ${String(i + 1).padStart(3)}. ${o.label}${o.meta ? `  (${o.meta})` : ''}`
         )
         .join('\n');
-      const a = await this.term.readLine(
+      const a = await this.ask(
         `\n${title}${shown.length !== options.length ? ` (${shown.length} of ${options.length})` : ''}\n${rows}\n` +
           `Number to open, text to filter, Enter to cancel: `
       );
@@ -292,6 +324,19 @@ export class TuiUi implements IpoUi {
   /** Note the program once it exists, for the key handler. */
   attach(p: IpoProgramLike): void {
     this.program = p;
+  }
+
+  /**
+   * A prompt on the terminal. It scrolls the frame away from under the
+   * cursor, so the frame is forgotten and the next paint draws fresh below
+   * the answer (the prompt and its answer stay in the transcript, the way a
+   * tool call does).
+   * @param prompt - the prompt text
+   * @returns the answer, or null when cancelled
+   */
+  private async ask(prompt: string): Promise<string | null> {
+    this.frame = [];
+    return this.term.readLine(prompt);
   }
 
   /** Esc during a parked state machine: stop it at the next tick. */
@@ -320,7 +365,7 @@ export class TuiUi implements IpoUi {
   }
 
   async message(title: string, body: string | null): Promise<void> {
-    await this.term.readLine(
+    await this.ask(
       `\n${title}${body ? `\n${body}` : ''}\n[Enter to continue] `
     );
   }
@@ -347,16 +392,14 @@ export class TuiUi implements IpoUi {
     if (name === 'inputdigital') {
       const f = prompts[prompts.length - 2] || 'OFF';
       const t = prompts[prompts.length - 1] || 'ON';
-      const a = await this.term.readLine(
+      const a = await this.ask(
         `\n${p0}\n${p1}\n[${t} = y, ${f} = n, cancel = Enter] `
       );
       if (a == null || !a.trim()) return null;
       return /^y/i.test(a.trim()) ? 1 : 0;
     }
     if (name === 'builtin_3f' && prompts.length <= 2 && refs === 1) {
-      const a = await this.term.readLine(
-        `\n${p0}\n${p1}\n[OK = y, cancel = n] `
-      );
+      const a = await this.ask(`\n${p0}\n${p1}\n[OK = y, cancel = n] `);
       return a != null && /^y/i.test(a.trim()) ? 0 : null;
     }
     const hex = /hex/i.test(name);
@@ -369,7 +412,7 @@ export class TuiUi implements IpoUi {
         step.lo != null && step.hi != null && !hex
           ? ` [${step.lo}..${step.hi}]`
           : '';
-      const a = await this.term.readLine(`\n${p0}\n${cap}${range}: `);
+      const a = await this.ask(`\n${p0}\n${cap}${range}: `);
       if (a == null) return null;
       if (text) {
         vals.push(String(a));
@@ -400,7 +443,7 @@ export class TuiUi implements IpoUi {
     jobs: string[],
     writes: string[]
   ): Promise<boolean> {
-    const a = await this.term.readLine(
+    const a = await this.ask(
       `\nRun "${it.label || it.legendLabel || `F${it.nr}`}"? It can send ${jobs.join(', ')}` +
         ` and ${writes.join(', ')} write${writes.length === 1 ? 's' : ''} to the module. [y/N] `
     );
@@ -416,7 +459,7 @@ export class TuiUi implements IpoUi {
     const every = String(ctx.scope || '').startsWith('screen:')
       ? ' This screen sends it on every refresh; yes allows it while the screen is open.'
       : '';
-    const a = await this.term.readLine(
+    const a = await this.ask(
       `\nSend ${job}${arg ? ` ${arg}` : ''} to the module (${ctx.label})?${every} [y/N] `
     );
     return !!a && /^y(es)?$/i.test(a.trim());
@@ -446,7 +489,7 @@ export class TuiUi implements IpoUi {
       .map((r, i) => `  ${i + 1}. ${r.caption}  (${r.key})`)
       .join('\n');
     if (step.multiple) {
-      const a = await this.term.readLine(
+      const a = await this.ask(
         `\n${list}\nComponents, comma-separated (Enter cancels): `
       );
       const picked = pickNumbers(a, rows.length).map(
@@ -455,12 +498,10 @@ export class TuiUi implements IpoUi {
       if (!picked.length) return null;
       return { ort: picked.map((r) => r.key).join(';'), ein: 0 };
     }
-    const a = await this.term.readLine(
-      `\n${list}\nComponent number (Enter cancels): `
-    );
+    const a = await this.ask(`\n${list}\nComponent number (Enter cancels): `);
     const [i] = pickNumbers(a, rows.length);
     if (i == null) return null;
-    const onOff = await this.term.readLine(`On or off? [on/off] `);
+    const onOff = await this.ask(`On or off? [on/off] `);
     if (onOff == null || !onOff.trim()) return null;
     return {
       ort: (rows[i] as { key: string }).key,
@@ -489,7 +530,7 @@ export class TuiUi implements IpoUi {
       return null;
     }
     const list = names.map((n, i) => `  ${i + 1}. ${n}`).join('\n');
-    const a = await this.term.readLine(
+    const a = await this.ask(
       `\n${list}\nLines to show${multiple ? ', comma-separated' : ''} (a = all, Enter cancels): `
     );
     if (a == null) return null;
@@ -500,7 +541,7 @@ export class TuiUi implements IpoUi {
 
   /** INPA's save-as dialog: a file name, written when the body ends. */
   async saveFile(): Promise<{ name: string } | null> {
-    const a = await this.term.readLine(`\nSave as [fault-memory.txt]: `);
+    const a = await this.ask(`\nSave as [fault-memory.txt]: `);
     if (a == null) return null;
     return { name: a.trim() || 'fault-memory.txt' };
   }
@@ -517,6 +558,7 @@ export class TuiUi implements IpoUi {
   printScreen(p: IpoProgramLike): void {
     // INPA's printscreen: the grid as text, on stdout below the screen
     this.term.write(`\n${this.gridLines(p).join('\n')}\n`);
+    this.frame = [];
   }
 
   /**
@@ -590,23 +632,71 @@ export class TuiUi implements IpoUi {
     this.paint(p);
   }
 
-  /** Redraw everything: title, grid, keys, footer. */
+  /** Redraw everything: title, grid, keys, footer -- in place. */
   paint(p: IpoProgramLike): void {
+    this.flush(this.frameLines(p));
+  }
+
+  /**
+   * The frame as lines: title, rule, the view or the grid, a blank, the
+   * key bar, then the status and progress lines. Cut to the terminal's
+   * width (a wrapped line would break the row count the redraw relies on)
+   * and to its height, the body giving way first.
+   * @param p - the program
+   * @returns the lines, none wider than the terminal
+   */
+  frameLines(p: IpoProgramLike): string[] {
     const w = this.term.columns;
-    const out: string[] = [];
     const title =
       `${p.ecu.label || p.ecu.sgbd}  ${p.ecu.sgbd}.prg  ${p.title || ''}`.trim();
-    out.push(title.slice(0, w));
-    out.push('-'.repeat(Math.min(w, 78)));
-    if (p.view) {
-      out.push(...(p.view.lines || []).slice(0, this.term.rows - 8));
-    } else {
-      out.push(...this.gridLines(p));
+    const head = [title, '-'.repeat(Math.min(w, 78))];
+    let body = p.view ? [...(p.view.lines || [])] : this.gridLines(p);
+    const tail = ['', ...this.keyLines(p), this.statusText, this.progressText];
+    const room = Math.max(1, this.term.rows - 1 - head.length - tail.length);
+    // INPA lays a screen out on up to 25 rows, most of them blank; when the
+    // terminal is shorter, runs of blank rows close up first, and only then
+    // is the body cut, saying so on its last line
+    if (body.length > room) body = body.filter((l, i) => l || body[i - 1]);
+    if (body.length > room) {
+      const hidden = body.length - (room - 1);
+      body = [
+        ...body.slice(0, room - 1),
+        `(${hidden} more rows: enlarge the terminal)`,
+      ];
     }
-    out.push('');
-    out.push(...this.keyLines(p));
-    this.term.write(`\x1b[H\x1b[2J${out.join('\n')}\n`);
-    this.drawFooter();
+    return [...head, ...body, ...tail].map((l) =>
+      String(l)
+        .replace(/[\r\n]/g, ' ')
+        .slice(0, w)
+    );
+  }
+
+  /**
+   * Put a frame on the terminal over the last one. With a frame on screen
+   * the cursor is on the line under it: go up to its top, rewrite the lines
+   * that differ (each erased to the end of the row), step over the ones
+   * that match, and erase whatever the old frame had below the new one.
+   * Without one (first paint, after a prompt, after a resize) the frame is
+   * written where the cursor is.
+   * @param lines - the new frame
+   */
+  private flush(lines: string[]): void {
+    const size = `${this.term.columns}x${this.term.rows}`;
+    if (size !== this.frameSize) this.frame = [];
+    this.frameSize = size;
+    const prev = this.frame;
+    if (prev.length === lines.length && prev.every((l, i) => l === lines[i]))
+      return;
+    let s = prev.length ? `\x1b[${prev.length}A` : '';
+    lines.forEach((line, i) => {
+      if (i < prev.length && prev[i] === line) s += '\x1b[B';
+      else s += `\r${line}\x1b[K\r\n`;
+    });
+    // the cursor is under the new frame; anything of the old one below it
+    // goes (\x1b[J erases to the end of the screen)
+    if (lines.length < prev.length) s += '\r\x1b[J';
+    if (s) this.term.write(s);
+    this.frame = lines;
   }
 
   /**
@@ -652,11 +742,18 @@ export class TuiUi implements IpoUi {
     return out;
   }
 
-  /** The two bottom lines: status and progress. */
+  /**
+   * The two bottom lines of the frame: status and progress. They are part
+   * of the frame, so a change repaints it (which writes just those lines);
+   * before a program exists the text is written on its own.
+   */
   private drawFooter(): void {
-    this.term.write(
-      `\x1b[s\x1b[${Math.max(1, this.term.rows - 1)};1H\x1b[K${this.statusText}\n\x1b[K${this.progressText}\x1b[u`
-    );
+    if (this.program) {
+      this.paint(this.program);
+      return;
+    }
+    this.frame = [];
+    this.term.write(`${this.statusText}\r\n${this.progressText}\r\n`);
   }
 
   left(): void {

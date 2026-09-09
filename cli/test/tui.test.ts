@@ -5,8 +5,13 @@
 // and the home script picking a chassis and a module by number and filter.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { loadRuntime, setApiImpl, type IpoCell } from '../src/runtime.ts';
-import { cellText, keyToPress, tuiCommand } from '../src/tui.ts';
+import {
+  loadRuntime,
+  setApiImpl,
+  type IpoCell,
+  type IpoProgramLike,
+} from '../src/runtime.ts';
+import { cellText, keyToPress, tuiCommand, TuiUi } from '../src/tui.ts';
 import {
   compile,
   E46_CONFIG,
@@ -306,4 +311,91 @@ test('the home: pick a chassis, filter and pick a module, land in its script; a 
   } finally {
     setApiImpl(null);
   }
+});
+
+/** A program with one screen, enough for the painter. */
+function stubProgram(): IpoProgramLike {
+  return {
+    ecu: { sgbd: 'probe', label: 'Probe module' },
+    title: 'Main',
+    items: [
+      { nr: 1, label: 'Ident', start: 0, end: 0 },
+      { nr: 2, label: 'Fault memory', start: 0, end: 0 },
+    ],
+    cells: new Map([
+      ['0:0', { row: 0, col: 0, text: 'Battery', kind: 'text' }],
+      ['0:20', { row: 0, col: 20, text: '12.4 V', kind: 'text' }],
+    ]),
+    view: null,
+    menu: 'm_main',
+    exec: { procs: {} },
+  } as unknown as IpoProgramLike;
+}
+
+test('paint redraws the frame in place: no clear-screen, nothing on a repaint, only the changed line on a status, fresh after a prompt and a resize', async () => {
+  const R = loadRuntime();
+  const term = fakeTerminal(['']);
+  const ui = new TuiUi(term, R, null);
+  const p = stubProgram();
+  ui.attach(p);
+  ui.paint(p);
+  const first = term.out;
+  assert.doesNotMatch(first, /\x1b\[2J|\x1b\[H/, 'never clears the screen');
+  assert.doesNotMatch(
+    first,
+    /\x1b\[\d+A/,
+    'the first frame is written where the cursor is'
+  );
+  assert.match(first, /Probe module  probe\.prg  Main/, 'the title');
+  assert.match(first, /Battery\s+12\.4 V/, 'the grid row');
+  assert.match(first, /F1 Ident   F2 Fault memory/, 'the key bar');
+  const lines = first.split('\r\n').filter((l) => l !== '');
+  ui.paint(p);
+  assert.equal(term.out, first, 'an unchanged frame writes nothing');
+  ui.status(p, 'ready');
+  const delta = term.out.slice(first.length);
+  assert.match(
+    delta,
+    new RegExp(`^\\x1b\\[${lines.length}A`),
+    'goes back up over the whole frame'
+  );
+  assert.equal(
+    (delta.match(/\x1b\[K/g) || []).length,
+    1,
+    'rewrites exactly one line (the status)'
+  );
+  assert.match(delta, /\rready\x1b\[K\r\n/, 'the status line');
+  assert.equal(
+    (delta.match(/\x1b\[B/g) || []).length,
+    lines.length - 1,
+    'steps over every unchanged line'
+  );
+  const beforePrompt = term.out.length;
+  await ui.message('Note', 'body');
+  ui.paint(p);
+  const afterPrompt = term.out.slice(beforePrompt);
+  assert.doesNotMatch(
+    afterPrompt,
+    /\x1b\[\d+A/,
+    'after a prompt the frame is drawn fresh, below it'
+  );
+  assert.match(
+    afterPrompt,
+    /Probe module  probe\.prg  Main/,
+    'the full frame again'
+  );
+  const beforeResize = term.out.length;
+  (term as { rows: number }).rows = 12;
+  ui.resized();
+  const afterResize = term.out.slice(beforeResize);
+  assert.match(
+    afterResize,
+    /^\x1b\[\d+A\r\x1b\[J/,
+    'a resize erases the old frame'
+  );
+  assert.match(
+    afterResize,
+    /F1 Ident   F2 Fault memory/,
+    'and paints it for the new size'
+  );
 });
