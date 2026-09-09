@@ -459,6 +459,32 @@ function fakeApi(opts = {}) {
     ok('remove(id) drops one series and reports whether it was there');
   }
 
+  // ---- the page as it was left comes back on reload -------------------------
+  {
+    const rows = [
+      {
+        sgbd: 'MS450DS0',
+        label: 'MS45',
+        group: 'D_MOTOR',
+        job: 'STATUS_MESSWERTBLOCK_0',
+        key: 'STAT_MESSWERT0_WERT',
+      },
+    ];
+    assert.strictEqual(L.logLastGet('E46'), null);
+    L.logLastSet('E46', { rows, windowMs: 120000 });
+    const back = L.logLastGet('e46');
+    assert.deepStrictEqual(back.rows, rows);
+    assert.strictEqual(back.windowMs, 120000);
+    assert.strictEqual(L.logLastGet('E39'), null, 'kept per chassis');
+    L.logLastSet('E46', { rows: [], windowMs: 120000 });
+    assert.strictEqual(
+      L.logLastGet('E46'),
+      null,
+      'an empty selection forgets it'
+    );
+    ok('the last selection and window are kept per chassis');
+  }
+
   console.log(`\nlogging: ${passed} checks passed`);
 })().catch((e) => {
   console.error('\nlogging check FAILED');

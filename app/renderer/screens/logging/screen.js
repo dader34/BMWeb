@@ -122,6 +122,9 @@ async function showLoggingChassis(chassis) {
 
   const store = new LogStore();
   const selection = new LogSelection();
+  // the page as it was left: a reload keeps the readings and the window
+  const last = logLastGet(car);
+  if (last) selection.fromJSON(last.rows);
 
   const wrap = document.createElement('div');
   wrap.className = 'log-wrap';
@@ -145,6 +148,12 @@ async function showLoggingChassis(chassis) {
   const searchEl = wrap.querySelector('.log-search');
 
   const grid = new LogChartGrid(gridEl, store);
+  // the window as it was left, set before the first sync keeps state again
+  const keptWin =
+    last && LOG_WINDOWS.some((w) => w.ms === last.windowMs)
+      ? last.windowMs
+      : LOG_WINDOWS[0].ms;
+  grid.setWindow(keptWin);
   /** @type {LogScheduler|null} */
   let sched = null;
 
@@ -220,6 +229,7 @@ async function showLoggingChassis(chassis) {
     grid.build();
     grid.draw();
     paintSummary();
+    logLastSet(car, { rows: selection.toJSON(), windowMs: grid.windowMs });
   };
 
   // ---- the picker tree ----------------------------------------------------
@@ -337,6 +347,7 @@ async function showLoggingChassis(chassis) {
 
   searchEl.oninput = () => paintTree(searchEl.value);
   paintTree('');
+  if (last) syncCharts(); // the kept readings get their cards back
   paintSummary();
 
   // ---- the controls -------------------------------------------------------
@@ -352,14 +363,15 @@ async function showLoggingChassis(chassis) {
   const winEl = barEl.querySelector('.log-win');
   const presetSel = barEl.querySelector('.log-preset-load');
 
-  LOG_WINDOWS.forEach((w, i) => {
+  LOG_WINDOWS.forEach((w) => {
     const b = document.createElement('button');
-    b.className = 'btn log-win-btn' + (i === 0 ? ' on' : '');
+    b.className = 'btn log-win-btn' + (w.ms === keptWin ? ' on' : '');
     b.textContent = w.label;
     b.onclick = () => {
       grid.setWindow(w.ms);
       [...winEl.children].forEach((c) => c.classList.remove('on'));
       b.classList.add('on');
+      logLastSet(car, { rows: selection.toJSON(), windowMs: w.ms });
     };
     winEl.appendChild(b);
   });

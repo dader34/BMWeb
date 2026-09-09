@@ -10,7 +10,8 @@
  * do not carry those jobs.
  */
 
-/* exported LOG_PRESET_KEY, logPresetsGet, logPresetSave, logPresetDelete */
+/* exported LOG_PRESET_KEY, logPresetsGet, logPresetSave, logPresetDelete,
+   LOG_LAST_KEY, logLastGet, logLastSet */
 
 /** The Settings key the presets live under. @type {string} */
 const LOG_PRESET_KEY = 'loggingPresets';
@@ -66,6 +67,42 @@ function logPresetDelete(chassis, name) {
   Settings.set(LOG_PRESET_KEY, all);
 }
 
+// ---- the selection as it was left ------------------------------------------
+
+/** The Settings key the last-used selection per chassis lives under. */
+const LOG_LAST_KEY = 'loggingLast';
+
+/**
+ * What the logging page for a chassis looked like when it was last left, so
+ * a reload (or coming back later) puts the same readings and window back
+ * without asking for a preset name.
+ * @param {string} chassis - The chassis id.
+ * @returns {{rows: Array<object>, windowMs: number}|null} Null when nothing was kept.
+ */
+function logLastGet(chassis) {
+  const all = Settings.get(LOG_LAST_KEY, {});
+  const v =
+    all && typeof all === 'object' ? all[String(chassis).toUpperCase()] : null;
+  if (!v || typeof v !== 'object' || !Array.isArray(v.rows)) return null;
+  return { rows: v.rows, windowMs: Number(v.windowMs) || 0 };
+}
+
+/**
+ * Keep the page's state for the chassis; an empty selection forgets it.
+ * @param {string} chassis - The chassis id.
+ * @param {{rows: Array<object>, windowMs: number}} state - The selection rows (LogSelection#toJSON) and the chart window.
+ * @returns {void}
+ */
+function logLastSet(chassis, state) {
+  const prev = Settings.get(LOG_LAST_KEY, {});
+  const all = prev && typeof prev === 'object' ? prev : {};
+  const car = String(chassis).toUpperCase();
+  if (state && state.rows && state.rows.length)
+    all[car] = { rows: state.rows, windowMs: state.windowMs || 0 };
+  else delete all[car];
+  Settings.set(LOG_LAST_KEY, all);
+}
+
 // node loads these pieces as modules; the browser gives them one shared scope
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
@@ -73,5 +110,8 @@ if (typeof module !== 'undefined' && module.exports) {
     logPresetsGet,
     logPresetSave,
     logPresetDelete,
+    LOG_LAST_KEY,
+    logLastGet,
+    logLastSet,
   };
 }
