@@ -42,6 +42,7 @@ const APPS_ROUTES = {
     typeof showLogging === 'function' ? showLogging() : null,
   'apps/script': () =>
     typeof showScriptRunner === 'function' ? showScriptRunner() : null,
+  'apps/tree': () => (typeof showEcuTree === 'function' ? showEcuTree() : null),
   'apps/documents': () =>
     typeof showWiringChassis === 'function' ? showWiringChassis() : null,
   // the app's home as an INPA script (screens/ipo-runtime/home.js)
@@ -64,6 +65,7 @@ const ROUTE_FOR_SCREEN = {
   showGarage: 'garage',
   showLogging: 'apps/logging',
   showScriptRunner: 'apps/script',
+  showEcuTree: 'apps/tree',
   showIpoHome: 'inpa',
 };
 
@@ -139,6 +141,14 @@ function resolveRoute(route) {
     const chassis = w[1].toUpperCase();
     const doc = w[2] ? decodeURIComponent(w[2]) : null;
     return () => showWiring(chassis, doc);
+  }
+  // #apps/tree/<CHASSIS>[/<CAR>] -- the control unit tree of a chassis, the
+  // boxes coloured by a saved car's last fault scan when a car id follows
+  const tr = /^apps\/tree\/([A-Za-z0-9]+)(?:\/([A-Za-z0-9_-]+))?$/.exec(route);
+  if (tr && typeof showEcuTreeChassis === 'function') {
+    const chassis = tr[1].toUpperCase();
+    const carId = tr[2] ? decodeURIComponent(tr[2]) : null;
+    return () => showEcuTreeChassis(chassis, carId);
   }
   // #apps/logging/<CHASSIS> -- the logging workspace for one car. The
   // selection itself is not in the URL: it is a preset, saved by name.

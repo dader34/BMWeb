@@ -240,6 +240,10 @@ echo
 echo "== fault-report PDF: one fixed column grid, both render paths agree =="
 node tools/verify/test_fault_report.js || exit 1
 
+echo
+echo "== control unit tree: layout, scan status join, extractor =="
+node tools/verify/test_ecu_tree.js || exit 1
+
 # Table completeness: the VM reaches tables the lifter never modelled, so a
 # shipped set that omits declared tables silently decodes lookups as "".
 # Needs a running app for the ECU table API; skipped otherwise.

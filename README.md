@@ -193,6 +193,7 @@ Flashing is backup (read) only.
 | `#apps`, `#apps/wiring/…`, `#apps/parts/…`, `#apps/tool32`, `#apps/script` | Apps hub routes |
 | `#apps/job-search/<query>` | a job search someone can send as a link |
 | `#apps/logging/<chassis>` | the data-logging workspace for one car |
+| `#apps/tree/<chassis>[/<car>]` | ISTA's control unit tree, coloured by a Garage car's last scan |
 | `#garage`, `#garage/<car>[/<scan>]` | the Garage, a saved car, one of its scans |
 | `#car/<chassis>/<module>[/<menu>[/<screen>]]` | a module's script, landed on a menu and screen |
 

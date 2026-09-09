@@ -9577,3 +9577,153 @@ body.remote-helper::after {
 .result-card.sr-bad {
   border-left-color: var(--red);
 }
+
+/* ---- Control unit tree (screens/tree/) ---- */
+.tree-wrap {
+  display: grid;
+  gap: 12px;
+}
+.tree-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+}
+.tree-bar-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink-dim);
+  font-size: 13px;
+}
+.tree-bar-item select {
+  min-width: 180px;
+}
+.tree-bar-note {
+  color: var(--ink-dim);
+  font-size: 13px;
+}
+.tree-bar-spacer {
+  flex: 1 1 auto;
+}
+.tree-canvas {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  min-height: 160px;
+}
+.tree-scroll {
+  overflow: auto;
+  padding: 8px;
+}
+.tree-svg {
+  display: block;
+  max-width: none;
+  font: 12px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+.tree-bus {
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+.tree-stub {
+  stroke-width: 2;
+}
+.tree-box {
+  cursor: pointer;
+  outline: none;
+}
+.tree-box rect {
+  fill: var(--panel-2);
+  stroke: var(--ink-faint);
+  stroke-width: 1.5;
+}
+.tree-box text {
+  fill: var(--ink);
+  pointer-events: none;
+}
+.tree-box:hover rect,
+.tree-box:focus-visible rect {
+  fill: var(--raised);
+  stroke: var(--ink);
+}
+.tree-box.tree-root rect {
+  stroke: var(--ink-dim);
+  stroke-width: 2;
+}
+.tree-box.tree-ok rect {
+  stroke: var(--green);
+  stroke-width: 2;
+}
+.tree-box.tree-faults rect {
+  stroke: var(--amber);
+  stroke-width: 2;
+}
+.tree-box.tree-silent rect {
+  stroke: var(--red);
+  stroke-width: 2;
+  stroke-dasharray: 4 3;
+}
+.tree-box.tree-unread text {
+  fill: var(--ink-dim);
+}
+.tree-badge {
+  fill: var(--amber);
+}
+.tree-badge-n {
+  fill: var(--amber-ink) !important;
+  font-size: 9px;
+  font-weight: 700;
+}
+.tree-legend {
+  display: grid;
+  gap: 6px;
+  padding: 8px 14px;
+  color: var(--ink-dim);
+  font-size: 12px;
+}
+.tree-leg-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+.tree-leg-bus,
+.tree-leg-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.tree-leg-bus i {
+  display: inline-block;
+  width: 22px;
+  height: 3px;
+  border-radius: 2px;
+}
+.tree-leg-state b {
+  display: inline-block;
+  width: 14px;
+  height: 10px;
+  border-radius: 2px;
+  border: 2px solid var(--ink-faint);
+  background: var(--panel-2);
+}
+.tree-leg-state b.tree-ok {
+  border-color: var(--green);
+}
+.tree-leg-state b.tree-faults {
+  border-color: var(--amber);
+}
+.tree-leg-state b.tree-silent {
+  border-color: var(--red);
+  border-style: dashed;
+}
+@media print {
+  .tree-bar,
+  .tree-scroll {
+    overflow: visible;
+  }
+}
+

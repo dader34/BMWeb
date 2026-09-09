@@ -61,6 +61,20 @@ const APP_REGISTRY = [
       (await searchIndexPresent()),
   },
   {
+    id: 'tree',
+    icon: '⌗',
+    title: 'Control unit tree',
+    desc: "ISTA's bus map of every module, coloured by the last fault scan",
+    tag: 'ISTA',
+    open: () => (typeof showEcuTree === 'function' ? showEcuTree() : null),
+    // the trees are an ISTA extract hosted beside the ETK data; the card
+    // greys when neither a local copy nor the dataset answers
+    hasData: async () =>
+      typeof showEcuTree === 'function' &&
+      typeof ecuTreeIndexPresent === 'function' &&
+      (await ecuTreeIndexPresent()),
+  },
+  {
     id: 'wiring',
     icon: '⌁',
     title: 'Wiring & Documents',
