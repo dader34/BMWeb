@@ -35,6 +35,7 @@ sys.path.insert(0, os.path.dirname(HERE))                    # tools/, for _cli
 import ecu_tree as T                                          # noqa: E402
 from _cli import parse_args                                   # noqa: E402
 from search_index import build_index                          # noqa: E402
+from service_functions import build as build_service_functions  # noqa: E402
 
 
 def _ecu_src_sgbds():
@@ -599,6 +600,18 @@ def main():
         problems.append(
             "search-index.json.gz is empty: data/chassis holds no readable "
             "screens.json (run tools/export/build_ecu_tree.py first)")
+
+    # 8. The service-function mapping: our curated task catalogue resolved
+    #    against the same tree, so the Service functions app knows where each
+    #    task lives on each car without scanning archives in the browser.
+    #    Same reasoning as the search index, and the same failure mode --
+    #    a task list that resolves nothing is worse than no app card, so an
+    #    empty result is a problem rather than a silent pass.
+    n_service, _pairs = build_service_functions(out)
+    if not n_service:
+        problems.append(
+            "service-functions.chassis.json resolved no chassis: data/chassis "
+            "holds no readable screens.json (run build_ecu_tree.py first)")
 
     total_size = sum(
         os.path.getsize(os.path.join(dirpath, filename))

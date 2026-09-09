@@ -192,7 +192,10 @@
   left: 0;
   right: 0;
   z-index: 40;
-  min-width: 300px;
+  /* the min-width gives the rich rows (label + meta + count) room to line up,
+     but it must never win against a narrow viewport: on a phone the row is
+     narrower than 300px and a hard minimum would clip the search box */
+  min-width: min(300px, calc(100vw - 24px));
   max-width: 420px;
   border: 1px solid var(--line-bright);
   border-radius: 6px;
@@ -207,12 +210,26 @@
 .lkd-pop[hidden] {
   display: none;
 }
-/* the popup is wider than its button (min-width above), so the rightmost
-   filter's would hang past the page edge and scroll it sideways: that one
-   grows leftward from its right edge instead */
-.lookup-filter:last-child .lkd-pop {
+/* The popup is wider than its button (min-width above), so one near the right
+   edge of the page would hang past it and scroll the page sideways; that one
+   grows leftward from its right edge instead.
+
+   WHICH EDGE IS DECIDED BY MEASUREMENT, in ui/dropdown.js, which sets
+   .drop-right when the popup would actually overflow. It used to be a CSS
+   rule keyed on :last-child, and that was wrong in both directions: a row
+   with ONE filter matches :last-child, but a lone filter sits at the LEFT of
+   the page when nothing pushes it (Service functions has no search box), so
+   right-anchoring hung 300px of popup off the left of the viewport. The same
+   filter sits at the RIGHT on Job search, where the search box does push it.
+   Position in the markup cannot tell those apart; the measured box can. */
+.lkd.drop-right .lkd-pop {
   left: auto;
   right: 0;
+}
+/* Whatever the anchor, the popup must not exceed the viewport: a narrow
+   window would otherwise clip the search box and the chassis column. */
+.lkd-pop {
+  max-width: min(420px, calc(100vw - 24px));
 }
 .lkd.drop-up .lkd-pop {
   top: auto;

@@ -197,6 +197,10 @@ echo "== Coding selection: SGET predicates pick the module and its coding file =
 node tools/verify/test_coding_select.js || exit 1
 
 echo
+echo "== service functions: the catalogue, its per-chassis resolution, the app =="
+node tools/verify/test_service_functions.js || exit 1
+
+echo
 echo "== live .IPO runtime: entry, keys, screens, machines, scriptchange =="
 node tools/verify/test_ipo_runtime.js || exit 1
 

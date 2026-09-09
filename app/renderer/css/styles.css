@@ -9726,4 +9726,176 @@ body.remote-helper::after {
     overflow: visible;
   }
 }
-
+/* ---- Service functions (screens/service/) --------------------------------
+   The task catalogue: each row is a named service function, what it does to
+   the car, what to check first, and where INPA keeps it on the chosen
+   vehicle. Rows are cards rather than list lines because a task carries
+   several lines of prose that a one-line row cannot hold, and the
+   preconditions are the part a workshop actually reads. */
+.service-body {
+  display: grid;
+  gap: 14px;
+}
+.service-group {
+  display: grid;
+  gap: 8px;
+}
+.service-group-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--line);
+}
+.service-group-name {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+.service-group-count {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ink-faint);
+}
+.service-list {
+  display: grid;
+  gap: 8px;
+}
+.service-row {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--panel);
+}
+/* a task this car does not carry: still listed, so "it is not here" is an
+   answer the screen gives rather than a gap the reader has to notice */
+.service-row-absent {
+  opacity: 0.55;
+  background: transparent;
+  border-style: dashed;
+}
+/* the row a deep link named, so a sent procedure is findable on arrival */
+.service-row-target {
+  border-color: var(--amber);
+}
+.service-row-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.service-row-name {
+  font-size: 13.5px;
+  color: var(--ink);
+}
+.service-tag-read {
+  background: var(--raised);
+  color: var(--ink-dim);
+}
+.service-row-what {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink-dim);
+}
+.service-row-before,
+.service-row-after {
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--ink-dim);
+}
+.service-row-before ul {
+  margin: 2px 0 0 0;
+  padding-left: 18px;
+}
+.service-row-lbl {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+/* where the function lives: the module, its script, the key, and the button
+   that opens it there */
+.service-row-where {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 2px;
+  padding-top: 8px;
+  border-top: 1px dotted var(--line);
+}
+.service-row-hit {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.service-row-mod {
+  font-size: 12px;
+  color: var(--ink);
+}
+.service-row-sgbd,
+.service-row-job {
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: var(--raised);
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--cyan);
+}
+.service-row-key {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--ink-faint);
+}
+.service-row-caption {
+  font-size: 11.5px;
+  color: var(--ink-dim);
+}
+.service-row-none {
+  font-size: 11.5px;
+  color: var(--ink-faint);
+}
+.service-run {
+  flex: none;
+}
+/* the other modules that answer the same task on this car (several engines
+   on one chassis, say) */
+.service-row-alts {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex: 1 1 100%;
+}
+.service-alt {
+  padding: 2px 7px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: var(--panel-2);
+  color: var(--ink-dim);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+.service-alt:hover {
+  border-color: var(--amber);
+  color: var(--ink);
+}
+/* Mobile: the key facts stack rather than wrap into ragged columns, and the
+   open button spans so it is a comfortable touch target. */
+@media (max-width: 640px) {
+  .service-row-where {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .service-run {
+    width: 100%;
+  }
+}

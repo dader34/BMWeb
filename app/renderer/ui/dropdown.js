@@ -183,6 +183,27 @@ function makeDropdown(opts) {
           up = below < need && r.top > below;
           root.classList.toggle('drop-up', up);
         }
+        // WHICH EDGE THE POPUP HANGS FROM is measured, not assumed. The
+        // popup is wider than its button, so one anchored under the button's
+        // left edge can overflow the right of the viewport, and one anchored
+        // to its right edge can overflow the left. Which of those applies
+        // depends on where the button ended up -- and that is a layout
+        // outcome, not a fact about the markup: .lookup-controls is a flex
+        // row whose search box grows, so the same filter sits at the RIGHT
+        // on Job search (which has a search box) and at the LEFT on Service
+        // functions (which does not). A CSS rule keyed on child position got
+        // this wrong in both directions, so it is decided here, from the
+        // measured box: prefer the left anchor, and switch to the right one
+        // only when the popup would actually run past the viewport and there
+        // is room on the other side.
+        const popW = menu.offsetWidth;
+        const MARGIN = 8;
+        const overflowsRight = r.left + popW > window.innerWidth - MARGIN;
+        const fitsLeftAnchored = r.right - popW >= MARGIN;
+        root.classList.toggle(
+          'drop-right',
+          overflowsRight && fitsLeftAnchored
+        );
         if (o.clampToBar) {
           const bar = document.querySelector(o.clampToBar);
           const floor = bar
@@ -210,7 +231,7 @@ function makeDropdown(opts) {
 
   function close() {
     menu.hidden = true;
-    root.classList.remove('open', 'drop-up');
+    root.classList.remove('open', 'drop-up', 'drop-right');
     if (outside) {
       document.removeEventListener(closeEvent, outside, capture);
       outside = null;

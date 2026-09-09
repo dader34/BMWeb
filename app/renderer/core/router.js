@@ -43,6 +43,8 @@ const APPS_ROUTES = {
   'apps/script': () =>
     typeof showScriptRunner === 'function' ? showScriptRunner() : null,
   'apps/tree': () => (typeof showEcuTree === 'function' ? showEcuTree() : null),
+  'apps/service': () =>
+    typeof showService === 'function' ? showService() : null,
   'apps/documents': () =>
     typeof showWiringChassis === 'function' ? showWiringChassis() : null,
   // the app's home as an INPA script (screens/ipo-runtime/home.js)
@@ -66,6 +68,7 @@ const ROUTE_FOR_SCREEN = {
   showLogging: 'apps/logging',
   showScriptRunner: 'apps/script',
   showEcuTree: 'apps/tree',
+  showService: 'apps/service',
   showIpoHome: 'inpa',
 };
 
@@ -134,6 +137,18 @@ function resolveRoute(route) {
   if (js && typeof showJobSearch === 'function') {
     const q = decodeURIComponent(js[1]);
     return () => showJobSearch(q);
+  }
+  // #apps/service/<CHASSIS>[/<TASK>] -- the service functions for one car,
+  // and optionally one task on it, so a specific procedure is a link someone
+  // can send. The task id is our own (lws-calibration), so it is matched as
+  // the slug it is rather than upper-cased the way a chassis is.
+  const sv = /^apps\/service\/([A-Za-z0-9]+)(?:\/([A-Za-z0-9_-]+))?$/.exec(
+    route
+  );
+  if (sv && typeof showService === 'function') {
+    const chassis = sv[1].toUpperCase();
+    const task = sv[2] ? decodeURIComponent(sv[2]) : null;
+    return () => showService(chassis, task);
   }
   // #apps/wiring/<CHASSIS>[/<DOC>]
   const w = /^apps\/wiring\/([A-Za-z0-9]+)(?:\/([A-Za-z0-9_-]+))?$/.exec(route);
@@ -430,6 +445,34 @@ function routeSetJobSearch(q) {
   }
 }
 
+// The Service functions app writes its chosen vehicle back into the hash, so
+// a car's task list is a link someone can send. replaceState: picking a car
+// from the dropdown must not stack a history entry, and Back should leave the
+// app rather than step backwards through every car looked at.
+/**
+ * Set the hash to a Service functions vehicle: #apps/service[/<CHASSIS>].
+ * @param {string|null} chassis - the chassis id; empty clears it to the bare route
+ * @returns {void}
+ */
+function routeSetService(chassis) {
+  if (_routing) return;
+  const cid = String(chassis || '')
+    .trim()
+    .toUpperCase();
+  const route = cid ? `apps/service/${cid}` : 'apps/service';
+  if (currentRoute() === route) {
+    _openRoute = route;
+    return;
+  }
+  _routing = true;
+  try {
+    history.replaceState(null, '', '#' + route);
+    _openRoute = route;
+  } finally {
+    _routing = false;
+  }
+}
+
 // Called by the wiring viewer when a specific document opens, so the URL
 // becomes a shareable deep link (#apps/wiring/<CHASSIS>/<DOC>). replaceState,
 // not a hash push: browsing diagram-to-diagram shouldn't stack history, and
@@ -531,4 +574,5 @@ if (typeof window !== 'undefined') {
   window.routeSetCarList = routeSetCarList;
   window.garageRouteSet = garageRouteSet;
   window.routeSetJobSearch = routeSetJobSearch;
+  window.routeSetService = routeSetService;
 }
