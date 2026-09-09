@@ -757,7 +757,7 @@ function faultReport(sgbd, codes, silent) {
   assert.strictEqual(G.garageEnvSummary(before, before).recurred, false);
   ok('an untouched fault has not recurred');
 
-  // and the diff marks it, without moving it out of "still present"
+  // but the diff does NOT mark it: a fault in both reads is unchanged
   const mk = (c) => ({
     report: {
       kind: 'faults',
@@ -768,12 +768,12 @@ function faultReport(sgbd, codes, silent) {
   const d = G.garageDiffScans(mk(before), mk(again));
   const m = d.modules[0];
   assert.strictEqual(m.same.length, 1, 'it is still stored');
-  assert.strictEqual(m.recurred.length, 1, 'and it is marked as logged again');
+  assert.strictEqual(m.recurred.length, 0, 'a higher count is not a change');
   assert.strictEqual(m.added.length, 0);
   assert.strictEqual(m.cleared.length, 0);
-  assert.ok(m.changed, 'a recurrence is a change worth showing');
-  assert.strictEqual(G.garageDiffCounts(d).recurred, 1);
-  ok('the diff reports a recurrence without calling it new');
+  assert.ok(!m.changed, 'nothing to show for it');
+  assert.strictEqual(G.garageDiffCounts(d).recurred, 0);
+  ok('a fault in both reads is unchanged whatever its counter did');
 }
 
 // ---- a decoded VIN becomes a garage entry ----------------------------------

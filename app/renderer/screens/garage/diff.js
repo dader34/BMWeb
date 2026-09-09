@@ -34,8 +34,9 @@
  * @property {object[]} added - faults only the newer scan has
  * @property {object[]} cleared - faults only the older scan has
  * @property {object[]} same - faults in both
- * @property {object[]} recurred - of those, the ones logged again since (a
- *   higher occurrence count, or a different freeze frame)
+ * @property {object[]} recurred - always empty now: a fault in both reads
+ *   is unchanged whatever its counter or freeze frame did (kept so the
+ *   screen and print paths need no shape change)
  * @property {GarageDiffField[]} fields - ident fields whose value changed
  * @property {boolean} [unread] - the newer read has no record of the module: nothing cleared, nothing known
  * @property {boolean} changed - anything at all differs
@@ -247,9 +248,10 @@ function garageDiffScans(from, to) {
     const added = [];
     const cleared = [];
     const same = [];
-    // a fault present in both is unchanged unless its freeze frame moved: a
-    // new occurrence count, or different values captured, means the module
-    // logged it again since the last read
+    // a fault present in both reads is unchanged, full stop: the occurrence
+    // counter and the freeze frame are not consulted (the DME keeps the
+    // frame from the first occurrence and bumps the counter on its own, and
+    // neither is a change the owner did anything about)
     const recurred = [];
     const matched = new Set(); // the older read's entries that found a partner
     for (const c of (b && b.codes) || []) {
@@ -261,10 +263,6 @@ function garageDiffScans(from, to) {
       }
       matched.add(old);
       same.push(c);
-      if (typeof garageEnvSummary === 'function') {
-        const s = garageEnvSummary(old, c);
-        if (s.recurred) recurred.push(c);
-      }
     }
     for (const c of (a && a.codes) || [])
       if (garageFaultKeys(c).length && !matched.has(c)) cleared.push(c);
