@@ -35,6 +35,16 @@ const APPS_STAGGER = 20;
 /** @type {AppEntry[]} */
 const APP_REGISTRY = [
   {
+    id: 'garage',
+    icon: '⌂',
+    title: 'Garage',
+    desc: 'Your saved cars, the scans read from each, and what changed between them',
+    tag: 'VIN',
+    open: () => (typeof showGarage === 'function' ? showGarage() : null),
+    // no data bundle: the cars live in this browser's storage
+    hasData: async () => typeof showGarage === 'function',
+  },
+  {
     id: 'lookup',
     icon: '⌕',
     title: 'Diagnostic Plans and Trouble Codes',

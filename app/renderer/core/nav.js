@@ -63,6 +63,7 @@ async function showChassis() {
         <div class="inpa-vlist">${main.map((id, i) => fnRow(i + 1, id, `${dispChassis(id)}${CHASSIS_TAG[id] ? ` · ${CHASSIS_TAG[id]}` : ''}`)).join('')}</div>
         <div class="inpa-vlist inpa-vlist-right">
           ${old.length ? `<button class="inpa-fn inpa-fn-more" id="vsel-old"><span class="inpa-fn-key">&lt; F9 &gt;</span><span class="inpa-fn-label">Other models …</span></button>` : ''}
+          <button class="inpa-fn inpa-fn-lookup" id="vsel-garage"><span class="inpa-fn-key">⌂</span><span class="inpa-fn-label">Garage …</span></button>
           <button class="inpa-fn inpa-fn-lookup" id="vsel-apps"><span class="inpa-fn-key">▦</span><span class="inpa-fn-label">Apps …</span></button>
         </div>
       </div>`;
@@ -76,6 +77,12 @@ async function showChassis() {
     const oldBtn = panel.querySelector('#vsel-old');
     if (oldBtn) oldBtn.onclick = () => showOtherModels(old);
     panel.querySelector('#vsel-apps').onclick = () => showApps();
+    // the Garage sits beside Apps here so the INPA layout reaches it too:
+    // the modern layout draws it as a card above the chassis grid
+    const garageBtn = panel.querySelector('#vsel-garage');
+    if (typeof showGarage === 'function')
+      garageBtn.onclick = () => showGarage();
+    else garageBtn.remove();
     sbRight.textContent = `${main.length} common · ${old.length} more`;
     syncVselState();
     const acts = main.slice(0, 8).map((id, i) => ({
