@@ -47,9 +47,12 @@ global.sbLeft = { textContent: '' };
 global.esc = (s) => String(s == null ? '' : s);
 global.irLabel = (s) => s;
 global.lang = () => 'en';
-require('vm').runInThisContext(fs.readFileSync(R('core/translate.js'), 'utf8'), {
-  filename: R('core/translate.js'),
-});
+require('vm').runInThisContext(
+  fs.readFileSync(R('core/translate.js'), 'utf8'),
+  {
+    filename: R('core/translate.js'),
+  }
+);
 global.window.BMW_ENV_TEXT = {};
 global.BMW_FAULT_PHRASES = {};
 global.BMW_FAULT_DB = {};
@@ -59,7 +62,10 @@ global.location = { search: '' };
 global.Settings = { get: (k, d) => d };
 global.markEnergized = () => {};
 global.registerMenuLeave = () => {};
-const isSystemSet = (s) => s && typeof s === 'object' && ('SAETZE' in s || 'JOBNAME' in s || 'OBJECT' in s);
+const isSystemSet = (s) =>
+  s &&
+  typeof s === 'object' &&
+  ('SAETZE' in s || 'JOBNAME' in s || 'OBJECT' in s);
 global.dataSets = (sets) => {
   const list = sets || [];
   return list.length && isSystemSet(list[0]) ? list.slice(1) : list;
@@ -89,7 +95,8 @@ function ipoPath(stem) {
 function includeFiles() {
   const files = {};
   for (const f of fs.readdirSync(SGDAT)) {
-    if (/\.(h|src)$/i.test(f)) files[f] = fs.readFileSync(path.join(SGDAT, f), 'latin1');
+    if (/\.(h|src)$/i.test(f))
+      files[f] = fs.readFileSync(path.join(SGDAT, f), 'latin1');
   }
   return files;
 }
@@ -97,12 +104,16 @@ function includeFiles() {
 /** The decompiled source of one .IPO, or null when python3 cannot run. */
 function decompile(stem) {
   try {
-    return execFileSync('python3', [path.join(ROOT, 'tools', 'decompile', 'ipo_source.py'), stem], {
-      cwd: ROOT,
-      encoding: 'utf8',
-      maxBuffer: 64 * 1024 * 1024,
-      stdio: ['ignore', 'pipe', 'ignore'],
-    });
+    return execFileSync(
+      'python3',
+      [path.join(ROOT, 'tools', 'decompile', 'ipo_source.py'), stem],
+      {
+        cwd: ROOT,
+        encoding: 'utf8',
+        maxBuffer: 64 * 1024 * 1024,
+        stdio: ['ignore', 'pipe', 'ignore'],
+      }
+    );
   } catch (e) {
     return null;
   }
@@ -168,7 +179,9 @@ function recordingUi() {
 async function drive(exec, sgbd) {
   const sent = [];
   global.api = async (url) => {
-    const m = String(url).match(/^\/api\/ecu\/([^/]+)\/run\/([^?]+)(?:\?arg=(.*))?$/);
+    const m = String(url).match(
+      /^\/api\/ecu\/([^/]+)\/run\/([^?]+)(?:\?arg=(.*))?$/
+    );
     if (!m) throw new Error(`unexpected api ${url}`);
     const job = decodeURIComponent(m[2]);
     const arg = m[3] != null ? decodeURIComponent(m[3]) : null;
@@ -241,9 +254,13 @@ const MAIN = [
   for (const [stem, sgbd] of MAIN) {
     const src = decompile(stem);
     assert.ok(src, `${stem}: could not decompile`);
-    const original = F.ipofDecodeExec(new Uint8Array(fs.readFileSync(ipoPath(stem))), stem);
+    const original = F.ipofDecodeExec(
+      new Uint8Array(fs.readFileSync(ipoPath(stem))),
+      stem
+    );
     const imports = [];
-    for (const k of Object.keys(original.imports)) imports[Number(k)] = original.imports[k];
+    for (const k of Object.keys(original.imports))
+      imports[Number(k)] = original.imports[k];
 
     const r = F.ipofCompileSource(src, { name: stem, files: FILES, imports });
     assert.deepStrictEqual(
@@ -256,14 +273,38 @@ const MAIN = [
 
     const a = await drive(original, sgbd);
     const b = await drive(r.exec, sgbd);
-    assert.strictEqual(b.ok, a.ok, `${stem}: one program started and the other did not`);
-    assert.deepStrictEqual(b.jobs, a.jobs, `${stem}: the jobs sent to the car differ`);
+    assert.strictEqual(
+      b.ok,
+      a.ok,
+      `${stem}: one program started and the other did not`
+    );
+    assert.deepStrictEqual(
+      b.jobs,
+      a.jobs,
+      `${stem}: the jobs sent to the car differ`
+    );
     assert.deepStrictEqual(b.keys, a.keys, `${stem}: the menu keys differ`);
-    assert.deepStrictEqual(b.titles, a.titles, `${stem}: the screen titles differ`);
-    assert.deepStrictEqual(b.lines, a.lines, `${stem}: the screen lines differ`);
-    assert.deepStrictEqual(b.messages, a.messages, `${stem}: the messages differ`);
+    assert.deepStrictEqual(
+      b.titles,
+      a.titles,
+      `${stem}: the screen titles differ`
+    );
+    assert.deepStrictEqual(
+      b.lines,
+      a.lines,
+      `${stem}: the screen lines differ`
+    );
+    assert.deepStrictEqual(
+      b.messages,
+      a.messages,
+      `${stem}: the messages differ`
+    );
     assert.strictEqual(b.menu, a.menu, `${stem}: a different root menu opened`);
-    assert.strictEqual(b.screen, a.screen, `${stem}: a different root screen opened`);
+    assert.strictEqual(
+      b.screen,
+      a.screen,
+      `${stem}: a different root screen opened`
+    );
     ok(`${stem}: the compiled script drives the car identically`);
   }
 
@@ -286,11 +327,16 @@ const MAIN = [
 
   // ---- 3. a builtin with no number is a compile error naming the line ------
   {
-    const r = F.ipofCompileSource('m()\n{\n  no_such_builtin(1);\n}\n', { name: 't' });
+    const r = F.ipofCompileSource('m()\n{\n  no_such_builtin(1);\n}\n', {
+      name: 't',
+    });
     assert.strictEqual(r.ok, false, 'an unnumbered builtin compiled');
     assert.strictEqual(r.errors.length, 1, 'one error');
     assert.strictEqual(r.errors[0].line, 3, 'the error names the line');
-    assert.ok(/no_such_builtin/.test(r.errors[0].text), 'the error names the call');
+    assert.ok(
+      /no_such_builtin/.test(r.errors[0].text),
+      'the error names the call'
+    );
     ok('an uncompilable builtin names its line');
   }
 
@@ -298,7 +344,11 @@ const MAIN = [
   {
     const r = F.ipofCompileSource('m()\n{\n  if (1 {\n}\n', { name: 't' });
     assert.strictEqual(r.ok, false, 'broken source compiled');
-    assert.strictEqual(r.errors[0].line, 3, `the error names the line (got ${r.errors[0].line})`);
+    assert.strictEqual(
+      r.errors[0].line,
+      3,
+      `the error names the line (got ${r.errors[0].line})`
+    );
     ok('a syntax error names its line');
   }
 
@@ -351,7 +401,11 @@ const MAIN = [
       '}',
     ].join('\n');
     const r = F.ipofCompileSource(src, { name: 'flow' });
-    assert.deepStrictEqual(r.errors.map((e) => e.text), [], 'the flow script compiled');
+    assert.deepStrictEqual(
+      r.errors.map((e) => e.text),
+      [],
+      'the flow script compiled'
+    );
     const toks = r.exec.procs.m_main;
     const at = new Set(toks.map((t) => t.at));
     at.add(toks[toks.length - 1].at + 4);
@@ -369,8 +423,16 @@ const MAIN = [
     ok('if / else / while emit resolvable jumps in both directions');
 
     const out = await drive(r.exec, 'flow');
-    assert.strictEqual(out.ok, true, `the compiled flow script did not start: ${out.error || ''}`);
-    assert.deepStrictEqual(out.keys, ['1:Go'], `the menu item is the one INIT enabled: ${out.keys}`);
+    assert.strictEqual(
+      out.ok,
+      true,
+      `the compiled flow script did not start: ${out.error || ''}`
+    );
+    assert.deepStrictEqual(
+      out.keys,
+      ['1:Go'],
+      `the menu item is the one INIT enabled: ${out.keys}`
+    );
     assert.ok(
       out.titles.length > 0,
       `the screen painted with a title: ${JSON.stringify(out.titles)}`
@@ -410,8 +472,12 @@ const MAIN = [
       tried += 1;
       let imports = [];
       try {
-        const dec = F.ipofDecodeExec(new Uint8Array(fs.readFileSync(ipoPath(stem))), stem);
-        for (const k of Object.keys(dec.imports)) imports[Number(k)] = dec.imports[k];
+        const dec = F.ipofDecodeExec(
+          new Uint8Array(fs.readFileSync(ipoPath(stem))),
+          stem
+        );
+        for (const k of Object.keys(dec.imports))
+          imports[Number(k)] = dec.imports[k];
       } catch (e) {
         imports = [];
       }
@@ -425,7 +491,8 @@ const MAIN = [
       else if (decompilerLostSomething(src)) lossy += 1;
       else {
         failed += 1;
-        if (examples.length < 6) examples.push(`${stem}: ${(r.errors[0] || {}).text}`);
+        if (examples.length < 6)
+          examples.push(`${stem}: ${(r.errors[0] || {}).text}`);
       }
     }
     console.log(
