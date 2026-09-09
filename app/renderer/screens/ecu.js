@@ -198,10 +198,19 @@ async function showEcuDeep(chassisId, sgbd, menuName, screenName) {
  * @param {string} sectionName - The config section the module sits in.
  * @param {EcuRecord} ecu - The module (mutated: chassis, variant, IR).
  * @param {string|null} [openMenu] - A menu a deep link descends into once the script is up.
- * @param {string|null} [openScreen] - The screen to show on that menu (a search result).
+ * @param {string|null} [openScreen] - The screen to show on that menu.
+ * @param {RegExp|string|null} [pressKey] - A read key to press on arrival, by its caption.
  * @returns {Promise<void>}
  */
-async function showEcu(chassisId, sectionName, ecu, openMenu, openScreen) {
+async function showEcu(
+  chassisId,
+  sectionName,
+  ecu,
+  openMenu,
+  openScreen,
+  pressKey
+) {
+  // coming back to this screen lands where it landed; it does not press again
   lastScreen = () => showEcu(chassisId, sectionName, ecu, openMenu, openScreen);
   // the ECU object comes from the chassis config and doesn't know which chassis
   // it came from; screens that build links/reports off it need that
@@ -267,7 +276,7 @@ async function showEcu(chassisId, sectionName, ecu, openMenu, openScreen) {
   const back = () => backToModules(chassisId);
   const took =
     typeof ipoProgramOpen === 'function' &&
-    (await ipoProgramOpen(ecu, grid, back, openMenu, openScreen));
+    (await ipoProgramOpen(ecu, grid, back, openMenu, openScreen, pressKey));
   if (took) return;
 
   // No runnable script. Only reachable for the handful of ECUs BMW itself

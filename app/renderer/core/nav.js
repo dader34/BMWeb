@@ -455,10 +455,11 @@ async function vehicleScriptShipped(chassisId) {
  * each group to the module on the wire.
  * @param {string} chassisId - Chassis id.
  * @param {string|null} [openMenu] - a menu to open (a deep link)
- * @param {string|null} [openScreen] - the screen to show on it (a search result)
+ * @param {string|null} [openScreen] - the screen to show on it
+ * @param {RegExp|string|null} [pressKey] - a read key to press on arrival, by caption
  * @returns {Promise<void>}
  */
-function showVehicleScript(chassisId, openMenu, openScreen) {
+function showVehicleScript(chassisId, openMenu, openScreen, pressKey) {
   const id = String(chassisId);
   return showEcu(
     id,
@@ -471,7 +472,8 @@ function showVehicleScript(chassisId, openMenu, openScreen) {
       kind: 'vehicle',
     },
     openMenu || null,
-    openScreen || null
+    openScreen || null,
+    pressKey || null
   );
 }
 

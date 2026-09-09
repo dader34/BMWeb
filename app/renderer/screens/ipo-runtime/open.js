@@ -128,6 +128,7 @@ async function ipoLoadKnownSgbds(ecu) {
  * @param {() => void} back - leave the module view
  * @param {string|null} [openMenu] - a menu to open (a deep link)
  * @param {string|null} [openScreen] - the screen to show on that menu
+ * @param {RegExp|string|null} [pressKey] - a read key to press on arrival, by its caption
  * @returns {Promise<boolean>}
  */
 /** The shipped group -> identifiable variants map, fetched once. */
@@ -209,7 +210,14 @@ async function ipoResolveScriptEcu(ecu, script, exec) {
   };
 }
 
-async function ipoProgramOpen(ecu, container, back, openMenu, openScreen) {
+async function ipoProgramOpen(
+  ecu,
+  container,
+  back,
+  openMenu,
+  openScreen,
+  pressKey
+) {
   if (typeof IpoVm === 'undefined' || typeof FeedHost === 'undefined')
     return false;
   if (ipoRemoteDriving()) {
@@ -304,6 +312,24 @@ async function ipoProgramOpen(ecu, container, back, openMenu, openScreen) {
   // weakening that rule for every other caller.
   if (wantScreen && wantScreen !== program.screen) {
     await program.showScreen(wantScreen, false);
+  }
+  // A deep link lands; it does not press. The one exception is a caller
+  // asking for a named READ key by its caption (the Garage's Fault scan /
+  // Identification buttons): that key is pressed for the user exactly as
+  // their own press would be, so a key that writes still goes through the
+  // runtime's confirmation.
+  if (pressKey) {
+    const re =
+      pressKey instanceof RegExp
+        ? pressKey
+        : new RegExp(
+            `^${String(pressKey).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`,
+            'i'
+          );
+    const it = (program.items || []).find((x) =>
+      re.test(String(x.label || '').trim())
+    );
+    if (it) program.press(it.nr).catch(() => {});
   }
   return true;
 }

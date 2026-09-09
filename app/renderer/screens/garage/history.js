@@ -114,11 +114,17 @@ async function showGarageCar(carId) {
   const rowsEl = wrap.querySelector('.quick-rows');
   view.appendChild(wrap);
 
-  if (scans.length > 1) {
+  // a fault scan compares with the fault scan before it, an identification
+  // read with the one before it; the button names which pair it offers
+  const pair = garageScanPair(scans);
+  if (pair) {
     const btn = document.createElement('button');
     btn.className = 'btn';
-    btn.textContent = 'Compare latest two';
-    btn.onclick = () => showGarageDiff(carId, scans[1].id, scans[0].id);
+    btn.textContent =
+      pair.to.kind === 'ident'
+        ? 'Compare latest identifications'
+        : 'Compare latest fault scans';
+    btn.onclick = () => showGarageDiff(carId, pair.from.id, pair.to.id);
     wrap.querySelector('.quick-bar-btns').appendChild(btn);
   }
 
@@ -160,11 +166,11 @@ async function showGarageCar(carId) {
       fn: () => showGarageScan(carId, scans[0].id),
     },
   ];
-  if (scans.length > 1)
+  if (pair)
     acts.push({
       key: '2',
       label: 'Compare',
-      fn: () => showGarageDiff(carId, scans[1].id, scans[0].id),
+      fn: () => showGarageDiff(carId, pair.from.id, pair.to.id),
     });
   if (run) acts.push(...garageRunActions(car, acts.length));
   acts.push(garageBackAction(showGarage));
@@ -176,12 +182,20 @@ async function showGarageCar(carId) {
  * @param {GarageCar} car - the car
  * @param {string|null} menu - the script menu to open (m_fs for faults; the
  *   main menu carries the Identification key)
+ * @param {RegExp} pressKey - the read key to press once the menu is up, by
+ *   its caption, so the scan starts without a second press
  * @returns {void}
  */
-function garageRunScan(car, menu) {
+function garageRunScan(car, menu, pressKey) {
   garageScanFor(car.id);
-  showVehicleScript(car.chassis, menu);
+  showVehicleScript(car.chassis, menu, null, pressKey);
 }
+
+/** The fault-memory read key of INPA's whole-vehicle scripts, by caption. */
+const GARAGE_FAULT_KEY = /^(Fehlerspeicher lesen|Read fault memory)$/i;
+
+/** The identification key on those scripts' main menu, by caption. */
+const GARAGE_IDENT_KEY = /^(Identifikation|Identification)$/i;
 
 /**
  * The "run a scan" row on a car's page: Fault scan and Identification, where
@@ -210,9 +224,9 @@ async function garageRunBox(car) {
     <button type="button" class="btn garage-run-faults">Fault scan</button>
     <button type="button" class="btn garage-run-ident">Identification</button>`;
   box.querySelector('.garage-run-faults').onclick = () =>
-    garageRunScan(car, IPO_VEHICLE_FAULT_MENU);
+    garageRunScan(car, IPO_VEHICLE_FAULT_MENU, GARAGE_FAULT_KEY);
   box.querySelector('.garage-run-ident').onclick = () =>
-    garageRunScan(car, null);
+    garageRunScan(car, null, GARAGE_IDENT_KEY);
   return box;
 }
 
@@ -227,12 +241,12 @@ function garageRunActions(car, from) {
     {
       key: String(from + 1),
       label: 'Fault scan',
-      fn: () => garageRunScan(car, IPO_VEHICLE_FAULT_MENU),
+      fn: () => garageRunScan(car, IPO_VEHICLE_FAULT_MENU, GARAGE_FAULT_KEY),
     },
     {
       key: String(from + 2),
       label: 'Identification',
-      fn: () => garageRunScan(car, null),
+      fn: () => garageRunScan(car, null, GARAGE_IDENT_KEY),
     },
   ];
 }
@@ -296,8 +310,7 @@ async function showGarageScan(carId, scanId) {
     });
 
   const scans = garageScans(carId);
-  const i = scans.findIndex((s) => s.id === scanId);
-  const prev = i >= 0 ? scans[i + 1] : null; // the list is newest first
+  const prev = garagePrevSameKind(scans, scanId); // like with like only
   const acts = [];
   if (prev)
     acts.push({
