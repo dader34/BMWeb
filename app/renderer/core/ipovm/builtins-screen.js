@@ -129,6 +129,56 @@ function bUserboxTextout(vm, stack) {
   bTextout(vm, stack);
 }
 
+/**
+ * A screen area the body blanks: recorded for the runtime, and every
+ * element this cycle already printed inside it goes.
+ * @param {Best2Vm} vm
+ * @param {{row: number, col: number, h: number, w: number}} rect
+ */
+function ipoClearRect(vm, rect) {
+  vm.out.clears.push(rect);
+  const inside = (el) =>
+    el.row != null &&
+    el.col != null &&
+    el.row >= rect.row &&
+    el.row < rect.row + rect.h &&
+    el.col >= rect.col &&
+    el.col < rect.col + rect.w;
+  for (const ln of vm.out.lines) {
+    if (ln.elements) ln.elements = ln.elements.filter((el) => !inside(el));
+  }
+}
+
+/**
+ * clearrect(row, col, height, width): blank a rectangle of the screen
+ * (the activation screens clear a gauge area before redrawing it).
+ * @type {IpoBuiltin}
+ */
+function bClearRect(vm, stack) {
+  const n = allInts(stack);
+  if (n.length < 4) return;
+  ipoClearRect(vm, {
+    row: n[0],
+    col: n[1],
+    h: Math.max(0, n[2]),
+    w: Math.max(0, n[3]),
+  });
+}
+
+/**
+ * ftextclear(text, row, col, size, attr): erase a text printed with
+ * ftextout at the same place ("switch the ignition on" banners come and
+ * go this way).
+ * @type {IpoBuiltin}
+ */
+function bFtextClear(vm, stack) {
+  const t = firstText(stack);
+  const n = allInts(stack);
+  if (n.length < 2) return;
+  const len = t == null ? 1 : Math.max(1, asStr(t).length);
+  ipoClearRect(vm, { row: n[0], col: n[1], h: 1, w: len });
+}
+
 function bTextout(vm, stack) {
   if (vm.onText) {
     const t = firstText(stack);

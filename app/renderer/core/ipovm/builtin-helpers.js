@@ -17,8 +17,37 @@
  * @param {IpoToken} t - the call token
  * @returns {string}
  */
+/**
+ * Builtins the disassembler leaves numbered, named by their Inpa.h
+ * prototype: each number's call shape across the corpus (argument count,
+ * out-references, literal types, the procs that call it) fits exactly one
+ * prototype. delay is the wait every activation screen paces itself with;
+ * clearrect and ftextclear blank screen areas; callstatemachine and
+ * returnstatemachine run a sub-machine; inputtext and inputnum are user
+ * prompts; the rest are the factory line's interfaces (PLC, order files).
+ * @type {Object<string, string>}
+ */
+const IPO_BUILTIN_CANON = {
+  builtin_07: 'callstatemachine',
+  builtin_08: 'returnstatemachine',
+  builtin_0b: 'setjobstatus',
+  builtin_1b: 'delay',
+  builtin_39: 'inputnum',
+  builtin_3a: 'inputtext',
+  builtin_4f: 'ftextclear',
+  builtin_50: 'clearrect',
+  builtin_92: 'SPSInit',
+  builtin_94: 'SPSLeseVonSPS',
+  builtin_95: 'SPSSendeAnSPS',
+  builtin_97: 'ApiJobFsLesenFAB',
+  builtin_98: 'ApiResultFsLesenFAB',
+  builtin_99: 'ELDIOpenStartDialog',
+  builtin_a1: 'setitemrepeat',
+};
+
 function ipoBuiltinName(t) {
-  return t.name || `builtin_${t.n.toString(16).padStart(2, '0')}`;
+  const raw = t.name || `builtin_${t.n.toString(16).padStart(2, '0')}`;
+  return IPO_BUILTIN_CANON[raw] || raw;
 }
 
 /**

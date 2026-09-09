@@ -4705,7 +4705,9 @@ select.modal-input {
   padding-top: 15px;
 }
 .fkeys::before {
-  content: 'Select menu';
+  /* the running script's menu title (setmenutitle) sits over the keys,
+     where INPA shows it; "Select menu" when no script is up */
+  content: var(--fkeys-caption, 'Select menu');
   position: absolute;
   top: 0;
   left: 0;
@@ -8187,14 +8189,6 @@ body.remote-helper::after {
   display: flex;
   flex-direction: column;
   gap: 10px;
-}
-.ipo-title {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--ink);
-}
-.ipo-title:empty {
-  display: none;
 }
 .ipo-screen {
   overflow-x: hidden;

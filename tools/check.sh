@@ -59,6 +59,7 @@ scripts/setup/check-vendor.sh >/dev/null 2>&1 || { scripts/setup/check-vendor.sh
 
 echo "== .IPO decompiler vs ground truth =="
 python3 tools/verify/test_disasm.py
+python3 tools/verify/test_ipo_source.py
 
 echo
 echo "== IR emitter invariants =="

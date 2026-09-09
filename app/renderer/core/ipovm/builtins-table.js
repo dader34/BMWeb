@@ -115,6 +115,37 @@ const BUILTINS = {
   INP1apiResultBinary: bResultBinary,
   builtin_74: bResult, // INP1apiResultReal(rc, val, KEY, set)
   builtin_14: bNoop, // stop
+  // named from their call shapes (builtin-helpers.js IPO_BUILTIN_CANON)
+  callstatemachine: bCallStatemachine,
+  returnstatemachine: bReturnStatemachine,
+  setjobstatus: bNoop, // the exit status for a calling program
+  delay: bNoop, // a live run waits (suspensions.js IPO_WAIT_BUILTIN)
+  inputnum: bInput, // (out real, title, text, min, max)
+  inputtext: bInput, // (out string, title, text)
+  ftextclear: bFtextClear,
+  clearrect: bClearRect,
+  setitemrepeat: bNoop, // key auto-repeat
+  // the factory line's interfaces: PLC, order files, test management
+  SPSInit: bUnavailable,
+  SPSLeseVonSPS: bUnavailable,
+  SPSSendeAnSPS: bUnavailable,
+  ApiJobFsLesenFAB: bUnavailable,
+  ApiResultFsLesenFAB: bUnavailable,
+  ELDIOpenStartDialog: bUnavailable,
+  // DTM / PEM calls (an out-reference and a key): which of the family
+  // each number is cannot be told from the corpus; all are unavailable here
+  builtin_0e: bUnavailable,
+  builtin_2d: bUnavailable,
+  builtin_36: bUnavailable,
+  builtin_3c: bUnavailable,
+  builtin_3d: bUnavailable,
+  builtin_70: bUnavailable,
+  builtin_7d: bUnavailable,
+  builtin_7e: bUnavailable,
+  builtin_80: bUnavailable,
+  builtin_81: bUnavailable,
+  builtin_87: bUnavailable,
+  builtin_93: bUnavailable,
   builtin_90: bStrArraySize, // string array length, out-param
   builtin_1a: bNoop, // setcolor
   builtin_51: bBlankscreen, // blankscreen
