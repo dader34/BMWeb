@@ -8688,12 +8688,16 @@ body.remote-helper::after {
 }
 .log-sum-job {
   flex: 1 1 auto;
+  min-width: 0;
   color: var(--ink);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* the count never wraps: the job name is what gives way */
 .log-sum-n {
+  flex: none;
+  white-space: nowrap;
   color: var(--ink-faint);
 }
 .log-sum-rate {
