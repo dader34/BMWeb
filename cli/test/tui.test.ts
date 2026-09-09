@@ -253,8 +253,16 @@ test('the home: pick a chassis, filter and pick a module, land in its script; a 
   // the runtime's own api: irLiveExec and ipoHomeEcuFor call it by name
   setApiImpl(c.api);
   try {
-    // F1: the chassis list, "2" = E46; the module list filtered to "probe", then "1"
-    const term = fakeTerminal(['2', 'probe', '1']);
+    // F1: the chassis picker, Down + Enter = E46; the module picker typed
+    // down to "probe", Enter
+    const term = fakeTerminal([]);
+    const key = (name: string): void => term.press('', { name });
+    const type = (text: string): void => {
+      for (const ch of text) term.press(ch, { name: ch });
+    };
+    /** the frame on screen: what the last clear-and-home drew */
+    const screen = (t: { out: string }): string =>
+      t.out.split('\x1b[2J\x1b[H').pop() as string;
     const run = tuiCommand(undefined, undefined, {
       noBus: true,
       term,
@@ -272,14 +280,45 @@ test('the home: pick a chassis, filter and pick a module, land in its script; a 
       'the status builtin reads the CLI host'
     );
     term.press('1');
-    await waitFor(() => term.prompts.length >= 3, 'both picks asked');
-    assert.match(term.prompts[0] as string, /Vehicles\n\s+1\. E39\n\s+2\. E46/);
-    assert.match(term.prompts[1] as string, /Modules of E46/);
+    await waitFor(() => /Vehicles/.test(screen(term)), 'the chassis picker');
     assert.match(
-      term.prompts[2] as string,
-      /\(1 of 2\)\n\s+1\. Probe module/,
-      'the filter narrowed the list'
+      screen(term),
+      /\x1b\[7m > E39 +\x1b\[0m\x1b\[K\r\n\r   E46/,
+      'the bar on the first row'
     );
+    key('down');
+    await waitFor(
+      () => /\x1b\[7m > E46/.test(screen(term)),
+      'the bar moved to E46'
+    );
+    assert.match(
+      screen(term),
+      /   E39\x1b\[K\r\n\r\x1b\[7m > E46/,
+      'only the moved rows redrawn'
+    );
+    key('return');
+    await waitFor(
+      () => /Modules of E46/.test(screen(term)),
+      'the module picker'
+    );
+    assert.match(screen(term), /\(2\)/, 'both modules listed');
+    type('probe');
+    await waitFor(
+      () => /\(1 of 2\)/.test(screen(term)),
+      'typing narrowed the list'
+    );
+    assert.match(
+      screen(term),
+      /Filter:\x1b\[0m probe/,
+      'the filter shows what was typed'
+    );
+    assert.match(
+      screen(term),
+      /\x1b\[7m > Probe module/,
+      'the bar on the one match'
+    );
+    assert.equal(term.prompts.length, 0, 'no typed prompt for a list');
+    key('return');
     await waitFor(
       () => /Probe module  probe\.prg/.test(term.out),
       'scriptchange landed in the module'
@@ -294,17 +333,13 @@ test('the home: pick a chassis, filter and pick a module, land in its script; a 
     );
 
     // a cancelled pick leaves the home where it was
-    const term2 = fakeTerminal([null]);
+    const term2 = fakeTerminal([]);
     const run2 = tuiCommand(undefined, undefined, { noBus: true, term: term2 });
     await waitFor(() => /F1 Vehicle/.test(term2.out), 'home again');
     term2.press('1');
-    await waitFor(() => term2.prompts.length === 1, 'the chassis pick asked');
-    await new Promise((r) => setTimeout(r, 30));
-    assert.match(
-      term2.out.split('\x1b[H\x1b[2J').pop() as string,
-      /F1 Vehicle/,
-      'still on the home'
-    );
+    await waitFor(() => /Vehicles/.test(screen(term2)), 'the chassis picker');
+    term2.press('', { name: 'escape' });
+    await waitFor(() => /F1 Vehicle/.test(screen(term2)), 'still on the home');
     term2.press('q');
     await run2;
     assert.equal(R.IPO_HOME_SGBD, 'bmweb_home');
@@ -332,7 +367,7 @@ function stubProgram(): IpoProgramLike {
   } as unknown as IpoProgramLike;
 }
 
-test('paint redraws the frame in place: no clear-screen, nothing on a repaint, only the changed line on a status, fresh after a prompt and a resize', async () => {
+test('paint redraws the frame in place: clear once, nothing on a repaint, only the changed line on a status, fresh after a prompt and a resize', async () => {
   const R = loadRuntime();
   const term = fakeTerminal(['']);
   const ui = new TuiUi(term, R, null);
@@ -340,11 +375,10 @@ test('paint redraws the frame in place: no clear-screen, nothing on a repaint, o
   ui.attach(p);
   ui.paint(p);
   const first = term.out;
-  assert.doesNotMatch(first, /\x1b\[2J|\x1b\[H/, 'never clears the screen');
-  assert.doesNotMatch(
+  assert.match(
     first,
-    /\x1b\[\d+A/,
-    'the first frame is written where the cursor is'
+    /^\x1b\[2J\x1b\[H/,
+    'the first frame clears the (alternate) screen once'
   );
   assert.match(first, /Probe module  probe\.prg  Main/, 'the title');
   assert.match(first, /Battery\s+12\.4 V/, 'the grid row');
@@ -354,11 +388,8 @@ test('paint redraws the frame in place: no clear-screen, nothing on a repaint, o
   assert.equal(term.out, first, 'an unchanged frame writes nothing');
   ui.status(p, 'ready');
   const delta = term.out.slice(first.length);
-  assert.match(
-    delta,
-    new RegExp(`^\\x1b\\[${lines.length}A`),
-    'goes back up over the whole frame'
-  );
+  assert.match(delta, /^\x1b\[H/, 'goes to the top of the frame, no clear');
+  assert.doesNotMatch(delta, /\x1b\[2J/, 'a repaint never clears');
   assert.equal(
     (delta.match(/\x1b\[K/g) || []).length,
     1,
@@ -374,10 +405,10 @@ test('paint redraws the frame in place: no clear-screen, nothing on a repaint, o
   await ui.message('Note', 'body');
   ui.paint(p);
   const afterPrompt = term.out.slice(beforePrompt);
-  assert.doesNotMatch(
+  assert.match(
     afterPrompt,
-    /\x1b\[\d+A/,
-    'after a prompt the frame is drawn fresh, below it'
+    /^\x1b\[2J\x1b\[H/,
+    'after a prompt the frame is drawn fresh'
   );
   assert.match(
     afterPrompt,
@@ -388,14 +419,44 @@ test('paint redraws the frame in place: no clear-screen, nothing on a repaint, o
   (term as { rows: number }).rows = 12;
   ui.resized();
   const afterResize = term.out.slice(beforeResize);
-  assert.match(
-    afterResize,
-    /^\x1b\[\d+A\r\x1b\[J/,
-    'a resize erases the old frame'
+  assert.match(afterResize, /^\x1b\[2J\x1b\[H/, 'a resize clears and redraws');
+  assert.match(afterResize, /F1 Ident   F2 Fault memory/, 'for the new size');
+});
+
+test('pickList: arrows, typing, Space marks and Enter, Esc cancels', async () => {
+  const R = loadRuntime();
+  const term = fakeTerminal([]);
+  const ui = new TuiUi(term, R, null);
+  const key = (name: string): void => term.press('', { name });
+  const options = [
+    { value: 'a', label: 'Alpha', meta: 'first' },
+    { value: 'b', label: 'Beta' },
+    { value: 'c', label: 'Gamma' },
+  ];
+  let done = ui.pickList('Pick one', options);
+  assert.equal(ui.modal, true, 'the picker owns the keys');
+  key('down');
+  key('down');
+  key('up');
+  key('return');
+  assert.deepEqual(await done, ['b'], 'Enter picks the row under the bar');
+  assert.equal(ui.modal, false);
+  done = ui.pickList('Pick one', options);
+  for (const ch of 'gam') term.press(ch, { name: ch });
+  key('return');
+  assert.deepEqual(await done, ['c'], 'typing filters, Enter picks the match');
+  done = ui.pickList('Pick', options, true);
+  key('space');
+  key('down');
+  key('down');
+  key('space');
+  key('return');
+  assert.deepEqual(
+    await done,
+    ['a', 'c'],
+    'Space marks, Enter takes the marked rows'
   );
-  assert.match(
-    afterResize,
-    /F1 Ident   F2 Fault memory/,
-    'and paints it for the new size'
-  );
+  done = ui.pickList('Pick', options);
+  key('escape');
+  assert.equal(await done, null, 'Esc cancels');
 });

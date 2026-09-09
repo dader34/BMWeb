@@ -309,15 +309,19 @@ status line and the script's progress window are the two bottom lines.
 With no arguments it starts on the app's own home, an INPA script of the
 project's own (`home/bmweb-home.ips`): F1 picks a chassis then a module,
 F2 the chassis's whole-vehicle script, and `scriptchange` hands the screen
-to that script. The picks are numbered lists on the terminal; typing text
-filters, a number opens, Enter cancels. The home starts with or without a
-cable.
+to that script. A pick is a list the keyboard walks: Up/Down move the bar,
+typing narrows the list to the rows containing the text, Enter picks, Esc
+cancels. The home starts with or without a cable.
+
+The TUI runs on the terminal's alternate screen (the buffer vim and htop
+use), so the shell's scrollback is never touched and quitting restores it;
+a screen redraws in place, only the lines that changed.
 
 Every dialog INPA opens is a prompt: a message waits for Enter, an input
 asks for the number (or hex, or text) within the declared range, the
-two-word box takes y/n, the component picker (togglelist) lists the
-screen's lines by number, Select lists the named lines, save-as asks for a
-file name. **Every write is asked first**, exactly as the app asks: a key
+two-word box takes y/n, the component picker (togglelist) and Select are
+the same list picker (Space marks several where several may be picked),
+save-as asks for a file name. **Every write is asked first**, exactly as the app asks: a key
 whose body can send a write names the jobs and waits for y; a screen that
 sends one on every refresh asks once for as long as it is open; n or
 Enter abandons the key. On quit the leaving menu's Back job (the script's
