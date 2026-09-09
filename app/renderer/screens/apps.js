@@ -130,6 +130,16 @@ const APP_REGISTRY = [
     hasData: async () =>
       typeof showTuning === 'function' && typeof window.XDF !== 'undefined',
   },
+  {
+    id: 'logging',
+    icon: '∿',
+    title: 'Data logging',
+    desc: 'Chart live readings from any module while you drive (read only)',
+    tag: 'LIVE',
+    open: () => (typeof showLogging === 'function' ? showLogging() : null),
+    // no data bundle of its own: it polls whatever modules this build ships
+    hasData: async () => typeof showLogging === 'function',
+  },
 ];
 
 /**
