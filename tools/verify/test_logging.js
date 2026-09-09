@@ -436,6 +436,29 @@ function fakeApi(opts = {}) {
   );
   ok('a missing result schema is empty rather than fatal');
 
+  // ---- a chart card's remove drops just that series -------------------------
+  {
+    const sel = new LogSelection();
+    const m = { sgbd: 'MS450DS0', label: 'MS45', group: 'D_MOTOR' };
+    sel.set(m, 'STATUS_MESSWERTBLOCK_0', 'STAT_MESSWERT0_WERT', true);
+    sel.set(m, 'STATUS_MESSWERTBLOCK_0', 'STAT_MESSWERT1_WERT', true);
+    const id = L.logSeriesKey(
+      'MS450DS0',
+      'STATUS_MESSWERTBLOCK_0',
+      'STAT_MESSWERT0_WERT'
+    );
+    assert.strictEqual(sel.remove(id), true);
+    assert.strictEqual(sel.size, 1);
+    assert.ok(
+      !sel.has('MS450DS0', 'STATUS_MESSWERTBLOCK_0', 'STAT_MESSWERT0_WERT')
+    );
+    assert.ok(
+      sel.has('MS450DS0', 'STATUS_MESSWERTBLOCK_0', 'STAT_MESSWERT1_WERT')
+    );
+    assert.strictEqual(sel.remove(id), false);
+    ok('remove(id) drops one series and reports whether it was there');
+  }
+
   console.log(`\nlogging: ${passed} checks passed`);
 })().catch((e) => {
   console.error('\nlogging check FAILED');

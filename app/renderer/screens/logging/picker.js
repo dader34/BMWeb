@@ -152,6 +152,15 @@ class LogSelection {
     });
   }
 
+  /**
+   * Deselect one series by its id (what a chart card knows itself as).
+   * @param {string} id - The series id (logSeriesKey).
+   * @returns {boolean} Whether it was selected.
+   */
+  remove(id) {
+    return this.items.delete(id);
+  }
+
   /** @returns {number} How many keys are selected. */
   get size() {
     return this.items.size;
