@@ -173,13 +173,15 @@
         <a href="#live">Live values</a>
         <a href="#activations">Activations</a>
         <a href="#identity">Identity and scans</a>
+        <a href="#garage">Garage</a>
         <a href="#apps">Reference apps</a>
-        <a href="#new">New this month</a>
         <a href="#lookup">Fault lookup</a>
+        <a href="#search">Job search</a>
         <a href="#wiring">Wiring</a>
         <a href="#parts">Parts</a>
         <a href="#tuning">Tuning</a>
         <a href="#tool32">Job runner</a>
+        <a href="#script">Script runner</a>
         <a href="#remote">Remote sessions</a>
         <a href="#skins">Skins</a>
       </nav>
@@ -278,6 +280,12 @@
               oxygen sensor voltages, and whether the crank sensor adaptation has
               finished. A weak cylinder stands out at a glance.<span class="tag">classic</span></figcaption>
           </figure>
+          <figure class="wide">
+            <img src="img/demo/data-logging.webp" alt="Data logging for an E46: the module tree with two oxygen sensor keys ticked under STATUS_L_SONDE, two chart cards beside it, and a summary of two readings on one job." width="1440" height="900" loading="lazy" decoding="async">
+            <figcaption><b>Data logging.</b> Tick any readings from any modules and each gets
+              its own chart, sampled while you drive and exported as CSV. Only
+              read-only jobs are offered.</figcaption>
+          </figure>
         </div>
       </section>
 
@@ -321,6 +329,24 @@
         </div>
       </section>
 
+      <section id="garage">
+        <h2>Garage</h2>
+        <p class="section-note">Save a car once and every scan of it is kept beside it, so two reads of the
+          same car can be laid side by side.</p>
+        <div class="shots">
+          <figure>
+            <img src="img/demo/garage-car.webp" alt="A saved car in the Garage: its VIN, body, engine and build date, a notes box, a Run a scan row, and two stored fault scans with a Compare button." width="1440" height="900" loading="lazy" decoding="async">
+            <figcaption><b>Garage.</b> Save a car once and every scan of it is kept beside
+              it, with a notes box and a scan you can start right from the row.</figcaption>
+          </figure>
+          <figure>
+            <img src="img/demo/garage-changes.webp" alt="The What Changed page: two scans picked in dropdowns, a count of new, cleared and still present, and the one new DSC fault listed underneath." width="1440" height="900" loading="lazy" decoding="async">
+            <figcaption><b>What changed.</b> Two reads of the same car side by side: what is
+              new, what you cleared, and what is still there.</figcaption>
+          </figure>
+        </div>
+      </section>
+
       <section id="apps">
         <h2>Reference apps</h2>
         <p class="section-note">Everything past this point works without a cable
@@ -333,61 +359,6 @@
               service data, job search, wiring and repair documents, the parts
               catalogue, a read-only firmware backup, a raw job runner, a firmware
               editor, data logging and the script runner.</figcaption>
-          </figure>
-        </div>
-      </section>
-
-      <section id="new">
-        <h2>New this month</h2>
-        <p class="section-note">The newest screens, in the order they arrived: a
-          garage that keeps every scan of a car so you can see what changed, a
-          search over every screen and key in the scripts, charts of anything the
-          car will tell you, a runner for your own INPA scripts, and a closer look
-          at the parts drawings.</p>
-        <div class="shots">
-          <figure>
-            <img src="img/demo/garage-car.webp" alt="A saved car in the Garage: its VIN, body, engine and build date, a notes box, a Run a scan row, and two stored fault scans with a Compare button." width="1440" height="900" loading="lazy" decoding="async">
-            <figcaption><b>Garage.</b> Save a car once and every scan of it is kept beside
-              it, with a notes box and a scan you can start right from the row.</figcaption>
-          </figure>
-          <figure>
-            <img src="img/demo/garage-changes.webp" alt="The What Changed page: two scans picked in dropdowns, a count of new, cleared and still present, and the one new DSC fault listed underneath." width="1440" height="900" loading="lazy" decoding="async">
-            <figcaption><b>What changed.</b> Two reads of the same car side by side: what is
-              new, what you cleared, and what is still there.</figcaption>
-          </figure>
-          <figure class="wide">
-            <img src="img/demo/job-search.webp" alt="Job search for measurement values filtered to the E46: 47 results grouped under MS45, each with its key and the jobs behind it." width="1440" height="900" loading="lazy" decoding="async">
-            <figcaption><b>Job search.</b> Search every screen and key in the scripts by what
-              it does, narrow it to one chassis, and open the module right there.
-              Screens that write are marked.</figcaption>
-          </figure>
-          <figure class="wide">
-            <img src="img/demo/data-logging.webp" alt="Data logging for an E46: the module tree with two oxygen sensor keys ticked under STATUS_L_SONDE, two chart cards beside it, and a summary of two readings on one job." width="1440" height="900" loading="lazy" decoding="async">
-            <figcaption><b>Data logging.</b> Tick any readings from any modules and each gets
-              its own chart, sampled while you drive and exported as CSV. Only
-              read-only jobs are offered.</figcaption>
-          </figure>
-          <figure class="wide">
-            <img src="img/demo/script-runner.webp" alt="The script runner with a loaded IHKA46.IPO: its includes, 44 procedures, menus, 20 screens, DLL imports and entry point, and a Run this script button." width="1440" height="900" loading="lazy" decoding="async">
-            <figcaption><b>Script runner.</b> Drop in your own compiled .IPO, or an .IPS or
-              .SRC source to compile here, and the runner reads what is inside it
-              before running it against the car.</figcaption>
-          </figure>
-          <figure>
-            <img src="img/demo/parts-lightbox.webp" alt="A short engine parts drawing opened full size with a round magnifier following the pointer over the cylinder head." width="1440" height="900" loading="lazy" decoding="async">
-            <figcaption><b>Drawing up close.</b> Click a diagram for the full-size scan, then
-              move over it and a loupe magnifies whatever is under the pointer.</figcaption>
-          </figure>
-          <figure>
-            <img src="img/demo/parts-variant.webp" alt="The E46 parts catalogue with the vehicle dropdown open on 297 variants, each with its model, body, engine, steering and build date." width="1440" height="900" loading="lazy" decoding="async">
-            <figcaption><b>Pick your variant.</b> All 297 E46 builds in one searchable list, so
-              the groups and part numbers are the ones for your car.</figcaption>
-          </figure>
-          <figure class="wide">
-            <img src="img/demo/vin-garage.webp" alt="The VIN decoder with a Garage panel on the right holding the saved E46 325i M54 and its VIN." width="1440" height="900" loading="lazy" decoding="async">
-            <figcaption><b>VIN decoder.</b> Decode a VIN, or work down from series, body and
-              model. Cars already in the Garage sit beside it, one click from their
-              parts.</figcaption>
           </figure>
         </div>
       </section>
@@ -409,6 +380,20 @@
             <figcaption><b>Service document.</b> What sets the fault, how it is monitored, and
               the service measures to take, followed by the diagnostic procedure
               where the dealer software has one. Printable.</figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <section id="search">
+        <h2>Job search</h2>
+        <p class="section-note">Every screen and key in every module script, searchable by what it does,
+          in English or German, by the jobs it sends or the result keys it reads.</p>
+        <div class="shots">
+          <figure class="wide">
+            <img src="img/demo/job-search.webp" alt="Job search for measurement values filtered to the E46: 47 results grouped under MS45, each with its key and the jobs behind it." width="1440" height="900" loading="lazy" decoding="async">
+            <figcaption><b>Job search.</b> Search every screen and key in the scripts by what
+              it does, narrow it to one chassis, and open the module right there.
+              Screens that write are marked.</figcaption>
           </figure>
         </div>
       </section>
@@ -448,6 +433,22 @@
             <figcaption><b>Diagram.</b> Numbered callouts with the part table underneath; the tree
               on the left walks the rest of the group.</figcaption>
           </figure>
+          <figure>
+            <img src="img/demo/parts-variant.webp" alt="The E46 parts catalogue with the vehicle dropdown open on 297 variants, each with its model, body, engine, steering and build date." width="1440" height="900" loading="lazy" decoding="async">
+            <figcaption><b>Pick your variant.</b> All 297 E46 builds in one searchable list, so
+              the groups and part numbers are the ones for your car.</figcaption>
+          </figure>
+          <figure>
+            <img src="img/demo/parts-lightbox.webp" alt="A short engine parts drawing opened full size with a round magnifier following the pointer over the cylinder head." width="1440" height="900" loading="lazy" decoding="async">
+            <figcaption><b>Drawing up close.</b> Click a diagram for the full-size scan, then
+              move over it and a loupe magnifies whatever is under the pointer.</figcaption>
+          </figure>
+          <figure class="wide">
+            <img src="img/demo/vin-garage.webp" alt="The VIN decoder with a Garage panel on the right holding the saved E46 325i M54 and its VIN." width="1440" height="900" loading="lazy" decoding="async">
+            <figcaption><b>VIN decoder.</b> Decode a VIN, or work down from series, body and
+              model. Cars already in the Garage sit beside it, one click from their
+              parts.</figcaption>
+          </figure>
         </div>
       </section>
 
@@ -481,6 +482,20 @@
             <img src="img/demo/tool32.webp" alt="Tool32: a filterable list of definition files, the jobs of the selected one with write jobs marked, and the result of STATUS_MOTORDREHZAHL: 752 rpm, setpoint 720." width="1440" height="900" loading="lazy" decoding="async">
             <figcaption><b>Tool32.</b> The engine speed job run against the engine module: three
               result values, a repeat timer, and a wire trace underneath.</figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <section id="script">
+        <h2>Script runner</h2>
+        <p class="section-note">Your own INPA script, run through the same runtime and the same write
+          gates as the shipped ones.</p>
+        <div class="shots">
+          <figure class="wide">
+            <img src="img/demo/script-runner.webp" alt="The script runner with a loaded IHKA46.IPO: its includes, 44 procedures, menus, 20 screens, DLL imports and entry point, and a Run this script button." width="1440" height="900" loading="lazy" decoding="async">
+            <figcaption><b>Script runner.</b> Drop in your own compiled .IPO, or an .IPS or
+              .SRC source to compile here, and the runner reads what is inside it
+              before running it against the car.</figcaption>
           </figure>
         </div>
       </section>
