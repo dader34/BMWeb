@@ -83,13 +83,10 @@ JUMPS = {"jump", "ja", "jae", "jbe", "jc", "jg", "jge", "jl", "jle",
 # them cost 8 jobs their schema agreement. What a job publishes is the SGBD's
 # decision, not a naming convention we get to infer.
 #
-# Defined ONCE, here, and imported by both sgbd_spec (the producer) and
-# sgbd_diff (the checker). They used to carry separate copies that had
-# drifted: the diff anchored SAETZE$ where the spec filtered the SAETZE
-# prefix, so a SAETZE_<X> result was dropped by the spec but kept by the
-# diff -- a spurious "under-lifted" verdict about a result neither side
-# should count. The spec's prefix semantics win because the spec is the
-# producer; the diff must judge by the same rule.
+# Defined ONCE, here, and imported by sgbd_spec (the producer). The engine
+# diff harness it once shared this with carried its own copy that had
+# drifted (SAETZE$ anchored where the spec filtered the SAETZE prefix), which
+# produced spurious "under-lifted" verdicts; one definition ended that.
 INTERNAL = re.compile(r"^(_TEL_|JOB_|SAETZE|VARIANTE$)")
 
 

@@ -1,9 +1,8 @@
 // ECU firmware READ / BACKUP over the cable, in the browser.
 //
-// Ported from the read path of terraphantm/MS45-Flasher (GPLv3) and its C# port
-// in src/EdiabasMac/FlashService.cs, but driven through the browser's own job
-// runner (webRunJob over Web Serial) so it ships in the web app instead of a
-// native shell. READ ONLY: there is no erase/write/program path here -- a full
+// Ported from the read path of terraphantm/MS45-Flasher (GPLv3), driven
+// through the browser's own job runner (webRunJob over Web Serial) so it
+// ships in the web app. READ ONLY: there is no erase/write/program path here -- a full
 // backup is the whole feature, and writing an ECU is how you brick it.
 //
 // The read loop is ECU-agnostic; everything ECU-specific lives in a PROFILE
