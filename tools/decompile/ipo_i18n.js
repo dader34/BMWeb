@@ -39,6 +39,19 @@ const SHARED = (() => {
   const p = path.join(OVR_DIR, '_shared.json');
   return fs.existsSync(p) ? JSON.parse(fs.readFileSync(p, 'utf8')) : {};
 })();
+// The corpus-wide dictionary: whole captions translated once for every ECU
+// that shows them (data/inpa-i18n/_corpus*.json, merged). Consulted after
+// the ECU's own file and the shared table, folded into each ECU's IR at
+// resolve time only -- unlike _shared.json it is NOT shipped to the page,
+// so its size costs nothing at runtime.
+const CORPUS = (() => {
+  const out = {};
+  for (const f of fs.readdirSync(OVR_DIR).sort()) {
+    if (!/^_corpus.*\.json$/.test(f)) continue;
+    Object.assign(out, JSON.parse(fs.readFileSync(path.join(OVR_DIR, f), 'utf8')));
+  }
+  return out;
+})();
 
 // A caption looks German when it carries an umlaut/sharp-s or a common
 // German function word. Only the --gaps report uses this, to rank what is
@@ -144,13 +157,13 @@ function resolve(ecu, strings) {
   // exact spelling first, collapsed spelling second; an override written for
   // this ECU beats the shared abbreviation table
   const byNorm = new Map();
-  for (const src of [SHARED, ovr || {}]) {
+  for (const src of [CORPUS, SHARED, ovr || {}]) {
     for (const k of Object.keys(src)) {
       if (!src[k] || src[k] === k) continue;
       byNorm.set(normKey(k), src[k]);
     }
   }
-  const exact = Object.assign({}, SHARED, ovr || {});
+  const exact = Object.assign({}, CORPUS, SHARED, ovr || {});
   const out = {};
   let fromOvr = 0,
     fromShared = 0;
