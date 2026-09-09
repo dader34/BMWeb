@@ -123,7 +123,7 @@ async function showEcuTreeChassis(chassis, carId) {
   wrap.className = 'tree-wrap';
   wrap.innerHTML =
     `<div class="tree-bar">` +
-    `<label class="tree-bar-item">Keep the read under <select class="tree-car modal-input"></select></label>` +
+    `<label class="tree-bar-item"><span class="tree-bar-lbl">Keep under</span><span class="tree-car-slot"></span></label>` +
     `<span class="tree-bar-note"></span>` +
     `<span class="tree-bar-spacer"></span>` +
     `<button type="button" class="btn tree-scan" hidden>Fault scan</button>` +
@@ -133,7 +133,7 @@ async function showEcuTreeChassis(chassis, carId) {
     `<div class="tree-canvas"><div class="empty"><span class="loader"></span></div></div>` +
     `<div class="tree-legend-slot"></div>`;
   view.appendChild(wrap);
-  const sel = wrap.querySelector('.tree-car');
+  const carSlot = wrap.querySelector('.tree-car-slot');
   const note = wrap.querySelector('.tree-bar-note');
   const canvas = wrap.querySelector('.tree-canvas');
   const legendSlot = wrap.querySelector('.tree-legend-slot');
@@ -158,20 +158,40 @@ async function showEcuTreeChassis(chassis, carId) {
   const layout = ecuTreeLayout(tree);
   legendSlot.innerHTML = ecuTreeLegendHtml(layout);
 
-  // the car whose scan colours the boxes: any saved car of this chassis
-  sel.innerHTML =
-    `<option value="">nowhere (not kept)</option>` +
-    cars
-      .map(
-        (c) =>
-          `<option value="${esc(c.id)}"${picked && c.id === picked.id ? ' selected' : ''}>${esc(
-            typeof garageCarLabel === 'function'
-              ? garageCarLabel(c)
-              : c.label || c.id
-          )}</option>`
-      )
-      .join('');
-  if (!cars.length) sel.disabled = true;
+  // where the finished read is filed: a saved car of this chassis, or
+  // nowhere; the app's own dropdown, like every other picker
+  const carOptions = [
+    { val: '', label: 'Nowhere (not kept)' },
+    ...cars.map((c) => ({
+      val: c.id,
+      label:
+        typeof garageCarLabel === 'function'
+          ? garageCarLabel(c)
+          : c.label || c.id,
+    })),
+  ];
+  const onPickCar = (v) => {
+    picked = cars.find((c) => c.id === v) || null;
+    lastScreen = () => showEcuTreeChassis(car, picked ? picked.id : null);
+    if (typeof history !== 'undefined' && history.replaceState)
+      history.replaceState(
+        null,
+        '',
+        `#apps/tree/${car}${picked ? `/${encodeURIComponent(picked.id)}` : ''}`
+      );
+    paint();
+  };
+  if (typeof lookupDropdown === 'function') {
+    carSlot.appendChild(
+      lookupDropdown(
+        'Nowhere (not kept)',
+        carOptions,
+        picked ? picked.id : '',
+        onPickCar
+      ).el
+    );
+  }
+  if (!cars.length) carSlot.classList.add('tree-busy');
 
   /** @type {Map<string, EcuTreeStatus>} */
   let status = new Map();
@@ -230,17 +250,6 @@ async function showEcuTreeChassis(chassis, carId) {
       });
     });
   };
-  sel.onchange = () => {
-    picked = cars.find((c) => c.id === sel.value) || null;
-    lastScreen = () => showEcuTreeChassis(car, picked ? picked.id : null);
-    if (typeof history !== 'undefined' && history.replaceState)
-      history.replaceState(
-        null,
-        '',
-        `#apps/tree/${car}${picked ? `/${encodeURIComponent(picked.id)}` : ''}`
-      );
-    paint();
-  };
   paint();
 
   // ISTA's "Start vehicle test": INPA's whole-car fault read, run right
@@ -264,7 +273,7 @@ async function showEcuTreeChassis(chassis, carId) {
     live = { report: null, text: '' };
     scanBtn.hidden = true;
     stopBtn.hidden = false;
-    sel.disabled = true;
+    carSlot.classList.add('tree-busy');
     paint();
     const handle = ecuTreeScanStart(car, {
       onProgress: (report, text) => {
@@ -285,7 +294,7 @@ async function showEcuTreeChassis(chassis, carId) {
       live = null;
       scanBtn.hidden = false;
       stopBtn.hidden = true;
-      sel.disabled = !cars.length;
+      carSlot.classList.toggle('tree-busy', !cars.length);
     };
     handle.done.then(
       ({ report, lines, cancelled }) => {
