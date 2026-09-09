@@ -22,6 +22,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { format, inspect } from 'node:util';
 import { createContext, runInContext } from 'node:vm';
 import RUNTIME_FILES from './runtime-files.json' with { type: 'json' };
 import { siteFetch } from './site.ts';
@@ -554,6 +555,42 @@ export function runtimeGlobals(): Record<string, unknown> {
 }
 
 /**
+ * The console the app's scripts write to. Quiet unless BMWEB_VERBOSE is
+ * set; then everything goes to stderr, a table as its inspected rows, so
+ * a command's stdout stays what the command printed.
+ * @returns a console-shaped object
+ */
+function runtimeConsole(): Record<string, (...a: unknown[]) => void> {
+  const on = !!process.env.BMWEB_VERBOSE;
+  const say = (...a: unknown[]): void => {
+    if (on) process.stderr.write(`${format(...a)}\n`);
+  };
+  const table = (rows: unknown): void => {
+    if (on)
+      process.stderr.write(
+        `${inspect(rows, { depth: 3, maxArrayLength: 200, breakLength: 160 })}\n`
+      );
+  };
+  const noop = (): void => {};
+  return {
+    log: say,
+    info: say,
+    warn: say,
+    error: say,
+    debug: say,
+    trace: say,
+    table,
+    group: say,
+    groupCollapsed: say,
+    groupEnd: noop,
+    time: noop,
+    timeEnd: noop,
+    assert: noop,
+    dir: table,
+  };
+}
+
+/**
  * The host globals the scripts reach for, and why each is here.
  *
  * Only what a listed file touches at load time or on the paths the CLI
@@ -563,10 +600,13 @@ export function runtimeGlobals(): Record<string, unknown> {
 function hostGlobals(): Record<string, unknown> {
   const noop = (): void => {};
   const sandbox: Record<string, unknown> = {
-    // the scripts test `typeof window` and read window.<x>; the context's own
-    // global stands in, as it does in the page (self: fflate's UMD attaches
-    // its global to `self` when there is no CommonJS `exports`)
-    console,
+    // the app's scripts talk to the browser console: the bus dumps its wire
+    // trace after an IFH error (console.table in a collapsed group), the
+    // variant resolver notes every probe's verdict, the bus reports the
+    // cable. In a terminal those are noise between a command's own lines
+    // (a scan's table had the trace printed through it), so they go to
+    // stderr only when BMWEB_VERBOSE is set, and never to stdout
+    console: runtimeConsole(),
     // timers.js's bmwSleep falls back to setTimeout where there is no
     // Worker; program.js schedules screen cycles and drains key presses
     // through setTimeout; activations.js defers a session end a microtask

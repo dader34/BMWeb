@@ -350,6 +350,11 @@ tests drive the app's runtime against a fake car and a scripted terminal,
 with a module script written for the tests in INPA's language. The
 repository's `tools/check.sh` runs all of it.
 
+Set `BMWEB_VERBOSE=1` to see what the app's runtime logs: the wire trace
+the bus dumps after an error, each variant probe's verdict, the cable
+events. It goes to stderr; without it the runtime is silent and a command's
+output is only its own.
+
 ## License
 
 GPL-3.0, as the repository is. See `LICENSE`.
