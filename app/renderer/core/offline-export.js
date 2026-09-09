@@ -204,6 +204,7 @@ const OFFLINE_SHELL = [
   'screens/tree/data.js',
   'screens/tree/layout.js',
   'screens/tree/render.js',
+  'screens/tree/scan.js',
   'screens/tree/screen.js',
   'screens/tool32.js',
   'screens/flasher.js',

@@ -341,4 +341,214 @@ console.log('5. the extractor');
   }
 }
 
-console.log(`\necu-tree: ${passed} checks passed`);
+console.log('6. the live scan (headless program)');
+{
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  /** a stand-in for IpoProgram: the fault key answers three modules, one silent */
+  class FakeProgram {
+    constructor(ecu, exec, ui) {
+      this.ecu = ecu;
+      this.exec = exec;
+      this.ui = ui;
+      this.menu = 'm_main';
+      this.items = [];
+      this.wireReads = [];
+      this.messages = [];
+      this.view = null;
+      this.noCable = !!exec.noCable;
+      this.closed = false;
+      this.left = false;
+      this.cancelled = false;
+    }
+    async start() {
+      if (this.noCable) return { ok: false, reason: 'no cable' };
+      return { ok: true };
+    }
+    async openMenu(name) {
+      this.menu = name;
+      this.items = this.exec.noKey
+        ? [{ nr: 1, label: 'Ident' }]
+        : [
+            { nr: 1, label: 'Ident' },
+            { nr: 4, label: 'FS lesen' },
+          ];
+      return true;
+    }
+    async press(nr) {
+      assert.strictEqual(nr, 4);
+      this.ui.userbox(this, { title: 'Read', lines: ['Steuergeraet : Motor'] });
+      this.wireReads.push({
+        target: 'd_motor',
+        variant: 'MS450DS0',
+        job: 'FS_LESEN',
+        sets: [{ F_ORT_NR: 1, F_HEX_CODE: '27-C3' }],
+      });
+      await sleep(320);
+      if (this.cancelled) return true;
+      this.wireReads.push({
+        target: 'd_0056',
+        job: 'FS_LESEN',
+        error: 'ERROR_NO_ANSWER',
+      });
+      this.wireReads.push({
+        target: 'd_0080',
+        variant: 'KOMBI46',
+        job: 'FS_LESEN',
+        sets: [],
+      });
+      await sleep(320);
+      this.view = { lines: ['Steuergeraet : Motor'], report: null };
+      return true;
+    }
+    cancel() {
+      this.cancelled = true;
+    }
+    async leaveModule() {
+      this.left = true;
+    }
+    close() {
+      this.closed = true;
+    }
+  }
+  const report = (reads) => ({
+    kind: 'faults',
+    modules: reads
+      .filter((r) => !r.error)
+      .map((r) => ({
+        sgbd: String(r.variant || r.target).toLowerCase(),
+        via: r.target,
+        label: r.target,
+        codes: r.sets || [],
+      })),
+    silent: reads
+      .filter((r) => r.error)
+      .map((r) => ({ target: r.target, label: r.target, error: r.error })),
+  });
+  const deps = (execExtra) => ({
+    Program: FakeProgram,
+    loadExec: async () => ({ procs: { m_fs: [] }, ...(execExtra || {}) }),
+    report,
+    faultMenu: 'm_fs',
+    faultKey: /^FS lesen$/i,
+    cableReady: null,
+    label: (id) => id,
+  });
+  (async () => {
+    // the ui adapter declines every write and answers no prompt
+    const ui = T.ecuTreeHeadlessUi({});
+    for (const m of [
+      'sleep',
+      'loadExec',
+      'route',
+      'status',
+      'error',
+      'message',
+      'askInput',
+      'confirmKey',
+      'confirmWrite',
+      'pickComponent',
+      'pickHome',
+      'pickLines',
+      'saveFile',
+      'writeFile',
+      'printScreen',
+      'printFile',
+      'resolveScriptEcu',
+      'machineTick',
+      'userbox',
+      'renderKeys',
+      'paint',
+      'left',
+    ])
+      assert.strictEqual(typeof ui[m], 'function', `ui.${m}`);
+    assert.strictEqual(await ui.confirmKey(), false);
+    assert.strictEqual(await ui.confirmWrite(), false);
+    assert.strictEqual(await ui.askInput(), null);
+    ok('headless ui: read-only contract');
+
+    // a full run: progress reports arrive while the key runs, then the report
+    const seen = [];
+    const h = T.ecuTreeScanStart(
+      'E46',
+      {
+        onProgress: (r, t) =>
+          seen.push({ n: r ? r.modules.length + r.silent.length : -1, t }),
+      },
+      deps()
+    );
+    const out = await h.done;
+    assert.strictEqual(out.cancelled, false);
+    assert.strictEqual(out.report.modules.length, 2, 'two answered');
+    assert.strictEqual(out.report.silent.length, 1, 'one silent');
+    assert.ok(
+      seen.some((x) => x.t === 'Steuergeraet : Motor'),
+      "the script's progress line came through"
+    );
+    assert.ok(
+      seen.some((x) => x.n === 1),
+      'a partial report arrived while the key ran'
+    );
+    assert.ok(
+      seen.some((x) => x.n === 3),
+      'and grew as more modules answered'
+    );
+    ok('live progress then the finished report');
+
+    // stop: the read ends between two jobs, the exit still runs
+    let prog = null;
+    const OrigP = FakeProgram;
+    class Spy extends OrigP {
+      constructor(...a) {
+        super(...a);
+        prog = this;
+      }
+    }
+    const h2 = T.ecuTreeScanStart('E46', {}, { ...deps(), Program: Spy });
+    await sleep(120);
+    h2.cancel();
+    const out2 = await h2.done;
+    assert.strictEqual(out2.cancelled, true);
+    assert.strictEqual(prog.cancelled, true, 'the program was told to stop');
+    assert.strictEqual(prog.left, true, "the script's exit still ran");
+    assert.strictEqual(
+      out2.report.modules.length,
+      1,
+      'what had answered is kept'
+    );
+    ok('stop between two jobs');
+
+    // no cable: the run rejects with the module view's words, program closed
+    prog = null;
+    const h3 = T.ecuTreeScanStart(
+      'E46',
+      {},
+      { ...deps({ noCable: true }), Program: Spy }
+    );
+    await assert.rejects(h3.done, /No adapter connected/);
+    assert.strictEqual(prog.closed, true);
+    ok('no cable');
+
+    // no read key on the menu: says so, leaves the script properly
+    prog = null;
+    const h4 = T.ecuTreeScanStart(
+      'E46',
+      {},
+      { ...deps({ noKey: true }), Program: Spy }
+    );
+    await assert.rejects(h4.done, /no fault-memory read key/);
+    assert.strictEqual(prog.left, true);
+    ok('no read key');
+
+    // no script for the chassis
+    await assert.rejects(
+      T.ecuTreeScanStart('E31', {}, { ...deps(), loadExec: async () => null })
+        .done,
+      /no whole-car script/
+    );
+    ok('no script');
+    console.log(`\necu-tree: ${passed} checks passed`);
+  })().catch((e) => {
+    console.error(e);
+    process.exit(1);
+  });
+}
