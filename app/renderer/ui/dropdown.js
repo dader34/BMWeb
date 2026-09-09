@@ -200,10 +200,7 @@ function makeDropdown(opts) {
         const MARGIN = 8;
         const overflowsRight = r.left + popW > window.innerWidth - MARGIN;
         const fitsLeftAnchored = r.right - popW >= MARGIN;
-        root.classList.toggle(
-          'drop-right',
-          overflowsRight && fitsLeftAnchored
-        );
+        root.classList.toggle('drop-right', overflowsRight && fitsLeftAnchored);
         if (o.clampToBar) {
           const bar = document.querySelector(o.clampToBar);
           const floor = bar
