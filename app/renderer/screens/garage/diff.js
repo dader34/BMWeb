@@ -37,6 +37,7 @@
  * @property {object[]} recurred - of those, the ones logged again since (a
  *   higher occurrence count, or a different freeze frame)
  * @property {GarageDiffField[]} fields - ident fields whose value changed
+ * @property {boolean} [unread] - the newer read has no record of the module: nothing cleared, nothing known
  * @property {boolean} changed - anything at all differs
  */
 
@@ -54,7 +55,7 @@
  * @typedef {object} GarageDiffSilence
  * @property {string} target - the address or SGBD
  * @property {string} label
- * @property {'silent'|'answering'} state - 'silent' = answered before, quiet now
+ * @property {'silent'|'answering'} state - 'silent' = answered before, quiet (or unread) now
  * @property {string} [error] - the failure the newer scan recorded
  */
 
@@ -81,13 +82,17 @@ function garageFaultKey(code) {
 function garageFaultKeys(code) {
   const c = code || {};
   const out = [];
-  // "27C3" from one read and "27-C3" (bytes joined by hexText) from another
-  // are the same hex: only the digits are the identity
+  // F_HEX_CODE is the whole fault word: the two-byte DTC and then status
+  // and environment bytes ("27-C3-22" one read, "27-C3-62" the next, once
+  // the fault's status moved). Only the code bytes are the identity, the
+  // same four digits the fault text leads with; and "27C3" / "27-C3" (bytes
+  // joined by hexText) are one spelling once the separators go.
   const hex = String(c.F_HEX_CODE == null ? '' : c.F_HEX_CODE)
     .trim()
     .toUpperCase()
     .replace(/^0X/, '')
-    .replace(/[^0-9A-F]/g, '');
+    .replace(/[^0-9A-F]/g, '')
+    .slice(0, 4);
   if (hex) out.push('H:' + hex);
   const nr = c.F_ORT_NR;
   if (nr != null && String(nr).trim() !== '' && Number.isFinite(Number(nr)))
@@ -207,9 +212,37 @@ function garageDiffScans(from, to) {
   const modules = [];
   // the newer scan's order first, then anything only the older one saw
   const order = [...B.keys(), ...[...A.keys()].filter((k) => !B.has(k))];
+  /** @type {GarageDiffSilence[]} */
+  const silence = [];
+  const noted = new Set();
+  const note = (target, label, state, error) => {
+    const t = String(target || '').toLowerCase();
+    if (!t || noted.has(t)) return;
+    noted.add(t);
+    silence.push({ target: t, label: label || t.toUpperCase(), state, error });
+  };
   for (const sgbd of order) {
     const a = A.get(sgbd);
     const b = B.get(sgbd);
+    // a module the newer read has no record of did not answer (or was not
+    // asked) this time: its faults are not cleared, they are unread, and
+    // that is an answering change, not a fault change
+    if (a && !b) {
+      note(a.via || sgbd, a.label, 'silent', 'not read this time');
+      modules.push({
+        sgbd,
+        label: a.label || sgbd,
+        added: [],
+        cleared: [],
+        same: [],
+        recurred: [],
+        fields: [],
+        unread: true,
+        changed: false,
+      });
+      continue;
+    }
+    if (!a && b) note(b.via || sgbd, b.label, 'answering');
     const fa = garageFaultMap(a);
     const added = [];
     const cleared = [];
@@ -262,23 +295,10 @@ function garageDiffScans(from, to) {
   const silentB = new Map(
     (rb.silent || []).map((s) => [String(s.target || '').toLowerCase(), s])
   );
-  /** @type {GarageDiffSilence[]} */
-  const silence = [];
   for (const [t, s] of silentB)
-    if (!silentA.has(t))
-      silence.push({
-        target: t,
-        label: s.label || t.toUpperCase(),
-        state: 'silent',
-        error: s.error,
-      });
+    if (!silentA.has(t)) note(t, s.label, 'silent', s.error);
   for (const [t, s] of silentA)
-    if (!silentB.has(t))
-      silence.push({
-        target: t,
-        label: s.label || t.toUpperCase(),
-        state: 'answering',
-      });
+    if (!silentB.has(t)) note(t, s.label, 'answering');
 
   return { from, to, kind, modules, silence };
 }

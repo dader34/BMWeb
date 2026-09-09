@@ -400,9 +400,20 @@ function faultReport(sgbd, codes, silent) {
   );
   const gone = d.modules.find((m) => m.sgbd === 'gone');
   const fresh = d.modules.find((m) => m.sgbd === 'fresh');
-  assert.strictEqual(gone.cleared.length, 1, 'a module that is no longer read');
+  // a module the newer read has no record of did not answer: its faults are
+  // unread, not cleared, and the module is an answering change
+  assert.strictEqual(
+    gone.cleared.length,
+    0,
+    'a module no longer read clears nothing'
+  );
+  assert.strictEqual(gone.unread, true);
+  assert.ok(d.silence.some((s) => s.target === 'gone' && s.state === 'silent'));
   assert.strictEqual(fresh.added.length, 1, 'a module read for the first time');
-  ok('modules only one side saw are still compared');
+  assert.ok(
+    d.silence.some((s) => s.target === 'fresh' && s.state === 'answering')
+  );
+  ok('modules only one side saw: unread on one side, first read on the other');
 }
 
 // ident reads: the changed fields, with the captions the protocol prints
@@ -891,6 +902,84 @@ function faultReport(sgbd, codes, silent) {
   assert.strictEqual(d2.modules[0].cleared.length, 0);
   assert.strictEqual(d2.modules[0].added.length, 0);
   ok('a fault matches on any identity it shares with the other read');
+}
+
+// ---- the fault word's status byte moves; a module unread is not cleared ----
+{
+  const rep = (modules) => ({
+    kind: 'faults',
+    report: { kind: 'faults', modules, silent: [] },
+  });
+  const older = rep([
+    {
+      sgbd: 'ms450ds0',
+      via: 'd_0012',
+      label: 'MS45',
+      codes: [
+        {
+          F_HEX_CODE: '27-C3-22',
+          F_ORT_NR: 10179,
+          F_ORT_TEXT: '27C3 DMTL leak detection',
+        },
+      ],
+    },
+    {
+      sgbd: 'dsc_mk60',
+      via: 'd_0044',
+      label: 'DSC MK60',
+      codes: [
+        {
+          F_HEX_CODE: '5E-15-20',
+          F_ORT_NR: 24085,
+          F_ORT_TEXT: 'CAN timeout EGS',
+        },
+      ],
+    },
+  ]);
+  const newer = rep([
+    {
+      sgbd: 'ms450ds0',
+      via: 'd_0012',
+      label: 'MS45',
+      codes: [
+        {
+          F_HEX_CODE: '27-C3-62',
+          F_ORT_NR: 10179,
+          F_ORT_TEXT: '27C3 DMTL leak detection',
+        },
+      ],
+    },
+  ]);
+  const d = G.garageDiffScans(older, newer);
+  const ms = d.modules.find((m) => m.sgbd === 'ms450ds0');
+  assert.strictEqual(
+    ms.same.length,
+    1,
+    'status byte 22 -> 62 is the same fault'
+  );
+  assert.strictEqual(ms.added.length + ms.cleared.length, 0);
+  const dsc = d.modules.find((m) => m.sgbd === 'dsc_mk60');
+  assert.strictEqual(
+    dsc.cleared.length,
+    0,
+    'a module the newer read lacks has nothing cleared'
+  );
+  assert.strictEqual(dsc.unread, true);
+  assert.deepStrictEqual(
+    d.silence.map((s) => [s.target, s.state]),
+    [['d_0044', 'silent']]
+  );
+  assert.strictEqual(G.garageDiffCounts(d).cleared, 0);
+  assert.deepStrictEqual(
+    G.garageFaultKeys({
+      F_HEX_CODE: '01-42-01-E1-82-C4-FF-FF-FF',
+      F_ORT_NR: 1,
+    }),
+    ['H:0142', 'N:1']
+  );
+  ok(
+    'identity is the code bytes; an unread module is an answering change, not a clearing'
+  );
 }
 
 console.log(`garage: ${passed} checks passed`);
