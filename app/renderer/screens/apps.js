@@ -220,11 +220,7 @@ async function showApps() {
   setCrumbs([{ label: 'Vehicles', fn: showChassis }, { label: 'Apps' }]);
   document.body.classList.add('apps-section'); // hides the F-key bar on mobile (touch nav)
   sbLeft.textContent = 'apps';
-  view.innerHTML = head(
-    'Apps',
-    'Ported Apps',
-    "Reference tools ported from BMW's dealer software, offline."
-  );
+  view.innerHTML = head('Apps', 'Ported Apps', '');
   const backAction = {
     key: 'Escape',
     keyLabel: 'Esc',
