@@ -52,8 +52,8 @@ the request" errors are a car in the wrong state or a sagging battery.
 | iPhone / Android | no USB path in a mobile browser |
 
 Live diagnostics need Web Serial, which is desktop Chrome/Edge only. On a phone
-the app runs fully for everything offline — fault lookup, wiring diagrams,
-service documents, the parts catalogue — but cannot reach the car from the
+the app runs fully for everything offline, fault lookup, wiring diagrams,
+service documents and the parts catalogue, but cannot reach the car from the
 browser.
 
 **K+DCAN cable.** Plug the cable straight into the machine, no hub, and click
@@ -88,37 +88,37 @@ steps, adaptation clears) go to the wire as designed, and guided procedures
 are translated through exact per-module dictionaries; anything without an
 entry shows as BMW wrote it.
 
-- **Fault memory** — read stored codes with English text and detail, clear them.
-- **Whole-car scan** — INPA's own vehicle script reads every module's fault memory; the result is a report joined with the fault lookup, printable, and kept in the Garage.
-- **Garage** — save a car by VIN or by picking its chassis; every whole-car
+- **Fault memory**: read stored codes with English text and detail, clear them.
+- **Whole-car scan**: INPA's own vehicle script reads every module's fault memory; the result is a report joined with the fault lookup, printable, and kept in the Garage.
+- **Garage**: save a car by VIN or by picking its chassis; every whole-car
   fault or identification read is filed against it, and any two reads of one
   kind compare into what is new, what was cleared and what stays. Fault scan
   and Identification run straight from the car's page.
-- **Job search** — find any screen or key in every module's script by what it
+- **Job search**: find any screen or key in every module's script by what it
   does, in English or German, by the jobs it sends or the result keys it
   reads, filtered by chassis, and open the module at that screen.
-- **Data logging** — pick readings from any modules and chart them live side
+- **Data logging**: pick readings from any modules and chart them live side
   by side, with presets, CSV export and twenty minutes of history. Only
   read-only jobs are offered.
-- **Script runner** — drop an INPA `.IPO` of your own, or `.IPS` / `.SRC`
+- **Script runner**: drop an INPA `.IPO` of your own, or `.IPS` / `.SRC`
   source with its headers, and run it against the car through the same
   runtime and the same write gates as the shipped scripts.
-- **Live values** — gauges updating continuously, several at once, CSV logging.
-- **Activations** — drive real components; held actuators release when you leave.
-- **Coding** — read a module's coding, stage changes, see exactly what would be
+- **Live values**: gauges updating continuously, several at once, CSV logging.
+- **Activations**: drive real components; held actuators release when you leave.
+- **Coding**: read a module's coding, stage changes, see exactly what would be
   sent; write with backup-first and verify-by-re-read.
-- **Diagnostic Plans and Trouble Codes** — search 51,484 fault codes offline
+- **Diagnostic Plans and Trouble Codes**: search 51,484 fault codes offline
   with P-codes and the matching service documents (set condition,
   monitoring, fault impact, lamp behaviour, service measures).
-- **Wiring Diagrams** — factory schematics as vectors, plus component
+- **Wiring Diagrams**: factory schematics as vectors, plus component
   locations, connector views and pin assignments. 15 chassis.
-- **Parts Catalogue** — part numbers, diagrams, supersessions, VIN
+- **Parts Catalogue**: part numbers, diagrams, supersessions, VIN
   decoding, 246 chassis bundles from the E3 to the G series. A decoded VIN
   or a Garage car opens its own variant, with a "my car" filter on the
   diagram tree; a click on a drawing enlarges it under a magnifier.
-- **Job runner** — run any diagnostic job on a module directly and read the
+- **Job runner**: run any diagnostic job on a module directly and read the
   raw result registers.
-- **Tuning** — inspect ECU firmware images in a hex editor with TunerPro
+- **Tuning**: inspect ECU firmware images in a hex editor with TunerPro
   `.xdf` constants, flags and tables.
 - A seven-step tour and a "how it works" walkthrough, from the Apps hub.
 
@@ -150,14 +150,14 @@ from BMW's `.IPO` files by `tools/decompile/` into `data/inpa-ir/`, together
 with the per-module caption dictionaries.
 
 **The virtual machine** (`app/renderer/core/bestvm/`) executes each
-module's diagnostic logic, a 184-opcode instruction set — register file, byte
-stack, string table, table lookups — and turns raw bytes off the wire into
+module's diagnostic logic, a 184-opcode instruction set with a register file,
+byte stack, string table and table lookups, and turns raw bytes off the wire into
 named results. Diffed offline against a reference engine (`src/InpaMac.Cli`
 exists for exactly that), it agreed on 3,729 of 3,730 results over 460 jobs
 on an E46 corpus.
 
-**The static data layer** holds what the runtime and the VM need — job code,
-tables, job metadata, scripts and dictionaries — generated by the tools in
+**The static data layer** holds what the runtime and the VM need, job code,
+tables, job metadata, scripts and dictionaries, generated by the tools in
 `tools/`. `data/ecu-src/` is one gzipped copy per ECU definition and is what
 is committed; `data/chassis/<CAR>/<ECU>/` is built from it and ignored.
 
