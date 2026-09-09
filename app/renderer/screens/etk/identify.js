@@ -274,24 +274,52 @@ function etkVinBox(opts, onResolve) {
  */
 function etkMatchVariant(variants, hit) {
   const eq = (a, b) => (a || '') === (b || '');
-  let match = -1;
-  if (hit.motor) {
-    // VIN path: model+body+motor+steer
-    match = variants.findIndex(
-      (v) =>
-        eq(v.model, hit.model) &&
-        eq(v.body, hit.body) &&
-        eq(v.motor, hit.motor) &&
-        eq(v.steer, hit.steer)
-    );
+  // steer is known on the VIN path only; a Garage car saved without it must
+  // not be refused a match on that account
+  const steerOk = (v) => !hit.steer || eq(v.steer, hit.steer);
+  const tiers = [
+    (v) =>
+      !!hit.motor &&
+      eq(v.model, hit.model) &&
+      eq(v.body, hit.body) &&
+      eq(v.motor, hit.motor) &&
+      steerOk(v),
+    (v) => eq(v.model, hit.model) && eq(v.body, hit.body) && steerOk(v),
+    (v) => eq(v.model, hit.model),
+  ];
+  for (const ok of tiers) {
+    const found = [];
+    variants.forEach((v, i) => {
+      if (ok(v)) found.push(i);
+    });
+    if (found.length) return etkNearestVariant(variants, found, hit.prod);
   }
-  if (match < 0)
-    match = variants.findIndex(
-      (v) =>
-        eq(v.model, hit.model) && eq(v.body, hit.body) && eq(v.steer, hit.steer)
-    );
-  if (match < 0) match = variants.findIndex((v) => eq(v.model, hit.model));
-  return match;
+  return -1;
+}
+
+/**
+ * Of several variants that all fit the car, the one introduced last before
+ * it was built: the catalogue splits a model by introduction date, and the
+ * car belongs to the split it was built into. Without a build date (or when
+ * every candidate came after it) the first candidate stands.
+ * @param {EtkVariant[]} variants - the chassis's variants
+ * @param {number[]} found - indexes of the candidates, in catalogue order
+ * @param {string|number} [prod] - the car's build date, YYYYMM or YYYYMMDD
+ * @returns {number} the chosen index
+ */
+function etkNearestVariant(variants, found, prod) {
+  const p = String(prod || '').slice(0, 6);
+  if (p.length < 6 || found.length < 2) return found[0];
+  let best = -1;
+  let bestDate = '';
+  for (const i of found) {
+    const d = String(variants[i].date || '').slice(0, 6);
+    if (d.length === 6 && d <= p && d > bestDate) {
+      best = i;
+      bestDate = d;
+    }
+  }
+  return best >= 0 ? best : found[0];
 }
 
 /**
