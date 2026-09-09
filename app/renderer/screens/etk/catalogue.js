@@ -16,7 +16,7 @@
  */
 
 /** @type {EtkFilterState} */
-const ETK_STATE = { variant: null, variantLabel: null };
+const ETK_STATE = { variant: null, variantLabel: null, showAll: false };
 
 /** How many chassis get a number key on the picker. */
 const ETK_FKEY_SLOTS = 9;

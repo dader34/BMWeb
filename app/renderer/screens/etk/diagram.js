@@ -25,10 +25,22 @@ const ETK_IMG_MAX_PX = 700;
  * @returns {EtkPart[]}
  */
 function etkFitParts(parts) {
-  return parts.filter(
-    (p) =>
-      ETK_STATE.variant == null || !p.fit || p.fit.includes(ETK_STATE.variant)
-  );
+  // "Show all" in the tree header lifts the variant filter without
+  // forgetting the variant, so "My car" can put it back
+  if (ETK_STATE.variant == null || ETK_STATE.showAll) return parts.slice();
+  return parts.filter((p) => !p.fit || p.fit.includes(ETK_STATE.variant));
+}
+
+/**
+ * Whether a part fits the chosen variant, regardless of the Show all toggle:
+ * what marks a diagram or group as off-build for the "My car" filter.
+ * @param {EtkPart[]} parts - a diagram's parts
+ * @returns {number} how many parts fit the variant (all of them without one)
+ */
+function etkFitCount(parts) {
+  if (ETK_STATE.variant == null) return parts.length;
+  return parts.filter((p) => !p.fit || p.fit.includes(ETK_STATE.variant))
+    .length;
 }
 
 /**
@@ -45,8 +57,11 @@ function etkTreeGroup(g, onLeaf) {
   hdr.className = 'etk-tgroup-hdr';
   // with a variant chosen, the count is the diagrams that carry a part for
   // it; a diagram with none is marked off so the "my car" filter can hide it
-  const fitting = g.diagrams.filter((d) => etkFitParts(d.parts).length > 0);
-  const count = ETK_STATE.variant != null ? fitting.length : g.diagrams.length;
+  const fitting = g.diagrams.filter((d) => etkFitCount(d.parts) > 0);
+  const count =
+    ETK_STATE.variant != null && !ETK_STATE.showAll
+      ? fitting.length
+      : g.diagrams.length;
   hdr.innerHTML = `<span class="etk-tw">▾</span>
                      <span class="etk-tname">${esc(g.name)}</span>
                      <span class="etk-tcount" data-fit="${fitting.length}" data-all="${g.diagrams.length}">${count}</span>`;
@@ -64,8 +79,10 @@ function etkTreeGroup(g, onLeaf) {
     const n = etkFitParts(d.parts).length;
     leaf.innerHTML = `<span class="etk-lname">${esc(d.name)}</span>
                         <span class="etk-lcount">${n}</span>`;
-    if (ETK_STATE.variant != null && !n) leaf.dataset.off = '1';
+    if (ETK_STATE.variant != null && !etkFitCount(d.parts))
+      leaf.dataset.off = '1';
     leaf._btnr = d.btnr;
+    leaf._parts = d.parts; // so the toggle can recount without a rebuild
     leaf.onclick = () => onLeaf(leaf, d);
     kids.appendChild(leaf);
   });
@@ -77,11 +94,14 @@ function etkTreeGroup(g, onLeaf) {
 /**
  * The header over the tree when a variant is chosen: the vehicle, and a
  * My car / Show all toggle like the wiring viewer's. My car (the default)
- * hides the diagrams and groups that carry nothing for this variant.
+ * hides the diagrams and groups that carry nothing for this variant and
+ * counts only the parts that fit; Show all lifts the filter from the counts
+ * and the open diagram's parts list as well, not just from the rows.
  * @param {HTMLElement} treeEl - the tree whose class carries the filter
+ * @param {() => void} redraw - redraws the open diagram under the new filter
  * @returns {HTMLDivElement}
  */
-function etkTreeBanner(treeEl) {
+function etkTreeBanner(treeEl, redraw) {
   const banner = document.createElement('div');
   banner.className = 'etk-vinbanner';
   banner.innerHTML = `
@@ -92,11 +112,17 @@ function etkTreeBanner(treeEl) {
     </div>`;
   const seg = banner.querySelector('.wiring-vinseg');
   const apply = (on) => {
+    ETK_STATE.showAll = !on;
     treeEl.classList.toggle('etk-fit-only', on);
-    // the group counts follow: fitting diagrams, or every diagram
+    // the counts follow: fitting diagrams and parts, or every one
     treeEl.querySelectorAll('.etk-tcount').forEach((c) => {
       c.textContent = on ? c.dataset.fit : c.dataset.all;
     });
+    treeEl.querySelectorAll('.etk-tleaf').forEach((l) => {
+      const n = l.querySelector('.etk-lcount');
+      if (n && l._parts) n.textContent = String(etkFitParts(l._parts).length);
+    });
+    if (redraw) redraw();
     seg
       .querySelectorAll('.wiring-vinseg-btn')
       .forEach((b) =>
@@ -145,8 +171,6 @@ function showEtkGroup(data, chassisId, mg, openBtnr = null) {
   view.appendChild(split);
   const treeEl = split.querySelector('#etk-tree');
   const viewEl = split.querySelector('#etk-view');
-  if (ETK_STATE.variant != null)
-    split.querySelector('.etk-nav').prepend(etkTreeBanner(treeEl));
   // On a phone the panes are exclusive, WDS-style: the tree OR the diagram,
   // never both squeezed side by side. data-pane drives the CSS; desktop
   // ignores it (the rules live in the mobile media block).
@@ -156,6 +180,13 @@ function showEtkGroup(data, chassisId, mg, openBtnr = null) {
 
   let selectedLeaf = null;
   let shownDiagram = null; // the diagram currently on screen
+  ETK_STATE.showAll = false; // a group opens on "My car"
+  if (ETK_STATE.variant != null)
+    split.querySelector('.etk-nav').prepend(
+      etkTreeBanner(treeEl, () => {
+        if (shownDiagram) renderDiagram(data, id, shownDiagram, viewEl);
+      })
+    );
   const onLeaf = (leaf, d) => {
     if (selectedLeaf) selectedLeaf.classList.remove('active');
     leaf.classList.add('active');
