@@ -62,7 +62,7 @@ if (!fs.existsSync(fixP)) {
   // so and fail, like the rest of the suite.
   console.error(
     'FAIL: missing data/sim-captures/vmfix.json;' +
-      ' run tools/vm_fixtures.py first (nothing was verified)'
+      ' restore it from git (nothing was verified)'
   );
   process.exit(1);
 }

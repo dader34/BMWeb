@@ -178,9 +178,9 @@ const PCODE_MAP = {
   '27C2': 'P2562',
   '27C4': 'P2564',
 };
-// Flatten an EDIABAS result value to the same text the native bridge produces
-// (src/EdiabasMac/Diag.cs Format): byte arrays become dashed hex ("27-DA"),
-// everything else its plain string. The web VM returns live typed values --
+// Flatten an EDIABAS result value to the text EDIABAS itself would print:
+// byte arrays become dashed hex ("27-DA"), everything else its plain string.
+// The web VM returns live typed values --
 // `ergy` (binary) emits a byte Array, `ergi`/`ergb`/... emit numbers -- so
 // screens that only ever saw the native path's strings funnel through here.
 // An empty binary result ([]) is truthy but must read as "no code", which the

@@ -6,8 +6,9 @@
  * strings); executing the program handles all of it, which is why EDIABAS is
  * flawless. Input is tools/sgbd_code.py output (ops array, jumps as indices);
  * telegram I/O is a callback, so one VM runs live cable / .sim / fixture.
- * Semantics ported from vendored EdiabasLib (EdOperations.cs, EdiabasNet.cs),
- * the engine tools/sgbd_bulk_verify.py diffs against and test_bestvm.js checks.
+ * Semantics ported from EdiabasLib (EdOperations.cs, EdiabasNet.cs); the
+ * engine's own result sets for 460 E46 jobs are the committed fixture
+ * data/sim-captures/vmfix.json that test_bestvm.js replays.
  *
  * THE REGISTER MODEL, which nothing else here makes sense without:
  * B/I/L/A are VIEWS over one 32-byte array, LITTLE-endian within a view, so

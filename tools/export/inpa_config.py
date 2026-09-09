@@ -1,13 +1,10 @@
 #!/usr/bin/env python3
 """Generate data/chassis-config/*.json from INPA's own menu files.
 
-Python twin of src/EdiabasMac/InpaConfig.cs plus the /api/chassis endpoint's
-variantGroups block. The C# path cannot build in this tree (the csproj pulls
-engine sources from vendor/ediabaslib-src, which is not vendored here and
-includes locally-patched files that upstream ediabaslib does not ship), so
-this tool regenerates the committed cache the server used to write via
-tools/export/web_export.py refresh_cache(). Keep the two in step: any parsing
-or resolution change here must land in InpaConfig.cs too, and vice versa.
+This is the only generator of that cache: it began as the Python twin of
+the C# InpaConfig.cs in the retired native shell (whose /api/chassis
+endpoint used to write the cache via tools/export/web_export.py
+refresh_cache()), and outlived it.
 
     python3 tools/export/inpa_config.py            # write data/chassis-config
     python3 tools/export/inpa_config.py --check    # diff against cache, no write

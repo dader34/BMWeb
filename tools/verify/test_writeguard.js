@@ -62,7 +62,7 @@ if (!code0) {
 } else if (!fs.existsSync(fixP)) {
   check(
     'behavioural half ran (missing data/sim-captures/vmfix.json' +
-      ' -- regenerate with tools/vm_fixtures.py)',
+      ' -- restore it from git)',
     false
   );
 } else {
@@ -76,7 +76,7 @@ if (!code0) {
   if (!c) {
     check(
       'behavioural half ran (vmfix.json has no ms450ds0 FS_LOESCHEN case' +
-        ' -- regenerate with tools/vm_fixtures.py)',
+        ' -- restore it from git)',
       false
     );
   } else {
