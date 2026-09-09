@@ -165,6 +165,8 @@ function ipoMakeUi(ecu, container, back) {
       ipoPickLines(names, multiple, current, hints),
     // INPA's printscreen: the module view as a clean sheet (print.js)
     printScreen: (p) => ipoPrintScreen(p, p.ecu || ecu, inpa),
+    // INPA's printfile: the protocol file the script wrote, as a sheet
+    printFile: (p, name, lines) => ipoPrintFile(p, p.ecu || ecu, name, lines),
     resolveScriptEcu: (from, script, exec) =>
       // the home script names a module by its SGBD after a chassis pick:
       // that module is the car's own record, not a wire-resolved variant

@@ -280,6 +280,11 @@ function fakeUi(opts = {}) {
     printScreen: () => {
       ui.prints += 1;
     },
+    // INPA's printfile: the file the script named, as its lines
+    printedFiles: [],
+    printFile: (p, name, lines) => {
+      ui.printedFiles.push({ name, lines });
+    },
     linesPick: null, // what the next Select picks (array), null = cancel
     pickLines: async () => ui.linesPick,
     // a %STATE park: the real UI auto-ticks after IPO_TICK_MS unless the
@@ -2091,6 +2096,7 @@ const sysSet = (sgbd) => ({
       'pickComponent',
       'pickLines',
       'printScreen',
+      'printFile',
       'resolveScriptEcu',
       'machineTick',
       'renderKeys',
@@ -2328,6 +2334,15 @@ const sysSet = (sgbd) => ({
             { JOB_STATUS: 'OKAY' },
           ],
         };
+      // a memory read: twenty bytes, four more than the screen asks for
+      if (job === 'SPEICHER_LESEN')
+        return {
+          system: sys,
+          sets: [
+            { DATEN: Array.from({ length: 20 }, (_, i) => i) },
+            { JOB_STATUS: 'OKAY' },
+          ],
+        };
       return { system: sys, sets: [{ JOB_STATUS: 'OKAY' }] };
     });
     const aui = fakeUi();
@@ -2377,6 +2392,123 @@ const sysSet = (sgbd) => ({
     ok(
       'INPAapiFsLesen: FS_LESEN + detail on the wire, protocol file written, report built'
     );
+
+    // the Print key after the read: printfile(ErrorCode, "na_fs.tmp", ...)
+    // prints the protocol file the API read wrote, answers rc 0, and leaves
+    // the viewer up
+    const awaitIdle = async () => {
+      for (let i = 0; i < 200 && ap.busy; i++)
+        await new Promise((r) => setTimeout(r, 5));
+    };
+    const printKey = ap.items.find((i) => i.nr === 9);
+    assert.ok(printKey && !printKey.hidden, 'the Print key is offered');
+    const mf = aexec.procs.m_fehler;
+    let rcSlot = null;
+    for (let i = 0; i < mf.length; i++) {
+      if (mf[i].op !== 'call' || mf[i].name !== 'printfile') continue;
+      for (let j = i - 1; j >= 0 && mf[j].op !== 'frame'; j--)
+        if (mf[j].op === 'procref') rcSlot = mf[j].n;
+    }
+    assert.ok(rcSlot != null, "printfile's ErrorCode slot found");
+    ap.vm.globals.set(rcSlot, 99);
+    await ap.press(9);
+    await awaitIdle();
+    assert.strictEqual(aui.prints, 0, 'not a printscreen');
+    assert.strictEqual(
+      aui.printedFiles.length,
+      1,
+      `one file printed: ${JSON.stringify(aui.printedFiles.map((f) => f.name))}`
+    );
+    assert.strictEqual(aui.printedFiles[0].name, 'na_fs.tmp');
+    assert.ok(
+      aui.printedFiles[0].lines.some((l) => /Firing loop ZK0/.test(l)),
+      'the protocol lines went to the printer'
+    );
+    assert.strictEqual(ap.vm.globals.get(rcSlot), 0, 'ErrorCode is 0');
+    assert.ok(ap.view && ap.view.report, 'printing keeps the viewer up');
+    // the sheet: the same report sections printscreen prints over the view
+    // (without the key bar), a plain file as a monospace block
+    const { ipoPrintFileDocument, ipoPrintDocument } = RT;
+    const fileDoc = ipoPrintFileDocument(
+      ap,
+      ap.ecu,
+      'na_fs.tmp',
+      aui.printedFiles[0].lines
+    );
+    const viewDoc = ipoPrintDocument(ap, ap.ecu, true);
+    assert.deepStrictEqual(
+      fileDoc.sections,
+      viewDoc.sections.filter((s) => !/pr-keys/.test(s.html)),
+      "the viewer's file prints as the report"
+    );
+    assert.ok(
+      fileDoc.meta.some(([k, v]) => k === 'File' && v === 'na_fs.tmp'),
+      'the file is named on the sheet'
+    );
+    const plainDoc = ipoPrintFileDocument(ap, ap.ecu, 'notes.txt', [
+      'one',
+      'two',
+    ]);
+    assert.strictEqual(plainDoc.sections.length, 1);
+    assert.ok(
+      /<pre class="pr-screen">one\ntwo<\/pre>/.test(plainDoc.sections[0].html),
+      `a plain file is a monospace block: ${plainDoc.sections[0].html}`
+    );
+    ok('printfile: the Print key prints the protocol file, rc 0, viewer kept');
+
+    // Clear opens with viewclose() and never viewopens: the viewer goes;
+    // Read opens with viewclose() too, but its viewopen wins
+    await ap.press(2);
+    await awaitIdle();
+    assert.ok(
+      asent.some((s) => s.job === 'FS_LOESCHEN'),
+      `the clear went out: ${asent.map((s) => s.job).join(', ')}`
+    );
+    assert.strictEqual(ap.view, null, 'viewclose dropped the protocol view');
+    await ap.press(1);
+    for (let i = 0; i < 200 && (ap.busy || !ap.view); i++)
+      await new Promise((r) => setTimeout(r, 5));
+    assert.ok(
+      ap.view && ap.view.lines.some((l) => /Firing loop ZK0/.test(l)),
+      'viewopen after viewclose in the same body keeps the new view'
+    );
+    ok('viewclose: Clear closes the viewer, Read reopens it');
+
+    // F7 Memory on the main menu: input2hexnum asks the address and the
+    // count, the screen sends SPEICHER_LESEN and hexdump paints the bytes
+    // of the DATEN binary result as a hex table at (5, 20)
+    await ap.openMenu('m_main');
+    const memKey = ap.items.find((i) => i.nr === 7);
+    assert.ok(memKey && /Memory/.test(memKey.label), 'the Memory key');
+    aui.askInput = async (step) =>
+      step.name === 'input2hexnum' ? ['1000', 16] : 0;
+    asent.length = 0;
+    await ap.press(7);
+    const dumpCell = () =>
+      [...ap.cells.values()].find((c) => /^1000 {2}00 01 02/.test(c.text));
+    for (let i = 0; i < 200 && (ap.busy || !dumpCell()); i++)
+      await new Promise((r) => setTimeout(r, 5));
+    assert.ok(
+      asent.some((s) => s.job === 'SPEICHER_LESEN'),
+      `SPEICHER_LESEN went out: ${asent.map((s) => s.job).join(', ')}`
+    );
+    const dc = dumpCell();
+    assert.ok(
+      dc,
+      `the hex table: ${JSON.stringify([...ap.cells.values()].map((c) => c.text))}`
+    );
+    assert.strictEqual(dc.col, 20, 'at the column the script named');
+    assert.strictEqual(
+      dc.text,
+      '1000  00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F',
+      'sixteen bytes on the line, the four beyond the count dropped'
+    );
+    assert.ok(
+      ![...ap.cells.values()].some((c) => /^1010/.test(c.text)),
+      'no second line past numbytes'
+    );
+    ok('hexdump: the Memory screen paints the DATEN bytes as a hex table');
+    ap.close();
   }
 
   // ===========================================================================
@@ -2421,6 +2553,212 @@ const sysSet = (sgbd) => ({
       await new Promise((r) => setTimeout(r, 5));
     assert.strictEqual(ep.closed, true, 'the next Esc leaves the module');
     ok('Esc on the root menu: back to the entry screen first, then out');
+  }
+
+  // ===========================================================================
+  // 9. The model behind hexdump, viewclose and the colours: a synthetic body
+  //    driven live against a fed binary result, and the same body offline
+  //    (the lift's emissions must not change)
+  // ===========================================================================
+  {
+    const S = (v) => ({ op: 'const', t: 's', v });
+    const I = (v) => ({ op: 'const', t: 'i', v });
+    const F = { op: 'frame' };
+    const G = (n) => ({ op: 'procref', kind: 0, n });
+    const call = (name) => ({ op: 'call', name });
+    const callN = (n) => ({ op: 'call', n });
+    const block = { op: 'block', dwords: 0 };
+    const ret = { op: 'ret' };
+    // the Speicher-lesen screen's tail: the job, the binary result, the dump
+    const dumpToks = [
+      block,
+      F,
+      S('mrs4'),
+      S('SPEICHER_LESEN'),
+      S('LAR;0x1000;36'),
+      S(''),
+      call('INPAapiJob'),
+      F,
+      G(5),
+      S('DATEN'),
+      I(1),
+      call('INPAapiResultBinary'),
+      F,
+      S('0x1000'),
+      I(36),
+      I(5),
+      I(20),
+      call('hexdump'),
+      ret,
+    ];
+    const daten = Array.from({ length: 36 }, (_, i) => i + 0x10);
+    const feed = () => {
+      const fed = new Map([['JOB_STATUS', 'OKAY']]);
+      fed.sets = [sysSet('mrs4'), { DATEN: daten }, { JOB_STATUS: 'OKAY' }];
+      return fed;
+    };
+    const runLive = (toks) => {
+      const vm = new IpoVm(
+        { procs: { p: toks }, byid: {} },
+        { budget: 1000, wireJobs: true, host: new FeedHost() }
+      );
+      let st = vm.stepStart('p');
+      for (let n = 0; n < 20 && st && st.kind !== 'done'; n++)
+        st = vm.resume(st.kind === 'job' ? feed() : undefined);
+      return vm;
+    };
+    const texts = (vm) =>
+      vm.out.lines.flatMap((l) =>
+        (l.elements || []).map((e) => [e.row, e.col, e.s])
+      );
+    const live = runLive(dumpToks);
+    assert.deepStrictEqual(
+      texts(live),
+      [
+        [5, 20, '1000  10 11 12 13 14 15 16 17 18 19 1A 1B 1C 1D 1E 1F'],
+        [6, 20, '1010  20 21 22 23 24 25 26 27 28 29 2A 2B 2C 2D 2E 2F'],
+        [7, 20, '1020  30 31 32 33'],
+      ],
+      `hexdump cells: ${JSON.stringify(texts(live))}`
+    );
+    // the cells land on the program's grid as text
+    const hp = new IpoProgram(
+      { sgbd: 'mrs4' },
+      { procs: {}, byid: {} },
+      fakeUi()
+    );
+    hp.takeCells(live.out);
+    assert.strictEqual(hp.cells.get('6:20').kind, 'text');
+    assert.ok(/^1010/.test(hp.cells.get('6:20').text));
+    assert.deepStrictEqual(ipoHexdumpLines('FFF8', [1, 2]), ['FFF8  01 02']);
+    assert.deepStrictEqual(
+      ipoHexdumpLines(
+        '',
+        Array.from({ length: 17 }, () => 0xab)
+      ),
+      ['0000  AB AB AB AB AB AB AB AB AB AB AB AB AB AB AB AB', '0010  AB'],
+      'no address counts from 0, four digits wide'
+    );
+    // offline the lift sees the call and nothing drawn (the bytes are the
+    // wire's)
+    const off = new IpoVm(
+      { procs: { p: dumpToks }, byid: {} },
+      { budget: 1000 }
+    );
+    const offOut = off.run('p');
+    assert.ok(offOut.calls.includes('hexdump'), 'the call is recorded');
+    assert.deepStrictEqual(texts(off), [], 'nothing drawn offline');
+    ok(
+      'hexdump: sixteen bytes a line from the fed binary result, none offline'
+    );
+
+    // viewclose then viewopen keeps the new view; viewopen then viewclose
+    // leaves none, and says so
+    const fileToks = [
+      F,
+      S('x.txt'),
+      S('w'),
+      call('fileopen'),
+      F,
+      S('line one'),
+      call('filewrite'),
+      F,
+      call('fileclose'),
+    ];
+    const openToks = [F, S('x.txt'), S('Title'), call('viewopen')];
+    const closeToks = [F, call('viewclose')];
+    const closeThenOpen = runLive([
+      block,
+      ...fileToks,
+      ...closeToks,
+      ...openToks,
+      ret,
+    ]);
+    assert.ok(
+      closeThenOpen.out.view && closeThenOpen.out.view.lines[0] === 'line one',
+      'viewopen after viewclose: the view stands'
+    );
+    const openThenClose = runLive([
+      block,
+      ...fileToks,
+      ...openToks,
+      ...closeToks,
+      ret,
+    ]);
+    assert.strictEqual(openThenClose.out.view, null, 'viewclose drops it');
+    assert.strictEqual(openThenClose.out.viewClose, true);
+    const noView = runLive([block, ...closeToks, ret]);
+    assert.strictEqual(noView.out.viewClose, true);
+    const offClose = new IpoVm(
+      {
+        procs: { p: [block, ...fileToks, ...openToks, ...closeToks, ret] },
+        byid: {},
+      },
+      { budget: 1000 }
+    );
+    const offCloseOut = offClose.run('p');
+    assert.ok(offCloseOut.view, 'offline viewclose is still a noop');
+    assert.strictEqual(offCloseOut.viewClose, false);
+    ok('viewclose: order within the body decides, offline unchanged');
+
+    // setcolor(fg, bk) rides on the run and on every live cell after it;
+    // userboxsetcolor(box, fg, bk) on the open progress window
+    const colorToks = [
+      block,
+      F,
+      S('Before'),
+      I(1),
+      I(0),
+      I(0),
+      I(0),
+      call('ftextout'),
+      F,
+      I(1),
+      I(8),
+      callN(0x1a),
+      F,
+      S('After'),
+      I(2),
+      I(0),
+      I(0),
+      I(0),
+      call('ftextout'),
+      F,
+      I(0),
+      I(8),
+      I(35),
+      I(5),
+      I(50),
+      S('Box'),
+      S(''),
+      call('userboxopen'),
+      F,
+      I(0),
+      I(1),
+      I(4),
+      callN(0x58),
+      ret,
+    ];
+    const colored = runLive(colorToks);
+    assert.deepStrictEqual(colored.out.color, { fg: 1, bk: 8 });
+    const els = colored.out.lines.flatMap((l) => l.elements || []);
+    assert.strictEqual(els.find((e) => e.s === 'Before').color, undefined);
+    assert.deepStrictEqual(els.find((e) => e.s === 'After').color, {
+      fg: 1,
+      bk: 8,
+    });
+    assert.deepStrictEqual(colored.userbox.color, { fg: 1, bk: 4 });
+    const offColor = new IpoVm(
+      { procs: { p: colorToks }, byid: {} },
+      { budget: 1000 }
+    );
+    const offColorOut = offColor.run('p');
+    const offEls = offColorOut.lines.flatMap((l) => l.elements || []);
+    assert.ok(
+      offEls.every((e) => !('color' in e)),
+      'offline elements carry no colour (parity with the Python twin)'
+    );
+    ok('setcolor / userboxsetcolor: the model carries the colours');
   }
 
   console.log(`ipo-runtime: ${passed} checks passed`);

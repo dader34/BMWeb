@@ -445,6 +445,18 @@ function bViewopen(vm, stack) {
 }
 
 /**
+ * printfile(->ErrorCode, FileName, PrinterName, PrinterPort, ErrorMsgFlag):
+ * INPA prints the named file (the fault protocol a read wrote) on the
+ * printer. The print itself is the runtime's (suspensions.js 'printfile');
+ * here the error code is 0, printed or not, so the script never takes its
+ * "could not print" branch over a sheet the browser handles.
+ * @type {IpoBuiltin}
+ */
+function bPrintfile(vm, stack) {
+  storeOut(vm, stack, 0);
+}
+
+/**
  * filewrite(text): append a line to the open file.
  * @type {IpoBuiltin}
  */
@@ -601,6 +613,7 @@ if (typeof module !== 'undefined' && module.exports) {
     bInputDigital,
     bFileopen,
     bFileclose,
+    bPrintfile,
     bFilewrite,
     bFileread,
     bSettimer,

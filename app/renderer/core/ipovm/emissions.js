@@ -24,6 +24,15 @@
  * @property {string} [fmt] - analogout display format ("6.2")
  * @property {string} [on] - digitalout's TrueText
  * @property {string} [off] - digitalout's FalseText
+ * @property {IpoColor} [color] - the setcolor in force when a live run printed it
+ */
+
+/**
+ * A colour pair as INPA's setcolor / userboxsetcolor name it: two of
+ * INPA's palette indices. Recorded for hosts that draw colour.
+ * @typedef {object} IpoColor
+ * @property {number} fg - foreground index
+ * @property {number} bk - background index
  */
 
 /**
@@ -111,6 +120,18 @@ class Emissions {
      * @type {{path: string, lines: string[]}|null}
      */
     this.view = null;
+    /**
+     * viewclose(): a live body closed INPA's viewer window. Read only when
+     * no viewopen in the same body left a view behind.
+     * @type {boolean}
+     */
+    this.viewClose = false;
+    /**
+     * setcolor(fg, bk): the colour in force for the text printed after it,
+     * null until a body sets one.
+     * @type {IpoColor|null}
+     */
+    this.color = null;
     /**
      * setscreen's second argument: TRUE = a frequent screen, re-run its cycle
      * while it is current (INPA's WM_TIMER loop); null = no setscreen.
