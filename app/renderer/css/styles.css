@@ -1009,11 +1009,62 @@ html.no-chrome body.apps-section .topbar {
   transform: none;
 }
 
-/* Apps hub: the ported-app cards reuse .lookup-entry; these add the version/
-   source tag and the greyed-out state for an app whose data isn't in the build */
+/* Apps hub: the ported-app cards reuse .lookup-entry, re-stacked into square
+   tiles -- icon, then title and tag, the description, the arrow at the foot --
+   on a grid that fills the row; the tag and the greyed-out state for an app
+   whose data isn't in the build are the hub's own */
 .apps-list {
   display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 14px;
+}
+.apps-list .lookup-entry {
+  margin-top: 0;
+  flex-direction: column;
+  align-items: flex-start;
   gap: 12px;
+  aspect-ratio: 1;
+  padding: 18px;
+  min-width: 0;
+}
+.apps-list .lookup-entry-icon {
+  width: 44px;
+  height: 44px;
+  font-size: 24px;
+}
+.apps-list .lookup-entry-text {
+  gap: 6px;
+  min-width: 0;
+}
+.apps-list .lookup-entry-title {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 15px;
+  line-height: 1.25;
+}
+.apps-list .app-tag {
+  margin-left: 0;
+}
+.apps-list .lookup-entry-desc {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.apps-list .lookup-entry-arrow {
+  margin-top: auto;
+  align-self: flex-end;
+}
+@media (max-width: 640px) {
+  .apps-list {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 10px;
+  }
+  .apps-list .lookup-entry {
+    padding: 14px;
+  }
 }
 .app-tag {
   font-family: var(--mono);

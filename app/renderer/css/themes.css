@@ -1101,6 +1101,16 @@ html[data-theme='brackets'] textarea:focus {
   border-color: var(--amber) !important;
   outline: none !important;
 }
+/* the fault-lookup / job-search box draws the border itself; its inner input
+   must not draw a second one (a boxed icon cell and a doubled outline) */
+html[data-theme='brackets'] .lookup-search .lookup-input,
+html[data-theme='brackets'] .lookup-search .lookup-input:focus {
+  background: none !important;
+  border: none !important;
+}
+html[data-theme='brackets'] .lookup-search {
+  border-radius: 0;
+}
 /* flat gauge bars */
 html[data-theme='brackets'] .gauge-track {
   border-radius: 0 !important;
