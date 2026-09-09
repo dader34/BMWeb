@@ -9383,6 +9383,43 @@ body.remote-helper::after {
 .sr-drop .btn {
   margin-top: 4px;
 }
+/* once a script is in, the zone is a one-line bar: the name, the hint, and
+   the Choose button; the big invitation is gone */
+.sr-drop.sr-loaded {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  min-height: 0;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  text-align: left;
+}
+.sr-drop.sr-loaded .empty-big,
+.sr-drop.sr-loaded > div:not(.sr-loaded-line) {
+  display: none;
+}
+.sr-drop.sr-loaded .sr-loaded-line {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+  order: -1;
+}
+.sr-loaded-name {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--ink);
+}
+.sr-loaded-hint {
+  font-size: 12px;
+  color: var(--ink-faint);
+}
+.sr-drop.sr-loaded .btn {
+  margin-top: 0;
+  flex: none;
+}
 /* a compile failure is the one card the eye should land on first */
 .result-card.sr-bad {
   border-left-color: var(--red);

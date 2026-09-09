@@ -29,7 +29,7 @@ function showScriptRunner() {
     head(
       'INPA',
       'Script runner',
-      "Run an INPA script against the car: a compiled .IPO, or a .IPS / .SRC source compiled here."
+      'Run an INPA script against the car: a compiled .IPO, or a .IPS / .SRC source compiled here.'
     ) +
     `<div class="etk-idcard sr-card">
       <div class="sr-drop empty" id="sr-drop" tabindex="0" role="button"
@@ -38,6 +38,7 @@ function showScriptRunner() {
         <div>A compiled <code>.IPO</code>, or a <code>.IPS</code> / <code>.SRC</code> source with the
              <code>.h</code> and <code>.SRC</code> files it includes. Nothing is uploaded or kept.</div>
         <button class="btn primary" id="sr-pick" type="button">Choose files</button>
+        <div class="sr-loaded-line" id="sr-loaded" hidden></div>
       </div>
       <input type="file" id="sr-input" multiple hidden
              accept=".ipo,.IPO,.ips,.IPS,.src,.SRC,.h,.H" />
@@ -128,7 +129,10 @@ async function scriptRunnerLoad(files) {
   try {
     read = await scriptRunnerRead(files);
   } catch (e) {
-    if (report) report.innerHTML = errorBlock(`could not read the files: ${e && e.message}`);
+    if (report)
+      report.innerHTML = errorBlock(
+        `could not read the files: ${e && e.message}`
+      );
     return;
   }
   if (!read.script) {
@@ -157,22 +161,45 @@ async function scriptRunnerLoad(files) {
  * @returns {void}
  */
 function scriptRunnerRender(loaded) {
+  // the drop zone shrinks to one line once a script is in: the report and
+  // the Run card take the page, and a new drop or Choose still works on it
+  const drop = document.getElementById('sr-drop');
+  const line = document.getElementById('sr-loaded');
+  if (drop && line) {
+    drop.classList.add('sr-loaded');
+    line.hidden = false;
+    line.innerHTML =
+      `<span class="sr-loaded-name">${esc(loaded.name)}</span>` +
+      `<span class="sr-loaded-hint">Drop or choose another script to replace it</span>`;
+  }
   const report = document.getElementById('sr-report');
   if (!report) return;
   const b = loaded.built;
   const rows = [];
-  const kv = (k, v) => `<div class="kv"><span class="kv-k">${esc(k)}</span>` +
+  const kv = (k, v) =>
+    `<div class="kv"><span class="kv-k">${esc(k)}</span>` +
     `<span class="kv-v">${esc(v)}</span></div>`;
   rows.push(kv('File', loaded.name));
-  rows.push(kv('Form', b.kind === 'compiled' ? 'compiled .IPO' : 'source, compiled here'));
-  if (b.includes && b.includes.length) rows.push(kv('Includes', b.includes.join(', ')));
-  if (loaded.dropped.length) rows.push(kv('Dropped alongside', loaded.dropped.join(', ')));
-  if (loaded.ignored.length) rows.push(kv('Ignored', loaded.ignored.join(', ')));
+  rows.push(
+    kv(
+      'Form',
+      b.kind === 'compiled' ? 'compiled .IPO' : 'source, compiled here'
+    )
+  );
+  if (b.includes && b.includes.length)
+    rows.push(kv('Includes', b.includes.join(', ')));
+  if (loaded.dropped.length)
+    rows.push(kv('Dropped alongside', loaded.dropped.join(', ')));
+  if (loaded.ignored.length)
+    rows.push(kv('Ignored', loaded.ignored.join(', ')));
 
   if (!b.ok) {
     const lines = b.errors
-      .map((e) => `<div class="kv"><span class="kv-k">${e.line ? `line ${e.line}` : 'error'}</span>` +
-        `<span class="kv-v">${esc(e.text || e.message)}</span></div>`)
+      .map(
+        (e) =>
+          `<div class="kv"><span class="kv-k">${e.line ? `line ${e.line}` : 'error'}</span>` +
+          `<span class="kv-v">${esc(e.text || e.message)}</span></div>`
+      )
       .join('');
     report.innerHTML =
       `<div class="result-card"><div class="result-head">Script</div>${rows.join('')}</div>` +
@@ -191,22 +218,29 @@ function scriptRunnerRender(loaded) {
 
   const exec = b.exec;
   const inv = ipofInventory(exec);
-  const entry = exec.procs.inpainit ? 'inpainit'
-    : exec.procs.SgbdInpaCheck ? 'SgbdInpaCheck' : null;
+  const entry = exec.procs.inpainit
+    ? 'inpainit'
+    : exec.procs.SgbdInpaCheck
+      ? 'SgbdInpaCheck'
+      : null;
   rows.push(kv('Procedures', String(Object.keys(exec.procs).length)));
   rows.push(kv('Menus', inv.menus.length ? inv.menus.join(', ') : 'none'));
   rows.push(kv('Screens', String(inv.screens.length)));
-  if (inv.machines.length) rows.push(kv('State machines', String(inv.machines.length)));
+  if (inv.machines.length)
+    rows.push(kv('State machines', String(inv.machines.length)));
   if (exec.imports && Object.keys(exec.imports).length) {
     rows.push(kv('DLL imports', Object.values(exec.imports).join(', ')));
   }
-  rows.push(kv('Entry', entry || 'none -- this script has no INPA entry point'));
+  rows.push(
+    kv('Entry', entry || 'none -- this script has no INPA entry point')
+  );
   if (exec.coding) {
-    rows.push(kv('Dialect', 'an NCS coding dispatcher, not a diagnostic script'));
+    rows.push(
+      kv('Dialect', 'an NCS coding dispatcher, not a diagnostic script')
+    );
   }
 
-  report.innerHTML =
-    `<div class="result-card"><div class="result-head">Script</div>${rows.join('')}</div>`;
+  report.innerHTML = `<div class="result-card"><div class="result-head">Script</div>${rows.join('')}</div>`;
 
   const run = document.getElementById('sr-run');
   if (!run) return;
@@ -241,13 +275,19 @@ async function scriptRunnerTarget(loaded) {
   try {
     target = await scriptRunnerSgbd(loaded.built.exec, loaded.stem);
   } catch (e) {
-    target = { sgbd: loaded.stem.toLowerCase(), how: 'the script\'s own name', choices: [] };
+    target = {
+      sgbd: loaded.stem.toLowerCase(),
+      how: "the script's own name",
+      choices: [],
+    };
   }
   loaded.target = target;
   if (line) {
     line.textContent =
-      `Jobs go to ${target.sgbd.toUpperCase()} — ${target.how}` +
-      (target.choices.length > 1 ? ` (of ${target.choices.length} it names)` : '');
+      `Jobs go to ${target.sgbd.toUpperCase()}: ${target.how}` +
+      (target.choices.length > 1
+        ? ` (of ${target.choices.length} it names)`
+        : '');
   }
   if (go) go.addEventListener('click', () => scriptRunnerRun(loaded));
   scriptRunnerActions([
@@ -268,7 +308,10 @@ async function scriptRunnerTarget(loaded) {
 async function scriptRunnerRun(loaded) {
   const target = loaded.target || { sgbd: loaded.stem.toLowerCase() };
   const sgbd = target.sgbd;
-  if (typeof irSeedExec !== 'function' || typeof ipoProgramOpen !== 'function') {
+  if (
+    typeof irSeedExec !== 'function' ||
+    typeof ipoProgramOpen !== 'function'
+  ) {
     const run = document.getElementById('sr-run');
     if (run) run.innerHTML = errorBlock('the live script runtime did not load');
     return;
@@ -282,7 +325,8 @@ async function scriptRunnerRun(loaded) {
     // no chassis: this screen is not a car's module, and setting one would
     // send the runtime's own routing to the vehicle view
   };
-  view.innerHTML = '<div class="etk-idcard sr-card"><div class="results-panel" id="sr-host"></div></div>';
+  view.innerHTML =
+    '<div class="etk-idcard sr-card"><div class="results-panel" id="sr-host"></div></div>';
   const host = document.getElementById('sr-host');
   const back = () => showScriptRunner();
   sbLeft.textContent = `${sgbd}.prg · starting`;
@@ -291,7 +335,8 @@ async function scriptRunnerRun(loaded) {
     opened = await ipoProgramOpen(ecu, host, back);
   } catch (e) {
     opened = false;
-    if (host) host.innerHTML = errorBlock(`the script stopped: ${e && e.message}`);
+    if (host)
+      host.innerHTML = errorBlock(`the script stopped: ${e && e.message}`);
   }
   if (!opened && host && !host.innerHTML) {
     host.innerHTML = errorBlock(
@@ -301,7 +346,11 @@ async function scriptRunnerRun(loaded) {
   if (!opened) {
     setActions([
       {
-        key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: back,
+        key: 'Escape',
+        keyLabel: 'Esc',
+        label: 'Back',
+        kind: 'back',
+        fn: back,
       },
     ]);
   }
@@ -309,6 +358,9 @@ async function scriptRunnerRun(loaded) {
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
-    showScriptRunner, scriptRunnerLoad, scriptRunnerRender, scriptRunnerRun,
+    showScriptRunner,
+    scriptRunnerLoad,
+    scriptRunnerRender,
+    scriptRunnerRun,
   };
 }
