@@ -247,3 +247,10 @@ async function showGarageAddChassis() {
   view.appendChild(grid);
   stagger(grid, 18);
 }
+
+// The topbar Garage button (index.html) opens the car list from any screen.
+// The scripts load after the header is parsed, so the button exists here.
+if (typeof document !== 'undefined' && document.getElementById) {
+  const garageBtn = document.getElementById('garage-btn');
+  if (garageBtn) garageBtn.onclick = () => showGarage();
+}
