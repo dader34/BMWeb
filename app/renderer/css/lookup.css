@@ -207,6 +207,13 @@
 .lkd-pop[hidden] {
   display: none;
 }
+/* the popup is wider than its button (min-width above), so the rightmost
+   filter's would hang past the page edge and scroll it sideways: that one
+   grows leftward from its right edge instead */
+.lookup-filter:last-child .lkd-pop {
+  left: auto;
+  right: 0;
+}
 .lkd.drop-up .lkd-pop {
   top: auto;
   bottom: calc(100% + 6px);
