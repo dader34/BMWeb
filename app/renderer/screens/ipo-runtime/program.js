@@ -276,6 +276,14 @@ class IpoProgram {
         this.messages.push({ title: step.title, body: step.body });
         await this.ui.message(step.title, step.body);
         step = vm.resume();
+      } else if (step.kind === 'fsread') {
+        // INPA's API fault read: FS_LESEN and every entry's detail on the
+        // wire, then the protocol file the script goes on to viewopen
+        const lines = await this.apiFaultRead(step.sgbd, step.file, ctx);
+        if (lines == null) return { done: false, cancelled: true };
+        vm.files.set(step.file, lines);
+        vm.lastWritten = step.file;
+        step = vm.resume();
       } else if (step.kind === 'pick') {
         // BMWeb's own picker (the home script): the host lists chassis,
         // modules or the whole-vehicle script; a cancel leaves the body
@@ -406,6 +414,79 @@ class IpoProgram {
    * @param {IpoRunContext} ctx - what is running
    * @returns {Promise<IpoFeed|null>} the feed, or null when the user declined
    */
+  /**
+   * What INPAapiFsLesen does inside INPA: read the module's fault memory
+   * (FS_LESEN), then the detail of every stored fault (FS_LESEN_DETAIL by
+   * its location number), and write the protocol file. The reads go through
+   * runJob, so wireReads carries them and the viewopen that follows draws
+   * the report joined with the fault lookup, as the whole-vehicle protocol
+   * does; the lines are INPA's own layout for the plain-text view.
+   * @param {string} sgbd - the module the script names
+   * @param {string} file - the file the script will viewopen
+   * @param {object} ctx - the body's context (scope, label)
+   * @returns {Promise<string[]|null>} the file's lines, or null when cancelled
+   */
+  async apiFaultRead(sgbd, file, ctx) {
+    const fed = await this.runJob(sgbd, 'FS_LESEN', null, ctx);
+    if (fed == null) return null;
+    const sets = (fed.sets || []).slice(1);
+    const faults = sets.filter(
+      (s) => s && (s.F_ORT_NR != null || s.F_HEX_CODE)
+    );
+    const name = String(sgbd || this.ecu.sgbd || '').toUpperCase();
+    const lines = [name, ''];
+    if (String(fed.get('JOB_STATUS') || 'OKAY') !== 'OKAY') {
+      lines.push(`Fehlerspeicher lesen: ${fed.get('JOB_STATUS')}`);
+      return lines;
+    }
+    if (!faults.length) {
+      lines.push('Kein Fehler im Fehlerspeicher');
+      return lines;
+    }
+    lines.push(
+      `${faults.length} Fehler im Fehlerspeicher`.replace(
+        /^1 Fehler/,
+        '1 Fehler'
+      ),
+      ''
+    );
+    for (const f of faults) {
+      const nr = f.F_ORT_NR != null ? String(f.F_ORT_NR) : '';
+      let det = f;
+      if (nr) {
+        // the detail pass, as INPA's API makes it; a module without the job
+        // answers with an error and the memory's own fields stand
+        const d = await this.runJob(sgbd, 'FS_LESEN_DETAIL', nr, ctx);
+        if (d == null) return null;
+        const ds = (d.sets || []).slice(1).find((s) => s && s.F_ORT_NR != null);
+        if (ds) det = Object.assign({}, f, ds);
+      }
+      const hex =
+        typeof hexText === 'function'
+          ? hexText(det.F_HEX_CODE)
+          : String(det.F_HEX_CODE || '');
+      lines.push(
+        `${nr}${hex ? ` (${hex})` : ''}  ${det.F_ORT_TEXT || ''}`.trim()
+      );
+      const bits = [];
+      if (det.F_ART1_TEXT) bits.push(`Fehlerart: ${det.F_ART1_TEXT}`);
+      if (det.F_HFK != null) bits.push(`Häufigkeit: ${det.F_HFK}`);
+      if (det.F_LZ != null) bits.push(`Logistikzähler: ${det.F_LZ}`);
+      if (det.F_VORHANDEN_TEXT) bits.push(det.F_VORHANDEN_TEXT);
+      if (bits.length) lines.push(`    ${bits.join('  ')}`);
+      const n = Number(det.F_UW_ANZ) || 0;
+      for (let i = 1; i <= n; i++) {
+        const t = det[`F_UW${i}_TEXT`];
+        if (t == null) continue;
+        const v = det[`F_UW${i}_WERT`];
+        const u = det[`F_UW${i}_EINH`];
+        lines.push(`    ${t}: ${v != null ? v : ''}${u ? ` ${u}` : ''}`);
+      }
+      lines.push('');
+    }
+    return lines;
+  }
+
   async runJob(sgbd, job, arg, ctx) {
     const target = ipoWireTarget(this.ecu, sgbd);
     const entry = !!(ctx && (ctx.scope === 'entry' || ctx.scope === 'exit'));

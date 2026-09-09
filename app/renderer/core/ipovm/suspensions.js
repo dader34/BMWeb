@@ -46,6 +46,7 @@ const IPO_SUSPEND_KINDS = new Set([
   'message',
   'toggle',
   'pick', // bmweb_pick: the host lists, the user chooses (home script)
+  'fsread', // INPAapiFsLesen: the renderer reads the fault memory and writes the file
   'print',
   'select',
   'exit',
@@ -193,6 +194,23 @@ function ipoDriveBuiltin(vm, t, stack) {
       stack,
       multiple: stack.length > 0 && flagArg(stack[0]),
       argnum: stack.length > 1 && flagArg(stack[1]),
+      out: vm.out,
+    };
+  }
+  // INPAapiFsLesen(sgbd, file): INPA's API reads the module's fault memory
+  // (FS_LESEN, then the detail of every entry) and writes the protocol file
+  // the script then viewopen()s. 161 shipped scripts read faults only this
+  // way. Live, the renderer does that read and hands the file back; offline
+  // it stays a noop (nothing to lift from the API's own work).
+  if (
+    vm.wireJobs &&
+    (name === 'INPAapiFsLesen' || name === 'INPAapiFsLesen2')
+  ) {
+    const strs = stack.filter((x) => !isRef(x)).map((x) => asStr(x));
+    return {
+      kind: 'fsread',
+      sgbd: strs[0] || '',
+      file: strs[1] || 'na_fs.tmp',
       out: vm.out,
     };
   }
