@@ -442,6 +442,10 @@ if (
   /bmweb(\.js)?$/.test(process.argv[1])
 ) {
   main(process.argv.slice(2)).then((code) => {
+    // leave once stdout has drained: a keep-alive socket from the site
+    // fetches (or a paused stdin after the TUI) would otherwise hold the
+    // process open for seconds after the command is done
     process.exitCode = code;
+    process.stdout.write('', () => process.exit(code));
   });
 }

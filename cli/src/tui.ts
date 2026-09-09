@@ -115,6 +115,9 @@ const DIGITS = '1234567890';
 /** The width a gauge takes on the grid, in characters. */
 const GAUGE_WIDTH = 12;
 
+/** How long a quit waits for the script's exit job before leaving anyway. */
+const QUIT_MS = 4000;
+
 /**
  * What a key press means to the program.
  * @param k - the key
@@ -199,7 +202,10 @@ export function nodeTerminal(): Terminal {
           rl.on('close', () => res(null));
         });
       } finally {
+        // readline's close() PAUSES stdin: without resuming it no keypress
+        // arrives again and the TUI is deaf (Ctrl+C included)
         rl.close();
+        input.resume();
         raw(true);
         paused = false;
       }
@@ -1010,15 +1016,30 @@ export async function tuiCommand(
       if (opts.menu !== p.menu) await p.openMenu(opts.menu);
     }
     const program = p;
+    let leaving = false;
     const unsubscribe = term.onKey((k) => {
       if (ui.modal) return;
       const what = keyToPress(k);
       if (what === null) return;
       if (what === 'quit') {
-        unsubscribe();
-        program.leaveModule().catch(() => {});
+        if (leaving) {
+          // a second Ctrl+C while the exit job is still on the wire: out,
+          // now, with the terminal put back (only on a real terminal)
+          if (k.ctrl && !opts.term) {
+            term.close();
+            process.exit(130);
+          }
+          return;
+        }
+        leaving = true;
+        // the script's own exit (inpaexit) runs first; whether it finishes,
+        // fails, or hangs on a silent module, the TUI leaves within QUIT_MS
+        const done = program.leaveModule().catch(() => {});
+        const late = new Promise<void>((r) => setTimeout(r, QUIT_MS));
+        Promise.race([done, late]).then(() => ui.left());
         return;
       }
+      if (leaving) return;
       if (what === 'back') {
         ui.requestStop();
         program.back().catch(() => {});
