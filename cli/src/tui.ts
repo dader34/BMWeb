@@ -245,6 +245,12 @@ export class TuiUi implements IpoUi {
   private frame: string[] = [];
   /** a picker owns the keyboard: the program's key handler must stand back */
   modal = false;
+  /** the first line of the viewer shown (INPA's viewer scrolls; so does this) */
+  private viewTop = 0;
+  /** the view the scroll position belongs to; a new view starts at the top */
+  private viewShown: unknown = null;
+  /** how many viewer lines the last frame had room for */
+  private viewRoom = 0;
   /** the terminal size the frame was drawn for; a change draws fresh */
   private frameSize = '';
   private leftResolve: (() => void) | null = null;
@@ -750,6 +756,33 @@ export class TuiUi implements IpoUi {
   }
 
   /**
+   * Scroll the viewer by a key: a line, a page, or to an end. Nothing
+   * happens without a viewer on screen.
+   * @param how - 'up' | 'down' | 'pageup' | 'pagedown' | 'home' | 'end'
+   * @returns whether the key was for the viewer
+   */
+  scrollView(how: string): boolean {
+    const p = this.program;
+    if (!p || !p.view) return false;
+    const page = Math.max(1, this.viewRoom - 1);
+    const n = (p.view.lines || []).length;
+    const max = Math.max(0, n - this.viewRoom);
+    const jump: Record<string, number> = {
+      up: -1,
+      down: 1,
+      pageup: -page,
+      pagedown: page,
+      home: -n,
+      end: n,
+    };
+    const by = jump[how];
+    if (by === undefined) return false;
+    this.viewTop = Math.max(0, Math.min(max, this.viewTop + by));
+    this.paint(p);
+    return true;
+  }
+
+  /**
    * The frame as lines: title, rule, the view or the grid, a blank, the
    * key bar, then the status and progress lines. Cut to the terminal's
    * width (a wrapped line would break the row count the redraw relies on)
@@ -762,19 +795,41 @@ export class TuiUi implements IpoUi {
     const title =
       `${p.ecu.label || p.ecu.sgbd}  ${p.ecu.sgbd}.prg  ${p.title || ''}`.trim();
     const head = [title, '-'.repeat(Math.min(w, 78))];
-    let body = p.view ? [...(p.view.lines || [])] : this.gridLines(p);
     const tail = ['', ...this.keyLines(p), this.statusText, this.progressText];
     const room = Math.max(1, this.term.rows - 1 - head.length - tail.length);
-    // INPA lays a screen out on up to 25 rows, most of them blank; when the
-    // terminal is shorter, runs of blank rows close up first, and only then
-    // is the body cut, saying so on its last line
-    if (body.length > room) body = body.filter((l, i) => l || body[i - 1]);
-    if (body.length > room) {
-      const hidden = body.length - (room - 1);
-      body = [
-        ...body.slice(0, room - 1),
-        `(${hidden} more rows: enlarge the terminal)`,
-      ];
+    let body: string[];
+    if (p.view) {
+      // the viewer (a fault protocol, a report) is a window the arrow keys
+      // move over its lines, INPA's viewer being scrollable; a line under
+      // the window says where it is when there is more than fits
+      const lines = [...(p.view.lines || [])];
+      if (p.view !== this.viewShown) {
+        this.viewShown = p.view;
+        this.viewTop = 0;
+      }
+      const fits = lines.length <= room;
+      const window = fits ? room : room - 1;
+      this.viewRoom = window;
+      this.viewTop = Math.max(0, Math.min(this.viewTop, lines.length - window));
+      body = lines.slice(this.viewTop, this.viewTop + window);
+      if (!fits)
+        body.push(
+          `\x1b[2mrows ${this.viewTop + 1}-${this.viewTop + body.length} of ${lines.length}` +
+            `   \u2191\u2193 PgUp PgDn Home End scroll\x1b[0m`
+        );
+    } else {
+      body = this.gridLines(p);
+      // INPA lays a screen out on up to 25 rows, most of them blank; when
+      // the terminal is shorter, runs of blank rows close up first, and only
+      // then is the body cut, saying so on its last line
+      if (body.length > room) body = body.filter((l, i) => l || body[i - 1]);
+      if (body.length > room) {
+        const hidden = body.length - (room - 1);
+        body = [
+          ...body.slice(0, room - 1),
+          `(${hidden} more rows: enlarge the terminal)`,
+        ];
+      }
     }
     return [...head, ...body, ...tail].map((l) =>
       String(l)
@@ -1019,6 +1074,7 @@ export async function tuiCommand(
     let leaving = false;
     const unsubscribe = term.onKey((k) => {
       if (ui.modal) return;
+      if (ui.scrollView(k.name)) return;
       const what = keyToPress(k);
       if (what === null) return;
       if (what === 'quit') {

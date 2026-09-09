@@ -460,3 +460,51 @@ test('pickList: arrows, typing, Space marks and Enter, Esc cancels', async () =>
   key('escape');
   assert.equal(await done, null, 'Esc cancels');
 });
+
+test('a long viewer scrolls: arrows, pages, Home/End, and a new view starts at the top', () => {
+  const R = loadRuntime();
+  const term = fakeTerminal([]); // 80x24: 16 body rows, 15 under a scroll line
+  const ui = new TuiUi(term, R, null);
+  const p = stubProgram();
+  const lines = Array.from({ length: 60 }, (_, i) => `fault line ${i + 1}`);
+  (p as { view: unknown }).view = { lines, report: null };
+  ui.attach(p);
+  let mark = 0;
+  /** what the last paint wrote (an in-place repaint writes changed lines only) */
+  const wrote = (): string => {
+    const d = term.out.slice(mark);
+    mark = term.out.length;
+    return d;
+  };
+  ui.paint(p);
+  let d = wrote();
+  assert.match(d, /fault line 1\x1b/, 'starts at the top');
+  assert.doesNotMatch(d, /fault line 60/, 'the tail is off screen');
+  assert.match(d, /rows 1-15 of 60/, 'says where the window is');
+  assert.equal(ui.scrollView('down'), true);
+  assert.match(wrote(), /rows 2-16 of 60/, 'Down moves one line');
+  ui.scrollView('pagedown');
+  assert.match(wrote(), /rows 16-30 of 60/, 'PgDn moves a page');
+  ui.scrollView('end');
+  d = wrote();
+  assert.match(d, /fault line 60\x1b/, 'End shows the last line');
+  assert.match(d, /rows 46-60 of 60/, 'and says so');
+  ui.scrollView('home');
+  assert.match(wrote(), /rows 1-15 of 60/, 'Home returns to the top');
+  ui.scrollView('end');
+  wrote();
+  (p as { view: unknown }).view = { lines: lines.slice(0, 30), report: null };
+  ui.paint(p);
+  assert.match(wrote(), /rows 1-15 of 30/, 'a new view starts at the top');
+  (p as { view: unknown }).view = { lines: lines.slice(0, 5), report: null };
+  ui.paint(p);
+  assert.doesNotMatch(
+    wrote(),
+    /rows \d+-\d+ of/,
+    'a view that fits has no scroll line'
+  );
+  assert.equal(ui.scrollView('down'), true, "the key is still the viewer's");
+  (p as { view: unknown }).view = null;
+  ui.paint(p);
+  assert.equal(ui.scrollView('down'), false, 'no viewer: the key is not taken');
+});

@@ -315,7 +315,10 @@ cancels. The home starts with or without a cable.
 
 The TUI runs on the terminal's alternate screen (the buffer vim and htop
 use), so the shell's scrollback is never touched and quitting restores it;
-a screen redraws in place, only the lines that changed.
+a screen redraws in place, only the lines that changed. A viewer longer
+than the terminal (a fault protocol, a report) scrolls: Up/Down a line,
+PgUp/PgDn a page, Home/End to either end, with a line under it saying
+which rows are shown.
 
 Every dialog INPA opens is a prompt: a message waits for Enter, an input
 asks for the number (or hex, or text) within the declared range, the
