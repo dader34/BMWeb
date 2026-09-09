@@ -113,6 +113,28 @@ async function showChassis() {
   appsCard.onclick = () => showApps();
   view.appendChild(appsCard);
 
+  // Garage: the cars this user keeps, and the scan history read from each.
+  // Above the chassis grid because a returning owner wants their own car, not
+  // the list of every chassis the app supports.
+  if (typeof showGarage === 'function') {
+    const garageCard = document.createElement('button');
+    garageCard.className = 'lookup-entry etk-vin-entry';
+    const n = typeof garageCars === 'function' ? garageCars().length : 0;
+    garageCard.innerHTML = `
+      <span class="lookup-entry-icon">⌂</span>
+      <span class="lookup-entry-text">
+        <span class="lookup-entry-title">Garage</span>
+        <span class="lookup-entry-desc">${esc(
+          n
+            ? `${n} saved vehicle${n === 1 ? '' : 's'} and their scan history`
+            : 'Save your car and keep the scans read from it'
+        )}</span>
+      </span>
+      <span class="lookup-entry-arrow">→</span>`;
+    garageCard.onclick = () => showGarage();
+    view.appendChild(garageCard);
+  }
+
   const filterRow = document.createElement('div');
   filterRow.className = 'chassis-filter-row';
   // CHASSIS_TAG is lower-case, so match case-insensitively: an earlier .includes('3-SERIES') never matched and left the tag clause dead

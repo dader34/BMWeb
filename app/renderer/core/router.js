@@ -35,6 +35,7 @@ const APPS_ROUTES = {
   'apps/backup': () =>
     typeof showFlasher === 'function' ? showFlasher() : null,
   'apps/tuning': () => (typeof showTuning === 'function' ? showTuning() : null),
+  garage: () => (typeof showGarage === 'function' ? showGarage() : null),
   'apps/documents': () =>
     typeof showWiringChassis === 'function' ? showWiringChassis() : null,
 };
@@ -51,6 +52,7 @@ const ROUTE_FOR_SCREEN = {
   showTool32: 'apps/tool32',
   showFlasher: 'apps/backup',
   showTuning: 'apps/tuning',
+  showGarage: 'garage',
 };
 
 // Some routes carry parameters (a chassis, a specific diagram) so a single
@@ -83,6 +85,17 @@ function resolveRoute(route) {
     if (typeof backToModules === 'function')
       return () => backToModules(chassis);
     if (typeof showSections === 'function') return () => showSections(chassis);
+  }
+  // #garage/<CAR>[/<SCAN>] -- a saved vehicle, or one of its stored scans.
+  // Both ids are local and opaque, so they are matched as-is rather than
+  // upper-cased the way a chassis is.
+  const g = /^garage\/([A-Za-z0-9_-]+)(?:\/([A-Za-z0-9_-]+))?$/.exec(route);
+  if (g) {
+    const carId = decodeURIComponent(g[1]);
+    const scanId = g[2] ? decodeURIComponent(g[2]) : null;
+    if (scanId && typeof showGarageScan === 'function')
+      return () => showGarageScan(carId, scanId);
+    if (typeof showGarageCar === 'function') return () => showGarageCar(carId);
   }
   // #apps/wiring/<CHASSIS>[/<DOC>]
   const w = /^apps\/wiring\/([A-Za-z0-9]+)(?:\/([A-Za-z0-9_-]+))?$/.exec(route);
@@ -166,7 +179,9 @@ function routeSyncFromScreen(fn) {
     const here = currentRoute();
     if (
       EXIT_APPS_SCREEN.has(name) &&
-      (here.startsWith('apps') || here.startsWith('car'))
+      (here.startsWith('apps') ||
+        here.startsWith('car') ||
+        here.startsWith('garage'))
     ) {
       _routing = true;
       _openRoute = null;
@@ -354,6 +369,30 @@ function routeSetWiringDoc(chassis, doc) {
   }
 }
 
+// The garage's own sub-routes. showGarage is in ROUTE_FOR_SCREEN and syncs
+// itself, but a car and a scan carry ids the crumb sync cannot know, so those
+// screens set the hash themselves -- replaceState, like the other deep links,
+// so walking a car's history doesn't stack an entry per scan opened.
+/**
+ * Set the hash to a garage route: #garage/<CAR>[/<SCAN>].
+ * @param {string} route - the route, without the leading '#'
+ * @returns {void}
+ */
+function garageRouteSet(route) {
+  if (_routing || !route) return;
+  if (currentRoute() === route) {
+    _openRoute = route;
+    return;
+  }
+  _routing = true;
+  try {
+    history.replaceState(null, '', '#' + route);
+    _openRoute = route;
+  } finally {
+    _routing = false;
+  }
+}
+
 /**
  * Set the hash to an open reference document: #apps/documents/<CHASSIS>/<DOCID>.
  * @param {string|null} chassis - Chassis id.
@@ -405,4 +444,5 @@ if (typeof window !== 'undefined') {
   window.routeSetEtkDiagram = routeSetEtkDiagram;
   window.routeSetCar = routeSetCar;
   window.routeSetCarList = routeSetCarList;
+  window.garageRouteSet = garageRouteSet;
 }
