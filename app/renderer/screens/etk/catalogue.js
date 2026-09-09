@@ -175,11 +175,12 @@ function etkProgressBlock(id) {
  * main groups, plus a variant selector so parts can be filtered to one exact
  * vehicle. Entering a chassis resets the variant filter.
  * @param {string} chassisId - chassis code, any case
+ * @param {{variant: number, label: string}|null} [preselect] - a variant to open filtered to (the index into the chassis's variants, and its label for the print header)
  * @returns {Promise<void>}
  */
-async function showEtkChassis(chassisId) {
+async function showEtkChassis(chassisId, preselect) {
   const id = chassisId.toUpperCase();
-  lastScreen = () => showEtkChassis(id);
+  lastScreen = () => showEtkChassis(id, preselect);
   setCrumbs([
     { label: 'Vehicles', fn: showChassis },
     { label: 'Apps', fn: showApps },
@@ -207,8 +208,10 @@ async function showEtkChassis(chassisId) {
     return;
   }
   loading.el.remove();
-  ETK_STATE.variant = null;
-  ETK_STATE.variantLabel = null; // reset filter when entering a chassis
+  // entering a chassis clears the filter, unless the caller (a decoded VIN,
+  // a garage car) already knows which variant this is
+  ETK_STATE.variant = preselect ? preselect.variant : null;
+  ETK_STATE.variantLabel = preselect ? preselect.label : null;
 
   // --- variant selector (custom searchable dropdown) ---
   const vbar = document.createElement('div');

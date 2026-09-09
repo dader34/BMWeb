@@ -1577,21 +1577,6 @@ html.no-chrome body.apps-section .topbar {
 }
 
 /* Save button, right of the decode arrow: same shape as the arrow but ghosted */
-.etk-vin-save {
-  flex: none;
-  font-size: 13px;
-  font-weight: 700;
-  line-height: 1;
-  cursor: pointer;
-  color: var(--amber);
-  background: var(--amber-glow);
-  border: 1px solid var(--amber);
-  border-radius: 8px;
-  padding: 10px 16px;
-}
-.etk-vin-save:hover {
-  background: rgba(255, 158, 44, 0.28);
-}
 
 /* ---- two columns: VIN box + attributes left, saved-vehicles column right -- */
 .etk-vin-layout {
@@ -1683,19 +1668,9 @@ html.no-chrome body.apps-section .topbar {
   letter-spacing: 0.04em;
   color: var(--ink-dim);
 }
-.etk-saved-del {
-  flex: none;
-  width: 40px;
-  background: none;
-  border: none;
-  border-left: 1px solid var(--line);
-  color: var(--ink-faint);
-  cursor: pointer;
-  font-size: 12px;
-}
-.etk-saved-del:hover {
-  color: var(--red, #ff6b6b);
-  background: rgba(127, 127, 127, 0.1);
+.etk-saved-go {
+  margin: 0 14px 14px;
+  align-self: flex-start;
 }
 
 /* ETK-style "identify by attributes" group box */
