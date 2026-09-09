@@ -9,7 +9,7 @@
  * identify-by-attributes group box itself lives in attributes.js.
  */
 
-/* exported showVinDecoder, openDecoded */
+/* exported etkMatchVariant, showVinDecoder, openDecoded */
 
 /**
  * How a section retargets the identification page.
