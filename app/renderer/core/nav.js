@@ -67,6 +67,9 @@ async function showChassis() {
         </div>
       </div>`;
     view.appendChild(panel);
+    // Job search (screens/search/), below INPA's own vehicle panel so the
+    // F-key list stays exactly where INPA draws it.
+    if (typeof searchBarMount === 'function') searchBarMount(view);
     panel
       .querySelectorAll('.inpa-fn[data-id]')
       .forEach((b) => (b.onclick = () => showScriptSelection(b.dataset.id)));
@@ -112,6 +115,13 @@ async function showChassis() {
     <span class="lookup-entry-arrow">→</span>`;
   appsCard.onclick = () => showApps();
   view.appendChild(appsCard);
+
+  // Job search: every INPA key and screen in the whole corpus, by what it
+  // does, opening the module at that menu and screen (screens/search/). Above
+  // the chassis grid because the question it answers -- "which screen reads
+  // the steering angle?" -- is asked before a car is picked, and the answer
+  // is what names the car.
+  if (typeof searchBarMount === 'function') searchBarMount(view);
 
   const filterRow = document.createElement('div');
   filterRow.className = 'chassis-filter-row';
@@ -434,9 +444,10 @@ async function vehicleScriptShipped(chassisId) {
  * each group to the module on the wire.
  * @param {string} chassisId - Chassis id.
  * @param {string|null} [openMenu] - a menu to open (a deep link)
+ * @param {string|null} [openScreen] - the screen to show on it (a search result)
  * @returns {Promise<void>}
  */
-function showVehicleScript(chassisId, openMenu) {
+function showVehicleScript(chassisId, openMenu, openScreen) {
   const id = String(chassisId);
   return showEcu(
     id,
@@ -448,7 +459,8 @@ function showVehicleScript(chassisId, openMenu) {
       group: null,
       kind: 'vehicle',
     },
-    openMenu || null
+    openMenu || null,
+    openScreen || null
   );
 }
 

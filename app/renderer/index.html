@@ -347,6 +347,16 @@
   <script src="screens/etk/identify.js"></script>
   <script src="screens/etk/catalogue.js"></script>
   <script src="screens/etk/diagram.js"></script>
+  <!-- Corpus-wide job search (screens/search/): the home screen's search bar
+       over every INPA key and screen the build ships. data.js loads the
+       exported index, match.js ranks against it, render.js draws, open.js
+       turns a result into a vehicle deep link, bar.js is the input nav.js
+       mounts -- so bar.js loads last. -->
+  <script src="screens/search/data.js"></script>
+  <script src="screens/search/match.js"></script>
+  <script src="screens/search/open.js"></script>
+  <script src="screens/search/render.js"></script>
+  <script src="screens/search/bar.js"></script>
   <script src="screens/tool32.js"></script>
   <script src="screens/flasher.js"></script>
   <script src="screens/tuning/memory-spec.js"></script>
