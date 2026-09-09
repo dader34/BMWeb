@@ -111,8 +111,11 @@ async function showGarageDiff(carId, fromId, toId) {
 function garageDiffPickers(carId, scans, from, to) {
   const box = document.createElement('div');
   box.className = 'garage-diff-pick';
+  // only scans of the kind being compared are offered: a fault list is never
+  // compared with an ident table
   const opts = (sel) =>
     scans
+      .filter((s) => s.kind === to.kind)
       .map(
         (s) =>
           `<option value="${esc(s.id)}"${s.id === sel ? ' selected' : ''}>${esc(
