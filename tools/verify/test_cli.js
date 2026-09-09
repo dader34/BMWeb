@@ -63,7 +63,11 @@ if (stray.length) {
   console.log(`  cli  FAIL: tarball carries ${stray.join(', ')}`);
   process.exit(1);
 }
-const vendorish = files.filter((f) => /\.(prg|ipo|ips|src|h)$/i.test(f));
+// ...except the app's own home script and its include (app/renderer/home/,
+// written by the project), which ship so `ipo info` can read them
+const vendorish = files.filter(
+  (f) => /\.(prg|ipo|ips|src|h)$/i.test(f) && !/^runtime\/home\//.test(f)
+);
 if (vendorish.length) {
   console.log(
     `  cli  FAIL: BMW-format files in the tarball: ${vendorish.join(', ')}`

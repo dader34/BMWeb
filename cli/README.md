@@ -2,28 +2,39 @@
 
 [BMWeb](https://bmweb.danner.ink/)'s tools as a command line. Read what an
 INPA `.IPO` script does, compile an `.IPS` / `.SRC` source, search every
-module the site ships for the key that does a thing, and decode or compare
-the report links the app's Garage shares. No browser, no car.
+module the site ships for the key that does a thing, decode or compare the
+report links the app's Garage shares, and, with a K+DCAN cable, run jobs,
+read every fault memory of a car, and drive a module's INPA screens from
+the terminal.
 
 The commands run the app's own code: the `.IPO` reader and the source
-compiler, the job search and the Garage report codec are the same files the
-site loads, copied into the package at build time. There is one
-implementation, and this is a second way to reach it.
+compiler, the job search, the Garage report codec, the transport (framing,
+the K-line exchange, the Web Serial bus), the BEST2 job VM, the `.IPO` VM
+and the program that runs a module's script are the same files the site
+loads, copied into the package at build time. There is one implementation,
+and this is a second way to reach it.
 
 ```
 npm i -g bmweb-cli
 bmweb --help
 ```
 
-Node 20 or later. No runtime dependencies.
+Node 20 or later. One optional dependency, `serialport`, used only by the
+commands that talk to the car; if it did not install, `npm i -g serialport`.
 
 ## What is in the package
 
 Only the project's own code. Nothing BMW-derived ships with it: no scripts,
-no SGBDs, no fault database, no parts data. The one thing the tool needs
-that it does not carry, the job search index, is fetched from the site.
+no SGBDs, no fault database, no parts data. Everything the tool needs that
+it does not carry is fetched from the site (or `--api <url>`) and kept
+under `$XDG_CACHE_HOME/bmweb-cli/` (default `~/.cache/bmweb-cli/`) for a
+day: the job search index (about 2.5 MB), and, for the commands on the
+cable, the chassis archives the app itself loads (`api/chassis/E46.chassis`,
+about 20 MB for an E46), the group bytecode and the shared tables.
+`--refresh` fetches again; when the site cannot be reached the cached copy
+is used and a warning says so.
 
-## Commands
+## Offline commands
 
 ### `bmweb ipo info <file>`
 
@@ -60,6 +71,14 @@ opens sends from its own `LINE` blocks, following helper functions the key
 calls. `[WRITE]` marks a job the app would ask about before sending (the
 write classifier's verdict, minus the session plumbing every script sends).
 A job whose name the script builds at run time is not shown.
+
+The package carries the app's own home script (`runtime/home/bmweb-home.ips`
+and its `bmweb.h`, both written by the project), which reads like any other:
+
+```
+$ bmweb ipo info "$(npm root -g)/bmweb-cli/runtime/home/bmweb-home.ips" \
+    -I "$(npm root -g)/bmweb-cli/runtime/home"
+```
 
 ### `bmweb ipo keys <file> [--menu m_x]`
 
@@ -122,12 +141,6 @@ E46
 4 of 5 results shown (raise --limit for more)
 ```
 
-The index (`https://bmweb.danner.ink/api/search-index.json.gz`, about 2.5
-MB) is fetched on first use and kept under `$XDG_CACHE_HOME/bmweb-cli/`
-(default `~/.cache/bmweb-cli/`). It is refreshed when the copy is a day
-old, or on `--refresh`; when the site cannot be reached the cached copy is
-used and a warning says so.
-
 ### `bmweb report show <link-or-payload> [--json]`
 
 Decode a link the Garage's Share button made (`...#report/<payload>`; the
@@ -184,25 +197,154 @@ Answering changed:
 + new   - cleared   = still present   ~ ident field changed
 ```
 
+## Commands on the cable
+
+These need a K+DCAN cable (an FTDI cable, or a clone) on the car's OBD
+port, and the `serialport` package. The port is the single candidate when
+there is one; otherwise name it with `--port`.
+
+The wire is the app's own transport, run unchanged over a Node port with
+the Web Serial API's shape. What that carries over, verified by the app on
+a real E46 with an FTDI cable on a Mac: the port opens 115200 8N1 and is
+reopened 9600 8E1 for a DS2 or KWP2000 module on its own; DTR idles high
+for BMW-FAST and D-CAN and low on every K-line concept, RTS is never
+raised, and on the K line DTR is held for exactly the telegram's byte time
+as the transmit enable; the ISO 9141 slow init is bit-banged on the break
+line; the echo a wired K line returns is dropped by count; every timeout is
+time-to-first-byte and comes from the SGBD's own communication parameters;
+a read that ran out of time is resumed, never abandoned, so no byte is
+lost; a silent address is the ECU's answer of zero bytes, which the SGBD's
+own bytecode branches on. An FTDI cable wants a 1 ms latency timer (set for
+you on Linux; on macOS and Windows a driver setting), and an echo failure
+(IFH-0003) says so.
+
+**Tested against the app's fake car, pending a real K+DCAN run.** The
+transport is exercised end to end against a fake cable (the DS2 and
+BMW-FAST framing, the reopen, the DTR sequence, the echo), and `job`,
+`scan` and `tui` against the fake car the app's own runtime tests use. No
+real cable has been on this code yet.
+
+### `bmweb ports [--json]`
+
+The serial ports a K+DCAN cable shows up as: `cu.usbserial*`, `cu.SLAB*`,
+`cu.wchusbserial*`, `ttyUSB*`, `ttyACM*`, with the vendor detail when
+`serialport` is installed. Needs no package to list.
+
+```
+$ bmweb ports
+/dev/cu.usbserial-AB0JQ9XY  FTDI  0403:6001  sn AB0JQ9XY
+```
+
+### `bmweb job <sgbd> <JOB> [arg] [--port p] [--yes] [--json]`
+
+One raw job on one module, like the app's Tool32: the SGBD's own bytecode
+runs in the job VM over the cable, inside its EDIABAS session
+(INITIALISIERUNG once, the communication parameters carried across jobs,
+ENDE when another module is loaded), and the result sets print as tables.
+A group name (`D_MOTOR`, `D_0012`) is resolved on the wire to the variant
+that answers, as the app resolves it.
+
+```
+$ bmweb job ms450ds0 STATUS_LESEN
+ms450ds0 MS450DS0 STATUS_LESEN: 1 set
+
+set 1
+  STAT_MOTORDREHZAHL_WERT  812.5
+  STAT_MOTORDREHZAHL_EINH  1/min
+  JOB_STATUS               OKAY
+
+$ bmweb job ms450ds0 FS_LOESCHEN
+FS_LOESCHEN on ms450ds0 is a write (it changes the module or drives something). Send it? [y/N] n
+FS_LOESCHEN on ms450ds0: not sent (a write needs --yes or a y answer)
+```
+
+The write gate is the app's classifier (`isWriteJob`): a read token in the
+name wins, a write token makes a write, and an unknown name is a write.
+A write goes out only with `--yes` or a `y` on the terminal; without a
+terminal the answer is no. A write is never sent silently.
+
+### `bmweb scan <chassis> [--port p] [--share] [--json]`
+
+INPA's own whole-vehicle script (E46 E53 E65 E83 E85 E87 E89 E90 R50 R56):
+the script is opened, its fault-memory menu's read key is pressed, and what
+it put on the wire is folded into the same report the app's Garage keeps,
+one module per address that answered, the silent ones listed. `--share`
+prints a link carrying the report, the same link the Garage's Share button
+makes, which `bmweb report show` and the site both open.
+
+```
+$ bmweb scan E46 --share
+E46: FS lesen (F1)
+Engine
+...
+Scan     E46 fault memories (e46.ipo)
+Read     2026-09-09T08:26:15.221Z
+Modules  14 answered, 2 with faults, 3 faults, 5 silent
+
+MODULE    CODE  TEXT                        COUNT  STATE
+--------  ----  --------------------------  -----  -------
+ms450ds0  27C3  DMTL pump current too high  3      present
+...
+Silent (5):
+  D_0044  D_0044  ERROR_NO_ANSWER
+  ...
+
+Share: https://bmweb.danner.ink/#report/...
+```
+
+The script's progress window (which module it is asking) goes to stderr;
+a key that would write is declined, a prompt is cancelled: the scan reads.
+
+### `bmweb tui [<chassis> <sgbd>] [--port p] [--menu m_x]`
+
+INPA's screens in the terminal. With a chassis and a module (SGBD or INPA
+code, or the chassis itself for its whole-vehicle script), that module's
+script runs the way the app runs it: its entry identifies the module, its
+root menu's keys are on the number row (1..9 and 0 for F1..F10, the
+shifted symbols `! @ # $ % ^ & * ( )` and Shift+F1..F10 for the shifted
+bank), Esc is the script's own Back, q quits. The screen is INPA's grid
+redrawn in place, a lamp as `(*) word`, a bar as `[####....] value`; the
+status line and the script's progress window are the two bottom lines.
+
+With no arguments it starts on the app's own home, an INPA script of the
+project's own (`home/bmweb-home.ips`): F1 picks a chassis then a module,
+F2 the chassis's whole-vehicle script, and `scriptchange` hands the screen
+to that script. The picks are numbered lists on the terminal; typing text
+filters, a number opens, Enter cancels. The home starts with or without a
+cable.
+
+Every dialog INPA opens is a prompt: a message waits for Enter, an input
+asks for the number (or hex, or text) within the declared range, the
+two-word box takes y/n, the component picker (togglelist) lists the
+screen's lines by number, Select lists the named lines, save-as asks for a
+file name. **Every write is asked first**, exactly as the app asks: a key
+whose body can send a write names the jobs and waits for y; a screen that
+sends one on every refresh asks once for as long as it is open; n or
+Enter abandons the key. On quit the leaving menu's Back job (the script's
+own release of whatever it energised) goes to the module, then the
+script's `inpaexit` (its DIAGNOSE_ENDE), the same release-on-leave the app
+performs.
+
+The module data the script needs (its `.IPO`, the SGBD bytecode, the
+tables) comes from the site's chassis archive, cached as described above.
+
 ### Every command
 
 `--json` prints machine-readable output instead of a table. Errors are one
 line on stderr and exit code 1. `bmweb <command> --help` lists a command's
 options; `bmweb --version` prints the version.
 
-## No car
-
-v0.1 has no live-car access. The app talks to the car through Web Serial
-in the browser; a serial transport for Node is a possible later addition.
-Everything here works on files and on the site's index.
-
 ## Developing
 
 The package lives in `cli/` of the [BMWeb repository](https://github.com/dader34/BMWeb).
-`npm run build` copies the app files it runs into `runtime/`, bundles
-`src/bmweb.ts` to `dist/bmweb.js` with esbuild and type-checks with `tsc`;
-`npm test` runs the `node:test` suites the build produced. The repository's
-`tools/check.sh` runs both.
+`npm run build` copies the app files it runs into `runtime/` (the list is
+`src/runtime-files.json`, in the app's load order), bundles `src/bmweb.ts`
+to `dist/bmweb.js` with esbuild and type-checks with `tsc`; `npm test` runs
+the `node:test` suites the build produced, every one of them offline: the
+serial tests drive the app's bus over a fake cable, the job, scan and tui
+tests drive the app's runtime against a fake car and a scripted terminal,
+with a module script written for the tests in INPA's language. The
+repository's `tools/check.sh` runs all of it.
 
 ## License
 

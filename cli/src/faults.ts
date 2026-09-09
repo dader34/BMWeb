@@ -79,16 +79,19 @@ export function faultCount(c: FaultCode): string {
 }
 
 /**
- * Whether the fault is currently present, from INPA's own wording.
+ * Whether the fault is currently present, from INPA's own wording. The
+ * module says it in German ("Fehler momentan vorhanden" / "... nicht
+ * vorhanden"); the runtime translates *_TEXT results before a report is
+ * folded, so the English the app prints is accepted too.
  * @param c - the stored fault
  * @returns 'present', 'stored', or '' when the read did not say
  */
 export function faultState(c: FaultCode): string {
   const vt = String(c.F_VORHANDEN_TEXT || '').toLowerCase();
   if (!vt) return '';
-  if (vt.includes('momentan vorhanden') && !vt.includes('nicht vorhanden'))
-    return 'present';
-  return 'stored';
+  const says = /momentan vorhanden|currently present/.test(vt);
+  const denies = /nicht vorhanden|not (currently )?present/.test(vt);
+  return says && !denies ? 'present' : 'stored';
 }
 
 /** A fault reduced to what a table row shows. */

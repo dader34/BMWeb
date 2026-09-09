@@ -1,7 +1,7 @@
 {
   "name": "bmweb-cli",
   "version": "0.1.0",
-  "description": "BMWeb's tools as a command line: read INPA .IPO scripts, compile .IPS sources, search the corpus job index, decode and diff shared Garage reports.",
+  "description": "BMWeb's tools as a command line: read INPA .IPO scripts, compile .IPS sources, search the corpus job index, decode and diff shared Garage reports, and, over a K+DCAN cable, run jobs, whole-car scans and INPA screens in the terminal.",
   "license": "GPL-3.0-only",
   "type": "module",
   "bin": {
@@ -46,5 +46,8 @@
     "esbuild": "^0.28.2",
     "prettier": "^3.9.6",
     "typescript": "^7.0.2"
+  },
+  "optionalDependencies": {
+    "serialport": "^13.0.0"
   }
 }

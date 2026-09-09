@@ -496,10 +496,19 @@ const sysSet = (sgbd) => ({
   );
   ok('IHKA46: digital key toggles ON/OFF across presses (state persists)');
 
-  // leaving the module runs inpaexit (INPAapiEnd + its own job) and reports
+  // leaving the module runs inpaexit (INPAapiEnd + its own job) and reports.
+  // The job has to REACH THE WIRE: marking the program closed before the
+  // exit proc ran let drive() cancel it at its first step, and the module
+  // was left mid-session with DIAGNOSE_ENDE never sent.
+  const bLeave = sent.length;
   await p.leaveModule();
   assert.strictEqual(ui.lefts, 1, 'left once');
-  ok('IHKA46: leaveModule runs inpaexit and hands back');
+  assert.ok(
+    sent.slice(bLeave).some((s) => s.job === 'DIAGNOSE_ENDE'),
+    `inpaexit's DIAGNOSE_ENDE on the wire: ${sent.slice(bLeave).map((s) => s.job)}`
+  );
+  assert.ok(p.closed, 'closed once inpaexit has run');
+  ok('IHKA46: leaveModule runs inpaexit (DIAGNOSE_ENDE sent) and hands back');
   assert.ok(
     leaveReg === null || leaveReg.key === null || leaveReg.job === null || true
   );

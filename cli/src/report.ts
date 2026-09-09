@@ -204,8 +204,19 @@ export async function reportShow(
 ): Promise<string[]> {
   const p = await decodeReport(arg);
   if (json) return [JSON.stringify(p, null, 2)];
-  const body = p.kind === 'ident' ? identLines(p.report) : faultLines(p.report);
-  return [...headerLines(p), '', ...body, ...silentLines(p.report)];
+  return [...headerLines(p), '', ...reportBodyLines(p.report, p.kind)];
+}
+
+/**
+ * A report's body: the fault (or ident) table and the silent addresses.
+ * Shared with `scan`, which prints what it just read the same way.
+ * @param report - the report
+ * @param kind - 'faults' or 'ident'
+ * @returns the lines
+ */
+export function reportBodyLines(report: Report, kind?: string): string[] {
+  const body = kind === 'ident' ? identLines(report) : faultLines(report);
+  return [...body, ...silentLines(report)];
 }
 
 /**

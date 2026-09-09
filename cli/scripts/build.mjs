@@ -22,6 +22,10 @@ const common = {
   format: 'esm',
   target: 'node20',
   define: { __BMWEB_VERSION__: JSON.stringify(pkg.version) },
+  // serialport carries a native binding found on disk at run time; bundling
+  // it breaks that lookup, so it stays a real import from node_modules (and
+  // an optional one: the offline commands never reach it)
+  external: ['serialport'],
   logLevel: 'warning',
 };
 

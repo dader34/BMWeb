@@ -42,7 +42,7 @@ test('--version prints the baked-in version; --help lists every command', async 
       h.out.some((l) => l.includes(c)),
       `help lists ${c}`
     );
-  assert.ok(h.out.some((l) => /no live-car access/.test(l)));
+  assert.ok(h.out.some((l) => /K\+DCAN cable/.test(l)));
   assert.deepEqual((await run([])).out, helpText());
 });
 

@@ -63,6 +63,14 @@ test('count prefers F_HFK, falls back to F_LZ; state reads INPA wording', () => 
     faultState({ F_VORHANDEN_TEXT: 'Fehler momentan nicht vorhanden' }),
     'stored'
   );
+  assert.equal(
+    faultState({ F_VORHANDEN_TEXT: 'Fault currently present' }),
+    'present'
+  );
+  assert.equal(
+    faultState({ F_VORHANDEN_TEXT: 'Fault not currently present' }),
+    'stored'
+  );
   assert.equal(faultState({}), '');
 });
 

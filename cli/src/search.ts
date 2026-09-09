@@ -15,10 +15,9 @@ import {
   statSync,
   writeFileSync,
 } from 'node:fs';
-import { homedir } from 'node:os';
-import { join } from 'node:path';
 import { gunzipSync } from 'node:zlib';
 import { CliError } from './args.ts';
+import { CACHE_MAX_AGE_MS, cacheDir, indexCachePath } from './cache.ts';
 import { formatTable } from './table.ts';
 import {
   loadRuntime,
@@ -27,6 +26,8 @@ import {
   type SearchResult,
 } from './runtime.ts';
 
+export { cacheDir, indexCachePath } from './cache.ts';
+
 /** The hosted app; deep links and the index fetch both go here. */
 export const SITE = 'https://bmweb.danner.ink/';
 
@@ -34,29 +35,7 @@ export const SITE = 'https://bmweb.danner.ink/';
 export const INDEX_URL = `${SITE}api/search-index.json.gz`;
 
 /** A cached index older than this is refreshed. */
-export const INDEX_MAX_AGE_MS = 24 * 60 * 60 * 1000;
-
-/**
- * The cache directory: $XDG_CACHE_HOME/bmweb-cli, else ~/.cache/bmweb-cli.
- * @param env - the environment (process.env unless a test says otherwise)
- * @returns the directory path
- */
-export function cacheDir(env: NodeJS.ProcessEnv = process.env): string {
-  const base =
-    env.XDG_CACHE_HOME && env.XDG_CACHE_HOME.trim()
-      ? env.XDG_CACHE_HOME
-      : join(homedir(), '.cache');
-  return join(base, 'bmweb-cli');
-}
-
-/**
- * The cached index file.
- * @param env - the environment
- * @returns the file path
- */
-export function indexCachePath(env: NodeJS.ProcessEnv = process.env): string {
-  return join(cacheDir(env), 'search-index.json.gz');
-}
+export const INDEX_MAX_AGE_MS = CACHE_MAX_AGE_MS;
 
 /** How loadIndex may be steered, mostly by tests. */
 export interface LoadIndexOptions {

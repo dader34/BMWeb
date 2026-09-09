@@ -8,8 +8,17 @@
  */
 import { CliError, helpLines, parseArgs, type FlagSpecs } from './args.ts';
 import { ipoCompile, ipoInfo, ipoKeys } from './ipo.ts';
+import {
+  connectBus,
+  disconnectBus,
+  jobCommand,
+  portsCommand,
+  SCAN_CHASSIS,
+} from './live.ts';
 import { reportDiff, reportShow } from './report.ts';
+import { scanCommand } from './scan.ts';
 import { loadIndex, runSearch } from './search.ts';
+import { tuiCommand } from './tui.ts';
 
 /** Baked in by scripts/build.mjs from package.json. */
 declare const __BMWEB_VERSION__: string;
@@ -32,6 +41,23 @@ const JSON_FLAG: FlagSpecs = {
   json: {
     kind: 'bool',
     help: 'print machine-readable JSON instead of a table',
+  },
+};
+
+/** The flags every command on the cable takes. */
+const LIVE: FlagSpecs = {
+  port: {
+    kind: 'string',
+    alias: 'p',
+    help: 'the serial device (the single candidate when there is one)',
+  },
+  api: {
+    kind: 'string',
+    help: 'the site the module data comes from (default https://bmweb.danner.ink/)',
+  },
+  refresh: {
+    kind: 'bool',
+    help: 'fetch the module data again even when the cached copy is fresh',
   },
 };
 
@@ -164,7 +190,127 @@ const COMMANDS: Record<string, Command> = {
       return reportDiff(a, b, !!flags.json);
     },
   },
+  ports: {
+    usage: 'bmweb ports [--json]',
+    summary:
+      'the serial ports a K+DCAN cable shows up as (cu.usbserial*, cu.SLAB*, cu.wchusbserial*, ttyUSB*, ttyACM*)',
+    flags: { ...JSON_FLAG },
+    async run(pos, flags) {
+      if (pos.length)
+        throw new CliError('usage: ' + (COMMANDS.ports as Command).usage);
+      return portsCommand(!!flags.json);
+    },
+  },
+  job: {
+    usage:
+      'bmweb job <sgbd> <JOB> [arg] [--port p] [--api url] [--yes] [--json]',
+    summary:
+      "one raw job on one module over the cable, like the app's Tool32; a write needs --yes or a y answer",
+    flags: {
+      ...LIVE,
+      yes: {
+        kind: 'bool',
+        alias: 'y',
+        help: 'consent to a write job on the command line',
+      },
+      ...JSON_FLAG,
+    },
+    async run(pos, flags) {
+      const [sgbd, job, arg] = pos;
+      if (!sgbd || !job || pos.length > 3)
+        throw new CliError('usage: ' + (COMMANDS.job as Command).usage);
+      const { R } = await connectBus(liveOptions(flags));
+      try {
+        return await jobCommand(sgbd, job, {
+          arg,
+          yes: !!flags.yes,
+          json: !!flags.json,
+        });
+      } finally {
+        await disconnectBus(R);
+      }
+    },
+  },
+  scan: {
+    usage: 'bmweb scan <chassis> [--port p] [--api url] [--share] [--json]',
+    summary: `INPA's whole-vehicle script over the cable (${SCAN_CHASSIS.join(' ')}): every fault memory as a report, --share adds a Garage link`,
+    flags: {
+      ...LIVE,
+      share: {
+        kind: 'bool',
+        help: 'print a Garage share link carrying the report',
+      },
+      label: {
+        kind: 'string',
+        help: 'the car name on the share link',
+      },
+      ...JSON_FLAG,
+    },
+    async run(pos, flags) {
+      const chassis = pos[0];
+      if (!chassis || pos.length > 1)
+        throw new CliError('usage: ' + (COMMANDS.scan as Command).usage);
+      const { R } = await connectBus(liveOptions(flags));
+      try {
+        const r = await scanCommand(chassis, {
+          share: !!flags.share,
+          json: !!flags.json,
+          label: flags.label as string | undefined,
+        });
+        return r.lines;
+      } finally {
+        await disconnectBus(R);
+      }
+    },
+  },
+  tui: {
+    usage: 'bmweb tui [<chassis> <sgbd>] [--port p] [--api url] [--menu m_x]',
+    summary:
+      "INPA screens in the terminal: the app's home (pick a chassis and a module) with no arguments, else that module; F-keys on the number row, every write asked first, released on quit",
+    flags: {
+      ...LIVE,
+      menu: {
+        kind: 'string',
+        alias: 'm',
+        help: 'the menu procedure to open once the script is up',
+      },
+    },
+    async run(pos, flags) {
+      const [chassis, sgbd] = pos;
+      if (pos.length === 1 || pos.length > 2)
+        throw new CliError('usage: ' + (COMMANDS.tui as Command).usage);
+      const r = await tuiCommand(chassis, sgbd, {
+        ...liveOptions(flags),
+        menu: flags.menu as string | undefined,
+        version: VERSION,
+      });
+      return [
+        `${r.log.length} job${r.log.length === 1 ? '' : 's'} sent:`,
+        ...r.log.map(
+          (l) =>
+            `  ${l.target} ${l.job}${l.arg ? ` ${l.arg}` : ''}  ${l.status}`
+        ),
+      ];
+    },
+  },
 };
+
+/**
+ * The cable and site options out of a command's flags.
+ * @param flags - the parsed flags
+ * @returns what connectBus takes
+ */
+function liveOptions(flags: Record<string, unknown>): {
+  port?: string;
+  api?: string;
+  refresh?: boolean;
+} {
+  return {
+    port: flags.port as string | undefined,
+    api: flags.api as string | undefined,
+    refresh: !!flags.refresh,
+  };
+}
 
 /**
  * The top-level help text.
@@ -187,9 +333,10 @@ export function helpText(): string[] {
     '  bmweb <command> --help    options of one command',
     '  bmweb --version',
     '',
-    'v0.1 has no live-car access: the app talks to the car through Web Serial',
-    'in the browser. The search index is fetched from the site and cached under',
-    '$XDG_CACHE_HOME/bmweb-cli (default ~/.cache/bmweb-cli) for a day.'
+    'ports, job, scan and tui talk to the car over a K+DCAN cable (the serialport',
+    'package, an optional dependency). Module data and the search index are',
+    'fetched from the site and cached under $XDG_CACHE_HOME/bmweb-cli',
+    '(default ~/.cache/bmweb-cli) for a day; nothing BMW-derived ships here.'
   );
   return out;
 }
