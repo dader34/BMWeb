@@ -109,7 +109,8 @@ function ipoMenuForScreen(exec, screen) {
   const byid = (exec && exec.byid) || {};
   for (const [k, name] of Object.entries(byid)) {
     if (!k.startsWith('menu:')) continue;
-    if (ipoScreenForMenu(exec, name) === screen) return name;
+    const shown = ipoScreenForMenu(exec, name); // {screen, frequent} or null
+    if (shown && shown.screen === screen) return name;
   }
   return null;
 }
