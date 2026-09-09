@@ -140,9 +140,15 @@ async function showGarageCar(carId) {
       </span>
       <span class="quick-status">
         <span class="garage-scan-kind">${esc(scan.kind === 'ident' ? 'Ident' : 'Faults')}</span>
+        <span class="garage-scan-share"></span>
         <button type="button" class="btn garage-scan-open">Open</button>
         <button type="button" class="garage-scan-del" title="Delete this scan" aria-label="Delete">✕</button>
       </span>`;
+    // Share beside Open: the link carries the report, nothing is stored
+    if (typeof garageShareButton === 'function')
+      row
+        .querySelector('.garage-scan-share')
+        .appendChild(garageShareButton(scan, car));
     row.querySelector('.garage-scan-open').onclick = () =>
       showGarageScan(carId, scan.id);
     row.querySelector('.garage-scan-del').onclick = async () => {
