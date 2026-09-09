@@ -666,8 +666,9 @@ class IpoVm {
         }
         s.pendingStack = null;
       }
-    } else if (s.pending === 'toggle') {
-      // the pick: run the parked togglelist with it, then step past it
+    } else if (s.pending === 'toggle' || s.pending === 'pick') {
+      // the pick: run the parked togglelist (or bmweb_pick) with it, then
+      // step past it
       if (value != null) {
         this._takePick(value);
         const prevFrame = this.frame;
@@ -797,6 +798,7 @@ class IpoVm {
           if (
             sig.kind === 'input' ||
             sig.kind === 'toggle' ||
+            sig.kind === 'pick' ||
             sig.kind === 'file'
           )
             s.pendingStack = sig.stack;

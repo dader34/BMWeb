@@ -92,6 +92,11 @@ const IPOF_BUILTINS = {
   0x9d: 'StructureInt',
   0x9e: 'StructureLong',
   0x9f: 'StructureString',
+  // BMWeb's own builtins (app/renderer/home/bmweb.h): a script of the
+  // app's own can ask the host for a pick and a status line. Numbered past
+  // every number the INPA corpus uses, so a BMW script never collides.
+  0xe0: 'bmweb_pick',
+  0xe1: 'bmweb_status',
 };
 
 /** Binary operator opcodes to names. */

@@ -275,6 +275,18 @@ class IpoProgram {
         this.messages.push({ title: step.title, body: step.body });
         await this.ui.message(step.title, step.body);
         step = vm.resume();
+      } else if (step.kind === 'pick') {
+        // BMWeb's own picker (the home script): the host lists chassis,
+        // modules or the whole-vehicle script; a cancel leaves the body
+        this.reflect(vm.out);
+        const choice =
+          typeof this.ui.pickHome === 'function'
+            ? await this.ui.pickHome(this, step)
+            : null;
+        if (choice == null) return { done: false, cancelled: true };
+        // the chassis chosen is the car every later screen belongs to
+        if (step.what === 'chassis' && this.ecu) this.ecu.chassis = choice;
+        step = vm.resume(String(choice));
       } else if (step.kind === 'toggle') {
         // the picker lists the screen the machine just set (its prologue's
         // setscreen names the component list)
