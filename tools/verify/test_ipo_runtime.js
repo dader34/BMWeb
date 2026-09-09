@@ -2379,6 +2379,50 @@ const sysSet = (sgbd) => ({
     );
   }
 
+  // ===========================================================================
+  // 8. Esc on the root menu: a screen-only key (Ident) is undone first, the
+  //    module is left on the next Esc
+  // ===========================================================================
+  {
+    const iexec = loadExec('E46', 'ihka46');
+    fakeApi((job) => {
+      if (job === 'INITIALISIERUNG')
+        return { system: sysSet('ihka46_3'), sets: [{ DONE: '1' }] };
+      if (job === 'INFO')
+        return {
+          system: sysSet('ihka46_3'),
+          sets: [{ SPRACHE: 'englisch', REVISION: '1.04', ECU: 'IHKA46' }],
+        };
+      return { system: sysSet('ihka46_3'), sets: [{ JOB_STATUS: 'OKAY' }] };
+    });
+    const eui = fakeUi();
+    const ep = new IpoProgram(
+      { sgbd: 'ihka46_3', label: 'IHKA', _variant: 'IHKA46_3', chassis: 'E46' },
+      iexec,
+      eui
+    );
+    const er = await ep.start();
+    assert.strictEqual(er.ok, true, `start failed: ${er.reason}`);
+    assert.strictEqual(ep.rootMenu, 'm_main');
+    assert.strictEqual(ep.rootScreen, 's_main');
+    const ident = ep.items.find((i) => /^Ident/i.test(i.label));
+    assert.ok(ident, 'the Ident key on the root menu');
+    await ep.press(ident.nr);
+    for (let i = 0; i < 200 && ep.busy; i++)
+      await new Promise((r) => setTimeout(r, 5));
+    assert.strictEqual(ep.menu, 'm_main', 'Ident keeps the root menu');
+    assert.notStrictEqual(ep.screen, 's_main', 'Ident swapped the screen');
+    await ep.back();
+    assert.strictEqual(ep.screen, 's_main', 'Esc returns to the entry screen');
+    assert.strictEqual(ep.menu, 'm_main');
+    assert.strictEqual(ep.closed, false, 'and the module is still open');
+    await ep.back();
+    for (let i = 0; i < 200 && !ep.closed; i++)
+      await new Promise((r) => setTimeout(r, 5));
+    assert.strictEqual(ep.closed, true, 'the next Esc leaves the module');
+    ok('Esc on the root menu: back to the entry screen first, then out');
+  }
+
   console.log(`ipo-runtime: ${passed} checks passed`);
 })().catch((e) => {
   console.error(e && e.stack ? e.stack : e);
