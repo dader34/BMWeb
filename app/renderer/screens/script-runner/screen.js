@@ -257,8 +257,8 @@ function scriptRunnerRender(loaded) {
   }
   run.innerHTML =
     `<div class="result-card"><div class="result-head">Run</div>` +
-    `<div class="kv"><span class="kv-v" id="sr-target">Choosing the module…</span></div>` +
-    `<div style="margin-top:12px"><button class="btn primary" id="sr-go" type="button">Run this script</button></div>` +
+    `<div class="sr-run-row"><span class="kv-v" id="sr-target">Choosing the module…</span>` +
+    `<button class="btn primary" id="sr-go" type="button">Run this script</button></div>` +
     '</div>';
   scriptRunnerTarget(loaded);
 }

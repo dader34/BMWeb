@@ -8642,6 +8642,19 @@ body.remote-helper::after {
   margin-top: 0;
   flex: none;
 }
+/* the Run card: where the jobs go on the left, the button on the right */
+.sr-run-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.sr-run-row .kv-v {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.sr-run-row .btn {
+  flex: none;
+}
 /* a compile failure is the one card the eye should land on first */
 .result-card.sr-bad {
   border-left-color: var(--red);
