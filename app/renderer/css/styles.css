@@ -9290,6 +9290,8 @@ body.remote-helper::after {
 .garage-diff-recurred .quick-detail-code,
 .garage-diff-recurred .garage-diff-badge {
   color: var(--amber);
+}
+
 /* ---- Script runner ------------------------------------------------------ */
 /* The drop zone is .empty's dashed box, which already reads as "put something
    here"; only the drag state and the pointer are new. */
