@@ -150,6 +150,8 @@ export function nodeTerminal(): Terminal {
   };
   raw(true);
   input.resume();
+  // the alternate screen: our own buffer, the shell's scrollback untouched
+  output.write('\x1b[?1049h\x1b[H');
   const subs = new Set<(k: Key) => void>();
   let paused = false;
   input.on(
@@ -203,6 +205,7 @@ export function nodeTerminal(): Terminal {
       }
     },
     close() {
+      output.write('\x1b[?1049l');
       raw(false);
       input.pause();
     },
@@ -212,16 +215,17 @@ export function nodeTerminal(): Terminal {
 /**
  * The terminal UI adapter: the IpoUi contract over a Terminal.
  *
- * Paint draws one FRAME from the program's cells (INPA's grid, row by row,
- * as the app's INPA mode does), the key bar from its items, then the
- * status and progress lines -- and redraws it IN PLACE: the cursor goes
- * back up over the last frame and only the lines that changed are written.
- * The screen is never cleared (ESC[2J lands a copy of the old screen in the
- * scrollback of Warp and iTerm, which read as a new page every cycle), so a
- * state machine's ticks paint nothing while nothing changes, and the shell
- * history above the frame stays where it was. Every dialog is a prompt on
- * the same terminal, with raw mode off while the answer is typed; it leaves
- * its trace and the next frame is drawn fresh below it.
+ * The TUI owns the terminal's ALTERNATE SCREEN (the buffer vim and htop
+ * use) for as long as it runs: the shell's scrollback is never touched, and
+ * leaving restores the shell exactly as it was. Paint draws one FRAME from
+ * the program's cells (INPA's grid, row by row, as the app's INPA mode
+ * does), the key bar from its items, then the status and progress lines,
+ * and redraws it IN PLACE from the top of the screen: only the lines that
+ * changed are written, so a state machine's ticks paint nothing while
+ * nothing changes. Lists (the home's picks, components, Select) are a
+ * picker: arrows move, typing filters, Enter picks, Esc cancels. The typed
+ * prompts (values, confirmations) use readline below the frame with raw
+ * mode off, and the frame is drawn fresh afterwards.
  */
 export class TuiUi implements IpoUi {
   readonly term: Terminal;
@@ -233,6 +237,8 @@ export class TuiUi implements IpoUi {
   private program: IpoProgramLike | null = null;
   /** the lines of the frame on screen, when the cursor sits right below it */
   private frame: string[] = [];
+  /** a picker owns the keyboard: the program's key handler must stand back */
+  modal = false;
   /** the terminal size the frame was drawn for; a change draws fresh */
   private frameSize = '';
   private leftResolve: (() => void) | null = null;
@@ -263,10 +269,7 @@ export class TuiUi implements IpoUi {
    * and drawn again for the new size.
    */
   resized(): void {
-    if (this.frame.length) {
-      this.term.write(`\x1b[${this.frame.length}A\r\x1b[J`);
-      this.frame = [];
-    }
+    this.frame = [];
     if (this.program) this.paint(this.program);
   }
 
@@ -297,27 +300,130 @@ export class TuiUi implements IpoUi {
     }
     const title =
       step.what === 'module' ? `Modules of ${step.arg}` : 'Vehicles';
-    let shown = options;
-    for (;;) {
-      const rows = shown
-        .map(
-          (o, i) =>
-            `  ${String(i + 1).padStart(3)}. ${o.label}${o.meta ? `  (${o.meta})` : ''}`
-        )
-        .join('\n');
-      const a = await this.ask(
-        `\n${title}${shown.length !== options.length ? ` (${shown.length} of ${options.length})` : ''}\n${rows}\n` +
-          `Number to open, text to filter, Enter to cancel: `
+    const picked = await this.pickList(title, options);
+    return picked ? (picked[0] as string) : null;
+  }
+
+  /**
+   * The picker: a list the keyboard walks. Up/Down (and PageUp/PageDown)
+   * move the bar, typing narrows the list to the rows containing the text,
+   * Backspace widens it again, Enter picks the row under the bar (Space
+   * marks a row when several may be picked, Enter then takes the marked
+   * ones, or the bar's row when none is marked), Esc cancels. Drawn as the
+   * frame, so it repaints in place like a screen.
+   * @param title - what is being picked
+   * @param options - the rows
+   * @param multiple - whether several rows may be picked
+   * @returns the picked values (one, unless multiple), or null for cancel
+   */
+  async pickList(
+    title: string,
+    options: HomeOption[],
+    multiple = false
+  ): Promise<string[] | null> {
+    let filter = '';
+    let cursor = 0;
+    let top = 0;
+    const marked = new Set<string>();
+    const shown = (): HomeOption[] => {
+      const q = filter.toLowerCase();
+      return q
+        ? options.filter((o) =>
+            `${o.label} ${o.meta || ''} ${o.value}`.toLowerCase().includes(q)
+          )
+        : options;
+    };
+    const draw = (): void => {
+      const rows = shown();
+      const w = this.term.columns;
+      const window = Math.max(3, this.term.rows - 7);
+      if (cursor >= rows.length) cursor = Math.max(0, rows.length - 1);
+      if (cursor < top) top = cursor;
+      if (cursor >= top + window) top = cursor - window + 1;
+      const count =
+        rows.length === options.length
+          ? `${options.length}`
+          : `${rows.length} of ${options.length}`;
+      const lines: string[] = [
+        `${title}  \x1b[2m(${count})\x1b[0m`,
+        `\x1b[2mFilter:\x1b[0m ${filter}\x1b[7m \x1b[0m`,
+        '',
+      ];
+      for (const o of rows.slice(top, top + window)) {
+        const i = rows.indexOf(o);
+        const mark = multiple ? (marked.has(o.value) ? '[x] ' : '[ ] ') : '';
+        const meta = o.meta ? `  ${o.meta}` : '';
+        const text = `${mark}${o.label}${meta}`.slice(0, w - 4);
+        lines.push(
+          i === cursor
+            ? `\x1b[7m > ${text.padEnd(w - 4)} \x1b[0m`
+            : `   ${o.meta ? `${mark}${o.label}\x1b[2m${meta}\x1b[0m` : text}`
+        );
+      }
+      if (!rows.length) lines.push('   \x1b[2m(nothing matches)\x1b[0m');
+      if (rows.length > top + window)
+        lines.push(`   \x1b[2m... ${rows.length - top - window} more\x1b[0m`);
+      lines.push('');
+      lines.push(
+        `\x1b[2m\u2191\u2193 move   type to filter   Enter picks${
+          multiple ? '   Space marks' : ''
+        }   Esc cancels\x1b[0m`
       );
-      if (a == null || !a.trim()) return null;
-      const n = Number(a.trim());
-      if (Number.isInteger(n) && n >= 1 && n <= shown.length)
-        return (shown[n - 1] as HomeOption).value;
-      const q = a.trim().toLowerCase();
-      const next = options.filter((o) =>
-        `${o.label} ${o.meta || ''} ${o.value}`.toLowerCase().includes(q)
-      );
-      shown = next.length ? next : options;
+      this.flush(lines);
+    };
+    this.modal = true;
+    try {
+      return await new Promise<string[] | null>((resolve) => {
+        const off = this.term.onKey((k) => {
+          const rows = shown();
+          const finish = (v: string[] | null): void => {
+            off();
+            resolve(v);
+          };
+          if (k.name === 'escape' || (k.ctrl && k.name === 'c')) {
+            finish(null);
+            return;
+          }
+          if (k.name === 'return' || k.name === 'enter') {
+            if (multiple && marked.size) {
+              finish(
+                options.filter((o) => marked.has(o.value)).map((o) => o.value)
+              );
+              return;
+            }
+            const o = rows[cursor];
+            finish(o ? [o.value] : null);
+            return;
+          }
+          if (k.name === 'up' || (k.ctrl && k.name === 'p'))
+            cursor = Math.max(0, cursor - 1);
+          else if (k.name === 'down' || (k.ctrl && k.name === 'n'))
+            cursor = Math.min(rows.length - 1, cursor + 1);
+          else if (k.name === 'pageup')
+            cursor = Math.max(0, cursor - (this.term.rows - 7));
+          else if (k.name === 'pagedown')
+            cursor = Math.min(rows.length - 1, cursor + (this.term.rows - 7));
+          else if (k.name === 'home') cursor = 0;
+          else if (k.name === 'end') cursor = Math.max(0, rows.length - 1);
+          else if (k.name === 'backspace') filter = filter.slice(0, -1);
+          else if (multiple && k.name === 'space') {
+            const o = rows[cursor];
+            if (o) {
+              if (marked.has(o.value)) marked.delete(o.value);
+              else marked.add(o.value);
+            }
+          } else if (k.ch && !k.ctrl && k.ch >= ' ' && k.ch !== '\x7f') {
+            filter += k.ch;
+            cursor = 0;
+          } else return;
+          draw();
+        });
+        draw();
+      });
+    } finally {
+      this.modal = false;
+      this.frame = [];
+      if (this.program) this.paint(this.program);
     }
   }
 
@@ -327,10 +433,9 @@ export class TuiUi implements IpoUi {
   }
 
   /**
-   * A prompt on the terminal. It scrolls the frame away from under the
-   * cursor, so the frame is forgotten and the next paint draws fresh below
-   * the answer (the prompt and its answer stay in the transcript, the way a
-   * tool call does).
+   * A typed prompt under the frame (readline, raw mode off). It moves the
+   * cursor, so the frame is forgotten and the next paint clears the screen
+   * and draws fresh.
    * @param prompt - the prompt text
    * @returns the answer, or null when cancelled
    */
@@ -485,28 +590,27 @@ export class TuiUi implements IpoUi {
       );
       return null;
     }
-    const list = rows
-      .map((r, i) => `  ${i + 1}. ${r.caption}  (${r.key})`)
-      .join('\n');
+    const options = rows.map((r) => ({
+      value: r.key,
+      label: r.caption,
+      meta: r.key !== r.caption ? r.key : '',
+    }));
     if (step.multiple) {
-      const a = await this.ask(
-        `\n${list}\nComponents, comma-separated (Enter cancels): `
-      );
-      const picked = pickNumbers(a, rows.length).map(
-        (i) => rows[i] as { key: string }
-      );
-      if (!picked.length) return null;
-      return { ort: picked.map((r) => r.key).join(';'), ein: 0 };
+      const picked = await this.pickList('Components', options, true);
+      if (!picked || !picked.length) return null;
+      return { ort: picked.join(';'), ein: 0 };
     }
-    const a = await this.ask(`\n${list}\nComponent number (Enter cancels): `);
-    const [i] = pickNumbers(a, rows.length);
-    if (i == null) return null;
-    const onOff = await this.ask(`On or off? [on/off] `);
-    if (onOff == null || !onOff.trim()) return null;
-    return {
-      ort: (rows[i] as { key: string }).key,
-      ein: /^on/i.test(onOff.trim()) ? 0 : 1,
-    };
+    const picked = await this.pickList('Component', options);
+    if (!picked) return null;
+    const onOff = await this.pickList(
+      `${options.find((o) => o.value === picked[0])?.label || picked[0]}`,
+      [
+        { value: 'on', label: 'On' },
+        { value: 'off', label: 'Off' },
+      ]
+    );
+    if (!onOff) return null;
+    return { ort: picked[0] as string, ein: onOff[0] === 'on' ? 0 : 1 };
   }
 
   /** INPA's Select: which named logical lines to keep on screen. */
@@ -529,14 +633,14 @@ export class TuiUi implements IpoUi {
       );
       return null;
     }
-    const list = names.map((n, i) => `  ${i + 1}. ${n}`).join('\n');
-    const a = await this.ask(
-      `\n${list}\nLines to show${multiple ? ', comma-separated' : ''} (a = all, Enter cancels): `
-    );
-    if (a == null) return null;
-    if (/^a(ll)?$/i.test(a.trim())) return [];
-    const picked = pickNumbers(a, names.length).map((i) => names[i] as string);
-    return picked.length ? picked : null;
+    const options = [
+      { value: '\u0000all', label: '(all lines)' },
+      ...names.map((n) => ({ value: n, label: n })),
+    ];
+    const picked = await this.pickList('Lines to show', options, multiple);
+    if (!picked || !picked.length) return null;
+    if (picked.includes('\u0000all')) return [];
+    return picked;
   }
 
   /** INPA's save-as dialog: a file name, written when the body ends. */
@@ -556,9 +660,11 @@ export class TuiUi implements IpoUi {
   }
 
   printScreen(p: IpoProgramLike): void {
-    // INPA's printscreen: the grid as text, on stdout below the screen
-    this.term.write(`\n${this.gridLines(p).join('\n')}\n`);
-    this.frame = [];
+    // INPA's printscreen: the grid as text, to a file (the alternate
+    // screen keeps nothing once the TUI leaves)
+    const name = `bmweb-screen-${Date.now()}.txt`;
+    writeFileSync(name, this.gridLines(p).join('\n') + '\n', 'utf8');
+    this.status(p, `printed the screen to ${name}`);
   }
 
   /**
@@ -672,12 +778,13 @@ export class TuiUi implements IpoUi {
   }
 
   /**
-   * Put a frame on the terminal over the last one. With a frame on screen
-   * the cursor is on the line under it: go up to its top, rewrite the lines
+   * Put a frame on the screen over the last one. The frame always starts
+   * at the top-left of the alternate screen: go there, rewrite the lines
    * that differ (each erased to the end of the row), step over the ones
    * that match, and erase whatever the old frame had below the new one.
-   * Without one (first paint, after a prompt, after a resize) the frame is
-   * written where the cursor is.
+   * With no frame to build on (first paint, after a prompt, after a
+   * resize) the screen is cleared first -- on the alternate screen that
+   * costs no scrollback.
    * @param lines - the new frame
    */
   private flush(lines: string[]): void {
@@ -687,7 +794,7 @@ export class TuiUi implements IpoUi {
     const prev = this.frame;
     if (prev.length === lines.length && prev.every((l, i) => l === lines[i]))
       return;
-    let s = prev.length ? `\x1b[${prev.length}A` : '';
+    let s = prev.length ? '\x1b[H' : '\x1b[2J\x1b[H';
     lines.forEach((line, i) => {
       if (i < prev.length && prev[i] === line) s += '\x1b[B';
       else s += `\r${line}\x1b[K\r\n`;
@@ -695,7 +802,7 @@ export class TuiUi implements IpoUi {
     // the cursor is under the new frame; anything of the old one below it
     // goes (\x1b[J erases to the end of the screen)
     if (lines.length < prev.length) s += '\r\x1b[J';
-    if (s) this.term.write(s);
+    this.term.write(s);
     this.frame = lines;
   }
 
@@ -759,21 +866,6 @@ export class TuiUi implements IpoUi {
   left(): void {
     if (this.leftResolve) this.leftResolve();
   }
-}
-
-/**
- * The numbers a comma-separated answer names, zero-based and in range.
- * @param a - the answer, or null
- * @param n - how many rows there are
- * @returns indices
- */
-function pickNumbers(a: string | null, n: number): number[] {
-  if (a == null) return [];
-  return a
-    .split(/[,\s]+/)
-    .map((s) => Number(s))
-    .filter((i) => Number.isInteger(i) && i >= 1 && i <= n)
-    .map((i) => i - 1);
 }
 
 /**
@@ -919,6 +1011,7 @@ export async function tuiCommand(
     }
     const program = p;
     const unsubscribe = term.onKey((k) => {
+      if (ui.modal) return;
       const what = keyToPress(k);
       if (what === null) return;
       if (what === 'quit') {
