@@ -130,6 +130,20 @@ const APP_REGISTRY = [
     hasData: async () =>
       typeof showTuning === 'function' && typeof window.XDF !== 'undefined',
   },
+  {
+    id: 'script',
+    icon: '⌁',
+    title: 'Script runner',
+    desc: "Run an INPA script of your own: a compiled .IPO, or a .IPS / .SRC compiled in the browser",
+    tag: 'INPA',
+    open: () =>
+      typeof showScriptRunner === 'function' ? showScriptRunner() : null,
+    // reads the file the user supplies -- nothing to ship, so it is ready
+    // whenever its code and the live runtime did
+    hasData: async () =>
+      typeof showScriptRunner === 'function' &&
+      typeof ipoProgramOpen === 'function',
+  },
 ];
 
 /**

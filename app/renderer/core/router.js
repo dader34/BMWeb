@@ -35,6 +35,8 @@ const APPS_ROUTES = {
   'apps/backup': () =>
     typeof showFlasher === 'function' ? showFlasher() : null,
   'apps/tuning': () => (typeof showTuning === 'function' ? showTuning() : null),
+  'apps/script': () =>
+    typeof showScriptRunner === 'function' ? showScriptRunner() : null,
   'apps/documents': () =>
     typeof showWiringChassis === 'function' ? showWiringChassis() : null,
 };
@@ -51,6 +53,7 @@ const ROUTE_FOR_SCREEN = {
   showTool32: 'apps/tool32',
   showFlasher: 'apps/backup',
   showTuning: 'apps/tuning',
+  showScriptRunner: 'apps/script',
 };
 
 // Some routes carry parameters (a chassis, a specific diagram) so a single

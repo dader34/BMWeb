@@ -218,6 +218,17 @@
   <script src="core/ipovm/structures.js"></script>
   <script src="core/ipovm/suspensions.js"></script>
   <script src="core/ipovm/vm.js"></script>
+  <!-- Reading an .IPO / .IPS the user supplies into the VM's own exec shape:
+       the pool before the declarations that index it, the walker before the
+       assembler over it, the compiler last (it needs the walker's tables). -->
+  <script src="core/ipofile/pool.js"></script>
+  <script src="core/ipofile/decls.js"></script>
+  <script src="core/ipofile/walk.js"></script>
+  <script src="core/ipofile/exec.js"></script>
+  <script src="core/ipofile/lex.js"></script>
+  <script src="core/ipofile/parse.js"></script>
+  <script src="core/ipofile/emit.js"></script>
+  <script src="core/ipofile/compile.js"></script>
   <script src="core/core/settings.js"></script>
   <script src="core/core/ui.js"></script>
   <script src="core/core/api.js"></script>
@@ -372,6 +383,9 @@
   <script src="screens/tuning/read-ecu-dialog.js"></script>
   <script src="screens/tuning/session.js"></script>
   <script src="screens/tuning/screen.js"></script>
+  <!-- Script runner: the loader over core/ipofile, then the screen. -->
+  <script src="screens/script-runner/load.js"></script>
+  <script src="screens/script-runner/screen.js"></script>
   <script src="screens/apps.js"></script>
   <script src="screens/tutorial.js"></script>
   <script src="app.js"></script>

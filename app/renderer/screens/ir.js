@@ -51,6 +51,24 @@ function irLiveExec(sgbd) {
 }
 
 /**
+ * Put an exec into the cache under a name, so the runtime finds it there
+ * instead of fetching one.
+ *
+ * A script the user supplied is decoded in the browser and has no URL to be
+ * fetched from. Seeding it here is what lets it open through the ordinary
+ * module path -- same program driver, same confirmations, same write gates --
+ * rather than through a second runtime that would have to re-earn that trust.
+ * The entry lives only as long as the page.
+ *
+ * @param {string} sgbd - the name to file it under
+ * @param {object|null} exec - {procs, byid}
+ * @returns {void}
+ */
+function irSeedExec(sgbd, exec) {
+  _irExecCache.set(String(sgbd).toLowerCase(), Promise.resolve(exec || null));
+}
+
+/**
  * One INPA ask, in INPA's own words. The driven VM suspends at every input
  * builtin; this renders the right dialog for its kind and returns what
  * resume() stores: a number (inputint/inputnum), a hex STRING (inputhex),
@@ -297,6 +315,7 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     irExecSgbd,
     irLiveExec,
+    irSeedExec,
     irAskInput,
     irItemBodyJobs,
     irUseTranslations,

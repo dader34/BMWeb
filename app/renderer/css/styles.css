@@ -8574,3 +8574,38 @@ body.remote-helper::after {
     print-color-adjust: exact;
   }
 }
+
+/* ---- Script runner ------------------------------------------------------ */
+/* The drop zone is .empty's dashed box, which already reads as "put something
+   here"; only the drag state and the pointer are new. */
+.sr-card {
+  max-width: 1040px;
+}
+.sr-drop {
+  cursor: pointer;
+  transition:
+    border-color 0.12s ease,
+    background 0.12s ease;
+}
+.sr-drop:hover,
+.sr-drop:focus-visible {
+  border-color: var(--line-bright);
+  outline: none;
+}
+.sr-drop.is-over {
+  border-color: var(--amber);
+  background: var(--amber-glow);
+  color: var(--ink);
+}
+.sr-drop code {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--ink);
+}
+.sr-drop .btn {
+  margin-top: 4px;
+}
+/* a compile failure is the one card the eye should land on first */
+.result-card.sr-bad {
+  border-left-color: var(--red);
+}
