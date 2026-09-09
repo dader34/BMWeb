@@ -231,11 +231,27 @@ async function garageRunBox(car) {
       )}</span>
     </span>
     <button type="button" class="btn garage-run-faults">Fault scan</button>
-    <button type="button" class="btn garage-run-ident">Identification</button>`;
+    <button type="button" class="btn garage-run-ident">Identification</button>
+    <button type="button" class="btn garage-run-tree" hidden>Control unit tree</button>`;
   box.querySelector('.garage-run-faults').onclick = () =>
     garageRunScan(car, IPO_VEHICLE_FAULT_MENU, GARAGE_FAULT_KEY);
   box.querySelector('.garage-run-ident').onclick = () =>
     garageRunScan(car, null, GARAGE_IDENT_KEY);
+  // ISTA's control unit tree, the boxes coloured by this car's last scan;
+  // shown once the tree data says the chassis has one
+  const treeBtn = box.querySelector('.garage-run-tree');
+  if (
+    typeof ecuTreeNameFor === 'function' &&
+    typeof showEcuTreeChassis === 'function'
+  ) {
+    ecuTreeNameFor(car.chassis)
+      .then((name) => {
+        if (!name) return;
+        treeBtn.hidden = false;
+        treeBtn.onclick = () => showEcuTreeChassis(car.chassis, car.id);
+      })
+      .catch(() => {});
+  }
   return box;
 }
 
