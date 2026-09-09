@@ -9939,3 +9939,7 @@ body.remote-helper::after {
   background: var(--amber);
   transition: width 0.3s ease;
 }
+.tree-bar .btn[hidden] {
+  display: none;
+}
+
