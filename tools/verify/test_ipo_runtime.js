@@ -2042,6 +2042,21 @@ const sysSet = (sgbd) => ({
       `IDENT went to every group: ${vsent.filter((s) => s.job === 'IDENT').length}`
     );
     ok('E46.IPO: Ident reads every module into an identification report');
+
+    // a clear from the script drops the cells the runtime still holds there
+    vp.cells.set('2:3', { row: 2, lrow: 2, col: 3, text: 'gone' });
+    vp.cells.set('7:3', { row: 7, lrow: 7, col: 3, text: 'stays' });
+    vp.takeCells({
+      clears: [{ row: 2, col: 3, h: 1, w: 4 }],
+      lines: [],
+      items: [],
+      blank: false,
+    });
+    assert.ok(
+      !vp.cells.has('2:3') && vp.cells.has('7:3'),
+      'clearrect on held cells'
+    );
+    ok('runtime: clearrect removes the cells it covers');
     vp.close();
   }
 
@@ -2077,6 +2092,79 @@ const sysSet = (sgbd) => ({
       assert.strictEqual(typeof real[m], 'function', `ui.${m} is a function`);
     }
     ok('ipoMakeUi: every method the program calls is there');
+  }
+
+  // ===========================================================================
+  // builtins named from their call shapes: clearrect / ftextclear blank
+  // what was printed there, the factory-line interfaces answer 0
+  // ===========================================================================
+  {
+    const S = (v) => ({ op: 'const', t: 's', v });
+    const I = (v) => ({ op: 'const', t: 'i', v });
+    const F = { op: 'frame' };
+    const toks = [
+      { op: 'block', dwords: 0 },
+      F,
+      S('Hello'),
+      I(2),
+      I(3),
+      I(0),
+      I(0),
+      { op: 'call', name: 'ftextout' },
+      F,
+      S('Keep'),
+      I(5),
+      I(3),
+      I(0),
+      I(0),
+      { op: 'call', name: 'ftextout' },
+      F,
+      I(2),
+      I(3),
+      I(1),
+      I(10),
+      { op: 'call', n: 0x50 },
+      F,
+      S('Keep'),
+      I(5),
+      I(3),
+      I(0),
+      I(0),
+      { op: 'call', n: 0x4f },
+      F,
+      S('After'),
+      I(2),
+      I(3),
+      I(0),
+      I(0),
+      { op: 'call', name: 'ftextout' },
+      F,
+      { op: 'procref', kind: 0, n: 5 },
+      S('FG_NR'),
+      { op: 'call', n: 0x80 },
+      { op: 'ret' },
+    ];
+    const vm = new IpoVm(
+      { procs: { p: toks }, byid: {} },
+      { budget: 1000, wireJobs: true, host: new FeedHost() }
+    );
+    let st = vm.stepStart('p');
+    for (let n = 0; n < 20 && st && st.kind !== 'done'; n++) st = vm.resume();
+    const texts = vm.out.lines.flatMap((l) =>
+      (l.elements || []).map((e) => e.s)
+    );
+    assert.deepStrictEqual(texts, ['After'], `cleared texts: ${texts}`);
+    assert.strictEqual(vm.out.clears.length, 2, 'two clears recorded');
+    assert.strictEqual(ipoBuiltinName({ n: 0x50 }), 'clearrect');
+    assert.strictEqual(ipoBuiltinName({ n: 0x1b }), 'delay');
+    assert.strictEqual(
+      vm.globals.get(5),
+      0,
+      'an unavailable interface answers 0'
+    );
+    ok(
+      'builtins: clearrect / ftextclear blank printed cells; DTM reads answer 0'
+    );
   }
 
   // stop every refresh timer so the process can exit

@@ -99,6 +99,13 @@ class Emissions {
     /** @type {string|null} the .IPO a scriptchange() handed control to */
     this.scriptChange = null;
     /**
+     * clearrect / ftextclear: screen areas the body blanked, in the
+     * script's own row / column coordinates; the runtime drops the cells
+     * it still holds there.
+     * @type {{row: number, col: number, h: number, w: number}[]}
+     */
+    this.clears = [];
+    /**
      * viewopen(file): the text file the script wrote and asked INPA to show
      * (a whole-vehicle fault protocol), as its lines.
      * @type {{path: string, lines: string[]}|null}

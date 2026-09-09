@@ -57,8 +57,8 @@ const IPO_JOB_BUILTINS = new Set([
   'INPAapiJobData',
 ]);
 
-/** builtin_1b = wartezeit(ms). */
-const IPO_WAIT_BUILTIN = 'builtin_1b';
+/** delay(ms) -- Inpa.h's name; the disassembler's builtin_1b. */
+const IPO_WAIT_BUILTIN = 'delay';
 
 /** builtin_16 = togglelist. */
 const IPO_TOGGLELIST_BUILTIN = 'builtin_16';

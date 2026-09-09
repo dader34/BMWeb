@@ -971,6 +971,20 @@ class IpoProgram {
       this.cells = new Map();
       this.lines = [];
     }
+    // clearrect / ftextclear: the cells still held inside the blanked areas
+    // go (by the script's own coordinates, before any line stacking)
+    for (const r of out.clears || []) {
+      for (const [k, c] of this.cells) {
+        const row = c.lrow != null ? c.lrow : c.row;
+        if (
+          row >= r.row &&
+          row < r.row + r.h &&
+          c.col >= r.col &&
+          c.col < r.col + r.w
+        )
+          this.cells.delete(k);
+      }
+    }
     if (out.deselect && this.lineFilter) this.setLineFilter(null);
     // only the logical lines Select kept, plus the unnamed ones (the screen
     // function's own output has no name to select by)
@@ -1011,6 +1025,7 @@ class IpoProgram {
   static cellOf(el) {
     return {
       row: el.row,
+      lrow: el.lrow != null ? el.lrow : el.row,
       col: el.col,
       text: el.s != null ? String(el.s) : '',
       key: el.key || null,
@@ -1131,7 +1146,10 @@ class IpoProgram {
       it,
       gen,
       { label: it.label || name, scope: `machine:${name}`, preConfirmed },
-      () => this.vm.stepStart(name),
+      () => {
+        this.vm.currentMachine = name; // callstatemachine returns here
+        return this.vm.stepStart(name);
+      },
       it.label || name,
       false
     );
