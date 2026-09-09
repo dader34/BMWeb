@@ -8848,6 +8848,40 @@ body.remote-helper::after {
   color: var(--ink-dim);
   font-size: 13px;
 }
+/* the "run a scan" row on a car's page */
+.garage-run {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+}
+.garage-run-text {
+  flex: 1 1 auto;
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.garage-run-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.garage-run-note {
+  font-size: 12px;
+  color: var(--ink-dim);
+}
+@media (max-width: 640px) {
+  .garage-run {
+    flex-wrap: wrap;
+  }
+  .garage-run-text {
+    flex-basis: 100%;
+  }
+}
 .garage-car {
   display: grid;
   grid-template-columns: 1fr auto;

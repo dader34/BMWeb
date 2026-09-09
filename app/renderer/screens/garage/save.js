@@ -8,13 +8,15 @@
 /* exported garageOfferSave, garageVinFromView */
 
 /** The protocol header line E46's script writes for the VIN it read from EWS. */
-const GARAGE_VIN_LINE_RE = /^\s*(?:Fg-Nummer|Fahrgestellnummer|VIN)\s*:\s*(.+)$/i;
+const GARAGE_VIN_LINE_RE =
+  /^\s*(?:Fg-Nummer|Fahrgestellnummer|VIN)\s*:\s*(.+)$/i;
 
 /**
  * Trailing commentary the script appends to the VIN it printed ("... read
  * from EWS"), in the languages the shipped scripts use.
  */
-const GARAGE_VIN_NOTE_RE = /\s+(?:aus\s+\w+\s+ausgelesen|read\s+from\s+\w+)\s*$/i;
+const GARAGE_VIN_NOTE_RE =
+  /\s+(?:aus\s+\w+\s+ausgelesen|read\s+from\s+\w+)\s*$/i;
 
 /**
  * The VIN a finished read identified the car by.
@@ -33,14 +35,16 @@ function garageVinFromView(view) {
     // kombi and EWS spell the same number differently
     const raw = id.FG_NR || id.AIF_FG_NR || id.VIN;
     const s = String(raw == null ? '' : raw).trim();
-    if (s.length >= GARAGE_VIN_TAIL && !/error/i.test(s)) return s.toUpperCase();
+    if (s.length >= GARAGE_VIN_TAIL && !/error/i.test(s))
+      return s.toUpperCase();
   }
   for (const line of v.lines || []) {
     const m = GARAGE_VIN_LINE_RE.exec(String(line));
     if (!m) continue;
     const s = m[1].replace(GARAGE_VIN_NOTE_RE, '').trim();
     // the script prints its own failure on this line ("EWS-Error: ...")
-    if (s.length >= GARAGE_VIN_TAIL && !/error/i.test(s)) return s.toUpperCase();
+    if (s.length >= GARAGE_VIN_TAIL && !/error/i.test(s))
+      return s.toUpperCase();
   }
   return '';
 }
@@ -82,6 +86,20 @@ function garageOfferSave(el, view, ecu) {
     btn.title = 'Open this scan in the garage';
     btn.onclick = () => showGarageScan(car.id, scan.id);
   };
+
+  // the read was launched from a car's own page: it belongs there, unless
+  // the car on the cable identified itself as a different one
+  const target = garageScanTarget(vin);
+  if (target) {
+    const scan = garageAddScan(target.id, view, { chassis });
+    if (scan) {
+      // a car saved by chassis alone learns its VIN from the first read
+      if (vin && !target.vin) garageUpdateCar(target.id, { vin });
+      garageScanTargetClear();
+      kept(garageCar(target.id) || target, scan);
+      return;
+    }
+  }
 
   if (known) {
     // the car identified itself and we know it: keep the read without asking

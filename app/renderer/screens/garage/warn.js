@@ -120,7 +120,9 @@ function garageEnvKeys(code) {
       i,
       label: String(label).trim(),
       value: String(value).trim(),
-      unit: String(code[`F_UW${i}_EINH`] == null ? '' : code[`F_UW${i}_EINH`]).trim(),
+      unit: String(
+        code[`F_UW${i}_EINH`] == null ? '' : code[`F_UW${i}_EINH`]
+      ).trim(),
     });
   }
   return out;
@@ -172,7 +174,8 @@ function garageBandFor(screens, key) {
     if (node.t === 'gauge' && node.key === key) {
       const lo = Number(node.okMin);
       const hi = Number(node.okMax);
-      if (isFinite(lo) && isFinite(hi) && lo !== hi) found = { min: lo, max: hi };
+      if (isFinite(lo) && isFinite(hi) && lo !== hi)
+        found = { min: lo, max: hi };
       // a gauge with no declared band keeps looking: another screen may
       // draw the same key with one
     }

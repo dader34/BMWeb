@@ -152,7 +152,10 @@ function faultReport(sgbd, codes, silent) {
 
   const read = G.garageScan(car.id, scan.id);
   assert.deepStrictEqual(read, scan, 'a scan reads back exactly as stored');
-  assert.strictEqual(read.report.modules[0].codes[0].F_ORT_TEXT, '27C3 Lambdasonde');
+  assert.strictEqual(
+    read.report.modules[0].codes[0].F_ORT_TEXT,
+    '27C3 Lambdasonde'
+  );
   assert.deepStrictEqual(read.lines, [
     'Fg-Nummer   :  WBAAV33481FU12345 aus EWS ausgelesen',
   ]);
@@ -160,7 +163,9 @@ function faultReport(sgbd, codes, silent) {
 
   // a report with no modules is not a scan
   assert.strictEqual(
-    G.garageAddScan(car.id, { report: { kind: 'faults', modules: [], silent: [] } }),
+    G.garageAddScan(car.id, {
+      report: { kind: 'faults', modules: [], silent: [] },
+    }),
     null
   );
   ok('an empty report is not kept');
@@ -201,7 +206,9 @@ function faultReport(sgbd, codes, silent) {
   for (let i = 0; i < cap + 12; i++) {
     G.garageAddScan(
       car.id,
-      { report: faultReport('ms450ds0', [{ F_ORT_NR: i, F_HEX_CODE: 'AA-BB' }]) },
+      {
+        report: faultReport('ms450ds0', [{ F_ORT_NR: i, F_HEX_CODE: 'AA-BB' }]),
+      },
       { at: new Date(Date.UTC(2026, 0, 1, 0, i)).toISOString() }
     );
   }
@@ -360,7 +367,11 @@ function faultReport(sgbd, codes, silent) {
 
   assert.strictEqual(G.garageFaultKey({ F_HEX_CODE: '27-C3' }), 'H:27-C3');
   assert.strictEqual(G.garageFaultKey({ F_ORT_NR: 31 }), 'N:31');
-  assert.strictEqual(G.garageFaultKey({}), '', 'an unidentifiable fault has no key');
+  assert.strictEqual(
+    G.garageFaultKey({}),
+    '',
+    'an unidentifiable fault has no key'
+  );
   ok('the fault key prefers the DTC over the location number');
 }
 
@@ -472,7 +483,9 @@ function faultReport(sgbd, codes, silent) {
     G.garageVinFromView({
       report: {
         kind: 'ident',
-        modules: [{ sgbd: 'kombi46', ident: { AIF_FG_NR: 'WBAAV33481FU12345' } }],
+        modules: [
+          { sgbd: 'kombi46', ident: { AIF_FG_NR: 'WBAAV33481FU12345' } },
+        ],
       },
     }),
     'WBAAV33481FU12345'
@@ -580,7 +593,14 @@ function faultReport(sgbd, codes, silent) {
   // 0-to-0 range would flag every reading, so it is not a band
   const none = {
     elements: [
-      { t: 'gauge', key: 'STAT_DSC_ABS_VL', min: 0, max: 4095, okMin: 0, okMax: 0 },
+      {
+        t: 'gauge',
+        key: 'STAT_DSC_ABS_VL',
+        min: 0,
+        max: 4095,
+        okMin: 0,
+        okMax: 0,
+      },
     ],
   };
   assert.strictEqual(
@@ -618,7 +638,10 @@ function faultReport(sgbd, codes, silent) {
 // the fixed physics table, used where no script band exists
 {
   const V = (v) =>
-    G.garageWarnFor({ label: 'STAT_SPANNUNG_KL30_WERT', value: v, unit: 'V' }, {});
+    G.garageWarnFor(
+      { label: 'STAT_SPANNUNG_KL30_WERT', value: v, unit: 'V' },
+      {}
+    );
   assert.strictEqual(V('12.4'), null, 'a healthy battery is not flagged');
   assert.strictEqual(V('13.9'), null, 'a charging system is not flagged');
   const flat = V('9.8');
@@ -653,7 +676,10 @@ function faultReport(sgbd, codes, silent) {
 
   // a field no rule names is never flagged -- no guessing from the value
   assert.strictEqual(
-    G.garageWarnFor({ label: 'Kilometerstand', value: '184000', unit: 'km' }, {}),
+    G.garageWarnFor(
+      { label: 'Kilometerstand', value: '184000', unit: 'km' },
+      {}
+    ),
     null
   );
   ok('a field no rule names is left alone');
@@ -717,7 +743,11 @@ function faultReport(sgbd, codes, silent) {
 
   // and the diff marks it, without moving it out of "still present"
   const mk = (c) => ({
-    report: { kind: 'faults', modules: [{ sgbd: 'x', codes: [c] }], silent: [] },
+    report: {
+      kind: 'faults',
+      modules: [{ sgbd: 'x', codes: [c] }],
+      silent: [],
+    },
   });
   const d = G.garageDiffScans(mk(before), mk(again));
   const m = d.modules[0];
@@ -745,6 +775,33 @@ function faultReport(sgbd, codes, silent) {
   assert.strictEqual(entry.label, 'E46 325i');
   assert.strictEqual(entry.motor, 'M54');
   ok('a decoded VIN becomes a garage entry');
+}
+
+// ---- a scan launched from a car's page files itself against that car -------
+{
+  resetStore();
+  const byVin = G.garageAddCar({ vin: 'WBAAV33481FU12345', chassis: 'E46' });
+  const bare = G.garageAddCar({ chassis: 'E39' });
+  assert.strictEqual(G.garageScanTarget('WBAAV33481FU12345'), null);
+  ok('no target set: nothing is filed without asking');
+
+  G.garageScanFor(bare.id);
+  assert.strictEqual(G.garageScanTarget().id, bare.id);
+  assert.strictEqual(G.garageScanTarget('WBAAV33481FU99999').id, bare.id);
+  ok('a car saved without a VIN takes the read whatever VIN it found');
+
+  G.garageScanFor(byVin.id);
+  assert.strictEqual(G.garageScanTarget().id, byVin.id);
+  assert.strictEqual(G.garageScanTarget('wbaav33481fu12345').id, byVin.id);
+  assert.strictEqual(G.garageScanTarget('WBAAV33481FU99999'), null);
+  ok('a car with a VIN refuses a read that identified as another car');
+
+  G.garageScanTargetClear();
+  assert.strictEqual(G.garageScanTarget(), null);
+  G.garageScanFor(bare.id);
+  G.garageRemoveCar(bare.id);
+  assert.strictEqual(G.garageScanTarget(), null);
+  ok('the target clears, and a deleted car is no target');
 }
 
 console.log(`garage: ${passed} checks passed`);

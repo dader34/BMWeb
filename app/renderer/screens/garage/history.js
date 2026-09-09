@@ -85,13 +85,22 @@ async function showGarageCar(carId) {
   const notes = garageNotesBox(car);
   view.appendChild(notes);
 
+  // Run a scan from here: the whole-car script opens for this car and the
+  // read that comes back is filed against it without asking.
+  const run = await garageRunBox(car);
+  if (run) view.appendChild(run);
+
   if (!scans.length) {
     const empty = document.createElement('div');
     empty.className = 'garage-empty';
-    empty.textContent =
-      'No scans yet. Run the whole-car fault or identification read in the module view, then press Save to garage.';
+    empty.textContent = run
+      ? 'No scans yet. Run a fault scan or an identification read above and it is kept here.'
+      : 'No scans yet. Run the whole-car fault or identification read in the module view, then press Save to garage.';
     view.appendChild(empty);
-    setActions([garageBackAction(showGarage)]);
+    setActions([
+      ...(run ? garageRunActions(car, 0) : []),
+      garageBackAction(showGarage),
+    ]);
     return;
   }
 
@@ -157,8 +166,75 @@ async function showGarageCar(carId) {
       label: 'Compare',
       fn: () => showGarageDiff(carId, scans[1].id, scans[0].id),
     });
+  if (run) acts.push(...garageRunActions(car, acts.length));
   acts.push(garageBackAction(showGarage));
   setActions(acts);
+}
+
+/**
+ * Open the whole-car script for a car with the next save filed against it.
+ * @param {GarageCar} car - the car
+ * @param {string|null} menu - the script menu to open (m_fs for faults; the
+ *   main menu carries the Identification key)
+ * @returns {void}
+ */
+function garageRunScan(car, menu) {
+  garageScanFor(car.id);
+  showVehicleScript(car.chassis, menu);
+}
+
+/**
+ * The "run a scan" row on a car's page: Fault scan and Identification, where
+ * INPA's whole-car script ships for the chassis; nothing where it does not
+ * (the module view is then the only way to read, and Save to garage asks).
+ * @param {GarageCar} car - the car
+ * @returns {Promise<HTMLDivElement|null>}
+ */
+async function garageRunBox(car) {
+  if (
+    !car.chassis ||
+    typeof showVehicleScript !== 'function' ||
+    typeof vehicleScriptShipped !== 'function' ||
+    !(await vehicleScriptShipped(car.chassis))
+  )
+    return null;
+  const box = document.createElement('div');
+  box.className = 'garage-run';
+  box.innerHTML = `
+    <span class="garage-run-text">
+      <span class="garage-run-title">Run a scan</span>
+      <span class="garage-run-note">${esc(
+        `INPA's ${dispChassis(car.chassis)} script reads every module on the cable; the result is kept here.`
+      )}</span>
+    </span>
+    <button type="button" class="btn garage-run-faults">Fault scan</button>
+    <button type="button" class="btn garage-run-ident">Identification</button>`;
+  box.querySelector('.garage-run-faults').onclick = () =>
+    garageRunScan(car, IPO_VEHICLE_FAULT_MENU);
+  box.querySelector('.garage-run-ident').onclick = () =>
+    garageRunScan(car, null);
+  return box;
+}
+
+/**
+ * The F-keys for the run row, numbered after the keys already on the bar.
+ * @param {GarageCar} car - the car
+ * @param {number} from - how many number keys the bar already holds
+ * @returns {Array<{key: string, label: string, fn: Function}>}
+ */
+function garageRunActions(car, from) {
+  return [
+    {
+      key: String(from + 1),
+      label: 'Fault scan',
+      fn: () => garageRunScan(car, IPO_VEHICLE_FAULT_MENU),
+    },
+    {
+      key: String(from + 2),
+      label: 'Identification',
+      fn: () => garageRunScan(car, null),
+    },
+  ];
 }
 
 /**

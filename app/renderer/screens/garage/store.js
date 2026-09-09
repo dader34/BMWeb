@@ -18,7 +18,8 @@
    GARAGE_CARS_KEY, GARAGE_SCANS_KEY, GARAGE_SCAN_CAP,
    garageCars, garageCar, garageAddCar, garageUpdateCar, garageRemoveCar,
    garageCarLabel, garageFindByVin, garageScans, garageScan, garageAddScan,
-   garageRemoveScan, garageScanSummary, garageCarFromHit, garageNewId */
+   garageRemoveScan, garageScanSummary, garageCarFromHit, garageNewId,
+   garageScanFor, garageScanTargetClear, garageScanTarget */
 
 /** Settings key holding the saved cars. */
 const GARAGE_CARS_KEY = 'bmweb.garage.cars';
@@ -108,9 +109,7 @@ function garageWrite(key, val) {
  * @returns {string}
  */
 function garageNewId() {
-  return (
-    Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8)
-  );
+  return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
 }
 
 /**
@@ -165,7 +164,9 @@ function garageFindByVin(vin) {
       const cv = String(c.vin || '')
         .trim()
         .toUpperCase();
-      return cv.length >= GARAGE_VIN_TAIL && cv.slice(-GARAGE_VIN_TAIL) === tail;
+      return (
+        cv.length >= GARAGE_VIN_TAIL && cv.slice(-GARAGE_VIN_TAIL) === tail
+      );
     }) || null
   );
 }
@@ -422,6 +423,66 @@ function garageCarFromHit(hit) {
   };
 }
 
+// ---- the car a scan launched from the garage belongs to ----------------------
+
+/**
+ * How long a scan started from a car's page stays filed against that car
+ * (a whole-car read on a cold cable can take minutes; a day is generous).
+ */
+const GARAGE_TARGET_TTL_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * The car whose page launched the read now running, if any. In memory only:
+ * it lives exactly as long as the page the scan runs in.
+ * @type {{carId: string, at: number}|null}
+ */
+let garageTarget = null;
+
+/**
+ * File the next saved scan against this car: the garage's own Fault scan /
+ * Identification buttons call it before opening the whole-car script.
+ * @param {string} carId - the car
+ * @returns {void}
+ */
+function garageScanFor(carId) {
+  garageTarget = carId ? { carId: String(carId), at: Date.now() } : null;
+}
+
+/**
+ * Forget the pending target (after a save took it).
+ * @returns {void}
+ */
+function garageScanTargetClear() {
+  garageTarget = null;
+}
+
+/**
+ * The car a just-finished read should be filed against without asking: the
+ * one whose page launched it, provided the read did not identify itself as
+ * a different car. A VIN the read found must match the car's own when the
+ * car has one; a car saved without a VIN accepts whatever the read found.
+ * @param {string} [vin] - the VIN the read identified, if any
+ * @returns {GarageCar|null}
+ */
+function garageScanTarget(vin) {
+  if (!garageTarget) return null;
+  if (Date.now() - garageTarget.at > GARAGE_TARGET_TTL_MS) {
+    garageTarget = null;
+    return null;
+  }
+  const car = garageCar(garageTarget.carId);
+  if (!car) {
+    garageTarget = null;
+    return null;
+  }
+  if (vin && car.vin) {
+    const a = String(vin).toUpperCase().slice(-GARAGE_VIN_TAIL);
+    const b = String(car.vin).toUpperCase().slice(-GARAGE_VIN_TAIL);
+    if (a !== b) return null;
+  }
+  return car;
+}
+
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     GARAGE_CARS_KEY,
@@ -442,5 +503,8 @@ if (typeof module !== 'undefined' && module.exports) {
     garageCompactReport,
     garageCarFromHit,
     garageNewId,
+    garageScanFor,
+    garageScanTargetClear,
+    garageScanTarget,
   };
 }
