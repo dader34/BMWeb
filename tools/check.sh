@@ -54,6 +54,12 @@ echo "== .IPO compiler / editor round-trip =="
 python3 tools/verify/test_ipo_roundtrip.py
 echo
 
+# bmweb-cli runs COPIES of the renderer's scripts in node; its build and
+# tests need no BMW originals either, so it also runs before the gate.
+echo "== bmweb-cli: builds from the renderer's own files, tests pass, tarball is clean =="
+node tools/verify/test_cli.js || exit 1
+echo
+
 # BMW originals are not in the repo; say so clearly before anything reads them
 scripts/setup/check-vendor.sh >/dev/null 2>&1 || { scripts/setup/check-vendor.sh; exit 1; }
 

@@ -5,9 +5,9 @@
   "description": "BMWeb renderer",
   "scripts": {
     "build": "node scripts/build/bundle-renderer.mjs",
-    "lint": "eslint \"app/renderer/**/*.js\" \"tools/**/*.js\" \"scripts/**/*.mjs\"",
-    "format": "prettier --write \"app/renderer/**/*.js\" \"tools/**/*.js\" \"scripts/**/*.mjs\"",
-    "format:check": "prettier --check \"app/renderer/**/*.js\" \"tools/**/*.js\" \"scripts/**/*.mjs\"",
+    "lint": "eslint \"app/renderer/**/*.js\" \"tools/**/*.js\" \"scripts/**/*.mjs\" \"cli/scripts/**/*.mjs\"",
+    "format": "prettier --write \"app/renderer/**/*.js\" \"tools/**/*.js\" \"scripts/**/*.mjs\" \"cli/scripts/**/*.mjs\" \"cli/src/**/*.ts\" \"cli/test/**/*.ts\"",
+    "format:check": "prettier --check \"app/renderer/**/*.js\" \"tools/**/*.js\" \"scripts/**/*.mjs\" \"cli/scripts/**/*.mjs\" \"cli/src/**/*.ts\" \"cli/test/**/*.ts\"",
     "typecheck": "tsc -p tsconfig.json",
     "test": "bash tools/check.sh"
   },

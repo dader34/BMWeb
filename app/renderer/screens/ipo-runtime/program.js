@@ -153,6 +153,7 @@ class IpoProgram {
     this.queued = null;
     this.gen = 0; // bumped on every navigation; stale cycles stop
     this.closed = false;
+    this.leaving = false; // leaveModule is running inpaexit
     /** @type {Set<string>} "scope:job" confirmed in this menu */
     this.confirmedWrites = new Set();
     /** @type {Array<{target: string, job: string, arg: string|null, status: string}>} sent jobs, newest last */
@@ -1291,9 +1292,19 @@ class IpoProgram {
    * @returns {Promise<void>}
    */
   async leaveModule() {
-    if (this.closed) return;
-    this.closed = true;
+    if (this.closed || this.leaving) return;
+    // inpaexit runs BEFORE the program is marked closed: drive() answers a
+    // closed program with "cancelled" at its first step, so marking it first
+    // meant the exit proc's own job (DIAGNOSE_ENDE) never reached the wire
+    // and the module was left mid-session. `leaving` keeps a second leave,
+    // or a key pressed meanwhile, from starting anything.
+    this.leaving = true;
     this.stopCycle();
+    // the leaving menu's release (its Back job, registered on entry) goes
+    // first, while the session is still open; the bus lock keeps that
+    // order on the wire even though the release is not awaited
+    if (typeof registerMenuLeave === 'function')
+      registerMenuLeave(null, null, null, null);
     if (this.exec.procs.inpaexit) {
       try {
         this.fresh();
@@ -1307,8 +1318,7 @@ class IpoProgram {
         /* leaving anyway */
       }
     }
-    if (typeof registerMenuLeave === 'function')
-      registerMenuLeave(null, null, null, null);
+    this.closed = true;
     this.ui.left(this);
   }
 
