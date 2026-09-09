@@ -8543,6 +8543,25 @@ body.remote-helper::after {
   border-radius: 8px;
   background: var(--panel);
   padding: 4px;
+  /* the same thin themed scrollbar the ETK and wiring trees draw */
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-hover) transparent;
+}
+.log-tree::-webkit-scrollbar {
+  width: 8px;
+}
+.log-tree::-webkit-scrollbar-track {
+  background: transparent;
+}
+.log-tree::-webkit-scrollbar-thumb {
+  background: var(--line-hover);
+  border-radius: 4px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+.log-tree::-webkit-scrollbar-thumb:hover {
+  background: var(--dim);
+  background-clip: content-box;
 }
 .log-mod > summary,
 .log-job > summary {
