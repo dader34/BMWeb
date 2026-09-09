@@ -9600,8 +9600,16 @@ body.remote-helper::after {
   color: var(--ink-dim);
   font-size: 13px;
 }
-.tree-bar-item select {
-  min-width: 180px;
+.tree-bar-lbl {
+  white-space: nowrap;
+}
+.tree-car-slot {
+  display: inline-flex;
+  min-width: 220px;
+}
+.tree-car-slot.tree-busy {
+  pointer-events: none;
+  opacity: 0.6;
 }
 .tree-bar-note {
   color: var(--ink-dim);
