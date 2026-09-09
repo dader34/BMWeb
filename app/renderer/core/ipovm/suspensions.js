@@ -45,6 +45,7 @@ const IPO_SUSPEND_KINDS = new Set([
   'input',
   'message',
   'toggle',
+  'pick', // bmweb_pick: the host lists, the user chooses (home script)
   'print',
   'select',
   'exit',
@@ -192,6 +193,19 @@ function ipoDriveBuiltin(vm, t, stack) {
       stack,
       multiple: stack.length > 0 && flagArg(stack[0]),
       argnum: stack.length > 1 && flagArg(stack[1]),
+      out: vm.out,
+    };
+  }
+  // BMWeb's own picker: bmweb_pick("chassis"|"module"|"vehicle", arg,
+  // ->choice). Park like a togglelist; the renderer asks the host for the
+  // list and resumes with the choice, which the re-run builtin stores.
+  if (vm.wireJobs && name === 'bmweb_pick' && vm._pickInput == null) {
+    const strs = stack.filter((x) => !isRef(x)).map((x) => asStr(x));
+    return {
+      kind: 'pick',
+      stack,
+      what: strs[0] || '',
+      arg: strs[1] || '',
       out: vm.out,
     };
   }

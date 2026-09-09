@@ -334,6 +334,37 @@ function bToggleList(vm, stack) {
 }
 
 /**
+ * bmweb_pick(what, arg, ->choice): BMWeb's own picker builtin (home script).
+ * Offline a noop; driven, the renderer parks the script (suspensions.js
+ * 'pick'), asks the host for the list named by `what`, and resumes with the
+ * user's choice, which lands in the out-string; a cancelled pick leaves it
+ * as it was, and the script's own `if (choice != "")` is the guard.
+ * @type {IpoBuiltin}
+ */
+function bBmwebPick(vm, stack) {
+  if (vm._pickInput == null) return;
+  storeOut(vm, stack, asStr(vm._pickInput));
+}
+
+/**
+ * bmweb_status(->text): one line from the host (cable state, version) for
+ * the home screen. The host hangs it on the VM as `homeStatus`; without one
+ * the line is empty, which the screen tolerates.
+ * @type {IpoBuiltin}
+ */
+function bBmwebStatus(vm, stack) {
+  const table = typeof IPO_HOME_HOST !== 'undefined' ? IPO_HOME_HOST : null;
+  const fn = (table && table.status) || (vm.host && vm.host.homeStatus);
+  let text = '';
+  try {
+    text = typeof fn === 'function' ? String(fn() || '') : '';
+  } catch (e) {
+    text = '';
+  }
+  storeOut(vm, stack, text);
+}
+
+/**
  * The input family (inputint, inputhex, input2int, ...): record the prompts
  * on the item, store the placeholder through every out-ref, and taint the
  * next job (mirrors Python _b_input: a job sent after an ask has no static
@@ -549,6 +580,8 @@ function bSetstate(vm, stack, item) {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     IPO_INPUT_CONFIRMED,
+    bBmwebPick,
+    bBmwebStatus,
     bJob,
     bFsmode,
     bCheckStatus,

@@ -2173,6 +2173,112 @@ const sysSet = (sgbd) => ({
   if (qp) qp.close();
   if (mp) mp.close();
   if (sp) sp.close();
+  // ===========================================================================
+  // 6. The BMWeb home as an INPA script: compiled from the checked-in source,
+  //    started with no car, its picks answered by the host, and scriptchange
+  //    landing in the module's own script
+  // ===========================================================================
+  {
+    loadClassic('core/ipofile/');
+    const src = RT.ipoHomeSource();
+    assert.strictEqual(
+      fs.readFileSync(R('home/bmweb-home.ips'), 'utf8'),
+      src.ips,
+      'home.js carries home/bmweb-home.ips verbatim'
+    );
+    assert.strictEqual(
+      fs.readFileSync(R('home/bmweb.h'), 'utf8'),
+      src.h,
+      'home.js carries home/bmweb.h verbatim'
+    );
+    const home = RT.ipoHomeExec();
+    assert.ok(home.procs.inpainit && home.procs.m_main && home.procs.s_main);
+    ok('the home script compiles from its own source and include');
+
+    const ihka = loadExec('E46', 'ihka46');
+    fakeApi((job) => {
+      if (job === 'INITIALISIERUNG')
+        return { system: sysSet('ihka46_3'), sets: [{ DONE: '1' }] };
+      if (job === 'INFO')
+        return {
+          system: sysSet('ihka46_3'),
+          sets: [{ SPRACHE: 'englisch', REVISION: '1.04', ECU: 'IHKA46' }],
+        };
+      return { system: sysSet('ihka46_3'), sets: [{ JOB_STATUS: 'OKAY' }] };
+    });
+    const picks = [];
+    const ui = fakeUi();
+    ui.pickHome = async (p, step) => {
+      picks.push(step.what + ':' + step.arg);
+      if (step.what === 'chassis') return 'E46';
+      if (step.what === 'module') return 'ihka46';
+      return '';
+    };
+    ui.loadExec = async (name) => (name === 'ihka46' ? ihka : null);
+    ui.resolveScriptEcu = async (from, script) => ({
+      sgbd: 'ihka46_3',
+      label: 'IHKA',
+      _variant: 'IHKA46_3',
+      chassis: from.chassis,
+      picked: script,
+    });
+    // a fresh record per program: the chassis pick is written onto it
+    const homeEcu = () => ({
+      sgbd: 'bmweb_home',
+      label: 'BMWeb',
+      _variant: 'BMWEB_HOME',
+    });
+    const p = new IpoProgram(homeEcu(), home, ui);
+    const r = await p.start();
+    assert.strictEqual(r.ok, true, `home start failed: ${r.reason}`);
+    assert.strictEqual(p.menu, 'm_main');
+    assert.strictEqual(p.screen, 's_main');
+    assert.deepStrictEqual(
+      p.items.filter((i) => i.label).map((i) => `${i.nr}:${i.label}`),
+      ['1:Vehicle', '2:Error scan', '9:Print', '20:Exit']
+    );
+    ok('the home starts with no car: its menu and screen, no job sent');
+
+    await p.press(1);
+    assert.deepStrictEqual(
+      picks,
+      ['chassis:', 'module:E46'],
+      'two picks, the second scoped to the chassis'
+    );
+    assert.strictEqual(
+      p.ecu.chassis,
+      'E46',
+      'the chassis pick is the car from then on'
+    );
+    assert.strictEqual(
+      p.script,
+      'ihka46',
+      'scriptchange handed the screen to the module'
+    );
+    assert.strictEqual(p.menu, 'm_main', "on the module's own root menu");
+    ok('F1: chassis, module, and the module script is running');
+
+    const ui2 = fakeUi();
+    ui2.pickHome = async (p2, step) => (step.what === 'chassis' ? 'E39' : '');
+    const q = new IpoProgram(homeEcu(), home, ui2);
+    await q.start();
+    await q.press(2);
+    assert.ok(
+      ui2.messages.some((m) => /Error scan/.test(m.title)),
+      'no whole-vehicle script: the script says so in a messagebox'
+    );
+    ok('F2 on a chassis without a whole-car script explains itself');
+
+    const ui3 = fakeUi();
+    ui3.pickHome = async () => null; // cancel
+    const c = new IpoProgram(homeEcu(), home, ui3);
+    await c.start();
+    await c.press(1);
+    assert.strictEqual(c.menu, 'm_main');
+    assert.strictEqual(c.ecu.chassis, undefined);
+    ok('a cancelled pick leaves the home where it was');
+  }
+
   console.log(`ipo-runtime: ${passed} checks passed`);
 })().catch((e) => {
   console.error(e && e.stack ? e.stack : e);

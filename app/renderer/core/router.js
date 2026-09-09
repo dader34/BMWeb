@@ -44,6 +44,8 @@ const APPS_ROUTES = {
     typeof showScriptRunner === 'function' ? showScriptRunner() : null,
   'apps/documents': () =>
     typeof showWiringChassis === 'function' ? showWiringChassis() : null,
+  // the app's home as an INPA script (screens/ipo-runtime/home.js)
+  inpa: () => (typeof showIpoHome === 'function' ? showIpoHome() : null),
 };
 
 // The reverse map: which route a given show*() belongs to, so navigating by
@@ -62,6 +64,7 @@ const ROUTE_FOR_SCREEN = {
   showGarage: 'garage',
   showLogging: 'apps/logging',
   showScriptRunner: 'apps/script',
+  showIpoHome: 'inpa',
 };
 
 // Some routes carry parameters (a chassis, a specific diagram) so a single
