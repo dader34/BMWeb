@@ -9623,7 +9623,12 @@ body.remote-helper::after {
 .tree-svg {
   display: block;
   max-width: none;
-  font: 12px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font:
+    12px/1 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Consolas,
+    monospace;
 }
 .tree-bus {
   stroke-width: 3;
@@ -9934,4 +9939,3 @@ body.remote-helper::after {
   background: var(--amber);
   transition: width 0.3s ease;
 }
-
