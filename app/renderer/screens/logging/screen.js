@@ -80,9 +80,13 @@ async function showLogging() {
   ids.forEach((id) => {
     const card = document.createElement('button');
     card.className = 'chassis-card';
+    // the same card the home grid and the wiring picker draw: the chassis
+    // name, then the model line it stands for (not the id twice)
+    const tag = (typeof CHASSIS_TAG === 'object' && CHASSIS_TAG[id]) || 'BMW';
     card.innerHTML =
-      `<span class="chassis-id">${esc(id)}</span>` +
-      `<span class="chassis-name">${esc(dispChassis(id))}</span>`;
+      `<div class="chassis-code">${esc(dispChassis(id))}</div>` +
+      `<div class="chassis-tag">${esc(tag)}</div>` +
+      `<div class="chassis-arrow">→</div>`;
     card.onclick = () => showLoggingChassis(id);
     list.appendChild(card);
   });
