@@ -12,8 +12,8 @@ translate), sorts them by how many ECUs show them, and hands out slices:
 A slice is a JSON list of {"s": caption, "n": ECUs showing it, "ecus": up
 to three of them}. Translations go to data/inpa-i18n/_corpus.part<k>.json
 as {"German caption": "English caption"}; `--merge` folds every part file
-into _corpus.json, dropping entries that are empty, unchanged or not a
-caption the corpus shows, and reports what it kept.
+into _corpus.json (dropping empty or unchanged entries), removes the parts,
+and reports what it kept.
 """
 import json
 import os
@@ -53,15 +53,19 @@ def worth(s):
 def main():
     argv = sys.argv[1:]
     if "--merge" in argv:
-        g = gaps()
+        # the resolver already reads the part files as dictionaries (its
+        # _corpus*.json glob), so the gap list has shrunk by then and cannot
+        # be the yardstick; the keys came from the gap list to begin with
         merged = {}
         kept = dropped = 0
+        parts = []
         for f in sorted(os.listdir(OVR)):
             if not re.match(r"^_corpus\.part.*\.json$", f):
                 continue
-            part = json.load(open(os.path.join(OVR, f), encoding="utf-8"))
+            parts.append(os.path.join(OVR, f))
+            part = json.load(open(parts[-1], encoding="utf-8"))
             for k, v in part.items():
-                if not isinstance(v, str) or not v.strip() or v == k or k not in g:
+                if not isinstance(v, str) or not v.strip() or v == k:
                     dropped += 1
                     continue
                 merged[k] = v
@@ -74,7 +78,10 @@ def main():
         with open(target, "w", encoding="utf-8") as fh:
             json.dump(dict(sorted(merged.items())), fh, ensure_ascii=False, indent=2)
             fh.write("\n")
-        print(f"_corpus.json: {len(merged)} entries ({kept} taken from parts, {dropped} dropped)")
+        for f in parts:
+            os.remove(f)
+        print(f"_corpus.json: {len(merged)} entries ({kept} taken from parts, "
+              f"{dropped} dropped, {len(parts)} part files folded in)")
         return
     g = gaps()
     items = sorted(((s, e) for s, e in g.items() if worth(s)),
