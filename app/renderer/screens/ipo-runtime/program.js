@@ -775,8 +775,14 @@ class IpoProgram {
     if (gen !== this.gen) return true;
     if (out.title) this.title = out.title;
     // the address bar follows the menu, so a link copied mid-script lands
-    // where the user is, not where the module was opened
-    if (typeof routeSetCar === 'function' && this.ecu && this.ecu.chassis)
+    // where the user is, not where the module was opened (a headless UI,
+    // the tree's live scan, owns no page and leaves the address alone)
+    if (
+      typeof routeSetCar === 'function' &&
+      this.ecu &&
+      this.ecu.chassis &&
+      !(this.ui && this.ui.headless)
+    )
       routeSetCar(
         this.ecu.chassis,
         this.ecu.sgbd,

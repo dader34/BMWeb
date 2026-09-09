@@ -9623,7 +9623,12 @@ body.remote-helper::after {
 .tree-svg {
   display: block;
   max-width: none;
-  font: 12px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font:
+    12px/1 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Consolas,
+    monospace;
 }
 .tree-bus {
   stroke-width: 3;
@@ -9898,4 +9903,39 @@ body.remote-helper::after {
   .service-run {
     width: 100%;
   }
+}
+.tree-live .tree-bar-note {
+  color: var(--amber);
+}
+.tree-live .tree-bar-note::before {
+  content: '';
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 8px;
+  border-radius: 50%;
+  background: var(--amber);
+  animation: tree-pulse 1s ease-in-out infinite;
+}
+@keyframes tree-pulse {
+  0%,
+  100% {
+    opacity: 0.25;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+.tree-progress {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--line);
+  overflow: hidden;
+}
+.tree-progress > i {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--amber);
+  transition: width 0.3s ease;
 }

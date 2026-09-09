@@ -3,11 +3,26 @@
 // fault scan the Garage holds for the car, a click opening the module's
 // script. Pick a chassis; a saved car of that chassis supplies the status.
 
+/** the read running on the tree screen, so leaving it ends the read */
+let ecuTreeActiveScan = null;
+
+/**
+ * End a running tree scan, if any (leaving the screen, starting another).
+ * @returns {void}
+ */
+function ecuTreeStopScan() {
+  if (ecuTreeActiveScan) {
+    ecuTreeActiveScan.cancel();
+    ecuTreeActiveScan = null;
+  }
+}
+
 /**
  * The Control unit tree app: pick a chassis.
  * @returns {Promise<void>}
  */
 async function showEcuTree() {
+  ecuTreeStopScan();
   lastScreen = showEcuTree;
   setCrumbs([
     { label: 'Vehicles', fn: showChassis },
@@ -74,6 +89,7 @@ function ecuTreeScanFor(carId) {
  * @returns {Promise<void>}
  */
 async function showEcuTreeChassis(chassis, carId) {
+  ecuTreeStopScan();
   const car = String(chassis).toUpperCase();
   const cars =
     typeof garageCars === 'function'
@@ -107,7 +123,9 @@ async function showEcuTreeChassis(chassis, carId) {
     `<span class="tree-bar-note"></span>` +
     `<span class="tree-bar-spacer"></span>` +
     `<button type="button" class="btn tree-scan" hidden>Fault scan</button>` +
+    `<button type="button" class="btn tree-stop" hidden>Stop</button>` +
     `</div>` +
+    `<div class="tree-progress" hidden><i></i></div>` +
     `<div class="tree-canvas"><div class="empty"><span class="loader"></span></div></div>` +
     `<div class="tree-legend-slot"></div>`;
   view.appendChild(wrap);
@@ -116,6 +134,8 @@ async function showEcuTreeChassis(chassis, carId) {
   const canvas = wrap.querySelector('.tree-canvas');
   const legendSlot = wrap.querySelector('.tree-legend-slot');
   const scanBtn = wrap.querySelector('.tree-scan');
+  const stopBtn = wrap.querySelector('.tree-stop');
+  const progress = wrap.querySelector('.tree-progress');
 
   const [tree, config] = await Promise.all([
     ecuTreeForChassis(car),
@@ -151,17 +171,39 @@ async function showEcuTreeChassis(chassis, carId) {
 
   /** @type {Map<string, EcuTreeStatus>} */
   let status = new Map();
+  /** the read in progress, when one is: its reads so far, and its line */
+  let live = null;
   const paint = () => {
-    const scan = ecuTreeScanFor(picked ? picked.id : null);
-    status = ecuTreeStatus(tree, scan ? scan.report : null);
+    const scan = live ? null : ecuTreeScanFor(picked ? picked.id : null);
+    const report = live ? live.report : scan ? scan.report : null;
+    status = ecuTreeStatus(tree, report);
     canvas.innerHTML = `<div class="tree-scroll">${ecuTreeSvg(layout, status)}</div>`;
     const n = { ok: 0, faults: 0, silent: 0, unread: 0 };
     for (const s of status.values()) n[s.state]++;
-    note.textContent = scan
-      ? `scan of ${new Date(scan.at).toLocaleString()}: ${n.ok + n.faults} answered, ${n.faults} with faults, ${n.silent} not responding`
-      : picked
-        ? 'no fault scan saved for this car yet'
-        : '';
+    const counts = `${n.ok + n.faults} answered, ${n.faults} with faults, ${n.silent} not responding`;
+    note.textContent = live
+      ? `reading${live.text ? `: ${live.text}` : '\u2026'}  ${counts}`
+      : scan
+        ? `scan of ${new Date(scan.at).toLocaleString()}: ${counts}`
+        : picked
+          ? 'no fault scan saved for this car yet'
+          : '';
+    wrap.classList.toggle('tree-live', !!live);
+    // how far the read is: reads so far over what the last scan of this car
+    // reached, else over the addresses the tree lists
+    progress.hidden = !live;
+    if (live) {
+      const last = ecuTreeScanFor(picked ? picked.id : null);
+      const expected = last
+        ? (last.report.modules || []).length + (last.report.silent || []).length
+        : new Set(layout.boxes.flatMap((b) => b.ecu.groups)).size;
+      const sofar = n.ok + n.faults + n.silent;
+      const pct = expected
+        ? Math.min(100, Math.round((100 * sofar) / expected))
+        : 0;
+      progress.firstElementChild.style.width = `${pct}%`;
+      progress.title = `${sofar} of about ${expected} addresses`;
+    }
     sbLeft.textContent = `${layout.boxes.length} modules`;
     sbRight.textContent = tree.series !== car ? `ISTA tree ${tree.series}` : '';
     canvas.querySelectorAll('.tree-box').forEach((g) => {
@@ -199,8 +241,9 @@ async function showEcuTreeChassis(chassis, carId) {
   };
   paint();
 
-  // ISTA's "Start vehicle test": the whole-car fault read, filed against
-  // the picked car when there is one
+  // ISTA's "Start vehicle test": INPA's whole-car fault read, run right
+  // here. The boxes colour in as modules answer; the finished read is kept
+  // against the picked car like one run from the Garage.
   const shipped =
     typeof vehicleScriptShipped === 'function' &&
     (await vehicleScriptShipped(car).catch(() => false));
@@ -214,19 +257,56 @@ async function showEcuTreeChassis(chassis, carId) {
     },
     { key: 'p', label: 'Print', kind: 'print', fn: () => window.print() },
   ];
-  if (shipped && typeof showVehicleScript === 'function') {
-    const run = () => {
-      if (picked && typeof garageRunScan === 'function')
-        return garageRunScan(picked, IPO_VEHICLE_FAULT_MENU, GARAGE_FAULT_KEY);
-      return showVehicleScript(
-        car,
-        IPO_VEHICLE_FAULT_MENU,
-        null,
-        GARAGE_FAULT_KEY
-      );
+  const run = () => {
+    if (ecuTreeActiveScan || typeof ecuTreeScanStart !== 'function') return;
+    live = { report: null, text: '' };
+    scanBtn.hidden = true;
+    stopBtn.hidden = false;
+    sel.disabled = true;
+    paint();
+    const handle = ecuTreeScanStart(car, {
+      onProgress: (report, text) => {
+        if (!live || ecuTreeActiveScan !== handle) return;
+        if (report) live.report = report;
+        if (text) live.text = text;
+        paint();
+      },
+      onMessage: (title, body) => {
+        if (!live || ecuTreeActiveScan !== handle) return;
+        live.text = `${title}${body ? `: ${body}` : ''}`;
+        paint();
+      },
+    });
+    ecuTreeActiveScan = handle;
+    const finish = () => {
+      if (ecuTreeActiveScan === handle) ecuTreeActiveScan = null;
+      live = null;
+      scanBtn.hidden = false;
+      stopBtn.hidden = true;
+      sel.disabled = !cars.length;
     };
+    handle.done.then(
+      ({ report, lines, cancelled }) => {
+        finish();
+        const got = report && (report.modules || []).length;
+        if (picked && got && typeof garageAddScan === 'function')
+          garageAddScan(picked.id, { report, lines }, { chassis: car });
+        paint();
+        if (got && !picked)
+          note.textContent += '  (not kept: no Garage car picked)';
+        if (cancelled) note.textContent = `stopped  ${note.textContent}`;
+      },
+      (e) => {
+        finish();
+        paint();
+        note.textContent = String((e && e.message) || e);
+      }
+    );
+  };
+  if (shipped) {
     scanBtn.hidden = false;
     scanBtn.onclick = run;
+    stopBtn.onclick = () => ecuTreeStopScan();
     acts.push({ key: '1', label: 'Fault scan', fn: run });
   }
   setActions(acts);
