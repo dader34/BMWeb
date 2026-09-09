@@ -40,6 +40,8 @@ const APPS_ROUTES = {
   garage: () => (typeof showGarage === 'function' ? showGarage() : null),
   'apps/logging': () =>
     typeof showLogging === 'function' ? showLogging() : null,
+  'apps/script': () =>
+    typeof showScriptRunner === 'function' ? showScriptRunner() : null,
   'apps/documents': () =>
     typeof showWiringChassis === 'function' ? showWiringChassis() : null,
 };
@@ -59,6 +61,7 @@ const ROUTE_FOR_SCREEN = {
   showTuning: 'apps/tuning',
   showGarage: 'garage',
   showLogging: 'apps/logging',
+  showScriptRunner: 'apps/script',
 };
 
 // Some routes carry parameters (a chassis, a specific diagram) so a single
