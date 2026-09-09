@@ -302,8 +302,13 @@ async function ipoProgramOpen(
   // is the whole reason a search result carries the menu and screen NAMES
   // rather than the key to press.
   const wantScreen = openScreen && exec.procs[openScreen] ? openScreen : null;
-  if (openMenu && openMenu !== program.menu && exec.procs[openMenu]) {
-    await program.openMenu(openMenu, wantScreen ? { screen: wantScreen } : {});
+  // a link that names the screen but not its menu (a search result for the
+  // screen itself) lands on the menu that shows that screen, so the F-keys
+  // are the screen's own and not the entry menu's
+  let landMenu = openMenu && exec.procs[openMenu] ? openMenu : null;
+  if (wantScreen && !landMenu) landMenu = ipoMenuForScreen(exec, wantScreen);
+  if (landMenu && landMenu !== program.menu) {
+    await program.openMenu(landMenu, wantScreen ? { screen: wantScreen } : {});
   }
   // A MENU PROLOGUE'S OWN setscreen OUTRANKS opts.screen, by design: the
   // script's choice is what a normal keypress must land on. A link naming a
