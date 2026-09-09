@@ -1011,8 +1011,8 @@ html.no-chrome body.apps-section .topbar {
 
 /* Apps hub: the ported-app cards reuse .lookup-entry, re-stacked into
    tiles -- icon, then title and tag, the description, the arrow at the foot --
-   on a grid that fills the row; the tag and the greyed-out state for an app
-   whose data isn't in the build are the hub's own */
+   on a grid that fills the row; the greyed-out state for an app whose data
+   isn't in the build is the hub's own */
 .apps-list {
   display: grid;
   gap: 12px;
@@ -1048,9 +1048,6 @@ html.no-chrome body.apps-section .topbar {
     font-size: 15px;
     line-height: 1.25;
   }
-  .apps-list .app-tag {
-    margin-left: 0;
-  }
   .apps-list .lookup-entry-desc {
     display: -webkit-box;
     -webkit-line-clamp: 2;
@@ -1061,18 +1058,6 @@ html.no-chrome body.apps-section .topbar {
     margin-top: 2px;
     align-self: flex-end;
   }
-}
-.app-tag {
-  font-family: var(--mono);
-  font-size: 10px;
-  letter-spacing: 0.12em;
-  color: var(--ink-faint);
-  text-transform: uppercase;
-  margin-left: 8px;
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  padding: 1px 5px;
-  vertical-align: middle;
 }
 .app-entry.app-absent {
   opacity: 0.5;
