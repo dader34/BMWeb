@@ -191,6 +191,22 @@ async function showLoggingChassis(chassis) {
    * Declare every selected key in the store and rebuild the chart grid.
    * @returns {void}
    */
+  /**
+   * Drop one reading from the card's own remove button: the selection loses
+   * it, its checkbox in the tree (if that branch is open) unticks, and the
+   * grid rebuilds without it.
+   * @param {string} id - The series id.
+   * @returns {void}
+   */
+  grid.onRemove = (id) => {
+    selection.remove(id);
+    const cb = treeEl.querySelector(
+      `input[type="checkbox"][data-series="${CSS.escape(id)}"]`
+    );
+    if (cb) cb.checked = false;
+    syncCharts();
+  };
+
   const syncCharts = () => {
     for (const it of selection.items.values())
       store.declare(it.sgbd, it.job, it.key, humanizeKey(it.key));
@@ -290,6 +306,8 @@ async function showLoggingChassis(chassis) {
               row.className = 'log-key';
               const cb = document.createElement('input');
               cb.type = 'checkbox';
+              // the chart card's remove button finds this box by series id
+              cb.dataset.series = logSeriesKey(m.sgbd, job, k.name);
               cb.checked = selection.has(m.sgbd, job, k.name);
               cb.onchange = () => {
                 selection.set(m, job, k.name, cb.checked);

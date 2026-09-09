@@ -110,6 +110,12 @@ class LogChartGrid {
     this._raf = null;
     /** @type {boolean} Whether the run is live (a paused chart still redraws on resize). */
     this.live = false;
+    /**
+     * Called with a series id when its card's remove button is pressed; the
+     * screen owns the selection, so it decides what removal means.
+     * @type {((id: string) => void)|null}
+     */
+    this.onRemove = null;
     /** @type {{ink: string, dim: string, faint: string, line: string, accent: string, panel: string}} */
     this.colors = logChartColors();
     /**
@@ -153,8 +159,12 @@ class LogChartGrid {
           <span class="log-chart-title">${esc(meta.label)}</span>
           <span class="log-chart-sub">${esc(meta.sgbd)} · ${esc(meta.job)}</span>
         </div>
+        <button type="button" class="log-chart-del" title="Stop logging this reading" aria-label="Remove">×</button>
         <div class="log-chart-read"><span class="log-now">—</span></div>
         <canvas class="log-canvas"></canvas>`;
+      wrap.querySelector('.log-chart-del').onclick = () => {
+        if (this.onRemove) this.onRemove(id);
+      };
       this.host.appendChild(wrap);
       this.cards.set(id, {
         wrap,

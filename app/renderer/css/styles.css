@@ -8745,6 +8745,7 @@ body.remote-helper::after {
   gap: 10px;
 }
 .log-chart {
+  position: relative;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--panel);
@@ -8752,6 +8753,29 @@ body.remote-helper::after {
   display: flex;
   flex-direction: column;
   gap: 4px;
+}
+/* the card's own way out of the rotation, so the tree need not be reopened */
+.log-chart-del {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: none;
+  color: var(--ink-faint);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+.log-chart-del:hover {
+  color: var(--red);
+  border-color: var(--line);
+}
+.log-chart-head {
+  padding-right: 26px;
 }
 .log-chart-head {
   display: flex;
