@@ -485,6 +485,82 @@ function fakeApi(opts = {}) {
     ok('the last selection and window are kept per chassis');
   }
 
+  // ---- every job says how it went ---------------------------------------------
+  {
+    const targets = [
+      {
+        sgbd: 'ms450ds0',
+        label: 'MS45',
+        group: null,
+        job: 'STATUS_OK',
+        keys: ['VAL'],
+      },
+      {
+        sgbd: 'ms450ds0',
+        label: 'MS45',
+        group: null,
+        job: 'STATUS_TEXT',
+        keys: ['VAL'],
+      },
+      {
+        sgbd: 'ms450ds0',
+        label: 'MS45',
+        group: null,
+        job: 'STATUS_GONE',
+        keys: ['NOPE'],
+      },
+      {
+        sgbd: 'ms450ds0',
+        label: 'MS45',
+        group: null,
+        job: 'STATUS_BAD',
+        keys: ['VAL'],
+      },
+    ];
+    global.api = async (url) => {
+      const job = decodeURIComponent(url.match(/\/run\/([^?]+)/)[1]);
+      if (job === 'STATUS_BAD') throw new Error('IFH-0009: no answer');
+      const val = job === 'STATUS_TEXT' ? 'kein Wert' : '0.45';
+      return { sets: [{ JOBNAME: job }, { VAL: val, VAL_EINH: 'V' }] };
+    };
+    const st = new LogStore(60000);
+    let notes = 0;
+    const sched = new LogScheduler({
+      targets,
+      store: st,
+      gapMs: 0,
+      onJob: () => notes++,
+    });
+    sched.start();
+    while (
+      !sched.status.get('ms450ds0/STATUS_BAD') ||
+      sched.status.get('ms450ds0/STATUS_BAD').state === 'pending'
+    )
+      await new Promise((r) => setImmediate(r));
+    await sched.stop();
+    const S = (j) => sched.status.get('ms450ds0/' + j);
+    assert.strictEqual(S('STATUS_OK').state, 'ok');
+    assert.strictEqual(S('STATUS_TEXT').state, 'empty');
+    assert.ok(
+      /not a number: VAL=kein Wert/.test(S('STATUS_TEXT').msg),
+      S('STATUS_TEXT').msg
+    );
+    assert.strictEqual(S('STATUS_GONE').state, 'empty');
+    assert.ok(
+      /not in the answer: NOPE \(it had VAL/.test(S('STATUS_GONE').msg),
+      S('STATUS_GONE').msg
+    );
+    assert.strictEqual(S('STATUS_BAD').state, 'error');
+    assert.ok(/IFH-0009/.test(S('STATUS_BAD').msg));
+    assert.ok(notes >= 4, 'the screen was told');
+    ok('ok / no number / key missing / failed each get a reason');
+    assert.strictEqual(
+      L.logEmptyReason({}, ['A']),
+      'not in the answer: A (it was empty)'
+    );
+    ok('an empty answer says so');
+  }
+
   console.log(`\nlogging: ${passed} checks passed`);
 })().catch((e) => {
   console.error('\nlogging check FAILED');

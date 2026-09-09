@@ -167,6 +167,23 @@ async function showLoggingChassis(chassis) {
   }
 
   /**
+   * The line under a summary row saying how the job's last run went: nothing
+   * while it is fine, the reason in amber when it answered with no value, in
+   * red when it failed and was dropped.
+   * @param {{state: string, msg: string}|undefined} st - the scheduler's note
+   * @returns {string} HTML
+   */
+  const logJobNoteHtml = (st) => {
+    if (!st || st.state === 'ok') return '';
+    if (st.state === 'pending')
+      return '<div class="log-sum-note">waiting for the answer…</div>';
+    const cls =
+      st.state === 'error' ? 'log-sum-note-error' : 'log-sum-note-empty';
+    const lead = st.state === 'error' ? 'dropped: ' : '';
+    return `<div class="log-sum-note ${cls}">${esc(lead + st.msg)}</div>`;
+  };
+
+  /**
    * Redraw the "what is selected" summary and the achieved rates.
    * @returns {void}
    */
@@ -185,7 +202,8 @@ async function showLoggingChassis(chassis) {
           `<div class="log-sum-row"><span class="log-sum-job">${esc(t.label)} · ` +
           `${esc(t.job)}</span><span class="log-sum-n">${t.keys.length} key${
             t.keys.length === 1 ? '' : 's'
-          }</span><span class="log-sum-rate" title="achieved rounds per second">${esc(hz)}</span></div>`
+          }</span><span class="log-sum-rate" title="achieved rounds per second">${esc(hz)}</span></div>` +
+          logJobNoteHtml(sched && sched.status.get(`${t.sgbd}/${t.job}`))
         );
       })
       .join('');
@@ -475,6 +493,7 @@ async function showLoggingChassis(chassis) {
         paintActions();
       },
       onSample: () => grid.schedule(),
+      onJob: () => paintSummary(),
     });
     // the run is registered so the leave hook can stop it from anywhere
     if (_logRun) stopDataLogging();
