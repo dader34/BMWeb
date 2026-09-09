@@ -194,6 +194,7 @@ const OFFLINE_SHELL = [
   'screens/garage/history.js',
   'screens/garage/diff-screen.js',
   'screens/garage/save.js',
+  'screens/garage/share.js',
   'screens/search/data.js',
   'screens/search/match.js',
   'screens/search/open.js',

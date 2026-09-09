@@ -312,6 +312,11 @@ async function showGarageScan(carId, scanId) {
         typeof garageScreensFor === 'function' ? garageScreensFor : null,
     });
 
+  // Share: a link that carries this report, nothing stored anywhere
+  const bar = body.querySelector('.quick-bar-btns');
+  if (bar && typeof garageShareButton === 'function')
+    bar.appendChild(garageShareButton(scan, car));
+
   const scans = garageScans(carId);
   const prev = garagePrevSameKind(scans, scanId); // like with like only
   const acts = [];
@@ -327,6 +332,15 @@ async function showGarageScan(carId, scanId) {
     kind: 'print',
     fn: () => garagePrintScan(car, scan),
   });
+  if (typeof garageShareButton === 'function')
+    acts.push({
+      key: 's',
+      label: 'Share',
+      fn: () => {
+        const b = view.querySelector('.garage-share');
+        if (b) b.click();
+      },
+    });
   acts.push(garageBackAction(() => showGarageCar(carId)));
   setActions(acts);
 }
