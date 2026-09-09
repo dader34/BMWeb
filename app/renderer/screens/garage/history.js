@@ -140,8 +140,8 @@ async function showGarageCar(carId) {
       </span>
       <span class="quick-status">
         <span class="garage-scan-kind">${esc(scan.kind === 'ident' ? 'Ident' : 'Faults')}</span>
-        <span class="garage-scan-share"></span>
         <button type="button" class="btn garage-scan-open">Open</button>
+        <span class="garage-scan-share"></span>
         <button type="button" class="garage-scan-del" title="Delete this scan" aria-label="Delete">✕</button>
       </span>`;
     // Share beside Open: the link carries the report, nothing is stored
