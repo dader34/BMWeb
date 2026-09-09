@@ -15,7 +15,7 @@
  * so typing does not stack a history entry per keystroke.
  */
 
-/* exported showJobSearch, jobSearchState */
+/* exported showJobSearch, jobSearchState, jobSearchChassisOptions */
 
 /** Search input debounce, in ms. Matches the fault lookup's feel. */
 const JOB_SEARCH_DEBOUNCE_MS = 140;
@@ -24,7 +24,7 @@ const JOB_SEARCH_DEBOUNCE_MS = 140;
 const JOB_SEARCH_FOCUS_MS = 30;
 
 /** The screen's query, kept across re-entries within a visit. */
-const jobSearchState = { q: '' };
+const jobSearchState = { q: '', chassis: '' };
 
 /**
  * The search box, built from the fault lookup's own controls so the two
@@ -42,12 +42,47 @@ function jobSearchControls() {
              placeholder="Search every INPA screen: fault memory, lambda, FS_LESEN…"
              value="${esc(jobSearchState.q)}" />
       <button class="lookup-clear" title="Clear" hidden>×</button>
+    </div>
+    <div class="lookup-filters">
+      <label class="lookup-filter">
+        <span class="lookup-filter-lbl">Chassis</span>
+        <span class="lookup-filter-slot"></span>
+      </label>
     </div>`;
   return {
     el,
     input: el.querySelector('.lookup-input'),
     clearBtn: el.querySelector('.lookup-clear'),
+    chassisSlot: el.querySelector('.lookup-filter-slot'),
   };
+}
+
+/**
+ * The chassis filter's rows: "All chassis" with the whole index's count,
+ * then every chassis a module in the index belongs to, with its tag and how
+ * many keys and screens its modules carry.
+ * @param {SearchIndex} index - the loaded index
+ * @returns {Array<{val: string, label: string, meta?: string, count: number}>}
+ */
+function jobSearchChassisOptions(index) {
+  const mods = (index && index.modules) || [];
+  const entries = (index && index.entries) || [];
+  const perModule = new Map();
+  for (const e of entries) perModule.set(e.i, (perModule.get(e.i) || 0) + 1);
+  const counts = new Map();
+  mods.forEach((m, i) => {
+    const n = perModule.get(i) || 0;
+    for (const c of m.chassis || []) counts.set(c, (counts.get(c) || 0) + n);
+  });
+  const rows = [...counts.keys()].sort().map((id) => ({
+    val: id,
+    label: id,
+    meta: (typeof CHASSIS_TAG !== 'undefined' && CHASSIS_TAG[id]) || '',
+    count: counts.get(id),
+  }));
+  return [{ val: '', label: 'All chassis', count: entries.length }].concat(
+    rows
+  );
 }
 
 /**
@@ -87,7 +122,7 @@ async function showJobSearch(query) {
 
   const controls = jobSearchControls();
   view.appendChild(controls.el);
-  const { input, clearBtn } = controls;
+  const { input, clearBtn, chassisSlot } = controls;
 
   const countLine = document.createElement('div');
   countLine.className = 'lookup-count';
@@ -126,6 +161,20 @@ async function showJobSearch(query) {
     }
   }
 
+  // the chassis filter: the fault lookup's dropdown, the same rows shape
+  if (typeof lookupDropdown === 'function') {
+    const dd = lookupDropdown(
+      'All chassis',
+      jobSearchChassisOptions(index),
+      jobSearchState.chassis,
+      (v) => {
+        jobSearchState.chassis = v;
+        render();
+      }
+    );
+    chassisSlot.appendChild(dd.el);
+  }
+
   /**
    * Run the current query and draw it.
    * @returns {void}
@@ -140,11 +189,16 @@ async function showJobSearch(query) {
       sbRight.textContent = '';
       return;
     }
-    const res = searchRun(index, q);
+    const res = searchRun(index, q, { chassis: jobSearchState.chassis });
     countLine.textContent = jobSearchCountText(res);
     sbRight.textContent = res.total ? `${res.total} results` : '';
     if (!res.total) {
-      searchRenderMessage(results, `Nothing matches “${q.trim()}”.`);
+      searchRenderMessage(
+        results,
+        jobSearchState.chassis
+          ? `Nothing matches “${q.trim()}” on ${dispChassis(jobSearchState.chassis)}.`
+          : `Nothing matches “${q.trim()}”.`
+      );
       return;
     }
     searchRenderResults(results, res, (hit, chassis) =>
@@ -230,5 +284,10 @@ if (typeof window !== 'undefined') {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { showJobSearch, jobSearchState, jobSearchCountText };
+  module.exports = {
+    showJobSearch,
+    jobSearchState,
+    jobSearchCountText,
+    jobSearchChassisOptions,
+  };
 }
