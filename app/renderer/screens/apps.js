@@ -21,7 +21,7 @@
  * @property {string} icon - a single glyph for the card
  * @property {string} title - card title
  * @property {string} desc - one-line description
- * @property {string} tag - the BMW tool it was ported from ("ETK", "WDS · ISTA")
+ * @property {string} tag - the BMW tool it was ported from ("ETK", "WDS · ISTA"); kept on the entry, not drawn
  * @property {() => void} open - opens the app's screen
  * @property {() => Promise<boolean>} [hasData] - did the app's data ship in this build? Absent = always
  */
@@ -160,8 +160,7 @@ function appCard(app, ready) {
   card.innerHTML = `
       <span class="lookup-entry-icon">${app.icon}</span>
       <span class="lookup-entry-text">
-        <span class="lookup-entry-title">${esc(app.title)}
-          <span class="app-tag">${esc(app.tag)}</span></span>
+        <span class="lookup-entry-title">${esc(app.title)}</span>
         <span class="lookup-entry-desc">${esc(app.desc)}${
           ready ? '' : ' · not in this build'
         }</span>
