@@ -9027,6 +9027,14 @@ body.remote-helper::after {
   color: var(--ink-dim);
   font-size: 13px;
 }
+/* the Share button on a stored scan, flashing like the wiring app's */
+.garage-share {
+  white-space: nowrap;
+}
+.garage-share.copied {
+  color: var(--green, #4caf50);
+  border-color: var(--green, #4caf50);
+}
 /* the "run a scan" row on a car's page */
 .garage-run {
   display: flex;

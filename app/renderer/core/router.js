@@ -116,6 +116,13 @@ function resolveRoute(route) {
       return () => showGarageScan(carId, scanId);
     if (typeof showGarageCar === 'function') return () => showGarageCar(carId);
   }
+  // #report/<payload> -- a stored scan someone sent as a link; the payload
+  // IS the report (deflated, base64url), nothing is fetched
+  const rp = /^report\/([A-Za-z0-9_-]+)$/.exec(route);
+  if (rp && typeof showGarageSharedReport === 'function') {
+    const payload = rp[1];
+    return () => showGarageSharedReport(payload);
+  }
   // #apps/job-search/<QUERY> -- a search someone can send as a link. The
   // query is the whole tail, encoded, so it may hold spaces and slashes.
   const js = /^apps\/job-search\/(.+)$/.exec(route);

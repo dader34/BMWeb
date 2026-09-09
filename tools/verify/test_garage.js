@@ -983,3 +983,62 @@ function faultReport(sgbd, codes, silent) {
 }
 
 console.log(`garage: ${passed} checks passed`);
+
+// ---- a shared link carries the report, and no VIN ----------------------------
+(async () => {
+  const car = {
+    id: 'c1',
+    vin: 'WBAET37495NJ87379',
+    chassis: 'E46',
+    label: 'E46 325i M54',
+  };
+  const scan = {
+    id: 's1',
+    kind: 'faults',
+    at: '2026-09-09T03:49:34.020Z',
+    chassis: 'E46',
+    report: {
+      kind: 'faults',
+      modules: [
+        {
+          sgbd: 'ms450ds0',
+          via: 'd_motor',
+          label: 'MS45',
+          codes: [
+            {
+              F_HEX_CODE: '27-C3-22',
+              F_ORT_NR: 10179,
+              F_ORT_TEXT: '27C3 DMTL leak detection',
+            },
+          ],
+        },
+      ],
+      silent: [{ target: 'd_009c', label: 'D_009C', error: 'ERROR_NO_ANSWER' }],
+    },
+    summary: { modules: 1, withFaults: 1, faults: 1, silent: 1 },
+  };
+  let n = 0;
+  try {
+    const payload = await G.garageShareEncode(scan, car);
+    assert.ok(/^[A-Za-z0-9_-]+$/.test(payload), 'base64url, nothing to escape');
+    assert.ok(!payload.includes('WBAET'), 'the VIN is not in the link');
+    const back = await G.garageShareDecode(payload);
+    assert.strictEqual(back.v, 1);
+    assert.strictEqual(back.label, 'E46 325i M54');
+    assert.strictEqual(back.chassis, 'E46');
+    assert.deepStrictEqual(back.report, scan.report);
+    assert.strictEqual(
+      JSON.stringify(back).includes('WBAET37495NJ87379'),
+      false
+    );
+    n++;
+    const url = await G.garageShareUrl(scan, car, 'https://bmweb.danner.ink/');
+    assert.ok(url.startsWith('https://bmweb.danner.ink/#report/'));
+    assert.strictEqual(await G.garageShareDecode('not-a-payload'), null);
+    n++;
+    console.log(`garage share: ${n} checks passed`);
+  } catch (e) {
+    console.error('garage share: FAIL', e);
+    process.exitCode = 1;
+  }
+})();
