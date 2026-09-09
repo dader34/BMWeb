@@ -49,7 +49,7 @@ function etkTreeGroup(g, onLeaf) {
   const count = ETK_STATE.variant != null ? fitting.length : g.diagrams.length;
   hdr.innerHTML = `<span class="etk-tw">▾</span>
                      <span class="etk-tname">${esc(g.name)}</span>
-                     <span class="etk-tcount">${count}</span>`;
+                     <span class="etk-tcount" data-fit="${fitting.length}" data-all="${g.diagrams.length}">${count}</span>`;
   if (ETK_STATE.variant != null && !fitting.length) grp.dataset.off = '1';
   const kids = document.createElement('div');
   kids.className = 'etk-tkids';
@@ -93,6 +93,10 @@ function etkTreeBanner(treeEl) {
   const seg = banner.querySelector('.wiring-vinseg');
   const apply = (on) => {
     treeEl.classList.toggle('etk-fit-only', on);
+    // the group counts follow: fitting diagrams, or every diagram
+    treeEl.querySelectorAll('.etk-tcount').forEach((c) => {
+      c.textContent = on ? c.dataset.fit : c.dataset.all;
+    });
     seg
       .querySelectorAll('.wiring-vinseg-btn')
       .forEach((b) =>
@@ -182,7 +186,13 @@ function showEtkGroup(data, chassisId, mg, openBtnr = null) {
       target.scrollIntoView({ block: 'center' });
     }
   }
-  (target || treeEl.querySelector('.etk-tleaf'))?.click();
+  // no deep link: the first diagram, and with a variant chosen the first
+  // that carries a part for it (the filter hides the others)
+  (
+    target ||
+    treeEl.querySelector('.etk-tleaf:not([data-off])') ||
+    treeEl.querySelector('.etk-tleaf')
+  )?.click();
   // the auto-opened FIRST diagram must not steal the screen on a phone --
   // land on the tree so the group is navigable. A deep-linked diagram was
   // asked for by name, so that one does take the screen.
