@@ -173,6 +173,8 @@ class IpoProgram {
     this.script = null;
     /** @type {string|null} the menu the entry set (the route's root) */
     this.rootMenu = null;
+    /** @type {string|null} the screen the entry set on the root menu */
+    this.rootScreen = null;
     this.answered = false; // INITIALISIERUNG returned any result
     this.silent = false; // INITIALISIERUNG got no answer at all
     this.noCable = false; // no adapter: the script cannot ask the car
@@ -642,6 +644,10 @@ class IpoProgram {
     this.menu = out.menu || null;
     this.screen = out.screen || null;
     this.frequent = !!out.screenFrequent;
+    // the script's own front: the menu and screen its entry set. Esc on
+    // that menu first returns to that screen (see back()).
+    this.rootMenu = this.menu;
+    this.rootScreen = this.screen;
     this.title = out.title || null;
     return { ok: true };
   }
@@ -1360,6 +1366,21 @@ class IpoProgram {
   async back() {
     if (this.running || this.busy) {
       this.queued = 'back';
+      return;
+    }
+    // On the root menu, a key like Ident or Code only swaps the screen
+    // (setscreen without setmenu) and the menu's own F10 is "End", which
+    // leaves the module. Esc there first returns to the screen the entry
+    // set, so one Esc undoes the screen and the next one leaves -- INPA's
+    // main menu never strands the user on a sub-screen.
+    if (
+      this.menu &&
+      this.menu === this.rootMenu &&
+      this.rootScreen &&
+      this.screen !== this.rootScreen &&
+      this.exec.procs[this.rootScreen]
+    ) {
+      await this.showScreen(this.rootScreen, false);
       return;
     }
     if (this.items.some((it) => it.nr === IPO_BACK_KEY))
