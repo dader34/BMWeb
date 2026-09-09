@@ -17,6 +17,15 @@
 let _logRun = null;
 
 /**
+ * True while the logging screen repaints its own F-key row. The action bar
+ * calls stopDataLogging on EVERY set of keys (a new row normally means a new
+ * screen), and the logging screen sets its row on every state change -- so
+ * without this the run was stopped the instant it started.
+ * @type {boolean}
+ */
+let _logRepainting = false;
+
+/**
  * Stop a logging run and let go of the bus. Called on every screen change
  * (the action bar's leave hook) and on cable loss.
  *
@@ -25,7 +34,7 @@ let _logRun = null;
  * @returns {void}
  */
 function stopDataLogging() {
-  if (!_logRun) return;
+  if (!_logRun || _logRepainting) return;
   const run = _logRun;
   _logRun = null;
   try {
@@ -526,6 +535,20 @@ async function showLoggingChassis(chassis) {
    */
   const paintActions = () => {
     const running = !!(sched && sched.running);
+    _logRepainting = true; // this row is ours, not a screen change
+    try {
+      paintActionRow(running);
+    } finally {
+      _logRepainting = false;
+    }
+  };
+
+  /**
+   * The F-key row itself.
+   * @param {boolean} running - Whether a run is live.
+   * @returns {void}
+   */
+  const paintActionRow = (running) => {
     setActions([
       { key: '1', label: running ? 'Pause' : 'Start', fn: toggle },
       {
