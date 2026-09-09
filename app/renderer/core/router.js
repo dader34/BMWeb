@@ -303,9 +303,10 @@ function installRouter() {
  * @param {string|null} chassis - Chassis id.
  * @param {string|null} sgbd - The module's SGBD.
  * @param {string|null} [menu] - The open submenu's IR name, or null for the root.
+ * @param {string|null} [screen] - The screen shown on that menu, when known.
  * @returns {void}
  */
-function routeSetCar(chassis, sgbd, menu) {
+function routeSetCar(chassis, sgbd, menu, screen) {
   if (_routing) return;
   if (!chassis || !sgbd) return;
   const parts = [
@@ -313,7 +314,10 @@ function routeSetCar(chassis, sgbd, menu) {
     String(chassis).toUpperCase(),
     encodeURIComponent(sgbd),
   ];
-  if (menu) parts.push(encodeURIComponent(menu));
+  if (menu) {
+    parts.push(encodeURIComponent(menu));
+    if (screen) parts.push(encodeURIComponent(screen));
+  }
   const route = parts.join('/');
   if (currentRoute() === route) {
     _openRoute = route;

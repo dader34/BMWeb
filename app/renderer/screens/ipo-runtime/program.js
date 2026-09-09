@@ -652,6 +652,15 @@ class IpoProgram {
     }
     if (gen !== this.gen) return true;
     if (out.title) this.title = out.title;
+    // the address bar follows the menu, so a link copied mid-script lands
+    // where the user is, not where the module was opened
+    if (typeof routeSetCar === 'function' && this.ecu && this.ecu.chassis)
+      routeSetCar(
+        this.ecu.chassis,
+        this.ecu.sgbd,
+        name,
+        out.screen || opts.screen || null
+      );
     if (out.menu && out.menu !== name && this.exec.procs[out.menu]) {
       // the prologue itself switched menus
       return this.openMenu(out.menu, {
