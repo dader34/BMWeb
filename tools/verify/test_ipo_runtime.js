@@ -2288,6 +2288,97 @@ const sysSet = (sgbd) => ({
     ok('a cancelled pick leaves the home where it was');
   }
 
+  // ===========================================================================
+  // 7. INPA's API fault read: the E46 airbag script reads fault memory only
+  //    through INPAapiFsLesen, which INPA's own API turns into FS_LESEN plus
+  //    the detail of every entry and a protocol file the script viewopen()s
+  // ===========================================================================
+  {
+    const aexec = loadExec('E46', 'airbag');
+    assert.ok(aexec && aexec.procs.inpainit, 'airbag exec missing');
+    const afault = {
+      F_ORT_NR: 5,
+      F_ORT_TEXT: 'Firing loop ZK0 / driver airbag stage 1',
+      F_HEX_CODE: [0x01, 0x42],
+      F_ART1_TEXT: 'sporadisch',
+      F_HFK: 2,
+      F_LZ: 40,
+      F_UW_ANZ: 1,
+      F_UW_SATZ: 1,
+      F_UW1_TEXT: 'Kilometerstand',
+      F_UW1_WERT: 123456,
+      F_UW1_EINH: 'km',
+    };
+    const asent = fakeApi((job, arg) => {
+      const sys = sysSet('mrs4');
+      if (job === 'INITIALISIERUNG')
+        return { system: sys, sets: [{ DONE: '1' }] };
+      if (job === 'INFO')
+        return {
+          system: sys,
+          sets: [{ SPRACHE: 'englisch', REVISION: '1.00', ECU: 'MRS4' }],
+        };
+      if (job === 'FS_LESEN')
+        return { system: sys, sets: [afault, { JOB_STATUS: 'OKAY' }] };
+      if (job === 'FS_LESEN_DETAIL')
+        return {
+          system: sys,
+          sets: [
+            { ...afault, F_PCODE_STRING: '', detailFor: String(arg) },
+            { JOB_STATUS: 'OKAY' },
+          ],
+        };
+      return { system: sys, sets: [{ JOB_STATUS: 'OKAY' }] };
+    });
+    const aui = fakeUi();
+    const ap = new IpoProgram(
+      { sgbd: 'mrs4', label: 'Airbag', _variant: 'MRS4', chassis: 'E46' },
+      aexec,
+      aui
+    );
+    const ar = await ap.start();
+    assert.strictEqual(ar.ok, true, `airbag start failed: ${ar.reason}`);
+    await ap.openMenu('m_fehler');
+    assert.ok(
+      ap.items.some((i) => i.nr === 1 && /Read/.test(i.label)),
+      'the Read key'
+    );
+    await ap.press(1);
+    for (let i = 0; i < 200 && (ap.busy || !ap.view); i++)
+      await new Promise((r) => setTimeout(r, 5));
+    const ajobs = asent.map(
+      (s) =>
+        `${s.target}/${s.job}${s.arg != null && s.arg !== '' ? ' ' + s.arg : ''}`
+    );
+    assert.ok(
+      ajobs.includes('mrs4/FS_LESEN'),
+      `FS_LESEN went to the module: ${ajobs.join(', ')}`
+    );
+    assert.ok(
+      ajobs.includes('mrs4/FS_LESEN_DETAIL 5'),
+      `the detail pass by location number: ${ajobs.join(', ')}`
+    );
+    assert.ok(
+      ap.view && ap.view.lines.some((l) => /Firing loop ZK0/.test(l)),
+      `the protocol file names the fault: ${JSON.stringify(ap.view && ap.view.lines)}`
+    );
+    assert.ok(ap.view.lines.some((l) => /1 Fehler im Fehlerspeicher/.test(l)));
+    assert.ok(
+      ap.view.lines.some((l) => /Kilometerstand: 123456 km/.test(l)),
+      'the environment line'
+    );
+    const rep = ap.view.report;
+    assert.ok(
+      rep && rep.kind === 'faults' && rep.modules.length === 1,
+      `the view carries the report: ${JSON.stringify(rep && rep.modules.map((m) => m.sgbd))}`
+    );
+    assert.strictEqual(rep.modules[0].codes.length, 1);
+    assert.strictEqual(Number(rep.modules[0].codes[0].F_ORT_NR), 5);
+    ok(
+      'INPAapiFsLesen: FS_LESEN + detail on the wire, protocol file written, report built'
+    );
+  }
+
   console.log(`ipo-runtime: ${passed} checks passed`);
 })().catch((e) => {
   console.error(e && e.stack ? e.stack : e);
