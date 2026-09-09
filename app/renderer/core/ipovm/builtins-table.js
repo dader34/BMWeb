@@ -154,6 +154,9 @@ const BUILTINS = {
   testtimer: bTesttimer,
   builtin_09: bSettimer,
   builtin_0a: bTesttimer,
+  // BMWeb's own (home/bmweb.h): a pick from the host, a status line
+  bmweb_pick: bBmwebPick,
+  bmweb_status: bBmwebStatus,
   builtin_57: bUserboxClear, // userboxclear
   builtin_58: bNoop, // userboxsetcolor
 };

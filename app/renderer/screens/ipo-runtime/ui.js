@@ -155,6 +155,8 @@ function ipoMakeUi(ecu, container, back) {
         danger: true,
       }),
     pickComponent: (p, step) => ipoPickComponent(p, step),
+    // BMWeb's own picker (the home script): the host's lists in a dialog
+    pickHome: (p, step) => ipoPickHome(p, step),
     // INPA's save-as dialog: the browser's own picker where it has one
     // (Chrome, Edge), else a name for a download
     saveFile: (p, step) => ipoSaveFilePick(p, step),
@@ -164,7 +166,11 @@ function ipoMakeUi(ecu, container, back) {
     // INPA's printscreen: the module view as a clean sheet (print.js)
     printScreen: (p) => ipoPrintScreen(p, p.ecu || ecu, inpa),
     resolveScriptEcu: (from, script, exec) =>
-      ipoResolveScriptEcu(from, script, exec),
+      // the home script names a module by its SGBD after a chassis pick:
+      // that module is the car's own record, not a wire-resolved variant
+      from && from.sgbd === IPO_HOME_SGBD
+        ? ipoHomeEcuFor(from, script)
+        : ipoResolveScriptEcu(from, script, exec),
     machineTick: (p, step, guards) => ipoMachineTick(machineEl, step, guards),
     // INPA's progress window: a popup with the title, the line the script
     // wrote last (the module it is asking right now) and Cancel, which ends

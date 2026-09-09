@@ -9031,6 +9031,19 @@ body.remote-helper::after {
 .garage-share {
   white-space: nowrap;
 }
+/* the row's controls: kind label, Open, Share, delete, all one height */
+.garage-scan-row .quick-status {
+  display: inline-flex;
+  align-items: stretch;
+  gap: 8px;
+}
+.garage-scan-row .garage-scan-kind {
+  align-self: center;
+  margin-right: 4px;
+}
+.garage-scan-share {
+  display: inline-flex;
+}
 .garage-share.copied {
   color: var(--green, #4caf50);
   border-color: var(--green, #4caf50);
@@ -9149,7 +9162,8 @@ body.remote-helper::after {
   color: var(--ink-faint);
 }
 .garage-scan-del {
-  padding: 3px 7px;
+  padding: 0 12px;
+  align-self: stretch;
   border: 1px solid var(--line);
   border-radius: 4px;
   background: none;

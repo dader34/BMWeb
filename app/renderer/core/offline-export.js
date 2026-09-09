@@ -116,6 +116,7 @@ const OFFLINE_SHELL = [
   'screens/ipo-runtime/protocol.js',
   'screens/ipo-runtime/ui.js',
   'screens/ipo-runtime/open.js',
+  'screens/ipo-runtime/home.js',
   'screens/ecu.js',
   'screens/activations.js',
 
