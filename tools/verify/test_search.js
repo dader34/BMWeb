@@ -484,4 +484,34 @@ const run = (q, opts) => S.searchRun(IX, q, opts);
   ok('the home screen carries no search bar');
 }
 
+// ---- the chassis filter's rows ----------------------------------------------
+{
+  const idx = {
+    modules: [
+      { sgbd: 'ms450ds0', label: 'MS45', chassis: ['E46', 'E85'] },
+      { sgbd: 'kmb46', label: 'Cluster', chassis: ['E46'] },
+      { sgbd: 'orphan', label: 'No car', chassis: [] },
+    ],
+    entries: [
+      { t: 'k', i: 0 },
+      { t: 's', i: 0 },
+      { t: 'k', i: 1 },
+      { t: 'k', i: 2 },
+    ],
+  };
+  const rows = S.jobSearchChassisOptions(idx);
+  assert.deepStrictEqual(
+    rows.map((r) => [r.val, r.count]),
+    [
+      ['', 4],
+      ['E46', 3],
+      ['E85', 2],
+    ]
+  );
+  ok('chassis rows carry every chassis a module belongs to, with counts');
+  const only = S.searchRun(idx, 'zzz', { chassis: 'E85' });
+  assert.strictEqual(only.total, 0);
+  ok('the chassis option reaches searchRun');
+}
+
 console.log(`search: ${passed} checks passed`);
