@@ -25,10 +25,22 @@ const ETK_IMG_MAX_PX = 700;
  * @returns {EtkPart[]}
  */
 function etkFitParts(parts) {
-  return parts.filter(
-    (p) =>
-      ETK_STATE.variant == null || !p.fit || p.fit.includes(ETK_STATE.variant)
-  );
+  // "Show all" in the tree header lifts the variant filter without
+  // forgetting the variant, so "My car" can put it back
+  if (ETK_STATE.variant == null || ETK_STATE.showAll) return parts.slice();
+  return parts.filter((p) => !p.fit || p.fit.includes(ETK_STATE.variant));
+}
+
+/**
+ * Whether a part fits the chosen variant, regardless of the Show all toggle:
+ * what marks a diagram or group as off-build for the "My car" filter.
+ * @param {EtkPart[]} parts - a diagram's parts
+ * @returns {number} how many parts fit the variant (all of them without one)
+ */
+function etkFitCount(parts) {
+  if (ETK_STATE.variant == null) return parts.length;
+  return parts.filter((p) => !p.fit || p.fit.includes(ETK_STATE.variant))
+    .length;
 }
 
 /**
@@ -43,9 +55,17 @@ function etkTreeGroup(g, onLeaf) {
   grp.className = 'etk-tgroup';
   const hdr = document.createElement('button');
   hdr.className = 'etk-tgroup-hdr';
+  // with a variant chosen, the count is the diagrams that carry a part for
+  // it; a diagram with none is marked off so the "my car" filter can hide it
+  const fitting = g.diagrams.filter((d) => etkFitCount(d.parts) > 0);
+  const count =
+    ETK_STATE.variant != null && !ETK_STATE.showAll
+      ? fitting.length
+      : g.diagrams.length;
   hdr.innerHTML = `<span class="etk-tw">▾</span>
                      <span class="etk-tname">${esc(g.name)}</span>
-                     <span class="etk-tcount">${g.diagrams.length}</span>`;
+                     <span class="etk-tcount" data-fit="${fitting.length}" data-all="${g.diagrams.length}">${count}</span>`;
+  if (ETK_STATE.variant != null && !fitting.length) grp.dataset.off = '1';
   const kids = document.createElement('div');
   kids.className = 'etk-tkids';
   hdr.onclick = () => {
@@ -56,15 +76,64 @@ function etkTreeGroup(g, onLeaf) {
   g.diagrams.forEach((d) => {
     const leaf = document.createElement('button');
     leaf.className = 'etk-tleaf';
+    const n = etkFitParts(d.parts).length;
     leaf.innerHTML = `<span class="etk-lname">${esc(d.name)}</span>
-                        <span class="etk-lcount">${etkFitParts(d.parts).length}</span>`;
+                        <span class="etk-lcount">${n}</span>`;
+    if (ETK_STATE.variant != null && !etkFitCount(d.parts))
+      leaf.dataset.off = '1';
     leaf._btnr = d.btnr;
+    leaf._parts = d.parts; // so the toggle can recount without a rebuild
     leaf.onclick = () => onLeaf(leaf, d);
     kids.appendChild(leaf);
   });
   grp.appendChild(hdr);
   grp.appendChild(kids);
   return grp;
+}
+
+/**
+ * The header over the tree when a variant is chosen: the vehicle, and a
+ * My car / Show all toggle like the wiring viewer's. My car (the default)
+ * hides the diagrams and groups that carry nothing for this variant and
+ * counts only the parts that fit; Show all lifts the filter from the counts
+ * and the open diagram's parts list as well, not just from the rows.
+ * @param {HTMLElement} treeEl - the tree whose class carries the filter
+ * @param {() => void} redraw - redraws the open diagram under the new filter
+ * @returns {HTMLDivElement}
+ */
+function etkTreeBanner(treeEl, redraw) {
+  const banner = document.createElement('div');
+  banner.className = 'etk-vinbanner';
+  banner.innerHTML = `
+    <div class="etk-vinbanner-veh">${esc(ETK_STATE.variantLabel || 'Filtered by variant')}</div>
+    <div class="wiring-vinseg" role="group" aria-label="Diagram filter">
+      <button type="button" class="wiring-vinseg-btn" data-mode="mine">My car</button>
+      <button type="button" class="wiring-vinseg-btn" data-mode="all">Show all</button>
+    </div>`;
+  const seg = banner.querySelector('.wiring-vinseg');
+  const apply = (on) => {
+    ETK_STATE.showAll = !on;
+    treeEl.classList.toggle('etk-fit-only', on);
+    // the counts follow: fitting diagrams and parts, or every one
+    treeEl.querySelectorAll('.etk-tcount').forEach((c) => {
+      c.textContent = on ? c.dataset.fit : c.dataset.all;
+    });
+    treeEl.querySelectorAll('.etk-tleaf').forEach((l) => {
+      const n = l.querySelector('.etk-lcount');
+      if (n && l._parts) n.textContent = String(etkFitParts(l._parts).length);
+    });
+    if (redraw) redraw();
+    seg
+      .querySelectorAll('.wiring-vinseg-btn')
+      .forEach((b) =>
+        b.classList.toggle('active', b.dataset.mode === (on ? 'mine' : 'all'))
+      );
+  };
+  seg
+    .querySelectorAll('.wiring-vinseg-btn')
+    .forEach((b) => (b.onclick = () => apply(b.dataset.mode === 'mine')));
+  apply(true);
+  return banner;
 }
 
 /**
@@ -111,6 +180,13 @@ function showEtkGroup(data, chassisId, mg, openBtnr = null) {
 
   let selectedLeaf = null;
   let shownDiagram = null; // the diagram currently on screen
+  ETK_STATE.showAll = false; // a group opens on "My car"
+  if (ETK_STATE.variant != null)
+    split.querySelector('.etk-nav').prepend(
+      etkTreeBanner(treeEl, () => {
+        if (shownDiagram) renderDiagram(data, id, shownDiagram, viewEl);
+      })
+    );
   const onLeaf = (leaf, d) => {
     if (selectedLeaf) selectedLeaf.classList.remove('active');
     leaf.classList.add('active');
@@ -141,7 +217,13 @@ function showEtkGroup(data, chassisId, mg, openBtnr = null) {
       target.scrollIntoView({ block: 'center' });
     }
   }
-  (target || treeEl.querySelector('.etk-tleaf'))?.click();
+  // no deep link: the first diagram, and with a variant chosen the first
+  // that carries a part for it (the filter hides the others)
+  (
+    target ||
+    treeEl.querySelector('.etk-tleaf:not([data-off])') ||
+    treeEl.querySelector('.etk-tleaf')
+  )?.click();
   // the auto-opened FIRST diagram must not steal the screen on a phone --
   // land on the tree so the group is navigable. A deep-linked diagram was
   // asked for by name, so that one does take the screen.
@@ -237,7 +319,13 @@ function renderDiagram(data, chassisId, d, viewEl) {
         img.style.width = Math.min(w * ETK_IMG_UPSCALE, ETK_IMG_MAX_PX) + 'px';
     };
     img.src = url;
+    img.title = 'Click to enlarge';
     fig.appendChild(img);
+    const hint = document.createElement('span');
+    hint.className = 'etk-figure-hint';
+    hint.textContent = '⌕ enlarge';
+    fig.appendChild(hint);
+    fig.onclick = () => etkOpenLightbox(url, d.name);
     wrap.appendChild(fig);
   }
 
@@ -262,4 +350,60 @@ function renderDiagram(data, chassisId, d, viewEl) {
   sbRight.textContent =
     `${parts.length} part${parts.length === 1 ? '' : 's'}` +
     (filtered ? ` (of ${d.parts.length})` : '');
+}
+
+/** How much the loupe magnifies the scan. */
+const ETK_LOUPE_ZOOM = 2.5;
+
+/** The loupe's diameter, px. */
+const ETK_LOUPE_PX = 220;
+
+/**
+ * The enlarged view: the scan as big as the window allows on a white plate,
+ * with a round magnifier that follows the pointer over it. Esc, the ×, or a
+ * click on the backdrop closes it.
+ * @param {string} url - the image URL (a blob URL from the archive)
+ * @param {string} name - the diagram's name, for the caption
+ * @returns {void}
+ */
+function etkOpenLightbox(url, name) {
+  if (typeof openModal !== 'function') return;
+  const m = openModal(
+    `<div class="etk-lightbox">
+       <div class="etk-lightbox-head">
+         <span class="etk-lightbox-title">${esc(name)}</span>
+         <span class="etk-lightbox-hint">Move over the drawing to magnify</span>
+         <button type="button" class="etk-lightbox-close" aria-label="Close">×</button>
+       </div>
+       <div class="etk-lightbox-plate">
+         <img class="etk-lightbox-img" alt="${esc(name)}" src="${esc(url)}" />
+         <div class="etk-loupe" hidden></div>
+       </div>
+     </div>`
+  );
+  const box = m.overlay.querySelector('.etk-lightbox');
+  const img = box.querySelector('.etk-lightbox-img');
+  const loupe = box.querySelector('.etk-loupe');
+  box.querySelector('.etk-lightbox-close').onclick = () => m.close();
+  loupe.style.width = loupe.style.height = ETK_LOUPE_PX + 'px';
+  loupe.style.backgroundImage = `url("${url}")`;
+  const plate = box.querySelector('.etk-lightbox-plate');
+  img.onpointermove = (ev) => {
+    const r = img.getBoundingClientRect();
+    const pr = plate.getBoundingClientRect();
+    if (!r.width || !r.height) return;
+    const fx = (ev.clientX - r.left) / r.width;
+    const fy = (ev.clientY - r.top) / r.height;
+    const bw = r.width * ETK_LOUPE_ZOOM;
+    const bh = r.height * ETK_LOUPE_ZOOM;
+    loupe.hidden = false;
+    // the loupe sits in the plate, so it is placed against the plate's box
+    loupe.style.left = ev.clientX - pr.left - ETK_LOUPE_PX / 2 + 'px';
+    loupe.style.top = ev.clientY - pr.top - ETK_LOUPE_PX / 2 + 'px';
+    loupe.style.backgroundSize = `${bw}px ${bh}px`;
+    loupe.style.backgroundPosition = `${ETK_LOUPE_PX / 2 - fx * bw}px ${ETK_LOUPE_PX / 2 - fy * bh}px`;
+  };
+  img.onpointerleave = () => {
+    loupe.hidden = true;
+  };
 }

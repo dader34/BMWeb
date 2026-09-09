@@ -21,7 +21,7 @@
  * @property {string} icon - a single glyph for the card
  * @property {string} title - card title
  * @property {string} desc - one-line description
- * @property {string} tag - the BMW tool it was ported from ("ETK", "WDS · ISTA")
+ * @property {string} tag - the BMW tool it was ported from ("ETK", "WDS · ISTA"); kept on the entry, not drawn
  * @property {() => void} open - opens the app's screen
  * @property {() => Promise<boolean>} [hasData] - did the app's data ship in this build? Absent = always
  */
@@ -43,6 +43,22 @@ const APP_REGISTRY = [
     open: () => showLookup(),
     // always available: the fault database ships with the app shell
     hasData: async () => true,
+  },
+  {
+    id: 'job-search',
+    icon: '⌕',
+    title: 'Job search',
+    desc: "Find any screen or key in INPA's scripts by what it does, and open it",
+    tag: 'IPO',
+    open: () => (typeof showJobSearch === 'function' ? showJobSearch() : null),
+    // the index is an export artifact; a build without it shows the card
+    // greyed rather than opening a screen that can only say "no index".
+    // Asks whether the file is THERE -- downloading 2 MB to draw a hub card
+    // would make opening Apps cost as much as opening the app.
+    hasData: async () =>
+      typeof showJobSearch === 'function' &&
+      typeof searchIndexPresent === 'function' &&
+      (await searchIndexPresent()),
   },
   {
     id: 'wiring',
@@ -130,6 +146,30 @@ const APP_REGISTRY = [
     hasData: async () =>
       typeof showTuning === 'function' && typeof window.XDF !== 'undefined',
   },
+  {
+    id: 'logging',
+    icon: '∿',
+    title: 'Data logging',
+    desc: 'Chart live readings from any module while you drive (read only)',
+    tag: 'LIVE',
+    open: () => (typeof showLogging === 'function' ? showLogging() : null),
+    // no data bundle of its own: it polls whatever modules this build ships
+    hasData: async () => typeof showLogging === 'function',
+  },
+  {
+    id: 'script',
+    icon: '⌁',
+    title: 'Script runner',
+    desc: 'Run an INPA script of your own: a compiled .IPO, or a .IPS / .SRC compiled in the browser',
+    tag: 'INPA',
+    open: () =>
+      typeof showScriptRunner === 'function' ? showScriptRunner() : null,
+    // reads the file the user supplies -- nothing to ship, so it is ready
+    // whenever its code and the live runtime did
+    hasData: async () =>
+      typeof showScriptRunner === 'function' &&
+      typeof ipoProgramOpen === 'function',
+  },
 ];
 
 /**
@@ -160,8 +200,7 @@ function appCard(app, ready) {
   card.innerHTML = `
       <span class="lookup-entry-icon">${app.icon}</span>
       <span class="lookup-entry-text">
-        <span class="lookup-entry-title">${esc(app.title)}
-          <span class="app-tag">${esc(app.tag)}</span></span>
+        <span class="lookup-entry-title">${esc(app.title)}</span>
         <span class="lookup-entry-desc">${esc(app.desc)}${
           ready ? '' : ' · not in this build'
         }</span>
@@ -181,11 +220,7 @@ async function showApps() {
   setCrumbs([{ label: 'Vehicles', fn: showChassis }, { label: 'Apps' }]);
   document.body.classList.add('apps-section'); // hides the F-key bar on mobile (touch nav)
   sbLeft.textContent = 'apps';
-  view.innerHTML = head(
-    'Apps',
-    'Ported Apps',
-    "Reference tools ported from BMW's dealer software, offline."
-  );
+  view.innerHTML = head('Apps', 'Apps', '');
   const backAction = {
     key: 'Escape',
     keyLabel: 'Esc',

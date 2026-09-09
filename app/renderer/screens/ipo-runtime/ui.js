@@ -201,7 +201,22 @@ function ipoMakeUi(ecu, container, back) {
         if (p.view !== paintedView) {
           paintedView = p.view;
           if (p.view.report && typeof ipoProtocolRender === 'function') {
-            ipoProtocolRender(gridEl, p);
+            const drawn = p.view;
+            // the whole-car read is finished: show what each fault captured,
+            // then offer to keep the report. Deferred until the renderer has
+            // built the rows and the bar these attach to.
+            Promise.resolve(ipoProtocolRender(gridEl, p)).then(async () => {
+              if (p.view !== drawn) return;
+              if (typeof garageAttachEnv === 'function')
+                await garageAttachEnv(gridEl, drawn.report, {
+                  screensFor:
+                    typeof garageScreensFor === 'function'
+                      ? garageScreensFor
+                      : null,
+                });
+              if (p.view === drawn && typeof garageOfferSave === 'function')
+                garageOfferSave(gridEl, drawn, p.ecu);
+            });
           } else {
             gridEl.innerHTML = `<pre class="ipo-protocol mono">${esc(
               (p.view.lines || []).join('\n')

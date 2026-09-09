@@ -32,9 +32,16 @@ const APPS_ROUTES = {
   'apps/parts/vin': () =>
     typeof showVinDecoder === 'function' ? showVinDecoder() : null,
   'apps/tool32': () => (typeof showTool32 === 'function' ? showTool32() : null),
+  'apps/job-search': () =>
+    typeof showJobSearch === 'function' ? showJobSearch('') : null,
   'apps/backup': () =>
     typeof showFlasher === 'function' ? showFlasher() : null,
   'apps/tuning': () => (typeof showTuning === 'function' ? showTuning() : null),
+  garage: () => (typeof showGarage === 'function' ? showGarage() : null),
+  'apps/logging': () =>
+    typeof showLogging === 'function' ? showLogging() : null,
+  'apps/script': () =>
+    typeof showScriptRunner === 'function' ? showScriptRunner() : null,
   'apps/documents': () =>
     typeof showWiringChassis === 'function' ? showWiringChassis() : null,
 };
@@ -49,8 +56,12 @@ const ROUTE_FOR_SCREEN = {
   showEtk: 'apps/parts',
   showVinDecoder: 'apps/parts/vin',
   showTool32: 'apps/tool32',
+  showJobSearch: 'apps/job-search',
   showFlasher: 'apps/backup',
   showTuning: 'apps/tuning',
+  showGarage: 'garage',
+  showLogging: 'apps/logging',
+  showScriptRunner: 'apps/script',
 };
 
 // Some routes carry parameters (a chassis, a specific diagram) so a single
@@ -65,18 +76,28 @@ const ROUTE_FOR_SCREEN = {
 function resolveRoute(route) {
   const exact = APPS_ROUTES[route];
   if (exact) return exact;
-  // #car/<CHASSIS>[/<SGBD>[/<MENU>]] -- the vehicle side. The module is keyed
-  // by SGBD (stable, unlike a display label) and the submenu by its IR menu
-  // name, which is the same key the live runtime navigates by.
+  // #car/<CHASSIS>[/<SGBD>[/<MENU>[/<SCREEN>]]] -- the vehicle side. The
+  // module is keyed by SGBD (stable, unlike a display label) and the submenu
+  // by its IR menu name, which is the same key the live runtime navigates by.
+  //
+  // The optional SCREEN is what a job-search result lands on: a menu can show
+  // several screens and the row the user clicked names one of them. Menu and
+  // screen proc names are identifiers (m_fehlersp, s_fs_detail), never
+  // slashed, so splitting the tail on '/' cannot break a link written before
+  // the screen part existed -- a two-part tail is still menu-only.
   const c = /^car\/([A-Za-z0-9]+)(?:\/([A-Za-z0-9_-]+)(?:\/(.+))?)?$/.exec(
     route
   );
   if (c) {
     const chassis = c[1].toUpperCase();
     const sgbd = c[2] ? decodeURIComponent(c[2]).toLowerCase() : null;
-    const menu = c[3] ? decodeURIComponent(c[3]) : null;
+    const tail = c[3] ? c[3].split('/') : [];
+    // an empty menu part (#car/E46/kombi46//s_fs) is how a link names a
+    // screen with no menu of its own: the script's entry menu stands
+    const menu = tail[0] ? decodeURIComponent(tail[0]) : null;
+    const screen = tail[1] ? decodeURIComponent(tail[1]) : null;
     if (sgbd && typeof showEcuDeep === 'function') {
-      return () => showEcuDeep(chassis, sgbd, menu);
+      return () => showEcuDeep(chassis, sgbd, menu, screen);
     }
     // the car's module list in the layout the user chose: INPA's script
     // selection or the modern sections (backToModules picks)
@@ -84,12 +105,37 @@ function resolveRoute(route) {
       return () => backToModules(chassis);
     if (typeof showSections === 'function') return () => showSections(chassis);
   }
+  // #garage/<CAR>[/<SCAN>] -- a saved vehicle, or one of its stored scans.
+  // Both ids are local and opaque, so they are matched as-is rather than
+  // upper-cased the way a chassis is.
+  const g = /^garage\/([A-Za-z0-9_-]+)(?:\/([A-Za-z0-9_-]+))?$/.exec(route);
+  if (g) {
+    const carId = decodeURIComponent(g[1]);
+    const scanId = g[2] ? decodeURIComponent(g[2]) : null;
+    if (scanId && typeof showGarageScan === 'function')
+      return () => showGarageScan(carId, scanId);
+    if (typeof showGarageCar === 'function') return () => showGarageCar(carId);
+  }
+  // #apps/job-search/<QUERY> -- a search someone can send as a link. The
+  // query is the whole tail, encoded, so it may hold spaces and slashes.
+  const js = /^apps\/job-search\/(.+)$/.exec(route);
+  if (js && typeof showJobSearch === 'function') {
+    const q = decodeURIComponent(js[1]);
+    return () => showJobSearch(q);
+  }
   // #apps/wiring/<CHASSIS>[/<DOC>]
   const w = /^apps\/wiring\/([A-Za-z0-9]+)(?:\/([A-Za-z0-9_-]+))?$/.exec(route);
   if (w && typeof showWiring === 'function') {
     const chassis = w[1].toUpperCase();
     const doc = w[2] ? decodeURIComponent(w[2]) : null;
     return () => showWiring(chassis, doc);
+  }
+  // #apps/logging/<CHASSIS> -- the logging workspace for one car. The
+  // selection itself is not in the URL: it is a preset, saved by name.
+  const lg = /^apps\/logging\/([A-Za-z0-9]+)$/.exec(route);
+  if (lg && typeof showLoggingChassis === 'function') {
+    const chassis = lg[1].toUpperCase();
+    return () => showLoggingChassis(chassis);
   }
   // #apps/documents/<CHASSIS>[/<DOCID>] -> the merged wiring/docs screen, doc
   // category; the doc id ("d:"-prefixed internally) opens that document
@@ -166,7 +212,9 @@ function routeSyncFromScreen(fn) {
     const here = currentRoute();
     if (
       EXIT_APPS_SCREEN.has(name) &&
-      (here.startsWith('apps') || here.startsWith('car'))
+      (here.startsWith('apps') ||
+        here.startsWith('car') ||
+        here.startsWith('garage'))
     ) {
       _routing = true;
       _openRoute = null;
@@ -283,9 +331,10 @@ function installRouter() {
  * @param {string|null} chassis - Chassis id.
  * @param {string|null} sgbd - The module's SGBD.
  * @param {string|null} [menu] - The open submenu's IR name, or null for the root.
+ * @param {string|null} [screen] - The screen shown on that menu, when known.
  * @returns {void}
  */
-function routeSetCar(chassis, sgbd, menu) {
+function routeSetCar(chassis, sgbd, menu, screen) {
   if (_routing) return;
   if (!chassis || !sgbd) return;
   const parts = [
@@ -293,7 +342,10 @@ function routeSetCar(chassis, sgbd, menu) {
     String(chassis).toUpperCase(),
     encodeURIComponent(sgbd),
   ];
-  if (menu) parts.push(encodeURIComponent(menu));
+  if (menu) {
+    parts.push(encodeURIComponent(menu));
+    if (screen) parts.push(encodeURIComponent(screen));
+  }
   const route = parts.join('/');
   if (currentRoute() === route) {
     _openRoute = route;
@@ -330,6 +382,34 @@ function routeSetCarList(chassis) {
   }
 }
 
+// The Job search app writes its query back into the hash as the user types,
+// so a search is a link someone can send. replaceState: a keystroke must not
+// stack a history entry, and Back should leave the app rather than step
+// backwards through every prefix of the query.
+/**
+ * Set the hash to a Job search query: #apps/job-search[/<QUERY>].
+ * @param {string} q - the query; empty clears it back to the bare route
+ * @returns {void}
+ */
+function routeSetJobSearch(q) {
+  if (_routing) return;
+  const query = String(q || '').trim();
+  const route = query
+    ? `apps/job-search/${encodeURIComponent(query)}`
+    : 'apps/job-search';
+  if (currentRoute() === route) {
+    _openRoute = route;
+    return;
+  }
+  _routing = true;
+  try {
+    history.replaceState(null, '', '#' + route);
+    _openRoute = route;
+  } finally {
+    _routing = false;
+  }
+}
+
 // Called by the wiring viewer when a specific document opens, so the URL
 // becomes a shareable deep link (#apps/wiring/<CHASSIS>/<DOC>). replaceState,
 // not a hash push: browsing diagram-to-diagram shouldn't stack history, and
@@ -345,6 +425,30 @@ function routeSetWiringDoc(chassis, doc) {
   if (_routing || !chassis || !doc) return;
   const route = `apps/wiring/${String(chassis).toUpperCase()}/${encodeURIComponent(doc)}`;
   if (currentRoute() === route) return;
+  _routing = true;
+  try {
+    history.replaceState(null, '', '#' + route);
+    _openRoute = route;
+  } finally {
+    _routing = false;
+  }
+}
+
+// The garage's own sub-routes. showGarage is in ROUTE_FOR_SCREEN and syncs
+// itself, but a car and a scan carry ids the crumb sync cannot know, so those
+// screens set the hash themselves -- replaceState, like the other deep links,
+// so walking a car's history doesn't stack an entry per scan opened.
+/**
+ * Set the hash to a garage route: #garage/<CAR>[/<SCAN>].
+ * @param {string} route - the route, without the leading '#'
+ * @returns {void}
+ */
+function garageRouteSet(route) {
+  if (_routing || !route) return;
+  if (currentRoute() === route) {
+    _openRoute = route;
+    return;
+  }
   _routing = true;
   try {
     history.replaceState(null, '', '#' + route);
@@ -405,4 +509,6 @@ if (typeof window !== 'undefined') {
   window.routeSetEtkDiagram = routeSetEtkDiagram;
   window.routeSetCar = routeSetCar;
   window.routeSetCarList = routeSetCarList;
+  window.garageRouteSet = garageRouteSet;
+  window.routeSetJobSearch = routeSetJobSearch;
 }

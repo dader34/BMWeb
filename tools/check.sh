@@ -206,6 +206,14 @@ echo "== live .IPO runtime: entry, keys, screens, machines, scriptchange =="
 node tools/verify/test_ipo_runtime.js || exit 1
 
 echo
+echo "== .IPO reader: a dropped script decodes to the same tokens the exporter ships =="
+node tools/verify/test_ipofile.js || exit 1
+
+echo
+echo "== INPA source compiler: decompile, recompile, and drive the car the same way =="
+node tools/verify/test_ips_compile.js || exit 1
+
+echo
 echo "== guided procedures: suspend on every job, honour waits, resolve segment jumps =="
 node tools/verify/test_guided.js || exit 1
 

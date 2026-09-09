@@ -34,6 +34,7 @@ sys.path.insert(0, os.path.join(HERE, "..", "sgbd"))
 sys.path.insert(0, os.path.dirname(HERE))                    # tools/, for _cli
 import ecu_tree as T                                          # noqa: E402
 from _cli import parse_args                                   # noqa: E402
+from search_index import build_index                          # noqa: E402
 
 
 def _ecu_src_sgbds():
@@ -585,6 +586,19 @@ def main():
     else:
         print("  no coding dispatchers (data/coding-dispatch empty); "
               "coding writes use the strategy fallback")
+
+    # 7. The corpus-wide job search index: every INPA key and screen in every
+    #    shipped script, by what it does. Built here rather than in the
+    #    browser because answering "which screen reads the steering angle?"
+    #    at runtime would mean downloading every .chassis archive. Runs after
+    #    the chassis packaging so it indexes the same tree that was just
+    #    shipped. Fatal if it produces nothing: a home screen with a search
+    #    bar that finds nothing is worse than one with no search bar.
+    n_search, _search_bytes = build_index(out)
+    if not n_search:
+        problems.append(
+            "search-index.json.gz is empty: data/chassis holds no readable "
+            "screens.json (run tools/export/build_ecu_tree.py first)")
 
     total_size = sum(
         os.path.getsize(os.path.join(dirpath, filename))

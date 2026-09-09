@@ -127,6 +127,8 @@ async function ipoLoadKnownSgbds(ecu) {
  * @param {HTMLElement} container - where the view is drawn
  * @param {() => void} back - leave the module view
  * @param {string|null} [openMenu] - a menu to open (a deep link)
+ * @param {string|null} [openScreen] - the screen to show on that menu
+ * @param {RegExp|string|null} [pressKey] - a read key to press on arrival, by its caption
  * @returns {Promise<boolean>}
  */
 /** The shipped group -> identifiable variants map, fetched once. */
@@ -208,7 +210,14 @@ async function ipoResolveScriptEcu(ecu, script, exec) {
   };
 }
 
-async function ipoProgramOpen(ecu, container, back, openMenu) {
+async function ipoProgramOpen(
+  ecu,
+  container,
+  back,
+  openMenu,
+  openScreen,
+  pressKey
+) {
   if (typeof IpoVm === 'undefined' || typeof FeedHost === 'undefined')
     return false;
   if (ipoRemoteDriving()) {
@@ -287,8 +296,45 @@ async function ipoProgramOpen(ecu, container, back, openMenu) {
     );
     return true;
   }
-  if (openMenu && openMenu !== program.menu && exec.procs[openMenu]) {
-    await program.openMenu(openMenu);
+  // A DEEP LINK LANDS; IT DOES NOT PRESS. openMenu runs a menu's prologue and
+  // shows a screen -- both of which read -- but it never runs an ITEM body, so
+  // a link into an activation menu cannot drive an actuator on arrival. That
+  // is the whole reason a search result carries the menu and screen NAMES
+  // rather than the key to press.
+  const wantScreen = openScreen && exec.procs[openScreen] ? openScreen : null;
+  // a link that names the screen but not its menu (a search result for the
+  // screen itself) lands on the menu that shows that screen, so the F-keys
+  // are the screen's own and not the entry menu's
+  let landMenu = openMenu && exec.procs[openMenu] ? openMenu : null;
+  if (wantScreen && !landMenu) landMenu = ipoMenuForScreen(exec, wantScreen);
+  if (landMenu && landMenu !== program.menu) {
+    await program.openMenu(landMenu, wantScreen ? { screen: wantScreen } : {});
+  }
+  // A MENU PROLOGUE'S OWN setscreen OUTRANKS opts.screen, by design: the
+  // script's choice is what a normal keypress must land on. A link naming a
+  // screen is the one case where the user's choice is more specific than the
+  // script's default backdrop, so it is applied afterwards rather than by
+  // weakening that rule for every other caller.
+  if (wantScreen && wantScreen !== program.screen) {
+    await program.showScreen(wantScreen, false);
+  }
+  // A deep link lands; it does not press. The one exception is a caller
+  // asking for a named READ key by its caption (the Garage's Fault scan /
+  // Identification buttons): that key is pressed for the user exactly as
+  // their own press would be, so a key that writes still goes through the
+  // runtime's confirmation.
+  if (pressKey) {
+    const re =
+      pressKey instanceof RegExp
+        ? pressKey
+        : new RegExp(
+            `^${String(pressKey).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`,
+            'i'
+          );
+    const it = (program.items || []).find((x) =>
+      re.test(String(x.label || '').trim())
+    );
+    if (it) program.press(it.nr).catch(() => {});
   }
   return true;
 }

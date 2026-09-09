@@ -91,6 +91,9 @@
         <span class="led" id="led"></span>
         <span id="link-text">checking cable...</span>
       </div>
+      <!-- The Garage: the owner's saved cars and scan history, one press
+           from any screen (screens/garage/screen.js wires it). -->
+      <button class="icon-btn" id="garage-btn" title="Your saved cars and their scan history"><span class="btn-text">Garage</span><span class="btn-icon" aria-hidden="true">⌂</span></button>
       <button class="icon-btn" id="settings-btn" title="Skins, startup vehicle, remote session"><span class="btn-text">Settings</span><span class="btn-icon" aria-hidden="true">⚙</span></button>
     </div>
   </header>
@@ -218,6 +221,17 @@
   <script src="core/ipovm/structures.js"></script>
   <script src="core/ipovm/suspensions.js"></script>
   <script src="core/ipovm/vm.js"></script>
+  <!-- Reading an .IPO / .IPS the user supplies into the VM's own exec shape:
+       the pool before the declarations that index it, the walker before the
+       assembler over it, the compiler last (it needs the walker's tables). -->
+  <script src="core/ipofile/pool.js"></script>
+  <script src="core/ipofile/decls.js"></script>
+  <script src="core/ipofile/walk.js"></script>
+  <script src="core/ipofile/exec.js"></script>
+  <script src="core/ipofile/lex.js"></script>
+  <script src="core/ipofile/parse.js"></script>
+  <script src="core/ipofile/emit.js"></script>
+  <script src="core/ipofile/compile.js"></script>
   <script src="core/core/settings.js"></script>
   <script src="core/core/ui.js"></script>
   <script src="core/core/api.js"></script>
@@ -347,6 +361,26 @@
   <script src="screens/etk/identify.js"></script>
   <script src="screens/etk/catalogue.js"></script>
   <script src="screens/etk/diagram.js"></script>
+  <!-- The Garage (screens/garage/): saved cars and the scans kept against
+       them. After the protocol renderer and the sweep rows it redraws stored
+       reports with, and after the ETK VIN decoder it adds cars through. -->
+  <script src="screens/garage/store.js"></script>
+  <script src="screens/garage/diff.js"></script>
+  <script src="screens/garage/warn.js"></script>
+  <script src="screens/garage/env.js"></script>
+  <script src="screens/garage/screen.js"></script>
+  <script src="screens/garage/history.js"></script>
+  <script src="screens/garage/diff-screen.js"></script>
+  <script src="screens/garage/save.js"></script>
+  <!-- Job search (screens/search/): the Apps-hub app over every INPA key and
+       screen the build ships. data.js loads the exported index, match.js
+       ranks against it, render.js draws, open.js turns a result into a
+       vehicle deep link, screen.js is the app screen -- so it loads last. -->
+  <script src="screens/search/data.js"></script>
+  <script src="screens/search/match.js"></script>
+  <script src="screens/search/open.js"></script>
+  <script src="screens/search/render.js"></script>
+  <script src="screens/search/screen.js"></script>
   <script src="screens/tool32.js"></script>
   <script src="screens/flasher.js"></script>
   <script src="screens/tuning/memory-spec.js"></script>
@@ -372,6 +406,17 @@
   <script src="screens/tuning/read-ecu-dialog.js"></script>
   <script src="screens/tuning/session.js"></script>
   <script src="screens/tuning/screen.js"></script>
+  <!-- Data logging, one piece per concern. store.js first (the buffers the
+       rest read), screen.js last (the entry point the hub and router name). -->
+  <script src="screens/logging/store.js"></script>
+  <script src="screens/logging/scheduler.js"></script>
+  <script src="screens/logging/charts.js"></script>
+  <script src="screens/logging/picker.js"></script>
+  <script src="screens/logging/presets.js"></script>
+  <script src="screens/logging/screen.js"></script>
+  <!-- Script runner: the loader over core/ipofile, then the screen. -->
+  <script src="screens/script-runner/load.js"></script>
+  <script src="screens/script-runner/screen.js"></script>
   <script src="screens/apps.js"></script>
   <script src="screens/tutorial.js"></script>
   <script src="app.js"></script>

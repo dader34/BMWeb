@@ -16,7 +16,7 @@
  */
 
 /** @type {EtkFilterState} */
-const ETK_STATE = { variant: null, variantLabel: null };
+const ETK_STATE = { variant: null, variantLabel: null, showAll: false };
 
 /** How many chassis get a number key on the picker. */
 const ETK_FKEY_SLOTS = 9;
@@ -175,11 +175,12 @@ function etkProgressBlock(id) {
  * main groups, plus a variant selector so parts can be filtered to one exact
  * vehicle. Entering a chassis resets the variant filter.
  * @param {string} chassisId - chassis code, any case
+ * @param {{variant: number, label: string}|{hit: EtkVinHit}|null} [preselect] - a variant to open filtered to (its index and label), or the resolved vehicle to match one from once the archive is in
  * @returns {Promise<void>}
  */
-async function showEtkChassis(chassisId) {
+async function showEtkChassis(chassisId, preselect) {
   const id = chassisId.toUpperCase();
-  lastScreen = () => showEtkChassis(id);
+  lastScreen = () => showEtkChassis(id, preselect);
   setCrumbs([
     { label: 'Vehicles', fn: showChassis },
     { label: 'Apps', fn: showApps },
@@ -207,8 +208,19 @@ async function showEtkChassis(chassisId) {
     return;
   }
   loading.el.remove();
-  ETK_STATE.variant = null;
-  ETK_STATE.variantLabel = null; // reset filter when entering a chassis
+  // entering a chassis clears the filter, unless the caller (a decoded VIN,
+  // a garage car) brought the vehicle it is: that is matched to a variant
+  // here, after the archive is in, so the progress block above covers the
+  // download instead of the previous screen sitting still
+  let pre = preselect || null;
+  if (pre && pre.hit) {
+    const vs = data.tree.variants || [];
+    const m =
+      typeof etkMatchVariant === 'function' ? etkMatchVariant(vs, pre.hit) : -1;
+    pre = m >= 0 ? { variant: m, label: etkVariantLabel(vs[m]) } : null;
+  }
+  ETK_STATE.variant = pre ? pre.variant : null;
+  ETK_STATE.variantLabel = pre ? pre.label : null;
 
   // --- variant selector (custom searchable dropdown) ---
   const vbar = document.createElement('div');
@@ -294,18 +306,22 @@ function buildVariantDropdown(variants) {
     );
   const allLabel = `All variants (${variants.length})`;
 
-  // A thin wrapper over the shared dropdown (ui/dropdown.js): no drop-up, no
-  // Esc, click-to-close, immediate focus, a row cap and a synthetic "All"
-  // row -- the exact behaviour this control had before.
+  // The shared dropdown (ui/dropdown.js) in the fault lookup's `.lkd` skin,
+  // so this picker reads like the chassis and module filters there; the
+  // behaviour is this control's own: no drop-up, no Esc, click-to-close,
+  // immediate focus, a row cap and a synthetic "All" row.
   const dd = makeDropdown({
     items: order,
     value: ETK_STATE.variant != null ? ETK_STATE.variant : null,
-    classPrefix: 'etk-vdd',
+    classPrefix: 'lkd',
+    parts: { cur: 'val', menu: 'pop', opt: 'item' },
     searchType: 'search',
     searchPlaceholder: 'Search 316i, LHD, N42, 2003…',
     itemValue: (o) => o.i,
     itemLabel: (o) => o.text,
     filterItem: (o, q) => o.text.toLowerCase().includes(q),
+    renderRow: (o) => `<span class="lkd-item-label">${esc(o.text)}</span>`,
+    emptyText: 'No matches',
     synthetic: { value: null, label: allLabel },
     placeholder: allLabel,
     rowCap: ETK_VARIANT_ROW_CAP,
@@ -321,6 +337,7 @@ function buildVariantDropdown(variants) {
       ETK_STATE.variantLabel = idx != null && item ? item.text : null;
     },
   });
+  dd.el.classList.add('etk-vdd');
   return dd.el;
 }
 

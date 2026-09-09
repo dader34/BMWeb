@@ -1009,23 +1009,55 @@ html.no-chrome body.apps-section .topbar {
   transform: none;
 }
 
-/* Apps hub: the ported-app cards reuse .lookup-entry; these add the version/
-   source tag and the greyed-out state for an app whose data isn't in the build */
+/* Apps hub: the ported-app cards reuse .lookup-entry, re-stacked into
+   tiles -- icon, then title and tag, the description, the arrow at the foot --
+   on a grid that fills the row; the greyed-out state for an app whose data
+   isn't in the build is the hub's own */
 .apps-list {
   display: grid;
   gap: 12px;
 }
-.app-tag {
-  font-family: var(--mono);
-  font-size: 10px;
-  letter-spacing: 0.12em;
-  color: var(--ink-faint);
-  text-transform: uppercase;
-  margin-left: 8px;
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  padding: 1px 5px;
-  vertical-align: middle;
+/* the tiles are a desktop shape; the mobile breakpoint keeps its grouped list */
+@media (min-width: 761px) {
+  .apps-list {
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 14px;
+  }
+  .apps-list .lookup-entry {
+    margin-top: 0;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 16px 16px 14px;
+    min-width: 0;
+  }
+  .apps-list .lookup-entry-icon {
+    width: 40px;
+    height: 40px;
+    font-size: 22px;
+  }
+  .apps-list .lookup-entry-text {
+    gap: 6px;
+    min-width: 0;
+  }
+  .apps-list .lookup-entry-title {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    font-size: 15px;
+    line-height: 1.25;
+  }
+  .apps-list .lookup-entry-desc {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .apps-list .lookup-entry-arrow {
+    margin-top: 2px;
+    align-self: flex-end;
+  }
 }
 .app-entry.app-absent {
   opacity: 0.5;
@@ -1059,6 +1091,28 @@ html.no-chrome body.apps-section .topbar {
   border-radius: 10px;
   overflow: hidden;
   background: var(--panel);
+}
+/* the variant header over the tree, with the wiring viewer's toggle */
+.etk-vinbanner {
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel-2);
+}
+.etk-vinbanner-veh {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--amber);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* "my car": diagrams with nothing for the variant, and groups with none
+   left, are hidden */
+.etk-tree.etk-fit-only .etk-tleaf[data-off],
+.etk-tree.etk-fit-only .etk-tgroup[data-off] {
+  display: none;
 }
 .etk-tree {
   overflow-y: auto;
@@ -1189,10 +1243,115 @@ html.no-chrome body.apps-section .topbar {
   width: fit-content;
   max-width: calc(100% - 32px);
 }
+.etk-figure {
+  position: relative;
+  cursor: zoom-in;
+}
 .etk-figure img {
   max-width: 100%;
+  /* a first look, not the whole pane: the parts list stays in reach, and a
+     click opens the drawing at full size with the loupe */
+  max-height: min(46vh, 480px);
+  width: auto;
   height: auto;
   image-rendering: -webkit-optimize-contrast;
+}
+.etk-figure-hint {
+  position: absolute;
+  right: 10px;
+  bottom: 8px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: #666;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 2px 6px;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.etk-figure:hover .etk-figure-hint {
+  opacity: 1;
+}
+
+/* the enlarged drawing: as big as the window allows, on a white plate, with
+   a round loupe following the pointer */
+.etk-lightbox {
+  display: flex;
+  flex-direction: column;
+  max-width: 94vw;
+  max-height: 92vh;
+  border: 1px solid var(--line-bright);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.etk-lightbox-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px 10px 16px;
+  border-bottom: 1px solid var(--line);
+}
+.etk-lightbox-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.etk-lightbox-hint {
+  font-size: 12px;
+  color: var(--ink-faint);
+  flex: none;
+}
+.etk-lightbox-close {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: none;
+  color: var(--ink-dim);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+.etk-lightbox-close:hover {
+  color: var(--ink);
+  border-color: var(--line-bright);
+}
+.etk-lightbox-plate {
+  position: relative;
+  background: #fff;
+  padding: 16px;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+}
+.etk-lightbox-img {
+  display: block;
+  max-width: calc(94vw - 34px);
+  max-height: calc(92vh - 82px);
+  width: auto;
+  height: auto;
+  cursor: crosshair;
+  image-rendering: -webkit-optimize-contrast;
+}
+.etk-loupe {
+  position: absolute;
+  pointer-events: none;
+  border-radius: 50%;
+  border: 2px solid var(--amber);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.25),
+    0 6px 20px rgba(0, 0, 0, 0.35);
+  background-color: #fff;
+  background-repeat: no-repeat;
 }
 .etk-parts {
   width: 100%;
@@ -1440,21 +1599,6 @@ html.no-chrome body.apps-section .topbar {
 }
 
 /* Save button, right of the decode arrow: same shape as the arrow but ghosted */
-.etk-vin-save {
-  flex: none;
-  font-size: 13px;
-  font-weight: 700;
-  line-height: 1;
-  cursor: pointer;
-  color: var(--amber);
-  background: var(--amber-glow);
-  border: 1px solid var(--amber);
-  border-radius: 8px;
-  padding: 10px 16px;
-}
-.etk-vin-save:hover {
-  background: rgba(255, 158, 44, 0.28);
-}
 
 /* ---- two columns: VIN box + attributes left, saved-vehicles column right -- */
 .etk-vin-layout {
@@ -1546,19 +1690,9 @@ html.no-chrome body.apps-section .topbar {
   letter-spacing: 0.04em;
   color: var(--ink-dim);
 }
-.etk-saved-del {
-  flex: none;
-  width: 40px;
-  background: none;
-  border: none;
-  border-left: 1px solid var(--line);
-  color: var(--ink-faint);
-  cursor: pointer;
-  font-size: 12px;
-}
-.etk-saved-del:hover {
-  color: var(--red, #ff6b6b);
-  background: rgba(127, 127, 127, 0.1);
+.etk-saved-go {
+  margin: 0 14px 14px;
+  align-self: flex-start;
 }
 
 /* ETK-style "identify by attributes" group box */
@@ -2366,18 +2500,16 @@ html[data-theme='inpa'] .t32-lb {
   flex: none;
 }
 
-/* custom searchable variant dropdown (replaces the unstyleable native select) */
+/* the variant picker: the fault lookup's dropdown skin (css/lookup.css),
+   stretched to the bar; amber when a variant is filtering */
 .etk-vdd {
-  position: relative;
   flex: 1;
   max-width: 520px;
 }
-.etk-vdd-cur {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.etk-vdd .lkd-btn {
+  width: 100%;
 }
-.etk-vdd-cur.etk-vdd-filtered {
+.etk-vdd .lkd-val.etk-vdd-filtered {
   color: var(--amber);
 }
 
@@ -8512,6 +8644,318 @@ body.remote-helper::after {
   padding: 0;
 }
 
+/* ---- Data logging (screens/logging/) --------------------------------------
+   A selection panel beside a grid of charts. Every colour is a token, so the
+   screen follows the skin; the canvases read the same tokens at draw time
+   (logChartColors) because a canvas cannot inherit a custom property. */
+.log-wrap {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  min-height: 0;
+}
+.log-side {
+  flex: 0 0 300px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 70vh;
+  min-height: 0;
+}
+.log-side-head {
+  flex: 0 0 auto;
+}
+.log-search {
+  width: 100%;
+}
+.log-tree {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  padding: 4px;
+  /* the same thin themed scrollbar the ETK and wiring trees draw */
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-hover) transparent;
+}
+.log-tree::-webkit-scrollbar {
+  width: 8px;
+}
+.log-tree::-webkit-scrollbar-track {
+  background: transparent;
+}
+.log-tree::-webkit-scrollbar-thumb {
+  background: var(--line-hover);
+  border-radius: 4px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+.log-tree::-webkit-scrollbar-thumb:hover {
+  background: var(--dim);
+  background-clip: content-box;
+}
+.log-mod > summary,
+.log-job > summary {
+  cursor: pointer;
+  padding: 5px 8px;
+  border-radius: 6px;
+  list-style: none;
+  color: var(--ink);
+}
+.log-mod > summary::-webkit-details-marker,
+.log-job > summary::-webkit-details-marker {
+  display: none;
+}
+.log-mod > summary:hover,
+.log-job > summary:hover {
+  background: var(--panel-2);
+}
+.log-mod-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: baseline;
+}
+.log-mod-sgbd {
+  font:
+    11px/1.2 ui-monospace,
+    monospace;
+  color: var(--ink-faint);
+}
+.log-mod-body {
+  padding-left: 10px;
+  border-left: 1px solid var(--line);
+  margin-left: 8px;
+}
+.log-job-head {
+  font:
+    11px/1.4 ui-monospace,
+    monospace;
+  color: var(--ink-dim);
+}
+.log-keys {
+  padding-left: 8px;
+}
+.log-key {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  padding: 3px 4px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+.log-key:hover {
+  background: var(--panel-2);
+}
+.log-key-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.log-key-name {
+  font:
+    11px/1.3 ui-monospace,
+    monospace;
+  color: var(--ink);
+}
+.log-key-unit {
+  font-size: 10px;
+  color: var(--amber);
+}
+.log-key-note {
+  font-size: 10px;
+  color: var(--ink-faint);
+  overflow-wrap: anywhere;
+}
+.log-load {
+  padding: 8px;
+}
+.log-summary {
+  flex: 0 0 auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  padding: 8px;
+  max-height: 26vh;
+  overflow-y: auto;
+}
+.log-sum-head {
+  font-size: 11px;
+  color: var(--ink-dim);
+  margin-bottom: 4px;
+}
+.log-sum-empty {
+  font-size: 11px;
+  color: var(--ink-faint);
+  padding: 8px;
+}
+.log-sum-row {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  font:
+    11px/1.5 ui-monospace,
+    monospace;
+}
+.log-sum-note {
+  font:
+    11px/1.4 ui-monospace,
+    monospace;
+  color: var(--ink-faint);
+  padding: 0 0 4px 8px;
+  overflow-wrap: anywhere;
+}
+.log-sum-note-empty {
+  color: var(--amber);
+}
+.log-sum-note-error {
+  color: var(--red);
+}
+.log-sum-job {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* the count never wraps: the job name is what gives way */
+.log-sum-n {
+  flex: none;
+  white-space: nowrap;
+  color: var(--ink-faint);
+}
+.log-sum-rate {
+  color: var(--amber);
+  min-width: 42px;
+  text-align: right;
+}
+.log-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.log-bar {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+/* the preset loader: the lookup dropdown at the bar's button height */
+.log-bar .log-preset-load .lkd-btn {
+  min-width: 180px;
+  padding: 8px 12px;
+}
+.log-spacer {
+  flex: 1 1 auto;
+}
+.log-win {
+  display: inline-flex;
+  gap: 2px;
+}
+.log-win-btn.on {
+  background: var(--amber);
+  color: var(--amber-ink);
+  border-color: var(--amber);
+}
+/* the charts: as many across as fit, each wide enough to read a trace on */
+.log-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 10px;
+}
+.log-chart {
+  position: relative;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+/* the card's own way out of the rotation, so the tree need not be reopened */
+.log-chart-del {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: none;
+  color: var(--ink-faint);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+.log-chart-del:hover {
+  color: var(--red);
+  border-color: var(--line);
+}
+.log-chart-head {
+  padding-right: 26px;
+}
+.log-chart-head {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.log-chart-title {
+  font-size: 12px;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.log-chart-sub {
+  font:
+    10px/1.3 ui-monospace,
+    monospace;
+  color: var(--ink-faint);
+}
+.log-chart-read {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+.log-now {
+  font:
+    16px/1.1 ui-monospace,
+    monospace;
+  color: var(--amber);
+}
+.log-range {
+  font:
+    10px/1.2 ui-monospace,
+    monospace;
+  color: var(--ink-faint);
+}
+.log-canvas {
+  width: 100%;
+  height: 110px;
+  display: block;
+  cursor: crosshair;
+}
+/* one column on a phone: two charts side by side are unreadable at that width */
+@media (max-width: 760px) {
+  .log-wrap {
+    flex-direction: column;
+  }
+  .log-side {
+    flex: 1 1 auto;
+    width: 100%;
+    max-height: 44vh;
+  }
+  .log-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* PRINTING A SCREEN THAT BUILT NO SHEET. Screens with a Print action hand
    core/print.js a document (body.pr-active) and the rules there take the
    page over. Everything else -- a bare Cmd+P on the vehicle list, an app hub
@@ -8567,4 +9011,547 @@ body.remote-helper::after {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
+}
+
+/* ---- Garage: saved vehicles and their scan history ------------------------ */
+.garage-list {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+.garage-empty {
+  padding: 18px 16px;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--ink-dim);
+  font-size: 13px;
+}
+/* the "run a scan" row on a car's page */
+.garage-run {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+}
+.garage-run-text {
+  flex: 1 1 auto;
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.garage-run-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.garage-run-note {
+  font-size: 12px;
+  color: var(--ink-dim);
+}
+@media (max-width: 640px) {
+  .garage-run {
+    flex-wrap: wrap;
+  }
+  .garage-run-text {
+    flex-basis: 100%;
+  }
+}
+.garage-car {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+}
+.garage-car:hover {
+  border-color: var(--line-bright);
+}
+.garage-car-open {
+  display: grid;
+  gap: 3px;
+  padding: 12px 14px;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+}
+.garage-car-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.garage-car-bits,
+.garage-car-state {
+  font-size: 12px;
+  color: var(--ink-dim);
+}
+.garage-car-vin {
+  font-size: 11px;
+  color: var(--ink-faint);
+  letter-spacing: 0.04em;
+}
+.garage-bad {
+  color: var(--red);
+}
+.garage-good {
+  color: var(--green);
+}
+.garage-car-del {
+  margin-right: 12px;
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: none;
+  color: var(--ink-faint);
+  cursor: pointer;
+  font-size: 12px;
+}
+.garage-car-del:hover {
+  border-color: var(--red);
+  color: var(--red);
+}
+
+/* the per-car history list */
+.garage-scan-row .quick-ecu {
+  display: grid;
+  gap: 2px;
+}
+.garage-scan-when {
+  font-size: 13px;
+  color: var(--ink);
+}
+.garage-scan-counts {
+  font-size: 11.5px;
+  color: var(--ink-dim);
+}
+.garage-scan-kind {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.garage-scan-del {
+  padding: 3px 7px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: none;
+  color: var(--ink-faint);
+  cursor: pointer;
+}
+.garage-scan-del:hover {
+  border-color: var(--red);
+  color: var(--red);
+}
+.garage-notes {
+  display: grid;
+  gap: 5px;
+  margin-bottom: 16px;
+}
+.garage-notes-label {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.garage-notes-input {
+  width: 100%;
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  resize: vertical;
+}
+.garage-notes-input:focus {
+  outline: none;
+  border-color: var(--amber);
+}
+
+/* comparing two scans */
+.garage-diff-pick {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.garage-diff-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: var(--ink-dim);
+}
+.garage-diff-label select {
+  padding: 5px 8px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--panel);
+  color: var(--ink);
+  font: inherit;
+  font-size: 12px;
+}
+.garage-diff-arrow {
+  color: var(--ink-faint);
+}
+/* the badge carries the meaning, so it is the coloured part of the row */
+.garage-diff-badge {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.garage-diff-new .quick-detail-code,
+.garage-diff-new .garage-diff-badge {
+  color: var(--red);
+}
+.garage-diff-cleared .quick-detail-code,
+.garage-diff-cleared .garage-diff-badge {
+  color: var(--green);
+}
+.garage-diff-changed .quick-detail-code,
+.garage-diff-changed .garage-diff-badge {
+  color: var(--amber);
+}
+.garage-diff-unchanged {
+  opacity: 0.62;
+}
+
+/* the "which vehicle is this?" picker, inside the app's modal */
+.garage-pick {
+  display: grid;
+  gap: 6px;
+  margin: 4px 0 14px;
+  max-height: 46vh;
+  overflow-y: auto;
+}
+.garage-pick-row {
+  display: grid;
+  gap: 2px;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.garage-pick-row:hover {
+  border-color: var(--amber);
+}
+.garage-pick-name {
+  font-size: 13px;
+  color: var(--ink);
+}
+.garage-pick-note {
+  font-size: 11px;
+  color: var(--ink-faint);
+}
+
+/* Job search (screens/search/): the Apps-hub app over every INPA key and
+   screen in the corpus. The search box, count line and screen head are the
+   fault lookup's own (css/lookup.css) so the two reference apps read alike;
+   only the result rows below are this app's, because what they show -- a key
+   number, the jobs it sends -- has no counterpart there. */
+.job-search-results {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.job-search-hints {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+  margin-top: 12px;
+}
+.job-search-hints code {
+  padding: 3px 8px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--panel);
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-dim);
+}
+.search-msg {
+  padding: 14px 12px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--panel);
+  color: var(--ink-dim);
+  font-size: 13px;
+}
+.search-group {
+  display: grid;
+  gap: 8px;
+}
+.search-group-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--line);
+}
+.search-group-name {
+  font-family: var(--display);
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--amber);
+}
+.search-group-count {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-faint);
+}
+.search-module {
+  display: grid;
+  gap: 2px;
+}
+.search-module-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 4px 2px;
+  font-size: 12px;
+  color: var(--ink-dim);
+}
+.search-module-sgbd {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ink-faint);
+}
+.search-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--panel);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.search-row:hover {
+  border-color: var(--amber);
+  background: var(--panel-2);
+}
+/* Fixed width so the labels line up down the list whether the row is a key
+   (F4, Shift+F4) or a screen (no key of its own). */
+.search-row-key {
+  flex: 0 0 44px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-faint);
+}
+.search-row-text {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+.search-row-label {
+  font-size: 13px;
+  color: var(--ink);
+}
+.search-row-sub {
+  font-size: 11px;
+  color: var(--ink-dim);
+}
+.search-row-jobs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.search-row-jobs code {
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: var(--raised);
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--cyan);
+}
+.search-row-more {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ink-faint);
+}
+/* A key that writes to the module. The row still opens -- it lands on the
+   screen with the key unpressed -- so the tag is a warning, not a block. */
+.search-tag {
+  margin-left: 8px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.search-tag-write {
+  background: var(--amber);
+  color: var(--amber-ink);
+}
+.search-row-arrow {
+  color: var(--ink-faint);
+}
+
+/* the freeze frame under a fault row, and the range flags on its values */
+.garage-envrow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  padding: 5px 14px 7px 14px;
+  background: var(--panel-2);
+  border-top: 1px dotted var(--line);
+  font-size: 11.5px;
+}
+.garage-env {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+}
+.garage-env-k {
+  color: var(--ink-faint);
+}
+.garage-env-v {
+  font-family: var(--mono);
+  color: var(--ink-dim);
+}
+/* a flagged reading: the value carries the colour, the tag names the source */
+.garage-env-warn .garage-env-v {
+  color: var(--red);
+  font-weight: 700;
+}
+.garage-env-note .garage-env-v {
+  color: var(--amber);
+}
+.garage-env-flag {
+  padding: 0 4px;
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  font-size: 9.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.garage-env-warn .garage-env-flag {
+  color: var(--red);
+}
+.garage-env-note .garage-env-flag {
+  color: var(--amber);
+}
+/* why it was flagged, spelled out under the values */
+.garage-env-why {
+  flex-basis: 100%;
+  font-size: 10.5px;
+  line-height: 1.45;
+  color: var(--ink-faint);
+}
+.garage-env-why-warn {
+  color: var(--red);
+}
+.garage-diff-recurred .quick-detail-code,
+.garage-diff-recurred .garage-diff-badge {
+  color: var(--amber);
+}
+
+/* ---- Script runner ------------------------------------------------------ */
+/* The drop zone is .empty's dashed box, which already reads as "put something
+   here"; only the drag state and the pointer are new. */
+.sr-card {
+  max-width: 1040px;
+}
+.sr-drop {
+  cursor: pointer;
+  transition:
+    border-color 0.12s ease,
+    background 0.12s ease;
+}
+.sr-drop:hover,
+.sr-drop:focus-visible {
+  border-color: var(--line-bright);
+  outline: none;
+}
+.sr-drop.is-over {
+  border-color: var(--amber);
+  background: var(--amber-glow);
+  color: var(--ink);
+}
+.sr-drop code {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--ink);
+}
+.sr-drop .btn {
+  margin-top: 4px;
+}
+/* once a script is in, the zone is a one-line bar: the name, the hint, and
+   the Choose button; the big invitation is gone */
+.sr-drop.sr-loaded {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  min-height: 0;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  text-align: left;
+}
+.sr-drop.sr-loaded .empty-big,
+.sr-drop.sr-loaded > div:not(.sr-loaded-line) {
+  display: none;
+}
+.sr-drop.sr-loaded .sr-loaded-line {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+  order: -1;
+}
+.sr-loaded-name {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--ink);
+}
+.sr-loaded-hint {
+  font-size: 12px;
+  color: var(--ink-faint);
+}
+.sr-drop.sr-loaded .btn {
+  margin-top: 0;
+  flex: none;
+}
+/* the Run card: where the jobs go on the left, the button on the right */
+.sr-run-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.sr-run-row .kv-v {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.sr-run-row .btn {
+  flex: none;
+}
+/* a compile failure is the one card the eye should land on first */
+.result-card.sr-bad {
+  border-left-color: var(--red);
 }
