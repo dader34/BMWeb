@@ -112,6 +112,7 @@ function resolveRoute(route) {
     if (scanId && typeof showGarageScan === 'function')
       return () => showGarageScan(carId, scanId);
     if (typeof showGarageCar === 'function') return () => showGarageCar(carId);
+  }
   // #apps/job-search/<QUERY> -- a search someone can send as a link. The
   // query is the whole tail, encoded, so it may hold spaces and slashes.
   const js = /^apps\/job-search\/(.+)$/.exec(route);
