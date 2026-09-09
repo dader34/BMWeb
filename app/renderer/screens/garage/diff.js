@@ -66,10 +66,14 @@
  */
 function garageFaultKey(code) {
   const c = code || {};
+  // the same code arrives as "27C3" from one read and "27-C3" (bytes joined
+  // by hexText) from another; only the hex digits are the identity, or the
+  // one fault shows up as cleared AND new
   const hex = String(c.F_HEX_CODE == null ? '' : c.F_HEX_CODE)
     .trim()
     .toUpperCase()
-    .replace(/^0X/, '');
+    .replace(/^0X/, '')
+    .replace(/[^0-9A-F]/g, '');
   if (hex) return 'H:' + hex;
   const nr = c.F_ORT_NR;
   if (nr != null && String(nr).trim() !== '') return 'N:' + String(Number(nr));

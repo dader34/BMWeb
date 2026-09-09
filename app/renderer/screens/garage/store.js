@@ -19,7 +19,8 @@
    garageCars, garageCar, garageAddCar, garageUpdateCar, garageRemoveCar,
    garageCarLabel, garageFindByVin, garageScans, garageScan, garageAddScan,
    garageRemoveScan, garageScanSummary, garageCarFromHit, garageNewId,
-   garageScanFor, garageScanTargetClear, garageScanTarget */
+   garageScanFor, garageScanTargetClear, garageScanTarget,
+   garagePrevSameKind, garageScanPair */
 
 /** Settings key holding the saved cars. */
 const GARAGE_CARS_KEY = 'bmweb.garage.cars';
@@ -423,6 +424,40 @@ function garageCarFromHit(hit) {
   };
 }
 
+// ---- which scans may be compared ------------------------------------------------
+
+/**
+ * The older scan of the same kind before one: a fault scan is compared with
+ * the fault scan before it, an identification read with the identification
+ * read before it -- a fault list against an ident table is not a comparison.
+ * @param {GarageScan[]} scans - a car's scans, newest first
+ * @param {string} scanId - the scan to look back from
+ * @returns {GarageScan|null}
+ */
+function garagePrevSameKind(scans, scanId) {
+  const i = (scans || []).findIndex((s) => s.id === scanId);
+  if (i < 0) return null;
+  const kind = scans[i].kind;
+  for (let j = i + 1; j < scans.length; j++)
+    if (scans[j].kind === kind) return scans[j];
+  return null;
+}
+
+/**
+ * The newest pair of scans of one kind: the latest scan and the one of its
+ * kind before it, else the latest scan of the other kind and its
+ * predecessor. Null when no two scans share a kind.
+ * @param {GarageScan[]} scans - a car's scans, newest first
+ * @returns {{from: GarageScan, to: GarageScan}|null}
+ */
+function garageScanPair(scans) {
+  for (const to of scans || []) {
+    const from = garagePrevSameKind(scans, to.id);
+    if (from) return { from, to };
+  }
+  return null;
+}
+
 // ---- the car a scan launched from the garage belongs to ----------------------
 
 /**
@@ -506,5 +541,7 @@ if (typeof module !== 'undefined' && module.exports) {
     garageScanFor,
     garageScanTargetClear,
     garageScanTarget,
+    garagePrevSameKind,
+    garageScanPair,
   };
 }

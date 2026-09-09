@@ -365,7 +365,12 @@ function faultReport(sgbd, codes, silent) {
   assert.strictEqual(n.modules[0].same.length, 1);
   ok('a fault with no hex falls back to its location number');
 
-  assert.strictEqual(G.garageFaultKey({ F_HEX_CODE: '27-C3' }), 'H:27-C3');
+  assert.strictEqual(G.garageFaultKey({ F_HEX_CODE: '27-C3' }), 'H:27C3');
+  assert.strictEqual(
+    G.garageFaultKey({ F_HEX_CODE: '27C3' }),
+    G.garageFaultKey({ F_HEX_CODE: '27-C3' }),
+    'a flattened byte string and a plain hex string name the same fault'
+  );
   assert.strictEqual(G.garageFaultKey({ F_ORT_NR: 31 }), 'N:31');
   assert.strictEqual(
     G.garageFaultKey({}),
@@ -802,6 +807,42 @@ function faultReport(sgbd, codes, silent) {
   G.garageRemoveCar(bare.id);
   assert.strictEqual(G.garageScanTarget(), null);
   ok('the target clears, and a deleted car is no target');
+}
+
+// ---- only like kinds are compared ------------------------------------------
+{
+  const mk = (id, kind) => ({ id, kind, at: id });
+  const scans = [
+    mk('5', 'ident'),
+    mk('4', 'faults'),
+    mk('3', 'ident'),
+    mk('2', 'faults'),
+    mk('1', 'faults'),
+  ];
+  assert.strictEqual(G.garagePrevSameKind(scans, '5').id, '3');
+  assert.strictEqual(G.garagePrevSameKind(scans, '4').id, '2');
+  assert.strictEqual(G.garagePrevSameKind(scans, '1'), null);
+  const pair = G.garageScanPair(scans);
+  assert.deepStrictEqual([pair.from.id, pair.to.id], ['3', '5']);
+  assert.deepStrictEqual(
+    (() => {
+      const p = G.garageScanPair([
+        mk('9', 'ident'),
+        mk('8', 'faults'),
+        mk('7', 'faults'),
+      ]);
+      return [p.from.id, p.to.id];
+    })(),
+    ['7', '8'],
+    'a lone newest ident falls back to the fault pair'
+  );
+  assert.strictEqual(
+    G.garageScanPair([mk('9', 'ident'), mk('8', 'faults')]),
+    null
+  );
+  ok(
+    'compare offers the newest pair of one kind, never a fault list against an ident table'
+  );
 }
 
 console.log(`garage: ${passed} checks passed`);

@@ -20,7 +20,13 @@ async function showGarageDiff(carId, fromId, toId) {
   const scans = garageScans(carId);
   if (scans.length < 2) return showGarageCar(carId);
   const to = garageScan(carId, toId) || scans[0];
-  const from = garageScan(carId, fromId) || scans[1];
+  let from = garageScan(carId, fromId) || scans[1];
+  // a fault scan is only ever compared with a fault scan, an identification
+  // read with an identification read
+  if (from.kind !== to.kind) {
+    from = garagePrevSameKind(scans, to.id);
+    if (!from) return showGarageCar(carId);
+  }
 
   lastScreen = () => showGarageDiff(carId, from.id, to.id);
   setCrumbs([
