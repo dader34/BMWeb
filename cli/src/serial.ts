@@ -82,6 +82,9 @@ export interface PortInfo {
  * macOS (cu.usbserial*), Silicon Labs (cu.SLAB*), WCH (cu.wchusbserial*),
  * and the Linux USB serial and CDC-ACM nodes.
  */
+/** How often a waiting read kicks the driver (see NodeSerialPort.startKick). */
+const RX_KICK_MS = 4;
+
 export const PORT_PATTERNS: RegExp[] = [
   /^cu\.usbserial/i,
   /^cu\.SLAB/i,
@@ -106,8 +109,12 @@ export class NodeSerialPort {
   private binding: PortBinding | null = null;
   /** chunks heard and not yet read */
   private chunks: Uint8Array[] = [];
-  /** the one read waiting for bytes, when the queue is empty */
-  private waiter: ((r: ReadResult) => void) | null = null;
+  /** reads waiting for bytes, oldest first, when the queue is empty */
+  private waiters: ((r: ReadResult) => void)[] = [];
+  /** the receive kick, running while a read waits (see startKick) */
+  private kick: ReturnType<typeof setInterval> | null = null;
+  /** a kick ioctl in flight, so they never pile up */
+  private kicking = false;
   /** the lines as last set, so a partial setSignals keeps the others */
   private lines = { dtr: false, rts: false, brk: false };
   /** the wire trace sink, when the CLI wants one */
@@ -151,13 +158,17 @@ export class NodeSerialPort {
   async close(): Promise<void> {
     const b = this.binding;
     this.binding = null;
-    if (this.waiter) {
-      const w = this.waiter;
-      this.waiter = null;
-      w({ value: undefined, done: true });
-    }
+    this.stopKick();
+    this.wakeAll();
     this.chunks = [];
     if (b) await b.close();
+  }
+
+  /** Tell every waiting read the port is done, and forget them. */
+  private wakeAll(): void {
+    const ws = this.waiters;
+    this.waiters = [];
+    for (const w of ws) w({ value: undefined, done: true });
   }
 
   /**
@@ -166,9 +177,8 @@ export class NodeSerialPort {
    */
   private push(chunk: Uint8Array): void {
     if (!chunk.length) return;
-    if (this.waiter) {
-      const w = this.waiter;
-      this.waiter = null;
+    const w = this.waiters.shift();
+    if (w) {
       w({ value: chunk, done: false });
       return;
     }
@@ -204,9 +214,62 @@ export class NodeSerialPort {
     const next = this.chunks.shift();
     if (next) return Promise.resolve({ value: next, done: false });
     if (!this.binding) return Promise.resolve({ value: undefined, done: true });
+    // THE BUG THIS FIXES. There used to be ONE waiter slot, and arming a
+    // second read overwrote it -- the first read was orphaned and, worse,
+    // the next chunk off the wire went to whichever handle `push` happened
+    // to hold. A caller that races a read against a timeout and walks away
+    // (the bus does exactly that, and takes a FRESH reader on every reopen)
+    // then lost the bytes it went on to wait for: on a real car the echo
+    // and the answer both vanished and every K-line job failed IFH-0003 /
+    // IFH-0009 while the wire trace showed a perfect exchange. Waiters now
+    // queue, so a read is served in the order it was armed and an abandoned
+    // one holds nothing back.
     return new Promise((resolve) => {
-      this.waiter = resolve;
+      this.waiters.push(resolve);
+      this.startKick();
     });
+  }
+
+  /**
+   * Make the driver deliver what it has heard.
+   *
+   * THE BUG THIS FIXES. On macOS the built-in FTDI driver does not wake the
+   * reader when bytes arrive: with a read armed and the process simply
+   * waiting, an ECU's answer sat in the driver until some OTHER call touched
+   * the device (the next write, a modem-line change, close), and only then
+   * came out -- measured on a real car as 0 bytes for the first exchange
+   * after open and every later exchange delivering the PREVIOUS one's bytes
+   * at its start. Polling the modem lines (a TIOCMGET, no wire traffic)
+   * every few milliseconds while a read waits makes each answer arrive
+   * within the poll interval, first exchange included. The interval never
+   * holds the process open and stops itself once no read is waiting.
+   */
+  private startKick(): void {
+    if (this.kick) return;
+    const tick = (): void => {
+      const b = this.binding;
+      if (!b || !this.waiters.length) {
+        this.stopKick();
+        return;
+      }
+      if (this.kicking) return;
+      this.kicking = true;
+      b.get()
+        .catch(() => null)
+        .then(() => {
+          this.kicking = false;
+        });
+    };
+    this.kick = setInterval(tick, RX_KICK_MS);
+    if (typeof this.kick === 'object' && 'unref' in this.kick)
+      this.kick.unref();
+  }
+
+  /** Stop the receive kick. */
+  private stopKick(): void {
+    if (!this.kick) return;
+    clearInterval(this.kick);
+    this.kick = null;
   }
 
   /**
@@ -214,11 +277,7 @@ export class NodeSerialPort {
    */
   private cancel(): void {
     this.chunks = [];
-    if (this.waiter) {
-      const w = this.waiter;
-      this.waiter = null;
-      w({ value: undefined, done: true });
-    }
+    this.wakeAll();
   }
 
   /**
