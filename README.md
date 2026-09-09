@@ -1,9 +1,9 @@
 # BMWeb
 
 BMW diagnostics in a browser. Read and clear fault memory, watch live values,
-run activations, code modules, look up fault documentation, browse wiring
-diagrams and the parts catalogue, from a static web page with no Windows and
-nothing to install.
+run activations, code modules, keep your cars and their scan history in a
+Garage, look up fault documentation, browse wiring diagrams and the parts
+catalogue, from a static web page with no Windows and nothing to install.
 
 **https://bmweb.danner.ink/**
 
@@ -89,7 +89,20 @@ are translated through exact per-module dictionaries; anything without an
 entry shows as BMW wrote it.
 
 - **Fault memory** — read stored codes with English text and detail, clear them.
-- **Whole-car scan** — INPA's own vehicle script reads every module's fault memory; the result is a report joined with the fault lookup, printable.
+- **Whole-car scan** — INPA's own vehicle script reads every module's fault memory; the result is a report joined with the fault lookup, printable, and kept in the Garage.
+- **Garage** — save a car by VIN or by picking its chassis; every whole-car
+  fault or identification read is filed against it, and any two reads of one
+  kind compare into what is new, what was cleared and what stays. Fault scan
+  and Identification run straight from the car's page.
+- **Job search** — find any screen or key in every module's script by what it
+  does, in English or German, by the jobs it sends or the result keys it
+  reads, filtered by chassis, and open the module at that screen.
+- **Data logging** — pick readings from any modules and chart them live side
+  by side, with presets, CSV export and twenty minutes of history. Only
+  read-only jobs are offered.
+- **Script runner** — drop an INPA `.IPO` of your own, or `.IPS` / `.SRC`
+  source with its headers, and run it against the car through the same
+  runtime and the same write gates as the shipped scripts.
 - **Live values** — gauges updating continuously, several at once, CSV logging.
 - **Activations** — drive real components; held actuators release when you leave.
 - **Coding** — read a module's coding, stage changes, see exactly what would be
@@ -100,7 +113,9 @@ entry shows as BMW wrote it.
 - **Wiring Diagrams** — factory schematics as vectors, plus component
   locations, connector views and pin assignments. 15 chassis.
 - **Parts Catalogue** — part numbers, diagrams, supersessions, VIN
-  decoding, 246 chassis bundles from the E3 to the G series.
+  decoding, 246 chassis bundles from the E3 to the G series. A decoded VIN
+  or a Garage car opens its own variant, with a "my car" filter on the
+  diagram tree; a click on a drawing enlarges it under a magnifier.
 - **Job runner** — run any diagnostic job on a module directly and read the
   raw result registers.
 - **Tuning** — inspect ECU firmware images in a hex editor with TunerPro
@@ -175,7 +190,11 @@ Flashing is backup (read) only.
 |---|---|
 | `?api=<base>` | alternate API base |
 | `?dtc=<code>&sgbd=<name>` | deep link to a fault lookup entry |
-| `#apps`, `#apps/wiring/…`, `#apps/parts/…`, `#apps/tool32` | Apps hub routes |
+| `#apps`, `#apps/wiring/…`, `#apps/parts/…`, `#apps/tool32`, `#apps/script` | Apps hub routes |
+| `#apps/job-search/<query>` | a job search someone can send as a link |
+| `#apps/logging/<chassis>` | the data-logging workspace for one car |
+| `#garage`, `#garage/<car>[/<scan>]` | the Garage, a saved car, one of its scans |
+| `#car/<chassis>/<module>[/<menu>[/<screen>]]` | a module's script, landed on a menu and screen |
 
 
 ## Beta feedback
@@ -191,9 +210,9 @@ saves the report as a `.json` you can attach by hand.
 
 ```
 app/renderer/          the app: script runtime, bytecode VM, transport shim, screens
-  core/                bestvm/ (the job VM, one piece per concern), ipovm/ (the .IPO VM), webshim/ (the transport shim), vehicle-identity/, xdf/ (TunerPro .xdf engine), remote.js, journal.js; coding/ (codec, ZCS, SGET selection, dispatcher, write runner)
+  core/                bestvm/ (the job VM, one piece per concern), ipovm/ (the .IPO VM), ipofile/ (.IPO reader and .IPS compiler, in the browser), webshim/ (the transport shim), vehicle-identity/, xdf/ (TunerPro .xdf engine), remote.js, journal.js; coding/ (codec, ZCS, SGET selection, dispatcher, write runner)
   core/core/           settings, ui helpers, api client, error explaining, F-key bar, dialogs
-  screens/             ipo-runtime/ (module view), sweep/ (whole-car scans), vehicle-identity/, tuning/ (firmware editor), lookup/ (fault search), etk/ (parts catalogue), apps hub, tool32; coding/ (hub, expert tree, curated, ZCS editor)
+  screens/             ipo-runtime/ (module view), sweep/ (whole-car scans), garage/ (saved cars, scan history, what changed), search/ (job search), logging/ (data logging), script-runner/, vehicle-identity/, tuning/ (firmware editor), lookup/ (fault search), etk/ (parts catalogue), apps hub, tool32; coding/ (hub, expert tree, curated, ZCS editor)
   screens/wiring/      the Wiring & Documents app, one piece per concern (archive, docs, vin, tabs, tree, viewer, document, share-print, picker, screen)
   data/                generated JS data (fault DB, caption dictionary, coding labels, wiring archives)
 data/ecu-src/          committed source: one gzipped copy per ECU definition
