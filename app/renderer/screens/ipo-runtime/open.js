@@ -306,7 +306,18 @@ async function ipoProgramOpen(
   // screen itself) lands on the menu that shows that screen, so the F-keys
   // are the screen's own and not the entry menu's
   let landMenu = openMenu && exec.procs[openMenu] ? openMenu : null;
-  if (wantScreen && !landMenu) landMenu = ipoMenuForScreen(exec, wantScreen);
+  if (wantScreen) {
+    // A key result names the menu the key SITS on and the screen it opens;
+    // that screen belongs to the menu the key switches to (its item body
+    // is setscreen then setmenu), so landing on the named menu with that
+    // screen would put the parent's jobs on the F-keys. Land on the owner
+    // unless the named menu shows this screen itself.
+    const shownHere = landMenu ? ipoScreenForMenu(exec, landMenu) : null;
+    if (!(shownHere && shownHere.screen === wantScreen)) {
+      const owner = ipoMenuForScreen(exec, wantScreen);
+      if (owner) landMenu = owner;
+    }
+  }
   if (landMenu && landMenu !== program.menu) {
     await program.openMenu(landMenu, wantScreen ? { screen: wantScreen } : {});
   }
