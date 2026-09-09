@@ -191,11 +191,14 @@ function garageRunScan(car, menu, pressKey) {
   showVehicleScript(car.chassis, menu, null, pressKey);
 }
 
-/** The fault-memory read key of INPA's whole-vehicle scripts, by caption. */
-const GARAGE_FAULT_KEY = /^(Fehlerspeicher lesen|Read fault memory)$/i;
+/**
+ * The fault-memory read key of INPA's whole-vehicle scripts, by caption
+ * (E46.IPO says "FS lesen"; others spell it out or ship it in English).
+ */
+const GARAGE_FAULT_KEY = /^(FS lesen|Fehlerspeicher lesen|Read fault memory)$/i;
 
 /** The identification key on those scripts' main menu, by caption. */
-const GARAGE_IDENT_KEY = /^(Identifikation|Identification)$/i;
+const GARAGE_IDENT_KEY = /^(Ident|Identifikation|Identification)$/i;
 
 /**
  * The "run a scan" row on a car's page: Fault scan and Identification, where
