@@ -190,7 +190,7 @@ const OFFLINE_SHELL = [
   'screens/search/match.js',
   'screens/search/open.js',
   'screens/search/render.js',
-  'screens/search/bar.js',
+  'screens/search/screen.js',
   'screens/tool32.js',
   'screens/flasher.js',
   'screens/tuning/memory-spec.js',

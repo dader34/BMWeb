@@ -55,6 +55,22 @@ const APP_REGISTRY = [
     hasData: async () => true,
   },
   {
+    id: 'job-search',
+    icon: '⌕',
+    title: 'Job search',
+    desc: "Find any screen or key in INPA's scripts by what it does, and open it",
+    tag: 'IPO',
+    open: () => (typeof showJobSearch === 'function' ? showJobSearch() : null),
+    // the index is an export artifact; a build without it shows the card
+    // greyed rather than opening a screen that can only say "no index".
+    // Asks whether the file is THERE -- downloading 2 MB to draw a hub card
+    // would make opening Apps cost as much as opening the app.
+    hasData: async () =>
+      typeof showJobSearch === 'function' &&
+      typeof searchIndexPresent === 'function' &&
+      (await searchIndexPresent()),
+  },
+  {
     id: 'wiring',
     icon: '⌁',
     title: 'Wiring & Documents',
