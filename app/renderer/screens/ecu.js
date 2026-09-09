@@ -153,14 +153,15 @@ async function irResolveGroupVariant(ecu) {
 }
 
 /**
- * Open a module from a deep link (#car/<CHASSIS>/<SGBD>[/<MENU>]): find it in
- * the chassis config and open it, else fall back to the module list.
+ * Open a module from a deep link (#car/<CHASSIS>/<SGBD>[/<MENU>[/<SCREEN>]]):
+ * find it in the chassis config and open it, else fall back to the module list.
  * @param {string} chassisId - The chassis id.
  * @param {string} sgbd - The module's SGBD (case-insensitive).
  * @param {string|null} [menuName] - A submenu to descend into once the script is up.
+ * @param {string|null} [screenName] - The screen to show on that menu (a search result).
  * @returns {Promise<void>}
  */
-async function showEcuDeep(chassisId, sgbd, menuName) {
+async function showEcuDeep(chassisId, sgbd, menuName, screenName) {
   const ch = await tryApi(
     `/api/chassis/${chassisId}`,
     null,
@@ -171,12 +172,12 @@ async function showEcuDeep(chassisId, sgbd, menuName) {
   const want = String(sgbd).toLowerCase();
   // the whole-vehicle script is reached by its chassis stem (#car/E46/e46)
   if (want === String(chassisId).toLowerCase())
-    return showVehicleScript(chassisId, menuName);
+    return showVehicleScript(chassisId, menuName, screenName);
   for (const sec of ch.sections || []) {
     const hit = (sec.ecus || []).find(
       (e) => String(e.sgbd).toLowerCase() === want
     );
-    if (hit) return showEcu(chassisId, sec.name, hit, menuName);
+    if (hit) return showEcu(chassisId, sec.name, hit, menuName, screenName);
   }
   sbLeft.textContent = `${sgbd} not in ${dispChassis(chassisId)}`;
   return backToModules(chassisId);
@@ -197,10 +198,11 @@ async function showEcuDeep(chassisId, sgbd, menuName) {
  * @param {string} sectionName - The config section the module sits in.
  * @param {EcuRecord} ecu - The module (mutated: chassis, variant, IR).
  * @param {string|null} [openMenu] - A menu a deep link descends into once the script is up.
+ * @param {string|null} [openScreen] - The screen to show on that menu (a search result).
  * @returns {Promise<void>}
  */
-async function showEcu(chassisId, sectionName, ecu, openMenu) {
-  lastScreen = () => showEcu(chassisId, sectionName, ecu, openMenu);
+async function showEcu(chassisId, sectionName, ecu, openMenu, openScreen) {
+  lastScreen = () => showEcu(chassisId, sectionName, ecu, openMenu, openScreen);
   // the ECU object comes from the chassis config and doesn't know which chassis
   // it came from; screens that build links/reports off it need that
   ecu.chassis = chassisId;
@@ -265,7 +267,7 @@ async function showEcu(chassisId, sectionName, ecu, openMenu) {
   const back = () => backToModules(chassisId);
   const took =
     typeof ipoProgramOpen === 'function' &&
-    (await ipoProgramOpen(ecu, grid, back, openMenu));
+    (await ipoProgramOpen(ecu, grid, back, openMenu, openScreen));
   if (took) return;
 
   // No runnable script. Only reachable for the handful of ECUs BMW itself

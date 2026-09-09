@@ -67,18 +67,28 @@ const ROUTE_FOR_SCREEN = {
 function resolveRoute(route) {
   const exact = APPS_ROUTES[route];
   if (exact) return exact;
-  // #car/<CHASSIS>[/<SGBD>[/<MENU>]] -- the vehicle side. The module is keyed
-  // by SGBD (stable, unlike a display label) and the submenu by its IR menu
-  // name, which is the same key the live runtime navigates by.
+  // #car/<CHASSIS>[/<SGBD>[/<MENU>[/<SCREEN>]]] -- the vehicle side. The
+  // module is keyed by SGBD (stable, unlike a display label) and the submenu
+  // by its IR menu name, which is the same key the live runtime navigates by.
+  //
+  // The optional SCREEN is what a job-search result lands on: a menu can show
+  // several screens and the row the user clicked names one of them. Menu and
+  // screen proc names are identifiers (m_fehlersp, s_fs_detail), never
+  // slashed, so splitting the tail on '/' cannot break a link written before
+  // the screen part existed -- a two-part tail is still menu-only.
   const c = /^car\/([A-Za-z0-9]+)(?:\/([A-Za-z0-9_-]+)(?:\/(.+))?)?$/.exec(
     route
   );
   if (c) {
     const chassis = c[1].toUpperCase();
     const sgbd = c[2] ? decodeURIComponent(c[2]).toLowerCase() : null;
-    const menu = c[3] ? decodeURIComponent(c[3]) : null;
+    const tail = c[3] ? c[3].split('/') : [];
+    // an empty menu part (#car/E46/kombi46//s_fs) is how a link names a
+    // screen with no menu of its own: the script's entry menu stands
+    const menu = tail[0] ? decodeURIComponent(tail[0]) : null;
+    const screen = tail[1] ? decodeURIComponent(tail[1]) : null;
     if (sgbd && typeof showEcuDeep === 'function') {
-      return () => showEcuDeep(chassis, sgbd, menu);
+      return () => showEcuDeep(chassis, sgbd, menu, screen);
     }
     // the car's module list in the layout the user chose: INPA's script
     // selection or the modern sections (backToModules picks)
