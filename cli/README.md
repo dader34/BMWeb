@@ -5,9 +5,8 @@ INPA `.IPO` script does, compile an `.IPS` / `.SRC` source into a real
 `.IPO`, search every module the site ships for the key that does a thing,
 decode or compare the report links the app's Garage shares, list what a
 module's SGBD declares (its jobs and their arguments, results and lookup
-tables), and, with a
-K+DCAN cable, run jobs, read every fault memory of a car, and drive a
-module's INPA screens from the terminal.
+tables), and, with a K+DCAN cable, run jobs, read every fault memory of a
+car, and drive a module's INPA screens from the terminal.
 
 The commands run the app's own code: the `.IPO` reader and the source
 compiler, the job search, the Garage report codec, the transport (framing,
