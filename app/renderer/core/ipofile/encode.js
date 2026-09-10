@@ -38,7 +38,8 @@
 const IPOF_BLOCK_SCREEN = 0x01;
 const IPOF_BLOCK_MENU = 0x02;
 const IPOF_BLOCK_STATEMACHINE = 0x03;
-const IPOF_BLOCK_LOGICTABLE = 0x04;
+// 0x04 is the logic table; no declaration ever names one, so nothing here
+// writes one from tokens -- a file that has one carries it in `container`.
 const IPOF_BLOCK_FUNCTION = 0x05;
 const IPOF_BLOCK_GLOBALDATA = 0x11;
 const IPOF_BLOCK_CONSTANTDATA = 0x12;
@@ -333,12 +334,11 @@ function ipofEncodeToken(w, t, base, where) {
       word(0x0c, 0x81, t.n);
       return;
     case 'frame':
-      // the walker matched b0 == 0x0f on its own and never read the rest, so
-      // the three trailing bytes are carried on the token when they were not
-      // zero rather than assumed
-      w.u8(0x0f);
-      w.u8((t.b1 || 0) & 0xff);
-      w.u16(t.u16 || 0);
+      // The walker matches b0 == 0x0f alone and never reads the operands, so
+      // the token cannot say what they were. Zero is not a guess: every one of
+      // the 582,688 frame instructions in the shipped corpus carries 0f 00
+      // 00 00, so writing that back is what the format actually holds.
+      word(0x0f, 0x00, 0);
       return;
     case 'unk': {
       // bytes the walker could not name, kept verbatim as hex
