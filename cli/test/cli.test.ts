@@ -37,6 +37,9 @@ test('--version prints the baked-in version; --help lists every command', async 
     'search',
     'report show',
     'report diff',
+    'sgbd jobs',
+    'sgbd tables',
+    'sgbd table',
   ])
     assert.ok(
       h.out.some((l) => l.includes(c)),
@@ -85,6 +88,32 @@ test('a group alone lists its commands, and --help on a command shows its option
   assert.equal(help.code, 0);
   assert.deepEqual(help.out, commandHelp('report diff'));
   assert.ok(help.out.some((l) => /--json/.test(l)));
+});
+
+test('the sgbd group and the flags job gained resolve without a cable', async () => {
+  // `bmweb sgbd` alone lists its three commands, as `bmweb ipo` does
+  const group = await run(['sgbd']);
+  assert.equal(group.code, 1);
+  assert.equal(group.out.length, 3);
+  assert.ok(group.out.every((l) => l.startsWith('usage: bmweb sgbd ')));
+  assert.deepEqual(resolveCommand(['sgbd', 'table', 'probe', 'BITS']), {
+    name: 'sgbd table',
+    rest: ['probe', 'BITS'],
+  });
+  const help = await run(['job', '--help']);
+  assert.equal(help.code, 0);
+  const text = help.out.join('\n');
+  assert.match(text, /--results <value>/);
+  assert.match(text, /--info\b/);
+  // --info reads a declaration, so a job argument beside it means the user
+  // expected something to be sent; that is refused before any port is opened
+  const withArg = await run(['job', 'probe', 'PROBE_LESEN', '7', '--info']);
+  assert.equal(withArg.code, 1);
+  assert.match(withArg.err[0] as string, /--info takes no job argument/);
+  // and neither offline command takes --port: it never reaches the cable
+  const port = await run(['sgbd', 'jobs', 'probe', '--port', '/dev/null']);
+  assert.equal(port.code, 1);
+  assert.match(port.err[0] as string, /unknown option --port/);
 });
 
 test('formatTable pads every column but the last, rules under a header', () => {

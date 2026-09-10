@@ -18,6 +18,13 @@ import {
 import { reportDiff, reportShow } from './report.ts';
 import { scanCommand } from './scan.ts';
 import { loadIndex, runSearch } from './search.ts';
+import {
+  jobInfoCommand,
+  sgbdJobsCommand,
+  sgbdTableCommand,
+  sgbdTablesCommand,
+} from './sgbd.ts';
+import { configureSite } from './site.ts';
 import { tuiCommand } from './tui.ts';
 
 /** Baked in by scripts/build.mjs from package.json. */
@@ -44,13 +51,11 @@ const JSON_FLAG: FlagSpecs = {
   },
 };
 
-/** The flags every command on the cable takes. */
-const LIVE: FlagSpecs = {
-  port: {
-    kind: 'string',
-    alias: 'p',
-    help: 'the serial device (the single candidate when there is one)',
-  },
+/**
+ * The flags of a command that reads the site's module data: the commands
+ * on the cable need these too, and the offline `sgbd` ones need only these.
+ */
+const SITE: FlagSpecs = {
   api: {
     kind: 'string',
     help: 'the site the module data comes from (default https://bmweb.danner.ink/)',
@@ -59,6 +64,16 @@ const LIVE: FlagSpecs = {
     kind: 'bool',
     help: 'fetch the module data again even when the cached copy is fresh',
   },
+};
+
+/** The flags every command on the cable takes. */
+const LIVE: FlagSpecs = {
+  port: {
+    kind: 'string',
+    alias: 'p',
+    help: 'the serial device (the single candidate when there is one)',
+  },
+  ...SITE,
 };
 
 /** A command: its usage line, flags and body. */
@@ -203,9 +218,9 @@ const COMMANDS: Record<string, Command> = {
   },
   job: {
     usage:
-      'bmweb job <sgbd> <JOB> [arg] [--port p] [--api url] [--yes] [--json]',
+      'bmweb job <sgbd> <JOB> [arg] [--results a,b] [--info] [--port p] [--api url] [--yes] [--json]',
     summary:
-      "one raw job on one module over the cable, like the app's Tool32; a write needs --yes or a y answer",
+      "one raw job on one module over the cable, like the app's Tool32; a write needs --yes or a y answer, and --info reads the declaration instead of running it",
     flags: {
       ...LIVE,
       yes: {
@@ -213,22 +228,85 @@ const COMMANDS: Record<string, Command> = {
         alias: 'y',
         help: 'consent to a write job on the command line',
       },
+      results: {
+        kind: 'string',
+        alias: 'r',
+        help: 'comma-separated result names; only these print (case-insensitive)',
+      },
+      info: {
+        kind: 'bool',
+        help: 'what the SGBD declares about the job (arguments, results, comment); opens no port',
+      },
       ...JSON_FLAG,
     },
     async run(pos, flags) {
       const [sgbd, job, arg] = pos;
       if (!sgbd || !job || pos.length > 3)
         throw new CliError('usage: ' + (COMMANDS.job as Command).usage);
+      // --info is a reading of the shipped declaration, so it must not
+      // touch the cable at all: no port is chosen and no bus is connected,
+      // only the site (and its cache) is pointed at
+      if (flags.info) {
+        if (arg !== undefined)
+          throw new CliError('--info takes no job argument (nothing is sent)');
+        useSite(flags);
+        return jobInfoCommand(sgbd, job, { json: !!flags.json });
+      }
       const { R } = await connectBus(liveOptions(flags));
       try {
         return await jobCommand(sgbd, job, {
           arg,
           yes: !!flags.yes,
           json: !!flags.json,
+          results: splitList(flags.results as string | undefined),
         });
       } finally {
         await disconnectBus(R);
       }
+    },
+  },
+  'sgbd jobs': {
+    usage: 'bmweb sgbd jobs <sgbd> [--api url] [--refresh] [--json]',
+    summary:
+      "every job an SGBD declares, with its arguments, results and comment, and which of them the app's write gate would ask about; no cable",
+    flags: { ...SITE, ...JSON_FLAG },
+    async run(pos, flags) {
+      const sgbd = pos[0];
+      if (!sgbd || pos.length > 1)
+        throw new CliError(
+          'usage: ' + (COMMANDS['sgbd jobs'] as Command).usage
+        );
+      useSite(flags);
+      return sgbdJobsCommand(sgbd, { json: !!flags.json });
+    },
+  },
+  'sgbd tables': {
+    usage: 'bmweb sgbd tables <sgbd> [--api url] [--refresh] [--json]',
+    summary:
+      'every lookup table an SGBD carries for its bytecode, with row and column counts; no cable',
+    flags: { ...SITE, ...JSON_FLAG },
+    async run(pos, flags) {
+      const sgbd = pos[0];
+      if (!sgbd || pos.length > 1)
+        throw new CliError(
+          'usage: ' + (COMMANDS['sgbd tables'] as Command).usage
+        );
+      useSite(flags);
+      return sgbdTablesCommand(sgbd, { json: !!flags.json });
+    },
+  },
+  'sgbd table': {
+    usage: 'bmweb sgbd table <sgbd> <NAME> [--api url] [--refresh] [--json]',
+    summary: 'one lookup table of an SGBD, its rows as a table; no cable',
+    flags: { ...SITE, ...JSON_FLAG },
+    async run(pos, flags) {
+      const [sgbd, name] = pos;
+      if (!sgbd || !name || pos.length > 2)
+        throw new CliError(
+          'usage: ' + (COMMANDS['sgbd table'] as Command).usage
+        );
+      useSite(flags);
+      return sgbdTableCommand(sgbd, name, { json: !!flags.json });
     },
   },
   scan: {
@@ -310,6 +388,32 @@ function liveOptions(flags: Record<string, unknown>): {
     api: flags.api as string | undefined,
     refresh: !!flags.refresh,
   };
+}
+
+/**
+ * Point the site fetch at what the flags say, for a command that reads the
+ * site's data without a cable. connectBus does this for the live commands;
+ * the offline ones have to do it themselves before the runtime fetches.
+ * @param flags - the parsed flags
+ */
+function useSite(flags: Record<string, unknown>): void {
+  configureSite({
+    ...(flags.api ? { base: flags.api as string } : {}),
+    refresh: !!flags.refresh,
+  });
+}
+
+/**
+ * A comma-separated flag value as a list, blanks and stray spaces dropped
+ * so `--results A, B,` is the same as `--results A,B`.
+ * @param v - the flag value
+ * @returns the items
+ */
+function splitList(v: string | undefined): string[] {
+  return String(v || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter((s) => s);
 }
 
 /**

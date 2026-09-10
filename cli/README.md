@@ -3,9 +3,10 @@
 [BMWeb](https://bmweb.danner.ink/)'s tools as a command line. Read what an
 INPA `.IPO` script does, compile an `.IPS` / `.SRC` source, search every
 module the site ships for the key that does a thing, decode or compare the
-report links the app's Garage shares, and, with a K+DCAN cable, run jobs,
-read every fault memory of a car, and drive a module's INPA screens from
-the terminal.
+report links the app's Garage shares, list what a module's SGBD declares
+(its jobs and their arguments, results and lookup tables), and, with a
+K+DCAN cable, run jobs, read every fault memory of a car, and drive a
+module's INPA screens from the terminal.
 
 The commands run the app's own code: the `.IPO` reader and the source
 compiler, the job search, the Garage report codec, the transport (framing,
@@ -28,9 +29,10 @@ Only the project's own code. Nothing BMW-derived ships with it: no scripts,
 no SGBDs, no fault database, no parts data. Everything the tool needs that
 it does not carry is fetched from the site (or `--api <url>`) and kept
 under `$XDG_CACHE_HOME/bmweb-cli/` (default `~/.cache/bmweb-cli/`) for a
-day: the job search index (about 2.5 MB), and, for the commands on the
-cable, the chassis archives the app itself loads (`api/chassis/E46.chassis`,
-about 20 MB for an E46), the group bytecode and the shared tables.
+day: the job search index (about 2.5 MB), and, for the `sgbd` commands,
+`job --info` and the commands on the cable, the chassis archives the app
+itself loads (`api/chassis/E46.chassis`, about 20 MB for an E46), the
+group bytecode and the shared tables.
 `--refresh` fetches again; when the site cannot be reached the cached copy
 is used and a warning says so.
 
@@ -197,6 +199,88 @@ Answering changed:
 + new   - cleared   = still present   ~ ident field changed
 ```
 
+### `bmweb sgbd jobs <sgbd> [--api url] [--refresh] [--json]`
+
+Every job an SGBD declares, with the arguments it takes, the results it
+returns, a comment, and whether the app's write gate would ask about it
+before sending it. Nothing is sent and no port is opened: this is the
+module's shipped declaration, the same one the app's Tool32 lists a job
+from. A diagnostic group (`d_motor`, `d_0012`) is read from its own group
+file rather than resolved on the wire, so it lists the job names and the
+tables the group carries.
+
+```
+$ bmweb sgbd jobs lws5
+NAME                       ARGS                                       RESULTS                                                                 COMMENT                              WRITE
+-------------------------  -----------------------------------------  ----------------------------------------------------------------------  -----------------------------------  -----
+ABGLEICH_LESEN                                                        JOB_STATUS, ABGL_LRW_OFFSET, ABGL_LWS_ID, ABGL_FGSTNR, _TEL_ANTWORT     OKAY, wenn fehlerfrei
+ABGLEICH_SCHREIBEN                                                    JOB_STATUS, _TEL_ANTWORT                                                 OKAY, wenn fehlerfrei                yes
+ABGLEICH_VORGEBEN          ABGL_LRW_OFFSET, ABGL_LWS_ID, ABGL_FGSTNR  JOB_STATUS, _TEL_AN_SG, _TEL_ANTWORT                                     OKAY, wenn fehlerfrei                yes
+CODIERUNG_LESEN            BLOCK                                      JOB_STATUS, COD_DATEN, _TEL_AN_SG, _TEL_ANTWORT                          OKAY, wenn fehlerfrei
+FS_LESEN                                                              JOB_STATUS, F_HEX_CODE, F_ORT_NR, F_ORT_TEXT, F_HFK, F_ART_ANZ, +4 more  OKAY, wenn fehlerfrei
+FS_LOESCHEN                                                           JOB_STATUS, _TEL_ANTWORT                                                 OKAY, wenn fehlerfrei                yes
+...
+
+24 jobs, 9 the app would ask about before sending
+```
+
+The WRITE column is the app's classifier (`isWriteJob`), the same verdict
+`bmweb job` gates on: a read token in the name wins, a write token makes a
+write, and an unknown name is a write. A cell that lists only the first few
+names says how many more there are; `--json` and `bmweb job <sgbd> <JOB>
+--info` carry every one.
+
+The site's export writes a job's results as `NAME : comment` and keeps no
+comment above them, so COMMENT is the `JOB_COMMENT` result where the SGBD's
+author wrote one and the first declared result's comment otherwise.
+
+### `bmweb sgbd tables <sgbd> [--api url] [--refresh] [--json]`
+
+The lookup tables an SGBD carries for its own bytecode -- the ones its jobs
+read with `tabset` to turn a byte into a word -- with the rows and columns
+of each.
+
+```
+$ bmweb sgbd tables ms450ds0
+NAME                      ROWS  COLS  COLUMNS
+------------------------  ----  ----  ---------------------------------------------------
+AUTHENTISIERUNG           4     2     AUTH_NR, AUTH_TEXT
+BAUDRATE                  7     3     NR, BAUD, BAUD_TEXT
+BETRIEBSSTUNDENSTATUS     4     2     WERT, UWTEXT
+BITS                      72    4     NAME, BYTE, MASK, VALUE
+CBSKENNUNG                16    3     NR, CBS_K, CBS_K_TEXT
+...
+
+53 tables (bmweb sgbd table ms450ds0 <NAME> prints one)
+```
+
+These are the module's own tables. The four shared table files (`t_pcod`,
+`t_scod`, `t_ausb`, `t_grtb`, which an SGBD reads with `tabsetex`) belong
+to no one module -- every job VM is handed all of them -- so they are not
+listed here, and a module is never said to carry them.
+
+### `bmweb sgbd table <sgbd> <NAME> [--api url] [--refresh] [--json]`
+
+One table's rows.
+
+```
+$ bmweb sgbd table ms450ds0 BAUDRATE
+NR    BAUD      BAUD_TEXT
+----  --------  --------------------
+0x01  PC9600    Baudrate 9.6 kBaud
+0x02  PC19200   Baudrate 19.2 kBaud
+0x03  PC38400   Baudrate 38.4 kBaud
+0x04  PC57600   Baudrate 57.6 kBaud
+0x05  PC115200  Baudrate 115.2 kBaud
+0x06  SB        Specific Baudrate
+0xXY  --        unbekannte Baudrate
+
+7 rows in BAUDRATE
+```
+
+The name is matched without regard to case, and a near miss is named:
+`bmweb sgbd table lws5 BITS` answers `lws5 carries no table BITS`.
+
 ## Commands on the cable
 
 These need a K+DCAN cable (an FTDI cable, or a clone) on the car's OBD
@@ -218,11 +302,17 @@ own bytecode branches on. An FTDI cable wants a 1 ms latency timer (set for
 you on Linux; on macOS and Windows a driver setting), and an echo failure
 (IFH-0003) says so.
 
-**Tested against the app's fake car, pending a real K+DCAN run.** The
-transport is exercised end to end against a fake cable (the DS2 and
-BMW-FAST framing, the reopen, the DTR sequence, the echo), and `job`,
-`scan` and `tui` against the fake car the app's own runtime tests use. No
-real cable has been on this code yet.
+**Run on a real car.** Since 0.1.4, `job`, `scan` and `tui` have been run
+on an E46 over an FTDI K+DCAN cable on macOS. What that run fixed is in
+`src/serial.ts`: on macOS a Node serial port never wakes on bytes an FTDI
+cable sends back, so the reader polls the port's modem lines while it is
+reading and picks the bytes up itself. The offline commands need no cable
+and never open one.
+
+Everything is still tested offline as well: the transport end to end
+against a fake cable (the DS2 and BMW-FAST framing, the reopen, the DTR
+sequence, the echo), and `job`, `scan` and `tui` against the fake car the
+app's own runtime tests use.
 
 ### `bmweb ports [--json]`
 
@@ -235,7 +325,7 @@ $ bmweb ports
 /dev/cu.usbserial-AB0JQ9XY  FTDI  0403:6001  sn AB0JQ9XY
 ```
 
-### `bmweb job <sgbd> <JOB> [arg] [--port p] [--yes] [--json]`
+### `bmweb job <sgbd> <JOB> [arg] [--results a,b] [--info] [--port p] [--yes] [--json]`
 
 One raw job on one module, like the app's Tool32: the SGBD's own bytecode
 runs in the job VM over the cable, inside its EDIABAS session
@@ -262,6 +352,46 @@ The write gate is the app's classifier (`isWriteJob`): a read token in the
 name wins, a write token makes a write, and an unknown name is a write.
 A write goes out only with `--yes` or a `y` on the terminal; without a
 terminal the answer is no. A write is never sent silently.
+
+`--results` names the results to print, comma-separated and without regard
+to case. The job still runs whole -- the flag narrows what is shown, not
+what is asked of the module -- and `--json` is filtered the same way, so
+the table and the JSON never disagree about what was read. A name that
+matched nothing is a warning on stderr and the exit code stays 0.
+
+```
+$ bmweb job ms450ds0 STATUS_LESEN --results stat_motordrehzahl_wert,JOB_STATUS
+ms450ds0 MS450DS0 STATUS_LESEN: 1 set
+
+set 1
+  STAT_MOTORDREHZAHL_WERT  812.5
+  JOB_STATUS               OKAY
+```
+
+`--info` prints what the SGBD declares about the job -- its arguments, its
+results and their comments -- instead of running it. It opens no port and
+sends nothing, so it works with the cable unplugged and with the car
+elsewhere; a job argument beside it is refused rather than quietly ignored.
+
+```
+$ bmweb job ms450ds0 AIF_LESEN --info
+ms450ds0 AIF_LESEN
+
+arguments (1)
+  AIF_NUMMER  int  ==0 : aktuelles AIF > 0 : Nummer des zu lesenden AIF default = 0 : aktuelles AIF
+
+results (21)
+  AIF_ADRESSE_HIGH  AIF Adresse des AIF, High-Word
+  AIF_ADRESSE_LOW   AIF Adresse des AIF, Low-Word
+  AIF_FG_NR         Fahrgestellnummer 7-stellig
+  AIF_FG_NR_LANG    Fahrgestellnummer 17-stellig falls vorhanden, sonst 7-stellig
+  AIF_DATUM         Datum der SG-Programmierung in der Form TT.MM.JJJJ
+  ...
+  JOB_STATUS        OKAY, wenn fehlerfrei
+```
+
+A job that writes is headed `[WRITE]` here too, and `bmweb sgbd jobs`
+below lists every job of a module at once.
 
 ### `bmweb scan <chassis> [--port p] [--share] [--json]`
 
