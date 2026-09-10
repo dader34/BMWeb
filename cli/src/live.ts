@@ -162,6 +162,42 @@ export interface JobOptions {
   confirm?: (question: string) => Promise<boolean>;
   /** the engine client; the runtime's own unless a test fakes the car */
   apiFn?: ApiFn;
+  /** only these result names, case-insensitively (empty: all of them) */
+  results?: string[];
+  /** where a name that matched nothing is reported */
+  warn?: (line: string) => void;
+}
+
+/**
+ * Keep only the wanted result keys of every set.
+ *
+ * A name is matched without regard to case, and the set's own key order is
+ * kept, so a filtered set reads like the unfiltered one with rows removed
+ * rather than reordered by whatever order the flag was typed in. A set left
+ * with nothing still comes back, because "set 3 answered, none of the keys
+ * you asked for" is a different fact from "there were two sets".
+ * @param sets - the job's result sets
+ * @param want - the names asked for
+ * @returns the filtered sets, and every name that matched nothing
+ */
+export function filterResults(
+  sets: ResultSet[],
+  want: string[]
+): { sets: ResultSet[]; missing: string[] } {
+  const wanted = new Set(want.map((n) => n.toUpperCase()));
+  const seen = new Set<string>();
+  const out = sets.map((set) => {
+    const kept: ResultSet = {};
+    for (const [k, v] of Object.entries(set)) {
+      const up = k.toUpperCase();
+      if (!wanted.has(up)) continue;
+      seen.add(up);
+      kept[k] = v;
+    }
+    return kept;
+  });
+  const missing = want.filter((n) => !seen.has(n.toUpperCase()));
+  return { sets: out, missing };
 }
 
 /**
@@ -208,6 +244,20 @@ export async function jobCommand(
     throw new CliError(
       `${name} on ${target}: ${m}${/IFH-0003/.test(m) ? `\n${FTDI_HINT}` : ''}`
     );
+  }
+  // --results narrows what is shown, never what was asked of the car: the
+  // job ran whole, and the same rows are dropped from the table and from
+  // the JSON so the two never disagree about what was read
+  const want = (opts.results || []).filter((n) => n);
+  if (want.length) {
+    const f = filterResults(d.sets || [], want);
+    d = { ...d, sets: f.sets };
+    if (f.missing.length) {
+      const warn = opts.warn || ((l: string) => process.stderr.write(l + '\n'));
+      warn(
+        `bmweb: ${name} on ${target} returned no result named ${f.missing.join(', ')}`
+      );
+    }
   }
   if (opts.json) return [JSON.stringify(d, null, 2)];
   return formatAnswer(d);
