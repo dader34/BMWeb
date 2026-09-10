@@ -288,10 +288,10 @@ export function encodeFrame(
     out.writeUInt32BE(len, 6);
   }
   if (!mask) {
-    out[1] = out[1]!;
     payload.copy(out, head);
     return out;
   }
+  // the mask bit, beside the length byte that is already in place
   out[1] = out[1]! | 0x80;
   const key = randomBytes(4);
   key.copy(out, head);

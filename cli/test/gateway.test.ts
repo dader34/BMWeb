@@ -606,3 +606,109 @@ test('tui through the gateway: keys, a declined write, an accepted one, release 
     'the remote cable was closed on quit'
   );
 });
+
+test('a concept change reopens the remote port, balanced, and bytes still flow', async () => {
+  const cable = fakeCable(() => null);
+  const g = await serve(cable.opener);
+  const p = new GatewayPort(g.url);
+  await p.dial();
+  const fast: PortConfig = {
+    baudRate: 115200,
+    dataBits: 8,
+    stopBits: 1,
+    parity: 'none',
+  };
+  const ds2: PortConfig = {
+    baudRate: 9600,
+    dataBits: 8,
+    stopBits: 1,
+    parity: 'even',
+  };
+  await p.open(fast);
+  // exactly what the bus's _reopenStreams does, twice: close, open, fresh
+  // reader and writer. A K-line module after a D-CAN one does this on a
+  // real car, and a leaked device handle here would fail the next open.
+  for (const cfg of [ds2, fast]) {
+    await p.close();
+    await p.open(cfg);
+    const reader = p.readable.getReader();
+    const writer = p.writable.getWriter();
+    await writer.write(new Uint8Array([0x12, 0x04, 0x00]));
+    const got = await reader.read();
+    assert.equal(
+      got.done,
+      false,
+      `bytes flow after the reopen at ${cfg.baudRate}`
+    );
+  }
+  await p.close();
+  p.hangUp();
+  await g.stop();
+  const opens = cable.events.filter((e) => e.kind === 'open');
+  const closes = cable.events.filter((e) => e.kind === 'close');
+  assert.equal(opens.length, 3, 'one open per concept');
+  assert.equal(closes.length, 3, 'and one close each: no leaked handle');
+  assert.ok(opens[1]?.detail.endsWith('9600 even'));
+  assert.ok(opens[2]?.detail.endsWith('115200 none'));
+});
+
+test('the host dies under the client: a parked read says done, a call in flight fails', async () => {
+  const cable = fakeCable(() => null);
+  const g = await serve(cable.opener);
+  const p = new GatewayPort(g.url);
+  await p.dial();
+  await p.open({ baudRate: 9600, dataBits: 8, stopBits: 1, parity: 'even' });
+  const reader = p.readable.getReader();
+  // a read parked on an answer that will never come, and a control call
+  // in flight, when the gateway goes away
+  const parked = reader.read();
+  const call = p.getSignals().then(
+    () => 'resolved',
+    (e: Error) => `rejected: ${e.message}`
+  );
+  await g.stop();
+  // THE ONE THAT MATTERS. The bus awaits reads with no catch of its own,
+  // so a parked read must RESOLVE done, never reject: a rejection here
+  // would surface as an unhandled crash in the middle of a scan rather
+  // than as "the cable went away".
+  const r = await Promise.race([
+    parked,
+    new Promise((res) => setTimeout(() => res('HUNG'), 2000)),
+  ]);
+  assert.deepEqual(r, { value: undefined, done: true }, 'done, and not a hang');
+  assert.match(await call, /^rejected: the gateway connection ended/);
+  p.hangUp();
+});
+
+test('a client that vanishes without a close frame frees the cable for the next one', async () => {
+  const cable = fakeCable(() => null);
+  const g = await serve(cable.opener);
+  const first = new GatewayPort(g.url);
+  await first.dial();
+  await first.open({
+    baudRate: 9600,
+    dataBits: 8,
+    stopBits: 1,
+    parity: 'even',
+  });
+  assert.equal(cable.events.filter((e) => e.kind === 'open').length, 1);
+  // a pulled network cable: the socket dies with no close frame
+  first.hangUp();
+  const end = Date.now() + 2000;
+  while (!cable.events.some((e) => e.kind === 'close')) {
+    if (Date.now() > end) throw new Error('the cable was left open');
+    await new Promise((r) => setTimeout(r, 5));
+  }
+  // and the slot is free: a stale client would refuse this one
+  const second = new GatewayPort(g.url);
+  await second.dial();
+  await second.open({
+    baudRate: 9600,
+    dataBits: 8,
+    stopBits: 1,
+    parity: 'even',
+  });
+  assert.equal(second.connected, true, 'the next client got the cable');
+  second.hangUp();
+  await g.stop();
+});
