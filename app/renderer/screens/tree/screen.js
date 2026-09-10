@@ -105,9 +105,12 @@ function ecuTreeLastScanSize(carId) {
 async function ecuTreeModuleSheet(car, ecu, st, hit) {
   if (typeof openModal !== 'function') return;
   const codes = (st && st.module && st.module.codes) || [];
-  const sub = hit
-    ? hit.row.label || hit.row.sgbd
-    : `not in ${dispChassis(car)}'s module list`;
+  const nm = ecuTreeBoxName(ecu, st);
+  const sub =
+    (hit
+      ? hit.row.label || hit.row.sgbd
+      : `not in ${dispChassis(car)}'s module list`) +
+    (nm.names !== nm.label ? ` · slot: ${nm.names}` : '');
   const state =
     !st || st.state === 'unread'
       ? 'Not read yet. Fault scan reads the car; the boxes colour in as modules answer.'
@@ -118,7 +121,7 @@ async function ecuTreeModuleSheet(car, ecu, st, hit) {
           : `${codes.length} stored fault${codes.length === 1 ? '' : 's'}`;
   const { overlay, close } = openModal(
     `<div class="modal tree-sheet" role="dialog" aria-modal="true">` +
-      `<div class="modal-title">${esc(ecu.name)}` +
+      `<div class="modal-title">${esc(nm.label)}` +
       `<span class="tree-sheet-sub">${esc(sub)}</span></div>` +
       `<div class="modal-body"><div class="tree-sheet-state">${esc(state)}</div>` +
       `<div class="quick-detail tree-sheet-codes"></div></div>` +

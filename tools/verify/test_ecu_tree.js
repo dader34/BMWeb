@@ -158,7 +158,22 @@ console.log('1. layout');
       [d[0].name, d[0].addr, d[0].addrs, d[0].groups],
       ['DME', 16, [16, 18, 19], ['d_0010', 'd_motor', 'd_0012', 'd_0013']]
     );
-    assert.strictEqual(d[1].name, 'EGS / SMG', 'differing names are joined');
+    assert.strictEqual(d[1].name, 'EGS', 'the cell keeps its first name');
+    assert.deepStrictEqual(
+      d[1].slots.map((x) => x.name),
+      ['EGS', 'SMG'],
+      'and every member as a slot'
+    );
+    assert.deepStrictEqual(
+      T.ecuTreeBoxName(d[1], null),
+      { label: 'EGS', names: 'EGS / SMG' },
+      'unread: first name, all names for the hover'
+    );
+    assert.deepStrictEqual(
+      T.ecuTreeBoxName(d[1], { module: { via: 'd_0032' } }).label,
+      'SMG',
+      'read: the slot that answered'
+    );
     const st = T.ecuTreeStatus(stacked, {
       modules: [{ sgbd: 'ms450ds0', via: 'd_motor', codes: [{}] }],
       silent: [],
