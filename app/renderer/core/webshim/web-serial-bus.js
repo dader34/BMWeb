@@ -67,20 +67,43 @@ class WebSerialBus extends SerialTransportBase {
   }
 
   /**
-   * Open a port the user picks. Must be called from a user gesture -- the
-   * browser will not show the port picker otherwise. app.js wires this to the
-   * "connect cable" control.
-   * @returns {Promise<string>} The port label.
-   * @throws {Error} When the browser has no Web Serial.
+   * WHICH PORT this session drives: the one seam a gateway adds.
+   *
+   * With a gateway configured (Settings `gatewayUrl`, or `?gateway=` on the
+   * URL) the cable is on another machine, and the port is a socket to it
+   * with this same Web Serial surface. Everything below this line -- the
+   * framing, the line control, the reopens, the timeouts -- runs here
+   * either way and cannot tell the two apart, which is the whole point of
+   * putting the seam at the port rather than inside the transport.
+   * @returns {Promise<SerialPort>} The port to open.
+   * @throws {Error} When neither a gateway nor Web Serial can supply one.
    */
-  async connect() {
+  async _acquirePort() {
+    const url = typeof gatewaySetting === 'function' ? gatewaySetting() : '';
+    if (url) {
+      const remote = new GatewayPort(url);
+      await remote.dial();
+      return remote;
+    }
     if (!('serial' in navigator)) {
       throw new Error(
         'This browser has no Web Serial. Use Chrome or Edge ' +
           '(desktop), or the macOS app.'
       );
     }
-    this.port = await navigator.serial.requestPort();
+    return navigator.serial.requestPort();
+  }
+
+  /**
+   * Open a port the user picks. Must be called from a user gesture -- the
+   * browser will not show the port picker otherwise. app.js wires this to the
+   * "connect cable" control. A gateway needs no gesture (there is no picker
+   * to show), but it costs nothing to arrive through the same click.
+   * @returns {Promise<string>} The port label.
+   * @throws {Error} When no port can be acquired.
+   */
+  async connect() {
+    this.port = await this._acquirePort();
     await this.port.open(KDCAN);
     this.config = KDCAN;
     this.writer = this.port.writable.getWriter();
@@ -190,7 +213,23 @@ class WebSerialBus extends SerialTransportBase {
    *   the caller leaves the chip as "no cable".
    */
   async reconnect() {
-    if (!('serial' in navigator) || this.connected) return null;
+    if (this.connected) return null;
+    // A gateway has no permission to remember and no picker to skip: the
+    // socket either opens or it does not, so the silent path is simply the
+    // ordinary connect. A gateway that is not running stays "no cable",
+    // exactly as an unplugged cable does.
+    const gateway =
+      typeof gatewaySetting === 'function' ? gatewaySetting() : '';
+    if (gateway) {
+      try {
+        return await this.connect();
+      } catch (e) {
+        console.info(`[serial] the gateway did not answer: ${e.message}`);
+        this.port = null;
+        return null;
+      }
+    }
+    if (!('serial' in navigator)) return null;
     let ports;
     try {
       ports = await navigator.serial.getPorts();
@@ -292,8 +331,14 @@ class WebSerialBus extends SerialTransportBase {
     await this._reopenStreams(cfg);
   }
 
-  /** @returns {string} 'USB vid:pid' when the port says, else 'serial'. */
+  /**
+   * @returns {string} 'gateway host:port (device)' when the cable is on
+   *   another machine, else 'USB vid:pid' when the port says, else
+   *   'serial'. The chip shows this, so a remote car reads as remote.
+   */
   portLabel() {
+    if (this.port && typeof this.port.label === 'function')
+      return this.port.label();
     const i = this.port && this.port.getInfo ? this.port.getInfo() : {};
     return i.usbVendorId
       ? `USB ${i.usbVendorId.toString(16)}:${(i.usbProductId || 0).toString(16)}`
@@ -303,11 +348,15 @@ class WebSerialBus extends SerialTransportBase {
   /** Release the streams, close the port and forget the wire state. */
   async disconnect() {
     await this._releaseStreams();
+    const port = this.port;
     try {
-      if (this.port) await this.port.close();
+      if (port) await port.close();
     } catch {
       /* closing */
     }
+    // a gateway's socket is dropped AFTER the remote cable is closed: the
+    // close travels over that very socket
+    if (port && typeof port.hangUp === 'function') port.hangUp();
     this.port = this.reader = this.writer = null;
     this._resetWireState();
   }

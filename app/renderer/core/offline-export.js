@@ -27,6 +27,7 @@ const OFFLINE_SHELL = [
   'core/webshim/exchange.js',
   'core/webshim/transport-base.js',
   'core/webshim/native-bus.js',
+  'core/webshim/gateway-port.js',
   'core/webshim/web-serial-bus.js',
   'core/webshim/bus.js',
   'core/webshim/data-fetch.js',
