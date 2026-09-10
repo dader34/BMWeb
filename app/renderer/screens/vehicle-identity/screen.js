@@ -14,6 +14,8 @@
 /**
  * Options for showVehicleIdentity.
  * @typedef {object} ViScreenOpts
+ * @property {boolean} [idle] - Draw the screen without reading: the car is
+ *   touched only when the Read key is pressed (the ISTA shell's row).
  * @property {ViDetectedCar} [detected] - How the car was identified, when
  *   the screen was entered without a chassis.
  */
@@ -250,15 +252,21 @@ async function showVehicleIdentity(chassisId, opts) {
     'What the car reports about its own build, and the equipment that follows ' +
       'from it.'
   );
+  const idle = !!(opts && opts.idle);
+  const read = () =>
+    showVehicleIdentity(chassisId, Object.assign({}, opts, { idle: false }));
   setActions([
-    {
-      key: '1',
-      keyLabel: 'F1',
-      label: 'Re-read',
-      fn: () => showVehicleIdentity(chassisId, opts),
-    },
+    { key: '1', keyLabel: 'F1', label: idle ? 'Read' : 'Re-read', fn: read },
     { key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: back },
   ]);
+  if (idle) {
+    // nothing goes to the car until asked: the panel says what F1 will do
+    panel.innerHTML =
+      `<div class="vi-idle">Press <b>F1 Read</b> to ask the car's modules ` +
+      `for the build record: VIN, option list and stored odometer.</div>`;
+    sbLeft.textContent = 'identity: not read';
+    return;
+  }
   const { stale, wait } = viNewPass(panel);
 
   wait('Looking up which modules hold the build record…');

@@ -183,7 +183,8 @@ function istaOpenLatestReport() {
  * @returns {Promise<void>}
  */
 function istaOpenIdentity() {
-  return showVehicleIdentity(istaChassis());
+  // the tab lands on the screen; the read is the user's key
+  return showVehicleIdentity(istaChassis(), { idle: true });
 }
 
 /**

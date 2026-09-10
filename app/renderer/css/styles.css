@@ -10873,3 +10873,10 @@ body.ista-mode .view {
   color: var(--ink-dim);
   font-size: 13px;
 }
+
+/* identity screen before its first read (the ISTA row lands here) */
+.vi-idle {
+  padding: 18px 16px;
+  color: var(--muted, #8a8f98);
+  line-height: 1.5;
+}
