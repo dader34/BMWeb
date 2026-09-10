@@ -141,7 +141,7 @@ const ISTA_TABS = [
       {
         id: 'unit-list',
         label: 'Control unit list',
-        desc: 'The identification read: what each module says it is',
+        desc: "The whole-car script's menu: its Ident key asks each module what it is",
         open: 'istaOpenIdentScan',
         needsCar: true,
       },

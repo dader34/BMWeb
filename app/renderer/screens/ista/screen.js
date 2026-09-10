@@ -117,14 +117,15 @@ function istaOpenVehicleTest() {
 }
 
 /**
- * The identification read, filed against the picked car.
+ * The whole-car script's main menu, filed against the picked car. Its Ident
+ * key is the read; nothing is pressed on arrival.
  * @returns {void}
  */
 function istaOpenIdentScan() {
   const car = istaState.car;
   if (car && typeof garageRunScan === 'function')
-    return garageRunScan(car, null, GARAGE_IDENT_KEY);
-  showVehicleScript(istaChassis(), null, null, GARAGE_IDENT_KEY);
+    return garageRunScan(car, null, null);
+  showVehicleScript(istaChassis(), null, null, null);
 }
 
 /**
