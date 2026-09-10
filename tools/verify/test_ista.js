@@ -90,6 +90,33 @@ const I = loadClassic('screens/ista/');
   }
   ok('every sub-tab is open, page or why');
 
+  // Activation codes are gone for good, and the dev-only rows (Coding,
+  // Programming) never reach the public site: not listed, not routable, and
+  // a stale pin to one resolves to nothing there
+  for (const t of ISTA_TABS)
+    for (const s of t.subs || [])
+      assert.notStrictEqual(s.id, 'activation-codes', 'no activation codes');
+  for (const t of ISTA_TABS)
+    for (const s of t.subs || [])
+      assert.notStrictEqual(s.id, 'cbs', 'no CBS status row');
+  const devIds = ISTA_TABS.flatMap((t) =>
+    (t.subs || []).filter((s) => s.dev).map((s) => s.id)
+  );
+  assert.deepStrictEqual(devIds.sort(), ['coding', 'programming']);
+  assert.ok(istaSub('management', 'coding'), 'dev host lists Coding');
+  global.codingReady = () => false;
+  try {
+    const pub = istaSubsOf('management').map((s) => s.id);
+    assert.ok(!pub.includes('coding'), 'public: no Coding row');
+    assert.ok(!pub.includes('programming'), 'public: no Programming row');
+    assert.ok(pub.includes('unit-functions'), 'public keeps the rest');
+    assert.strictEqual(istaSub('management', 'coding'), null, 'not routable');
+    assert.ok(istaSub('management', 'unit-functions'), 'others route');
+  } finally {
+    delete global.codingReady;
+  }
+  ok('activation codes gone; coding and programming are dev-only');
+
   // the page kinds are the two details.js draws, and nothing else
   const pages = ISTA_TABS.flatMap((t) =>
     (t.subs || []).filter((s) => s.page).map((s) => s.page)

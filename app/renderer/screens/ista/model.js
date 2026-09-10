@@ -54,12 +54,14 @@ const ISTA_HOME_TAB = 'home';
  * The shell's tabs, in bar order.
  *
  * WHAT IS GREY AND WHY. Every `why` below is a fact about this build, not a
- * placeholder: Coding is behind a write gate that is not open yet;
- * Programming and Activation codes write to the car and are deliberately not
- * offered at all; the service plan needs a CBS readout nothing has extracted;
- * the workshop and operating-fluid tables are ISTA data nobody has pulled
- * out. A tab that could work but has no data says so; a tab that WILL NOT
- * work says that instead, so the difference stays visible.
+ * placeholder: Programming writes to the car and is deliberately not offered.
+ * A tab that could work but has no data says so; a tab that WILL NOT work
+ * says that instead, so the difference stays visible.
+ *
+ * WHAT IS DEV-ONLY. A sub-tab with `dev: true` exists only where Coding does
+ * (codingReady in core/nav.js: not on the public site): the public build
+ * never lists it, never routes to it and never resolves a pin to it.
+ * Activation codes are BMW-issued licences and have no row at all.
  * @type {IstaTab[]}
  */
 const ISTA_TABS = [
@@ -71,7 +73,7 @@ const ISTA_TABS = [
       {
         id: 'fault-memory',
         label: 'Fault memory',
-        desc: 'Read every module the chassis carries and list what it stored',
+        desc: 'The whole-car fault menu: its read key scans every module the chassis carries',
         open: 'istaOpenFaultMemory',
         needsCar: true,
       },
@@ -184,17 +186,16 @@ const ISTA_TABS = [
       {
         id: 'coding',
         label: 'Coding',
-        why: 'in progress: the write gate is not open in this build',
+        desc: "The chassis's coding hub: feature toggles and the expert editor",
+        open: 'istaOpenCoding',
+        needsCar: true,
+        dev: true,
       },
       {
         id: 'programming',
         label: 'Programming',
         why: 'deliberately not offered: flashing a module can brick it',
-      },
-      {
-        id: 'activation-codes',
-        label: 'Activation codes',
-        why: 'deliberately not offered: these are BMW-issued licences',
+        dev: true,
       },
     ],
   },
@@ -203,11 +204,6 @@ const ISTA_TABS = [
     label: 'Service plan',
     desc: 'Condition Based Service and the routines that reset it',
     subs: [
-      {
-        id: 'cbs',
-        label: 'CBS status',
-        why: 'CBS readout not built yet',
-      },
       {
         id: 'resets',
         label: 'Service functions',
@@ -249,6 +245,25 @@ function istaTab(id) {
 }
 
 /**
+ * Whether the dev-only sub-tabs show on this host. The gate is the one the
+ * module list already uses for its Coding entry, so ISTA and INPA mode agree;
+ * a host without that helper (tests, the packaged app) is a dev host.
+ * @returns {boolean}
+ */
+function istaDevHost() {
+  return typeof codingReady === 'function' ? codingReady() : true;
+}
+
+/**
+ * Whether a sub-tab exists on this host.
+ * @param {IstaSub} s - the sub-tab
+ * @returns {boolean}
+ */
+function istaSubShown(s) {
+  return !s.dev || istaDevHost();
+}
+
+/**
  * A sub-tab by tab and sub id.
  * @param {string} tabId - the tab
  * @param {string} subId - the sub-tab
@@ -257,7 +272,8 @@ function istaTab(id) {
 function istaSub(tabId, subId) {
   const t = istaTab(tabId);
   if (!t) return null;
-  return (t.subs || []).find((s) => s.id === subId) || null;
+  const s = (t.subs || []).find((x) => x.id === subId) || null;
+  return s && istaSubShown(s) ? s : null;
 }
 
 /**
@@ -269,7 +285,7 @@ function istaSub(tabId, subId) {
 function istaSubsOf(tabId) {
   if (tabId !== 'favourites') {
     const t = istaTab(tabId);
-    return t ? t.subs || [] : [];
+    return t ? (t.subs || []).filter(istaSubShown) : [];
   }
   return istaFavourites()
     .map((f) => {

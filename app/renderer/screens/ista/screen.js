@@ -93,19 +93,15 @@ function istaRestoreCar(carId) {
 // here, once per tab, instead of in the model.
 
 /**
- * The whole-car fault scan, filed against the picked car.
+ * The whole-car fault menu, filed against the picked car. Nothing is pressed
+ * on arrival: the scan is the user's key, the tab only takes them to it.
  * @returns {void}
  */
 function istaOpenFaultMemory() {
   const car = istaState.car;
   if (car && typeof garageRunScan === 'function')
-    return garageRunScan(car, IPO_VEHICLE_FAULT_MENU, GARAGE_FAULT_KEY);
-  showVehicleScript(
-    istaChassis(),
-    IPO_VEHICLE_FAULT_MENU,
-    null,
-    GARAGE_FAULT_KEY
-  );
+    return garageRunScan(car, IPO_VEHICLE_FAULT_MENU, null);
+  showVehicleScript(istaChassis(), IPO_VEHICLE_FAULT_MENU, null, null);
 }
 
 /**
@@ -207,6 +203,14 @@ function istaOpenModules() {
 }
 
 /**
+ * Coding: the chassis's coding hub (dev hosts only, see the model).
+ * @returns {Promise<void>}
+ */
+function istaOpenCoding() {
+  return showCodingHub(istaChassis());
+}
+
+/**
  * Await a probe, treating a throw as "no".
  *
  * Every readiness check below asks something optional -- does a tree ship for
@@ -263,6 +267,12 @@ async function istaSubReady(sub) {
 
   // the per-car checks, by sub-tab
   const chassis = istaChassis();
+  if (sub.id === 'coding') {
+    const has =
+      typeof chassisHasCoding === 'function' &&
+      (await istaProbe(chassisHasCoding(chassis)));
+    if (!has) return { ok: false, why: 'no codeable modules for this chassis' };
+  }
   if (sub.id === 'fault-memory' || sub.id === 'unit-list') {
     if (typeof vehicleScriptShipped === 'function') {
       const has = await vehicleScriptShipped(chassis);
@@ -747,6 +757,7 @@ if (typeof window !== 'undefined') {
   window.istaOpenHistory = istaOpenHistory;
   window.istaOpenLatestReport = istaOpenLatestReport;
   window.istaOpenIdentity = istaOpenIdentity;
+  window.istaOpenCoding = istaOpenCoding;
   window.istaOpenModules = istaOpenModules;
 }
 
