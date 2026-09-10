@@ -96,10 +96,10 @@ const I = loadClassic('screens/ista/');
   );
   assert.deepStrictEqual(
     pages.sort(),
-    ['details', 'equipment'],
-    'only the two pages the shell draws itself'
+    ['details', 'equipment', 'techdata'],
+    'only the pages the shell draws itself'
   );
-  ok('page kinds are the two that exist');
+  ok('page kinds are the ones that exist');
 
   assert.strictEqual(istaTab('operations').label, 'Operations');
   assert.strictEqual(istaTab('nope'), null);

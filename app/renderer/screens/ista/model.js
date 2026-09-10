@@ -239,17 +239,14 @@ const ISTA_TABS = [
   {
     id: 'workshop',
     label: 'Workshop',
-    desc: 'Workshop equipment and operating fluids',
+    desc: 'Technical data, tightening torques, operating fluids and special tools',
     subs: [
       {
         id: 'equipment',
         label: 'Workshop equipment',
-        why: 'not extracted yet',
-      },
-      {
-        id: 'fluids',
-        label: 'Operating fluids',
-        why: 'not extracted yet',
+        desc: 'Browse the reference documents by category, filtered to this car',
+        page: 'techdata',
+        needsCar: true,
       },
     ],
   },

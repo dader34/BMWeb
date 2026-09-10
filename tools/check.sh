@@ -250,7 +250,12 @@ node tools/verify/test_ecu_tree.js
 
 echo
 echo "== ISTA shell: tab model, routes, favourites, banner and details text =="
-node tools/verify/test_ista.js || exit 1 || exit 1
+node tools/verify/test_ista.js || exit 1
+
+echo
+echo "== workshop documents: validity rules, the car filter, tree, renderers =="
+node tools/verify/test_techdata.js || exit 1
+python3 tools/verify/test_techdata_extract.py || exit 1
 
 # Table completeness: the VM reaches tables the lifter never modelled, so a
 # shipped set that omits declared tables silently decodes lookups as "".

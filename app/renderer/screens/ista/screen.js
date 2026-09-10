@@ -248,7 +248,22 @@ async function istaSubReady(sub) {
   if (sub.why) return { ok: false, why: sub.why };
   if (sub.needsCar && !istaChassis())
     return { ok: false, why: 'no vehicle picked' };
-  if (sub.page) return { ok: true, why: '' };
+  if (sub.page) {
+    // the two identity pages read the car and always have something to draw;
+    // the workshop browser is nothing without its extract, so it says so
+    if (sub.page === 'techdata') {
+      if (typeof showTechData !== 'function')
+        return { ok: false, why: 'not in this build' };
+      const has = await istaProbe(() =>
+        typeof techDataIndexPresent === 'function'
+          ? techDataIndexPresent()
+          : false
+      );
+      if (!has)
+        return { ok: false, why: 'no workshop reference data in this build' };
+    }
+    return { ok: true, why: '' };
+  }
   const fn = sub.open ? window[sub.open] : null;
   if (typeof fn !== 'function') return { ok: false, why: 'not in this build' };
 
@@ -712,6 +727,8 @@ async function showIsta(tab, sub, owner, carId) {
     view.appendChild(host);
     if (s.page === 'details')
       await istaShowDetails(host, istaState.car, istaChassis());
+    else if (s.page === 'techdata')
+      await showTechData(host, istaState.car, istaChassis());
     else await istaShowEquipment(host, istaState.car, istaChassis());
     return;
   }

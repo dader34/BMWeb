@@ -10476,3 +10476,370 @@ body.ista-mode .view {
     overflow-x: auto;
   }
 }
+
+/* ===========================================================================
+   WORKSHOP REFERENCE DOCUMENTS (screens/techdata/), inside the ISTA shell's
+   Workshop tab: a category tree beside a Type / Title table, a search, and
+   the hit list.
+
+   Token-driven like the shell around it. The tables are the point of the
+   screen -- a torque figure has to be findable and readable at a glance --
+   so they get the contrast and the monospace, and everything else stays out
+   of the way.
+   =========================================================================== */
+
+.td-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.td-loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 20px 0;
+  font-size: 12.5px;
+  color: var(--ink-dim);
+}
+
+/* ---- the sub-section bar ------------------------------------------------- */
+.td-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+}
+.td-sec {
+  padding: 5px 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--ink-dim);
+  font-family: var(--display);
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.td-sec:hover {
+  color: var(--ink);
+  border-color: var(--line-bright);
+}
+.td-sec.on {
+  background: var(--amber);
+  border-color: var(--amber);
+  color: var(--amber-ink);
+  font-weight: 600;
+}
+.td-bar-spacer {
+  flex: 1;
+}
+.td-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--ink-dim);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.td-scope {
+  font-size: 11.5px;
+  color: var(--ink-faint);
+  white-space: nowrap;
+}
+
+/* ---- the two-pane browser ------------------------------------------------ */
+.td-split {
+  display: grid;
+  grid-template-columns: minmax(220px, 300px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+.td-tree {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  overflow: hidden;
+}
+.td-tree-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel-2);
+}
+.td-tree-title {
+  font-family: var(--display);
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.td-collapse {
+  font-size: 11px;
+  padding: 3px 8px;
+}
+.td-tree-body {
+  max-height: 60vh;
+  overflow-y: auto;
+}
+.td-node {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  width: 100%;
+  padding: 5px 10px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--display);
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+.td-node:hover {
+  background: var(--amber-glow);
+}
+.td-node.on {
+  background: var(--amber-glow);
+  font-weight: 600;
+}
+.td-twist {
+  width: 10px;
+  flex: none;
+  color: var(--ink-faint);
+  font-size: 9px;
+}
+.td-node-num {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--amber);
+  min-width: 18px;
+  flex: none;
+}
+.td-node-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.td-node-n {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--ink-faint);
+  flex: none;
+}
+/* a class under a group: indented under its parent's twist */
+.td-node-cls {
+  padding-left: 34px;
+  font-size: 11.5px;
+  color: var(--ink-dim);
+}
+
+/* ---- the tables ---------------------------------------------------------- */
+/* wide content scrolls inside its own box, never the page */
+.td-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.td-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 12.5px;
+}
+.td-table th,
+.td-table td {
+  padding: 7px 11px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+.td-table thead th {
+  position: sticky;
+  top: 0;
+  background: var(--panel-2);
+  font-family: var(--display);
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  border-bottom: 1px solid var(--line-bright);
+}
+.td-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+.td-hits tbody tr {
+  cursor: pointer;
+}
+.td-hits tbody tr:hover {
+  background: var(--amber-glow);
+}
+.td-type {
+  white-space: nowrap;
+  color: var(--ink-dim);
+  font-size: 11.5px;
+  width: 1%;
+}
+.td-title {
+  color: var(--ink);
+}
+.td-sub {
+  display: block;
+  font-size: 11px;
+  color: var(--ink-faint);
+}
+/* the torque figure is what the page exists for: give it the weight */
+.td-torque {
+  white-space: nowrap;
+  font-weight: 600;
+  color: var(--amber);
+}
+.td-tool th {
+  width: 150px;
+  color: var(--ink-dim);
+  font-weight: 600;
+}
+
+/* ---- the opened document ------------------------------------------------- */
+.td-doc {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: flex-start;
+}
+.td-doc-body {
+  width: 100%;
+}
+.td-doc-crumb {
+  font-family: var(--display);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.td-doc-title {
+  margin: 2px 0 10px;
+  font-family: var(--display);
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--ink);
+}
+.td-headline {
+  font-size: 11.5px;
+  color: var(--ink-faint);
+  margin-bottom: 8px;
+}
+.td-p {
+  margin: 0 0 9px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--ink);
+  max-width: 78ch;
+}
+.td-list {
+  margin: 0 0 10px;
+  padding-left: 20px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  max-width: 78ch;
+}
+.td-list > li {
+  margin-bottom: 4px;
+}
+.td-validity,
+.td-hint {
+  margin-bottom: 10px;
+  font-size: 11.5px;
+  color: var(--ink-dim);
+}
+.td-hint {
+  padding: 8px 11px;
+  border-left: 2px solid var(--amber);
+  background: var(--amber-glow);
+}
+.td-tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border: 1px solid var(--line-bright);
+  border-radius: 999px;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ink-dim);
+  vertical-align: 1px;
+}
+/* a document whose validity could not be read is SHOWN, and says so: losing
+   a torque figure is worse than showing one that needs checking */
+.td-unsure {
+  padding: 8px 11px;
+  border-left: 2px solid var(--amber-soft);
+  background: var(--amber-glow);
+  font-size: 11.5px;
+  color: var(--ink-dim);
+  margin-bottom: 10px;
+  max-width: 78ch;
+}
+.td-flag {
+  display: inline-block;
+  margin-left: 5px;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--amber-glow);
+  border: 1px solid var(--amber-soft);
+  color: var(--amber);
+  font-size: 9px;
+  line-height: 12px;
+  text-align: center;
+}
+
+/* ---- search and empties -------------------------------------------------- */
+.td-q {
+  width: min(460px, 100%);
+  padding: 7px 11px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--ink);
+  font-family: var(--display);
+  font-size: 13px;
+}
+.td-q:focus {
+  outline: none;
+  border-color: var(--amber);
+}
+.td-search {
+  margin-bottom: 12px;
+}
+.td-none {
+  padding: 14px 4px;
+  font-size: 12.5px;
+  color: var(--ink-faint);
+}
+.td-more {
+  margin: 8px 0 0;
+  font-size: 11.5px;
+  color: var(--ink-faint);
+}
+
+@media (max-width: 760px) {
+  /* the tree stops being a sidebar and becomes the row above the table */
+  .td-split {
+    grid-template-columns: 1fr;
+  }
+  .td-tree-body {
+    max-height: 34vh;
+  }
+  .td-tool th {
+    width: auto;
+  }
+}
