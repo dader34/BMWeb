@@ -316,7 +316,8 @@ and never open one.
 Everything is still tested offline as well: the transport end to end
 against a fake cable (the DS2 and BMW-FAST framing, the reopen, the DTR
 sequence, the echo), and `job`, `scan` and `tui` against the fake car the
-app's own runtime tests use.
+app's own runtime tests use, both directly and through a gateway on a real
+socket. The gateway itself has not been on a car yet.
 
 ### `bmweb ports [--json]`
 
@@ -329,7 +330,111 @@ $ bmweb ports
 /dev/cu.usbserial-AB0JQ9XY  FTDI  0403:6001  sn AB0JQ9XY
 ```
 
-### `bmweb job <sgbd> <JOB> [arg] [--results a,b] [--info] [--port p] [--yes] [--json]`
+### Gateway
+
+One machine owns the cable; another drives it. `bmweb gateway` opens the
+local port exactly as `job` does and serves it over a WebSocket, and
+`--gateway` on `job`, `scan` and `tui` (and the app in a browser) hands
+that socket to the same transport, which cannot tell it from a cable in
+its own USB port.
+
+Nothing about the wire moves. The framing, the checksums, the reopen for a
+concept change, DTR as the K-line transmit enable, the echo dropped by
+count, the timeouts measured to the first byte and every write
+confirmation all run on the machine you typed the command on, because
+that is where the bus is. The machine with the cable moves bytes and
+modem-line states, and nothing else.
+
+**It is a pipe, not a gate.** The gateway never sees a job name, only
+bytes, so it cannot tell a read from a write and does not try. Anyone who
+can reach the listening port can drive the car. It binds `127.0.0.1` by
+default, which is this machine only; `--listen 0.0.0.0:6801` opens it to
+whoever can route to the machine, and says so when it starts.
+
+On the machine with the cable:
+
+```
+$ bmweb gateway --listen 0.0.0.0:6801
+gateway: /dev/cu.usbserial-AB0JQ9XY served at ws://0.0.0.0:6801
+  this is a byte pipe with no gate of its own: anyone who can reach this port can drive the car.
+  listening beyond this machine; the port is open to whoever can route to it
+  one client at a time; the cable is closed when the client goes.
+  client 192.168.1.24:52233 connected
+  client 192.168.1.24:52233 disconnected, cable closed
+^C
+gateway: stopping, the cable is closed
+```
+
+On the machine driving it:
+
+```
+$ bmweb job ms450ds0 STATUS_LESEN --gateway 192.168.1.9:6801
+ms450ds0 MS450DS0 STATUS_LESEN: 1 set
+
+set 1
+  STAT_MOTORDREHZAHL_WERT  812.5
+  STAT_MOTORDREHZAHL_EINH  1/min
+  JOB_STATUS               OKAY
+
+$ bmweb job ms450ds0 FS_LOESCHEN --gateway 192.168.1.9:6801
+FS_LOESCHEN on ms450ds0 is a write (it changes the module or drives something). Send it? [y/N] n
+FS_LOESCHEN on ms450ds0: not sent (a write needs --yes or a y answer)
+```
+
+The question is asked here, on the driving machine, and a `n` means the
+bytes never leave it. `--gateway` takes `host:port`, a bare host (port
+6801 is assumed), or a full `ws://` / `wss://` URL. One client at a time:
+a second connection is refused with a message, and the cable is closed
+when the client goes, so the host machine can use its own port in
+between.
+
+#### From a browser
+
+The app drives a gateway too. Set the address in Settings, under "Cable on
+another machine", or open the page with `?gateway=ws://192.168.1.9:6801`,
+which stores it. The topbar's cable chip then reads
+`cable: gateway 192.168.1.9:6801 (/dev/cu.usbserial-AB0JQ9XY)`, so the car
+never looks local when it is not.
+
+Where this works is a browser rule, not ours: **a page served over http
+(localhost, an offline export opened from a file, an offline copy served
+on your own network) may open a plain `ws://` gateway. The hosted https
+site may not** -- browsers block `ws://` from an https page as mixed
+content, with no override. From https, only a `wss://` gateway works,
+which means putting a TLS front end with a certificate the browser trusts
+in front of it.
+
+#### The protocol
+
+JSON text frames for control, binary frames for the bytes the wire
+carries, so a read crosses as one frame with no base64 and no copy.
+
+| direction      | frame  | meaning                                                                                     |
+| -------------- | ------ | ------------------------------------------------------------------------------------------- |
+| client to host | text   | `{"id":1,"op":"open","config":{"baudRate":9600,"dataBits":8,"stopBits":1,"parity":"even"}}` |
+| client to host | text   | `{"id":2,"op":"close"}`                                                                     |
+| client to host | text   | `{"id":3,"op":"setSignals","signals":{"dataTerminalReady":true}}`                           |
+| client to host | text   | `{"id":4,"op":"getSignals"}`                                                                |
+| client to host | binary | the bytes to write, exactly as given                                                        |
+| host to client | text   | `{"id":1,"ok":true}`, or `{"id":4,"ok":true,"signals":{...}}`                               |
+| host to client | text   | `{"id":2,"ok":false,"error":"..."}`                                                         |
+| host to client | text   | `{"event":"hello","port":"/dev/cu.usbserial-AB0JQ9XY","gateway":"bmweb"}`                   |
+| host to client | binary | bytes as they arrive off the wire, streamed                                                 |
+
+A write needs no reply: the wire has no acknowledgement to give, and the
+transport never waited for one. Reads are streamed as the bytes arrive
+rather than gathered into an answer, so a timeout still means
+time-to-first-byte on the driving machine. `setSignals` keeps the lines it
+does not name, as a local port does. Every failure travels back as the
+same message text a local port would have raised, so the app throws it
+verbatim and cannot tell the difference.
+
+The WebSocket is RFC 6455 with no compression and no extensions, written
+in the package itself (`src/ws.ts`) rather than pulled in, because the
+package promises zero runtime dependencies and Node ships a WebSocket
+client only from version 22 and no server at all.
+
+### `bmweb job <sgbd> <JOB> [arg] [--results a,b] [--info] [--port p] [--gateway h:p] [--yes] [--json]`
 
 One raw job on one module, like the app's Tool32: the SGBD's own bytecode
 runs in the job VM over the cable, inside its EDIABAS session
@@ -397,7 +502,11 @@ results (21)
 A job that writes is headed `[WRITE]` here too, and `bmweb sgbd jobs`
 below lists every job of a module at once.
 
-### `bmweb scan <chassis> [--port p] [--share] [--json]`
+`--gateway <host:port>` runs the same job on a cable another machine is
+serving (see [Gateway](#gateway) below). The write gate does not move: it
+is asked here, on the machine you typed the command on.
+
+### `bmweb scan <chassis> [--port p] [--gateway h:p] [--share] [--json]`
 
 INPA's own whole-vehicle script (E46 E53 E65 E83 E85 E87 E89 E90 R50 R56):
 the script is opened, its fault-memory menu's read key is pressed, and what
@@ -429,7 +538,9 @@ Share: https://bmweb.danner.ink/#report/...
 The script's progress window (which module it is asking) goes to stderr;
 a key that would write is declined, a prompt is cancelled: the scan reads.
 
-### `bmweb tui [<chassis> <sgbd>] [--port p] [--menu m_x]`
+`--gateway <host:port>` scans a car on a cable another machine is serving.
+
+### `bmweb tui [<chassis> <sgbd>] [--port p] [--gateway h:p] [--menu m_x]`
 
 INPA's screens in the terminal. With a chassis and a module (SGBD or INPA
 code, or the chassis itself for its whole-vehicle script), that module's
@@ -469,6 +580,9 @@ performs.
 The module data the script needs (its `.IPO`, the SGBD bytecode, the
 tables) comes from the site's chassis archive, cached as described above.
 
+`--gateway <host:port>` drives a cable another machine is serving. Every
+confirmation still happens here, on your keyboard.
+
 ### Every command
 
 `--json` prints machine-readable output instead of a table. Errors are one
@@ -484,8 +598,10 @@ to `dist/bmweb.js` with esbuild and type-checks with `tsc`; `npm test` runs
 the `node:test` suites the build produced, every one of them offline: the
 serial tests drive the app's bus over a fake cable, the job, scan and tui
 tests drive the app's runtime against a fake car and a scripted terminal,
-with a module script written for the tests in INPA's language. The
-repository's `tools/check.sh` runs all of it.
+with a module script written for the tests in INPA's language, and the
+gateway tests run `job`, `scan` and `tui` a second time through a real
+gateway on a port the OS picks. The repository's `tools/check.sh` runs all
+of it.
 
 Set `BMWEB_VERBOSE=1` to see what the app's runtime logs: the wire trace
 the bus dumps after an error, each variant probe's verdict, the cable

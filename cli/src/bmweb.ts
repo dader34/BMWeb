@@ -478,10 +478,10 @@ export function helpText(): string[] {
     '',
     'ports, gateway, job, scan and tui talk to the car over a K+DCAN cable (the',
     'serialport package, an optional dependency). One machine can own the cable',
-    '(bmweb gateway) while another drives it (--gateway host:port). Module data',
-    'and the search index are',
-    'fetched from the site and cached under $XDG_CACHE_HOME/bmweb-cli',
-    '(default ~/.cache/bmweb-cli) for a day; nothing BMW-derived ships here.'
+    'and serve it (bmweb gateway) while another drives it (--gateway host:port).',
+    'Module data and the search index are fetched from the site and cached under',
+    '$XDG_CACHE_HOME/bmweb-cli (default ~/.cache/bmweb-cli) for a day; nothing',
+    'BMW-derived ships here.'
   );
   return out;
 }
