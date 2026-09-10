@@ -209,6 +209,10 @@ echo "== .IPO reader: a dropped script decodes to the same tokens the exporter s
 node tools/verify/test_ipofile.js || exit 1
 
 echo
+echo "== .IPO writer: a decoded script re-encodes to its own bytes =="
+node tools/verify/test_ipo_encode.js || exit 1
+
+echo
 echo "== INPA source compiler: decompile, recompile, and drive the car the same way =="
 node tools/verify/test_ips_compile.js || exit 1
 

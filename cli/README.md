@@ -1,12 +1,12 @@
 # bmweb-cli
 
 [BMWeb](https://bmweb.danner.ink/)'s tools as a command line. Read what an
-INPA `.IPO` script does, compile an `.IPS` / `.SRC` source, search every
-module the site ships for the key that does a thing, decode or compare the
-report links the app's Garage shares, list what a module's SGBD declares
-(its jobs and their arguments, results and lookup tables), and, with a
-K+DCAN cable, run jobs, read every fault memory of a car, and drive a
-module's INPA screens from the terminal.
+INPA `.IPO` script does, compile an `.IPS` / `.SRC` source into a real
+`.IPO`, search every module the site ships for the key that does a thing,
+decode or compare the report links the app's Garage shares, list what a
+module's SGBD declares (its jobs and their arguments, results and lookup
+tables), and, with a K+DCAN cable, run jobs, read every fault memory of a
+car, and drive a module's INPA screens from the terminal.
 
 The commands run the app's own code: the `.IPO` reader and the source
 compiler, the job search, the Garage report codec, the transport (framing,
@@ -99,7 +99,7 @@ m_main  F10        Back                         DIAGNOSE_ENDE, (exit)
 m_main  Shift+F10  Print                        (printscreen)
 ```
 
-### `bmweb ipo compile <file.IPS> [-I dir]... [-o out]`
+### `bmweb ipo compile <file.IPS> [-I dir]... [-o out] [--exec]`
 
 Compile an INPA source. Includes are looked up beside the script and in
 each `-I` directory, by file name, case-insensitively, the way INPA's own
@@ -108,18 +108,22 @@ tooling finds them; a missing one is named rather than half-compiled.
 ```
 $ bmweb ipo compile MY_SCRIPT.IPS -I ~/INPA/SGDAT
 MY_SCRIPT.IPS: compiled 8 procedures (2 menus, 3 screens, 3 functions, 0 state machines), includes INPA.H
-wrote /home/me/MY_SCRIPT.ipoexec.json (the app's exec form; not INPA's binary .IPO)
+wrote /home/me/MY_SCRIPT.IPO (44902 bytes, INPA's .IPO container)
 
 $ bmweb ipo compile MY_SCRIPT.IPS
 bmweb: MY_SCRIPT.IPS: missing include INPA.H (searched /home/me; pass -I <dir> with the INPA headers)
 ```
 
-What it writes is the form the app runs: the script's procedures as the
-token stream the runtime executes (`{procs, byid}`, the same shape the
-Script runner builds from a dropped file). The app's compiler emits that,
-not INPA's binary container, so the output is not a `.IPO` you could hand
-to INPA itself. The `.IPO` byte writer lives in the repository's Python
-tooling and is not part of this package.
+What it writes is a real `.IPO`: INPA's own binary container, the same
+block layout the shipped scripts use. The writer is the app's own, and it
+is held to reproduction -- every script in a full INPA install decodes and
+re-encodes to its own bytes exactly, so the bytes it writes for a source
+are the bytes that format calls for.
+
+`--exec` writes the app's exec form instead (`{procs, byid}` as JSON, the
+token stream the runtime executes and the same shape the Script runner
+builds from a dropped file), which is what this command wrote before it
+could write the container.
 
 ### `bmweb search <query...> [--chassis E46] [--limit N] [--json]`
 

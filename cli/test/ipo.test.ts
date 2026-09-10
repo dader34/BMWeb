@@ -298,23 +298,46 @@ test('ipo keys: every menu as a table, one menu on request, an unknown menu refu
   assert.equal(json[0].keys[0].jobs[0], 'STATUS_LESEN');
 });
 
-test('ipo compile writes the exec the app runs, and says what it is', () => {
-  const out = join(dir, 'probe.json');
+test('ipo compile writes a real .IPO, and says what it is', () => {
+  const out = join(dir, 'probe.IPO');
   const lines = ipoCompile(join(dir, 'PROBE.IPS'), [inc], out);
   assert.match(
     lines[0] as string,
     /compiled 8 procedures \(2 menus, 3 screens/
   );
-  assert.match(lines[1] as string, /not INPA's binary \.IPO/);
-  const exec = JSON.parse(readFileSync(out, 'utf8'));
-  assert.ok(exec.procs.inpainit, 'the exec has its entry proc');
-  assert.equal(exec.byid['menu:0'], 'm_main');
-  // the default output lands beside the source
+  assert.match(lines[1] as string, /INPA's \.IPO container/);
+  // what landed is the container, not JSON: the version bytes and the magic
+  // the shipped scripts carry, and it decodes back to the procs that went in
+  const bytes = readFileSync(out);
+  assert.equal(bytes[0], 5, 'the v5 major version byte');
+  assert.equal(bytes[1], 0, 'and its minor');
+  assert.equal(
+    bytes.subarray(2, 15).toString('latin1'),
+    'TEST-Infotext',
+    'the magic every shipped script carries'
+  );
+  const R = loadRuntime();
+  const back = R.ipofDecodeExec(new Uint8Array(bytes), 'PROBE');
+  assert.ok(back.procs.inpainit, 'the entry proc survives the round trip');
+  assert.equal(back.byid['menu:0'], 'm_main');
+  // the default output lands beside the source, named .IPO
   ipoCompile(join(dir, 'PROBE.IPS'), [inc], undefined);
-  assert.ok(readFileSync(join(dir, 'PROBE.ipoexec.json')).length > 0);
+  assert.ok(readFileSync(join(dir, 'PROBE.IPO')).length > 0);
   // compile takes sources only
   assert.throws(
     () => ipoCompile(join(dir, 'bad.IPO'), [], undefined),
     CliError
   );
+});
+
+test('ipo compile --exec keeps the app exec form', () => {
+  const out = join(dir, 'probe.json');
+  const lines = ipoCompile(join(dir, 'PROBE.IPS'), [inc], out, true);
+  assert.match(lines[1] as string, /not INPA's binary \.IPO/);
+  const exec = JSON.parse(readFileSync(out, 'utf8'));
+  assert.ok(exec.procs.inpainit, 'the exec has its entry proc');
+  assert.equal(exec.byid['menu:0'], 'm_main');
+  // and its default name is the JSON one, not the container's
+  ipoCompile(join(dir, 'PROBE.IPS'), [inc], undefined, true);
+  assert.ok(readFileSync(join(dir, 'PROBE.ipoexec.json')).length > 0);
 });

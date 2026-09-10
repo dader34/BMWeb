@@ -655,32 +655,57 @@ export function ipoKeys(
 }
 
 /**
- * `ipo compile`: compile a source and write the exec the app runs.
+ * `ipo compile`: compile a source and write the compiled script.
  *
- * What is written is the runtime's own form of the script (the {procs,
- * byid} token exec the Script runner and the shipped data use), as JSON.
- * The app's compiler emits tokens, not INPA's binary container; the byte
- * writer is in the repo's Python tooling and is not part of this package.
+ * What is written by default is a real `.IPO` -- INPA's own binary
+ * container, the same block layout the shipped scripts use, written by
+ * the app's own encoder. `--exec` writes the runtime's token form
+ * (`{procs, byid}` as JSON) instead, which is what the Script runner and
+ * the shipped data hold and what an earlier version of this command wrote.
  * @param file - the source path
  * @param includeDirs - -I directories
- * @param out - the output path, or undefined for <stem>.ipoexec.json beside the source
+ * @param out - the output path, or undefined for <stem>.IPO beside the source
+ * @param exec - write the token exec as JSON instead of .IPO bytes
  * @returns the lines to print
  */
 export function ipoCompile(
   file: string,
   includeDirs: string[],
-  out: string | undefined
+  out: string | undefined,
+  exec = false
 ): string[] {
   const R = loadRuntime();
   const name = basename(file);
   if (!R.ipofIsSource(name))
     throw new CliError(`${name}: compile takes a .IPS or .SRC source`);
   const s = readScript(file, includeDirs);
-  const target = out || join(dirname(resolve(file)), `${s.stem}.ipoexec.json`);
-  try {
-    writeFileSync(target, JSON.stringify(s.exec));
-  } catch {
-    throw new CliError(`cannot write ${target}`);
+  const ext = exec ? 'ipoexec.json' : 'IPO';
+  const target = out || join(dirname(resolve(file)), `${s.stem}.${ext}`);
+  let wrote: string;
+  if (exec) {
+    try {
+      writeFileSync(target, JSON.stringify(s.exec));
+    } catch {
+      throw new CliError(`cannot write ${target}`);
+    }
+    wrote = `wrote ${target} (the app's exec form; not INPA's binary .IPO)`;
+  } else {
+    // The encoder refuses what it cannot represent rather than writing a file
+    // INPA would misread, so its message is the one worth showing.
+    let bytes: Uint8Array;
+    try {
+      bytes = R.ipofEncode(s.exec);
+    } catch (err) {
+      throw new CliError(
+        `${name}: cannot write a .IPO -- ${(err as Error).message}`
+      );
+    }
+    try {
+      writeFileSync(target, bytes);
+    } catch {
+      throw new CliError(`cannot write ${target}`);
+    }
+    wrote = `wrote ${target} (${bytes.length} bytes, INPA's .IPO container)`;
   }
   const inv = R.ipofInventory(s.exec);
   return [
@@ -688,6 +713,6 @@ export function ipoCompile(
       `(${inv.menus.length} menus, ${inv.screens.length} screens, ` +
       `${inv.funcs.length} functions, ${inv.machines.length} state machines)` +
       (s.includes.length ? `, includes ${s.includes.join(', ')}` : ''),
-    `wrote ${target} (the app's exec form; not INPA's binary .IPO)`,
+    wrote,
   ];
 }

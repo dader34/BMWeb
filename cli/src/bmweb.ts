@@ -122,15 +122,19 @@ const COMMANDS: Record<string, Command> = {
   },
   'ipo compile': {
     usage:
-      'bmweb ipo compile <file.IPS|file.SRC> [-I dir]... [-o out.ipoexec.json]',
+      'bmweb ipo compile <file.IPS|file.SRC> [-I dir]... [-o out.IPO] [--exec]',
     summary:
-      "compile an INPA source into the app's exec form (JSON); missing includes are named",
+      "compile an INPA source into a real .IPO (or --exec for the app's token form); missing includes are named",
     flags: {
       ...INCLUDE,
       out: {
         kind: 'string',
         alias: 'o',
-        help: 'where to write (default: <stem>.ipoexec.json beside the source)',
+        help: 'where to write (default: <stem>.IPO beside the source)',
+      },
+      exec: {
+        kind: 'bool',
+        help: "write the app's exec form as JSON instead of .IPO bytes",
       },
     },
     async run(pos, flags) {
@@ -142,7 +146,8 @@ const COMMANDS: Record<string, Command> = {
       return ipoCompile(
         file,
         (flags.include as string[]) || [],
-        flags.out as string | undefined
+        flags.out as string | undefined,
+        !!flags.exec
       );
     },
   },

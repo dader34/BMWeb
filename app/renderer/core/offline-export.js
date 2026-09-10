@@ -60,6 +60,7 @@ const OFFLINE_SHELL = [
   'core/ipofile/decls.js',
   'core/ipofile/walk.js',
   'core/ipofile/exec.js',
+  'core/ipofile/encode.js',
   'core/ipofile/lex.js',
   'core/ipofile/parse.js',
   'core/ipofile/emit.js',

@@ -6,7 +6,157 @@
  * {ecu, procs, byid} shape. The runtime cannot tell a dropped file's exec
  * from a shipped data/inpa-ir dump, which is the whole point -- a script the
  * user supplies runs through the identical path, wire policy included.
+ *
+ * The token walk is a SCAN, not a parse: it hunts for declaration names and
+ * infers proc bounds from where the next one starts. That is what the VM does
+ * and what the shipped dumps were made with, so it stays. Alongside it,
+ * ipofReadContainer reads the file the way its own header says to -- a plain
+ * list of blocks -- and the result rides on the exec as `container` so
+ * ipofEncode can put every byte back exactly where it was, including the
+ * header fields no token has room for.
  */
+
+/**
+ * The block types whose payload is `size` 4-byte instruction words.
+ * @type {Object<number, boolean>}
+ */
+const IPOF_CODE_BLOCKS = {
+  0x01: true,
+  0x02: true,
+  0x03: true,
+  0x05: true,
+  0x21: true,
+  0x22: true,
+  0x23: true,
+  0x24: true,
+  0x25: true,
+};
+
+/**
+ * How many bytes the constant pool's `size` entries occupy.
+ *
+ * The two dialects number their literals differently -- v1.x calls a string 04
+ * and an int 02, v5.x calls them 06 and 03 -- so the version picks the widths.
+ * Getting this wrong walks off the end of the pool and mis-frames every block
+ * after it, which is why the version is threaded in rather than guessed.
+ *
+ * @param {Uint8Array} data The file bytes.
+ * @param {number} at The first pool byte.
+ * @param {number} count How many entries the header declares.
+ * @param {number} verHi The container's major version.
+ * @returns {number} The pool's byte length.
+ */
+function ipofPoolLen(data, at, count, verHi) {
+  const width =
+    verHi === 1
+      ? { 0x01: 1, 0x02: 2, 0x03: 4, 0x05: 8 }
+      : {
+          0x01: 1,
+          0x02: 1,
+          0x03: 2,
+          0x04: 4,
+          0x05: 8,
+          0x07: 4,
+          0x08: 4,
+          0x09: 4,
+        };
+  const strTag = verHi === 1 ? 0x04 : 0x06;
+  let i = at;
+  for (let k = 0; k < count; k += 1) {
+    if (i >= data.length) throw new Error('constant pool truncated');
+    const t = data[i];
+    i += 1;
+    if (t === strTag) {
+      const j = ipofFindNl(data, i, data.length);
+      if (j < 0) throw new Error('unterminated pool string');
+      i = j + 1;
+      continue;
+    }
+    const n = width[t];
+    if (n === undefined)
+      throw new Error(`unknown constant type 0x${t.toString(16)}`);
+    i += n;
+  }
+  return i - at;
+}
+
+/**
+ * Read the .IPO as the block container it is.
+ *
+ * Every block is self-delimiting -- its header names the payload length -- so
+ * the file tiles exactly, with no gaps and no padding. Reading it this way
+ * keeps the fields the token walk has nowhere to put: each block's marker, its
+ * id, and the type byte that says whether a screen's section is its SCREENFUNC
+ * or one of its LINEFUNCs.
+ *
+ * @param {Uint8Array} data The file bytes.
+ * @returns {{verHi: number, verLo: number, magic: string,
+ *   blocks: Object[], globals: Uint8Array}|null} The container, or null when
+ *   the bytes are not one.
+ */
+function ipofReadContainer(data) {
+  try {
+    if (data.length < 4) return null;
+    const verHi = data[0];
+    const verLo = data[1];
+    const m = ipofFindNl(data, 2, data.length);
+    if (m < 0) return null;
+    const magic = ipofLatin1(data, 2, m);
+    let i = m + 1;
+    const blocks = [];
+    let globals = new Uint8Array(0);
+    while (i < data.length) {
+      const type = data[i];
+      i += 1;
+      const n1 = ipofFindNl(data, i, data.length);
+      if (n1 < 0) return null;
+      const name = ipofLatin1(data, i, n1);
+      i = n1 + 1;
+      if (i + 4 > data.length) return null;
+      const id = ipofUint(data, i, 2);
+      const flags = ipofUint(data, i + 2, 2);
+      i += 4;
+      const n2 = ipofFindNl(data, i, data.length);
+      if (n2 < 0) return null;
+      const arg1 = ipofLatin1(data, i, n2);
+      i = n2 + 1;
+      const n3 = ipofFindNl(data, i, data.length);
+      if (n3 < 0) return null;
+      const arg2 = ipofLatin1(data, i, n3);
+      i = n3 + 1;
+      if (i + 3 > data.length) return null;
+      const marker = data[i];
+      const size = ipofUint(data, i + 1, 2);
+      i += 3;
+      let plen;
+      if (IPOF_CODE_BLOCKS[type]) plen = size * 4;
+      else if (type === 0x11) plen = size;
+      else if (type === 0x04) plen = size * 12;
+      else if (type === 0x12) plen = ipofPoolLen(data, i, size, verHi);
+      else plen = size;
+      if (i + plen > data.length) return null;
+      const payload = data.subarray(i, i + plen);
+      if (type === 0x11) globals = payload;
+      blocks.push({
+        type,
+        name,
+        id,
+        flags,
+        arg1,
+        arg2,
+        marker,
+        size,
+        payload,
+      });
+      i += plen;
+    }
+    return { verHi, verLo, magic, blocks, globals };
+  } catch (err) {
+    // a file that does not tile is not a container; the token scan still runs
+    void err;
+    return null;
+  }
+}
 
 /**
  * Decode one .IPO into its runnable exec object.
@@ -68,6 +218,9 @@ function ipofDecodeExec(data, stem) {
     imports: meta.imports,
     unknown,
     bytes,
+    // the file as its own header describes it, so it can be written back
+    // unchanged; null when the bytes do not tile as a block container
+    container: ipofReadContainer(data),
   };
 }
 
@@ -154,6 +307,8 @@ function ipofStem(name) {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     ipofDecodeExec,
+    ipofReadContainer,
+    ipofPoolLen,
     ipofInventory,
     ipofReadBytes,
     ipofIsCompiled,
