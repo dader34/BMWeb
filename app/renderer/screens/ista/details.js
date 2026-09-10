@@ -64,10 +64,12 @@ function istaKm(km) {
  * @param {string} chassis - the chassis id
  * @param {(t: string) => void} [say] - progress callback
  * @returns {Promise<{vin: string|null, km: number|null, fa: object|null,
- *   prod: number, sources: number}>}
+ *   prod: number, etk: object|null, sources: number}>} etk is the parts
+ *   catalogue's decode of the read VIN (model, body, motor), the same decode
+ *   the Garage saved its own columns from
  */
 async function istaReadCar(chassis, say) {
-  const out = { vin: null, km: null, fa: null, prod: 0, sources: 0 };
+  const out = { vin: null, km: null, fa: null, prod: 0, etk: null, sources: 0 };
   if (typeof viIdentityModulesCached !== 'function') return out;
   const id = String(chassis || '').toUpperCase();
   try {
@@ -103,10 +105,12 @@ async function istaReadCar(chassis, say) {
       if (out.km == null && col.km != null) out.km = col.km;
       if (!out.fa && col.fa) out.fa = col.fa;
     }
-    // the build date, for the dated SA names (BMW reused option numbers)
+    // the parts catalogue's decode of the VIN: model, body, engine and the
+    // build date (which also dates the SA names, BMW reused option numbers)
     if (out.vin && typeof viEtkDecode === 'function') {
       try {
         const etk = await viEtkDecode(out.vin);
+        if (etk) out.etk = etk;
         if (etk && etk.prod) out.prod = etk.prod;
       } catch (e) {
         /* the parts index is optional */
@@ -156,21 +160,26 @@ async function istaShowDetails(host, car, chassis) {
       ? etkYearMonth(String(read.prod))
       : '';
   const fa = read.fa;
+  const etk = read.etk;
+  // Model, body and engine are the parts catalogue's decode of the VIN on
+  // BOTH sides (the Garage saved its columns from the same decode), so the
+  // rows compare like with like; the raw type key gets its own row
+  const bodyText = (b) =>
+    b && typeof bodyLabel === 'function' ? bodyLabel(b) : b || '';
   const rows =
     istaDetailRow('VIN', (car && car.vin) || '', read.vin || '') +
     istaDetailRow('Chassis', disp, fa && fa.br ? fa.br : '') +
+    istaDetailRow('Type key', '', fa && fa.typ ? fa.typ : '') +
+    istaDetailRow('Model', (car && car.model) || '', (etk && etk.model) || '') +
     istaDetailRow(
-      'Model',
-      (car && car.model) || '',
-      fa && fa.typ ? fa.typ : ''
+      'Engine',
+      (car && car.motor) || '',
+      (etk && etk.motor) || ''
     ) +
-    istaDetailRow('Engine', (car && car.motor) || '', '') +
     istaDetailRow(
       'Body',
-      car && car.body && typeof bodyLabel === 'function'
-        ? bodyLabel(car.body)
-        : (car && car.body) || '',
-      ''
+      bodyText(car && car.body),
+      bodyText(etk && etk.body)
     ) +
     istaDetailRow('Build date', savedProd, readProd || (fa && fa.date) || '') +
     istaDetailRow('Paint', '', fa && fa.lack ? fa.lack : '') +
