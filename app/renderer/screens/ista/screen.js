@@ -206,14 +206,6 @@ function istaOpenModules() {
 }
 
 /**
- * The logging workspace for this car.
- * @returns {Promise<void>}
- */
-function istaOpenLogging() {
-  return showLoggingChassis(istaChassis());
-}
-
-/**
  * Await a probe, treating a throw as "no".
  *
  * Every readiness check below asks something optional -- does a tree ship for
@@ -755,7 +747,6 @@ if (typeof window !== 'undefined') {
   window.istaOpenLatestReport = istaOpenLatestReport;
   window.istaOpenIdentity = istaOpenIdentity;
   window.istaOpenModules = istaOpenModules;
-  window.istaOpenLogging = istaOpenLogging;
 }
 
 if (typeof module !== 'undefined' && module.exports) {

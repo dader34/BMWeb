@@ -218,25 +218,6 @@ const ISTA_TABS = [
     ],
   },
   {
-    id: 'measuring',
-    label: 'Measuring devices',
-    desc: 'Chart live readings while the car runs',
-    subs: [
-      {
-        id: 'logging',
-        label: 'Data logging',
-        desc: 'Chart live readings from any module while you drive (read only)',
-        open: 'istaOpenLogging',
-        needsCar: true,
-      },
-      {
-        id: 'imib',
-        label: 'Measurement hardware',
-        why: 'IMIB and the MIB measuring heads are BMW hardware this app cannot drive',
-      },
-    ],
-  },
-  {
     id: 'workshop',
     label: 'Workshop',
     desc: 'Technical data, tightening torques, operating fluids and special tools',
