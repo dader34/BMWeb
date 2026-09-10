@@ -201,7 +201,8 @@ function istaOpenIdentity() {
 function istaOpenModules() {
   const id = istaChassis();
   if (typeof inpaMode === 'function' && inpaMode())
-    return showScriptSelection(id);
+    // aborting INPA's picker leaves the popup, not the shell
+    return showScriptSelection(id, () => showIsta(istaState.tab, null));
   return showSections(id);
 }
 
