@@ -243,7 +243,7 @@ const ISTA_TABS = [
     subs: [
       {
         id: 'equipment',
-        label: 'Workshop equipment',
+        label: 'Workshop / Operating fluids',
         desc: 'Browse the reference documents by category, filtered to this car',
         page: 'techdata',
         needsCar: true,
