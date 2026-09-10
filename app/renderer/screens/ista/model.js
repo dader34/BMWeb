@@ -210,7 +210,7 @@ const ISTA_TABS = [
       },
       {
         id: 'resets',
-        label: 'Service resets',
+        label: 'Service functions',
         desc: 'Only the service-interval resets this chassis carries',
         open: 'istaOpenServiceResets',
         needsCar: true,
