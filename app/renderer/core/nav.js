@@ -113,6 +113,31 @@ async function showChassis() {
   appsCard.onclick = () => showApps();
   view.appendChild(appsCard);
 
+  // VIN Decoder: the last 7 characters of a VIN (the production number) resolve
+  // straight to the exact variant. The box lived only under Apps -> Parts, so
+  // owners could not find where to type their VIN; surface it on the home
+  // screen next to Apps, spelling out the last-7 shortcut in the description.
+  if (typeof showVinDecoder === 'function') {
+    const vinCard = document.createElement('button');
+    vinCard.className = 'lookup-entry etk-vin-entry';
+    vinCard.innerHTML = `
+      <span class="lookup-entry-icon">⌗</span>
+      <span class="lookup-entry-text">
+        <span class="lookup-entry-title">VIN Decoder</span>
+        <span class="lookup-entry-desc">Enter your VIN, or just its last 7 characters, to identify your exact vehicle</span>
+      </span>
+      <span class="lookup-entry-arrow">→</span>`;
+    vinCard.onclick = () =>
+      showVinDecoder({
+        back: showChassis,
+        crumbs: [
+          { label: 'Vehicles', fn: showChassis },
+          { label: 'VIN Decoder' },
+        ],
+      });
+    view.appendChild(vinCard);
+  }
+
   // Garage: the cars this user keeps, and the scan history read from each.
   // Above the chassis grid because a returning owner wants their own car, not
   // the list of every chassis the app supports.

@@ -268,6 +268,42 @@ function wiringBindCrossLinks(art, ctx) {
 }
 
 /**
+ * Cross-links inside a schematic. BMW's SVGs carry <a> elements pointing at
+ * other WDS documents ("...file=SP1234.htm"), but unlike the HTML descriptions
+ * their targets are never rewritten at import time -- the .svgz is stored
+ * verbatim -- so left alone a click would leave the app (or 404). Extract the
+ * same "<id>.htm" the description path rewrites to "#wds/<id>" and rebind the
+ * anchor to open that document as a tab, exactly like wiringBindCrossLinks.
+ * @param {SVGElement} svg - the injected schematic
+ * @param {WiringViewCtx} ctx - the open view
+ * @returns {void}
+ */
+function wiringBindSvgLinks(svg, ctx) {
+  const XLINK = 'http://www.w3.org/1999/xlink';
+  svg.querySelectorAll('a').forEach((a) => {
+    const raw =
+      a.getAttribute('xlink:href') ||
+      a.getAttributeNS(XLINK, 'href') ||
+      a.getAttribute('href');
+    if (!raw) return;
+    const m = raw.match(/(?:file=)?([A-Za-z0-9_.-]+)\.htm/i);
+    if (!m) return;
+    const target = m[1];
+    // drop the original target so the anchor can't navigate the frame away
+    a.removeAttribute('href');
+    a.removeAttribute('xlink:href');
+    a.removeAttributeNS(XLINK, 'href');
+    a.style.cursor = 'pointer';
+    a.addEventListener('click', (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      const hit = ctx.index.find((e) => e.doc === target);
+      ctx.tabs.openTab(hit || { name: target, kind: 'document', doc: target });
+    });
+  });
+}
+
+/**
  * The F-keys while a schematic is up: zoom in/out/fit, plus Print and Back
  * again -- this list replaces browseActions, and Cmd/Ctrl+P and the mobile
  * ƒ sheet read THIS list.
@@ -346,6 +382,8 @@ function wiringRenderSchematic(ctx, bar, doc) {
   // drop BMW's per-drawing <title> ("...Copyright BMW AG 2004"): it's an SVG
   // tooltip, so hovering popped a copyright notice. Name's in the bar.
   svg.querySelectorAll(':scope > title').forEach((t) => t.remove());
+  // component/connector cross-links in the drawing open in-app, never the frame
+  wiringBindSvgLinks(svg, ctx);
   // WDS kept zoom buttons in the footer; the modern layout on the bar
   const zoomHost = ctx.classic
     ? ctx.split.querySelector('#wds-zoomgroup')
