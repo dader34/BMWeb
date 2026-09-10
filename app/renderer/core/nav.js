@@ -240,9 +240,11 @@ async function showChassis() {
  * The INPA script-selection popup for a chassis (falls back to the sections
  * screen when the config cannot load).
  * @param {string} chassisId - Chassis id (E46, ...).
+ * @param {(() => void)|null} [onAbort] - where Esc or a click outside goes
+ *   (INPA's vehicle-select screen unless the caller, the ISTA shell, says)
  * @returns {Promise<void>}
  */
-async function showScriptSelection(chassisId) {
+async function showScriptSelection(chassisId, onAbort) {
   setStateSgbd(null); // reset the battery/ignition poll target now, re-aim below (screens/sweep/autoscan.js)
   let ch;
   try {
@@ -264,7 +266,8 @@ async function showScriptSelection(chassisId) {
       }
     },
     onClose: (val) => {
-      if (val === 'abort') showChassis();
+      if (val === 'abort')
+        (typeof onAbort === 'function' ? onAbort : showChassis)();
     },
     backdropValue: 'abort',
   };

@@ -49,6 +49,9 @@ const APPS_ROUTES = {
     typeof showWiringChassis === 'function' ? showWiringChassis() : null,
   // the app's home as an INPA script (screens/ipo-runtime/home.js)
   inpa: () => (typeof showIpoHome === 'function' ? showIpoHome() : null),
+  // workshop mode (screens/ista/). Top-level like garage and inpa: it is a
+  // mode over the whole app, not one more app under the hub.
+  ista: () => (typeof showIsta === 'function' ? showIsta() : null),
 };
 
 // The reverse map: which route a given show*() belongs to, so navigating by
@@ -84,6 +87,19 @@ const ROUTE_FOR_SCREEN = {
 function resolveRoute(route) {
   const exact = APPS_ROUTES[route];
   if (exact) return exact;
+  // #ista/<TAB>[/<SUB>[/<CAR>]] -- workshop mode, on a tab. The car is last
+  // and optional: a link someone sends should still open the right tab on a
+  // machine where that local car id means nothing.
+  const is =
+    /^ista\/([A-Za-z0-9_-]+)(?:\/([A-Za-z0-9_-]+))?(?:\/([A-Za-z0-9_-]+))?$/.exec(
+      route
+    );
+  if (is && typeof showIsta === 'function') {
+    const tab = decodeURIComponent(is[1]);
+    const sub = is[2] ? decodeURIComponent(is[2]) : null;
+    const car = is[3] ? decodeURIComponent(is[3]) : null;
+    return () => showIsta(tab, sub, null, car);
+  }
   // #car/<CHASSIS>[/<SGBD>[/<MENU>[/<SCREEN>]]] -- the vehicle side. The
   // module is keyed by SGBD (stable, unlike a display label) and the submenu
   // by its IR menu name, which is the same key the live runtime navigates by.
@@ -236,6 +252,23 @@ function currentRoute() {
 function routeSyncFromScreen(fn) {
   if (_routing) return; // we are already navigating by URL
   const name = fn && fn.name;
+  // Leaving workshop mode. The ISTA shell is chrome around #view rather than
+  // a screen in it, so nothing about a normal screen render would take it
+  // down -- it would sit there describing a car the user has left. Every
+  // screen passes through here exactly once per render, which makes this the
+  // one place that always notices.
+  //
+  // The shell's OWN wrapped screens come through here too, and they must not
+  // trip it: istaOpening is set while the shell is deliberately opening one.
+  // So the rule is "a screen rendered while the shell is up, that the shell
+  // did not ask for, means the user left".
+  if (
+    typeof istaChromeActive === 'function' &&
+    istaChromeActive() &&
+    !(typeof istaOpening === 'function' && istaOpening())
+  ) {
+    istaChromeHide();
+  }
   const route = ROUTE_FOR_SCREEN[name];
   if (route === undefined) {
     // Not a routed Apps screen. If it's an explicit exit (home / settings),
@@ -325,6 +358,14 @@ function _onLocationChange() {
   if (_routing) return; // our own hash write; ignore
   const route = currentRoute();
   if (route === _openRoute) return; // already on this screen; no-op
+  // the ISTA shell opening a wrapped screen: that screen writes its own
+  // route mid-render and the shell re-stamps it after; replaying either
+  // here would open the screen a second time, without what the shell asked
+  // for (the tree's live read was lost this way)
+  if (typeof istaOpening === 'function' && istaOpening()) {
+    _openRoute = route;
+    return;
+  }
   const open = resolveRoute(route);
   if (open) {
     _routing = true;

@@ -25,7 +25,7 @@
 const SERVICE_STAGGER = 14;
 
 /** The screen's chassis choice, kept across re-entries within a visit. */
-const serviceState = { chassis: '' };
+const serviceState = { chassis: '', category: '' };
 
 /**
  * The chassis the app should open on when none is named: the Garage's car
@@ -185,9 +185,23 @@ function serviceRow(task, hits, chassis) {
  */
 function serviceRenderList(host, index, chassis) {
   host.innerHTML = '';
-  const groups = serviceTasksFor(index, chassis);
+  const groups = serviceTasksFor(index, chassis).filter(
+    (g) => !serviceState.category || g.category === serviceState.category
+  );
   let available = 0;
   let total = 0;
+  // a caller may show one category only (the ISTA shell's Service plan
+  // lists just the service resets); the chip says so and lets it go
+  if (serviceState.category) {
+    const chip = document.createElement('div');
+    chip.className = 'service-filter-chip';
+    chip.innerHTML = `Showing <b>${esc(serviceState.category)}</b> only <button type="button" class="btn btn-small service-filter-clear">Show all</button>`;
+    chip.querySelector('.service-filter-clear').onclick = () => {
+      serviceState.category = '';
+      serviceRenderList(host, index, chassis);
+    };
+    host.appendChild(chip);
+  }
   for (const { category, tasks } of groups) {
     const sec = document.createElement('div');
     sec.className = 'service-group';
@@ -230,12 +244,14 @@ function serviceEmptyHtml() {
  * The Service functions screen.
  * @param {string|null} [chassis] - a chassis from the route (#apps/service/<C>)
  * @param {string|null} [taskId] - a task to scroll to (#apps/service/<C>/<task>)
+ * @param {string|null} [category] - show this category only ('' for all)
  * @returns {Promise<void>}
  */
-async function showService(chassis, taskId) {
+async function showService(chassis, taskId, category) {
   if (typeof cancelSweep === 'function') cancelSweep();
   if (typeof chassis === 'string' && chassis)
     serviceState.chassis = chassis.toUpperCase();
+  if (category !== undefined) serviceState.category = category || '';
   lastScreen = () => showService(serviceState.chassis);
   setCrumbs([
     { label: 'Vehicles', fn: showChassis },

@@ -9951,3 +9951,955 @@ body.remote-helper::after {
   display: none;
 }
 
+/* ===========================================================================
+   ISTA SHELL (workshop mode). Chrome that stays up while the app's own
+   screens render underneath it: a banner naming the car, a tab bar, and a
+   strip of sub-tabs. Everything below the strip is an ordinary screen and is
+   NOT restyled from here -- the shell frames the app, it does not repaint it.
+
+   Every colour is a theme token, so the chrome follows the skin rather than
+   fighting it. ISTA's own look (a light banner over dark tabs) survives as
+   PROPORTION and SHAPE -- a wide quiet header, pill sub-tabs, a rule under
+   the bar -- which read the same on the instrument, INPA and brackets skins.
+   =========================================================================== */
+
+/* The chrome is a sibling of .view, and .view is absolutely positioned, so
+   the chrome is too: it owns the top strip and hands the rest to the screen.
+   --ista-h is what the two agree on; the media queries below re-declare it
+   and .view follows automatically. */
+body.ista-mode {
+  --ista-h: 104px;
+}
+.ista-chrome {
+  position: absolute;
+  inset: 56px 0 auto 0;
+  height: var(--ista-h);
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+  box-sizing: border-box;
+}
+.ista-chrome[hidden] {
+  display: none;
+}
+/* the screen starts under the chrome. The F-key bar stays: unlike the Apps
+   hub, a workshop screen's keys are the real controls of whatever is open. */
+body.ista-mode .view {
+  inset: calc(56px + var(--ista-h)) 0 52px 0;
+  padding-top: 22px;
+}
+
+/* ---- the banner ---------------------------------------------------------- */
+.ista-banner {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 20px;
+  min-height: 44px;
+  background: var(--panel-2);
+  border-bottom: 1px solid var(--line);
+  box-sizing: border-box;
+}
+.ista-banner-id {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex: none;
+  min-width: 0;
+}
+.ista-car-pick {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 3px 8px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--raised);
+  color: var(--ink);
+  font-family: var(--display);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  max-width: 320px;
+}
+.ista-car-pick:hover {
+  border-color: var(--amber);
+  color: var(--amber);
+}
+.ista-car-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ista-car-caret {
+  font-size: 10px;
+  color: var(--ink-faint);
+  flex: none;
+}
+.ista-chassis {
+  font-family: var(--display);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--amber);
+  text-transform: uppercase;
+  flex: none;
+}
+/* the VIN in full, as the Garage shows it: this is the owner's own car on
+   the owner's own machine, and a banner whose VIN is starred out cannot be
+   checked against the plate. (Shared links and beta reports DO mask it.) */
+.ista-vin {
+  font-size: 12px;
+  color: var(--ink-dim);
+  letter-spacing: 0.04em;
+  flex: none;
+}
+.ista-banner-desc {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--ink-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ista-banner-state {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex: none;
+  margin-left: auto;
+}
+.ista-kl {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+}
+.ista-kl-name {
+  font-family: var(--display);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--ink-faint);
+}
+.ista-kl-led {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--line-bright);
+  border: 1px solid var(--line);
+  flex: none;
+}
+.ista-kl-led.on {
+  background: var(--green);
+  border-color: var(--green);
+  box-shadow: 0 0 6px var(--green);
+}
+.ista-kl-val {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-dim);
+  min-width: 42px;
+}
+
+/* ---- the tab bar --------------------------------------------------------- */
+.ista-tabs {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  flex: none;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  background: var(--bg);
+}
+.ista-tabs::-webkit-scrollbar {
+  display: none;
+}
+.ista-tab {
+  flex: none;
+  padding: 0 16px;
+  height: 30px;
+  border: 0;
+  border-right: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink-dim);
+  font-family: var(--display);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.ista-tab:hover {
+  color: var(--ink);
+  background: var(--panel);
+}
+.ista-tab.on {
+  color: var(--amber-ink);
+  background: var(--amber);
+}
+.ista-tab-home {
+  font-size: 15px;
+  padding: 0 12px;
+}
+
+/* ---- the sub-tab strip --------------------------------------------------- */
+.ista-subs {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex: none;
+  padding: 6px 14px;
+  /* no clipping here: the star's tooltip must be free to hang below the
+     row; the bar only scrolls (and so clips) on a narrow screen */
+  overflow: visible;
+}
+@media (max-width: 720px) {
+  .ista-subs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+  }
+  .ista-subs::-webkit-scrollbar {
+    display: none;
+  }
+}
+.ista-sub-wrap {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+}
+.ista-sub {
+  padding: 4px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px 0 0 999px;
+  border-right: 0;
+  background: var(--panel-2);
+  color: var(--ink-dim);
+  font-family: var(--display);
+  font-size: 11.5px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.ista-sub:hover {
+  color: var(--ink);
+  border-color: var(--line-bright);
+}
+.ista-sub.on {
+  background: var(--amber-glow);
+  border-color: var(--amber);
+  color: var(--ink);
+  font-weight: 600;
+}
+.ista-star {
+  /* one glyph, one box, whatever its state: pinned is a colour, not a
+     different character, so every star on the row is the same size */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  align-self: stretch;
+  padding: 0 6px 0 4px;
+  border: 1px solid var(--line);
+  border-radius: 0 999px 999px 0;
+  border-left: 0;
+  background: var(--panel-2);
+  color: var(--ink-faint);
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+}
+.ista-star:not(.on) {
+  opacity: 0.55;
+}
+.ista-star:not(.on):hover {
+  opacity: 1;
+}
+.ista-star:hover {
+  color: var(--amber);
+}
+.ista-star.on {
+  color: var(--amber);
+}
+.ista-sub.on + .ista-star {
+  background: var(--amber-glow);
+  border-color: var(--amber);
+}
+
+/* ---- the shell's home: the tabs as cards, for the keyboard --------------- */
+.ista-home-note {
+  margin: 0 0 22px;
+  font-size: 13px;
+  color: var(--ink-dim);
+  max-width: 70ch;
+}
+.ista-home-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 18px;
+}
+.ista-card {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  padding: 14px 16px 8px;
+}
+.ista-card-title {
+  margin: 0 0 3px;
+  font-family: var(--display);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--amber);
+}
+.ista-card-desc {
+  margin: 0 0 10px;
+  font-size: 12px;
+  color: var(--ink-faint);
+}
+.ista-card-rows {
+  display: flex;
+  flex-direction: column;
+}
+.ista-row {
+  display: grid;
+  grid-template-columns: minmax(0, auto) 1fr auto;
+  align-items: baseline;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 6px;
+  border: 0;
+  border-top: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--display);
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+}
+.ista-row:hover {
+  background: var(--amber-glow);
+}
+.ista-row-label {
+  font-weight: 600;
+  white-space: nowrap;
+}
+.ista-row-desc {
+  font-size: 11.5px;
+  color: var(--ink-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ista-row-arrow {
+  color: var(--amber);
+  font-size: 12px;
+}
+/* a greyed row still says WHY, in the slot the description would have used */
+.ista-row-off {
+  cursor: default;
+  opacity: 0.55;
+}
+.ista-row-off:hover {
+  background: transparent;
+}
+.ista-row-off .ista-row-desc {
+  font-style: italic;
+}
+.ista-row-none {
+  padding: 8px 6px;
+  border-top: 1px solid var(--line);
+  font-size: 11.5px;
+  color: var(--ink-faint);
+  font-style: italic;
+}
+
+/* ---- the two pages the shell draws itself -------------------------------- */
+.ista-page-title {
+  margin: 0 0 4px;
+  font-family: var(--display);
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--ink);
+}
+.ista-page-note {
+  margin: 0 0 18px;
+  font-size: 12.5px;
+  color: var(--ink-dim);
+  max-width: 74ch;
+}
+.ista-page-foot {
+  margin: 14px 0 0;
+  font-size: 11.5px;
+  color: var(--ink-faint);
+}
+.ista-wait {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 18px 0;
+  font-size: 12.5px;
+  color: var(--ink-dim);
+}
+.ista-none-box {
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  font-size: 12.5px;
+  color: var(--ink-dim);
+  max-width: 74ch;
+}
+.ista-details {
+  border-collapse: collapse;
+  width: 100%;
+  max-width: 780px;
+  font-size: 12.5px;
+}
+.ista-details th,
+.ista-details td {
+  padding: 7px 12px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: baseline;
+}
+.ista-details thead th {
+  font-family: var(--display);
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  border-bottom: 1px solid var(--line-bright);
+}
+.ista-details tbody th {
+  font-weight: 600;
+  color: var(--ink-dim);
+  width: 150px;
+}
+.ista-details tbody td {
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 12px;
+}
+.ista-none {
+  color: var(--ink-faint);
+}
+.ista-match {
+  color: var(--green);
+}
+/* the saved and the read columns disagreeing is a FINDING (a cluster swap, a
+   mis-typed VIN, the wrong car picked), so the row says so rather than
+   quietly picking one */
+.ista-differs td {
+  background: var(--amber-glow);
+}
+.ista-equip {
+  columns: 2;
+  column-gap: 32px;
+  max-width: 880px;
+}
+.ista-equip > li {
+  break-inside: avoid;
+}
+
+/* ---- the car picker ------------------------------------------------------ */
+.ista-pick-modal {
+  width: min(560px, 92vw);
+}
+.ista-pick {
+  max-height: 52vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+.ista-pick-note {
+  margin: 0 0 10px;
+  font-size: 12px;
+  color: var(--ink-faint);
+}
+.ista-pick-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+.ista-pick-row:hover {
+  background: var(--amber-glow);
+}
+.ista-pick-name {
+  font-family: var(--display);
+  font-size: 13px;
+  font-weight: 600;
+}
+.ista-pick-bits {
+  font-size: 11px;
+  color: var(--ink-faint);
+}
+.ista-pick-bare .ista-pick-name {
+  font-weight: 500;
+  color: var(--ink-dim);
+}
+
+/* ---- narrow windows and phones ------------------------------------------- */
+/* the banner stacks and the two strips keep scrolling sideways, so no tab is
+   ever unreachable -- just further along */
+@media (max-width: 760px) {
+  body.ista-mode {
+    --ista-h: 132px;
+  }
+  .ista-banner {
+    flex-wrap: wrap;
+    gap: 6px 12px;
+    padding: 6px 12px;
+  }
+  .ista-banner-desc {
+    flex-basis: 100%;
+    order: 3;
+  }
+  .ista-banner-state {
+    margin-left: 0;
+  }
+  .ista-car-pick {
+    max-width: 190px;
+  }
+  .ista-home-grid {
+    grid-template-columns: 1fr;
+  }
+  .ista-equip {
+    columns: 1;
+  }
+  .ista-details tbody th {
+    width: auto;
+  }
+}
+@media (max-width: 520px) {
+  .ista-vin {
+    display: none;
+  }
+  /* the details table is three columns of real content; let it scroll in its
+     own box rather than squeezing the page sideways */
+  .ista-details {
+    min-width: 460px;
+  }
+  .ista-page-body {
+    overflow-x: auto;
+  }
+}
+
+/* ===========================================================================
+   WORKSHOP REFERENCE DOCUMENTS (screens/techdata/), inside the ISTA shell's
+   Workshop tab: a category tree beside a Type / Title table, a search, and
+   the hit list.
+
+   Token-driven like the shell around it. The tables are the point of the
+   screen -- a torque figure has to be findable and readable at a glance --
+   so they get the contrast and the monospace, and everything else stays out
+   of the way.
+   =========================================================================== */
+
+.td-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.td-loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 20px 0;
+  font-size: 12.5px;
+  color: var(--ink-dim);
+}
+
+/* ---- the sub-section bar ------------------------------------------------- */
+.td-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+}
+.td-sec {
+  padding: 5px 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--ink-dim);
+  font-family: var(--display);
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.td-sec:hover {
+  color: var(--ink);
+  border-color: var(--line-bright);
+}
+.td-sec.on {
+  background: var(--amber);
+  border-color: var(--amber);
+  color: var(--amber-ink);
+  font-weight: 600;
+}
+.td-bar-spacer {
+  flex: 1;
+}
+.td-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--ink-dim);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.td-scope {
+  font-size: 11.5px;
+  color: var(--ink-faint);
+  white-space: nowrap;
+}
+
+/* ---- the two-pane browser ------------------------------------------------ */
+.td-split {
+  display: grid;
+  grid-template-columns: minmax(220px, 300px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+.td-tree {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  overflow: hidden;
+}
+.td-tree-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel-2);
+}
+.td-tree-title {
+  font-family: var(--display);
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.td-collapse {
+  font-size: 11px;
+  padding: 3px 8px;
+}
+.td-tree-body {
+  max-height: 60vh;
+  overflow-y: auto;
+}
+.td-node {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  width: 100%;
+  padding: 5px 10px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--display);
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+.td-node:hover {
+  background: var(--amber-glow);
+}
+.td-node.on {
+  background: var(--amber-glow);
+  font-weight: 600;
+}
+.td-twist {
+  width: 10px;
+  flex: none;
+  color: var(--ink-faint);
+  font-size: 9px;
+}
+.td-node-num {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--amber);
+  min-width: 18px;
+  flex: none;
+}
+.td-node-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.td-node-n {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--ink-faint);
+  flex: none;
+}
+/* a class under a group: indented under its parent's twist */
+.td-node-cls {
+  padding-left: 34px;
+  font-size: 11.5px;
+  color: var(--ink-dim);
+}
+
+/* ---- the tables ---------------------------------------------------------- */
+/* wide content scrolls inside its own box, never the page */
+.td-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.td-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 12.5px;
+}
+.td-table th,
+.td-table td {
+  padding: 7px 11px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+.td-table thead th {
+  position: sticky;
+  top: 0;
+  background: var(--panel-2);
+  font-family: var(--display);
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  border-bottom: 1px solid var(--line-bright);
+}
+.td-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+.td-hits tbody tr {
+  cursor: pointer;
+}
+.td-hits tbody tr:hover {
+  background: var(--amber-glow);
+}
+.td-type {
+  white-space: nowrap;
+  color: var(--ink-dim);
+  font-size: 11.5px;
+  width: 1%;
+}
+.td-title {
+  color: var(--ink);
+}
+.td-sub {
+  display: block;
+  font-size: 11px;
+  color: var(--ink-faint);
+}
+/* the torque figure is what the page exists for: give it the weight */
+.td-torque {
+  white-space: nowrap;
+  font-weight: 600;
+  color: var(--amber);
+}
+.td-tool th {
+  width: 150px;
+  color: var(--ink-dim);
+  font-weight: 600;
+}
+
+/* ---- the opened document ------------------------------------------------- */
+.td-doc {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: flex-start;
+}
+.td-doc-body {
+  width: 100%;
+}
+.td-doc-crumb {
+  font-family: var(--display);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.td-doc-title {
+  margin: 2px 0 10px;
+  font-family: var(--display);
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--ink);
+}
+.td-headline {
+  font-size: 11.5px;
+  color: var(--ink-faint);
+  margin-bottom: 8px;
+}
+.td-p {
+  margin: 0 0 9px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--ink);
+  max-width: 78ch;
+}
+.td-list {
+  margin: 0 0 10px;
+  padding-left: 20px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  max-width: 78ch;
+}
+.td-list > li {
+  margin-bottom: 4px;
+}
+.td-validity,
+.td-hint {
+  margin-bottom: 10px;
+  font-size: 11.5px;
+  color: var(--ink-dim);
+}
+.td-hint {
+  padding: 8px 11px;
+  border-left: 2px solid var(--amber);
+  background: var(--amber-glow);
+}
+.td-tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border: 1px solid var(--line-bright);
+  border-radius: 999px;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ink-dim);
+  vertical-align: 1px;
+}
+/* a document whose validity could not be read is SHOWN, and says so: losing
+   a torque figure is worse than showing one that needs checking */
+.td-unsure {
+  padding: 8px 11px;
+  border-left: 2px solid var(--amber-soft);
+  background: var(--amber-glow);
+  font-size: 11.5px;
+  color: var(--ink-dim);
+  margin-bottom: 10px;
+  max-width: 78ch;
+}
+.td-flag {
+  display: inline-block;
+  margin-left: 5px;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--amber-glow);
+  border: 1px solid var(--amber-soft);
+  color: var(--amber);
+  font-size: 9px;
+  line-height: 12px;
+  text-align: center;
+}
+
+/* ---- search and empties -------------------------------------------------- */
+.td-q {
+  width: min(460px, 100%);
+  padding: 7px 11px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--ink);
+  font-family: var(--display);
+  font-size: 13px;
+}
+.td-q:focus {
+  outline: none;
+  border-color: var(--amber);
+}
+.td-search {
+  margin-bottom: 12px;
+}
+.td-none {
+  padding: 14px 4px;
+  font-size: 12.5px;
+  color: var(--ink-faint);
+}
+.td-more {
+  margin: 8px 0 0;
+  font-size: 11.5px;
+  color: var(--ink-faint);
+}
+
+@media (max-width: 760px) {
+  /* the tree stops being a sidebar and becomes the row above the table */
+  .td-split {
+    grid-template-columns: 1fr;
+  }
+  .td-tree-body {
+    max-height: 34vh;
+  }
+  .td-tool th {
+    width: auto;
+  }
+}
+.service-filter-chip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  color: var(--ink-dim);
+  font-size: 13px;
+}
+
+/* identity screen before its first read (the ISTA row lands here) */
+.vi-idle {
+  padding: 18px 16px;
+  color: var(--muted, #8a8f98);
+  line-height: 1.5;
+}
+
+/* a tree box's sheet: the read's findings, then the way into the module */
+.modal.tree-sheet {
+  width: min(720px, 94vw);
+}
+.tree-sheet .modal-body {
+  overflow: auto;
+}
+.tree-sheet-sub {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--ink-dim);
+  margin-top: 2px;
+}
+.tree-sheet-state {
+  margin-bottom: 8px;
+}
+.tree-sheet .modal-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}

@@ -43,10 +43,13 @@ function ecuTreeSvg(layout, status) {
     const key = ecuTreeKey(b.ecu);
     const st = status.get(key) || { state: 'unread', faults: 0 };
     const root = b.ecu.bus === 'ROOT';
+    const nm = ecuTreeBoxName(b.ecu, st);
     const title =
-      `${b.ecu.name}` +
+      `${nm.names}` +
       (b.ecu.addr >= 0
-        ? ` (0x${b.ecu.addr.toString(16).padStart(2, '0')})`
+        ? ` (${(b.ecu.addrs || [b.ecu.addr])
+            .map((a) => `0x${a.toString(16).padStart(2, '0')}`)
+            .join(' / ')})`
         : '') +
       (st.state === 'faults'
         ? `: ${st.faults} fault${st.faults === 1 ? '' : 's'}`
@@ -59,7 +62,7 @@ function ecuTreeSvg(layout, status) {
       `<g class="tree-box tree-${st.state}${root ? ' tree-root' : ''}" data-key="${h(key)}" tabindex="0" role="button">` +
         `<title>${h(title)}</title>` +
         `<rect x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" rx="3"/>` +
-        `<text x="${b.x + b.w / 2}" y="${b.y + b.h / 2}" text-anchor="middle" dominant-baseline="central">${h(b.ecu.name)}</text>` +
+        `<text x="${b.x + b.w / 2}" y="${b.y + b.h / 2}" text-anchor="middle" dominant-baseline="central">${h(nm.label)}</text>` +
         (st.state === 'faults'
           ? `<circle class="tree-badge" cx="${b.x + b.w - 6}" cy="${b.y + 6}" r="5"/>` +
             `<text class="tree-badge-n" x="${b.x + b.w - 6}" y="${b.y + 6}" text-anchor="middle" dominant-baseline="central">${st.faults}</text>`

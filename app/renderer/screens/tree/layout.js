@@ -54,7 +54,16 @@ function ecuTreeBusStyle(bus) {
 }
 
 /**
- * The modules a tree draws: those on a drawn bus.
+ * The modules a tree draws: those on a drawn bus, ONE BOX PER CELL.
+ *
+ * ISTA's tree is a picture of slots, and it lists every module that can
+ * fill a slot on the same cell: E46 has DME at 0x10, 0x12 and 0x13 all on
+ * (7,1), EGS at 0x18 and 0x32 on one cell, and so on across 40 trees.
+ * Drawn one over the other, the topmost hides the one that answered (the
+ * scan reads the 0x12 DME through D_MOTOR; the 0x13 box lay on top and
+ * stayed grey). So the cell is the box: its addresses and groups are the
+ * union, its name the first's, and `slots` keeps each member so the box
+ * can be labelled with the one that answered (ABS / DSC / DXC is one slot).
  * @param {EcuTree} tree - the tree
  * @returns {EcuTreeEcu[]}
  */
@@ -63,7 +72,52 @@ function ecuTreeDrawn(tree) {
     typeof ECU_TREE_HIDDEN !== 'undefined'
       ? ECU_TREE_HIDDEN
       : new Set(['UNKNOWN', 'VIRTUAL', 'NONE', 'INTERNAL']);
-  return (tree.ecus || []).filter((e) => !hidden.has(e.bus));
+  const out = [];
+  const byCell = new Map();
+  for (const e of tree.ecus || []) {
+    if (hidden.has(e.bus)) continue;
+    const cell = e.col >= 0 && e.row >= 0 ? `${e.col},${e.row}` : null;
+    const have = cell ? byCell.get(cell) : null;
+    if (!have) {
+      const box = {
+        ...e,
+        groups: [...(e.groups || [])],
+        addrs: [e.addr],
+        slots: [{ name: e.name, addr: e.addr, groups: [...(e.groups || [])] }],
+      };
+      out.push(box);
+      if (cell) byCell.set(cell, box);
+      continue;
+    }
+    have.addrs.push(e.addr);
+    have.slots.push({
+      name: e.name,
+      addr: e.addr,
+      groups: [...(e.groups || [])],
+    });
+    for (const g of e.groups || [])
+      if (!have.groups.includes(g)) have.groups.push(g);
+  }
+  return out;
+}
+
+/**
+ * The name a box shows: the slot that answered when a read says which, else
+ * the cell's first. Every slot's name is in `names` for the hover and sheet.
+ * @param {EcuTreeEcu} ecu - the box (ecuTreeDrawn output)
+ * @param {EcuTreeStatus|null|undefined} st - what a read said about it
+ * @returns {{label: string, names: string}}
+ */
+function ecuTreeBoxName(ecu, st) {
+  const slots = ecu.slots || [
+    { name: ecu.name, addr: ecu.addr, groups: ecu.groups || [] },
+  ];
+  const via =
+    st && st.module && st.module.via ? String(st.module.via).toLowerCase() : '';
+  const hit = via ? slots.find((x) => (x.groups || []).includes(via)) : null;
+  const seen = [];
+  for (const x of slots) if (!seen.includes(x.name)) seen.push(x.name);
+  return { label: (hit || slots[0]).name, names: seen.join(' / ') };
 }
 
 /**
@@ -297,6 +351,7 @@ if (typeof module !== 'undefined' && module.exports) {
     ecuTreeBusStyle,
     ecuTreeDrawn,
     ecuTreeKey,
+    ecuTreeBoxName,
     ecuTreeStatus,
     ecuTreeLayout,
     ecuTreeModuleRow,
