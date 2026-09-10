@@ -246,7 +246,11 @@ node tools/verify/test_fault_report.js || exit 1
 
 echo
 echo "== control unit tree: layout, scan status join, extractor =="
-node tools/verify/test_ecu_tree.js || exit 1
+node tools/verify/test_ecu_tree.js
+
+echo
+echo "== ISTA shell: tab model, routes, favourites, banner and details text =="
+node tools/verify/test_ista.js || exit 1 || exit 1
 
 # Table completeness: the VM reaches tables the lifter never modelled, so a
 # shipped set that omits declared tables silently decodes lookups as "".

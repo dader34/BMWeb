@@ -94,6 +94,9 @@
       <!-- The Garage: the owner's saved cars and scan history, one press
            from any screen (screens/garage/screen.js wires it). -->
       <button class="icon-btn" id="garage-btn" title="Your saved cars and their scan history"><span class="btn-text">Garage</span><span class="btn-icon" aria-hidden="true">⌂</span></button>
+      <!-- Workshop mode: the ISTA shell, one press from any screen
+           (screens/ista/screen.js wires it, as the Garage button is wired). -->
+      <button class="icon-btn" id="ista-btn" title="Workshop mode: every read on one vehicle, behind one set of tabs"><span class="btn-text">Workshop</span><span class="btn-icon" aria-hidden="true">▤</span></button>
       <button class="icon-btn" id="settings-btn" title="Skins, startup vehicle, remote session"><span class="btn-text">Settings</span><span class="btn-icon" aria-hidden="true">⚙</span></button>
     </div>
   </header>
@@ -434,6 +437,16 @@
   <!-- Script runner: the loader over core/ipofile, then the screen. -->
   <script src="screens/script-runner/load.js"></script>
   <script src="screens/script-runner/screen.js"></script>
+  <!-- The ISTA shell (screens/ista/): workshop mode -- a banner and tab bar
+       that stay up while the app's OWN screens render underneath them. It
+       wraps them, it does not re-implement them, so it loads after every
+       screen it opens. model.js is the pure half (tabs, routes, favourites),
+       banner.js the chrome outside #view, details.js the two pages the app
+       had no screen for, screen.js the entry point -- so it loads last. -->
+  <script src="screens/ista/model.js"></script>
+  <script src="screens/ista/banner.js"></script>
+  <script src="screens/ista/details.js"></script>
+  <script src="screens/ista/screen.js"></script>
   <script src="screens/apps.js"></script>
   <script src="screens/tutorial.js"></script>
   <script src="app.js"></script>

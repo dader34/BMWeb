@@ -35,6 +35,18 @@ const APPS_STAGGER = 20;
 /** @type {AppEntry[]} */
 const APP_REGISTRY = [
   {
+    id: 'ista',
+    icon: '▤',
+    title: 'Workshop mode',
+    desc: "Every read on one vehicle behind one set of tabs, ISTA's way",
+    tag: 'ISTA',
+    open: () => (typeof showIsta === 'function' ? showIsta() : null),
+    // a shell over screens this build already has -- ready whenever its own
+    // code shipped. What each tab can actually do is decided per car, on the
+    // shell's own home, where it can say why a tab is dark.
+    hasData: async () => typeof showIsta === 'function',
+  },
+  {
     id: 'lookup',
     icon: '⌕',
     title: 'Diagnostic Plans and Trouble Codes',
