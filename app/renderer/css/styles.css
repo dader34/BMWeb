@@ -10843,3 +10843,12 @@ body.ista-mode .view {
     width: auto;
   }
 }
+.service-filter-chip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  color: var(--ink-dim);
+  font-size: 13px;
+}
+

@@ -78,7 +78,7 @@ const ISTA_TABS = [
       {
         id: 'vehicle-test',
         label: 'Vehicle test',
-        desc: 'The bus map, each box coloured by the run that read it',
+        desc: 'Start the whole-car read now; the bus map colours in as modules answer',
         open: 'istaOpenVehicleTest',
         needsCar: true,
       },
@@ -211,7 +211,7 @@ const ISTA_TABS = [
       {
         id: 'resets',
         label: 'Service resets',
-        desc: 'The service-reset routines this chassis carries',
+        desc: 'Only the service-interval resets this chassis carries',
         open: 'istaOpenServiceResets',
         needsCar: true,
       },

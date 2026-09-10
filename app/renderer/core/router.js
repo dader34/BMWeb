@@ -358,6 +358,14 @@ function _onLocationChange() {
   if (_routing) return; // our own hash write; ignore
   const route = currentRoute();
   if (route === _openRoute) return; // already on this screen; no-op
+  // the ISTA shell opening a wrapped screen: that screen writes its own
+  // route mid-render and the shell re-stamps it after; replaying either
+  // here would open the screen a second time, without what the shell asked
+  // for (the tree's live read was lost this way)
+  if (typeof istaOpening === 'function' && istaOpening()) {
+    _openRoute = route;
+    return;
+  }
   const open = resolveRoute(route);
   if (open) {
     _routing = true;

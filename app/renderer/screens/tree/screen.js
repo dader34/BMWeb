@@ -5,6 +5,8 @@
 
 /** the read running on the tree screen, so leaving it ends the read */
 let ecuTreeActiveScan = null;
+/** bumps per showEcuTreeChassis: an older render that resumes after an await stops */
+let ecuTreeGen = 0;
 
 /**
  * End a running tree scan, if any (leaving the screen, starting another).
@@ -89,11 +91,13 @@ function ecuTreeLastScanSize(carId) {
 /**
  * The tree for one chassis, coloured by one of its saved cars.
  * @param {string} chassis - the chassis id
- * @param {string|null} [carId] - a Garage car of that chassis whose last scan colours the boxes
+ * @param {string|null} [carId] - a Garage car of that chassis the finished read is kept under
+ * @param {{scan?: boolean}} [opts] - scan: start the whole-car read on arrival
  * @returns {Promise<void>}
  */
-async function showEcuTreeChassis(chassis, carId) {
+async function showEcuTreeChassis(chassis, carId, opts) {
   ecuTreeStopScan();
+  const gen = ++ecuTreeGen;
   const car = String(chassis).toUpperCase();
   const cars =
     typeof garageCars === 'function'
@@ -150,6 +154,7 @@ async function showEcuTreeChassis(chassis, carId) {
       `failed to load ${dispChassis(car)}`
     ),
   ]);
+  if (gen !== ecuTreeGen) return; // another render took the screen meanwhile
   if (!tree) {
     canvas.innerHTML = `<div class="empty">ISTA has no control unit tree for ${esc(dispChassis(car))}.</div>`;
     sbLeft.textContent = 'no tree';
@@ -258,6 +263,7 @@ async function showEcuTreeChassis(chassis, carId) {
   const shipped =
     typeof vehicleScriptShipped === 'function' &&
     (await vehicleScriptShipped(car).catch(() => false));
+  if (gen !== ecuTreeGen) return;
   const acts = [
     {
       key: 'Escape',
@@ -330,4 +336,6 @@ async function showEcuTreeChassis(chassis, carId) {
     acts.push({ key: '1', label: 'Fault scan', fn: run });
   }
   setActions(acts);
+  // ISTA's "Start vehicle test" lands here with the read already running
+  if (opts && opts.scan && shipped) run();
 }

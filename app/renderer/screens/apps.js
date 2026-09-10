@@ -37,7 +37,7 @@ const APP_REGISTRY = [
   {
     id: 'ista',
     icon: '▤',
-    title: 'Workshop mode',
+    title: 'ISTA',
     desc: "Every read on one vehicle behind one set of tabs, ISTA's way",
     tag: 'ISTA',
     open: () => (typeof showIsta === 'function' ? showIsta() : null),
@@ -71,36 +71,6 @@ const APP_REGISTRY = [
       typeof showJobSearch === 'function' &&
       typeof searchIndexPresent === 'function' &&
       (await searchIndexPresent()),
-  },
-  {
-    id: 'tree',
-    icon: '⌗',
-    title: 'Control unit tree',
-    desc: "ISTA's bus map of every module, coloured by the last fault scan",
-    tag: 'ISTA',
-    open: () => (typeof showEcuTree === 'function' ? showEcuTree() : null),
-    // the trees are an ISTA extract hosted beside the ETK data; the card
-    // greys when neither a local copy nor the dataset answers
-    hasData: async () =>
-      typeof showEcuTree === 'function' &&
-      typeof ecuTreeIndexPresent === 'function' &&
-      (await ecuTreeIndexPresent()),
-  },
-  {
-    id: 'service',
-    icon: '⚙',
-    title: 'Service functions',
-    desc: 'Calibrations, adaptation resets and service routines, by what they do',
-    tag: 'IPO',
-    open: () => (typeof showService === 'function' ? showService() : null),
-    // the per-chassis mapping is an export artifact; a build without it
-    // shows the card greyed rather than opening a screen that can only say
-    // "no mapping". Asks whether the file is THERE, so drawing the hub does
-    // not cost the download the app itself costs.
-    hasData: async () =>
-      typeof showService === 'function' &&
-      typeof serviceIndexPresent === 'function' &&
-      (await serviceIndexPresent()),
   },
   {
     id: 'wiring',

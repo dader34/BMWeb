@@ -115,7 +115,8 @@ function istaOpenFaultMemory() {
 function istaOpenVehicleTest() {
   return showEcuTreeChassis(
     istaChassis(),
-    istaState.car ? istaState.car.id : null
+    istaState.car ? istaState.car.id : null,
+    { scan: true }
   );
 }
 
@@ -135,7 +136,7 @@ function istaOpenIdentScan() {
  * @returns {Promise<void>}
  */
 function istaOpenService() {
-  return showService(istaChassis());
+  return showService(istaChassis(), null, '');
 }
 
 /**
@@ -145,7 +146,7 @@ function istaOpenService() {
  * @returns {Promise<void>}
  */
 function istaOpenServiceResets() {
-  return showService(istaChassis());
+  return showService(istaChassis(), null, 'Service reset');
 }
 
 /**
@@ -501,7 +502,7 @@ async function istaHome(host, onlyTab) {
       ? ''
       : `<p class="ista-home-note">${
           chassis
-            ? `Workshop mode on ${esc(
+            ? `ISTA on ${esc(
                 typeof dispChassis === 'function'
                   ? dispChassis(chassis)
                   : chassis
@@ -619,7 +620,7 @@ function istaBackAction() {
     {
       key: 'Escape',
       keyLabel: 'Esc',
-      label: 'Workshop',
+      label: 'ISTA',
       kind: 'back',
       fn: () => showIsta(ISTA_HOME_TAB, null),
     },
@@ -648,7 +649,7 @@ async function showIsta(tab, sub, owner, carId) {
   try {
     setCrumbs([
       { label: 'Vehicles', fn: showChassis },
-      { label: 'Workshop', fn: () => showIsta(ISTA_HOME_TAB, null) },
+      { label: 'ISTA', fn: () => showIsta(ISTA_HOME_TAB, null) },
       ...(istaState.tab === ISTA_HOME_TAB
         ? []
         : [{ label: (istaTab(istaState.tab) || {}).label || istaState.tab }]),
@@ -703,7 +704,7 @@ async function showIsta(tab, sub, owner, carId) {
   const homeAction = {
     key: 'Escape',
     keyLabel: 'Esc',
-    label: 'Workshop',
+    label: 'ISTA',
     kind: 'back',
     fn: () => showIsta(ISTA_HOME_TAB, null),
   };
