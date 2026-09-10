@@ -30,6 +30,7 @@
  *                           {"id":4,"ok":true,"signals":{...}}
  *                           {"id":2,"ok":false,"error":"..."}
  *                           {"event":"hello","port":"/dev/cu.usbserial-X",...}
+ *                           {"event":"writeFailed","error":"..."}
  *   host -> client, binary: bytes as they arrive off the wire, streamed
  *
  * The hello names the device the host is serving, so the client's cable
@@ -140,19 +141,44 @@ export async function startGateway(
 
   /** the one client allowed at a time, and the cable it is driving */
   let client: WsConnection | null = null;
+  /**
+   * The port object for the client's whole session, opened and closed
+   * again as the concept changes.
+   *
+   * WHY ONE OBJECT AND NOT ONE PER OPEN. A port remembers the modem lines
+   * it was last told to set, so that a partial setSignals keeps the ones
+   * it does not name, and it remembers them ACROSS a close and reopen: the
+   * bus holds a single port for the session and reopens it for every
+   * concept change (9600 8E1 for a DS2 module, back to 115200 8N1 after),
+   * naming only DTR and RTS when it does. Building a fresh port per open
+   * reset those lines to false, so the first setSignals after a reopen
+   * silently dropped DTR -- and DTR is the K-line transmit enable, so the
+   * cable stopped talking mid-telegram and the answer was lost. That is
+   * the exact failure the transport's own line-control rules exist to
+   * prevent, and a remote cable has to inherit them, not re-introduce it.
+   */
   let serial: NodeSerialPort | null = null;
+  /** is the port open (the object outlives any one open) */
+  let portOpen = false;
+  /** how many times the port has been opened, so an old pump can retire */
+  let opens = 0;
   /** the loop pumping the port's reader into the socket, while it runs */
   let pumping = false;
 
   /**
-   * Close the cable, if one is open, and stop the pump.
+   * Close the cable, if one is open, and stop the pump. The port OBJECT is
+   * kept (see `serial`): it carries the modem-line state a reopen must not
+   * forget. `forget` drops the object too, for when the client goes.
+   * @param forget - also discard the port object (the session is over)
    * @returns nothing
    */
-  const dropCable = async (): Promise<void> => {
+  const dropCable = async (forget = false): Promise<void> => {
     const s = serial;
-    serial = null;
+    const wasOpen = portOpen;
+    portOpen = false;
     pumping = false;
-    if (!s) return;
+    if (forget) serial = null;
+    if (!s || !wasOpen) return;
     try {
       await s.close();
     } catch {
@@ -169,10 +195,18 @@ export async function startGateway(
    * @param s - the open port
    * @param conn - the client to feed
    */
-  const pump = async (s: NodeSerialPort, conn: WsConnection): Promise<void> => {
+  const pump = async (
+    s: NodeSerialPort,
+    conn: WsConnection,
+    generation: number
+  ): Promise<void> => {
     const reader = s.readable.getReader();
     pumping = true;
-    while (pumping && serial === s) {
+    // `generation` retires this loop when the port is reopened: the object
+    // is the same one, so identity alone cannot tell an old pump from the
+    // current one, and an old pump would deliver the previous concept's
+    // bytes as though they answered the new telegram.
+    while (pumping && opens === generation) {
       let r: { value?: Uint8Array; done: boolean };
       try {
         r = await reader.read();
@@ -180,7 +214,7 @@ export async function startGateway(
         return; // the port went away; the close event says so
       }
       if (r.done) return;
-      if (r.value && r.value.length && client === conn)
+      if (r.value && r.value.length && client === conn && opens === generation)
         conn.sendBinary(r.value);
     }
   };
@@ -202,13 +236,17 @@ export async function startGateway(
     };
     try {
       if (req.op === 'open') {
-        if (serial) await dropCable();
-        const s = new NodeSerialPort(device, opener);
-        await s.open(req.config as PortConfig);
+        await dropCable();
+        // the same port object for the session, so the modem lines it was
+        // last told to set survive this reopen (see `serial` above)
+        const s = serial || new NodeSerialPort(device, opener);
         serial = s;
+        await s.open(req.config as PortConfig);
+        portOpen = true;
+        const generation = ++opens;
         reply({ ok: true });
-        // the pump runs for as long as this port lives; it is not awaited
-        void pump(s, conn);
+        // the pump runs until the next open or close; it is not awaited
+        void pump(s, conn, generation);
         return;
       }
       if (req.op === 'close') {
@@ -217,13 +255,13 @@ export async function startGateway(
         return;
       }
       if (req.op === 'setSignals') {
-        if (!serial) throw new Error(`${device} is not open`);
+        if (!serial || !portOpen) throw new Error(`${device} is not open`);
         await serial.setSignals(req.signals || {});
         reply({ ok: true });
         return;
       }
       if (req.op === 'getSignals') {
-        if (!serial) {
+        if (!serial || !portOpen) {
           // a local port answers null rather than throwing here, because
           // the bus reads the lines to poll KL15 whether or not it is open
           reply({ ok: true, signals: null });
@@ -263,24 +301,44 @@ export async function startGateway(
         queue = queue.then(() => handle(c.conn, req));
       },
       onBinary: (bytes) => {
-        // a write: straight to the wire, no reply. An error here cannot be
-        // answered (the write carried no id), so it is logged and the next
-        // control message reports the port as gone.
+        // A write: straight to the wire, with no reply to wait for. The
+        // wire has no acknowledgement to give and the transport never
+        // waited for one, so making the client round-trip here would
+        // lengthen the DTR hold and lose the ECU's answer.
+        //
+        // A FAILURE, though, has to travel. The write carried no id to
+        // answer, so it comes back unsolicited: without it the client
+        // believed a write that never left the cable had gone out, held
+        // DTR, read nothing, and reported a phantom IFH-0003/IFH-0009
+        // against a healthy module.
         const s = serial;
-        if (!s) {
+        if (!s || !portOpen) {
           log(`  write of ${bytes.length} bytes with no port open, dropped`);
+          c.conn.sendText(
+            JSON.stringify({
+              event: 'writeFailed',
+              error: `${device} is not open`,
+            })
+          );
           return;
         }
         const w = s.writable.getWriter();
         w.write(bytes).catch((e: Error) => {
-          log(`  write failed: ${e.message}`);
+          const why = e.message || String(e);
+          log(`  write failed: ${why}`);
+          if (client === c.conn)
+            c.conn.sendText(
+              JSON.stringify({ event: 'writeFailed', error: why })
+            );
         });
       },
       onClose: () => {
         if (client !== c.conn) return;
         client = null;
         log(`  client ${c.from} disconnected, cable closed`);
-        void dropCable();
+        // forget the port object as well: the next client starts from
+        // clean modem lines, not the last one's
+        void dropCable(true);
       },
     });
     c.conn.sendText(
@@ -308,7 +366,7 @@ export async function startGateway(
     stop: async () => {
       await server.close();
       client = null;
-      await dropCable();
+      await dropCable(true);
     },
   };
 }

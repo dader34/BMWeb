@@ -121,6 +121,10 @@ class GatewayPort {
     this.nextId = 1;
     /** why the socket went, once it has @type {string|null} */
     this.gone = null;
+    /** the last write the host could not put on the wire @type {string|null} */
+    this.writeError = null;
+    /** 'disconnect' listeners, the way a Web Serial port carries them */
+    this.listeners = new Set();
   }
 
   /**
@@ -143,13 +147,22 @@ class GatewayPort {
     ws.binaryType = 'arraybuffer';
     await new Promise((resolve, reject) => {
       ws.onopen = () => resolve();
-      ws.onerror = () =>
+      ws.onerror = () => {
+        // close the socket we are giving up on: `this.ws` is never set on
+        // this path, so nothing else could close it later, and a browser
+        // retrying a wrong address would pile them up
+        try {
+          ws.close();
+        } catch {
+          /* already failed */
+        }
         reject(
           new Error(
             `cannot reach the gateway at ${this.url} (is it running, and ` +
               'reachable from this machine?)'
           )
         );
+      };
     });
     this.ws = ws;
     ws.onmessage = (e) => {
@@ -171,6 +184,11 @@ class GatewayPort {
       for (const p of this.pendingCalls.values())
         p.reject(new Error(`the gateway connection ended: ${this.gone}`));
       this.pendingCalls.clear();
+      // and tell the bus the cable is gone, through Web Serial's own
+      // 'disconnect' event. Without this the app kept a live-looking cable
+      // chip for a car that was no longer reachable, and every job after
+      // it failed as a dead ECU instead of as a dropped gateway.
+      this._fire();
     };
   }
 
@@ -194,6 +212,13 @@ class GatewayPort {
     if (typeof msg.event === 'string') {
       if (msg.event === 'hello' && typeof msg.port === 'string')
         this.device = msg.port;
+      // A write that never left the cable. It carried no id, so the host
+      // reports it unsolicited; recording it makes the next write throw
+      // the wire's own message rather than letting the bus believe a
+      // request went out, hold DTR, read nothing and blame a healthy
+      // module for the silence.
+      if (msg.event === 'writeFailed')
+        this.writeError = String(msg.error || 'the write failed');
       return;
     }
     const p = this.pendingCalls.get(msg.id);
@@ -249,6 +274,7 @@ class GatewayPort {
   async open(cfg) {
     await this._call('open', { config: cfg });
     this.chunks = [];
+    this.writeError = null;
     this.opened = true;
   }
 
@@ -359,6 +385,12 @@ class GatewayPort {
   async _write(bytes) {
     if (!this.opened) throw new Error(`${this.url} is not open`);
     if (!this.ws) throw new Error('the gateway connection is gone');
+    // a write the host could not send, reported since the last one
+    const failed = this.writeError;
+    if (failed) {
+      this.writeError = null;
+      throw new Error(failed);
+    }
     this.ws.send(bytes);
   }
 
@@ -402,6 +434,42 @@ class GatewayPort {
     return `gateway ${where}${this.device ? ` (${this.device})` : ''}`;
   }
 
-  /** Web Serial's disconnect event; the socket's close stands in for it. */
-  addEventListener() {}
+  /**
+   * Web Serial's disconnect event. The socket closing IS the cable going
+   * away here, so the bus's own unplug path (_watchPort -> _portGone ->
+   * the 'no cable' chip) works on a gateway unchanged.
+   * @param {string} type - The event name; only 'disconnect' is fired.
+   * @param {Function} fn - The listener.
+   * @returns {void}
+   */
+  addEventListener(type, fn) {
+    if (type === 'disconnect' && typeof fn === 'function')
+      this.listeners.add(fn);
+  }
+
+  /**
+   * Drop a listener.
+   * @param {string} type - The event name.
+   * @param {Function} fn - The listener.
+   * @returns {void}
+   */
+  removeEventListener(type, fn) {
+    this.listeners.delete(fn);
+  }
+
+  /**
+   * Tell the listeners the cable is gone, once.
+   * @returns {void}
+   */
+  _fire() {
+    const fns = [...this.listeners];
+    this.listeners.clear();
+    for (const fn of fns) {
+      try {
+        fn({ type: 'disconnect', target: this });
+      } catch {
+        /* a listener that throws must not stop the others */
+      }
+    }
+  }
 }

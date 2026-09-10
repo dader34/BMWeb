@@ -14,7 +14,11 @@ import { GatewayPort, gatewayUrl } from '../src/gateway-client.ts';
 import { parseListen, startGateway } from '../src/gateway.ts';
 import { connectBus, disconnectBus, jobCommand } from '../src/live.ts';
 import { scanCommand } from '../src/scan.ts';
-import type { PortBinding, PortConfig } from '../src/serial.ts';
+import {
+  NodeSerialPort,
+  type PortBinding,
+  type PortConfig,
+} from '../src/serial.ts';
 import { tuiCommand } from '../src/tui.ts';
 import { acceptKey, connectWs, decodeFrame, encodeFrame } from '../src/ws.ts';
 import {
@@ -710,5 +714,180 @@ test('a client that vanishes without a close frame frees the cable for the next 
   });
   assert.equal(second.connected, true, 'the next client got the cable');
   second.hangUp();
+  await g.stop();
+});
+
+test('a remote port queues read waiters exactly as a local one does', async () => {
+  // THE HAZARD THIS PINS. The bus races a read against a timeout and walks
+  // away from it, then arms another; a single waiter slot would orphan the
+  // first and hand its bytes to whichever handle happened to be held. The
+  // local port fixes that by QUEUEING waiters, and a remote port has to
+  // behave the same or the same lost-echo failures come back over a socket.
+  const cable = fakeCable(() => null);
+  const g = await serve(cable.opener);
+  const p = new GatewayPort(g.url);
+  await p.dial();
+  await p.open({ baudRate: 9600, dataBits: 8, stopBits: 1, parity: 'even' });
+  const reader = p.readable.getReader();
+  const abandoned = reader.read(); // armed, then walked away from
+  const second = reader.read(); // the read that actually waits
+  const writer = p.writable.getWriter();
+  // the fake cable echoes a write back in two chunks, so two reads are fed
+  await writer.write(new Uint8Array([0x11, 0x22, 0x33, 0x44]));
+  const a = await abandoned;
+  const b = await second;
+  assert.deepEqual(Array.from(a.value as Uint8Array), [0x11, 0x22]);
+  assert.deepEqual(
+    Array.from(b.value as Uint8Array),
+    [0x33, 0x44],
+    'the second chunk went to the second read, in order'
+  );
+  p.hangUp();
+  await g.stop();
+});
+
+test('open twice with no close: the old cable is retired, the new one feeds the client', async () => {
+  // A second open must drop the first port entirely. If the retired port's
+  // pump survived, its bytes would arrive as if they answered the new
+  // port's telegram, which on a car reads as an answer to the wrong request.
+  const cable = fakeCable(() => null);
+  const g = await serve(cable.opener);
+  const p = new GatewayPort(g.url);
+  await p.dial();
+  await p.open({
+    baudRate: 115200,
+    dataBits: 8,
+    stopBits: 1,
+    parity: 'none',
+  });
+  await p.open({ baudRate: 9600, dataBits: 8, stopBits: 1, parity: 'even' });
+  assert.equal(
+    cable.events.filter((e) => e.kind === 'open').length,
+    2,
+    'a second cable was opened'
+  );
+  assert.equal(
+    cable.events.filter((e) => e.kind === 'close').length,
+    1,
+    'and the first was closed, not leaked'
+  );
+  // the live cable still reaches the client
+  const reader = p.readable.getReader();
+  const writer = p.writable.getWriter();
+  await writer.write(new Uint8Array([0xbe, 0xef]));
+  const got = await reader.read();
+  assert.equal(got.done, false, 'the new cable feeds the client');
+  p.hangUp();
+  await g.stop();
+});
+
+test('the modem lines survive a reopen, exactly as they do on a local port', async () => {
+  // THE BUG THIS FIXES. The bus holds ONE port for the session and reopens
+  // it for every concept change (9600 8E1 for a DS2 module, back to
+  // 115200 8N1 after), naming only DTR and RTS when it does, and a port
+  // keeps the lines a partial setSignals does not name. A gateway that
+  // built a fresh port per open reset those lines, so the first
+  // setSignals after a reopen silently dropped DTR -- the K-line transmit
+  // enable -- and the cable stopped talking mid-telegram. The remote
+  // sequence must be byte-for-byte the local one.
+  /**
+   * Drive one port through a reopen and record every line change.
+   * @param port - the port under test
+   * @param sets - where the fake cable records its line changes
+   * @returns the recorded sequence
+   */
+  const run = async (
+    port: {
+      open(c: PortConfig): Promise<void>;
+      close(): Promise<void>;
+      setSignals(s: object): Promise<void>;
+    },
+    sets: string[]
+  ): Promise<string[]> => {
+    await port.open({
+      baudRate: 115200,
+      dataBits: 8,
+      stopBits: 1,
+      parity: 'none',
+    });
+    await port.setSignals({ dataTerminalReady: true, requestToSend: false });
+    await port.setSignals({ break: true }); // DTR must stay true
+    await port.close();
+    await port.open({
+      baudRate: 9600,
+      dataBits: 8,
+      stopBits: 1,
+      parity: 'even',
+    });
+    await port.setSignals({ break: true }); // and STILL be true here
+    return sets.slice();
+  };
+
+  const localSets: string[] = [];
+  /**
+   * A binding that only records what the lines were set to.
+   * @param sets - the sink
+   * @returns the opener
+   */
+  const recorder = (sets: string[]) => async (): Promise<PortBinding> => ({
+    onData: () => {},
+    write: async () => {},
+    set: async (s) => {
+      sets.push(`dtr=${s.dtr} rts=${s.rts} brk=${s.brk}`);
+    },
+    get: async () => ({ dsr: true }),
+    close: async () => {},
+  });
+  const local = new NodeSerialPort('/dev/fake', recorder(localSets));
+  const wantedLocal = await run(local, localSets);
+
+  const remoteSets: string[] = [];
+  const g = await serve(recorder(remoteSets));
+  const remote = new GatewayPort(g.url);
+  await remote.dial();
+  const gotRemote = await run(remote, remoteSets);
+  remote.hangUp();
+  await g.stop();
+
+  assert.deepEqual(gotRemote, wantedLocal, 'the remote lines match the local');
+  assert.equal(
+    gotRemote[gotRemote.length - 1],
+    'dtr=true rts=false brk=true',
+    'DTR is still up after the reopen, not silently dropped'
+  );
+});
+
+test('a write the cable refuses reaches the client, not just the host log', async () => {
+  // THE BUG THIS FIXES. A write carries no id to answer, so a failure on
+  // the host had nowhere to go and was only logged. The client then
+  // believed a request that never left the cable had gone out, held DTR,
+  // read nothing, and reported IFH-0003/IFH-0009 against a module that
+  // was answering perfectly well. The failure now travels unsolicited.
+  const g = await startGateway({
+    ports: [{ path: '/dev/fake', detail: '' }],
+    opener: async () => ({
+      onData: () => {},
+      write: async () => {
+        throw new Error('EIO: the cable was pulled');
+      },
+      set: async () => {},
+      get: async () => ({ dsr: true }),
+      close: async () => {},
+    }),
+    listen: '127.0.0.1:0',
+    log: () => {},
+  });
+  const p = new GatewayPort(`ws://127.0.0.1:${g.port}`);
+  await p.dial();
+  await p.open({ baudRate: 9600, dataBits: 8, stopBits: 1, parity: 'even' });
+  const w = p.writable.getWriter();
+  await w.write(new Uint8Array([1, 2, 3])); // fails on the host
+  await new Promise((r) => setTimeout(r, 150)); // the report crosses
+  await assert.rejects(
+    w.write(new Uint8Array([4, 5, 6])),
+    (e: unknown) => /EIO: the cable was pulled/.test((e as Error).message),
+    "the wire's own message, so no healthy module is blamed"
+  );
+  p.hangUp();
   await g.stop();
 });

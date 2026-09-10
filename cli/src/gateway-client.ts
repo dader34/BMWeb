@@ -74,6 +74,8 @@ export class GatewayPort {
   private nextId = 1;
   /** why the socket went, once it has */
   private gone: string | null = null;
+  /** the last write the host could not put on the wire */
+  private writeError: string | null = null;
 
   /**
    * @param url - the gateway's ws:// URL
@@ -141,6 +143,13 @@ export class GatewayPort {
     if (typeof msg.event === 'string') {
       if (msg.event === 'hello' && typeof msg.port === 'string')
         this.device = msg.port;
+      // A write that never left the cable. It carried no id, so the host
+      // reports it unsolicited; recording it here makes the next call on
+      // this port throw the wire's own message, rather than letting the
+      // bus believe a request went out, hold DTR, read nothing and blame
+      // a healthy module for the silence.
+      if (msg.event === 'writeFailed')
+        this.writeError = String(msg.error || 'the write failed');
       return;
     }
     const id = typeof msg.id === 'number' ? msg.id : null;
@@ -198,6 +207,7 @@ export class GatewayPort {
   async open(cfg: PortConfig): Promise<void> {
     await this.call('open', { config: cfg });
     this.chunks = [];
+    this.writeError = null;
     this.opened = true;
   }
 
@@ -292,6 +302,12 @@ export class GatewayPort {
     if (!this.opened) throw new Error(`${this.url} is not open`);
     const conn = this.conn;
     if (!conn) throw new Error(`the gateway connection is gone`);
+    // a write the host could not send, reported since the last one
+    const failed = this.writeError;
+    if (failed) {
+      this.writeError = null;
+      throw new Error(failed);
+    }
     conn.sendBinary(bytes);
   }
 

@@ -419,15 +419,20 @@ carries, so a read crosses as one frame with no base64 and no copy.
 | host to client | text   | `{"id":1,"ok":true}`, or `{"id":4,"ok":true,"signals":{...}}`                               |
 | host to client | text   | `{"id":2,"ok":false,"error":"..."}`                                                         |
 | host to client | text   | `{"event":"hello","port":"/dev/cu.usbserial-AB0JQ9XY","gateway":"bmweb"}`                   |
+| host to client | text   | `{"event":"writeFailed","error":"..."}`                                                     |
 | host to client | binary | bytes as they arrive off the wire, streamed                                                 |
 
 A write needs no reply: the wire has no acknowledgement to give, and the
-transport never waited for one. Reads are streamed as the bytes arrive
-rather than gathered into an answer, so a timeout still means
-time-to-first-byte on the driving machine. `setSignals` keeps the lines it
-does not name, as a local port does. Every failure travels back as the
-same message text a local port would have raised, so the app throws it
-verbatim and cannot tell the difference.
+transport never waited for one, so a round trip here would only lengthen
+the DTR hold and lose the answer. A write that FAILS does travel, as an
+unsolicited `writeFailed`, because a client that thinks a request went out
+when it never left the cable reports a phantom fault against a healthy
+module. Reads are streamed as the bytes arrive rather than gathered into
+an answer, so a timeout still means time-to-first-byte on the driving
+machine. `setSignals` keeps the lines it does not name, and keeps them
+across the reopen a concept change makes, exactly as a local port does.
+Every failure travels back as the same message text a local port would
+have raised, so the app throws it verbatim and cannot tell the difference.
 
 The WebSocket is RFC 6455 with no compression and no extensions, written
 in the package itself (`src/ws.ts`) rather than pulled in, because the
