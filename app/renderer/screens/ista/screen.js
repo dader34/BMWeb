@@ -347,7 +347,7 @@ function istaPaintChrome() {
             `data-star="${esc(s.id)}" data-owner="${esc(owner)}" ` +
             `title="${pinned ? 'Unpin from Favourites' : 'Pin to Favourites'}" ` +
             `aria-label="${pinned ? 'Unpin' : 'Pin'} ${esc(s.label)}">` +
-            `${pinned ? '★' : '☆'}</button></span>`
+            `★</button></span>`
           );
         })
         .join('') +

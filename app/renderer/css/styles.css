@@ -10150,15 +10150,24 @@ body.ista-mode .view {
 .ista-subs {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 6px;
   flex: none;
   padding: 6px 14px;
-  overflow-x: auto;
-  overflow-y: hidden;
-  scrollbar-width: none;
+  /* no clipping here: the star's tooltip must be free to hang below the
+     row; the bar only scrolls (and so clips) on a narrow screen */
+  overflow: visible;
 }
-.ista-subs::-webkit-scrollbar {
-  display: none;
+@media (max-width: 720px) {
+  .ista-subs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+  }
+  .ista-subs::-webkit-scrollbar {
+    display: none;
+  }
 }
 .ista-sub-wrap {
   display: inline-flex;
@@ -10188,15 +10197,28 @@ body.ista-mode .view {
   font-weight: 600;
 }
 .ista-star {
-  padding: 4px 8px 4px 4px;
+  /* one glyph, one box, whatever its state: pinned is a colour, not a
+     different character, so every star on the row is the same size */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  align-self: stretch;
+  padding: 0 6px 0 4px;
   border: 1px solid var(--line);
   border-radius: 0 999px 999px 0;
   border-left: 0;
   background: var(--panel-2);
   color: var(--ink-faint);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1;
   cursor: pointer;
+}
+.ista-star:not(.on) {
+  opacity: 0.55;
+}
+.ista-star:not(.on):hover {
+  opacity: 1;
 }
 .ista-star:hover {
   color: var(--amber);
@@ -10851,4 +10873,3 @@ body.ista-mode .view {
   color: var(--ink-dim);
   font-size: 13px;
 }
-
