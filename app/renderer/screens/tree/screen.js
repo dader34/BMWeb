@@ -89,6 +89,76 @@ function ecuTreeLastScanSize(carId) {
 }
 
 /**
+ * A box's sheet: what the read found on the module, and the way into it.
+ *
+ * A click lands here FIRST. The module view takes the bus the moment it
+ * opens (its script identifies the module), so a glance at the codes must
+ * not cost a read; the sheet shows the stored faults the scan already
+ * holds, named through the fault tables, and the Open button is the step
+ * into the module's own screens.
+ * @param {string} car - the chassis id
+ * @param {EcuTreeEcu} ecu - the box
+ * @param {EcuTreeStatus|null} st - what the read said about it, if read
+ * @param {{section: string, row: object}|null} hit - its config row, if any
+ * @returns {Promise<void>} resolves once the sheet is filled
+ */
+async function ecuTreeModuleSheet(car, ecu, st, hit) {
+  if (typeof openModal !== 'function') return;
+  const codes = (st && st.module && st.module.codes) || [];
+  const sub = hit
+    ? hit.row.label || hit.row.sgbd
+    : `not in ${dispChassis(car)}'s module list`;
+  const state =
+    !st || st.state === 'unread'
+      ? 'Not read yet. Fault scan reads the car; the boxes colour in as modules answer.'
+      : st.state === 'silent'
+        ? 'No response on the bus.'
+        : st.state === 'ok'
+          ? 'Fault memory read: nothing stored.'
+          : `${codes.length} stored fault${codes.length === 1 ? '' : 's'}`;
+  const { overlay, close } = openModal(
+    `<div class="modal tree-sheet" role="dialog" aria-modal="true">` +
+      `<div class="modal-title">${esc(ecu.name)}` +
+      `<span class="tree-sheet-sub">${esc(sub)}</span></div>` +
+      `<div class="modal-body"><div class="tree-sheet-state">${esc(state)}</div>` +
+      `<div class="quick-detail tree-sheet-codes"></div></div>` +
+      `<div class="modal-actions">` +
+      `<button class="btn tree-sheet-close">Close</button>` +
+      `<button class="btn primary tree-sheet-open"${hit ? '' : ' disabled'}>Open module</button>` +
+      `</div></div>`
+  );
+  overlay.querySelector('.tree-sheet-close').onclick = () => close();
+  overlay.querySelector('.tree-sheet-open').onclick = () => {
+    close();
+    if (hit && typeof showEcu === 'function')
+      showEcu(car, hit.section, hit.row);
+  };
+  if (!codes.length) return;
+  // the fault tables name the codes (large, loaded on demand)
+  if (typeof loadFaultDb === 'function') await loadFaultDb().catch(() => {});
+  if (!overlay.isConnected) return;
+  const sgbd = st.module.sgbd;
+  overlay.querySelector('.tree-sheet-codes').innerHTML = codes
+    .map((c) => {
+      const f =
+        typeof faultFields === 'function'
+          ? faultFields(c, sgbd)
+          : {
+              code: String(c.F_HEX_CODE || ''),
+              name: String(c.F_ORT_TEXT || ''),
+              present: false,
+            };
+      return (
+        `<div class="quick-detail-row${f.present ? ' present' : ''}">` +
+        `<span class="quick-detail-code">${esc(f.code)}</span>` +
+        `<span class="quick-detail-name">${esc(f.name)}</span>` +
+        `<span class="quick-detail-state">${f.present ? 'PRESENT' : 'stored'}</span></div>`
+      );
+    })
+    .join('');
+}
+
+/**
  * The tree for one chassis, coloured by one of its saved cars.
  * @param {string} chassis - the chassis id
  * @param {string|null} [carId] - a Garage car of that chassis the finished read is kept under
@@ -121,7 +191,7 @@ async function showEcuTreeChassis(chassis, carId, opts) {
   view.innerHTML = head(
     dispChassis(car),
     'Control unit tree',
-    'Every module the chassis can carry, on its bus. Click a box to open the module.'
+    'Every module the chassis can carry, on its bus. Click a box for what the read found and a way into the module.'
   );
   const wrap = document.createElement('div');
   wrap.className = 'tree-wrap';
@@ -238,13 +308,9 @@ async function showEcuTreeChassis(chassis, carId, opts) {
         const key = g.getAttribute('data-key');
         const box = layout.boxes.find((b) => ecuTreeKey(b.ecu) === key);
         if (!box) return;
-        const st = status.get(key);
+        const st = status.get(key) || null;
         const hit = ecuTreeModuleRow(box.ecu, config, st && st.module);
-        if (!hit) {
-          sbLeft.textContent = `${box.ecu.name}: not in ${dispChassis(car)}'s module list`;
-          return;
-        }
-        if (typeof showEcu === 'function') showEcu(car, hit.section, hit.row);
+        ecuTreeModuleSheet(car, box.ecu, st, hit);
       };
       g.addEventListener('click', open);
       g.addEventListener('keydown', (e) => {

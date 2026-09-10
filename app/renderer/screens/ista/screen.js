@@ -105,14 +105,14 @@ function istaOpenFaultMemory() {
 }
 
 /**
- * The vehicle test: the bus map, which can run the scan in place.
+ * The vehicle test: the bus map, with its Fault scan key. Nothing runs on
+ * arrival; the read is the user's key.
  * @returns {Promise<void>}
  */
 function istaOpenVehicleTest() {
   return showEcuTreeChassis(
     istaChassis(),
-    istaState.car ? istaState.car.id : null,
-    { scan: true }
+    istaState.car ? istaState.car.id : null
   );
 }
 

@@ -108,6 +108,9 @@ function ecuTreeScanStart(chassis, hooks, deps) {
     Program: typeof IpoProgram !== 'undefined' ? IpoProgram : null,
     loadExec: typeof irLiveExec === 'function' ? irLiveExec : null,
     report: typeof ipoProtocolReport === 'function' ? ipoProtocolReport : null,
+    /** the script's caption dictionary (ir.i18n), as the module view loads it */
+    loadLabels:
+      typeof api === 'function' ? (sgbd) => api(`/api/ecu/${sgbd}/ir`) : null,
     faultMenu:
       typeof IPO_VEHICLE_FAULT_MENU !== 'undefined'
         ? IPO_VEHICLE_FAULT_MENU
@@ -130,6 +133,14 @@ function ecuTreeScanStart(chassis, hooks, deps) {
     const exec = await D.loadExec(id.toLowerCase());
     if (!exec)
       throw new Error(`INPA ships no whole-car script for ${D.label(id)}`);
+    // the script's own words come through userbox; the module view draws
+    // them through the script's caption dictionary, so this read does too
+    if (D.loadLabels && typeof irUseTranslations === 'function') {
+      const ir = await Promise.resolve(D.loadLabels(id.toLowerCase())).catch(
+        () => null
+      );
+      if (ir) irUseTranslations(ir);
+    }
     // the silent reconnect on load may still be running
     if (D.cableReady) await D.cableReady.catch(() => {});
     const ecu = {

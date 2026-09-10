@@ -503,6 +503,23 @@ console.log('6. the live scan (headless program)');
         prog = this;
       }
     }
+    // the script's caption dictionary is installed before it runs, so its
+    // userbox lines (the progress text) read as the module view draws them
+    let installed = null;
+    global.irUseTranslations = (ir) => {
+      installed = ir;
+    };
+    const dict = { i18n: { 'bitte warten': 'please wait' } };
+    const hl = T.ecuTreeScanStart(
+      'E46',
+      {},
+      { ...deps(), loadLabels: async () => dict }
+    );
+    await hl.done;
+    assert.strictEqual(installed, dict, 'the scan installs the dictionary');
+    delete global.irUseTranslations;
+    ok('caption dictionary');
+
     const h2 = T.ecuTreeScanStart('E46', {}, { ...deps(), Program: Spy });
     await sleep(120);
     h2.cancel();

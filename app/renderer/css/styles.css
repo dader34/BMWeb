@@ -10880,3 +10880,26 @@ body.ista-mode .view {
   color: var(--muted, #8a8f98);
   line-height: 1.5;
 }
+
+/* a tree box's sheet: the read's findings, then the way into the module */
+.modal.tree-sheet {
+  width: min(720px, 94vw);
+}
+.tree-sheet .modal-body {
+  overflow: auto;
+}
+.tree-sheet-sub {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--ink-dim);
+  margin-top: 2px;
+}
+.tree-sheet-state {
+  margin-bottom: 8px;
+}
+.tree-sheet .modal-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
