@@ -438,6 +438,11 @@ export interface Bus {
 /** The app functions the CLI calls, typed at the seam. */
 export interface Runtime {
   ipofDecodeExec(data: Uint8Array, stem: string): IpoExec;
+  /** The inverse: an exec back to real .IPO container bytes. */
+  ipofEncode(
+    exec: IpoExec,
+    opts?: { verHi?: number; verLo?: number; magic?: string }
+  ): Uint8Array;
   ipofInventory(exec: IpoExec): {
     menus: string[];
     screens: string[];
