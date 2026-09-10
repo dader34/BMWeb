@@ -12,6 +12,7 @@
  */
 import { createInterface } from 'node:readline';
 import { CliError } from './args.ts';
+import { GatewayPort, gatewayUrl } from './gateway-client.ts';
 import { formatTable } from './table.ts';
 import {
   loadRuntime,
@@ -37,6 +38,8 @@ import { configureSite } from './site.ts';
 export interface LiveOptions {
   /** the device path; the single candidate when absent */
   port?: string;
+  /** a gateway's host:port or ws:// URL: the cable is on another machine */
+  gateway?: string;
   /** the site the data comes from */
   api?: string;
   /** refetch cached data */
@@ -56,13 +59,22 @@ export const FTDI_HINT =
   'macOS: FTDI D2XX/driver setting; Windows: Device Manager, Port Settings, Advanced).';
 
 /**
- * Connect the app's bus to the chosen port.
+ * The gateway port this process dialled, if any, so disconnectBus can drop
+ * the socket after the bus has closed the remote cable.
+ */
+let dialled: GatewayPort | null = null;
+
+/**
+ * Connect the app's bus to the chosen port, local or remote.
  *
  * The site is configured first (the shim fetches its archives on the
- * first job), then navigator.serial is given the Node port so the bus's
- * own connect() opens it, sets the idle lines and resets its wire state
- * exactly as it does in the browser.
- * @param opts - the port and site options
+ * first job), then navigator.serial is given the port so the bus's own
+ * connect() opens it, sets the idle lines and resets its wire state
+ * exactly as it does in the browser. WHICH port is the only difference a
+ * gateway makes: --gateway dials a machine that owns the cable and hands
+ * the bus a port with the same Web Serial shape, so not one line of the
+ * transport, the framing or the write gate changes.
+ * @param opts - the port, gateway and site options
  * @returns the runtime and the port label
  */
 export async function connectBus(
@@ -74,10 +86,20 @@ export async function connectBus(
   });
   const R = loadRuntime();
   const g = runtimeGlobals();
-  const candidates = opts.ports || (await listPorts());
-  const path = choosePort(opts.port, candidates);
-  const opener = opts.opener || openSerialportBinding;
-  const port = new NodeSerialPort(path, opener);
+  let port: NodeSerialPort | GatewayPort;
+  let path: string;
+  if (opts.gateway) {
+    const url = gatewayUrl(opts.gateway);
+    const remote = new GatewayPort(url);
+    await remote.dial();
+    dialled = remote;
+    port = remote;
+    path = url;
+  } else {
+    const candidates = opts.ports || (await listPorts());
+    path = choosePort(opts.port, candidates);
+    port = new NodeSerialPort(path, opts.opener || openSerialportBinding);
+  }
   (g.navigator as { serial: unknown }).serial = {
     requestPort: async () => port,
     getPorts: async () => [],
@@ -86,15 +108,24 @@ export async function connectBus(
   try {
     label = await R.webBus.connect();
   } catch (e) {
+    if (dialled === port) {
+      dialled.hangUp();
+      dialled = null;
+    }
     throw new CliError(`cannot open ${path}: ${(e as Error).message}`);
   }
+  // the chip and the status line say where the car is, not just that it is
+  if (port instanceof GatewayPort)
+    label = `gateway ${path}${port.remoteDevice ? ` (${port.remoteDevice})` : ''}`;
   return { R, label, path };
 }
 
 /**
  * Let every queued exchange finish, then close the port. A menu's release
  * job is fired without being awaited (activations.js), so the lock is
- * taken once more before the wire goes.
+ * taken once more before the wire goes. A gateway socket is hung up after
+ * the bus has closed the remote cable, never before: the close travels
+ * over that very socket.
  * @param R - the runtime
  */
 export async function disconnectBus(R: Runtime): Promise<void> {
@@ -104,6 +135,10 @@ export async function disconnectBus(R: Runtime): Promise<void> {
     /* the queue drained with an error; leaving anyway */
   }
   if (R.webBus.connected) await R.webBus.disconnect();
+  if (dialled) {
+    dialled.hangUp();
+    dialled = null;
+  }
 }
 
 /**

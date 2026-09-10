@@ -7,6 +7,7 @@
  * stack, so a report of it is useful.
  */
 import { CliError, helpLines, parseArgs, type FlagSpecs } from './args.ts';
+import { DEFAULT_LISTEN, gatewayCommand } from './gateway.ts';
 import { ipoCompile, ipoInfo, ipoKeys } from './ipo.ts';
 import {
   connectBus,
@@ -72,6 +73,11 @@ const LIVE: FlagSpecs = {
     kind: 'string',
     alias: 'p',
     help: 'the serial device (the single candidate when there is one)',
+  },
+  gateway: {
+    kind: 'string',
+    alias: 'g',
+    help: 'drive a cable another machine is serving: host:port or a ws:// URL',
   },
   ...SITE,
 };
@@ -221,9 +227,33 @@ const COMMANDS: Record<string, Command> = {
       return portsCommand(!!flags.json);
     },
   },
+  gateway: {
+    usage: 'bmweb gateway [--port p] [--listen host:port]',
+    summary: `serve this machine's cable over a WebSocket so another machine can drive it with --gateway (default ${DEFAULT_LISTEN})`,
+    flags: {
+      port: {
+        kind: 'string',
+        alias: 'p',
+        help: 'the serial device (the single candidate when there is one)',
+      },
+      listen: {
+        kind: 'string',
+        alias: 'l',
+        help: `the address to serve on (default ${DEFAULT_LISTEN}; 0.0.0.0:6801 serves the LAN)`,
+      },
+    },
+    async run(pos, flags) {
+      if (pos.length)
+        throw new CliError('usage: ' + (COMMANDS.gateway as Command).usage);
+      return gatewayCommand({
+        port: flags.port as string | undefined,
+        listen: flags.listen as string | undefined,
+      });
+    },
+  },
   job: {
     usage:
-      'bmweb job <sgbd> <JOB> [arg] [--results a,b] [--info] [--port p] [--api url] [--yes] [--json]',
+      'bmweb job <sgbd> <JOB> [arg] [--results a,b] [--info] [--port p] [--gateway h:p] [--api url] [--yes] [--json]',
     summary:
       "one raw job on one module over the cable, like the app's Tool32; a write needs --yes or a y answer, and --info reads the declaration instead of running it",
     flags: {
@@ -315,7 +345,8 @@ const COMMANDS: Record<string, Command> = {
     },
   },
   scan: {
-    usage: 'bmweb scan <chassis> [--port p] [--api url] [--share] [--json]',
+    usage:
+      'bmweb scan <chassis> [--port p] [--gateway h:p] [--api url] [--share] [--json]',
     summary: `INPA's whole-vehicle script over the cable (${SCAN_CHASSIS.join(' ')}): every fault memory as a report, --share adds a Garage link`,
     flags: {
       ...LIVE,
@@ -347,7 +378,8 @@ const COMMANDS: Record<string, Command> = {
     },
   },
   tui: {
-    usage: 'bmweb tui [<chassis> <sgbd>] [--port p] [--api url] [--menu m_x]',
+    usage:
+      'bmweb tui [<chassis> <sgbd>] [--port p] [--gateway h:p] [--api url] [--menu m_x]',
     summary:
       "INPA screens in the terminal: the app's home (pick a chassis and a module) with no arguments, else that module; F-keys on the number row, every write asked first, released on quit",
     flags: {
@@ -385,11 +417,13 @@ const COMMANDS: Record<string, Command> = {
  */
 function liveOptions(flags: Record<string, unknown>): {
   port?: string;
+  gateway?: string;
   api?: string;
   refresh?: boolean;
 } {
   return {
     port: flags.port as string | undefined,
+    gateway: flags.gateway as string | undefined,
     api: flags.api as string | undefined,
     refresh: !!flags.refresh,
   };
@@ -442,10 +476,12 @@ export function helpText(): string[] {
     '  bmweb <command> --help    options of one command',
     '  bmweb --version',
     '',
-    'ports, job, scan and tui talk to the car over a K+DCAN cable (the serialport',
-    'package, an optional dependency). Module data and the search index are',
-    'fetched from the site and cached under $XDG_CACHE_HOME/bmweb-cli',
-    '(default ~/.cache/bmweb-cli) for a day; nothing BMW-derived ships here.'
+    'ports, gateway, job, scan and tui talk to the car over a K+DCAN cable (the',
+    'serialport package, an optional dependency). One machine can own the cable',
+    'and serve it (bmweb gateway) while another drives it (--gateway host:port).',
+    'Module data and the search index are fetched from the site and cached under',
+    '$XDG_CACHE_HOME/bmweb-cli (default ~/.cache/bmweb-cli) for a day; nothing',
+    'BMW-derived ships here.'
   );
   return out;
 }
