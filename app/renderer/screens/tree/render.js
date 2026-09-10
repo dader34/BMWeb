@@ -46,7 +46,9 @@ function ecuTreeSvg(layout, status) {
     const title =
       `${b.ecu.name}` +
       (b.ecu.addr >= 0
-        ? ` (0x${b.ecu.addr.toString(16).padStart(2, '0')})`
+        ? ` (${(b.ecu.addrs || [b.ecu.addr])
+            .map((a) => `0x${a.toString(16).padStart(2, '0')}`)
+            .join(' / ')})`
         : '') +
       (st.state === 'faults'
         ? `: ${st.faults} fault${st.faults === 1 ? '' : 's'}`

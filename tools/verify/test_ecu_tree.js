@@ -95,6 +95,81 @@ const tree = {
 
 console.log('1. layout');
 {
+  // one box per cell: ISTA stacks every module that can fill a slot on the
+  // same cell, and the box is their union (addresses, groups)
+  {
+    const stacked = {
+      series: 'X',
+      ecus: [
+        {
+          name: 'DME',
+          addr: 16,
+          groups: ['d_0010'],
+          bus: 'FACAN',
+          col: 7,
+          row: 1,
+        },
+        {
+          name: 'DME',
+          addr: 18,
+          groups: ['d_motor', 'd_0012'],
+          bus: 'FACAN',
+          col: 7,
+          row: 1,
+        },
+        {
+          name: 'DME',
+          addr: 19,
+          groups: ['d_0013'],
+          bus: 'FACAN',
+          col: 7,
+          row: 1,
+        },
+        {
+          name: 'EGS',
+          addr: 24,
+          groups: ['d_egs'],
+          bus: 'FACAN',
+          col: 7,
+          row: 4,
+        },
+        {
+          name: 'SMG',
+          addr: 50,
+          groups: ['d_0032'],
+          bus: 'FACAN',
+          col: 7,
+          row: 4,
+        },
+        {
+          name: 'EML',
+          addr: 32,
+          groups: ['d_0020'],
+          bus: 'UNKNOWN',
+          col: -1,
+          row: -1,
+        },
+      ],
+      buses: [],
+    };
+    const d = T.ecuTreeDrawn(stacked);
+    assert.strictEqual(d.length, 2, 'two cells, two boxes');
+    assert.deepStrictEqual(
+      [d[0].name, d[0].addr, d[0].addrs, d[0].groups],
+      ['DME', 16, [16, 18, 19], ['d_0010', 'd_motor', 'd_0012', 'd_0013']]
+    );
+    assert.strictEqual(d[1].name, 'EGS / SMG', 'differing names are joined');
+    const st = T.ecuTreeStatus(stacked, {
+      modules: [{ sgbd: 'ms450ds0', via: 'd_motor', codes: [{}] }],
+      silent: [],
+    });
+    assert.strictEqual(
+      st.get('DME@16').state,
+      'faults',
+      'the cell shows the answer'
+    );
+    ok('one box per cell');
+  }
   const drawn = T.ecuTreeDrawn(tree);
   assert.strictEqual(drawn.length, 7, 'the VIRTUAL module is not drawn');
   ok('hidden buses are dropped');
@@ -332,10 +407,13 @@ console.log('5. the extractor');
       'bus lines with paint flags'
     );
     const L = T.ecuTreeLayout(e46);
+    // 54 drawable entries on 49 cells: the stacked DME/EGS/DSC slots merge
     assert.ok(
-      L.boxes.length >= 50 && L.lines.length === 4,
+      L.boxes.length >= 45 && L.lines.length === 4,
       'the real E46 lays out with its four bus lines'
     );
+    const cells = new Set(L.boxes.map((b) => `${b.ecu.col},${b.ecu.row}`));
+    assert.strictEqual(cells.size, L.boxes.length, 'no two boxes on a cell');
     fs.rmSync(out, { recursive: true, force: true });
     ok('extractor output');
   }

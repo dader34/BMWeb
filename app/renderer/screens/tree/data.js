@@ -16,6 +16,7 @@ const ECU_TREE_HIDDEN = new Set(['UNKNOWN', 'VIRTUAL', 'NONE', 'INTERNAL']);
  * @typedef {object} EcuTreeEcu
  * @property {string} name - the box label (KOMBI, DME, LM ...)
  * @property {number} addr - the diagnostic address
+ * @property {number[]} [addrs] - every address on the cell, once drawn (ecuTreeDrawn)
  * @property {string[]} groups - the group SGBDs it is reached through, lower-case
  * @property {string} bus - the bus it sits on (KBUS, FACAN, KCAN, MOST ...)
  * @property {number} col - grid column

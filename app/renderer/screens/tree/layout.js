@@ -54,7 +54,15 @@ function ecuTreeBusStyle(bus) {
 }
 
 /**
- * The modules a tree draws: those on a drawn bus.
+ * The modules a tree draws: those on a drawn bus, ONE BOX PER CELL.
+ *
+ * ISTA's tree is a picture of slots, and it lists every module that can
+ * fill a slot on the same cell: E46 has DME at 0x10, 0x12 and 0x13 all on
+ * (7,1), EGS at 0x18 and 0x32 on one cell, and so on across 40 trees.
+ * Drawn one over the other, the topmost hides the one that answered (the
+ * scan reads the 0x12 DME through D_MOTOR; the 0x13 box lay on top and
+ * stayed grey). So the cell is the box: its addresses and groups are the
+ * union, its name the first's (or the names joined when they differ).
  * @param {EcuTree} tree - the tree
  * @returns {EcuTreeEcu[]}
  */
@@ -63,7 +71,24 @@ function ecuTreeDrawn(tree) {
     typeof ECU_TREE_HIDDEN !== 'undefined'
       ? ECU_TREE_HIDDEN
       : new Set(['UNKNOWN', 'VIRTUAL', 'NONE', 'INTERNAL']);
-  return (tree.ecus || []).filter((e) => !hidden.has(e.bus));
+  const out = [];
+  const byCell = new Map();
+  for (const e of tree.ecus || []) {
+    if (hidden.has(e.bus)) continue;
+    const cell = e.col >= 0 && e.row >= 0 ? `${e.col},${e.row}` : null;
+    const have = cell ? byCell.get(cell) : null;
+    if (!have) {
+      const box = { ...e, groups: [...(e.groups || [])], addrs: [e.addr] };
+      out.push(box);
+      if (cell) byCell.set(cell, box);
+      continue;
+    }
+    if (!have.name.split(' / ').includes(e.name)) have.name += ` / ${e.name}`;
+    have.addrs.push(e.addr);
+    for (const g of e.groups || [])
+      if (!have.groups.includes(g)) have.groups.push(g);
+  }
+  return out;
 }
 
 /**
