@@ -848,17 +848,37 @@ const I = loadClassic('screens/ista/');
     flat.some((f) => f[0] === 'Model code' && f[1] === 'BN53'),
     'the model code comes off the catalogue decode'
   );
-  // a field the catalogue inferred from the VIN carries the warning triangle;
-  // one the car itself would have to answer does not
+  // THE TRIANGLE IS NOT "THIS CAME FROM THE VIN". On a fully decoded E46 the
+  // real tool draws exactly one, on Sales designation, and none on Series,
+  // Engine, Body or Production date -- all of which the VIN gave it. It marks
+  // the one flagged field it could not resolve at all, so flagging every
+  // VIN-derived field would cover the grid and hide the one that matters.
   assert.strictEqual(
-    flat.find((f) => f[0] === 'Series')[2],
-    true,
-    'a VIN-derived value is flagged'
+    flat.filter((f) => f[2]).length,
+    1,
+    'exactly one triangle on a decoded car'
   );
   assert.strictEqual(
-    flat.find((f) => f[0] === 'Engine number')[2],
-    false,
-    'a value only the car could give is not flagged'
+    flat.find((f) => f[0] === 'Sales designation')[2],
+    true,
+    'the unresolved flagged field carries it'
+  );
+  for (const label of ['Series', 'Engine', 'Body', 'Production date', 'VIN'])
+    assert.strictEqual(
+      flat.find((f) => f[0] === label)[2],
+      false,
+      `${label} came from the VIN and is NOT flagged`
+    );
+  // a flagged field that DID resolve loses its triangle
+  const withSales = istaDetailColumns(
+    { vin: 'X' },
+    { model: 'X', sales: 'y' },
+    {}
+  ).flat();
+  assert.strictEqual(
+    withSales.filter((f) => f[2]).length,
+    1,
+    'still only the flagged field can carry one'
   );
   ok("the details grid is the tool's four columns");
 }

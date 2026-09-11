@@ -272,9 +272,15 @@ function istaPageGrey(host, title, why, shape) {
  *
  * The order is not alphabetical and not grouped by source: it is the order
  * the real tool uses, which a technician reads by position. Each entry is
- * [label, value, fromVin] -- fromVin puts the warning triangle beside the
- * label, which is what the tool does for a value it inferred from the VIN
- * rather than heard from the car.
+ * [label, value, warn].
+ *
+ * THE TRIANGLE IS NOT "THIS CAME FROM THE VIN". The frames settle it: on a
+ * fully decoded E46 the tool draws exactly one triangle, on Sales
+ * designation, and none on Series, Engine, Body or Production date -- all of
+ * which the VIN gave it. It marks the field the tool could not resolve at
+ * all, so that is what it marks here: a flagged field whose value is still
+ * missing. Flagging every VIN-derived field instead covers the grid in
+ * triangles and makes the one that matters invisible.
  * @param {object|null} car - the picked GarageCar
  * @param {object|null} etk - the VIN decode
  * @param {object} read - what a read found: {km, fa, vin}
@@ -298,46 +304,48 @@ function istaDetailColumns(car, etk, read) {
   const gear = e.gear === 'A' ? 'AUTO' : e.gear === 'M' ? 'MANUAL' : '';
   const steer = e.steer === 'R' ? 'RL' : e.steer === 'L' ? 'LL' : '';
   const km = typeof istaKm === 'function' ? istaKm(read.km) : '';
+  // the fields the tool flags when it has no value for them
+  const flagged = new Set(['Sales designation']);
+  const f = (label, value) => [label, value, flagged.has(label) && !value];
   return [
     [
-      ['VIN', read.vin || c.vin || '', !read.vin],
-      ['Mileage:', km, false],
-      ['Drive type', '', true],
-      ['Production date', date, true],
-      ['Body', body, true],
-      ['First registration', '', false],
-      ['Basic version', e.market || '', true],
+      f('VIN', read.vin || c.vin || ''),
+      f('Mileage:', km),
+      f('Drive type', ''),
+      f('Production date', date),
+      f('Body', body),
+      f('First registration', ''),
+      f('Basic version', e.market || ''),
     ],
     [
-      ['Series', e.model || c.model || '', true],
-      ['Engine', e.motor || c.motor || '', true],
-      ['Engine label', fa.motor || '', true],
-      ['Construction date:', yr && mo ? `${yr} / ${mo}` : '', true],
-      ['Steering', steer, true],
-      ['Engine number', '', false],
-      ['Upholstery code', fa.polster || '', false],
+      f('Series', e.model || c.model || ''),
+      f('Engine', e.motor || c.motor || ''),
+      f('Engine label', fa.motor || ''),
+      f('Construction date:', yr && mo ? `${yr} / ${mo}` : ''),
+      f('Steering', steer),
+      f('Engine number', ''),
+      f('Upholstery code', fa.polster || ''),
     ],
     [
-      [
+      f(
         'Development code:',
-        String(e.chassis || c.chassis || '').toUpperCase(),
-        true,
-      ],
-      ['Electrical drive unit', '', false],
-      ['E-drive unit designation', '', false],
-      ['I-Level factory:', '', false],
-      ['Model code', e.mospid || '', true],
-      ['Gearbox number', '', false],
-      ['Paint code', fa.lack || '', false],
+        String(e.chassis || c.chassis || '').toUpperCase()
+      ),
+      f('Electrical drive unit', ''),
+      f('E-drive unit designation', ''),
+      f('I-Level factory:', ''),
+      f('Model code', e.mospid || ''),
+      f('Gearbox number', ''),
+      f('Paint code', fa.lack || ''),
     ],
     [
-      ['Sales designation', '', true],
-      ['Gearbox', gear, true],
-      ['HMI version', '', false],
-      ['I-Level actual:', '', false],
-      ['Last used program version:', '', false],
-      ['Type approval no.:', '', false],
-      ['Road-Map/Abo', '', false],
+      f('Sales designation', ''),
+      f('Gearbox', gear),
+      f('HMI version', ''),
+      f('I-Level actual:', ''),
+      f('Last used program version:', ''),
+      f('Type approval no.:', ''),
+      f('Road-Map/Abo', ''),
     ],
   ];
 }
@@ -353,10 +361,13 @@ function istaDetailColumns(car, etk, read) {
 function istaRealDetails(host, car, etk, read) {
   const cols = istaDetailColumns(car, etk, read || {});
   const warn = `<span class="irdet-warn">${istaRealIcon('warn')}</span>`;
-  const field = ([label, value, fromVin]) =>
+  // the triangle marks the flagged field the tool could not resolve, so it
+  // rides on the EMPTY one: gating it on a value would hide the only case
+  // it exists for
+  const field = ([label, value, flag]) =>
     `<div class="irdet-f">` +
     `<div class="irdet-l">${esc(label)}` +
-    (fromVin && value ? warn : '') +
+    (flag ? warn : '') +
     `</div>` +
     `<div class="irdet-v">${istaVal(value)}</div></div>`;
 

@@ -24,7 +24,14 @@
    cut. Getting this backwards is the single most visible way to miss.
    =========================================================================== */
 
-.ista-real {
+/* The tokens are declared on BOTH the chrome container and the body class.
+   The chrome needs them; so do the status line, the bottom bar and .view,
+   which are siblings of the chrome rather than its children. A var() that
+   does not resolve makes its whole declaration invalid at computed-value
+   time -- which silently hands .view's inset back to the rule underneath and
+   tucks the content behind the chrome -- so both scopes carry the set. */
+.ista-real,
+body.ista-real-body {
   /* the measured palette */
   --ir-teal: #5e958f;
   --ir-teal-dim: #7ba8a3;
@@ -62,7 +69,12 @@ body.ista-mode.ista-real-body .statusbar {
   display: none !important;
 }
 
+/* the shell owns the whole window while it is up: without this the page
+   stops at its content height and the ground shows under the bottom bar */
+html:has(body.ista-real-body),
 body.ista-mode.ista-real-body {
+  height: 100%;
+  min-height: 100%;
   background: #fff;
   font-family: var(--ir-font);
 }
@@ -90,10 +102,32 @@ body.ista-mode.ista-real-body .view {
   overflow: auto;
   font-family: var(--ir-font);
   font-size: 12px;
+  /* The app's themes paint light ink on a dark ground. This page is white
+     paper, so the ink has to come with it -- the tokens are re-pointed for
+     the whole subtree rather than colour-by-colour, so a screen the shell
+     wraps inherits readable text without being touched. */
+  color: var(--ir-ink);
+  --ink: #000;
+  --ink-dim: #333;
+  --muted: #555;
+  --panel: #fff;
+  --bg: #fff;
+  --line: var(--ir-grey-line);
+}
+body.ista-mode.ista-real-body .view,
+body.ista-mode.ista-real-body .view p,
+body.ista-mode.ista-real-body .view div,
+body.ista-mode.ista-real-body .view span,
+body.ista-mode.ista-real-body .view li,
+body.ista-mode.ista-real-body .view h1,
+body.ista-mode.ista-real-body .view h2,
+body.ista-mode.ista-real-body .view h3,
+body.ista-mode.ista-real-body .view label {
+  color: var(--ir-ink);
 }
 
 /* ---- toolbar row ---------------------------------------------------------- */
-.ista-real .irt {
+.ista-real-body .irt {
   display: flex;
   align-items: center;
   height: var(--ir-toolbar-h);
@@ -104,12 +138,12 @@ body.ista-mode.ista-real-body .view {
 }
 
 /* the session squares: one per open car, the active one outlined teal */
-.ista-real .irt-sess {
+.ista-real-body .irt-sess {
   display: flex;
   gap: 8px;
   align-items: center;
 }
-.ista-real .irt-sq {
+.ista-real-body .irt-sq {
   width: 26px;
   height: 20px;
   border: 1px solid #9a9a9a;
@@ -120,17 +154,17 @@ body.ista-mode.ista-real-body .view {
   padding: 0;
   cursor: pointer;
 }
-.ista-real .irt-sq.on {
+.ista-real-body .irt-sq.on {
   border-color: var(--ir-teal);
   color: var(--ir-ink);
   box-shadow: inset 0 0 0 1px var(--ir-teal);
 }
 
-.ista-real .irt-spacer {
+.ista-real-body .irt-spacer {
   flex: 1;
 }
 
-.ista-real .irt-clock {
+.ista-real-body .irt-clock {
   font-size: 12px;
   color: #1a1a1a;
   margin-right: 10px;
@@ -139,7 +173,7 @@ body.ista-mode.ista-real-body .view {
 
 /* every toolbar icon is the same 26x20 square with a drawn glyph inside: no
    emoji anywhere, so the row renders identically on every platform */
-.ista-real .irt-ico {
+.ista-real-body .irt-ico {
   width: 26px;
   height: 20px;
   border: 1px solid transparent;
@@ -151,11 +185,11 @@ body.ista-mode.ista-real-body .view {
   justify-content: center;
   color: #1a1a1a;
 }
-.ista-real .irt-ico:hover {
+.ista-real-body .irt-ico:hover {
   border-color: #9a9a9a;
   background: #d4d4d4;
 }
-.ista-real .irt-ico svg {
+.ista-real-body .irt-ico svg {
   width: 15px;
   height: 15px;
   fill: none;
@@ -164,13 +198,13 @@ body.ista-mode.ista-real-body .view {
   stroke-linecap: square;
   stroke-linejoin: miter;
 }
-.ista-real .irt-ico.irt-ico-fill svg {
+.ista-real-body .irt-ico.irt-ico-fill svg {
   fill: currentColor;
   stroke: none;
 }
 
 /* ---- title row ------------------------------------------------------------ */
-.ista-real .irtitle {
+.ista-real-body .irtitle {
   height: var(--ir-title-h);
   background: var(--ir-grey);
   border-top: 1px solid #fff;
@@ -184,7 +218,7 @@ body.ista-mode.ista-real-body .view {
 }
 
 /* ---- header line (VIN / Vehicle / KL15 / KL30) ---------------------------- */
-.ista-real .irhead {
+.ista-real-body .irhead {
   height: var(--ir-header-h);
   background: #fff;
   display: flex;
@@ -194,29 +228,29 @@ body.ista-mode.ista-real-body .view {
   box-sizing: border-box;
   gap: 6px;
 }
-.ista-real .irhead b {
+.ista-real-body .irhead b {
   font-weight: 700;
 }
-.ista-real .irhead .irhead-k {
+.ista-real-body .irhead .irhead-k {
   color: #333;
   font-weight: 700;
 }
 /* the VIN label and the Vehicle label sit on a fixed grid in the frames:
    "VIN" at the left edge, the value, then "Vehicle" at a fixed offset */
-.ista-real .irhead-vin {
+.ista-real-body .irhead-vin {
   min-width: 130px;
 }
-.ista-real .irhead-veh {
+.ista-real-body .irhead-veh {
   flex: 1;
 }
-.ista-real .irhead-kl {
+.ista-real-body .irhead-kl {
   display: flex;
   gap: 26px;
   padding-right: 10px;
   color: #333;
 }
 /* the green session pill after a whole-car test */
-.ista-real .irhead-test {
+.ista-real-body .irhead-test {
   background: var(--ir-teal);
   color: #fff;
   padding: 1px 14px;
@@ -224,18 +258,18 @@ body.ista-mode.ista-real-body .view {
 }
 
 /* ---- main tab bar --------------------------------------------------------- */
-.ista-real .irtabs {
+.ista-real-body .irtabs {
   display: flex;
   height: var(--ir-tabbar-h);
   background: #000;
   box-sizing: border-box;
 }
-.ista-real .irtab {
+.ista-real-body .irtab {
   /* the frames put seven tabs on a fixed 129px grid with a 1px white gutter,
      and leave the rest of the bar black -- the tabs do NOT stretch */
-  flex: 0 0 129px;
+  flex: 0 0 128px;
+  margin-right: 1px;
   border: 0;
-  border-right: 1px solid #fff;
   background: #000;
   color: #fff;
   font: 13px/1.15 var(--ir-font);
@@ -246,14 +280,14 @@ body.ista-mode.ista-real-body .view {
   align-items: center;
   white-space: pre-line;
 }
-.ista-real .irtab:hover:not(.off) {
+.ista-real-body .irtab:hover:not(.off) {
   background: #262626;
 }
-.ista-real .irtab.on {
+.ista-real-body .irtab.on {
   background: var(--ir-teal);
   color: #fff;
 }
-.ista-real .irtab.off {
+.ista-real-body .irtab.off {
   color: var(--ir-off);
   cursor: default;
 }
@@ -262,21 +296,21 @@ body.ista-mode.ista-real-body .view {
 /* Both strips share everything but their shape and their grid. A strip that
    is NOT the last one on the page keeps the main bar's 129px columns and
    square corners; the last one cuts its corner and sizes to its label. */
-.ista-real .irstrip {
+.ista-real-body .irstrip {
   display: flex;
   background: var(--ir-grey);
   box-sizing: border-box;
   height: var(--ir-strip-h);
   align-items: stretch;
 }
-.ista-real .irstrip-3 {
+.ista-real-body .irstrip-3 {
   height: var(--ir-strip3-h);
   background: #fff;
   padding-left: 12px;
   align-items: flex-start;
 }
 
-.ista-real .irsub {
+.ista-real-body .irsub {
   border: 0;
   background: var(--ir-grey);
   color: var(--ir-ink);
@@ -289,44 +323,50 @@ body.ista-mode.ista-real-body .view {
   white-space: pre-line;
   position: relative;
 }
-.ista-real .irsub.on {
+.ista-real-body .irsub.on {
   background: var(--ir-teal);
   color: #fff;
 }
-.ista-real .irsub.off {
+.ista-real-body .irsub.off {
   color: var(--ir-off);
   cursor: default;
 }
 
-/* square grid: a strip with another strip beneath it */
-.ista-real .irstrip-grid .irsub {
-  flex: 0 0 129px;
-  border-right: 1px solid #fff;
+/* square grid: a strip with another strip beneath it. The 1px white gutter
+   is what separates the cells; without it the strip reads as one grey band
+   and the columns stop lining up with the black tabs above them.
+
+   No background here on purpose: the base .irsub already carries the grey
+   and .irsub.on the teal, and re-declaring the grey in this later rule is
+   what silently paints over the active cell. */
+.ista-real-body .irstrip-grid .irsub {
+  flex: 0 0 128px;
+  margin-right: 1px;
 }
 /* the grid strip draws its empty remainder in the same grey, so the row
    reads as a full-width band rather than as tabs floating on white */
-.ista-real .irstrip-grid {
+.ista-real-body .irstrip-grid {
   background: var(--ir-grey);
 }
 
 /* trapezoid: the LAST strip on the page. The cut is 17px across and 16px
    down, measured off the frames. */
-.ista-real .irstrip-cut .irsub {
+.ista-real-body .irstrip-cut .irsub {
   margin: 0 4px 0 0;
   padding: 0 24px 0 12px;
   min-width: 96px;
   clip-path: polygon(0 0, calc(100% - 17px) 0, 100% 16px, 100% 100%, 0 100%);
 }
-.ista-real .irstrip-cut.irstrip {
+.ista-real-body .irstrip-cut.irstrip {
   padding-left: 6px;
   align-items: stretch;
 }
-.ista-real .irstrip-3 .irsub {
+.ista-real-body .irstrip-3 .irsub {
   height: calc(var(--ir-strip3-h) - 5px);
 }
 
 /* the pin star: a small overlay on a sub-tab, drawn rather than an emoji */
-.ista-real .irsub-star {
+.ista-real-body .irsub-star {
   position: absolute;
   top: 2px;
   right: 3px;
@@ -339,21 +379,21 @@ body.ista-mode.ista-real-body .view {
   opacity: 0;
   color: #555;
 }
-.ista-real .irsub:hover .irsub-star,
-.ista-real .irsub-star.on {
+.ista-real-body .irsub:hover .irsub-star,
+.ista-real-body .irsub-star.on {
   opacity: 1;
 }
-.ista-real .irsub.on .irsub-star {
+.ista-real-body .irsub.on .irsub-star {
   color: #fff;
 }
-.ista-real .irsub-star svg {
+.ista-real-body .irsub-star svg {
   width: 11px;
   height: 11px;
   fill: none;
   stroke: currentColor;
   stroke-width: 1.6;
 }
-.ista-real .irsub-star.on svg {
+.ista-real-body .irsub-star.on svg {
   fill: currentColor;
 }
 
@@ -488,14 +528,14 @@ body.ista-mode.ista-real-body .view {
 
 /* ---- tables --------------------------------------------------------------- */
 .ista-real-body .view table,
-.ista-real .irtable {
+.ista-real-body .irtable {
   border-collapse: collapse;
   width: 100%;
   font-size: 12px;
   background: #fff;
 }
 .ista-real-body .view th,
-.ista-real .irtable th {
+.ista-real-body .irtable th {
   background: var(--ir-head);
   color: #fff;
   font-weight: 700;
@@ -508,7 +548,7 @@ body.ista-mode.ista-real-body .view {
   white-space: nowrap;
 }
 .ista-real-body .view td,
-.ista-real .irtable td {
+.ista-real-body .irtable td {
   padding: 3px 6px;
   height: 22px;
   border: 0;
@@ -518,37 +558,37 @@ body.ista-mode.ista-real-body .view {
   background: transparent;
 }
 .ista-real-body .view tbody tr,
-.ista-real .irtable tbody tr {
+.ista-real-body .irtable tbody tr {
   background: #fff;
 }
 .ista-real-body .view tbody tr:nth-child(even),
-.ista-real .irtable tbody tr:nth-child(even) {
+.ista-real-body .irtable tbody tr:nth-child(even) {
   background: var(--ir-row-alt);
 }
 .ista-real-body .view tbody tr.sel,
 .ista-real-body .view tbody tr[aria-selected='true'],
-.ista-real .irtable tbody tr.sel {
+.ista-real-body .irtable tbody tr.sel {
   background: var(--ir-teal);
   color: #fff;
 }
-.ista-real .irtable tbody tr.sel td {
+.ista-real-body .irtable tbody tr.sel td {
   color: #fff;
 }
 /* a grey heading row inside a table (the hit list groups by one) */
-.ista-real .irtable tbody tr.irgroup td {
+.ista-real-body .irtable tbody tr.irgroup td {
   background: var(--ir-grey);
   font-weight: 700;
 }
 
 /* ---- pane title bars ------------------------------------------------------ */
-.ista-real .irpane {
+.ista-real-body .irpane {
   border: 1px solid var(--ir-grey-line);
   background: #fff;
   display: flex;
   flex-direction: column;
   min-height: 0;
 }
-.ista-real .irpane-head {
+.ista-real-body .irpane-head {
   background: var(--ir-head);
   color: #fff;
   font-weight: 700;
@@ -560,10 +600,10 @@ body.ista-mode.ista-real-body .view {
   gap: 8px;
   flex: 0 0 auto;
 }
-.ista-real .irpane-head .irpane-spacer {
+.ista-real-body .irpane-head .irpane-spacer {
   flex: 1;
 }
-.ista-real .irpane-head button {
+.ista-real-body .irpane-head button {
   background: transparent;
   border: 0;
   color: #fff;
@@ -571,17 +611,17 @@ body.ista-mode.ista-real-body .view {
   cursor: pointer;
   padding: 0 4px;
 }
-.ista-real .irpane-body {
+.ista-real-body .irpane-body {
   flex: 1;
   overflow: auto;
   min-height: 0;
 }
 
 /* ---- trees ---------------------------------------------------------------- */
-.ista-real .irtree {
+.ista-real-body .irtree {
   font-size: 12px;
 }
-.ista-real .irtree-row {
+.ista-real-body .irtree-row {
   display: flex;
   align-items: center;
   height: 18px;
@@ -592,15 +632,15 @@ body.ista-mode.ista-real-body .view {
 }
 /* a child row carries the grey fill, a parent stays white: that is what
    makes the nesting readable without any indent guides */
-.ista-real .irtree-row.kid {
+.ista-real-body .irtree-row.kid {
   background: var(--ir-row-alt);
 }
-.ista-real .irtree-row.sel {
+.ista-real-body .irtree-row.sel {
   background: var(--ir-teal);
   color: #fff;
 }
 /* the expander is a drawn black square with a white + or -, never an emoji */
-.ista-real .irtree-exp {
+.ista-real-body .irtree-exp {
   width: 11px;
   height: 11px;
   flex: 0 0 11px;
@@ -610,29 +650,29 @@ body.ista-mode.ista-real-body .view {
   cursor: pointer;
   position: relative;
 }
-.ista-real .irtree-exp::before,
-.ista-real .irtree-exp::after {
+.ista-real-body .irtree-exp::before,
+.ista-real-body .irtree-exp::after {
   content: '';
   position: absolute;
   background: #fff;
 }
-.ista-real .irtree-exp::before {
+.ista-real-body .irtree-exp::before {
   left: 2px;
   right: 2px;
   top: 5px;
   height: 1px;
 }
-.ista-real .irtree-exp::after {
+.ista-real-body .irtree-exp::after {
   top: 2px;
   bottom: 2px;
   left: 5px;
   width: 1px;
 }
-.ista-real .irtree-exp.open::after {
+.ista-real-body .irtree-exp.open::after {
   display: none;
 }
 /* a leaf has no expander: it shows the "- " prefix the frames show */
-.ista-real .irtree-leaf {
+.ista-real-body .irtree-leaf {
   width: 11px;
   flex: 0 0 11px;
   text-align: center;
@@ -689,21 +729,21 @@ body.ista-mode.ista-real-body .view {
 }
 
 /* the "Ongoing background process" progress dialog */
-.ista-real .irprog {
+.ista-real-body .irprog {
   min-width: 320px;
 }
-.ista-real .irprog-body {
+.ista-real-body .irprog-body {
   padding: 14px 12px;
   font-size: 12px;
 }
-.ista-real .irprog-bar {
+.ista-real-body .irprog-bar {
   margin-top: 10px;
   height: 14px;
   border: 1px solid #999;
   background: #fff;
   overflow: hidden;
 }
-.ista-real .irprog-fill {
+.ista-real-body .irprog-fill {
   height: 100%;
   width: 35%;
   background: var(--ir-teal);
@@ -723,20 +763,21 @@ body.ista-mode.ista-real-body .view {
    =========================================================================== */
 
 /* ---- Operations / New / VIN ----------------------------------------------- */
-.ista-real .irvin {
+.ista-real-body .irvin {
   padding: 60px 0 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 26px;
 }
-.ista-real .irvin-label {
+.ista-real-body .irvin-label {
   font-weight: 700;
   font-size: 12px;
-  align-self: center;
-  margin-bottom: -18px;
+  /* the label sits directly over the box, both centred on the page: the
+     gap between them is the pair's own, not the column's */
+  margin: 0 0 -20px;
 }
-.ista-real .irvin-box {
+.ista-real-body .irvin-box {
   width: 312px;
   height: 20px;
   border: 1px solid #7a7a7a;
@@ -747,20 +788,20 @@ body.ista-mode.ista-real-body .view {
   text-transform: uppercase;
 }
 /* the Garage table under the box: ours, not BMW's, so it is labelled */
-.ista-real .irvin-garage {
+.ista-real-body .irvin-garage {
   width: 640px;
   max-width: calc(100% - 40px);
 }
-.ista-real .irvin-garage h3 {
+.ista-real-body .irvin-garage h3 {
   font-size: 12px;
   font-weight: 700;
   margin: 0 0 4px;
   padding: 0;
 }
-.ista-real .irvin-garage tbody tr {
+.ista-real-body .irvin-garage tbody tr {
   cursor: pointer;
 }
-.ista-real .irvin-empty {
+.ista-real-body .irvin-empty {
   border: 1px solid var(--ir-grey-line);
   border-top: 0;
   padding: 10px 8px;
@@ -770,29 +811,29 @@ body.ista-mode.ista-real-body .view {
 }
 
 /* ---- Operations / New / Read Out Vehicle Data ----------------------------- */
-.ista-real .irread {
+.ista-real-body .irread {
   padding: 12px;
   font-size: 12px;
 }
-.ista-real .irread-lines {
+.ista-real-body .irread-lines {
   margin: 0 0 18px;
   padding: 0;
   list-style: none;
 }
-.ista-real .irread-lines li {
+.ista-real-body .irread-lines li {
   margin: 0 0 3px;
 }
-.ista-real .irconn {
+.ista-real-body .irconn {
   border: 1px solid var(--ir-grey-line);
   max-width: 900px;
 }
-.ista-real .irconn-head {
+.ista-real-body .irconn-head {
   background: var(--ir-grey);
   font-weight: 700;
   padding: 3px 6px;
   border-bottom: 1px solid var(--ir-grey-line);
 }
-.ista-real .irconn-foot {
+.ista-real-body .irconn-foot {
   display: flex;
   gap: 6px;
   padding: 6px;
@@ -801,27 +842,27 @@ body.ista-mode.ista-real-body .view {
 }
 
 /* ---- Vehicle details ------------------------------------------------------ */
-.ista-real .irdet {
+.ista-real-body .irdet {
   padding: 10px 12px;
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 0 24px;
   align-items: start;
 }
-.ista-real .irdet-col {
+.ista-real-body .irdet-col {
   min-width: 0;
 }
-.ista-real .irdet-f {
+.ista-real-body .irdet-f {
   margin-bottom: 8px;
 }
-.ista-real .irdet-l {
+.ista-real-body .irdet-l {
   font-size: 11px;
   color: #333;
   display: flex;
   align-items: center;
   gap: 4px;
 }
-.ista-real .irdet-v {
+.ista-real-body .irdet-v {
   font-size: 12px;
   font-weight: 700;
   color: #000;
@@ -830,30 +871,30 @@ body.ista-mode.ista-real-body .view {
 }
 /* the warning triangle beside a label whose value came from the VIN rather
    than from the car itself: drawn, never an emoji */
-.ista-real .irdet-warn {
+.ista-real-body .irdet-warn {
   width: 11px;
   height: 11px;
   flex: 0 0 11px;
 }
-.ista-real .irdet-warn svg {
+.ista-real-body .irdet-warn svg {
   width: 11px;
   height: 11px;
   fill: #e8a33d;
   stroke: #8a6000;
   stroke-width: 0.8;
 }
-.ista-real .irdet-sub {
+.ista-real-body .irdet-sub {
   text-decoration: underline;
   font-size: 11px;
   color: #333;
   margin: 6px 0 3px;
 }
-.ista-real .irdet-ta {
+.ista-real-body .irdet-ta {
   border-collapse: collapse;
   font-size: 11px;
   width: 100%;
 }
-.ista-real .irdet-ta th {
+.ista-real-body .irdet-ta th {
   background: transparent;
   color: #333;
   font-weight: 400;
@@ -863,101 +904,122 @@ body.ista-mode.ista-real-body .view {
   padding: 2px 6px;
   height: auto;
 }
-.ista-real .irdet-ta td {
+.ista-real-body .irdet-ta td {
   border-right: 1px solid #ccc;
   padding: 2px 6px;
   height: 18px;
 }
 /* the Breakdown radios, centred under the second column as in the frames */
-.ista-real .irdet-bd {
+.ista-real-body .irdet-bd {
   grid-column: 2;
   margin-top: 10px;
 }
-.ista-real .irdet-bd-l {
+.ista-real-body .irdet-bd-l {
   text-decoration: underline;
   font-size: 11px;
   color: #333;
   margin-bottom: 3px;
 }
-.ista-real .irdet-bd-r {
+.ista-real-body .irdet-bd-r {
   display: flex;
   gap: 60px;
   font-size: 12px;
 }
-.ista-real .irdet-bd-r label {
+.ista-real-body .irdet-bd-r label {
   display: inline-flex;
   align-items: center;
   gap: 5px;
   cursor: pointer;
 }
+/* the app's skins paint radios and checkboxes as square boxes of their own.
+   The workshop tool uses the platform's, so hand these back to the browser
+   rather than inheriting a square "radio". */
+.ista-real-body .view input[type='radio'],
+.ista-real-body .view input[type='checkbox'] {
+  appearance: auto;
+  -webkit-appearance: auto;
+  width: auto;
+  height: auto;
+  background: none;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--ir-teal);
+}
+.ista-real-body .view input[type='radio']::before,
+.ista-real-body .view input[type='radio']::after,
+.ista-real-body .view input[type='checkbox']::before,
+.ista-real-body .view input[type='checkbox']::after {
+  content: none;
+}
 
 /* ---- Vehicle equipment ---------------------------------------------------- */
-.ista-real .ireq {
+.ista-real-body .ireq {
   padding: 10px 12px;
   font-size: 12px;
 }
-.ista-real .ireq h3 {
+.ista-real-body .ireq h3 {
   font-size: 12px;
   font-weight: 700;
   margin: 14px 0 4px;
   padding: 0;
 }
-.ista-real .ireq h3:first-child {
+.ista-real-body .ireq h3:first-child {
   margin-top: 0;
 }
-.ista-real .ireq-empty {
+.ista-real-body .ireq-empty {
   color: #555;
   font-size: 11px;
   padding: 3px 0;
 }
-.ista-real .ireq-list {
+.ista-real-body .ireq-list {
   list-style: none;
   margin: 0;
   padding: 0;
   columns: 2;
   column-gap: 40px;
 }
-.ista-real .ireq-list li {
+.ista-real-body .ireq-list li {
   break-inside: avoid;
   padding: 1px 0;
   font-size: 12px;
 }
-.ista-real .ireq-list b {
+.ista-real-body .ireq-list b {
   font-weight: 700;
   margin-right: 10px;
   font-variant-numeric: tabular-nums;
 }
 
 /* ---- a greyed page: the tab ISTA has that we cannot fill ------------------ */
-.ista-real .irgrey {
+.ista-real-body .irgrey {
   padding: 40px 20px;
   max-width: 760px;
 }
-.ista-real .irgrey-t {
+.ista-real-body .irgrey-t {
   font-size: 13px;
   font-weight: 700;
   margin-bottom: 8px;
 }
-.ista-real .irgrey-w {
+.ista-real-body .irgrey-w {
   border: 1px solid var(--ir-grey-line);
   background: var(--ir-row-alt);
   padding: 10px 12px;
   font-size: 12px;
   color: #333;
 }
-.ista-real .irgrey-att {
+.ista-real-body .irgrey-att {
   border: 1px solid #9a9a9a;
   background: #fff;
   padding: 10px 12px;
   margin-top: 16px;
   font-size: 12px;
 }
-.ista-real .irgrey-att b {
+.ista-real-body .irgrey-att b {
   font-weight: 700;
 }
 
 /* an empty bordered box, as the replacement pages draw */
-.ista-real .irempty-box {
+.ista-real-body .irempty-box {
   border: 1px solid var(--ir-grey-line);
   min-height: 180px;
   background: #fff;
@@ -967,7 +1029,7 @@ body.ista-mode.ista-real-body .view {
 /* Repair/maintenance is built on its own branch and scopes its CSS under
    .ista-repair. This is only the empty host it draws into, so the two can
    land without either one owning the other's rules. */
-.ista-real .irrepair-host {
+.ista-real-body .irrepair-host {
   height: 100%;
   min-height: 0;
 }
