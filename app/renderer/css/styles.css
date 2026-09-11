@@ -1308,9 +1308,12 @@ html.no-chrome body.apps-section .topbar {
   outline-offset: 1px;
 }
 .etk-hotspot.pinned {
+  /* the pinned box has to read at a glance against black line art, but the
+     callout number underneath must stay legible, so the FILL is tinted and
+     the border left fully opaque. Dimming the whole element with `opacity`
+     would take the border with it and leave the box edgeless. */
   border-color: var(--amber);
-  background: var(--amber);
-  opacity: 0.45;
+  background: color-mix(in srgb, var(--amber) 45%, transparent);
 }
 
 /* the parts rows answering back. A linked row is one whose callout is drawn

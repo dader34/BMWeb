@@ -368,10 +368,17 @@ function renderDiagram(data, chassisId, d, viewEl) {
   // It arrives after the drawing, so the diagram is never held up waiting for
   // it -- and a diagram re-rendered in the meantime must not be overwritten by
   // a late arrival, which is what the staleness check below guards.
+  //
+  // The previous diagram's overlay is released FIRST, whether or not this one
+  // has a drawing of its own: innerHTML has already dropped its rectangles
+  // from the DOM, but its window keydown/resize listeners and its
+  // ResizeObserver outlive that and would accumulate one set per diagram
+  // viewed. Bumping the token here also cancels a fetch still in flight for
+  // the diagram being replaced.
+  if (etkDropHotspots) etkDropHotspots();
+  etkDropHotspots = null;
+  const token = ++etkRenderToken;
   if (figImg && figEl) {
-    if (etkDropHotspots) etkDropHotspots();
-    etkDropHotspots = null;
-    const token = ++etkRenderToken;
     loadEtkHotspots(chassisId).then((hs) => {
       if (token !== etkRenderToken) return; // a different diagram is on screen
       const rects = hs && hs.bt ? hs.bt[d.btnr] : null;
@@ -504,12 +511,23 @@ function etkOpenLightbox(url, name, btnr, chassisId) {
   loupe.style.width = loupe.style.height = ETK_LOUPE_PX + 'px';
   loupe.style.backgroundImage = `url("${url}")`;
   const plate = box.querySelector('.etk-lightbox-plate');
-  img.onpointermove = (ev) => {
+  // The loupe follows the pointer over the PLATE, not over the <img>. The
+  // callout overlay sits on top of the drawing and takes the pointer, so
+  // tracking the image itself would fire pointerleave the moment the pointer
+  // reached a callout -- killing the magnifier exactly over the numbers a
+  // reader most wants magnified. The plate contains both, so neither hides it;
+  // the fraction is still measured against the image, and the loupe is hidden
+  // whenever the pointer is over the plate's margins rather than the drawing.
+  plate.onpointermove = (ev) => {
     const r = img.getBoundingClientRect();
     const pr = plate.getBoundingClientRect();
     if (!r.width || !r.height) return;
     const fx = (ev.clientX - r.left) / r.width;
     const fy = (ev.clientY - r.top) / r.height;
+    if (fx < 0 || fx > 1 || fy < 0 || fy > 1) {
+      loupe.hidden = true;
+      return;
+    }
     const bw = r.width * ETK_LOUPE_ZOOM;
     const bh = r.height * ETK_LOUPE_ZOOM;
     loupe.hidden = false;
@@ -519,7 +537,7 @@ function etkOpenLightbox(url, name, btnr, chassisId) {
     loupe.style.backgroundSize = `${bw}px ${bh}px`;
     loupe.style.backgroundPosition = `${ETK_LOUPE_PX / 2 - fx * bw}px ${ETK_LOUPE_PX / 2 - fy * bh}px`;
   };
-  img.onpointerleave = () => {
+  plate.onpointerleave = () => {
     loupe.hidden = true;
   };
 }
