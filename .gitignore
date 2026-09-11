@@ -12,6 +12,7 @@ obj/
 *.user
 # Node / Electron
 node_modules/
+node_modules
 app/server-dist/
 
 # Mac
