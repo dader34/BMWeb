@@ -130,7 +130,19 @@ function istaServiceSource(config, index, chassis, run) {
  * @returns {object} a BrowserSource
  */
 function istaDiagSource(data, bodyOf) {
-  const tree = (data && data.tree) || [];
+  // the extractor writes ONE root node per structure ("Fault patterns",
+  // "Function net root"); a source wants the roots it shows, so the root's
+  // own children are the tree and its label becomes the pane title. A file
+  // that already holds a list is taken as it comes.
+  const tree = !data
+    ? []
+    : Array.isArray(data)
+      ? data
+      : Array.isArray(data.tree)
+        ? data.tree
+        : Array.isArray(data.kids)
+          ? data.kids
+          : [];
 
   /**
    * Every document under a node, parents included.

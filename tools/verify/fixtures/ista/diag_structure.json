@@ -1,0 +1,659 @@
+{
+ "branches": {
+  "chassis": "E46",
+  "component": [
+   {
+    "id": 20000184694135,
+    "label": "BMW01",
+    "rule": "decoded",
+    "unsure": false
+   }
+  ],
+  "function": [
+   {
+    "id": 20000155087921,
+    "label": "BMW01",
+    "rule": "decoded",
+    "unsure": false
+   },
+   {
+    "id": 20000405775961,
+    "label": "Non-electrical diagnosis",
+    "rule": "decoded",
+    "unsure": false
+   }
+  ]
+ },
+ "documents": [
+  {
+   "body": {
+    "kind": "PINASSIGNMENTS",
+    "sections": [
+     {
+      "blocks": [
+       {
+        "rows": [
+         [
+          "Number",
+          "X-pin, colour",
+          "Description"
+         ],
+         [
+          "X1170",
+          "25-pin, blue",
+          "Plug connector ABS/ASC unit"
+         ]
+        ],
+        "t": "table"
+       }
+      ],
+      "heading": "Connector location views"
+     },
+     {
+      "blocks": [
+       {
+        "rows": [
+         [
+          "Pin",
+          "Type",
+          "Description /",
+          "Signal type",
+          "Connection /",
+          "Measuring notes"
+         ],
+         [
+          "1",
+          "A",
+          "Signal Wheel speed sensor, front left",
+          "",
+          "Front left speed sensor",
+          ""
+         ],
+         [
+          "2",
+          "A",
+          "Voltage supply, front left wheel speed sensor",
+          "",
+          "Front left speed sensor",
+          ""
+         ],
+         [
+          "3",
+          "",
+          "Not used",
+          "",
+          "",
+          ""
+         ],
+         [
+          "4",
+          "E",
+          "Terminal 15",
+          "",
+          "ASC/DSC button",
+          ""
+         ],
+         [
+          "5",
+          "A",
+          "Signal Wheel speed sensor, rear left",
+          "",
+          "Rear left speed sensor",
+          ""
+         ],
+         [
+          "6",
+          "A",
+          "Voltage supply, rear left wheel speed sensor",
+          "",
+          "Rear left speed sensor",
+          ""
+         ],
+         [
+          "7",
+          "E/A",
+          "Diagnosis signal TXD",
+          "",
+          "Diagnostic connector",
+          ""
+         ],
+         [
+          "8",
+          "M",
+          "Ground",
+          "",
+          "Ground point",
+          ""
+         ],
+         [
+          "9",
+          "E",
+          "Terminal 30",
+          "",
+          "Fuse F56",
+          ""
+         ],
+         [
+          "10",
+          "E/A",
+          "CAN bus low",
+          "",
+          "Connector CAN bus low",
+          ""
+         ],
+         [
+          "11",
+          "E/A",
+          "CAN bus high",
+          "",
+          "Connector CAN bus high",
+          ""
+         ],
+         [
+          "12",
+          "A",
+          "Signal Processed wheel speed, rear left",
+          "",
+          "Connector Processed wheel speed, rear left",
+          ""
+         ],
+         [
+          "13",
+          "",
+          "Not used",
+          "",
+          "",
+          ""
+         ],
+         [
+          "14",
+          "E",
+          "ASC passive button",
+          "",
+          "ASC/DSC button",
+          ""
+         ],
+         [
+          "15",
+          "",
+          "Not used",
+          "",
+          "",
+          ""
+         ],
+         [
+          "16",
+          "E",
+          "Signal Warning lamp",
+          "",
+          "Instrument cluster control unit",
+          ""
+         ],
+         [
+          "17",
+          "",
+          "Not used",
+          "",
+          "",
+          ""
+         ],
+         [
+          "18",
+          "E",
+          "Brake light",
+          "",
+          "Connector Brake light",
+          ""
+         ],
+         [
+          "19",
+          "A",
+          "Signal Wheel speed sensor, front right",
+          "",
+          "Front right speed sensor",
+          ""
+         ],
+         [
+          "20",
+          "A",
+          "Voltage supply, front right wheel speed sensor",
+          "",
+          "Front right speed sensor",
+          ""
+         ],
+         [
+          "21",
+          "A",
+          "Signal Processed wheel speed, rear right",
+          "",
+          "Connector Processed wheel speed, rear right",
+          ""
+         ],
+         [
+          "22",
+          "A",
+          "Voltage supply, rear right wheel speed sensor",
+          "",
+          "Rear right speed sensor",
+          ""
+         ],
+         [
+          "23",
+          "A",
+          "Signal Wheel speed sensor, rear right",
+          "",
+          "Rear right speed sensor",
+          ""
+         ],
+         [
+          "24",
+          "M",
+          "Ground",
+          "",
+          "Ground point",
+          ""
+         ],
+         [
+          "25",
+          "E",
+          "Terminal 30",
+          "",
+          "Fuse F53",
+          ""
+         ]
+        ],
+        "t": "table"
+       }
+      ],
+      "heading": "Pin assignments at plug connector X1170"
+     }
+    ],
+    "title": "A52 ABS/ASC unit"
+   },
+   "id": 2000004537299,
+   "nodeClass": 46484994,
+   "title": "A52 ABS/ASC unit",
+   "type": "PIB",
+   "xml": "<DIAGNOSISDOCUMENT CHARSET=\"UTF-8\" LANGUAGE=\"en-GB\">\n  <PINASSIGNMENTS>\n    <HEADING>Pin assignments</HEADING>\n    <DOCUMENTTITLE>A52 ABS/ASC unit</DOCUMENTTITLE>\n    <PLUG>\n      <HEADING>Connector location views</HEADING>\n      <PLUGTABLE>\n        <PLUGHEADROW>\n          <PLUGNUMBER>Number</PLUGNUMBER>\n          <PLUGTYPE>X-pin, colour</PLUGTYPE>\n          <PLUGDESCRIPTION>Description</PLUGDESCRIPTION>\n        </PLUGHEADROW>\n        <PLUGROW>\n          <PLUGNUMBER>X1170</PLUGNUMBER>\n          <PLUGTYPE>25-pin, blue</PLUGTYPE>\n          <PLUGDESCRIPTION>Plug connector ABS/ASC unit</PLUGDESCRIPTION>\n        </PLUGROW>\n      </PLUGTABLE>\n    </PLUG>\n    <PINS>\n      <HEADING>Pin assignments at plug connector X1170</HEADING>\n      <PINTABLE>\n        <PINHEADROW>\n          <PINPIN>Pin</PINPIN>\n          <PINTYPE>Type</PINTYPE>\n          <PINDESCRIPTION>Description /</PINDESCRIPTION>\n          <PINTESTERDISPLAY>Signal type</PINTESTERDISPLAY>\n          <PINPORT>Connection /</PINPORT>\n          <PINMEASURINGHINTS>Measuring notes</PINMEASURINGHINTS>\n        </PINHEADROW>\n        <PINROW1>\n          <PINPIN>1</PINPIN>\n          <PINTYPE>A</PINTYPE>\n          <PINDESCRIPTION>Signal Wheel speed sensor, front left</PINDESCRIPTION>\n          <PINPORT>Front left speed sensor</PINPORT>\n        </PINROW1>\n        <PINROW2>\n          <PINTESTERDISPLAY/>\n          <PINMEASURINGHINTS/>\n        </PINROW2>\n        <PINROW1>\n          <PINPIN>2</PINPIN>\n          <PINTYPE>A</PINTYPE>\n          <PINDESCRIPTION>Voltage supply, front left wheel speed sensor</PINDESCRIPTION>\n          <PINPORT>Front left speed sensor</PINPORT>\n        </PINROW1>\n        <PINROW2>\n          <PINTESTERDISPLAY/>\n          <PINMEASURINGHINTS/>\n        </PINROW2>\n        <PINROW1>\n          <PINPIN>3</PINPIN>\n          <PINTYPE/>\n          <PINDESCRIPTION>Not used</PINDESCRIPTION>\n          <PINPORT/>\n        </PINROW1>\n        <PINROW2>\n          <PINTESTERDISPLAY/>\n          <PINMEASURINGHINTS/>\n        </PINROW2>\n        <PINROW1>\n          <PINPIN>4</PINPIN>\n          <PINTYPE>E</PINTYPE>\n          <PINDESCRIPTION>Terminal 15</PINDESCRIPTION>\n          <PINPORT>ASC/DSC button</PINPORT>\n        </PINROW1>\n        <PINROW2>\n          <PINTESTERDISPLAY/>\n          <PINMEASURINGHINTS/>\n        </PINROW2>\n        <PINROW1>\n          <PINPIN>5</PINPIN>\n          <PINTYPE>A</PINTYPE>\n          <PINDESCRIPTION>Signal Wheel speed sensor, rear left</PINDESCRIPTION>\n          <PINPORT>Rear left speed sensor</PINPORT>\n        </PINROW1>\n        <PINROW2>\n          <PINTESTERDISPLAY/>\n          <PINMEASURINGHINTS/>\n        </PINROW2>\n        <PINROW1>\n          <PINPIN>6</PINPIN>\n          <PINTYPE>A</PINTYPE>\n          <PINDESCRIPTION>Voltage supply, rear left wheel speed sensor</PINDESCRIPTION>\n          <PINPORT>Rear left speed sensor</PINPORT>\n        </PINROW1>\n        <PINROW2>\n          <PINTESTERDISPLAY/>\n          <PINMEASURINGHINTS/>\n        </PINROW2>\n        <PINROW1>\n          <PINPIN>7</PINPIN>\n          <PINTYPE>E/A</PINTYPE>\n          <PINDESCRIPTION>Diagnosis signal TXD</PINDESCRIPTION>\n          <PINPORT>Diagnostic connector</PINPORT>\n        </PINROW1>\n        <PINROW2>\n          <PINTESTERDISPLAY/>\n          <PINMEASURINGHINTS/>\n        </PINROW2>\n        <PINROW1>\n          <PINPIN>8</PINPIN>\n          <PINTYPE>M</PINTYPE>\n          <PINDESCRIPTION>Ground</PINDESCRIPTION>\n          <PINPORT>Ground point</PINPORT>\n        </PINROW1>\n        <PINROW2>\n          <PINTESTERDISPLAY/>\n          <PINMEASURINGHINTS/>\n        </PINROW2>\n        <PINROW1>\n          <PINPIN>9</PINPIN>\n          <PINTYPE>E</PINTYPE>\n          <PINDESCRIPTION>Terminal 30</PINDESCRIPTION>\n          <PINPORT>Fuse F56</PINPORT>\n        </PINROW1>\n        <PINROW2>\n          <PINTESTERDISPLAY/>\n          <PINMEASURINGHINTS/>\n        </PINROW2>\n        <PINROW1>\n          <PINPIN>10</PINPIN>\n          <PINTYPE>E/A</PINTYPE>\n          <PINDESCRIPTION>CAN bus low</PINDESCRIPTION>\n          <PINPORT>Connector CAN bus low</PINPORT>\n        </PINROW1>\n        <PINROW2>\n          <PINTESTERDISPLAY/>\n          <PINMEASURINGHINTS/>\n        </PINROW2>\n        <PINROW1>\n          <PINPIN>11</PINPIN>\n          <PINTYPE>E/A</PINTYPE>\n          <PINDESCRIPTION>CAN bus high</PINDESCRIPTION>\n          <PINPORT>Connector CAN bus high</PINPORT>\n        </PINROW1>\n        <PINROW2>\n          <PINTESTERDISPLAY/>\n          <PINMEASURINGHINTS/>\n        </PINROW2>\n        <PINROW1>\n          <PINPIN>12</PINPIN>\n          <PINTYPE>A</PINTYPE>\n          <PINDESCRIPTION>Signal Processed wheel speed, rear left</PINDESCRIPTION>\n          <PINPORT>Connector Processed wheel speed, rear left</PINPORT>\n        </PINROW1>\n        <PINROW2>\n          <PINTESTERDISPLAY/>\n          <PINMEASURINGHINTS/>\n        </PINROW2>\n        <PINROW1>\n          <PINPIN>13</PINPIN>\n          <PINTYPE/>\n          <PINDESCRIPTION>Not used</PINDESCRIPTION>\n          <PINPORT/>\n        </PINROW1>\n        <PINROW2>\n          <PINTESTERDISPLAY/>\n          <PINMEASURINGHINTS/>\n        </PINROW2>\n        <PINROW1>\n          <PINPIN>14</PINPIN>\n          <PINTYPE>E</PINTYPE>\n          <PINDESCRIPTION>ASC passive button</PINDESCRIPTION>\n          <PINPORT>ASC/DSC button</PINPORT>\n        </PINROW1>\n        <PINROW2>\n          <PINTESTERDISPLAY/>\n          <PINMEASURINGHINTS/>\n        </PINROW2>\n        <PINROW1>\n          <PINPIN>15</PINPIN>\n          <PINTYPE/>\n          <PINDESCRIPTION>Not used</PINDESCRIPTION>\n          <PINPORT/>\n        </PINROW1>\n        <PINROW2>\n          <PINTESTERDISPLAY/>\n          <PINMEASURINGHINTS/>\n        </PINROW2>\n        <PINROW1>\n          <PINPIN>16</PINPIN>\n          <PINTYPE>E</PINTYPE>\n          <PINDESCRIPTION>Signal Warning lamp</PINDESCRIPTION>\n          <PINPORT>Instrument cluster control unit</PINPORT>\n        </PINROW1>\n        <PINROW2>\n          <PINTESTERDISPLAY/>\n          <PINMEASURINGHINTS/>\n        </PINROW2>\n        <PINROW1>\n          <PINPIN>17</PINPIN>\n          <PINTYPE/>\n          <PINDESCRIPTION>Not used</PINDESCRIPTION>\n          <PINPORT/>\n        </PINROW1>\n        <PINROW2>\n          <PINTESTERDISPLAY/>\n          <PINMEASURINGHINTS/>\n        </PINROW2>\n        <PINROW1>\n          <PINPIN>18</PINPIN>\n          <PINTYPE>E</PINTYPE>\n          <PINDESCRIPTION>Brake light</PINDESCRIPTION>\n          <PINPORT>Connector Brake light</PINPORT>\n        </PINROW1>\n        <PINROW2>\n          <PINTESTERDISPLAY/>\n          <PINMEASURINGHINTS/>\n        </PINROW2>\n        <PINROW1>\n          <PINPIN>19</PINPIN>\n          <PINTYPE>A</PINTYPE>\n          <PINDESCRIPTION>Signal Wheel speed sensor, front right</PINDESCRIPTION>\n          <PINPORT>Front right speed sensor</PINPORT>\n        </PINROW1>\n        <PINROW2>\n          <PINTESTERDISPLAY/>\n          <PINMEASURINGHINTS/>\n        </PINROW2>\n        <PINROW1>\n          <PINPIN>20</PINPIN>\n          <PINTYPE>A</PINTYPE>\n          <PINDESCRIPTION>Voltage supply, front right wheel speed sensor</PINDESCRIPTION>\n          <PINPORT>Front right speed sensor</PINPORT>\n        </PINROW1>\n        <PINROW2>\n          <PINTESTERDISPLAY/>\n          <PINMEASURINGHINTS/>\n        </PINROW2>\n        <PINROW1>\n          <PINPIN>21</PINPIN>\n          <PINTYPE>A</PINTYPE>\n          <PINDESCRIPTION>Signal Processed wheel speed, rear right</PINDESCRIPTION>\n          <PINPORT>Connector Processed wheel speed, rear right</PINPORT>\n        </PINROW1>\n        <PINROW2>\n          <PINTESTERDISPLAY/>\n          <PINMEASURINGHINTS/>\n        </PINROW2>\n        <PINROW1>\n          <PINPIN>22</PINPIN>\n          <PINTYPE>A</PINTYPE>\n          <PINDESCRIPTION>Voltage supply, rear right wheel speed sensor</PINDESCRIPTION>\n          <PINPORT>Rear right speed sensor</PINPORT>\n        </PINROW1>\n        <PINROW2>\n          <PINTESTERDISPLAY/>\n          <PINMEASURINGHINTS/>\n        </PINROW2>\n        <PINROW1>\n          <PINPIN>23</PINPIN>\n          <PINTYPE>A</PINTYPE>\n          <PINDESCRIPTION>Signal Wheel speed sensor, rear right</PINDESCRIPTION>\n          <PINPORT>Rear right speed sensor</PINPORT>\n        </PINROW1>\n        <PINROW2>\n          <PINTESTERDISPLAY/>\n          <PINMEASURINGHINTS/>\n        </PINROW2>\n        <PINROW1>\n          <PINPIN>24</PINPIN>\n          <PINTYPE>M</PINTYPE>\n          <PINDESCRIPTION>Ground</PINDESCRIPTION>\n          <PINPORT>Ground point</PINPORT>\n        </PINROW1>\n        <PINROW2>\n          <PINTESTERDISPLAY/>\n          <PINMEASURINGHINTS/>\n        </PINROW2>\n        <PINROW1>\n          <PINPIN>25</PINPIN>\n          <PINTYPE>E</PINTYPE>\n          <PINDESCRIPTION>Terminal 30</PINDESCRIPTION>\n          <PINPORT>Fuse F53</PINPORT>\n        </PINROW1>\n        <PINROW2>\n          <PINTESTERDISPLAY/>\n          <PINMEASURINGHINTS/>\n        </PINROW2>\n      </PINTABLE>\n    </PINS>\n  </PINASSIGNMENTS>\n</DIAGNOSISDOCUMENT>\n"
+  },
+  {
+   "body": {
+    "kind": "INSTALLATIONLOCATION",
+    "sections": [
+     {
+      "blocks": [
+       {
+        "s": "G_075001.png",
+        "t": "pic"
+       },
+       {
+        "s": "rear LH side of engine compartment",
+        "t": "p"
+       },
+       {
+        "rows": [
+         [
+          "A52",
+          "ABS/ASC unit"
+         ],
+         [
+          "X1170",
+          "Component connector (25-pin, grey), ABS/ASC unit"
+         ]
+        ],
+        "t": "table"
+       }
+      ],
+      "heading": ""
+     }
+    ],
+    "title": "A52, X1170"
+   },
+   "id": 2000004607508,
+   "nodeClass": 46483714,
+   "title": "A52, X1170",
+   "type": "EBO",
+   "xml": "<DIAGNOSISDOCUMENT CHARSET=\"UTF-8\" LANGUAGE=\"en-GB\">\n  <INSTALLATIONLOCATION>\n    <HEADING>Installation position</HEADING>\n    <DOCUMENTTITLE>A52, X1170</DOCUMENTTITLE>\n    <GRAPHIC SRC=\"G_075001.png\" LINKID=\"G1\"/>\n    <GRAPHICSUBHEADING>rear LH side of engine compartment</GRAPHICSUBHEADING>\n    <LEGENDTABLE>\n      <LEGENDROW>\n        <LEGENDNAME>A52</LEGENDNAME>\n        <LEGENDEXPLANATION>ABS/ASC unit</LEGENDEXPLANATION>\n      </LEGENDROW>\n      <LEGENDROW>\n        <LEGENDNAME>X1170</LEGENDNAME>\n        <LEGENDEXPLANATION>Component connector (25-pin, grey), ABS/ASC unit</LEGENDEXPLANATION>\n      </LEGENDROW>\n    </LEGENDTABLE>\n  </INSTALLATIONLOCATION>\n</DIAGNOSISDOCUMENT>\n"
+  },
+  {
+   "body": null,
+   "id": 2000005051335,
+   "nodeClass": 46493442,
+   "title": "A52 ABS/ASC unit",
+   "type": "SSP",
+   "xml": "<svg height=\"100%\" id=\"svgid\" preserveAspectRatio=\"xMinYMin meet\" viewBox=\"37  607 6629 2552\" width=\"100%\" xml:space=\"preserve\" xmlns=\"http://www.w3.org/2000/svg\" xmlns:xlink=\"http://www.w3.org/1999/x</svg>"
+  },
+  {
+   "body": {
+    "kind": "HELPINFORMATION",
+    "sections": [
+     {
+      "blocks": [
+       {
+        "s": "The guide pin in the guide rail is missing or loose",
+        "t": "bullet"
+       },
+       {
+        "s": "There are foreign bodies in the guide rail",
+        "t": "bullet"
+       }
+      ],
+      "heading": "Possible fault causes:"
+     },
+     {
+      "blocks": [
+       {
+        "s": "Remove the inner guide rail trim panel (see repair instructions) and secure the guide pin in the guide rail. Replace the roof cassette if necessary.",
+        "t": "bullet"
+       },
+       {
+        "s": "Remove foreign bodies from the guide rail",
+        "t": "bullet"
+       },
+       {
+        "s": "GRA-PIX-FB5409062.png",
+        "t": "pic"
+       },
+       {
+        "rows": [
+         [
+          "Item",
+          "Description",
+          "Item",
+          "Description"
+         ],
+         [
+          "1",
+          "Guide rail",
+          "2",
+          "Guide pin"
+         ]
+        ],
+        "t": "table"
+       }
+      ],
+      "heading": "Repair instructions:"
+     }
+    ],
+    "title": "Guide pin folding sunroof"
+   },
+   "id": 2000004663902,
+   "nodeClass": 46455938,
+   "title": "Guide pin folding sunroof",
+   "type": "FUB",
+   "xml": "<DIAGNOSISDOCUMENT CHARSET=\"UTF-8\" LANGUAGE=\"en-GB\">\n  <HELPINFORMATION>\n    <HEADING>Notes on BMW diagnosis system</HEADING>\n    <DOCUMENTTITLE>Guide pin folding sunroof</DOCUMENTTITLE>\n    <SUBSECTION1>\n      <HEADING>Repair instructions for guide pin in the guide rail</HEADING>\n      <PARAGRAPH/>\n    </SUBSECTION1>\n    <SUBSECTION1>\n      <HEADING>Possible fault causes:</HEADING>\n      <LIST TYPE=\"ARABIC\">\n        <LISTENTRY>\n          <PARAGRAPH>The guide pin in the guide rail is missing or loose</PARAGRAPH>\n        </LISTENTRY>\n        <LISTENTRY>\n          <PARAGRAPH>There are foreign bodies in the guide rail</PARAGRAPH>\n        </LISTENTRY>\n      </LIST>\n    </SUBSECTION1>\n    <SUBSECTION1>\n      <HEADING>Repair instructions:</HEADING>\n      <LIST TYPE=\"ARABIC\">\n        <LISTENTRY>\n          <PARAGRAPH>Remove the inner guide rail trim panel (see <HOTSPOT LINKID=\"H2\">repair instructions</HOTSPOT>) and secure the guide pin in the guide rail. Replace the roof cassette if necessary.</PARAGRAPH>\n        </LISTENTRY>\n        <LISTENTRY>\n          <PARAGRAPH>Remove foreign bodies from the guide rail</PARAGRAPH>\n        </LISTENTRY>\n      </LIST>\n      <GRAPHIC LINKID=\"G2\" SRC=\"GRA-PIX-FB5409062.png\"/>\n      <TABLE>\n        <TGROUP ALIGN=\"LEFT\" CHAR=\"\" CHAROFF=\"50\" COLS=\"4\">\n          <COLSPEC COLNAME=\"col1\" COLWIDTH=\"17.50mm\"/>\n          <COLSPEC COLNAME=\"col2\" COLWIDTH=\"64.06mm\"/>\n          <COLSPEC COLNAME=\"col3\" COLWIDTH=\"17.50mm\"/>\n          <COLSPEC COLNAME=\"col4\" COLWIDTH=\"64.06mm\"/>\n          <TBODY VALIGN=\"TOP\">\n            <ROW>\n              <ENTRY MOREROWS=\"0\" ROTATE=\"0\" VALIGN=\"BOTTOM\">\n                <PARAGRAPH>\n                  <EMPHASIZE>Item</EMPHASIZE>\n                </PARAGRAPH>\n              </ENTRY>\n              <ENTRY MOREROWS=\"0\" ROTATE=\"0\" VALIGN=\"BOTTOM\">\n                <PARAGRAPH>\n                  <EMPHASIZE>Description</EMPHASIZE>\n                </PARAGRAPH>\n              </ENTRY>\n              <ENTRY MOREROWS=\"0\" ROTATE=\"0\" VALIGN=\"BOTTOM\">\n                <PARAGRAPH>\n                  <EMPHASIZE>Item</EMPHASIZE>\n                </PARAGRAPH>\n              </ENTRY>\n              <ENTRY MOREROWS=\"0\" ROTATE=\"0\" VALIGN=\"BOTTOM\">\n                <PARAGRAPH>\n                  <EMPHASIZE>Description</EMPHASIZE>\n                </PARAGRAPH>\n              </ENTRY>\n            </ROW>\n            <ROW>\n              <ENTRY MOREROWS=\"0\" ROTATE=\"0\">\n                <PARAGRAPH>1</PARAGRAPH>\n              </ENTRY>\n              <ENTRY MOREROWS=\"0\" ROTATE=\"0\">\n                <PARAGRAPH>Guide rail </PARAGRAPH>\n              </ENTRY>\n              <ENTRY MOREROWS=\"0\" ROTATE=\"0\">\n                <PARAGRAPH>2</PARAGRAPH>\n              </ENTRY>\n              <ENTRY MOREROWS=\"0\" ROTATE=\"0\">\n                <PARAGRAPH>Guide pin</PARAGRAPH>\n              </ENTRY>\n            </ROW>\n          </TBODY>\n        </TGROUP>\n      </TABLE>\n    </SUBSECTION1>\n  </HELPINFORMATION>\n</DIAGNOSISDOCUMENT>\n"
+  },
+  {
+   "body": {
+    "kind": "SERVICEDOCUMENT",
+    "sections": [
+     {
+      "blocks": [
+       {
+        "s": "Complaint",
+        "t": "p"
+       },
+       {
+        "s": "The following complaints can occur during or after programming the PMA control unit:",
+        "t": "p"
+       },
+       {
+        "s": "A fault message is displayed when programming the PMA control unit.",
+        "t": "bullet"
+       },
+       {
+        "s": "A programming abort takes place.",
+        "t": "bullet"
+       },
+       {
+        "s": "The PMA control unit cannot be programmed.",
+        "t": "bullet"
+       },
+       {
+        "s": "No communication is possible with the PMA control unit after programming.",
+        "t": "bullet"
+       },
+       {
+        "s": "Cause",
+        "t": "p"
+       },
+       {
+        "s": "Control unit software",
+        "t": "p"
+       },
+       {
+        "s": "Solution",
+        "t": "p"
+       },
+       {
+        "s": "Disconnect the PMA control unit from the vehicle electrical system or disconnect the ground cable of the vehicle battery.",
+        "t": "p"
+       },
+       {
+        "s": "After reconnecting the control unit or the ground cable, check whether trouble-free communication with the PMA control unit is now possible again.",
+        "t": "p"
+       },
+       {
+        "s": "If trouble-free communication is possible again, program the PMA control unit again.",
+        "t": "p"
+       },
+       {
+        "s": "If communication with the control unit is still not possible, the PMA control unit must be renewed.",
+        "t": "p"
+       }
+      ],
+      "heading": ""
+     }
+    ],
+    "title": "PMA control unit cannot be programmed"
+   },
+   "id": 2000013169167,
+   "nodeClass": 46470274,
+   "title": "PMA control unit cannot be programmed",
+   "type": "SIT",
+   "xml": "<SERVICEDOCUMENT CHARSET=\"UTF-8\" LANGUAGE=\"en-GB\">\n  <DOCINFO>\n    <PAGEHEADER>\n      <HEADLINE/>\n      <PAGE>Page <PAGENUMBER/>/ <PAGES/>\n      </PAGE>\n    </PAGEHEADER>\n    <HEADERTABLE>\n      <SI-NUMBER>00 57 14 (165)</SI-NUMBER>\n    </HEADERTABLE>\n    <SI-TITLE>\n      <HEADING>BMW Service</HEADING>\n      <FOLDER>Diagnosis</FOLDER>\n    </SI-TITLE>\n    <TOPIC>\n      <SUBJECT>PMA control unit cannot be programmed</SUBJECT>\n      <RESTRICTION>\n        <VEHICLEREFERENCE>\n          <VEHICLEDATA>\n            <SERIES>G11, G12</SERIES>\n          </VEHICLEDATA>\n        </VEHICLEREFERENCE>\n      </RESTRICTION>\n    </TOPIC>\n  </DOCINFO>\n  <SI-TYPE3>\n    <PARAGRAPH>Complaint</PARAGRAPH>\n    <PARAGRAPH>The following complaints can occur during or after programming the PMA control unit:</PARAGRAPH>\n    <LIST TYPE=\"DASH\">\n      <LISTENTRY>\n        <PARAGRAPH>A fault message is displayed when programming the PMA control unit.</PARAGRAPH>\n      </LISTENTRY>\n      <LISTENTRY>\n        <PARAGRAPH>A programming abort takes place.</PARAGRAPH>\n      </LISTENTRY>\n      <LISTENTRY>\n        <PARAGRAPH>The PMA control unit cannot be programmed.</PARAGRAPH>\n      </LISTENTRY>\n      <LISTENTRY>\n        <PARAGRAPH>No communication is possible with the PMA control unit after programming.</PARAGRAPH>\n      </LISTENTRY>\n    </LIST>\n    <PARAGRAPH>Cause</PARAGRAPH>\n    <PARAGRAPH>Control unit software</PARAGRAPH>\n    <PARAGRAPH>Solution</PARAGRAPH>\n    <PARAGRAPH>Disconnect the PMA control unit from the vehicle electrical system or disconnect the ground cable of the vehicle battery.</PARAGRAPH>\n    <PARAGRAPH>After reconnecting the control unit or the ground cable, check whether trouble-free communication with the PMA control unit is now possible again.</PARAGRAPH>\n    <PARAGRAPH>If trouble-free communication is possible again, program the PMA control unit again.</PARAGRAPH>\n    <PARAGRAPH>If communication with the control unit is still not possible, the PMA control unit must be renewed.</PARAGRAPH>\n    <PARAGRAPH/>\n  </SI-TYPE3>\n  <BMW-REGARDS>\n    <BMW-AG/>\n    <SERVICE/>\n  </BMW-REGARDS>\n</SERVICEDOCUMENT>\n"
+  },
+  {
+   "body": {
+    "kind": "PLUGIMAGE",
+    "sections": [
+     {
+      "blocks": [
+       {
+        "s": "B040021B.png",
+        "t": "pic"
+       },
+       {
+        "s": "Matching adapter: 61 6 032",
+        "t": "p"
+       }
+      ],
+      "heading": ""
+     }
+    ],
+    "title": "X18198 Plug connector (4-pin, blue)"
+   },
+   "id": 2000004402750,
+   "nodeClass": 42874990082,
+   "title": "X18198 Plug connector (4-pin, blue)",
+   "type": "STA",
+   "xml": "<DIAGNOSISDOCUMENT CHARSET=\"UTF-8\" LANGUAGE=\"en-GB\">\n  <PLUGIMAGE>\n    <HEADING>Plug connector details</HEADING>\n    <DOCUMENTTITLE>X18198 Plug connector (4-pin, blue)</DOCUMENTTITLE>\n    <GRAPHIC SRC=\"B040021B.png\" LINKID=\"G1\"/>\n    <PARAGRAPH>Matching adapter: 61 6 032</PARAGRAPH>\n  </PLUGIMAGE>\n</DIAGNOSISDOCUMENT>\n"
+  },
+  {
+   "body": {
+    "kind": "FUNCTIONALDESCRIPTION",
+    "sections": [
+     {
+      "blocks": [
+       {
+        "s": "The front passenger airbag can be deactivated using the airbag switch. An indicator lamp also lights up to indicate that the airbag has been deactivated. Activation and deactivation are the exclusive responsibility of the customer!",
+        "t": "p"
+       }
+      ],
+      "heading": ""
+     },
+     {
+      "blocks": [
+       {
+        "s": "The airbag switch can only be activated/deactivated by means of the ignition key when the vehicle is stationary and the door is open.",
+        "t": "p"
+       },
+       {
+        "s": "The airbag switch",
+        "t": "p"
+       },
+       {
+        "s": "assumes the form of a two-wire Hall switch,",
+        "t": "bullet"
+       },
+       {
+        "s": "receives its power supply from the Safety and Information Module,",
+        "t": "bullet"
+       },
+       {
+        "s": "is monitored continuously during vehicle operation.",
+        "t": "bullet"
+       }
+      ],
+      "heading": "Front passenger side airbag switch"
+     },
+     {
+      "blocks": [
+       {
+        "s": "The indicator lamp is controlled by the Safety and Information Module. The indicator lamp is activated when the airbag switch relays the status \"Passenger Airbag OFF\". The indicator lamp is diagnosed and monitored. If the system detects a malfunction in the power supply or the bulb, a fault entry occurs in the Safety and Information Module and the airbag warning lamp is also switched on!",
+        "t": "p"
+       }
+      ],
+      "heading": "Indicator lamp"
+     },
+     {
+      "blocks": [
+       {
+        "s": "The front passenger airbag deactivation switch is a two-wire Hall switch monitored by the Safety and Information Module. A fault entry with storage of a DTC occurs in the event of malfunction.",
+        "t": "p"
+       },
+       {
+        "s": "The front passenger airbag deactivation switch receives clocked voltage from the Safety and Information Module. The correct voltage curve as measured at the Safety and Information Module is shown below. For the voltage measurement, the adapter lead must not be connected to the passenger's airbag deactivation switch!",
+        "t": "p"
+       },
+       {
+        "s": "GRA-PIX-FB6110061.png",
+        "t": "pic"
+       },
+       {
+        "s": "Comparison images for oscilloscope measurement",
+        "t": "p"
+       },
+       {
+        "s": "Select test probe 1 in Source.",
+        "t": "p"
+       }
+      ],
+      "heading": "Switch, airbag deactivation, passenger"
+     },
+     {
+      "blocks": [
+       {
+        "s": "All work on the airbags must be carried out with the battery clamped off!",
+        "t": "p"
+       },
+       {
+        "s": "Connect and disconnect all BYTEFLIGHT control units, sensors and alternators only with the battery disconnected!",
+        "t": "p"
+       },
+       {
+        "s": "If a fibre-optic cable on the BYTEFLIGHT bus has to be repaired, it must be borne in mind that there may only be one join in a fibre-optic cable. If there is already a join due to a door connector, the fibre-optic cable must not be repaired. In the case of a defect, the fibre-optic cable must be replaced!",
+        "t": "p"
+       }
+      ],
+      "heading": "Notes on safety"
+     }
+    ],
+    "title": "Passenger's airbag deactivation"
+   },
+   "id": 2000004660759,
+   "nodeClass": 46455938,
+   "title": "Passenger's airbag deactivation",
+   "type": "FUB",
+   "xml": "<DIAGNOSISDOCUMENT CHARSET=\"UTF-8\" LANGUAGE=\"en-GB\">\n  <FUNCTIONALDESCRIPTION>\n    <HEADING>Functional description</HEADING>\n    <DOCUMENTTITLE>Passenger&apos;s airbag deactivation</DOCUMENTTITLE>\n    <FUNCDESCINTRODUCTORY>\n      <PARAGRAPH>The front passenger airbag can be deactivated using the airbag switch. An indicator lamp also lights up to indicate that the airbag has been deactivated. Activation and deactivation are the exclusive responsibility of the customer!</PARAGRAPH>\n    </FUNCDESCINTRODUCTORY>\n    <CHAPTER>\n      <HEADING>Brief component description</HEADING>\n      <SUBSECTION2>\n        <HEADING>Front passenger side airbag switch</HEADING>\n        <PARAGRAPH>The airbag switch can only be activated/deactivated by means of the ignition key when the vehicle is stationary and the door is open. </PARAGRAPH>\n        <PARAGRAPH>The airbag switch</PARAGRAPH>\n        <LIST TYPE=\"DASH\">\n          <LISTENTRY>\n            <PARAGRAPH>assumes the form of a two-wire Hall switch,</PARAGRAPH>\n          </LISTENTRY>\n          <LISTENTRY>\n            <PARAGRAPH>receives its power supply from the Safety and Information Module,</PARAGRAPH>\n          </LISTENTRY>\n          <LISTENTRY>\n            <PARAGRAPH>is monitored continuously during vehicle operation.</PARAGRAPH>\n          </LISTENTRY>\n        </LIST>\n      </SUBSECTION2>\n    </CHAPTER>\n    <CHAPTER>\n      <HEADING>Indicator lamp</HEADING>\n      <PARAGRAPH>The indicator lamp is controlled by the Safety and Information Module. The indicator lamp is activated when the airbag switch relays the status &quot;Passenger Airbag OFF&quot;. The indicator lamp is diagnosed and monitored. If the system detects a malfunction in the power supply or the bulb, a fault entry occurs in the Safety and Information Module and the airbag warning lamp is also switched on! </PARAGRAPH>\n      <SUBSECTION2>\n        <HEADING>Switch, airbag deactivation, passenger</HEADING>\n        <PARAGRAPH>The front passenger airbag deactivation switch is a two-wire Hall switch monitored by the Safety and Information Module. A fault entry with storage of a DTC occurs in the event of malfunction.</PARAGRAPH>\n        <PARAGRAPH>The <EMPHASIZE>front passenger airbag deactivation switch</EMPHASIZE> receives clocked voltage from the Safety and Information Module. The correct voltage curve as measured at the Safety and Information Module is shown below. For the voltage measurement, the adapter lead must <EMPHASIZE>not</EMPHASIZE> be connected to the passenger&apos;s airbag deactivation switch!</PARAGRAPH>\n        <GRAPHIC LINKID=\"G2\" SRC=\"GRA-PIX-FB6110061.png\"/>\n        <PARAGRAPH>\n          <EMPHASIZE>Comparison images for oscilloscope measurement</EMPHASIZE>\n        </PARAGRAPH>\n        <PARAGRAPH>Select test probe 1 in Source.</PARAGRAPH>\n      </SUBSECTION2>\n    </CHAPTER>\n    <CHAPTER>\n      <HEADING>Service functions </HEADING>\n      <SUBSECTION2>\n        <HEADING>Notes on safety</HEADING>\n        <PARAGRAPH>All work on the airbags must be carried out with the battery clamped off!</PARAGRAPH>\n        <PARAGRAPH>Connect and disconnect all BYTEFLIGHT control units, sensors and alternators only with the battery disconnected!</PARAGRAPH>\n        <PARAGRAPH>If a fibre-optic cable on the BYTEFLIGHT bus has to be repaired, it must be borne in mind that there may only be one join in a fibre-optic cable. If there is already a join due to a door connector, the fibre-optic cable must not be repaired. In the case of a defect, the fibre-optic cable must be replaced!</PARAGRAPH>\n      </SUBSECTION2>\n    </CHAPTER>\n  </FUNCTIONALDESCRIPTION>\n</DIAGNOSISDOCUMENT>\n"
+  },
+  {
+   "body": null,
+   "id": 2000033383546,
+   "nodeClass": 46455938,
+   "title": "Video for check for \"air duct is rattling against the footwell trim\"",
+   "type": "FUB",
+   "xml": "<DIAGNOSISDOCUMENT CHARSET=\"UTF-8\" LANGUAGE=\"en-GB\">\n  <HELPINFORMATION>\n    <HEADING>Notes on BMW diagnosis system</HEADING>\n    <DOCUMENTTITLE>Video for check for &quot;air duct is rattling against the footwell trim&quot;</DOCUMENTTITLE>\n    <SUBSECTION1>\n      <HEADING>Video</HEADING>\n      <PARAGRAPH/>\n    </SUBSECTION1>\n  </HELPINFORMATION>\n</DIAGNOSISDOCUMENT>\n"
+  }
+ ],
+ "trees": {
+  "component-slice": {
+   "id": 2000003842477,
+   "kids": [
+    {
+     "docs": [
+      {
+       "id": 2000004537299,
+       "title": "A52 ABS/ASC unit",
+       "type": "PIB"
+      },
+      {
+       "id": 2000004607508,
+       "title": "A52, X1170",
+       "type": "EBO"
+      },
+      {
+       "id": 2000005051335,
+       "title": "A52 ABS/ASC unit",
+       "type": "SSP"
+      },
+      {
+       "id": 2000005069809,
+       "title": "A52 ABS/ASC unit",
+       "type": "SSP"
+      }
+     ],
+     "id": 2000003842488,
+     "kids": [],
+     "label": "ABS/ASC unit",
+     "n": 4
+    },
+    {
+     "docs": [
+      {
+       "id": 2000005051336,
+       "title": "12 volt socket",
+       "type": "SSP"
+      }
+     ],
+     "id": 2000003842489,
+     "kids": [],
+     "label": "12 volt socket",
+     "n": 1
+    },
+    {
+     "id": 2000003842490,
+     "kids": [
+      {
+       "docs": [
+        {
+         "id": 2000004402750,
+         "title": "X18198",
+         "type": "STA"
+        }
+       ],
+       "id": 2000003842491,
+       "kids": [],
+       "label": "Leaf",
+       "n": 1
+      }
+     ],
+     "label": "Empty group",
+     "n": 1
+    }
+   ],
+   "label": "A: Control Units, Modules",
+   "n": 6
+  }
+ }
+}

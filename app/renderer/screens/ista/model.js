@@ -501,6 +501,26 @@ const ISTA_BOTTOM = {
     { id: 'std-filter', label: 'Set standard filter', off: true },
     { id: 'display', label: 'Display' },
   ],
+  // Operations / Finished and Repair history: pick a stored operation and
+  // open its report
+  finished: [
+    { spacer: true },
+    { id: 'open-operation', label: 'Open operation' },
+  ],
+  history: [{ spacer: true }, { id: 'display', label: 'Display' }],
+  // Vehicle information / Control unit list (sheets2 s013's own row)
+  'unit-list': [
+    { id: 'vehicle-test', label: 'Start vehicle test' },
+    { id: 'ecu-functions', label: 'Call up ECU\nfunctions' },
+    { spacer: true },
+    { id: 'display-faults', label: 'Display fault\nmemory' },
+  ],
+  // Troubleshooting / SAE fault code input
+  sae: [
+    { id: 'show-code', label: 'Show fault code' },
+    { id: 'keyboard', label: 'Keyboard', off: true },
+    { id: 'delete-pcode', label: 'Delete P-code', off: true },
+  ],
   // a page with nothing of its own: no bar at all rather than a bare pair of
   // arrows that step through nothing
   none: [],

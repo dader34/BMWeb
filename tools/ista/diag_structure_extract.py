@@ -94,12 +94,16 @@ is a text document this extractor parses:
     <SERVICEDOCUMENT>    SIT -- parsed by the same block collector
     svg                  SSP -- NOT shipped
 
-SSP is 5,072 of the 9,305 documents on the E46 branches and every one of them
-is an `<svg>` wiring diagram, not prose. Those rows appear in the tree with
-their id, type and title and NO body, because a wiring diagram belongs to the
-wiring importer and inventing a text body for one would be a lie about what
-ISTA holds. 184 EBO/STA rows resolve to no content row at all and likewise
-ship without a body. Both counts are reported.
+Measured over E46's 19,055 referenced documents: 8,311 get a body, 10,744 do
+not. SSP alone is 10,048 of those, and every one is an `<svg>` wiring
+diagram, not prose -- it appears in the tree with its id, type and title and
+NO body, because a wiring diagram belongs to the wiring importer and
+inventing a text body for one would be a lie about what ISTA holds. Another
+511 rows are classes this extractor does not parse at all (REP, which is the
+repair extract's, plus FEB/ANL/STG/FTD/COM). The last 185 -- 170 EBO, 14 STA,
+1 FUB -- are text documents whose content row is simply absent from the
+English store. All three counts are reported in index.json rather than being
+folded into one "missing" number.
 
 The DIAGNOSISDOCUMENT schema is not one schema. Each class opens with its own
 section element under the root, and each of those has its own shape:
@@ -486,10 +490,16 @@ def parse_document(xml):
         blocks = _blocks(root, skip=("DOCINFO",))
         if not blocks:
             return None
+        # the page's own HEADLINE is an empty layout element in every SIT
+        # seen; the title a reader wants is the bulletin's subject, with the
+        # service-information number beside it for the ones that carry it
+        title = _flat(root.find(".//TOPIC/SUBJECT")) or _flat(
+            root.find(".//HEADLINE")
+        )
         return {
             "kind": "SERVICEDOCUMENT",
             "sections": [{"blocks": blocks, "heading": ""}],
-            "title": _flat(root.find(".//HEADLINE")),
+            "title": title,
         }
     sec = next((child for child in root), None)
     if sec is None:

@@ -267,6 +267,10 @@ echo "== repair manual: the browser's tree, the search scopes, the renderer =="
 node tools/verify/test_repair.js || exit 1
 
 echo
+echo "== diagnosis structures: the tree joins, the document classes, the bodies =="
+node tools/verify/test_diag_structure.js || exit 1
+
+echo
 echo "== parts diagrams: callout hotspot file shape, the pos join, scale mapping =="
 node tools/verify/test_etk_hotspots.js || exit 1
 

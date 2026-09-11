@@ -881,9 +881,14 @@ async function istaDiagLoad(chassis, which) {
   const code = String(chassis || '').toUpperCase();
   if (!code) return null;
   const base = typeof WEB_BASE === 'string' && WEB_BASE ? WEB_BASE : '.';
-  const res = await fetch(`${base}/data/ista/diag/${code}/${which}.json`);
+  const res = await fetch(`${base}/data/ista/diag/${code}/${which}.json.gz`);
   if (!res.ok) return null;
-  return res.json();
+  // the structures ship gzipped, and a plain file server serves them as
+  // bytes rather than as content-encoding: gzip, so they are unpacked here
+  // with the same library the chassis archives use
+  const buf = new Uint8Array(await res.arrayBuffer());
+  if (typeof fflate === 'undefined') return null;
+  return JSON.parse(new TextDecoder('utf-8').decode(fflate.gunzipSync(buf)));
 }
 
 /**
@@ -907,10 +912,14 @@ async function istaDiagBody(chassis, doc) {
       `</div></div></div>`
     );
   const body = await istaProbe(async () => {
-    const res = await fetch(
-      `${base}/data/ista/diag/${code}/docs/${doc.id}.json`
+    const r = await fetch(
+      `${base}/data/ista/diag/${code}/docs/${doc.id}.json.gz`
     );
-    return res.ok ? res.json() : null;
+    if (!r.ok || typeof fflate === 'undefined') return null;
+    const bytes = new Uint8Array(await r.arrayBuffer());
+    return JSON.parse(
+      new TextDecoder('utf-8').decode(fflate.gunzipSync(bytes))
+    );
   });
   if (!body)
     return `<div class="irgrey-w">No text body ships for this document.</div>`;
