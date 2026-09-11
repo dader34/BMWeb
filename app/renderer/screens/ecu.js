@@ -15,7 +15,7 @@
  * @property {string} [_sgbdBase] - The configured SGBD, once `sgbd` was retargeted.
  * @property {boolean} [_groupTried] - Whether group resolution ran this screen entry.
  * @property {object|null} [_ir] - The loaded script IR.
- * @property {string} [_irFrom] - The SGBD whose script `_ir` came from, when not `sgbd`.
+ * @property {string} [_irFrom] - The stem whose script `_ir` came from, when not `sgbd`: the menu row's own code, or the configured base SGBD.
  */
 
 /**
@@ -257,8 +257,27 @@ async function showEcu(
   // the identified variant has no archive of its own, the configured base
   // SGBD's script is the one to run (irExecSgbd reads _irFrom). The archive's
   // ir carries the per-ECU caption dictionary (ir.i18n) the runtime draws with.
+  // THE ROW NAMES THE SCRIPT; THE SGBD NAMES THE MODULE. INPA's menu pairs
+  // an .IPO with an SGBD and the two need not share a name: the E46's
+  // ASC/DSC row is ASCDSC46.IPO on ascmk20. The export packs such a row's
+  // script under the row's code, so the screens come from there while the
+  // jobs still go to the SGBD (and to whatever the script names itself).
+  // Without this every E46 ran the E31's ASCMK20.IPO, whose entry talks to
+  // asc_l22, a Land Rover module on a protocol this app cannot sign.
+  const code = String(ecu.code || '').toLowerCase();
+  if (
+    code &&
+    code !== String(ecu.sgbd).toLowerCase() &&
+    !ecu._irFrom &&
+    typeof irLiveExec === 'function' &&
+    (await irLiveExec(code))
+  ) {
+    ecu._irFrom = code;
+  }
   const codeHint = ecu.code ? `?code=${encodeURIComponent(ecu.code)}` : '';
-  ecu._ir = await api(`/api/ecu/${ecu.sgbd}/ir${codeHint}`).catch(() => null);
+  ecu._ir = await api(
+    `/api/ecu/${ecu._irFrom || ecu.sgbd}/ir${codeHint}`
+  ).catch(() => null);
   if (
     (!ecu._ir || !Object.keys(ecu._ir.menus || {}).length) &&
     ecu._sgbdBase &&

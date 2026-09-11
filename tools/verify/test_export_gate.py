@@ -24,6 +24,7 @@ corpus ships everything and the live probe decides.
 
     python3 tools/verify/test_export_gate.py
 """
+import glob
 import gzip
 import json
 import os
@@ -124,3 +125,27 @@ ok(f"group_variants() names only real SGBDs from tables ({len(named)} across "
 
 
 print(f"\nexport gate: {passed} checks passed")
+
+
+# ---- a menu row's own script ships under its code -------------------------
+# The E46 ASC/DSC row is ASCDSC46.IPO on ascmk20; the ascmk20 .ecu carries
+# the E31's ASCMK20.IPO. web_export.row_script_stems lists such rows so the
+# row's script is packed under its code (see the docstring there).
+sys.path.insert(0, os.path.join(ROOT, "tools", "export"))
+import web_export as W                                        # noqa: E402
+configs = {}
+for p in sorted(glob.glob(os.path.join(ROOT, "data", "chassis-config", "*.json"))):
+    try:
+        with open(p) as f:
+            cfg = json.load(f)
+    except (OSError, ValueError):
+        continue
+    if isinstance(cfg, dict):
+        configs[os.path.basename(p)[:-5]] = cfg
+rows = W.row_script_stems(configs, set(T.all_sgbds()))
+codes = {(c, code) for c, code, _ in rows}
+assert ("E46", "ascdsc46") in codes, rows
+assert all(code not in set(T.all_sgbds()) for _, code, _ in rows), \
+    "a code that is itself an SGBD ships its own script already"
+assert all(c and code and s and code != s for c, code, s in rows)
+ok(f"row scripts under their own code ({len(rows)} rows, E46 ascdsc46 among them)")

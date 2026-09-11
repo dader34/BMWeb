@@ -87,6 +87,63 @@ def _ecu_src_read(sgbd, tree_name):
         return f.read()
 
 
+def exec_ecu_name(folder):
+    """The script name a tree folder's ipoexec.json.gz declares, upper-cased,
+    or None when the folder ships no runnable script."""
+    q = os.path.join(folder, "ipoexec.json.gz")
+    if not os.path.exists(q):
+        return None
+    try:
+        with gzip.open(q, "rb") as f:
+            return str(json.load(f).get("ecu") or "").upper() or None
+    except (OSError, ValueError):
+        return None
+
+
+def row_script_stems(chassis_configs, packed_sgbds):
+    """The menu rows whose own INPA script is NOT the one their SGBD's .ecu
+    carries: [(chassis, code, sgbd)].
+
+    THE ROW NAMES THE SCRIPT; THE SGBD NAMES THE MODULE. INPA's menu pairs an
+    .IPO with an SGBD, and the two need not share a name: the E46's ASC/DSC
+    row runs ASCDSC46.IPO against ascmk20. The .ecu archives are keyed by
+    SGBD and hold ONE script each, taken from whichever car folder was read
+    first -- so every E46 shipped the E31's ASCMK20.IPO under ascmk20, a
+    script whose entry addresses asc_l22 (a Land Rover module on a protocol
+    this app does not sign). A tester's E46 ASC screen died on that.
+
+    A row is listed when its code folder (data/chassis/<C>/<code>) carries a
+    script of another name than the folder the SGBD's .ecu was built from,
+    and no real SGBD shares the code's name (a code that IS an SGBD already
+    ships its own script under that stem). Its script is then packed under
+    the code stem, per chassis, and the app loads the row's script from
+    there (screens/ecu.js, _irFrom)."""
+    out = []
+    for cid in sorted(chassis_configs):
+        cfg = chassis_configs[cid]
+        for sec in cfg.get("sections", []):
+            for e in sec.get("ecus", []):
+                code = str(e.get("code") or "").lower()
+                sgbd = str(e.get("sgbd") or "").lower()
+                if not code or not sgbd or code == sgbd:
+                    continue
+                if code in packed_sgbds:
+                    continue
+                own = exec_ecu_name(os.path.join(T.TREE, cid, code)) \
+                    or exec_ecu_name(os.path.join(T.TREE, cid.lower(), code))
+                if not own:
+                    continue
+                shipped = None
+                for d in T.ecu_dirs(sgbd):
+                    shipped = exec_ecu_name(d)
+                    if shipped:
+                        break
+                if shipped == own:
+                    continue
+                out.append((cid, code, sgbd))
+    return out
+
+
 def build_ecu_contents(sgbd, read):
     """Assemble one ECU's .ecu file map from a `read(tree_name) -> bytes|None`
     accessor, returning (contents, counts). Shared by the per-car tree path
@@ -383,6 +440,35 @@ def main():
         n_script += 1
     ecu_zips.update(orphan_zips)
 
+    # 2d. THE ROW'S OWN SCRIPT, under the row's code, per chassis (see
+    # row_script_stems). Script only: the SGBD's bytecode and tables stay in
+    # the SGBD's .ecu, so a job still runs against ascmk20 while the screens
+    # come from ASCDSC46.IPO. Keyed per chassis: the same code can name a
+    # different script in another car.
+    code_zips = {}
+    for cid, code, sgbd in row_script_stems(chassis_configs, set(ecu_zips)):
+        d = os.path.join(T.TREE, cid, code)
+        if not os.path.isdir(d):
+            d = os.path.join(T.TREE, cid.lower(), code)
+
+        def code_read(name, _d=d):
+            """`name` from the row's own tree folder, decompressed."""
+            q = os.path.join(_d, name)
+            if not os.path.exists(q):
+                return None
+            op = gzip.open if q.endswith(".gz") else open
+            with op(q, "rb") as f:
+                return f.read()
+        contents, _counts = build_ecu_contents(code, code_read)
+        if "ipoexec.json" not in contents:
+            continue
+        for k in list(contents):
+            if k.startswith("job-code") or k.startswith("sgbd-tables"):
+                del contents[k]
+        code_zips[(cid, code)] = make_zip(contents, compress=True)
+    print(f"  packaged {len(code_zips)} row scripts under their own code "
+          f"(a menu row whose .IPO is not its SGBD's)")
+
     print(f"  packaged {len(ecu_zips)} .ecu archives "
           f"({n_orphan} orphans, {n_script} script-only stems; {njobs} jobs, "
           f"{nres} result schemas, {ntab} tables, {nir} IRs)")
@@ -446,6 +532,10 @@ def main():
             if sgbd in ecu_zips:
                 chassis_contents[f"ecu/{sgbd}.ecu"] = ecu_zips[sgbd]
                 packed.add(sgbd)
+        for (c, code), z in sorted(code_zips.items()):
+            if c == cid:
+                chassis_contents[f"ecu/{code}.ecu"] = z
+                packed.add(code)
         chassis_ecus[cid] = packed
 
         # Build .chassis ZIP. We use STORED mode since the internal .ecu files are already zipped.
