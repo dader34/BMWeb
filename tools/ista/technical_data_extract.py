@@ -24,21 +24,11 @@ TWO DATABASES, index and content, the way ista_extract.py already reads them
          ▼
     xmlvalueprimitive_ENGB.sqlite     the CONTENT
 
-THE VALIDITY RULE is a small expression tree, not a bag of ids. The blob is
-a prefix encoding:
-
-    0x01  AND   int32 LE operand count, then that many operands
-    0x02  OR    the same
-    0x10  NOT   one operand
-    0x11  EQ    int64 LE characteristic-root id, int64 LE value id
-
-96.7% of the 19,618 rules parse to exactly the length of their blob -- no
-trailing bytes, which is what says the grammar is right rather than merely
-plausible. The other 3.3% open with one of five opcodes nobody has decoded
-(0x03, 0x04, 0x09, 0x0e, 0x0f, 0x12, 0x13; they look like date or I-level
-comparisons). Those documents are kept and flagged `unsure`: a workshop
-would rather see a document that might not apply than silently lose one
-that does. The app marks them.
+THE VALIDITY RULE is a small expression tree, not a bag of ids, and its
+grammar lives in tools/ista/validity_rules.py -- the one decoder both this
+extract and the repair-instruction extract evaluate against, so a torque
+table and a repair step are shown for the same car by the same rule. What
+does not decode is flagged `unsure` and shown anyway, marked.
 
 (The older tools/wiring/ista_rules.py reads the same blobs by scanning for
 any 4-byte value that happens to be a known characteristic id. That finds
@@ -64,14 +54,18 @@ import argparse
 import json
 import os
 import sqlite3
-import struct
 import sys
 import xml.etree.ElementTree as ET
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 # the table and block walkers are the same ones the fault extractor uses; the
 # document bodies here are the same CALS tables and PARAGRAPH/LIST prose
 from ista_extract import Content, _collect_blocks, _flat, _parse_table
+
+# the validity grammar and the characteristic maps are shared with the
+# repair-instruction extract so both filter a car the same way
+from validity_rules import decode_rule, read_roots, read_typekeys, read_char_names
 
 # ---- the five classes -------------------------------------------------------
 # id -> (slug, the label the app's "Type" column shows)
@@ -98,70 +92,8 @@ EQUIPMENT_TREE = [
     ("8", "Other equipment"),
 ]
 
-# Rule opcodes.
-OP_AND, OP_OR, OP_NOT, OP_EQ = 0x01, 0x02, 0x10, 0x11
-
 # How many files the special tools are split across (see shard_key).
 TOOLS_SHARDS = 8
-
-
-class RuleParseError(Exception):
-    """A rule used an opcode this decoder does not know."""
-
-
-def parse_rule(blob, pos=0):
-    """Decode a validity blob into a small expression tree.
-
-    Returns (tree, next position). A tree node is one of:
-        {"op": "and"|"or", "kids": [...]}
-        {"op": "not", "kids": [one]}
-        {"op": "eq", "root": <root id>, "val": <value id>}
-    Raises RuleParseError on an opcode outside the decoded grammar, so the
-    caller can flag the document rather than guess at its applicability.
-    """
-    if pos >= len(blob):
-        raise RuleParseError("rule ended early")
-    op = blob[pos]
-    pos += 1
-    if op in (OP_AND, OP_OR):
-        (count,) = struct.unpack_from("<i", blob, pos)
-        pos += 4
-        if count < 0 or count > 4096:
-            raise RuleParseError(f"implausible operand count {count}")
-        kids = []
-        for _ in range(count):
-            kid, pos = parse_rule(blob, pos)
-            kids.append(kid)
-        return {"op": "and" if op == OP_AND else "or", "kids": kids}, pos
-    if op == OP_NOT:
-        kid, pos = parse_rule(blob, pos)
-        return {"op": "not", "kids": [kid]}, pos
-    if op == OP_EQ:
-        (root,) = struct.unpack_from("<q", blob, pos)
-        (val,) = struct.unpack_from("<q", blob, pos + 8)
-        return {"op": "eq", "root": root, "val": val}, pos + 16
-    raise RuleParseError(f"opcode {op:#04x}")
-
-
-def decode_rule(blob):
-    """(tree, unsure) for a validity blob.
-
-    A rule that does not decode, or that decodes but leaves bytes over,
-    yields (None, True): no rule the app can evaluate, and a flag saying the
-    document's applicability was not established. A document with no rule at
-    all is (None, False) -- it applies to everything, which is a real answer.
-    """
-    if not blob:
-        return None, False
-    try:
-        tree, pos = parse_rule(blob, 0)
-    except (RuleParseError, struct.error):
-        return None, True
-    if pos != len(blob):
-        # decoded, but not all of it -- treat as undecoded rather than
-        # trusting a tree built from part of the blob
-        return None, True
-    return tree, False
 
 
 # ---- the document bodies ----------------------------------------------------
@@ -326,51 +258,6 @@ def parse_body(xml):
         blocks = _collect_blocks(root)
         return {"blocks": blocks} if blocks else None
     return parser(root)
-
-
-# ---- the vehicle characteristic maps ---------------------------------------
-def read_roots(con):
-    """Characteristic-root id -> its English name."""
-    return {
-        str(rid): name
-        for rid, name in con.execute(
-            "SELECT ID, TITLE_ENGB FROM XEP_CHARACTERISTICROOTS "
-            "WHERE TITLE_ENGB IS NOT NULL AND TITLE_ENGB<>''"
-        )
-    }
-
-
-def read_typekeys(con):
-    """Type key (VIN chars 4-7) -> {root id: [value ids]}.
-
-    This is what turns a car into something a rule can be evaluated against:
-    the rule asks "is characteristic X among this car's", and this is the
-    set. Values are grouped by root so the app can also SHOW them (the
-    development code, engine, body and so on) without a second query.
-    """
-    out = {}
-    for tk, root, cid in con.execute(
-        "SELECT tk.NAME, c.PARENTID, c.ID FROM XEP_VEHICLES v "
-        "JOIN XEP_CHARACTERISTICS c ON c.ID=v.CHARACTERISTICID "
-        "JOIN XEP_CHARACTERISTICS tk ON tk.ID=v.TYPEKEYID "
-        "WHERE tk.NAME IS NOT NULL AND tk.NAME<>''"
-    ):
-        by_root = out.setdefault(tk.upper(), {})
-        vals = by_root.setdefault(str(root), [])
-        if cid not in vals:
-            vals.append(cid)
-    return out
-
-
-def read_char_names(con):
-    """Characteristic value id -> its name, for showing a car's build."""
-    return {
-        str(cid): name
-        for cid, name in con.execute(
-            "SELECT ID, NAME FROM XEP_CHARACTERISTICS "
-            "WHERE NAME IS NOT NULL AND NAME<>''"
-        )
-    }
 
 
 # ---- the extraction ---------------------------------------------------------
