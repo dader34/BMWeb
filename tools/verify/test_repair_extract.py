@@ -421,16 +421,16 @@ class TestValidityGrammar(unittest.TestCase):
         self.assertEqual(tree["kids"][1], {"op": "not", "kids": [
             {"op": "eq", "root": 3, "val": 4}]})
 
-    def test_soft_keeps_its_operand(self):
-        """An undecoded qualifier keeps what it qualifies, marked soft."""
+    def test_not_is_0x03(self):
+        """0x03 is NOT, the tool's own numbering: one operand, negated."""
         tree, unsure = V.decode_rule(bytes([0x03]) + self.eq(1, 2))
         self.assertFalse(unsure)
         self.assertEqual(
-            tree, {"op": "soft", "kids": [{"op": "eq", "root": 1, "val": 2}]}
+            tree, {"op": "not", "kids": [{"op": "eq", "root": 1, "val": 2}]}
         )
 
-    def test_literal_consumes_eight_bytes(self):
-        """0x09/0x0e/0x0f are an int64 with no operand."""
+    def test_single_id_leaf_consumes_eight_bytes(self):
+        """0x06-0x0f and 0x12 are one int64 id, named by their type."""
         blob = (
             bytes([V.OP_AND])
             + struct.pack("<i", 2)
@@ -440,7 +440,26 @@ class TestValidityGrammar(unittest.TestCase):
         )
         tree, unsure = V.decode_rule(blob)
         self.assertFalse(unsure)
-        self.assertEqual(tree["kids"][1], {"op": "lit"})
+        self.assertEqual(tree["kids"][1], {"op": "sifa", "val": -1})
+        tree, unsure = V.decode_rule(bytes([0x0E]) + struct.pack("<q", 7))
+        self.assertEqual(tree, {"op": "salapa", "val": 7})
+
+    def test_dated_leaves(self):
+        """0x04 is a model year-month compare, 0x13 a production-date compare."""
+        tree, unsure = V.decode_rule(bytes([0x04, 0x03]) + struct.pack("<q", 199809))
+        self.assertFalse(unsure)
+        self.assertEqual(tree, {"op": "date", "cmp": "ge", "ym": 199809})
+        ticks = V.date_ticks(2012, 11, 25)
+        tree, unsure = V.decode_rule(bytes([0x13, 0x05]) + struct.pack("<q", ticks))
+        self.assertEqual(tree, {"op": "mfd", "cmp": "le", "ticks": ticks})
+        self.assertEqual(ticks, 634893984000000000)
+
+    def test_refused_types_are_unsure(self):
+        """COMP, VALUE and VARIABLE are refused by the tool's engine too."""
+        for op in (0x00, 0x05, 0x10):
+            tree, unsure = V.decode_rule(bytes([op]) + self.eq(1, 2))
+            self.assertTrue(unsure, hex(op))
+            self.assertIsNone(tree)
 
     def test_trailing_bytes_are_unsure(self):
         """A tree built from part of a blob is not trusted."""
@@ -465,12 +484,30 @@ class TestValidityGrammar(unittest.TestCase):
         self.assertTrue(V.rule_applies(None, set()))
         self.assertTrue(V.rule_applies({"op": "eq", "root": 1, "val": 9}, {9}))
         self.assertFalse(V.rule_applies({"op": "eq", "root": 1, "val": 9}, {8}))
-        # soft passes through to its operand
-        soft = {"op": "soft", "kids": [{"op": "eq", "root": 1, "val": 9}]}
-        self.assertTrue(V.rule_applies(soft, {9}))
-        self.assertFalse(V.rule_applies(soft, {8}))
-        # a node the grammar could not pin down applies rather than excluding
-        self.assertTrue(V.rule_applies({"op": "lit"}, set()))
+        # NOT negates
+        self.assertFalse(V.rule_applies({"op": "not", "kids": [{"op": "eq", "root": 1, "val": 9}]}, {9}))
+        # a production-date leaf is decided from the build date when known
+        mfd = {"op": "mfd", "cmp": "ge", "ticks": V.date_ticks(2003, 3)}
+        self.assertTrue(V.rule_applies(mfd, set(), {"built": V.date_ticks(2004, 9)}))
+        self.assertFalse(V.rule_applies(mfd, set(), {"built": V.date_ticks(2002, 1)}))
+        # and applies when the caller has no build date, even under NOT: an
+        # unknown must never become an exclusion
+        self.assertTrue(V.rule_applies(mfd, set()))
+        self.assertTrue(V.rule_applies({"op": "not", "kids": [mfd]}, set()))
+        self.assertIsNone(V.rule_eval({"op": "not", "kids": [mfd]}, set()))
+        # a DATE leaf compares model year * 100 + month
+        ym = {"op": "date", "cmp": "ge", "ym": 199809}
+        self.assertTrue(V.rule_applies(ym, set(), {"ym": 200409}))
+        self.assertFalse(V.rule_applies(ym, set(), {"ym": 199803}))
+        # an SA leaf is decided from the car's SA ids when the caller has them
+        sa = {"op": "salapa", "val": 42}
+        self.assertTrue(V.rule_applies(sa, set(), {"salapa": {42}}))
+        self.assertFalse(V.rule_applies(sa, set(), {"salapa": {41}}))
+        self.assertTrue(V.rule_applies(sa, set()))
+        # AND with one false is false even when another kid is unknown
+        self.assertFalse(
+            V.rule_applies({"op": "and", "kids": [mfd, {"op": "eq", "root": 1, "val": 9}]}, {8})
+        )
 
 
 if __name__ == "__main__":

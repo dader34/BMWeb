@@ -2,66 +2,93 @@
 """The validity-rule grammar shared by every ISTA document extract.
 
 A document's applicability is an expression tree, not a bag of ids, and the
-blob in XEP_RULES is that tree in a prefix encoding:
+blob in XEP_RULES is that tree in a prefix encoding. The grammar below is
+ISTA's own: it is what the tool's rule engine reads (RuleExpression.Deserialize
+in the core framework assembly, one byte of expression type followed by that
+type's payload), not a fit to the data. Every blob in the corpus decodes.
 
-    0x01  AND       int32 LE operand count, then that many operands
-    0x02  OR        the same
-    0x10  NOT       one operand
-    0x11  EQ        int64 LE characteristic-root id, int64 LE value id
-    0x03  |  0x04   one operand, qualified by something not decoded
-    0x12  |  0x13   the same
-    0x09  |  0x0e   an int64 literal, no operand
-    0x0f            the same
+    byte  type                 payload
+    0x01  AND                  int32 LE operand count, then the operands
+    0x02  OR                   the same
+    0x03  NOT                  one operand
+    0x04  DATE                 byte compare operator, int64 LE model year and
+                               month as one number (200203 = 2002/03)
+    0x06  ISTUFE               int64 LE integration-level id
+    0x07  VALID_FROM           int64 LE
+    0x08  VALID_TO             int64 LE
+    0x09  COUNTRY              int64 LE country id
+    0x0a  ECUGROUP             int64 LE
+    0x0b  ECUVARIANT           int64 LE
+    0x0c  ECUCLIQUE            int64 LE
+    0x0d  EQUIPMENT            int64 LE equipment id
+    0x0e  SALAPA               int64 LE SA/LA/PA id
+    0x0f  SIFA                 int64 LE
+    0x11  CHARACTERISTIC       int64 LE root (data class) id, int64 LE value id
+    0x12  ECUREPRESENTATIVE    int64 LE
+    0x13  MANUFACTORINGDATE    byte compare operator, int64 LE production
+                               date ticks
+    0x14  ISTUFEX              byte compare operator, byte flag, int64 LE id
 
-The first four opcodes were established by the workshop-reference extract.
-The last seven were fitted here, by taking every repair-instruction rule the
-four-opcode grammar rejected and scoring each candidate arity by how many
-blobs then parse to exactly their own length. Nothing else is evidence: a
-grammar that consumes the blob exactly, across tens of thousands of blobs,
-is right; one that leaves a byte over is guessing.
+    0x00 COMP, 0x05 VALUE and 0x10 VARIABLE exist in the type enum but the
+    engine refuses to deserialise them, so no stored rule carries one.
 
-    four opcodes   61,996 of 67,632 repair rules clean   (91.7%)
-    all eleven     66,433 of 67,632 repair rules clean   (98.2%)
-
-0x03 is unary because its operand is a well-formed EQ that starts one byte
-after it, with no count field in between. 0x09/0x0e/0x0f are an int64
-literal because skipping eight bytes is the only arity that raises the clean
-count. 0x04/0x12/0x13 only ever occur inside blobs that fail for some other
-reason, so their arity is not established by the data -- they are read as
-unary because that is the shape of their neighbours, and a document whose
-rule contains one is still decoded rather than dropped.
+Compare operators: 0 equal, 1 not equal, 2 greater, 3 greater or equal,
+4 less, 5 less or equal, always read as <vehicle value> <op> <rule value>.
+A DATE leaf compares the car's model year and month (year * 100 + month,
+the tool's Modelljahr/Modellmonat); a MANUFACTORINGDATE leaf compares the
+production date in .NET ticks: 100 ns units since 0001-01-01.
 
 WHAT AN UNDECODED RULE MEANS. A blob that does not parse, or that parses but
-leaves bytes over, yields no tree and the document is flagged `unsure`. An
-unsure document is SHOWN for every car, marked. In a workshop a document
-that might not apply is a smaller problem than a repair step that quietly
-went missing, so the flag is the honest failure, not exclusion.
+leaves bytes over, yields no tree and the document is flagged `unsure`. With
+the real grammar that is a corrupt row, not a gap in the decoder. An unsure
+document is SHOWN for every car, marked: a document that might not apply is
+a smaller problem than a repair step that quietly went missing.
 
-WHAT `soft` MEANS. 0x03/0x04/0x12/0x13 qualify their operand with a
-condition nobody has decoded -- they look like date or I-level comparisons.
-The tree keeps the operand and marks the node `soft`, so the app evaluates
-what IS known and the extra condition is treated as satisfied. That widens
-the result rather than narrowing it, which is the same direction `unsure`
-errs in and for the same reason.
+WHAT THE EVALUATOR KNOWS. A characteristic leaf is decided from the car's
+characteristic ids (its type key's build). NOT negates, as it must. A
+production-date leaf is decided when the caller knows the build date and
+applies otherwise. Leaves about equipment, SA codes, country, integration
+level and installed ECU variants need facts the extract does not carry per
+car, so they apply until a caller supplies them: that keeps the result
+wider, never narrower, than the truth.
 """
 import struct
 
-# the decoded opcodes
-OP_AND, OP_OR, OP_NOT, OP_EQ = 0x01, 0x02, 0x10, 0x11
+# expression types, ISTA's numbering
+OP_AND, OP_OR, OP_NOT = 0x01, 0x02, 0x03
+OP_DATE, OP_MFD, OP_ISTUFEX = 0x04, 0x13, 0x14
+OP_EQ = 0x11
 
-# one operand, qualified by a condition that is not decoded
-OPS_SOFT = (0x03, 0x04, 0x12, 0x13)
+# one int64 payload each: the leaf name the tree carries
+OPS_SINGLE = {
+    0x06: "istufe",
+    0x07: "validfrom",
+    0x08: "validto",
+    0x09: "country",
+    0x0A: "ecugroup",
+    0x0B: "ecuvariant",
+    0x0C: "ecuclique",
+    0x0D: "equipment",
+    0x0E: "salapa",
+    0x0F: "sifa",
+    0x12: "ecurep",
+}
 
-# an int64 literal standing alone, no operand
-OPS_LITERAL = (0x09, 0x0E, 0x0F)
+# the compare operators, by their byte
+CMP_OPS = ("eq", "ne", "gt", "ge", "lt", "le")
 
 # an AND/OR wider than this is a corrupt length, not a real rule; the widest
 # real one seen in the corpus is far below it
 MAX_OPERANDS = 4096
 
+# the leaf kinds a caller may decide with facts (see rule_applies)
+FACT_LEAVES = ("salapa", "equipment", "country", "istufe", "istufex",
+               "ecugroup", "ecuvariant", "ecuclique", "ecurep", "sifa",
+               "validfrom", "validto")
+
 
 class RuleParseError(Exception):
-    """A rule used an opcode, or a length, this decoder does not know."""
+    """A rule used an opcode, or a length, outside ISTA's grammar."""
 
 
 def parse_rule(blob, pos=0):
@@ -70,11 +97,13 @@ def parse_rule(blob, pos=0):
     Returns (tree, next position). A tree node is one of:
         {"op": "and"|"or", "kids": [...]}
         {"op": "not", "kids": [one]}
-        {"op": "soft", "kids": [one]}      an undecoded qualifier
-        {"op": "eq", "root": <root id>, "val": <value id>}
-        {"op": "lit"}                      an undecoded int64 literal
-    Raises RuleParseError on anything outside the grammar above, so the
-    caller can flag the document rather than guess at its applicability.
+        {"op": "eq", "root": <root id>, "val": <value id>}   characteristic
+        {"op": "mfd", "cmp": <cmp name>, "ticks": <int>}      production date
+        {"op": "date", "cmp": <cmp name>, "ym": <int>}         model year*100+month
+        {"op": "istufex", "cmp": <cmp name>, "flag": <bool>, "val": <id>}
+        {"op": <leaf name from OPS_SINGLE>, "val": <id>}
+    Raises RuleParseError on anything outside the grammar, so the caller can
+    flag the document rather than guess at its applicability.
 
     @param blob: the RULE column's bytes
     @param pos: where to start reading
@@ -97,16 +126,26 @@ def parse_rule(blob, pos=0):
         kid, pos = parse_rule(blob, pos)
         return {"op": "not", "kids": [kid]}, pos
     if op == OP_EQ:
-        (root,) = struct.unpack_from("<q", blob, pos)
-        (val,) = struct.unpack_from("<q", blob, pos + 8)
+        (root, val) = struct.unpack_from("<qq", blob, pos)
         return {"op": "eq", "root": root, "val": val}, pos + 16
-    if op in OPS_SOFT:
-        kid, pos = parse_rule(blob, pos)
-        return {"op": "soft", "kids": [kid]}, pos
-    if op in OPS_LITERAL:
-        # the literal itself is not understood, so it is not carried: the
-        # node exists only to keep the byte count honest
-        return {"op": "lit"}, pos + 8
+    if op in (OP_DATE, OP_MFD):
+        cmp_byte = blob[pos]
+        if cmp_byte >= len(CMP_OPS):
+            raise RuleParseError(f"compare operator {cmp_byte}")
+        (value,) = struct.unpack_from("<q", blob, pos + 1)
+        if op == OP_MFD:
+            return {"op": "mfd", "cmp": CMP_OPS[cmp_byte], "ticks": value}, pos + 9
+        return {"op": "date", "cmp": CMP_OPS[cmp_byte], "ym": value}, pos + 9
+    if op == OP_ISTUFEX:
+        cmp_byte = blob[pos]
+        if cmp_byte >= len(CMP_OPS):
+            raise RuleParseError(f"compare operator {cmp_byte}")
+        flag = blob[pos + 1] > 0
+        (val,) = struct.unpack_from("<q", blob, pos + 2)
+        return {"op": "istufex", "cmp": CMP_OPS[cmp_byte], "flag": flag, "val": val}, pos + 10
+    if op in OPS_SINGLE:
+        (val,) = struct.unpack_from("<q", blob, pos)
+        return {"op": OPS_SINGLE[op], "val": val}, pos + 8
     raise RuleParseError(f"opcode {op:#04x}")
 
 
@@ -134,36 +173,117 @@ def decode_rule(blob):
     return tree, False
 
 
-def rule_applies(rule, ids):
-    """Does a decoded rule hold for a car?
+def compare(left, cmp, right):
+    """<left> <cmp> <right> with ISTA's operator names.
 
-    Total by design: an absent rule applies to everything, and a node the
-    grammar could not pin down applies rather than excluding. Both err
-    towards showing a document, for the reason in this module's docstring.
+    @param left: the vehicle's value
+    @param cmp: a name from CMP_OPS
+    @param right: the rule's value
+    """
+    if cmp == "eq":
+        return left == right
+    if cmp == "ne":
+        return left != right
+    if cmp == "gt":
+        return left > right
+    if cmp == "ge":
+        return left >= right
+    if cmp == "lt":
+        return left < right
+    return left <= right
 
-    This is the Python twin of repairRuleApplies / techDataRuleApplies in
-    the renderer -- the extractor uses it to count and shard, the app uses
-    it to filter, and they must agree.
+
+def date_ticks(year, month, day=1):
+    """.NET ticks for a calendar date, the unit ISTA stores dates in.
+
+    @param year: four-digit year
+    @param month: 1-12
+    @param day: 1-31
+    """
+    import datetime
+
+    d = datetime.date(int(year), int(month), int(day))
+    days = d.toordinal()  # days since 0001-01-01, that date being 1
+    return (days - 1) * 864_000_000_000
+
+
+def rule_eval(rule, ids, facts=None):
+    """Three-valued evaluation: True, False, or None for "not decidable".
+
+    A leaf the caller has no fact for is None, and None propagates the way
+    ISTA's engine would if it lacked the fact: NOT None is None, an AND is
+    False on any False else None on any None, an OR is True on any True else
+    None on any None. That keeps a NOT over an unknown leaf from turning a
+    missing fact into an exclusion.
 
     @param rule: a tree from parse_rule, or None
     @param ids: the set of characteristic value ids the car carries
+    @param facts: see rule_applies
     """
     if not rule:
         return True
+    facts = facts or {}
     op = rule.get("op")
     if op == "eq":
         return rule["val"] in ids
     if op == "and":
-        return all(rule_applies(k, ids) for k in rule.get("kids", ()))
+        out = True
+        for k in rule.get("kids", ()):
+            v = rule_eval(k, ids, facts)
+            if v is False:
+                return False
+            if v is None:
+                out = None
+        return out
     if op == "or":
-        return any(rule_applies(k, ids) for k in rule.get("kids", ()))
+        out = False
+        for k in rule.get("kids", ()):
+            v = rule_eval(k, ids, facts)
+            if v is True:
+                return True
+            if v is None:
+                out = None
+        return out
     if op == "not":
         kids = rule.get("kids") or [None]
-        return not rule_applies(kids[0], ids)
-    if op == "soft":
-        kids = rule.get("kids") or [None]
-        return rule_applies(kids[0], ids)
-    return True
+        v = rule_eval(kids[0], ids, facts)
+        return None if v is None else not v
+    if op == "mfd":
+        built = facts.get("built")
+        if built is None:
+            return None
+        return compare(built, rule["cmp"], rule["ticks"])
+    if op == "date":
+        ym = facts.get("ym")
+        if ym is None:
+            return None
+        return compare(ym, rule["cmp"], rule["ym"])
+    if op in FACT_LEAVES:
+        have = facts.get(op)
+        if have is None or op == "istufex":
+            return None
+        return rule["val"] in have
+    return None
+
+
+def rule_applies(rule, ids, facts=None):
+    """Does a decoded rule hold for a car?
+
+    Total by design: an absent rule applies to everything, and a rule whose
+    outcome the facts cannot decide applies rather than excludes. Both err
+    towards showing a document, for the reason in this module's docstring.
+
+    This is the Python twin of techDataRuleApplies in the renderer -- the
+    extractor uses it to count and shard, the app uses it to filter, and
+    they must agree.
+
+    @param rule: a tree from parse_rule, or None
+    @param ids: the set of characteristic value ids the car carries
+    @param facts: optional dict: "built" (production date in .NET ticks),
+        "ym" (model year * 100 + month), and for each name in FACT_LEAVES a
+        set of ids the car carries
+    """
+    return rule_eval(rule, ids, facts) is not False
 
 
 # ---- the vehicle characteristic maps ---------------------------------------

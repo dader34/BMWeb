@@ -16,7 +16,8 @@
  */
 
 /* exported techDataIndex techDataIndexPresent techDataBody techDataCarKeys
-   techDataRuleApplies techDataFilter techDataGroups techDataSearch */
+   techDataRuleApplies techDataRuleEval techDataCompare techDataDateTicks
+   techDataFilter techDataGroups techDataSearch */
 
 /** Hosted copy, beside the other ISTA extracts. */
 const TECHDATA_HF_BASE =
@@ -151,29 +152,117 @@ async function techDataCarKeys(car, chassis) {
 }
 
 /**
- * Does a validity rule hold for a car?
- *
- * Pure, and total: an absent rule applies to everything (that is what the
- * source means by no rule), and an unrecognised node applies rather than
- * excluding, for the same reason the extractor keeps undecoded rules.
- * @param {object|null|undefined} rule - the decoded rule tree
- * @param {Set<number>} ids - the car's characteristic ids
+ * Compare two numbers with a rule's operator name.
+ * @param {number} left - the car's value
+ * @param {string} cmp - eq, ne, gt, ge, lt or le
+ * @param {number} right - the rule's value
  * @returns {boolean}
  */
-function techDataRuleApplies(rule, ids) {
+function techDataCompare(left, cmp, right) {
+  if (cmp === 'eq') return left === right;
+  if (cmp === 'ne') return left !== right;
+  if (cmp === 'gt') return left > right;
+  if (cmp === 'ge') return left >= right;
+  if (cmp === 'lt') return left < right;
+  return left <= right;
+}
+
+/**
+ * The .NET tick count ISTA stores dates in, for a calendar date.
+ * @param {number} year - four-digit year
+ * @param {number} month - 1 to 12
+ * @param {number} [day=1] - day of month
+ * @returns {number}
+ */
+function techDataDateTicks(year, month, day = 1) {
+  // days from 0001-01-01 to the date, times ticks per day; UTC keeps the
+  // arithmetic free of the local zone, and setUTCFullYear avoids Date.UTC
+  // reading a small year as 19xx
+  const y1 = new Date(0);
+  y1.setUTCFullYear(1, 0, 1);
+  y1.setUTCHours(0, 0, 0, 0);
+  const d = new Date(0);
+  d.setUTCFullYear(year, month - 1, day);
+  d.setUTCHours(0, 0, 0, 0);
+  const days = Math.round((d.getTime() - y1.getTime()) / 86400000);
+  return days * 864000000000;
+}
+
+/**
+ * Three-valued rule evaluation: true, false, or null for "not decidable".
+ *
+ * The leaf kinds are ISTA's own (a characteristic, a production date, an SA
+ * code, a country ...). A leaf the caller has no fact for is null, and null
+ * propagates the way the tool's engine would if it lacked the fact: NOT null
+ * is null, an AND is false on any false else null on any null, an OR is true
+ * on any true else null on any null. So a NOT over an unknown leaf never
+ * turns a missing fact into an exclusion.
+ * @param {object|null|undefined} rule - the decoded rule tree
+ * @param {Set<number>} ids - the car's characteristic ids
+ * @param {object} [facts] - `built` (production date in ticks, see
+ *   techDataDateTicks), `ym` (model year * 100 + month) and, per leaf
+ *   kind, a Set of ids the car carries
+ * @returns {boolean|null}
+ */
+function techDataRuleEval(rule, ids, facts) {
   if (!rule) return true;
+  const f = facts || {};
   switch (rule.op) {
     case 'eq':
       return ids.has(rule.val);
-    case 'and':
-      return (rule.kids || []).every((k) => techDataRuleApplies(k, ids));
-    case 'or':
-      return (rule.kids || []).some((k) => techDataRuleApplies(k, ids));
-    case 'not':
-      return !techDataRuleApplies((rule.kids || [])[0], ids);
-    default:
-      return true;
+    case 'and': {
+      let out = true;
+      for (const k of rule.kids || []) {
+        const v = techDataRuleEval(k, ids, f);
+        if (v === false) return false;
+        if (v === null) out = null;
+      }
+      return out;
+    }
+    case 'or': {
+      let out = false;
+      for (const k of rule.kids || []) {
+        const v = techDataRuleEval(k, ids, f);
+        if (v === true) return true;
+        if (v === null) out = null;
+      }
+      return out;
+    }
+    case 'not': {
+      const v = techDataRuleEval((rule.kids || [])[0], ids, f);
+      return v === null ? null : !v;
+    }
+    case 'mfd':
+      if (f.built == null) return null;
+      return techDataCompare(f.built, rule.cmp, rule.ticks);
+    case 'date':
+      // the tool compares model year * 100 + month against this leaf
+      if (f.ym == null) return null;
+      return techDataCompare(f.ym, rule.cmp, rule.ym);
+    case 'istufex':
+      return null;
+    default: {
+      const have = f[rule.op];
+      if (!have || typeof have.has !== 'function') return null;
+      return have.has(rule.val);
+    }
   }
+}
+
+/**
+ * Does a validity rule hold for a car?
+ *
+ * Pure, and total: an absent rule applies to everything (that is what the
+ * source means by no rule), and a rule the facts cannot decide applies
+ * rather than excluding, for the same reason the extractor keeps undecoded
+ * rules. The Python twin is rule_applies in tools/ista/validity_rules.py.
+ * @param {object|null|undefined} rule - the decoded rule tree
+ * @param {Set<number>} ids - the car's characteristic ids
+ * @param {object} [facts] - see techDataRuleEval
+ * @returns {boolean}
+ */
+function techDataRuleApplies(rule, ids, facts) {
+  return techDataRuleEval(rule, ids, facts) !== false;
 }
 
 /**
@@ -254,6 +343,9 @@ if (typeof module !== 'undefined' && module.exports) {
     techDataBody,
     techDataCarKeys,
     techDataRuleApplies,
+    techDataRuleEval,
+    techDataCompare,
+    techDataDateTicks,
     techDataFilter,
     techDataGroups,
     techDataSearch,
