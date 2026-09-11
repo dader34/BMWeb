@@ -1274,6 +1274,61 @@ html.no-chrome body.apps-section .topbar {
   opacity: 1;
 }
 
+/* the callout hotspots: one focusable box per numbered callout, laid over the
+   drawing in the image's own pixel space and scaled with it (see
+   screens/etk/callouts.js). The layer itself is inert so the figure's own
+   click still opens the lightbox everywhere between the numbers -- only the
+   boxes take the pointer. */
+.etk-hotspots {
+  position: absolute;
+  pointer-events: none;
+}
+.etk-hotspot {
+  position: absolute;
+  pointer-events: auto;
+  padding: 0;
+  margin: 0;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: transparent;
+  cursor: pointer;
+  /* a resting callout must not obscure the line art it sits on: the box is
+     invisible until it is pointed at, focused or picked */
+  transition:
+    background-color 0.1s,
+    border-color 0.1s;
+}
+.etk-hotspot:hover,
+.etk-hotspot.on {
+  border-color: var(--amber);
+  background: var(--amber-glow);
+}
+.etk-hotspot:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 1px;
+}
+.etk-hotspot.pinned {
+  border-color: var(--amber);
+  background: var(--amber);
+  opacity: 0.45;
+}
+
+/* the parts rows answering back. A linked row is one whose callout is drawn
+   on this diagram; rows the variant filter removed are not in the table at
+   all, so they can never light up. */
+.etk-parts tr.etk-row-linked {
+  cursor: pointer;
+}
+.etk-parts tr.etk-row-on {
+  background: var(--amber-glow);
+}
+.etk-parts tr.etk-row-on .etk-pos {
+  font-weight: 700;
+}
+.etk-parts tr.etk-row-pinned {
+  box-shadow: inset 2px 0 0 var(--amber);
+}
+
 /* the enlarged drawing: as big as the window allows, on a white plate, with
    a round loupe following the pointer */
 .etk-lightbox {

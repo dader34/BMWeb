@@ -257,6 +257,10 @@ echo "== ISTA shell: tab model, routes, favourites, banner and details text =="
 node tools/verify/test_ista.js || exit 1
 
 echo
+echo "== parts diagrams: callout hotspot file shape, the pos join, scale mapping =="
+node tools/verify/test_etk_hotspots.js || exit 1
+
+echo
 echo "== workshop documents: validity rules, the car filter, tree, renderers =="
 node tools/verify/test_techdata.js || exit 1
 python3 tools/verify/test_techdata_extract.py || exit 1
