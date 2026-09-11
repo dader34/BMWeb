@@ -656,10 +656,6 @@ function istaRouteStamp() {
     same ? now.item : null
   );
   history.replaceState(null, '', '#' + route);
-  // the wrapped screen wrote its OWN route a moment ago, and that hashchange
-  // is still queued; claiming this one stops the router replaying it and
-  // opening that screen a second time outside the shell
-  if (typeof routeClaim === 'function') routeClaim(route);
 }
 
 /**
@@ -803,6 +799,40 @@ function istaOpenModuleScript(ecu) {
  * @type {object[]}
  */
 const istaTestPlan = [];
+
+/**
+ * The Workshop page's Filter dialog.
+ *
+ * One checkbox, because the app's page has one filter worth exposing: by
+ * default it shows the documents that apply to THIS car, and Show all drops
+ * that scoping. The checkbox it drives is the page's own, so the two cannot
+ * disagree about what is on screen.
+ * @param {HTMLElement} host - the page
+ * @returns {void}
+ */
+function istaTechDataFilter(host) {
+  const box = host.querySelector('#td-all');
+  if (!box || typeof openModal !== 'function') return;
+  const { overlay, close } = openModal(
+    `<div class="modal iradmin" role="dialog" aria-modal="true">` +
+      `<div class="modal-title iradmin-title">Filter</div>` +
+      `<div class="iradmin-host"><div class="iradmin-row">` +
+      `<label class="iradmin-opt"><input type="checkbox" id="ista-td-only"` +
+      `${box.checked ? '' : ' checked'} /> ` +
+      `<span>Only this vehicle</span></label></div></div>` +
+      `<div class="modal-actions iradmin-actions">` +
+      `<button type="button" class="btn iradmin-cancel">Cancel</button>` +
+      `<button type="button" class="btn iradmin-ok">OK</button>` +
+      `</div></div>`
+  );
+  overlay.querySelector('.iradmin-cancel').onclick = () => close();
+  overlay.querySelector('.iradmin-ok').onclick = () => {
+    const only = overlay.querySelector('#ista-td-only').checked;
+    // "Only this vehicle" is the inverse of the page's "Show all"
+    if (box.checked === only) box.click();
+    close();
+  };
+}
 
 /**
  * Open the vehicle a set of basic features narrowed to.
@@ -1473,11 +1503,17 @@ async function istaDrawPage(s, host) {
   }
 
   if (s.page === 'techdata') {
-    if (real) {
-      istaRealStatus({ items: [{ k: 'Filter:', v: 'Default' }] });
-      istaBottomBar('none');
-    }
-    return showTechData(host, car, chassis);
+    if (!real) return showTechData(host, car, chassis);
+    istaRealStatus({ items: [{ k: 'Filter:', v: 'Default' }] });
+    await showTechData(host, car, chassis);
+    if (!host.isConnected) return;
+    // the app's page draws its own section tabs and a Show all checkbox; the
+    // skin hides those (the level-3 strip is the sections, and Show all is a
+    // filter) and this is the button that still reaches the checkbox
+    istaBottomBar('techdata', {
+      filters: () => istaTechDataFilter(host),
+    });
+    return;
   }
 }
 

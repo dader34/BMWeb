@@ -402,8 +402,29 @@ const ISTA_TABS = [
         id: 'techdata',
         label: 'Workshop/Operating fluids',
         desc: 'Browse the reference documents by category, filtered to this car',
-        page: 'techdata',
-        needsCar: true,
+        subs3: [
+          {
+            id: 'equipment',
+            label: 'Workshop Equipment',
+            desc: 'Browse the reference documents by category',
+            page: 'techdata',
+            needsCar: true,
+          },
+          {
+            id: 'text-search',
+            label: 'Text Search',
+            desc: 'Find a reference document by its title',
+            page: 'techdata',
+            needsCar: true,
+          },
+          {
+            id: 'hit-list',
+            label: 'Hit list',
+            desc: 'The documents the last search found',
+            page: 'techdata',
+            needsCar: true,
+          },
+        ],
       },
     ],
   },
@@ -502,6 +523,13 @@ const ISTA_BOTTOM = {
     { id: 'symptoms', label: 'Show symptoms', off: true },
     { nav: true },
     { id: 'std-filter', label: 'Set standard filter', off: true },
+    { id: 'display', label: 'Display' },
+  ],
+  // Workshop: the section tabs and the Show all checkbox the app's own page
+  // draws become one Filters button, in the tool's own language
+  techdata: [
+    { id: 'filters', label: 'Filters' },
+    { nav: true },
     { id: 'display', label: 'Display' },
   ],
   // Operations / Finished and Repair history: pick a stored operation and

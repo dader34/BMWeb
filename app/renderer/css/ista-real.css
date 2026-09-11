@@ -1346,7 +1346,8 @@ body.ista-mode.ista-real-body .view label {
 /* a criterion nobody has answered yet shows only its name */
 .ista-real-body .irbf-sel .irbf-row {
   cursor: default;
-  color: #666;
+  color: #8a8a8a;
+  background: #fff;
 }
 .ista-real-body .irbf-sel .irbf-row.has {
   color: var(--ir-ink);
@@ -1376,6 +1377,13 @@ body.ista-mode.ista-real-body .view label {
    Scoped to .view, so the same screen opened outside the shell is untouched. */
 .ista-real-body .view .screen-head,
 .ista-real-body .view .tree-bar {
+  display: none !important;
+}
+
+/* The Workshop page's own section tabs and Show all checkbox: the level-3
+   strip is the sections now, and Show all is behind the Filters button, so
+   the page's bar would be a second set of the same controls. */
+.ista-real-body .view .td-bar {
   display: none !important;
 }
 

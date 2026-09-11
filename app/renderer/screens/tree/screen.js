@@ -162,6 +162,33 @@ async function ecuTreeModuleSheet(car, ecu, st, hit) {
 }
 
 /**
+ * Put this tree in the URL: #apps/tree/<CHASSIS>[/<CAR>].
+ *
+ * SILENT INSIDE THE WORKSHOP SHELL. The shell wraps this screen, and the
+ * route the reader followed is the shell's (#ista/information/tree/...), not
+ * ours. Stamping ours over it does not just mislabel the address bar: the
+ * service worker reloads the page once whenever it takes control (a fresh
+ * install, and every update after), and that reload re-opens whatever the
+ * hash says by then. With our route standing, the reload came back to a bare
+ * tree with the shell gone.
+ *
+ * The test is "is the shell up", not "is it opening us": the car dropdown
+ * re-stamps long after the open finished, and it must stay quiet too.
+ * @param {string} car - the chassis id, already upper-cased
+ * @param {{id: string}|null} picked - the Garage car the read is kept under
+ * @returns {void}
+ */
+function ecuTreeRouteStamp(car, picked) {
+  if (typeof istaChromeActive === 'function' && istaChromeActive()) return;
+  if (typeof history === 'undefined' || !history.replaceState) return;
+  history.replaceState(
+    null,
+    '',
+    `#apps/tree/${car}${picked ? `/${encodeURIComponent(picked.id)}` : ''}`
+  );
+}
+
+/**
  * The tree for one chassis, coloured by one of its saved cars.
  * @param {string} chassis - the chassis id
  * @param {string|null} [carId] - a Garage car of that chassis the finished read is kept under
@@ -184,12 +211,7 @@ async function showEcuTreeChassis(chassis, carId, opts) {
     { label: 'Control unit tree', fn: showEcuTree },
     { label: dispChassis(car) },
   ]);
-  if (typeof history !== 'undefined' && history.replaceState)
-    history.replaceState(
-      null,
-      '',
-      `#apps/tree/${car}${picked ? `/${encodeURIComponent(picked.id)}` : ''}`
-    );
+  ecuTreeRouteStamp(car, picked);
   sbLeft.textContent = 'loading tree';
   view.innerHTML = head(
     dispChassis(car),
@@ -251,12 +273,7 @@ async function showEcuTreeChassis(chassis, carId, opts) {
   const onPickCar = (v) => {
     picked = cars.find((c) => c.id === v) || null;
     lastScreen = () => showEcuTreeChassis(car, picked ? picked.id : null);
-    if (typeof history !== 'undefined' && history.replaceState)
-      history.replaceState(
-        null,
-        '',
-        `#apps/tree/${car}${picked ? `/${encodeURIComponent(picked.id)}` : ''}`
-      );
+    ecuTreeRouteStamp(car, picked);
     paint();
   };
   if (typeof lookupDropdown === 'function') {

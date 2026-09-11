@@ -347,26 +347,6 @@ function routeApplyHash() {
 // Replay the current hash into the app (used by both hashchange and popstate,
 // since pushState-created entries fire popstate but not hashchange on Back).
 /**
- * Tell the router that the hash now in the URL is already open.
- *
- * A SCREEN THAT WRITES ITS OWN ROUTE fires a hashchange the shell cannot
- * suppress. The ISTA shell re-stamps its own route over the wrapped screen's
- * afterwards, which is a second hashchange -- and by then istaOpening is
- * clear, so the handler below would replay the WRAPPED screen's route and
- * open it a second time, outside the shell. That is what cold-loading
- * #ista/information/tree used to do: the URL ended up on #apps/tree and the
- * workshop chrome was gone.
- *
- * So the shell claims the route it just wrote. Claiming is not navigating:
- * it only says "this hash is the screen already on display".
- * @param {string} route - the hash, without its '#'
- * @returns {void}
- */
-function routeClaim(route) {
-  _openRoute = String(route || '');
-}
-
-/**
  * hashchange/popstate handler: replay the hash into the app, or go home when
  * it was cleared.
  * @returns {void}
@@ -624,7 +604,6 @@ function routeSetEtkDiagram(chassis, hg, btnr) {
 if (typeof window !== 'undefined') {
   window.installRouter = installRouter;
   window.routeApplyHash = routeApplyHash;
-  window.routeClaim = routeClaim;
   window.routeSyncFromScreen = routeSyncFromScreen;
   window.routeSetWiringDoc = routeSetWiringDoc;
   window.routeSetDocsDoc = routeSetDocsDoc;

@@ -298,7 +298,14 @@ function istaBasicLabel(id, v) {
       ? istaAscii(bodyLabel(v))
       : bodyLabel(v);
   if (id === 'steering') return v === 'R' ? 'Right (RL)' : 'Left (LL)';
-  if (id === 'series' && typeof istaSeries === 'function') return istaSeries(v);
+  if (id === 'series') {
+    // Model series is the SERIES. A catalogue model name with no leading
+    // digit (ALPINA B6, C 400 GT, Coop.S) has no series at all, and passing
+    // it through turned this column into a list of model names. Those are
+    // grouped under one honest heading instead.
+    const m = String(v || '').trim();
+    return /^\d/.test(m) ? `${m[0]}'` : 'Other';
+  }
   return v;
 }
 
