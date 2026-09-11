@@ -579,14 +579,29 @@ async function istaHome(host, onlyTab) {
  * Stamp the shell's route into the URL. Done by hand rather than through
  * ROUTE_FOR_SCREEN because the route carries the tab, the sub-tab and the
  * car, none of which a function name can express.
+ *
+ * THE LAST TWO SLOTS ARE NOT THE SHELL'S. A sub-tab with pages of its own
+ * (Repair/maintenance) writes them, and this runs BEFORE that sub-tab has
+ * drawn -- so stamping only the first three would erase the view and the
+ * document a deep link named, a moment before the sub-tab tried to read
+ * them. They are therefore carried through from whatever is in the URL,
+ * but only while the tab and sub-tab still match: a stale view from the
+ * tab the reader just left would otherwise follow them to the next one.
  * @returns {void}
  */
 function istaRouteStamp() {
   if (typeof history === 'undefined' || !history.replaceState) return;
+  const now =
+    typeof location !== 'undefined'
+      ? istaRouteParse(String(location.hash || '').replace(/^#/, ''))
+      : null;
+  const same = now && now.tab === istaState.tab && now.sub === istaState.sub;
   const route = istaRouteBuild(
     istaState.tab,
     istaState.sub,
-    istaState.car ? istaState.car.id : null
+    istaState.car ? istaState.car.id : null,
+    same ? now.view : null,
+    same ? now.item : null
   );
   history.replaceState(null, '', '#' + route);
 }
