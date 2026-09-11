@@ -70,16 +70,17 @@ function etkGearLabel(gear) {
 }
 
 /**
- * "YYYY-MM" from the front of a YYYYMMDD (or longer) date string.
+ * "MM/YYYY" from the front of a YYYYMMDD (or longer) date string.
  * @param {string} d - date digits
  * @returns {string}
  */
 function etkYearMonth(d) {
-  return `${d.slice(0, 4)}-${d.slice(4, 6)}`;
+  // month/year, not year-month: "2004-09" was read as a 2004 to 2009 range
+  return `${d.slice(4, 6)}/${d.slice(0, 4)}`;
 }
 
 /**
- * One-line caption for a catalogue variant: "325i · Lim · M54 · LHD · man. · 2001-09".
+ * One-line caption for a catalogue variant: "325i · Lim · M54 · LHD · man. · 09/2001".
  * @param {EtkVariant} v - the variant record
  * @returns {string}
  */
