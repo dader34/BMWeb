@@ -39,6 +39,14 @@ const ctx = vm.createContext({
   module: undefined,
   console,
 });
+// the runtime gate leans on techdata's rule evaluator, which is the JS twin
+// of validity_rules.py: the same file the repair browser filters with, so
+// the extract and the app cannot drift into two different answers
+vm.runInContext(
+  fs.readFileSync(path.join(ROOT, 'techdata', 'data.js'), 'utf8'),
+  ctx,
+  { filename: 'data.js' }
+);
 vm.runInContext(
   fs.readFileSync(path.join(ROOT, 'ista', 'trees.js'), 'utf8'),
   ctx,
@@ -96,6 +104,76 @@ const tablesOf = (body) =>
     assert.ok(/^[A-Z]{3}$|^C\d+$/.test(d.type), `${d.id} type is a code`);
   }
   ok('codes are three letters, or a marked unknown');
+}
+
+// ---- the per-class body coverage table -------------------------------------
+// The bug this guards was a reader opening a Fault pattern leaf and being told
+// "This document's body is not in this build." Every class the structures link
+// must resolve except the two that genuinely hold no text, and the table is
+// what makes a class that silently STOPS resolving visible: a schema shifts, a
+// join stops matching, and the row goes to zero here instead of going quiet.
+{
+  const table = fixture.docTypes;
+  assert.ok(table && Object.keys(table).length, 'the coverage table ships');
+  ok('index.json carries a per-class coverage table');
+
+  // ABL is a compiled test module and SSP an SVG wiring diagram. Those two
+  // are allowed a zero, and must SAY why rather than merely being empty.
+  const NO_TEXT = new Set(['ABL', 'SSP']);
+  for (const [code, row] of Object.entries(table)) {
+    assert.strictEqual(typeof row.docs, 'number', `${code} counts its links`);
+    assert.strictEqual(typeof row.body, 'number', `${code} counts its bodies`);
+    assert.ok(row.docs > 0, `${code} is in the link set`);
+    if (NO_TEXT.has(code)) {
+      assert.strictEqual(row.body, 0, `${code} ships no body`);
+      assert.ok(row.why, `${code} says why it has none`);
+      continue;
+    }
+    // every other class: a zero here is the bug, not a fact about ISTA
+    assert.ok(
+      row.body > 0,
+      `${code} has bodies (${row.body} of ${row.docs} linked)`
+    );
+    assert.ok(row.why === undefined, `${code} claims no exemption`);
+  }
+  ok('no class but ABL/SSP has zero bodies');
+
+  // FEB is the class the bug was reported against, and it is the Fault
+  // pattern tree's OWN payload: a symptom leads to a REPAIRMANUALDOCUMENT of
+  // TYPE="TROUBLESHOOTING", so a FEB with no body makes the one tree that is
+  // navigated by the customer's words the one tree with nothing behind it.
+  assert.ok(table.FEB, 'FEB is in the table');
+  assert.strictEqual(table.FEB.body, table.FEB.docs, 'every FEB has a body');
+  ok('every FEB linked for E46 carries a body');
+}
+
+// ---- a FEB body really parses ----------------------------------------------
+// Not just counted: read. A REPAIRMANUALDOCUMENT is a different schema from
+// the DIAGNOSISDOCUMENTs around it, and the count would be satisfied by any
+// non-null parse -- so this checks the words a reader would actually see.
+{
+  const feb = doc(2000038185238);
+  assert.strictEqual(feb.type, 'FEB', 'the fixture document is a FEB');
+  assert.ok(
+    feb.xml.includes('REPAIRMANUALDOCUMENT'),
+    'and really is the repair-manual schema'
+  );
+  assert.ok(feb.body, 'it parsed');
+  assert.ok(feb.body.sections.length > 0, 'into sections');
+  ok('a FEB parses into a body');
+
+  const text = textOf(feb.body);
+  assert.ok(
+    text.some((t) => /Noise from rear axle differential/.test(t)),
+    'the brief description came through'
+  );
+  // the LIST of complaints is what a technician matches the customer against,
+  // and a run-together paragraph would be unreadable
+  const bullets = feb.body.sections.flatMap((s) =>
+    s.blocks.filter((b) => b.t === 'bullet')
+  );
+  assert.ok(bullets.length >= 4, 'its complaint list stayed a list');
+  ok('a FEB keeps its description and its complaint list');
 }
 
 // ---- what gets a body, and what must not -----------------------------------
@@ -498,6 +576,13 @@ const tablesOf = (body) =>
   // would ever be excluded and kept would equal seen
   assert.ok(s.kept < s.seen, 'an inherited rule can still exclude');
   ok('a symptom with no rule inherits its parent’s');
+
+  // the symptom walk gates its DOCUMENTS by their own rules too, which is
+  // where the transfer box row came in: the symptom "operating fluid
+  // leakage" is filed under a group every car has, and it is the document
+  // behind it that says which car it is for
+  assert.ok(s.docDropped > 0, 'symptom documents were gated as well');
+  ok('the fault-pattern tree gates its documents, not just its symptoms');
 }
 
 // ---- the body renders, and never as JSON -----------------------------------
@@ -587,6 +672,261 @@ const tablesOf = (body) =>
   assert.ok(html.includes('a &amp; b'), 'so is a heading');
   assert.ok(html.includes('&lt;td&gt;'), 'and so is a cell');
   ok('titles, headings and cells are escaped');
+}
+
+// ---- the three-valued validity gate ----------------------------------------
+// The bug this guards listed a transfer box document for a rear-drive 325i
+// saloon. The rule was there all along and was simply never read: the extract
+// applied it to the platform branches and to the symptoms and to nothing else.
+//
+// The rule has THREE answers and only one of them drops. Getting that wrong in
+// the other direction is the worse bug: dropping on "undecided" would delete a
+// repair step because this build carries no equipment list, and it would do it
+// silently, which is how a technician ends up trusting an incomplete tree.
+{
+  const g = fixture.gateCases;
+  const carIds = new Set(g.carIds);
+  const chassisIds = new Set(g.chassisIds);
+  const gate = (rule, ids) => ctx.techDataRuleApplies(rule, ids);
+
+  // NO RULE -> keep. A document with no rule applies to every car, which is
+  // a real answer from the source, not a gap in it.
+  assert.strictEqual(gate(null, carIds), true, 'no rule keeps');
+  assert.strictEqual(gate(undefined, carIds), true, 'an absent rule keeps');
+  ok('no rule keeps the document');
+
+  // UNDECIDED -> keep. "Gearbox leakage" hangs on an ecuclique leaf, a fact
+  // about which control unit variant is installed that the extract does not
+  // carry -- so the rule cannot be decided, and the absence of a fact is not
+  // evidence the document does not apply.
+  const undecided = g.undecided;
+  assert.strictEqual(
+    ctx.techDataRuleEval(undecided.rule, carIds),
+    null,
+    `${undecided.title} really is undecidable here`
+  );
+  assert.strictEqual(gate(undecided.rule, carIds), true, 'undecided keeps');
+  ok('an undecidable rule keeps the document');
+
+  // FALSE -> drop, and this is the only thing that drops. The transfer box
+  // rule is Brand = BMW PKW AND Development code IN (E70, E71, F25) AND
+  // Power train = AWD, which a rear-drive 3 Series fails twice over.
+  const tb = g.transferBox;
+  assert.strictEqual(
+    ctx.techDataRuleEval(tb.rule, carIds),
+    false,
+    'the transfer box rule is decided false for this car'
+  );
+  assert.strictEqual(gate(tb.rule, carIds), false, 'a decided false drops');
+  ok('only a decided false drops the document');
+
+  // it is false at the CHASSIS width too, which is why the extract can drop
+  // it at build time rather than leaving it to every reader's browser
+  assert.strictEqual(
+    gate(tb.rule, chassisIds),
+    false,
+    'and false for the whole chassis, not just this type key'
+  );
+  ok('the transfer box document is excluded for E46 at build time');
+
+  // and something that SHOULD stay, stays: a decided true is a keep, so the
+  // gate is not simply dropping everything it is handed
+  const keeps = g.keeps;
+  assert.strictEqual(
+    ctx.techDataRuleEval(keeps.rule, carIds),
+    true,
+    `${keeps.title} is decided true`
+  );
+  assert.strictEqual(gate(keeps.rule, carIds), true, 'a decided true keeps');
+  ok('a document that applies to the car is kept');
+}
+
+// ---- the gate, applied to a whole tree -------------------------------------
+// istaDiagGate is what narrows the chassis-wide extract to the actual car in
+// the browser. A node it excludes must take its subtree with it -- a child of
+// an excluded parent is excluded whatever its own rule says -- and `n` must be
+// recounted, or a branch would advertise documents the gate just removed.
+{
+  const carIds = new Set(fixture.gateCases.carIds);
+  const tb = fixture.gateCases.transferBox;
+  const keeps = fixture.gateCases.keeps;
+
+  const tree = {
+    id: 1,
+    label: 'root',
+    n: 4,
+    kids: [
+      {
+        id: 2,
+        label: 'mixed',
+        n: 2,
+        kids: [],
+        docs: [
+          { id: tb.id, title: tb.title, type: 'FEB', rule: tb.rule },
+          { id: keeps.id, title: keeps.title, type: 'FUB', rule: keeps.rule },
+        ],
+      },
+      {
+        id: 3,
+        label: 'excluded branch',
+        n: 2,
+        rule: tb.rule,
+        kids: [
+          {
+            id: 4,
+            label: 'child of an excluded node',
+            n: 2,
+            kids: [],
+            // its OWN rule says keep, and it must go anyway
+            docs: [
+              { id: 9, title: 'a', type: 'FUB', rule: keeps.rule },
+              { id: 10, title: 'b', type: 'FUB' },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+
+  const out = ctx.istaDiagGate(tree, carIds);
+  assert.strictEqual(out.kids.length, 1, 'the excluded branch is gone');
+  assert.strictEqual(out.kids[0].label, 'mixed', 'and the other one stayed');
+  ok('a node the rule excludes takes its subtree with it');
+
+  assert.strictEqual(out.kids[0].docs.length, 1, 'one of two documents kept');
+  assert.strictEqual(
+    out.kids[0].docs[0].id,
+    keeps.id,
+    'and it is the one that applies'
+  );
+  ok('the transfer box row is gone and the applicable one stays');
+
+  // `n` is what a reader trusts before opening a branch, so it follows the
+  // gate rather than describing the catalogue the gate just narrowed
+  assert.strictEqual(out.n, 1, 'the root recounted its whole subtree');
+  assert.strictEqual(out.kids[0].n, 1, 'and so did the branch');
+  ok('n is recounted after gating');
+
+  // no car, no narrowing: a Garage entry with no VIN still sees the
+  // chassis-wide extract rather than an empty tree
+  assert.strictEqual(ctx.istaDiagGate(tree, null), tree, 'no ids, no change');
+  assert.strictEqual(
+    ctx.istaDiagGate(tree, new Set()).n,
+    4,
+    'an empty id set does not narrow either'
+  );
+  ok('a car with no characteristic ids sees the whole extract');
+
+  // and the gate never mutates what it was handed: the page keeps the loaded
+  // structure and re-gates it when the car changes
+  assert.strictEqual(tree.kids.length, 2, 'the source tree is untouched');
+  assert.strictEqual(tree.n, 4, 'and still carries its own count');
+  ok('gating does not mutate the loaded structure');
+}
+
+// ---- the gate's effect on the shipped E46 extract --------------------------
+{
+  const g = fixture.gate;
+  assert.ok(g, 'index.json reports the gate');
+  // it dropped real volume -- a gate that drops nothing is a gate that is
+  // not running, which is exactly the bug this replaces
+  assert.ok(g.docDropped > 0, 'document links were dropped');
+  assert.ok(g.nodeDropped > 0, 'and structure nodes were too');
+  ok('the gate ran over documents and nodes alike');
+
+  // and it kept what it could not decide, in bulk: if `undecided` were
+  // folded into `dropped` the tree would be quietly missing thousands
+  assert.ok(g.docUndecided > 0, 'undecidable documents were kept, not dropped');
+  ok('undecided documents were kept');
+}
+
+// ---- the search index ------------------------------------------------------
+// The Text Search page's "Search in document" box was greyed out because the
+// only way to search bodies from a browser was to fetch thousands of files per
+// keystroke. The index is that answer precomputed: id -> lowercased plain text.
+{
+  const si = fixture.searchIndex;
+  assert.ok(si.documents > 0, 'the index has entries');
+  ok('a search index ships');
+
+  const [id, text] = Object.entries(si.sample)[0];
+  assert.strictEqual(typeof text, 'string', 'an entry is plain text');
+  assert.strictEqual(text, text.toLowerCase(), 'lowercased for matching');
+  assert.ok(!/\s{2}/.test(text), 'whitespace collapsed');
+  assert.ok(!text.includes('<'), 'and no markup survived into it');
+  ok('an entry is lowercased, collapsed plain text');
+
+  // the words are really the document's: a substring test is what the page
+  // runs, so the text has to contain what a reader would search for
+  const body = doc(Number(id)).body;
+  assert.ok(
+    text.includes(String(body.title).toLowerCase()),
+    'the title is searchable'
+  );
+  const firstPara = body.sections[0].blocks.find((b) => b.t === 'p');
+  assert.ok(
+    text.includes(String(firstPara.s).toLowerCase()),
+    'and so is the body text'
+  );
+  ok('the index really holds the document’s words');
+}
+
+// ---- document numbers ------------------------------------------------------
+// "Search for the document number" needs the code a workshop quotes, which is
+// XEP_INFOOBJECTS.DOCNUMBER -- not derived from the title, which would invent
+// a number for a document that has not got one.
+{
+  const withNum = [];
+  const walk = (n) => {
+    for (const d of n.docs || []) if (d.num) withNum.push(d);
+    (n.kids || []).forEach(walk);
+  };
+  walk(fixture.trees['fault-pattern']);
+  assert.ok(withNum.length > 0, 'documents carry their number');
+  for (const d of withNum) {
+    assert.strictEqual(typeof d.num, 'string', `${d.id} num is a string`);
+    assert.ok(d.num.trim().length > 0, `${d.id} num is not blank`);
+  }
+  ok('document rows carry the number a workshop quotes');
+}
+
+// ---- figures never render broken -------------------------------------------
+// A picture block whose name resolves to no stream id used to stay in the
+// data, and the page drew a broken-image icon for it -- which tells a reader
+// the app is broken rather than that ISTA holds a figure this build has not
+// got. The block is dropped instead, and the count is reported.
+{
+  for (const d of fixture.documents) {
+    if (!d.body) continue;
+    for (const s of d.body.sections) {
+      for (const b of s.blocks) {
+        if (b.t !== 'pic') continue;
+        assert.strictEqual(
+          typeof b.s,
+          'number',
+          `${d.id} keeps only resolved figures`
+        );
+      }
+    }
+  }
+  ok('every surviving figure block is a resolved stream id');
+
+  assert.ok(fixture.pictures, 'index.json reports the picture counts');
+  assert.strictEqual(
+    typeof fixture.pictures.dropped,
+    'number',
+    'including how many figures were dropped for having no stream'
+  );
+  ok('the dropped-figure count is reported');
+
+  // and an unresolvable block never reaches the page even if one slipped
+  // through: the renderer draws nothing rather than an <img> with no source
+  const html = ctx.istaDiagBodyHtml({
+    title: 'x',
+    sections: [{ heading: '', blocks: [{ t: 'pic', s: 'B060052.png' }] }],
+  });
+  assert.ok(!html.includes('<img'), 'an unresolved figure draws no image');
+  ok('the renderer refuses to draw an unresolved figure');
 }
 
 // ---- the SSP row -----------------------------------------------------------

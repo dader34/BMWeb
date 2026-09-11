@@ -1150,7 +1150,7 @@ function istaBrowse(host, src, key, opts) {
  * @param {string} which - fault-pattern, function-structure, component-structure
  * @returns {Promise<object|null>}
  */
-async function istaDiagLoad(chassis, which) {
+async function istaDiagLoad(chassis, which, car) {
   const code = String(chassis || '').toUpperCase();
   if (!code) return null;
   const base = typeof WEB_BASE === 'string' && WEB_BASE ? WEB_BASE : '.';
@@ -1161,7 +1161,34 @@ async function istaDiagLoad(chassis, which) {
   // with the same library the chassis archives use
   const buf = new Uint8Array(await res.arrayBuffer());
   if (typeof fflate === 'undefined') return null;
-  return JSON.parse(new TextDecoder('utf-8').decode(fflate.gunzipSync(buf)));
+  const tree = JSON.parse(
+    new TextDecoder('utf-8').decode(fflate.gunzipSync(buf))
+  );
+  // THE EXTRACT IS CHASSIS-WIDE; this car is one of the chassis's builds.
+  // Narrowing here rather than at each page means the tree, the hits line
+  // and Text Search all count the same documents -- a search that found a
+  // document the tree does not list would be the worst of both.
+  if (!car || typeof istaDiagGate !== 'function') return tree;
+  const keys = await istaProbe(() =>
+    typeof techDataCarKeys === 'function' ? techDataCarKeys(car, chassis) : null
+  );
+  if (!keys || !keys.ids || !keys.ids.size) return tree;
+  return istaDiagGate(tree, keys.ids, istaDiagFacts(car)) || tree;
+}
+
+/**
+ * The dated facts a validity rule can test, for one car.
+ *
+ * A rule may ask when the car was built as well as what it is, so the
+ * production date travels with the characteristic ids. A car whose date
+ * nobody knows simply leaves those clauses undecided, which the gate keeps.
+ * @param {object|null} car - the picked GarageCar
+ * @returns {object} the facts
+ */
+function istaDiagFacts(car) {
+  const prod = String((car && car.prod) || '');
+  if (prod.length < 6) return {};
+  return { ym: `${prod.slice(0, 4)}-${prod.slice(4, 6)}` };
 }
 
 /**
@@ -1463,7 +1490,7 @@ async function istaDrawPage(s, host) {
       s.id === 'fault-pattern' ? 'fault-pattern' : 'service-functions',
       {}
     );
-    const data = await istaProbe(() => istaDiagLoad(chassis, s.id));
+    const data = await istaProbe(() => istaDiagLoad(chassis, s.id, car));
     if (!host.isConnected) return;
     if (!data)
       return istaPageGrey(
@@ -1482,9 +1509,9 @@ async function istaDrawPage(s, host) {
     istaRealStatus({ items: [{ k: 'Hits:', v: '0 / 0' }] });
     istaBottomBar('diag-search', {});
     const [fp, fn, cp] = await Promise.all([
-      istaProbe(() => istaDiagLoad(chassis, 'fault-pattern')),
-      istaProbe(() => istaDiagLoad(chassis, 'function-structure')),
-      istaProbe(() => istaDiagLoad(chassis, 'component-structure')),
+      istaProbe(() => istaDiagLoad(chassis, 'fault-pattern', car)),
+      istaProbe(() => istaDiagLoad(chassis, 'function-structure', car)),
+      istaProbe(() => istaDiagLoad(chassis, 'component-structure', car)),
     ]);
     if (!host.isConnected) return;
     if (!fp && !fn && !cp)
