@@ -915,6 +915,11 @@ function istaBrowse(host, src, key, opts) {
       `build.</div>`;
     return;
   }
+  // THE BROWSER'S OWN STYLES ARE SCOPED under .ista-repair, because the
+  // repair manual is where it was written. Every page that reuses it needs
+  // that class on an ancestor or the two panes collapse into unstyled boxes
+  // -- it names the widget's vocabulary, not the repair manual.
+  host.classList.add('ista-repair');
   if (!istaState.browse) istaState.browse = {};
   if (!istaState.browse[key])
     istaState.browse[key] = {
