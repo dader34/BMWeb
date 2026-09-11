@@ -5463,6 +5463,19 @@ select.modal-input {
   pointer-events: none;
   touch-action: none;
 }
+/* the bound component labels take the pointer back: the drawing as a
+   whole stays deaf so the stage under it can pan, but a label that opens a
+   document must hover and click like a link */
+.wiring-stage svg a.wiring-svg-link,
+.wiring-stage svg a.wiring-svg-link * {
+  pointer-events: all;
+  cursor: pointer;
+}
+.wiring-stage svg a.wiring-svg-link:hover,
+.wiring-stage svg a.wiring-svg-link:hover * {
+  fill: var(--amber);
+  text-decoration: underline;
+}
 .wiring-doc {
   flex: 1;
   min-height: 0;
