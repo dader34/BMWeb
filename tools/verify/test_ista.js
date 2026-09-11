@@ -1430,4 +1430,119 @@ const I = loadClassic('screens/ista/');
   ok('no map means no merging');
 }
 
+// ---- the bus map under the skin: hover panel, and a click that only picks --
+{
+  const { istaEcuTip } = I;
+  const box = { name: 'LM', addr: 0x70, bus: 'KCAN', col: 6, row: 6 };
+  const slot = {
+    abbr: 'LM',
+    name: 'Light module',
+    ident: {
+      SG_VARIANTE: 'LM_AHL_2',
+      BMW_NUMMER: '9154943',
+      HARDWARE_NUMMER: '99',
+      SERIENNUMMER: '000058790',
+    },
+  };
+  const html = istaEcuTip(box, slot);
+
+  // ONE ROW PER LINE, nine of them, in the tool's order. Laid out as a grid
+  // the rows flowed side by side into a wide strip and ran the fields
+  // together ("Group type EML (0x22)EML"), which reads as one sentence
+  // rather than nine facts.
+  const rows = [...html.matchAll(/irtip-k">([^<]*)</g)].map((m) => m[1]);
+  assert.deepStrictEqual(rows, [
+    'Address',
+    'Group type',
+    'Name',
+    'Variant',
+    'Part number',
+    'Hardware number',
+    'Serial number',
+    'Data bus',
+    'Tree coordinates',
+  ]);
+  const vals = [...html.matchAll(/irtip-v">([^<]*)</g)].map((m) => m[1]);
+  // the address is HEX, as it appears on a wiring diagram and in a trace
+  assert.strictEqual(vals[0], '0x70', 'the address is hex');
+  // Group type and Name are two facts and never one string
+  assert.strictEqual(vals[1], 'LM');
+  assert.strictEqual(vals[2], 'Light module');
+  assert.ok(!/LM.*Light module/.test(vals[1]), 'they are not concatenated');
+  assert.strictEqual(vals[3], 'LM_AHL_2', 'the variant comes off the ident');
+  assert.strictEqual(vals[4], '9154943');
+  assert.strictEqual(vals[7], 'KCAN');
+  assert.strictEqual(vals[8], '6 / 6');
+  // a control unit nobody has read still names itself and says "-" for the
+  // rest, rather than hiding the rows it cannot fill
+  const cold = istaEcuTip(box, null);
+  assert.strictEqual(
+    [...cold.matchAll(/irtip-k">/g)].length,
+    9,
+    'all nine rows draw even unread'
+  );
+  assert.ok(/irtip-v">-</.test(cold), 'unknown values read as -');
+  ok("the hover panel is the tool's nine rows, one per line");
+
+  // A CLICK ONLY SELECTS. The tree app opens its own module sheet on click,
+  // which is its way in on its own page; under this skin the window is a
+  // separate, deliberate press of Call up ECU functions, so the sheet would
+  // be a second answer to the same click.
+  const tree = fs.readFileSync(
+    path.join(ROOT, 'app', 'renderer', 'screens', 'tree', 'screen.js'),
+    'utf8'
+  );
+  const guard = tree.slice(
+    tree.indexOf('const open = () => {'),
+    tree.indexOf('ecuTreeModuleSheet(car, box.ecu, st, hit);')
+  );
+  assert.ok(
+    /istaSkinOn\(\)/.test(guard) && /return/.test(guard),
+    'the tree sheet returns early while the workshop skin is up'
+  );
+  ok('a click on the map selects, and opens nothing');
+}
+
+// ---- Repair/maintenance resolves to the repair screen ----------------------
+// THE SEAM BROKE ONCE ALREADY: the shell called an istaRepairShow that the
+// repair branch never defined, so Product Structure showed a grey "not in
+// this build" over a browser that had shipped. Pin the real name.
+{
+  const screen = fs.readFileSync(
+    path.join(ROOT, 'app', 'renderer', 'screens', 'ista', 'screen.js'),
+    'utf8'
+  );
+  const branch = screen.slice(
+    screen.indexOf("if (s.page === 'repair') {"),
+    screen.indexOf("if (s.page === 'details') {")
+  );
+  assert.ok(branch, 'the repair page has a branch');
+  assert.ok(
+    /showRepair\(host, car, chassis, s\.id\)/.test(branch),
+    'it calls showRepair with the host and the level-3 tab as the view'
+  );
+  assert.ok(
+    !/istaRepairShow/.test(screen),
+    'no call to a repair entry point that does not exist'
+  );
+  // the repair screen's two views are keyed by the level-3 tab ids, so
+  // nothing has to be translated across the seam
+  const repair = fs.readFileSync(
+    path.join(ROOT, 'app', 'renderer', 'screens', 'repair', 'screen.js'),
+    'utf8'
+  );
+  assert.ok(
+    /id: 'product-structure'/.test(repair) && /id: 'text-search'/.test(repair),
+    "the repair views use the shell's own tab ids"
+  );
+  for (const [tab, sub, sub3] of [
+    ['management', 'repair', 'product-structure'],
+    ['management', 'repair', 'text-search'],
+  ]) {
+    const leaf = I.istaSub3(tab, sub, sub3);
+    assert.ok(leaf && leaf.page === 'repair', `${sub3} routes to the manual`);
+  }
+  ok('the repair seam resolves to the browser that shipped');
+}
+
 console.log(`test_ista: ${passed} checks passed`);

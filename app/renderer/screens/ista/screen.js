@@ -799,25 +799,27 @@ function istaTreeBind(slots, chassis, onPick) {
     tip = null;
   };
   host.querySelectorAll('.tree-box').forEach((el) => {
-    // the box carries the name the tree drew it under; the slot behind it is
-    // whichever one holds a candidate of that name
-    const name = String(el.dataset.name || el.textContent || '').trim();
+    // the tree stamps data-key as "<name>@<addr>", which is the box's own
+    // identity; its text is a caption that may have been shortened
+    const key = String(el.getAttribute('data-key') || '');
+    const at = key.lastIndexOf('@');
+    const name = at > 0 ? key.slice(0, at) : key;
+    const addr = at > 0 ? key.slice(at + 1) : '';
     // the slot carries the box it was keyed on, so a box matches its own
     // slot by identity rather than by a name that may have been replaced
     // with the identified variant's
     const slot =
       (slots || []).find(
         (x) =>
-          (x.box && x.box.name === name) ||
-          String(x.abbr || '').toUpperCase() === name.toUpperCase() ||
-          String(x.sgbd || '').toUpperCase() === name.toUpperCase()
+          (x.box && x.box.name === name && String(x.box.addr) === addr) ||
+          (x.box && x.box.name === name)
       ) || null;
     const box = {
       name,
-      addr: el.dataset.addr || '',
-      bus: el.dataset.bus || '',
-      col: el.dataset.col,
-      row: el.dataset.row,
+      addr: slot && slot.box ? slot.box.addr : addr,
+      bus: slot && slot.box ? slot.box.bus : '',
+      col: slot && slot.box ? slot.box.col : null,
+      row: slot && slot.box ? slot.box.row : null,
     };
     el.onmouseenter = () => {
       if (typeof istaEcuTip !== 'function') return;
@@ -825,10 +827,18 @@ function istaTreeBind(slots, chassis, onPick) {
       const d = document.createElement('div');
       d.className = 'irtip-wrap';
       d.innerHTML = istaEcuTip(box, slot);
-      const r = el.getBoundingClientRect();
-      d.style.left = `${Math.round(r.left)}px`;
-      d.style.top = `${Math.round(r.bottom + 4)}px`;
       document.body.appendChild(d);
+      // anchored below the box, and pulled back inside the window when the
+      // box sits near its right or bottom edge
+      const r = el.getBoundingClientRect();
+      const t = d.getBoundingClientRect();
+      const x = Math.min(r.left, window.innerWidth - t.width - 8);
+      const y =
+        r.bottom + t.height + 8 > window.innerHeight
+          ? Math.max(4, r.top - t.height - 4)
+          : r.bottom + 4;
+      d.style.left = `${Math.round(Math.max(4, x))}px`;
+      d.style.top = `${Math.round(y)}px`;
       tip = d;
     };
     el.onmouseleave = drop;
@@ -1655,27 +1665,23 @@ async function istaDrawPage(s, host) {
   }
 
   if (s.page === 'repair') {
-    // Repair/maintenance is built on its own branch: it scopes its CSS under
-    // .ista-repair and draws into this host. Left empty here on purpose --
-    // the strip, the route and the frame are this branch's half of the seam.
-    host.innerHTML = `<div class="irrepair-host" id="ista-repair-host"></div>`;
+    // The repair manual draws its own page; what the shell owns is the
+    // frame around it and WHICH VIEW it is on, which is the level-3 tab the
+    // reader pressed. Its two views are keyed by those same tab ids, so
+    // nothing has to be translated across the seam.
     if (real) {
       istaRealStatus({ items: [{ k: 'Hits:', v: '0 / 0' }] });
       istaBottomBar('product-structure', {});
     }
-    if (typeof istaRepairShow === 'function')
-      return istaRepairShow(host.firstChild, s.id, car, chassis);
-    if (real)
-      return istaPageGrey(
-        host,
-        s.label,
-        'the repair document browser is not in this build yet'
-      );
-    host.innerHTML =
-      `<div class="ista-page"><h2 class="ista-page-title">${esc(s.label)}` +
-      `</h2><div class="ista-none-box">the repair document browser is ` +
-      `not in this build yet</div></div>`;
-    return;
+    if (typeof showRepair !== 'function') {
+      const why = 'the repair document browser did not ship in this build';
+      if (real) return istaPageGrey(host, s.label, why);
+      host.innerHTML =
+        `<div class="ista-page"><h2 class="ista-page-title">${esc(s.label)}` +
+        `</h2><div class="ista-none-box">${esc(why)}</div></div>`;
+      return;
+    }
+    return showRepair(host, car, chassis, s.id);
   }
 
   if (s.page === 'details') {

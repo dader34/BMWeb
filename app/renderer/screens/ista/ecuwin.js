@@ -82,10 +82,21 @@ function istaIdentValue(ident, keys) {
 function istaEcuTip(box, slot) {
   const id = (slot && slot.ident) || null;
   const dash = (v) => (v ? esc(String(v)) : '-');
+  // the tool prints the diagnostic address in hex, which is how it appears
+  // on a wiring diagram and in every EDIABAS trace
+  const hex = (v) => {
+    const n = Number(v);
+    return Number.isFinite(n)
+      ? `0x${n.toString(16).toUpperCase().padStart(2, '0')}`
+      : '';
+  };
   const rows = [
-    ['Address', box.addr != null ? String(box.addr) : ''],
-    ['Group type', (slot && slot.abbr) || box.name || ''],
-    ['Name', (slot && slot.name) || box.name || ''],
+    ['Address', hex(box.addr)],
+    // Group type is the SLOT's own short name and Name its long one; they
+    // are two different facts and concatenating them ("EML (0x22)EML") made
+    // one unreadable string out of both
+    ['Group type', (box && box.name) || (slot && slot.abbr) || ''],
+    ['Name', (slot && slot.name) || ''],
     ['Variant', istaIdentValue(id, ISTA_IDENT_ROWS[10][1])],
     ['Part number', istaIdentValue(id, ISTA_IDENT_ROWS[0][1])],
     ['Hardware number', istaIdentValue(id, ISTA_IDENT_ROWS[1][1])],

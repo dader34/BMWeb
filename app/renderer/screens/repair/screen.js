@@ -23,9 +23,17 @@
 /* exported showRepair */
 
 /** The two views, in strip order. */
+/**
+ * The two views, keyed by the LEVEL-3 TAB IDS the shell routes with.
+ *
+ * They used to have ids of their own ('structure', 'search') from when this
+ * section drew its own view picker. The shell's level-3 strip is that picker
+ * now, so a second set of names would be two vocabularies for one choice and
+ * a deep link would have to be translated between them.
+ */
 const REPAIR_VIEWS = [
-  { id: 'structure', label: 'Product Structure' },
-  { id: 'search', label: 'Text Search' },
+  { id: 'product-structure', label: 'Product Structure' },
+  { id: 'text-search', label: 'Text Search' },
 ];
 
 /**
@@ -35,7 +43,7 @@ const REPAIR_VIEWS = [
  * @type {object}
  */
 const repairState = {
-  view: 'structure',
+  view: 'product-structure',
   query: '',
   scopes: { structures: true, title: true, document: false, number: false },
   /** the Product Structure browser's own state */
@@ -62,12 +70,16 @@ function repairStamp() {
       : null;
   if (!car) return;
   const open =
-    repairState.view === 'search'
+    repairState.view === 'text-search'
       ? repairState.foundDoc
       : repairState.browse.doc;
+  // the six-slot grammar: the view is the LEVEL-3 tab, and the car sits
+  // after it. Writing the old five-slot shape put the view where the shell
+  // reads the car.
   const route = istaRouteBuild(
     'management',
     'repair',
+    repairState.view,
     car,
     repairState.view,
     open ? String(open.id) : null
@@ -169,7 +181,7 @@ function repairSearchFormHtml() {
  * @param {string} chassis - the chassis
  * @returns {Promise<void>}
  */
-async function showRepair(host, car, chassis) {
+async function showRepair(host, car, chassis, view) {
   const code = String(chassis || '').toUpperCase();
   host.innerHTML =
     `<div class="ista-repair"><div class="rp-loading">` +
@@ -192,8 +204,12 @@ async function showRepair(host, car, chassis) {
     typeof istaRouteParse === 'function' && typeof location !== 'undefined'
       ? istaRouteParse(String(location.hash || '').replace(/^#/, ''))
       : null;
+  // THE SHELL OWNS THE VIEW. Its level-3 strip is what the reader pressed,
+  // so an explicit view wins over anything left in the URL; the route is
+  // still read for the document, which only this section knows how to find.
+  if (view && REPAIR_VIEWS.some((v) => v.id === view)) repairState.view = view;
   if (route && route.sub === 'repair') {
-    if (route.view && REPAIR_VIEWS.some((v) => v.id === route.view))
+    if (!view && route.view && REPAIR_VIEWS.some((v) => v.id === route.view))
       repairState.view = route.view;
     if (route.item) {
       const doc = repairFindDoc(idx, route.item);
@@ -208,28 +224,22 @@ async function showRepair(host, car, chassis) {
         const match = repairState.browse.hits.find(
           (d) => String(d.id) === String(doc.id)
         );
-        if (repairState.view === 'search') repairState.foundDoc = doc;
+        if (repairState.view === 'text-search') repairState.foundDoc = doc;
         else repairState.browse.doc = match || doc;
       }
     }
   }
 
-  host.innerHTML =
-    `<div class="ista-repair">` +
-    `<div class="rp-views">` +
-    REPAIR_VIEWS.map(
-      (v) =>
-        `<button type="button" class="rp-view` +
-        `${v.id === repairState.view ? ' on' : ''}" ` +
-        `data-view="${esc(v.id)}">${esc(v.label)}</button>`
-    ).join('') +
-    `</div><div class="rp-body"></div></div>`;
+  // no view picker of its own: the shell's level-3 strip is that picker, and
+  // drawing a second row of the same two names under it would be two
+  // controls for one choice
+  host.innerHTML = `<div class="ista-repair"><div class="rp-body"></div></div>`;
   const body = host.querySelector('.rp-body');
 
   /** Redraw whichever view is on. */
   function paint() {
     repairStamp();
-    if (repairState.view === 'structure') {
+    if (repairState.view === 'product-structure') {
       browserPaint(body, src, repairState.browse, {
         emptyTitle: 'Product structure',
         onChange: repairStamp,
@@ -328,16 +338,6 @@ async function showRepair(host, car, chassis) {
       };
     });
   }
-
-  host.querySelectorAll('.rp-view').forEach((b) => {
-    b.onclick = () => {
-      repairState.view = b.dataset.view;
-      host
-        .querySelectorAll('.rp-view')
-        .forEach((x) => x.classList.toggle('on', x === b));
-      paint();
-    };
-  });
 
   paint();
 }

@@ -1412,15 +1412,35 @@ body.ista-mode.ista-real-body .view label {
   z-index: 60;
   pointer-events: none;
 }
+/* ONE ROW PER LINE. The panel is a vertical white box of "Label : value"
+   lines; laying it out as a grid of three columns let the rows flow side by
+   side into a wide strip, which ran the fields together ("Group type EML
+   (0x22)EML") and read as one sentence rather than nine facts. */
 .ista-real-body .irtip {
-  background: #f2f2f2;
+  background: #fff;
   border: 1px solid #9a9a9a;
   padding: 6px 10px;
   font-size: 12px;
-  display: grid;
-  grid-template-columns: auto auto 1fr;
-  gap: 2px 6px;
-  min-width: 260px;
+  min-width: 250px;
+  max-width: 360px;
+}
+.ista-real-body .irtip-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  white-space: nowrap;
+  line-height: 17px;
+}
+.ista-real-body .irtip-k {
+  flex: 0 0 120px;
+}
+.ista-real-body .irtip-s {
+  flex: 0 0 auto;
+}
+.ista-real-body .irtip-v {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .ista-real-body .irtip-k {
   color: #333;
@@ -1430,7 +1450,20 @@ body.ista-mode.ista-real-body .view label {
   color: #000;
 }
 
-/* a control unit the reader picked on the map */
+/* HOVER IS A THIN OUTLINE, NOT A REPAINT. The tree app fills the box with
+   its own raised colour on hover, which under this skin came out dark on
+   light and read as a selected box. Here the box only gains an outline, and
+   the panel beside it carries the detail. */
+.ista-real-body .view .tree-box:hover rect,
+.ista-real-body .view .tree-box:focus-visible rect {
+  fill: var(--ir-row-alt);
+  stroke: var(--ir-teal);
+  stroke-width: 1.5;
+}
+
+/* a control unit the reader picked on the map: it keeps its outline until
+   another box is picked, which is what makes the selection readable while
+   the reader reaches for Call up ECU functions */
 .ista-real-body .view .tree-box.ista-sel rect {
   stroke: var(--ir-teal);
   stroke-width: 3;

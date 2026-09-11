@@ -325,6 +325,12 @@ async function showEcuTreeChassis(chassis, carId, opts) {
     sbRight.textContent = tree.series !== car ? `ISTA tree ${tree.series}` : '';
     canvas.querySelectorAll('.tree-box').forEach((g) => {
       const open = () => {
+        // THE WORKSHOP SKIN SELECTS, IT DOES NOT OPEN. There a click picks
+        // the control unit and the window is a separate, deliberate press of
+        // Call up ECU functions, so this sheet -- which is this app's own
+        // way in -- would be a second answer to the same click. It stays for
+        // the tree app on its own page, where it is the only way in.
+        if (typeof istaSkinOn === 'function' && istaSkinOn()) return;
         const key = g.getAttribute('data-key');
         const box = layout.boxes.find((b) => ecuTreeKey(b.ecu) === key);
         if (!box) return;
