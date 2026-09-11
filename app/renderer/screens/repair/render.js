@@ -124,7 +124,7 @@ function repairStepHtml(step, n, chassis) {
     .map(
       (p) =>
         `<img class="rp-pic" loading="lazy" alt="Illustration for step ${n}" ` +
-        `src="${esc(repairPicUrl(chassis, p))}">`
+        `src="${esc(repairPicUrl(p))}">`
     )
     .join('');
   const text = (step.text || [])

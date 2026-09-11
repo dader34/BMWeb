@@ -130,18 +130,22 @@ async function repairBody(chassis, doc) {
 /**
  * Where one illustration lives.
  *
+ * POOLED, NOT PER CHASSIS, because chassis share artwork: 156,190
+ * per-chassis references across the 23 the app ships resolve to 53,344
+ * distinct pictures. One pool is 66% smaller, and a reader who has browsed
+ * one chassis arrives at the next with its shared pictures already cached.
+ * The chassis is therefore not part of the path.
+ *
  * The extractor already resolved every GRAPHIC to its stream id, so the app
  * asks for a file name rather than re-deriving BMW's picture-naming rules
  * in JavaScript. Only the first URL is returned: an <img> cannot try two
  * sources, and the local copy is the one a packaged build has.
- * @param {string} chassis - the development code
  * @param {number|string} pic - the picture's stream id
  * @param {boolean} [hosted] - use the dataset rather than the local copy
  * @returns {string} the URL
  */
-function repairPicUrl(chassis, pic, hosted) {
-  const rel = `${String(chassis).toUpperCase()}/pics/${pic}.webp`;
-  const urls = repairUrls(rel);
+function repairPicUrl(pic, hosted) {
+  const urls = repairUrls(`pics/${pic}.webp`);
   return hosted ? urls[1] : urls[0];
 }
 

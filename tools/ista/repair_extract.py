@@ -32,16 +32,24 @@ its tightening torques INLINE, on the step that needs them, as structured
 tigh:TIGHTENING elements rather than as prose. Both are read into the same
 {sections: [{title, steps: [...]}]} shape so the renderer has one job.
 
-WHAT THE PICTURES COST, and why they are not all here. A GRAPHIC SRC names
-a PNG in the stream store, and those PNGs are photographs saved without
-compression -- 57 KB on average for a 316x238 image. The whole corpus
-references 113,286 distinct pictures: 1.6 GB even re-encoded, which no
-upload budget reaches. Per chassis it is ~10,000 pictures, ~110 MB, which
-one does. So the index and the bodies ship for every chassis (they are
-text, and cheap) and the PICTURES ship per chassis, for the chassis asked
-for. A chassis whose pictures were not uploaded still browses, searches and
-reads every step; the illustration is simply absent, and the app says so
-rather than drawing a broken image.
+WHAT THE PICTURES COST, and how the bill is cut. A GRAPHIC SRC names a PNG
+in the stream store, and those PNGs are photographs saved without
+compression -- 57 KB on average for a 316x238 image, 6.5 GB for the corpus.
+Two things bring that down to something shippable:
+
+  RE-ENCODING   downscaled to 480px and saved as WebP at q65, a picture
+                comes to 17% of its original bytes (measured over 200), so
+                the average shipped illustration is about 10 KB.
+  ONE POOL      chassis share artwork heavily. Across the 23 chassis the
+                app ships, 156,190 per-chassis references resolve to only
+                53,344 DISTINCT pictures -- a folder per chassis would
+                write the same photograph 2.9 times over. They go in one
+                `pics/` pool instead, which cuts the picture payload by 66%
+                and means a reader who has browsed one chassis has already
+                cached what the next one shares.
+
+A build that ships no pictures at all still browses, searches and reads
+every step; the illustration is simply absent rather than broken.
 
 WHAT IS DROPPED FROM THE XML, and why:
   - GRA-SYM-GRCI0000-*  ISTA's own warning/note icons. 8,253 of the 9,516
@@ -66,14 +74,15 @@ Output, under data/ista/repair/ (gitignored, uploaded to the dataset):
     <chassis>/index.json    that chassis's documents: id, title, numbers,
                             validity rule, `unsure`, and its body shard
     <chassis>/body/NN.json  bodies, sharded by main group
-    <chassis>/pics/<id>.webp   the illustrations, when --pictures was given
+    pics/<id>.webp          the illustrations, pooled across every chassis
+                            (only when --pictures was given)
 
 Usage:
     tools/ista/repair_extract.py \\
         --diagdoc ~/.../DiagDocDb.decrypted.sqlite \\
         --content ~/.../xmlvalueprimitive_ENGB.sqlite \\
         --streams ~/.../streamdataprimitive_OTHER.sqlite \\
-        --out data/ista/repair --chassis E46 --pictures
+        --out data/ista/repair --pictures
 """
 import argparse
 import io
@@ -1050,6 +1059,13 @@ def main():
     shipped = {}
     total_bytes = 0
     pic_bytes = 0
+    # ONE POOL, NOT ONE FOLDER PER CHASSIS. Chassis share illustrations
+    # heavily -- across the 23 the app ships, 156,190 per-chassis references
+    # resolve to only 53,344 distinct pictures, so a copy per chassis would
+    # write the same artwork 2.9 times over. Pooling them cuts the picture
+    # payload by 66% and means a reader who has looked at one chassis has
+    # already cached the pictures the next one shares.
+    pool = set()
     for chassis in chassis_list:
         ids = chassis_char_ids(typekeys, char_names, chassis)
         if not ids:
@@ -1060,32 +1076,37 @@ def main():
             docs, chassis, ids, args.out, main_names, sub_names, segments
         )
         total_bytes += res["bytes"]
-        row = {
+        pool |= res["pics"]
+        shipped[chassis] = {
             "docs": res["docs"],
             "shards": res["shards"],
             "bytes": res["bytes"],
             "pics": len(res["pics"]),
         }
-        if args.pictures and args.streams and res["pics"]:
-            streams = sqlite3.connect(f"file:{args.streams}?mode=ro", uri=True)
-            streams.execute("PRAGMA query_only=1")
-            if verbose:
-                print(
-                    f"  {chassis}: {len(res['pics'])} pictures...", file=sys.stderr
-                )
-            wrote, gone, size = write_pictures(
-                streams, res["pics"], os.path.join(args.out, chassis, "pics"), verbose
-            )
-            streams.close()
-            row["picsWritten"] = wrote
-            row["picsMissing"] = gone
-            row["picBytes"] = size
-            pic_bytes += size
-        shipped[chassis] = row
         if verbose:
             print(
                 f"  {chassis}: {res['docs']} documents, "
                 f"{res['bytes'] / 1e6:.2f} MB, {len(res['pics'])} pictures",
+                file=sys.stderr,
+            )
+
+    if args.pictures and args.streams and pool:
+        streams = sqlite3.connect(f"file:{args.streams}?mode=ro", uri=True)
+        streams.execute("PRAGMA query_only=1")
+        if verbose:
+            print(
+                f"\n{len(pool)} distinct pictures for {len(shipped)} chassis "
+                f"(pooled; the per-chassis copies would be "
+                f"{sum(r['pics'] for r in shipped.values())})...",
+                file=sys.stderr,
+            )
+        wrote, gone, pic_bytes = write_pictures(
+            streams, pool, os.path.join(args.out, "pics"), verbose
+        )
+        streams.close()
+        if verbose:
+            print(
+                f"  {wrote} written, {gone} not in the stream store",
                 file=sys.stderr,
             )
 
