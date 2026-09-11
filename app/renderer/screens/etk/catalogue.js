@@ -47,8 +47,8 @@ function etkBackAction(fn) {
 function etkVinEntryCard() {
   const vinCard = document.createElement('button');
   vinCard.className = 'lookup-entry etk-vin-entry';
+  // no icon: the row reads as a plain entry, as the wiring picker's does
   vinCard.innerHTML = `
-    <span class="lookup-entry-icon">⌗</span>
     <span class="lookup-entry-text">
       <span class="lookup-entry-title">VIN Decoder</span>
       <span class="lookup-entry-desc">Enter a VIN to jump straight to your exact vehicle</span>
