@@ -70,7 +70,7 @@ function etkGearLabel(gear) {
 }
 
 /**
- * "YYYY-MM" from the front of a YYYYMMDD (or longer) date string.
+ * "MM/YYYY" from the front of a YYYYMMDD (or longer) date string.
  * @param {string} d - date digits
  * @returns {string}
  */
