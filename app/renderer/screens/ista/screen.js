@@ -941,6 +941,36 @@ async function istaOpenEcuWindow(slot, box, chassis) {
 const istaTestPlan = [];
 
 /**
+ * The body text of every diagnosis document for a chassis, by id.
+ *
+ * The extract ships one lowercased blob so the page can offer a full-text
+ * search without fetching thousands of per-document files. A build without
+ * it gets an empty map, and the scope says it has no index rather than
+ * silently matching nothing.
+ * @param {string} chassis - the chassis id
+ * @returns {Promise<Map<string, string>>}
+ */
+async function istaDiagBodies(chassis) {
+  const code = String(chassis || '').toUpperCase();
+  const out = new Map();
+  if (!code) return out;
+  const base = typeof WEB_BASE === 'string' && WEB_BASE ? WEB_BASE : '.';
+  const raw = await istaProbe(async () => {
+    const r = await fetch(
+      `${base}/data/ista/diag/${code}/search-index.json.gz`
+    );
+    if (!r.ok || typeof fflate === 'undefined') return null;
+    const bytes = new Uint8Array(await r.arrayBuffer());
+    return JSON.parse(
+      new TextDecoder('utf-8').decode(fflate.gunzipSync(bytes))
+    );
+  });
+  for (const [id, text] of Object.entries(raw || {}))
+    out.set(String(id), String(text || ''));
+  return out;
+}
+
+/**
  * Open one diagnosis document in the viewer.
  * @param {string} chassis - the chassis id
  * @param {object} doc - the document row
@@ -1477,6 +1507,9 @@ async function istaDrawPage(s, host) {
         });
       },
       onOpen: (hit) => istaOpenDiagDoc(chassis, hit.doc),
+      // fetched once, on the first tick of "Search in document": searching
+      // the bodies themselves would cost megabytes a keystroke
+      loadBodies: () => istaDiagBodies(chassis),
     });
     istaBottomBar('diag-search', {
       search: () => host._istaSearch && host._istaSearch.run(),
