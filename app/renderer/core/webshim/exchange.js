@@ -284,5 +284,17 @@ async function runExchange(bus, out, comm) {
       // first place.
     }
   }
+  // a port that is not a K+DCAN cable never echoes: name it in the error
+  // instead of asking whether the cable is plugged into the car
+  if (
+    lastErr &&
+    lastErr.ifh === 'IFH-0003' &&
+    /no echo/.test(lastErr.message) &&
+    bus &&
+    typeof bus.portHint === 'function'
+  ) {
+    const hint = bus.portHint();
+    if (hint && !lastErr.message.includes(hint)) lastErr.message += hint;
+  }
   throw lastErr;
 }
