@@ -67,24 +67,10 @@ function loadFaultDb() {
   if (_faultDbPromise) return _faultDbPromise;
   const base = typeof WEB_BASE === 'string' ? WEB_BASE : '';
   const urls = [`${base}/data/faultdb.js`, FAULT_DB_HF];
-  _faultDbPromise = new Promise((resolve) => {
-    let i = 0;
-    const tryNext = () => {
-      if (i >= urls.length) {
-        _faultDbPromise = null;
-        resolve();
-        return;
-      } // fall back to phraseText
-      const s = document.createElement('script');
-      s.src = urls[i++];
-      s.onload = () => resolve();
-      s.onerror = () => {
-        s.remove();
-        tryNext();
-      };
-      document.head.appendChild(s);
-    };
-    tryNext();
+  // the local copy is probed quietly first (core/translate.js): a hosted
+  // build has none and must not log a 404 on every fault screen
+  _faultDbPromise = webInjectFirst(urls).then((loaded) => {
+    if (!loaded) _faultDbPromise = null; // fall back to phraseText
   });
   return _faultDbPromise;
 }

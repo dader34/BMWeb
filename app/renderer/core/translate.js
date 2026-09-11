@@ -326,6 +326,53 @@ const FAULT_HF_BASE =
   'https://huggingface.co/datasets/CraigFf/bmweb-etk/resolve/main/faults/';
 
 /**
+ * Whether a same-origin data file exists, asked without a console error: a
+ * <script src> that 404s is logged by the browser as an error ("GET
+ * .../data/faultmeta.js 404"), and on the hosted site the local copy is
+ * ABSENT BY DESIGN (the BMW-derived tables live on the dataset), so every
+ * fault screen there opened with a red line in the console that testers
+ * reported as a bug. A HEAD request that 404s is not logged.
+ * @param {string} url - a same-origin URL
+ * @returns {Promise<boolean>}
+ */
+function webDataFileExists(url) {
+  if (typeof fetch !== 'function') return Promise.resolve(true);
+  return fetch(url, { method: 'HEAD', cache: 'no-store' })
+    .then((r) => r.ok)
+    .catch(() => false);
+}
+
+/**
+ * Inject the first of `urls` that loads, as a classic <script>, and say
+ * whether any did. A same-origin candidate is probed first so a build that
+ * ships no local copy falls through to the hosted one silently; a hosted
+ * candidate that fails is left to the browser to report, since that IS a
+ * problem.
+ * @param {string[]} urls - candidates in order of preference
+ * @returns {Promise<boolean>} true once a script has loaded, false when all failed
+ */
+async function webInjectFirst(urls) {
+  for (const url of urls) {
+    const origin = typeof location !== 'undefined' ? location.origin : '';
+    const local =
+      !/^https?:\/\//i.test(url) || (origin && url.startsWith(origin));
+    if (local && !(await webDataFileExists(url))) continue;
+    const loaded = await new Promise((resolve) => {
+      const s = document.createElement('script');
+      s.src = url;
+      s.onload = () => resolve(true);
+      s.onerror = () => {
+        s.remove();
+        resolve(false);
+      };
+      document.head.appendChild(s);
+    });
+    if (loaded) return true;
+  }
+  return false;
+}
+
+/**
  * Shared state of one lazy-loaded data script.
  * @typedef {Object} LazyScriptHolder
  * @property {Promise<void>|null} [p] - The in-flight load, if any.
@@ -348,24 +395,8 @@ function _lazyScript(src, ready, holder) {
     const base = typeof WEB_BASE === 'string' ? WEB_BASE : '';
     const file = src.split('/').pop();
     const urls = [`${base}/${src}`, `${FAULT_HF_BASE}${file}`];
-    holder.p = new Promise((resolve) => {
-      let i = 0;
-      const tryNext = () => {
-        if (i >= urls.length) {
-          holder.p = null;
-          resolve();
-          return;
-        }
-        const s = document.createElement('script');
-        s.src = urls[i++];
-        s.onload = () => resolve();
-        s.onerror = () => {
-          s.remove();
-          tryNext();
-        }; // local missing -> HF
-        document.head.appendChild(s);
-      };
-      tryNext();
+    holder.p = webInjectFirst(urls).then((loaded) => {
+      if (!loaded) holder.p = null; // every source failed: allow a retry
     });
     return holder.p;
   };
