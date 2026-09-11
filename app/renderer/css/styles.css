@@ -1282,6 +1282,7 @@ html.no-chrome body.apps-section .topbar {
 .etk-hotspots {
   position: absolute;
   pointer-events: none;
+  z-index: 1;
 }
 .etk-hotspot {
   position: absolute;
@@ -1403,6 +1404,10 @@ html.no-chrome body.apps-section .topbar {
 .etk-loupe {
   position: absolute;
   pointer-events: none;
+  /* above the callout overlay: a lit box must not show through the glass at
+     its unmagnified place; it is redrawn inside, magnified (etkLoupeMarks) */
+  z-index: 2;
+  overflow: hidden;
   border-radius: 50%;
   border: 2px solid var(--amber);
   box-shadow:
@@ -1410,6 +1415,20 @@ html.no-chrome body.apps-section .topbar {
     0 6px 20px rgba(0, 0, 0, 0.35);
   background-color: #fff;
   background-repeat: no-repeat;
+}
+.etk-loupe-marks {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.etk-loupe-mark {
+  position: absolute;
+  border: 2px solid var(--amber);
+  border-radius: 4px;
+  background: var(--amber-glow);
+}
+.etk-loupe-mark.pinned {
+  background: color-mix(in srgb, var(--amber) 45%, transparent);
 }
 .etk-parts {
   width: 100%;
