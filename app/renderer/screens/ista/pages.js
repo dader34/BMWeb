@@ -197,6 +197,7 @@ async function istaPageReadout(host, ctx) {
   if (!label && typeof webBus === 'object' && webBus && webBus.connected)
     label = webBus.portLabel();
 
+  if (ctx && typeof ctx.onCable === 'function') ctx.onCable(connected);
   tb.innerHTML =
     `<tr class="sel"><td>${istaVal(label || 'No interface')}</td>` +
     `<td>-</td><td>K+DCAN</td><td>-</td>` +

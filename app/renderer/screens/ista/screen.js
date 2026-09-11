@@ -418,10 +418,6 @@ function istaPaintRealChrome(el) {
 function istaToolbarAct(act) {
   if (act === 'home' || act === 'close') {
     istaChromeHide();
-    if (typeof document !== 'undefined')
-      document.body.classList.remove('ista-real-body');
-    istaRealStatus(null);
-    istaRealBottom(null);
     return act === 'home' && typeof showApps === 'function'
       ? showApps()
       : showChassis();
@@ -660,6 +656,10 @@ function istaRouteStamp() {
     same ? now.item : null
   );
   history.replaceState(null, '', '#' + route);
+  // the wrapped screen wrote its OWN route a moment ago, and that hashchange
+  // is still queued; claiming this one stops the router replaying it and
+  // opening that screen a second time outside the shell
+  if (typeof routeClaim === 'function') routeClaim(route);
 }
 
 /**
@@ -803,6 +803,31 @@ function istaOpenModuleScript(ecu) {
  * @type {object[]}
  */
 const istaTestPlan = [];
+
+/**
+ * Open the vehicle a set of basic features narrowed to.
+ *
+ * There is no VIN here, so the car is filed by what the catalogue says it
+ * is. The Garage keeps it like any other, which is what lets its scans be
+ * stored against it afterwards.
+ * @param {object} row - the single matching catalogue row
+ * @returns {Promise<void>}
+ */
+async function istaOpenBasic(row) {
+  if (!row) return;
+  let car = null;
+  if (typeof garageAddCar === 'function')
+    car = garageAddCar({
+      chassis: row.chassis,
+      model: row.model,
+      body: row.body,
+      motor: row.motor,
+      prod: `${row._year || ''}${row._month || ''}`,
+    });
+  if (car) istaSetCar(car);
+  else istaSetCar(null, row.chassis);
+  return istaGo('information', 'details', null);
+}
 
 /**
  * Open a stored scan's report inside the shell.
@@ -1230,6 +1255,46 @@ async function istaDrawPage(s, host) {
     return;
   }
 
+  // ---- Vehicle information / Control unit tree ------------------------------
+  if (s.page === 'tree') {
+    // THE BUS MAP IS THE APP'S OWN DRAWING and it is the right one; what
+    // does not belong inside the workshop chrome is the screen's heading,
+    // its car picker and its Fault scan button, which the skin hides. It is
+    // opened through istaOpen like any other wrapped screen, because that is
+    // the path that holds the router's teardown off while it renders and
+    // puts the shell's identity back afterwards.
+    await istaOpen({
+      label: s.label,
+      _call: () => showEcuTreeChassis(chassis, car ? car.id : null),
+    });
+    if (!real) return;
+    const scan =
+      typeof istaNewestScan === 'function' ? istaNewestScan(car) : null;
+    const report = scan && scan.report;
+    const faults = ((report && report.modules) || []).reduce(
+      (a, m) => a + (m.codes || []).length,
+      0
+    );
+    istaRealStatus({
+      items: [{ k: 'Fault memory', v: report ? String(faults) : 'Unknown' }],
+      legend: [
+        { cls: 'ok', label: 'ECU without fault memory' },
+        { cls: 'warn', label: 'ECU with fault memory' },
+        { cls: 'bad', label: 'ECU not responding' },
+        { cls: 'blue', label: 'ECU with programming abort' },
+      ],
+    });
+    istaBottomBar('unit-list', {
+      'vehicle-test': () => {
+        istaState.tested = true;
+        return istaOpenVehicleTest();
+      },
+      'display-faults': () =>
+        istaGo('management', 'troubleshooting', 'fault-memory'),
+    });
+    return;
+  }
+
   // ---- Vehicle information / Control unit list ------------------------------
   if (s.page === 'unit-list') {
     let picked = null;
@@ -1279,18 +1344,59 @@ async function istaDrawPage(s, host) {
     return;
   }
 
+  // ---- Operations / New / Basic Features ------------------------------------
+  if (s.page === 'basic') {
+    istaRealStatus({ items: [] });
+    istaBottomBar('basic', {});
+    const idx = await istaProbe(() =>
+      typeof loadVinIndex === 'function' ? loadVinIndex() : null
+    );
+    if (!host.isConnected) return;
+    if (!idx)
+      return istaPageGrey(
+        host,
+        s.label,
+        'the parts catalogue VIN index is not in this build, so a vehicle ' +
+          'cannot be described feature by feature here'
+      );
+    istaPageBasic(host, {
+      idx,
+      onChange: (n, row) => {
+        istaRealStatus({
+          items: [{ k: 'Hits:', v: `${n} / ${n}` }],
+        });
+        istaBottomBar('basic', {
+          // exactly ONE vehicle is the bar for opening: a set of choices
+          // that still describes six cars has not identified one
+          'open-operation': n === 1 && row ? () => istaOpenBasic(row) : null,
+        });
+      },
+    });
+    return;
+  }
+
   if (s.page === 'readout') {
     istaRealStatus(real ? { items: [] } : null);
-    if (real)
+    // BOTH IDENTIFICATION BUTTONS READ THE CAR, so both need a cable. With
+    // none connected they grey rather than offering a read that can only
+    // fail: the page above already says to connect the interface, and a live
+    // button beside that instruction contradicts it.
+    const armReadout = (cable) =>
       istaBottomBar('readout', {
         cancel: () => istaGo('operations', 'new', 'vin'),
-        'ident-only': () => istaGo('information', 'details', null),
-        'ident-full': () => {
-          istaState.tested = true;
-          return istaGo('information', 'tree', null);
-        },
+        'ident-only': cable
+          ? () => istaGo('information', 'details', null)
+          : null,
+        'ident-full': cable
+          ? () => {
+              istaState.tested = true;
+              return istaGo('information', 'tree', null);
+            }
+          : null,
       });
-    return istaPageReadout(host, {});
+    if (real) armReadout(false);
+    await istaPageReadout(host, { onCable: real ? armReadout : null });
+    return;
   }
 
   if (s.page === 'active') {
@@ -1488,10 +1594,6 @@ async function showIsta(tab, sub, sub3, carId) {
     kind: 'back',
     fn: () => {
       istaChromeHide();
-      if (typeof document !== 'undefined')
-        document.body.classList.remove('ista-real-body');
-      istaRealStatus(null);
-      istaRealBottom(null);
       showChassis();
     },
   };

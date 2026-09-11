@@ -134,8 +134,11 @@ const I = loadClassic('screens/ista/');
   );
   assert.deepStrictEqual(
     I.istaSubs3Of('operations', 'new').map((s) => s.label),
-    ['VIN', 'Read Out Vehicle Data', 'Model code', 'Basic Features'],
-    'Operations / New has its four level-3 tabs'
+    ['VIN', 'Read Out Vehicle Data', 'Basic Features'],
+    // Model code is GONE: it asks for the same four-character type key that
+    // Basic Features offers as one criterion among twelve, and a second way
+    // in is a second answer to "which car is this"
+    'Operations / New has its three level-3 tabs'
   );
   assert.deepStrictEqual(
     I.istaSubs3Of('management', 'troubleshooting').map((s) => s.label),
@@ -214,6 +217,7 @@ const I = loadClassic('screens/ista/');
     [...new Set(pages)].sort(),
     [
       'active',
+      'basic',
       'details',
       'diag',
       'equipment',
@@ -226,6 +230,7 @@ const I = loadClassic('screens/ista/');
       'sae',
       'service-tree',
       'techdata',
+      'tree',
       'unit-list',
       'vin',
     ],
@@ -250,6 +255,7 @@ const I = loadClassic('screens/ista/');
     assert.ok(!leaf.open, `${tab}/${sub}/${sub3} opens no app screen`);
   }
   for (const [tab, sub] of [
+    ['information', 'tree'],
     ['operations', 'finished'],
     ['information', 'history'],
     ['information', 'unit-list'],
@@ -305,8 +311,8 @@ const I = loadClassic('screens/ista/');
     'a group resolves to its first leaf'
   );
   assert.strictEqual(
-    I.istaLeaf('operations', 'new', 'model-code').id,
-    'model-code',
+    I.istaLeaf('operations', 'new', 'basic-features').id,
+    'basic-features',
     'a named leaf wins'
   );
   assert.strictEqual(
@@ -1073,6 +1079,81 @@ const I = loadClassic('screens/ista/');
   assert.strictEqual(istaMarket({}, { market: 'ece' }), 'ECE');
   assert.strictEqual(istaMarket({}, {}), '');
   ok('the basic version is the market');
+}
+
+// ---- Basic Features: opening a vehicle without a VIN ------------------------
+{
+  const {
+    istaBasicRows,
+    istaBasicMatches,
+    istaBasicOptions,
+    istaBasicCriteria,
+  } = I;
+
+  // a tiny stand-in for the catalogue index: two ranges naming two variants
+  const idx = {
+    variants: [
+      ['E46', 'BN53', "3'", 'Cou', 'M54', 'L'],
+      ['E46', 'AP32', "3'", 'Lim', 'M43', 'L'],
+      ['E39', 'DD62', "5'", 'Lim', 'M54', 'R'],
+    ],
+    ranges: [
+      ['AA00000', 'AA99999', 0, '20020115'],
+      ['AB00000', 'AB99999', 1, '19990320'],
+      ['AC00000', 'AC99999', 2, '20010710'],
+      // the same variant under a second range: the page must fold these, or
+      // the middle pane lists production batches instead of choices
+      ['AD00000', 'AD99999', 0, '20020115'],
+    ],
+  };
+  const rows = istaBasicRows(idx);
+  assert.strictEqual(rows.length, 3, 'repeated ranges fold to one row each');
+  ok('the catalogue rows fold');
+
+  // no choices yet: every value of every criterion is on offer
+  assert.deepStrictEqual(istaBasicOptions(rows, {}, 'series'), ["3'", "5'"]);
+  assert.deepStrictEqual(istaBasicOptions(rows, {}, 'chassis'), ['E39', 'E46']);
+
+  // picking the series narrows the others
+  assert.deepStrictEqual(istaBasicOptions(rows, { series: "3'" }, 'engine'), [
+    'M43',
+    'M54',
+  ]);
+  assert.strictEqual(istaBasicMatches(rows, { series: "3'" }).length, 2);
+
+  // A CRITERION KEEPS ITS OWN ALTERNATIVES once one is picked: only the
+  // OTHER choices narrow it, or changing your mind would mean starting over.
+  assert.deepStrictEqual(
+    istaBasicOptions(rows, { series: "3'" }, 'series'),
+    ["3'", "5'"],
+    'the picked criterion still offers every value'
+  );
+  ok('the panes narrow each other, never themselves');
+
+  // two choices identify one vehicle, which is the bar for Open operation
+  const one = istaBasicMatches(rows, { series: "3'", engine: 'M54' });
+  assert.strictEqual(one.length, 1, 'two features identify one vehicle');
+  assert.strictEqual(one[0].mospid, 'BN53');
+  // a combination nobody built matches nothing rather than inventing a car
+  assert.strictEqual(
+    istaBasicMatches(rows, { series: "5'", engine: 'M43' }).length,
+    0,
+    'an impossible combination matches nothing'
+  );
+  ok('the choices resolve to a real vehicle, or to none');
+
+  // a criterion the catalogue cannot answer is LISTED and disabled, not
+  // hidden: a missing row reads as a tool that forgot the question
+  const crits = istaBasicCriteria();
+  const sales = crits.find((c) => c.id === 'sales');
+  assert.ok(sales, 'Sales designation is listed');
+  assert.strictEqual(sales.ok, false, 'and is disabled');
+  assert.deepStrictEqual(istaBasicOptions(rows, {}, 'sales'), []);
+  assert.ok(
+    crits.filter((c) => c.ok).length >= 6,
+    'most criteria are answerable'
+  );
+  ok('an unanswerable criterion is shown, not hidden');
 }
 
 console.log(`test_ista: ${passed} checks passed`);

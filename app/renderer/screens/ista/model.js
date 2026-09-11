@@ -116,14 +116,10 @@ const ISTA_TABS = [
             page: 'readout',
           },
           {
-            id: 'model-code',
-            label: 'Model code',
-            why: 'the four-character model code is not indexed in this build: open the car by VIN instead',
-          },
-          {
             id: 'basic-features',
             label: 'Basic Features',
-            why: 'picking a car by series, body and engine alone is not in this build: open it by VIN instead',
+            desc: 'Pick what the car IS, and open the vehicle those choices describe',
+            page: 'basic',
           },
         ],
       },
@@ -172,7 +168,7 @@ const ISTA_TABS = [
         id: 'tree',
         label: 'Control unit tree',
         desc: 'Every module the chassis can carry, drawn on its bus',
-        open: 'istaOpenTree',
+        page: 'tree',
         needsCar: true,
       },
       {
@@ -438,6 +434,13 @@ const ISTA_TABS = [
 const ISTA_BOTTOM = {
   // Operations / New / VIN: no arrows, one greyed left, one live right
   vin: [
+    { id: 'keyboard', label: 'Keyboard', off: true },
+    { spacer: true },
+    { id: 'open-operation', label: 'Open operation' },
+  ],
+  // Basic Features: the same Open operation as the VIN page, armed once the
+  // choices narrow to exactly one vehicle
+  basic: [
     { id: 'keyboard', label: 'Keyboard', off: true },
     { spacer: true },
     { id: 'open-operation', label: 'Open operation' },

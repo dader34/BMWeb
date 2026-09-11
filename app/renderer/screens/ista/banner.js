@@ -107,6 +107,15 @@ function istaChromeHide() {
   istaOpeningSet(false);
   if (typeof document === 'undefined') return;
   document.body.classList.remove('ista-mode');
+  // THE WORKSHOP SKIN IS THREE THINGS, not one. The chrome container is only
+  // the top of it: the body class hides the app's own topbar, breadcrumbs
+  // and F-key bar, and the status line and bottom bar are siblings parked
+  // beside #view. Dropping the container alone left all of that behind, so
+  // leaving the shell (a foreign route, the browser's Back button) landed on
+  // another screen still wearing the workshop's frame and missing the app's.
+  document.body.classList.remove('ista-real-body');
+  if (typeof istaRealStatus === 'function') istaRealStatus(null);
+  if (typeof istaRealBottom === 'function') istaRealBottom(null);
   const el = document.getElementById(ISTA_CHROME_ID);
   if (el) el.hidden = true;
 }

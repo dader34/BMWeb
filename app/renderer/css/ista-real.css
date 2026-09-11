@@ -126,8 +126,10 @@ body.ista-mode.ista-real-body .view {
   --ink-dim: #333;
   --muted: #555;
   --panel: #fff;
+  --panel-2: var(--ir-row-alt);
   --bg: #fff;
   --line: var(--ir-grey-line);
+  --ink-faint: #8a8a8a;
 }
 body.ista-mode.ista-real-body .view,
 body.ista-mode.ista-real-body .view p,
@@ -391,11 +393,20 @@ body.ista-mode.ista-real-body .view label {
   height: calc(var(--ir-strip3-h) - 5px);
 }
 
-/* the pin star: a small overlay on a sub-tab, drawn rather than an emoji */
-.ista-real-body .irsub-star {
-  position: absolute;
+/* the pin star: a small overlay on a sub-tab, drawn rather than an emoji.
+   A square cell has no cut to avoid, so it keeps the corner. */
+.ista-real-body .irstrip-grid .irsub-star {
   top: 2px;
   right: 3px;
+}
+/* THE STAR IS NOT INSIDE THE CUT. A trapezoid cell clips its own top-right
+   corner, and the pin sat exactly there -- so the glyph came out sliced in
+   half. It moves left of the cut and down out of the diagonal, which is the
+   only part of the cell the clip does not touch. */
+.ista-real-body .irsub-star {
+  position: absolute;
+  top: 4px;
+  right: 21px;
   width: 11px;
   height: 11px;
   border: 0;
@@ -1269,4 +1280,115 @@ body.ista-mode.ista-real-body .view label {
   flex: 1;
   border: 1px solid var(--ir-grey-line);
   min-width: 0;
+}
+
+/* ---- Operations / New / Basic Features ------------------------------------
+   Three panes side by side: the criteria, the values of the selected one,
+   and the choices made so far. Each is a bordered box with the tool's own
+   #4d4d4d title bar, and the rows read like table rows because that is what
+   the reader is picking from. */
+.ista-real-body .irbf {
+  display: flex;
+  gap: 6px;
+  padding: 6px;
+  height: calc(100% - 12px);
+  box-sizing: border-box;
+}
+.ista-real-body .irbf-pane {
+  flex: 1 1 0;
+  min-width: 0;
+  border: 1px solid var(--ir-grey-line);
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+}
+/* the third pane is the answer, not a chooser, so it takes a little less */
+.ista-real-body .irbf-sel {
+  flex: 0 0 300px;
+}
+.ista-real-body .irbf-head {
+  background: var(--ir-head);
+  color: #fff;
+  font-weight: 700;
+  font-size: 12px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  padding: 0 6px;
+  flex: 0 0 auto;
+}
+.ista-real-body .irbf-list {
+  flex: 1;
+  overflow: auto;
+  min-height: 0;
+}
+.ista-real-body .irbf-row {
+  padding: 4px 8px;
+  font-size: 12px;
+  cursor: pointer;
+  border-bottom: 1px solid #fff;
+  background: var(--ir-row-alt);
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+}
+.ista-real-body .irbf-row:nth-child(even) {
+  background: #fff;
+}
+.ista-real-body .irbf-row.on {
+  background: var(--ir-teal);
+  color: #fff;
+}
+.ista-real-body .irbf-row.off {
+  color: var(--ir-off);
+  cursor: default;
+}
+/* a criterion nobody has answered yet shows only its name */
+.ista-real-body .irbf-sel .irbf-row {
+  cursor: default;
+  color: #666;
+}
+.ista-real-body .irbf-sel .irbf-row.has {
+  color: var(--ir-ink);
+  cursor: pointer;
+}
+.ista-real-body .irbf-k {
+  flex: 0 0 auto;
+}
+.ista-real-body .irbf-v {
+  font-weight: 700;
+  margin-left: auto;
+}
+.ista-real-body .irbf-none {
+  padding: 10px 8px;
+  font-size: 12px;
+  color: #555;
+}
+
+/* ---- a wrapped screen drops its own chrome --------------------------------
+   A screen the shell opens (the bus map, a module's script) brings its own
+   heading, its own car picker and its own action row. Inside the workshop
+   frame that is a second tool's furniture around this one's content: the
+   tab strip already says where you are, the header line already says which
+   car, and the bottom bar already carries the actions. So the screen keeps
+   its BODY and loses its frame.
+
+   Scoped to .view, so the same screen opened outside the shell is untouched. */
+.ista-real-body .view .screen-head,
+.ista-real-body .view .tree-bar {
+  display: none !important;
+}
+
+/* the bus map's own legend duplicates the status line's, which already
+   carries the four ECU states in ISTA's own words */
+.ista-real-body .view .tree-legend-slot {
+  display: none !important;
+}
+
+/* the bus map fills the panel it was given */
+.ista-real-body .view .tree-wrap {
+  padding: 8px;
+}
+.ista-real-body .irtree-host {
+  height: 100%;
 }
