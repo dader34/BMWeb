@@ -333,7 +333,9 @@ function wiringBindSvgLinks(svg, ctx) {
     };
     const hit = docs.slice().sort((x, y) => rank(x) - rank(y))[0];
     a.classList.add('wiring-svg-link');
-    a.style.cursor = 'pointer';
+    // a press on a label is a click, not the start of a pan: the stage's
+    // mousedown must not see it
+    a.addEventListener('mousedown', (ev) => ev.stopPropagation());
     a.addEventListener('click', (ev) => {
       ev.preventDefault();
       ev.stopPropagation();
