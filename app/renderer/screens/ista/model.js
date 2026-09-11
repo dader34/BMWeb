@@ -210,13 +210,13 @@ const ISTA_TABS = [
             id: 'product-structure',
             label: 'Product Structure',
             desc: 'Browse the repair documents by assembly group',
-            page: 'repair-host',
+            page: 'repair',
           },
           {
             id: 'text-search',
             label: 'Text Search',
             desc: 'Find a repair document by what it is called',
-            page: 'repair-host',
+            page: 'repair',
           },
         ],
       },
@@ -649,11 +649,19 @@ function istaLeaf(tabId, subId, sub3Id) {
 /**
  * Parse an ISTA route.
  *
- * The grammar is `#ista[/<tab>[/<sub>[/<sub3>[/<car>]]]]`. The car is LAST
- * rather than first (the tree puts it second) because a tab and a sub-tab
- * are what a link is usually about, and a car id is local to one browser --
- * a link someone sends still opens the right tab when the car id means
- * nothing on the other end.
+ * The grammar is `#ista[/<tab>[/<sub>[/<sub3>[/<car>[/<view>[/<item>]]]]]]`.
+ *
+ * The car sits FOURTH rather than first (the tree puts it second) because a
+ * tab and a sub-tab are what a link is usually about, and a car id is local
+ * to one browser -- a link someone sends still opens the right tab when the
+ * car id means nothing on the other end.
+ *
+ * The last two slots belong to the SUB-TAB, not the shell: a page that is
+ * really a browser with documents under it (Repair/maintenance, the
+ * diagnosis structures, Workshop) needs to say which view and which
+ * document, and nothing above it can express that. They sit after the car so
+ * every shorter route keeps its exact shape, and a page that wants no view
+ * simply never fills them.
  *
  * THREE-PART ROUTES STILL PARSE. A route written before the level-3 strips
  * existed put the car where the sub3 now sits. Telling them apart by shape
@@ -662,54 +670,67 @@ function istaLeaf(tabId, subId, sub3Id) {
  * what every old link was.
  * @param {string} route - the hash without its '#'
  * @returns {{tab: string, sub: string|null, sub3: string|null,
- *   car: string|null}|null} null when the route is not an ISTA one.
+ *   car: string|null, view: string|null, item: string|null}|null} null when
+ *   the route is not an ISTA one.
  */
 function istaRouteParse(route) {
-  const m =
-    /^ista(?:\/([A-Za-z0-9_-]+))?(?:\/([A-Za-z0-9_-]+))?(?:\/([A-Za-z0-9_-]+))?(?:\/([A-Za-z0-9_-]+))?$/.exec(
-      String(route || '')
-    );
+  const part = '(?:\\/([A-Za-z0-9_-]+))?';
+  const m = new RegExp(`^ista${part}${part}${part}${part}${part}${part}$`).exec(
+    String(route || '')
+  );
   if (!m) return null;
-  const tab = m[1] ? decodeURIComponent(m[1]) : ISTA_HOME_TAB;
-  const sub = m[2] ? decodeURIComponent(m[2]) : null;
-  const third = m[3] ? decodeURIComponent(m[3]) : null;
-  const fourth = m[4] ? decodeURIComponent(m[4]) : null;
-  // '-' in the third slot is the placeholder istaRouteBuild writes when a
-  // route carries a car but no level-3 tab: it keeps the car in the fourth
-  // slot without inventing a level-3 id nobody has
-  if (fourth)
-    return { tab, sub, sub3: third === '-' ? null : third, car: fourth };
-  // three parts: a sub3 when one of that name exists here, else a car id
-  const isSub3 = !!(third && sub && istaSub3(tab, sub, third));
-  return {
-    tab,
-    sub,
-    sub3: isSub3 ? third : null,
-    car: isSub3 ? null : third,
+  // '-' is the placeholder the builder writes for a slot a route skips, so
+  // the ones after it keep their positions
+  const at = (i) => {
+    const v = m[i] ? decodeURIComponent(m[i]) : null;
+    return v === '-' ? null : v;
   };
+  const tab = at(1) || ISTA_HOME_TAB;
+  const sub = at(2);
+  const third = at(3);
+  const rest = { view: at(5), item: at(6) };
+  // FOUR OR MORE PARTS: the slots are exactly what they look like.
+  if (m[4]) return Object.assign({ tab, sub, sub3: third, car: at(4) }, rest);
+  // THREE PARTS: a route written before the level-3 strips existed put the
+  // car where the sub3 now sits, and the two cannot be told apart by shape.
+  // The third part is a sub3 only when the tab and sub ahead of it really
+  // have one of that name -- which no old link ever did.
+  const isSub3 = !!(third && sub && istaSub3(tab, sub, third));
+  return Object.assign(
+    { tab, sub, sub3: isSub3 ? third : null, car: isSub3 ? null : third },
+    rest
+  );
 }
 
 /**
  * Build an ISTA route. Trailing empties are dropped, so the home tab with no
  * car is the bare `ista` and round-trips through istaRouteParse.
+ *
+ * The slots are positional, so a later one can only be filled when every
+ * earlier one is: a view with no car would land in the car's slot and read
+ * back as a car. A sub-tab that wants a view on a car the Garage has not
+ * saved therefore gets no view in the URL, which costs it the deep link but
+ * never sends the reader to the wrong place.
  * @param {string|null} [tab] - the tab id
  * @param {string|null} [sub] - the sub-tab id
  * @param {string|null} [sub3] - the level-3 tab id
  * @param {string|null} [car] - the picked car's id
+ * @param {string|null} [view] - the sub-tab's own page, when it has pages
+ * @param {string|null} [item] - what that page has open
  * @returns {string} the route, without its '#'
  */
-function istaRouteBuild(tab, sub, sub3, car) {
+function istaRouteBuild(tab, sub, sub3, car, view, item) {
   const t = tab ? String(tab) : '';
   if (!t) return 'ista';
   const parts = ['ista', encodeURIComponent(t)];
   if (!sub) return parts.join('/');
   parts.push(encodeURIComponent(String(sub)));
-  // the car sits in the fourth slot, so a route with a car but no level-3
-  // still needs the slot filled; '-' is not a legal id, so it reads back
-  // as "no level-3" rather than as one nobody has
-  if (sub3) parts.push(encodeURIComponent(String(sub3)));
-  else if (car) parts.push('-');
-  if (car) parts.push(encodeURIComponent(String(car)));
+  // every slot after this is positional, so a route that skips one still has
+  // to fill it; '-' is not a legal id, so it reads back as "none" rather
+  // than as a level-3 tab or a car nobody has
+  const tail = [sub3 || '', car || '', view || '', item || ''];
+  while (tail.length && !tail[tail.length - 1]) tail.pop();
+  for (const v of tail) parts.push(v ? encodeURIComponent(String(v)) : '-');
   return parts.join('/');
 }
 

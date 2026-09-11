@@ -288,6 +288,24 @@ async function istaSubReady(sub) {
       if (!has)
         return { ok: false, why: 'no workshop reference data in this build' };
     }
+    // the repair manual ships per chassis, so "is it here" is asked of THIS
+    // car's chassis, not of the extract as a whole: a build can carry E46's
+    // manual and not F30's, and saying so is more use than a blank pane
+    if (sub.page === 'repair') {
+      if (typeof showRepair !== 'function')
+        return { ok: false, why: 'not in this build' };
+      const chassis = istaChassis();
+      const has = await istaProbe(() =>
+        typeof repairIndexPresent === 'function'
+          ? repairIndexPresent(chassis)
+          : false
+      );
+      if (!has)
+        return {
+          ok: false,
+          why: `no repair data in this build for ${chassis}`,
+        };
+    }
     return { ok: true, why: '' };
   }
   const fn = sub.open ? window[sub.open] : null;
@@ -602,15 +620,35 @@ async function istaGo(tab, sub, sub3) {
  * Stamp the shell's route into the URL. Done by hand rather than through
  * ROUTE_FOR_SCREEN because the route carries the tab, the sub-tab, the
  * level-3 tab and the car, none of which a function name can express.
+ *
+ * THE LAST TWO SLOTS ARE NOT THE SHELL'S. A sub-tab with pages of its own
+ * (Repair/maintenance, the diagnosis structures, Workshop) writes them, and
+ * this runs BEFORE that sub-tab has drawn -- so stamping only the first four
+ * would erase the view and the document a deep link named, a moment before
+ * the sub-tab tried to read them. They are therefore carried through from
+ * whatever is in the URL, but only while the tab, sub-tab and level-3 still
+ * match: a stale view from the tab the reader just left would otherwise
+ * follow them to the next one.
  * @returns {void}
  */
 function istaRouteStamp() {
   if (typeof history === 'undefined' || !history.replaceState) return;
+  const now =
+    typeof location !== 'undefined'
+      ? istaRouteParse(String(location.hash || '').replace(/^#/, ''))
+      : null;
+  const same =
+    now &&
+    now.tab === istaState.tab &&
+    now.sub === istaState.sub &&
+    now.sub3 === istaState.sub3;
   const route = istaRouteBuild(
     istaState.tab,
     istaState.sub,
     istaState.sub3,
-    istaState.car ? istaState.car.id : null
+    istaState.car ? istaState.car.id : null,
+    same ? now.view : null,
+    same ? now.item : null
   );
   history.replaceState(null, '', '#' + route);
 }
@@ -786,7 +824,7 @@ async function istaDrawPage(s, host) {
     return istaPageActive(host, car, chassis);
   }
 
-  if (s.page === 'repair-host') {
+  if (s.page === 'repair') {
     // Repair/maintenance is built on its own branch: it scopes its CSS under
     // .ista-repair and draws into this host. Left empty here on purpose --
     // the strip, the route and the frame are this branch's half of the seam.
