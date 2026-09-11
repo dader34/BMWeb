@@ -677,26 +677,57 @@ function istaBackAction() {
 }
 
 /**
+ * Draw the bottom bar a page offers, binding each button id to what it does.
+ *
+ * The WHAT and the ORDER live in the model's ISTA_BOTTOM table; this is the
+ * only place that knows what any of them does. So a page's row of buttons is
+ * a fact about that page rather than a template every page inherits -- which
+ * is what used to put the pair of nav arrows on pages the frames show
+ * without them.
+ *
+ * A button whose id has no action here draws greyed rather than dead: the
+ * tool shows the control and refuses it, which is the honest shape.
+ * @param {string} pageId - the key into ISTA_BOTTOM
+ * @param {Object<string, Function|null>} [actions] - id to what it does
+ * @returns {void}
+ */
+function istaBottomBar(pageId, actions) {
+  const act = actions || {};
+  const rows = istaBottomFor(pageId).map((b) => {
+    if (b.nav)
+      return { nav: true, back: act._back || null, fwd: act._fwd || null };
+    if (b.spacer) return { spacer: true };
+    const fn = act[b.id];
+    return {
+      label: b.label,
+      fn: fn || null,
+      off: !!b.off || !fn,
+      title: b.title || '',
+    };
+  });
+  istaRealBottom(rows.length ? rows : null);
+}
+
+/**
  * The status line and bottom bar for a wrapped screen.
  *
  * A wrapped screen keeps its own F-key row (which the skin hides) and its
- * own buttons inside #view. What the skin adds around it is the tool's two
- * bottom bands: the status line, and the nav blocks with a Back that leaves
- * the sub-tab. The screen's own keys stay reachable through the keyboard,
- * so nothing it offered is lost.
+ * own buttons inside #view. What the skin adds around it is the status line;
+ * the buttons are whatever the model says that page offers, which for a
+ * screen the shell merely wraps is nothing of its own.
  * @param {IstaSub|IstaSub3} sub - the leaf that was opened
  * @returns {void}
  */
 function istaRealChromeBars(sub) {
   istaRealStatus({ items: [{ k: 'Filter:', v: 'Default' }] });
-  istaRealBottom([
-    {
-      label: 'Back',
-      fn: () => showIsta(istaState.tab, istaState.sub, istaState.sub3),
-    },
-    { nav: true, back: null, fwd: null },
-    { label: 'Print', fn: () => window.print() },
-  ]);
+  istaBottomBar(sub.id, {
+    'delete-faults': null,
+    'filter-faults': null,
+    'show-all': null,
+    filters: null,
+    display: null,
+    back: () => showIsta(istaState.tab, istaState.sub, istaState.sub3),
+  });
 }
 
 /**
@@ -715,18 +746,14 @@ async function istaDrawPage(s, host) {
     let valid = false;
     const bar = (ok) => {
       valid = ok;
-      istaRealBottom([
-        { label: 'Keyboard', off: true },
-        { nav: true, back: null, fwd: null },
-        {
-          label: 'Open operation',
-          off: !ok,
-          fn: () => {
-            const p = host._istaPick ? host._istaPick() : null;
-            if (p) istaOpenOperation(p.car, p.vin);
-          },
-        },
-      ]);
+      istaBottomBar('vin', {
+        'open-operation': ok
+          ? () => {
+              const p = host._istaPick ? host._istaPick() : null;
+              if (p) istaOpenOperation(p.car, p.vin);
+            }
+          : null,
+      });
     };
     istaRealStatus({ items: [] });
     istaPageVin(host, {
@@ -740,30 +767,21 @@ async function istaDrawPage(s, host) {
   if (s.page === 'readout') {
     istaRealStatus(real ? { items: [] } : null);
     if (real)
-      istaRealBottom([
-        { label: 'Cancel', fn: () => istaGo('operations', 'new', 'vin') },
-        { nav: true, back: null, fwd: null },
-        {
-          label: 'Identification without vehicle test',
-          fn: () => istaGo('information', 'details', null),
-          title: 'Read the build record, then open Vehicle details',
+      istaBottomBar('readout', {
+        cancel: () => istaGo('operations', 'new', 'vin'),
+        'ident-only': () => istaGo('information', 'details', null),
+        'ident-full': () => {
+          istaState.tested = true;
+          return istaGo('information', 'tree', null);
         },
-        {
-          label: 'Complete identification',
-          fn: () => {
-            istaState.tested = true;
-            return istaGo('information', 'tree', null);
-          },
-          title: 'Identify the car and run the whole-car test',
-        },
-      ]);
+      });
     return istaPageReadout(host, {});
   }
 
   if (s.page === 'active') {
     if (real) {
       istaRealStatus({ items: [] });
-      istaRealBottom([{ nav: true, back: null, fwd: null }]);
+      istaBottomBar('none');
     }
     return istaPageActive(host, car, chassis);
   }
@@ -775,7 +793,7 @@ async function istaDrawPage(s, host) {
     host.innerHTML = `<div class="irrepair-host" id="ista-repair-host"></div>`;
     if (real) {
       istaRealStatus({ items: [{ k: 'Hits:', v: '0 / 0' }] });
-      istaRealBottom([{ nav: true, back: null, fwd: null }]);
+      istaBottomBar('product-structure', {});
     }
     if (typeof istaRepairShow === 'function')
       return istaRepairShow(host.firstChild, s.id, car, chassis);
@@ -795,22 +813,14 @@ async function istaDrawPage(s, host) {
   if (s.page === 'details') {
     if (!real) return istaShowDetails(host, car, chassis);
     istaRealStatus({ items: [] });
-    istaRealBottom([
-      { label: 'Display measures plan', off: true },
-      { label: 'Write service history', off: true },
-      { nav: true, back: null, fwd: null },
-      {
-        label: 'Start vehicle test',
-        fn: () => {
-          istaState.tested = true;
-          return istaGo('information', 'tree', null);
-        },
+    istaBottomBar('details', {
+      'vehicle-test': () => {
+        istaState.tested = true;
+        return istaGo('information', 'tree', null);
       },
-      {
-        label: 'Information search',
-        fn: () => istaGo('management', 'troubleshooting', 'text-search'),
-      },
-    ]);
+      'info-search': () =>
+        istaGo('management', 'troubleshooting', 'text-search'),
+    });
     // the grid draws from the catalogue decode at once, then fills in what a
     // read finds; nothing is read unless the user asked for it elsewhere
     istaRealDetails(host, car, istaState.etk, {});
@@ -820,19 +830,11 @@ async function istaDrawPage(s, host) {
   if (s.page === 'equipment') {
     if (!real) return istaShowEquipment(host, car, chassis);
     istaRealStatus({ items: [] });
-    istaRealBottom([
-      { label: 'Display measures plan', off: true },
-      { label: 'Write service history', off: true },
-      { nav: true, back: null, fwd: null },
-      {
-        label: 'Show vehicle test',
-        fn: () => istaGo('information', 'tree', null),
-      },
-      {
-        label: 'Information search',
-        fn: () => istaGo('management', 'troubleshooting', 'text-search'),
-      },
-    ]);
+    istaBottomBar('equipment', {
+      'show-test': () => istaGo('information', 'tree', null),
+      'info-search': () =>
+        istaGo('management', 'troubleshooting', 'text-search'),
+    });
     istaRealEquipment(host, [], null);
     const got = await istaProbe(async () => {
       if (typeof readIdentityCodes !== 'function') return null;
@@ -852,7 +854,7 @@ async function istaDrawPage(s, host) {
   if (s.page === 'techdata') {
     if (real) {
       istaRealStatus({ items: [{ k: 'Filter:', v: 'Default' }] });
-      istaRealBottom([{ nav: true, back: null, fwd: null }]);
+      istaBottomBar('none');
     }
     return showTechData(host, car, chassis);
   }
@@ -987,7 +989,7 @@ async function showIsta(tab, sub, sub3, carId) {
     setActions([printAction, homeAction]);
     if (real) {
       istaRealStatus({ items: [] });
-      istaRealBottom([{ nav: true, back: null, fwd: null }]);
+      istaBottomBar('none');
       istaPageGrey(
         view,
         (istaTab(istaState.tab) || {}).label || istaState.tab,
@@ -1008,7 +1010,10 @@ async function showIsta(tab, sub, sub3, carId) {
     setActions([printAction, homeAction]);
     if (real) {
       istaRealStatus({ items: [] });
-      istaRealBottom([{ nav: true, back: null, fwd: null }]);
+      // a greyed tab still shows the row of buttons its page would carry,
+      // all refused: the control is visible and does nothing, which says
+      // more than an empty bar
+      istaBottomBar(s.id);
       // the greyed tabs that have a layout of their own get it drawn
       const shape = ISTA_GREY_SHAPES[s.id] || null;
       istaPageGrey(view, s.label, state.why, shape);

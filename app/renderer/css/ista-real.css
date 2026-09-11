@@ -41,6 +41,9 @@ body.ista-real-body {
   --ir-row-alt: #e6e6e6;
   --ir-off: #8a8a8a;
   --ir-ink: #000;
+  /* the ground outside the content panel, and the line that boxes a tab cell */
+  --ir-page: #fff;
+  --ir-cell-edge: #9fa3a2;
   --ir-font:
     'Segoe UI', 'Helvetica Neue', Helvetica, Arial, 'Liberation Sans',
     sans-serif;
@@ -62,20 +65,32 @@ body.ista-real-body {
    bars, the bottom button bar), so showing both would be two competing
    frames around one screen. They go while the skin is up and come back the
    moment it is not. */
-body.ista-mode.ista-real-body #topbar,
-body.ista-mode.ista-real-body #crumbs,
-body.ista-mode.ista-real-body #fkeys,
-body.ista-mode.ista-real-body .statusbar {
+/* These are the app's own chrome by CLASS, not by id: .topbar is a <header>
+   and .fkeybar a <footer> that carries id="fkeybar". Hiding the wrong names
+   leaves the F-key bar drawing its dark band through the gap between the
+   content panel and the status line, which is what put a black stripe
+   across the bottom of every page. */
+body.ista-mode.ista-real-body .topbar,
+body.ista-mode.ista-real-body .breadcrumbs,
+body.ista-mode.ista-real-body .fkeybar,
+body.ista-mode.ista-real-body .statusbar,
+body.ista-mode.ista-real-body .tabbar {
   display: none !important;
 }
 
-/* the shell owns the whole window while it is up: without this the page
-   stops at its content height and the ground shows under the bottom bar */
+/* THE PAGE GROUND. Measured off the frames: everything outside the content
+   panel -- the strip's empty remainder, the band under the panel, the ground
+   around the bottom buttons -- is WHITE, not a light grey. The only black on
+   the page is the main tab bar and the nav arrow blocks.
+
+   Both html and body carry it: the shell owns the whole window while it is
+   up, and without the full height the app's own dark ground shows through
+   below the bottom bar wherever the content is shorter than the viewport. */
 html:has(body.ista-real-body),
 body.ista-mode.ista-real-body {
   height: 100%;
   min-height: 100%;
-  background: #fff;
+  background: var(--ir-page);
   font-family: var(--ir-font);
 }
 
@@ -293,25 +308,32 @@ body.ista-mode.ista-real-body .view label {
 }
 
 /* ---- the sub-tab strips --------------------------------------------------- */
-/* Both strips share everything but their shape and their grid. A strip that
-   is NOT the last one on the page keeps the main bar's 129px columns and
-   square corners; the last one cuts its corner and sizes to its label. */
+/* Both strips are a row of BOXED CELLS on a white ground, not a grey band
+   with labels floating on it. The frames are unambiguous: the strip itself
+   is white, each tab is a #c5c5c5 cell, and the white gutter between cells
+   is the ground showing through. A flat grey band loses the cell edges and
+   with them the sense that these are tabs at all.
+
+   The two strips differ only in shape and inset; the shape rule (square
+   while another strip follows, cut corner when last) lives in skin.js. */
 .ista-real-body .irstrip {
   display: flex;
-  background: var(--ir-grey);
+  background: var(--ir-page);
   box-sizing: border-box;
   height: var(--ir-strip-h);
   align-items: stretch;
+  padding-top: 3px;
 }
 .ista-real-body .irstrip-3 {
   height: var(--ir-strip3-h);
-  background: #fff;
   padding-left: 12px;
   align-items: flex-start;
 }
 
 .ista-real-body .irsub {
   border: 0;
+  /* the cell's own bottom edge: a darker line that seats it on the ground */
+  border-bottom: 1px solid var(--ir-cell-edge);
   background: var(--ir-grey);
   color: var(--ir-ink);
   font: 13px/1.15 var(--ir-font);
@@ -322,6 +344,7 @@ body.ista-mode.ista-real-body .view label {
   align-items: center;
   white-space: pre-line;
   position: relative;
+  box-sizing: border-box;
 }
 .ista-real-body .irsub.on {
   background: var(--ir-teal);
@@ -343,12 +366,6 @@ body.ista-mode.ista-real-body .view label {
   flex: 0 0 122px;
   margin-right: 5px;
 }
-/* the grid strip draws its empty remainder in the same grey, so the row
-   reads as a full-width band rather than as tabs floating on white */
-.ista-real-body .irstrip-grid {
-  background: var(--ir-grey);
-}
-
 /* trapezoid: the LAST strip on the page. The cut is 17px across and 16px
    down, and the cell keeps the SAME 127px grid as the bar above it -- the
    frames put every level on one set of columns, so a tab at level 3 lines
@@ -362,6 +379,9 @@ body.ista-mode.ista-real-body .view label {
   min-width: 122px;
   margin-right: 5px;
   padding: 0 22px 0 10px;
+  /* the clip cuts the corner, so the cell's bottom edge is drawn by the
+     clip's own silhouette rather than by a border that would ride over it */
+  border-bottom: 0;
   clip-path: polygon(0 0, calc(100% - 17px) 0, 100% 16px, 100% 100%, 0 100%);
 }
 .ista-real-body .irstrip-cut.irstrip {
@@ -506,8 +526,8 @@ body.ista-mode.ista-real-body .view label {
 .ista-real-body .irnav {
   background: #000;
   border: 0;
-  width: 92px;
-  height: 26px;
+  width: 90px;
+  height: 22px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -520,8 +540,11 @@ body.ista-mode.ista-real-body .view label {
   fill: #fff;
 }
 .ista-real-body .irnav:disabled {
-  background: #6a6a6a;
+  /* still black: the frames grey the TRIANGLE, not the block */
   cursor: default;
+}
+.ista-real-body .irnav:disabled svg {
+  fill: #7a7a7a;
 }
 
 /* ===========================================================================
@@ -858,11 +881,16 @@ body.ista-mode.ista-real-body .view label {
 .ista-real-body .irdet-col {
   min-width: 0;
 }
+/* THE RHYTHM IS MEASURED, not chosen: in the frames a label sits 18px above
+   its value and the next label 39px below the last, so the four columns line
+   up row for row across the page. A looser pair breaks that alignment and
+   the grid stops reading as a grid. */
 .ista-real-body .irdet-f {
-  margin-bottom: 8px;
+  margin: 0 0 3px;
 }
 .ista-real-body .irdet-l {
   font-size: 11px;
+  line-height: 18px;
   color: #333;
   display: flex;
   align-items: center;
@@ -870,9 +898,10 @@ body.ista-mode.ista-real-body .view label {
 }
 .ista-real-body .irdet-v {
   font-size: 12px;
+  line-height: 18px;
   font-weight: 700;
   color: #000;
-  min-height: 15px;
+  min-height: 18px;
   word-break: break-word;
 }
 /* the warning triangle beside a label whose value came from the VIN rather

@@ -299,10 +299,24 @@ function istaDetailColumns(car, etk, read) {
       : prod.length >= 6
         ? `${mo}/${yr}`
         : '';
-  const body =
-    typeof bodyLabel === 'function' ? bodyLabel(e.body || c.body) : e.body;
-  const gear = e.gear === 'A' ? 'AUTO' : e.gear === 'M' ? 'MANUAL' : '';
+  // the same ASCII / series / gearbox / market rules as the header line, so
+  // the two cannot disagree about the car they are describing
+  const asc = (v) => (typeof istaAscii === 'function' ? istaAscii(v) : v);
+  const body = asc(
+    typeof bodyLabel === 'function' ? bodyLabel(e.body || c.body) : e.body
+  );
+  const series =
+    typeof istaSeries === 'function'
+      ? istaSeries(e.model || c.model || '')
+      : e.model || c.model || '';
+  const gear = typeof istaGearbox === 'function' ? istaGearbox(e, c) : '';
+  const market = typeof istaMarket === 'function' ? istaMarket(e, c) : '';
   const steer = e.steer === 'R' ? 'RL' : e.steer === 'L' ? 'LL' : '';
+  // the four-character type key: the VIN index's own model id (BN53), which
+  // is what the tool prints under Model code
+  const typeKey = String(e.mospid || e.typ || (read.fa && read.fa.typ) || '')
+    .toUpperCase()
+    .slice(0, 4);
   const km = typeof istaKm === 'function' ? istaKm(read.km) : '';
   // the fields the tool flags when it has no value for them
   const flagged = new Set(['Sales designation']);
@@ -315,10 +329,10 @@ function istaDetailColumns(car, etk, read) {
       f('Production date', date),
       f('Body', body),
       f('First registration', ''),
-      f('Basic version', e.market || ''),
+      f('Basic version', market),
     ],
     [
-      f('Series', e.model || c.model || ''),
+      f('Series', series),
       f('Engine', e.motor || c.motor || ''),
       f('Engine label', fa.motor || ''),
       f('Construction date:', yr && mo ? `${yr} / ${mo}` : ''),
@@ -334,7 +348,7 @@ function istaDetailColumns(car, etk, read) {
       f('Electrical drive unit', ''),
       f('E-drive unit designation', ''),
       f('I-Level factory:', ''),
-      f('Model code', e.mospid || ''),
+      f('Model code', typeKey),
       f('Gearbox number', ''),
       f('Paint code', fa.lack || ''),
     ],

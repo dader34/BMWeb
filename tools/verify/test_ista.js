@@ -883,4 +883,103 @@ const I = loadClassic('screens/ista/');
   ok("the details grid is the tool's four columns");
 }
 
+// ---- the bottom bar is per page, not one template ---------------------------
+// THE NAV ARROWS ARE THE POINT. Every page used to inherit one template, so
+// every page grew the pair of black nav blocks. The frames show them only on
+// pages that STEP THROUGH a list of hits: the two-pane browsers and the
+// Service plan lists. A page that is not such a list must not have them.
+{
+  const { ISTA_BOTTOM, istaBottomFor } = I;
+  const hasNav = (id) => istaBottomFor(id).some((b) => b.nav);
+
+  for (const id of ['service-functions', 'product-structure', 'hit-list'])
+    assert.ok(hasNav(id), `${id} steps through hits, so it keeps the arrows`);
+  for (const id of [
+    'vin',
+    'readout',
+    'details',
+    'equipment',
+    'fault-memory',
+    'fault-pattern',
+    'none',
+  ])
+    assert.ok(!hasNav(id), `${id} is not a hit list: no nav arrows`);
+  ok('the nav arrows are only where the frames have them');
+
+  // Vehicle details, straight off key2/t0159.0.jpg: four buttons, the first
+  // two greyed, and no arrows
+  assert.deepStrictEqual(
+    istaBottomFor('details')
+      .filter((b) => b.label)
+      .map((b) => [b.label, !!b.off]),
+    [
+      ['Display measures plan', true],
+      ['Write service history', true],
+      ['Start vehicle test', false],
+      ['Information search', false],
+    ],
+    "Vehicle details carries the frame's own four buttons"
+  );
+  // the VIN start page: Keyboard greyed at the left, Open operation at the
+  // right, and nothing between them
+  assert.deepStrictEqual(
+    istaBottomFor('vin').map((b) => b.label || (b.spacer ? '|' : '?')),
+    ['Keyboard', '|', 'Open operation']
+  );
+  ok("the frames' own button rows");
+
+  // a page with nothing of its own draws NO bar rather than a bare pair of
+  // arrows that step through nothing
+  assert.deepStrictEqual(istaBottomFor('none'), []);
+  assert.deepStrictEqual(istaBottomFor('no-such-page'), []);
+  ok('an unknown page gets no bar');
+
+  // every descriptor is exactly one kind, and every button has an id the
+  // screen can bind: a label with no id can never be wired to anything
+  for (const [page, rows] of Object.entries(ISTA_BOTTOM))
+    for (const b of rows) {
+      const kinds = [b.nav, b.spacer, b.label].filter(Boolean).length;
+      assert.strictEqual(kinds, 1, `${page}: one kind per descriptor`);
+      if (b.label) assert.ok(b.id, `${page}/${b.label} has an id to bind`);
+    }
+  ok('every bottom-bar descriptor is bindable');
+}
+
+// ---- the header's values are the tool's, not the catalogue's ----------------
+{
+  const { istaAscii, istaSeries, istaGearbox, istaMarket } = I;
+
+  // the tool's header is a fixed-pitch slash string and prints ASCII: it
+  // writes "Coupe", never "Coupé"
+  assert.strictEqual(istaAscii('Coupé'), 'Coupe');
+  assert.strictEqual(istaAscii('Cabriolet'), 'Cabriolet');
+  assert.strictEqual(istaAscii(''), '');
+  assert.strictEqual(istaAscii(null), '');
+  ok('the header folds to ASCII');
+
+  // the SERIES, not the model name: the frames read 3'/E46/Coupe, never
+  // 330Ci/E46/Coupe
+  assert.strictEqual(istaSeries('330Ci'), "3'");
+  assert.strictEqual(istaSeries('525i tour'), "5'");
+  assert.strictEqual(istaSeries("3'"), "3'", 'an already-series name holds');
+  // a name with no leading digit is passed through: inventing a series for
+  // an X or i car would be worse than showing what we have
+  assert.strictEqual(istaSeries('X5'), 'X5');
+  assert.strictEqual(istaSeries(''), '');
+  ok('the series comes off the model name');
+
+  assert.strictEqual(istaGearbox({ gear: 'M' }, {}), 'MANUAL');
+  assert.strictEqual(istaGearbox({ gear: 'A' }, {}), 'AUTO');
+  // the saved column is tried before giving up, so "-" means nobody knows
+  // rather than "we did not look"
+  assert.strictEqual(istaGearbox({}, { gear: 'A' }), 'AUTO');
+  assert.strictEqual(istaGearbox({}, {}), '');
+  ok('the gearbox reads as a word, from either source');
+
+  assert.strictEqual(istaMarket({ market: 'us' }, {}), 'US');
+  assert.strictEqual(istaMarket({}, { market: 'ece' }), 'ECE');
+  assert.strictEqual(istaMarket({}, {}), '');
+  ok('the basic version is the market');
+}
+
 console.log(`test_ista: ${passed} checks passed`);

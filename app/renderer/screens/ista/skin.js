@@ -23,7 +23,8 @@
  */
 
 /* exported istaSkinOn istaPaintReal istaRealBottom istaRealStatus
-   istaRealIcon istaRealProgress */
+   istaRealIcon istaRealProgress istaAscii istaSeries istaGearbox
+   istaMarket */
 
 /** The bottom button bar's element id. */
 const ISTA_BOTTOM_ID = 'ista-bottom';
@@ -134,12 +135,19 @@ function istaRealVehicleLine(car, etk) {
   const prod = String(e.prod || c.prod || '');
   const year = prod.length >= 4 ? prod.slice(0, 4) : '';
   const month = prod.length >= 6 ? prod.slice(4, 6) : '';
-  const body =
-    typeof bodyLabel === 'function' ? bodyLabel(e.body || c.body) : e.body;
-  // the tool writes the series with its trailing apostrophe ("3'")
-  const series = e.model || c.model || '';
+  // THE TOOL PRINTS ASCII HERE. Its header line is a fixed-pitch slash
+  // string, and it writes "Coupe", not "Coupé" -- so the accent is folded
+  // out rather than passed through from the catalogue label.
+  const body = istaAscii(
+    typeof bodyLabel === 'function' ? bodyLabel(e.body || c.body) : e.body
+  );
+  // the SERIES, not the model name: the frames read "3'/E46/Coupe", never
+  // "330Ci/E46/Coupe". The catalogue's model field is the variant name, so
+  // the series is taken off it (its leading digits) and given the trailing
+  // apostrophe the tool writes.
+  const series = istaSeries(e.model || c.model || '');
   const chassis = String(e.chassis || c.chassis || '').toUpperCase();
-  const gear = e.gear === 'A' ? 'AUTO' : e.gear === 'M' ? 'MANUAL' : '';
+  const gear = istaGearbox(e, c);
   // the steering letter is the tool's basic-version/steering pair: it shows
   // the market it typed the car for and LL/RL for left or right hand drive
   const steer = e.steer === 'R' ? 'RL' : e.steer === 'L' ? 'LL' : '';
@@ -150,11 +158,80 @@ function istaRealVehicleLine(car, etk) {
     '-',
     dash(e.motor || c.motor),
     dash(gear),
-    dash(e.market || ''),
+    dash(istaMarket(e, c)),
     dash(steer),
     dash(year),
     dash(month),
   ].join('/');
+}
+
+/**
+ * Fold a label to ASCII.
+ *
+ * The tool's header line and its details grid print "Coupe", not "Coupé":
+ * the string is a fixed-pitch slash list and it carries no accents. Folding
+ * here rather than shipping a second label table keeps the catalogue's own
+ * names intact everywhere else in the app.
+ * @param {string} v - the label
+ * @returns {string} the same label, accents removed
+ */
+function istaAscii(v) {
+  return String(v == null ? '' : v)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
+/**
+ * The SERIES a model name belongs to, as the tool writes it.
+ *
+ * The catalogue's model field is the variant ("330Ci", "525i tour"); the
+ * tool's header wants the series it sits in, with the trailing apostrophe:
+ * "3'", "5'". The series is the leading digit of the type number, which is
+ * how BMW numbers them, so it is read off the front rather than looked up.
+ * A name with no leading digit (a chassis-only car, an i or X name) is
+ * passed through -- inventing a series for it would be worse than showing
+ * what we have.
+ * @param {string} model - the catalogue's model name
+ * @returns {string} the series, e.g. "3'", or the name unchanged
+ */
+function istaSeries(model) {
+  const m = String(model || '').trim();
+  if (!m) return '';
+  if (/^\d/.test(m)) return `${m[0]}'`;
+  return m;
+}
+
+/**
+ * The gearbox, as the tool writes it: MANUAL or AUTO.
+ *
+ * The catalogue decode carries it as a letter on the VIN row; where that is
+ * absent the Garage's own saved column is tried before giving up. "-" only
+ * when neither knows, which is the difference between "this car has no
+ * gearbox recorded" and "we did not look".
+ * @param {object} etk - the VIN decode
+ * @param {object} car - the saved GarageCar
+ * @returns {string} MANUAL, AUTO, or ''
+ */
+function istaGearbox(etk, car) {
+  const g = String((etk && etk.gear) || (car && car.gear) || '').toUpperCase();
+  if (g.startsWith('A')) return 'AUTO';
+  if (g.startsWith('M')) return 'MANUAL';
+  return '';
+}
+
+/**
+ * The basic version: the market the car was typed for (US, ECE ...).
+ *
+ * The VIN index carries it where the production record had one. Like the
+ * gearbox it falls back to the saved column before giving up.
+ * @param {object} etk - the VIN decode
+ * @param {object} car - the saved GarageCar
+ * @returns {string} the market code, or ''
+ */
+function istaMarket(etk, car) {
+  return String(
+    (etk && (etk.market || etk.land)) || (car && car.market) || ''
+  ).toUpperCase();
 }
 
 /**
@@ -449,11 +526,16 @@ function istaRealStatus(o) {
 /**
  * Draw the bottom button bar.
  *
- * Buttons are given left to right; a `nav: true` entry becomes the pair of
- * black nav blocks and everything after it goes to the right-hand group,
- * which is how every page in the frames is laid out.
- * @param {Array<object>|null} buttons - {label, fn, off, nav} entries, or
- *   null to clear the bar
+ * Buttons are given left to right. A `nav: true` entry becomes the centred
+ * pair of black nav blocks; a `spacer: true` entry splits the row without
+ * them. Everything after either goes to the right-hand group, which is how
+ * every page in the frames is laid out.
+ *
+ * The nav blocks belong ONLY to the pages that step through a list of hits
+ * (the two-pane browsers, the Service plan lists). Which pages those are is
+ * the model's ISTA_BOTTOM table, not this function's business.
+ * @param {Array<object>|null} buttons - {label, fn, off, nav, spacer}
+ *   entries, or null to clear the bar
  * @returns {void}
  */
 function istaRealBottom(buttons) {
@@ -468,6 +550,9 @@ function istaRealBottom(buttons) {
   const fns = [];
   const html = buttons
     .map((b) => {
+      // a spacer pushes everything after it to the right-hand group, which is
+      // how a page with no nav blocks still splits its row in two
+      if (b.spacer) return `<span class="irbottom-spacer"></span>`;
       if (b.nav) {
         // the centred pair: a spacer either side keeps them centred however
         // many buttons sit left and right of them
@@ -538,6 +623,10 @@ if (typeof module !== 'undefined' && module.exports) {
     istaRealArrow,
     istaRealClock,
     istaRealVehicleLine,
+    istaAscii,
+    istaSeries,
+    istaGearbox,
+    istaMarket,
     istaStripClass,
     istaRealTab,
     istaRealToolbar,

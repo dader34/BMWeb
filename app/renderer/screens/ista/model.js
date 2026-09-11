@@ -25,7 +25,8 @@
 
 /* exported ISTA_TABS istaRouteParse istaRouteBuild istaFavourites
    istaFavouriteToggle istaIsFavourite istaCarBits istaTab istaSub
-   istaSubsOf istaFirstSub istaSub3 istaSubs3Of istaFirstSub3 istaLeaf */
+   istaSubsOf istaFirstSub istaSub3 istaSubs3Of istaFirstSub3 istaLeaf
+   ISTA_BOTTOM istaBottomFor */
 
 /** Settings key holding the pinned sub-tabs, newest first. */
 const ISTA_FAVS_KEY = 'bmweb.ista.favourites';
@@ -416,6 +417,108 @@ const ISTA_TABS = [
 ];
 
 /**
+ * The bottom button bar, per page.
+ *
+ * WHY THIS IS A TABLE. The bars used to be built inline at each call site
+ * from one template, which is how every page ended up with the pair of nav
+ * arrows. The frames are clear that most pages have no arrows at all: they
+ * belong to the two-pane BROWSERS (Product Structure, Service Functions, the
+ * Function and Component structures, the fault-pattern hit list) and to the
+ * Service plan lists, because those are the pages you step through. A page
+ * that is not a list of hits does not get them -- Vehicle details carries
+ * four plain buttons, the VIN page carries Keyboard and Open operation, and
+ * Fault memory carries its own six.
+ *
+ * Each entry is a list of button descriptors, left to right:
+ *   {id, label}      a button; the screen binds `id` to what it does
+ *   {off: true}      drawn greyed, because this build cannot do it
+ *   {nav: true}      the pair of black nav blocks, and everything after it
+ *                    goes to the right-hand group
+ * The ids are bound in screen.js, so this table stays a table: it says WHAT
+ * a page offers and in which order, never how any of it works.
+ * @type {Object<string, Array<object>>}
+ */
+const ISTA_BOTTOM = {
+  // Operations / New / VIN: no arrows, one greyed left, one live right
+  vin: [
+    { id: 'keyboard', label: 'Keyboard', off: true },
+    { spacer: true },
+    { id: 'open-operation', label: 'Open operation' },
+  ],
+  // Read Out Vehicle Data: the connection manager's own row
+  readout: [
+    { id: 'cancel', label: 'Cancel' },
+    { spacer: true },
+    { id: 'ident-only', label: 'Identification without vehicle test' },
+    { id: 'ident-full', label: 'Complete identification' },
+  ],
+  // Vehicle details (key2/t0159.0.jpg): four buttons, no arrows
+  details: [
+    { spacer: true },
+    { id: 'measures-plan', label: 'Display measures plan', off: true },
+    { id: 'service-history', label: 'Write service history', off: true },
+    { id: 'vehicle-test', label: 'Start vehicle test' },
+    { id: 'info-search', label: 'Information search' },
+  ],
+  equipment: [
+    { spacer: true },
+    { id: 'measures-plan', label: 'Display measures plan', off: true },
+    { id: 'service-history', label: 'Write service history', off: true },
+    { id: 'show-test', label: 'Show vehicle test' },
+    { id: 'info-search', label: 'Information search' },
+  ],
+  // Fault memory: its own six, and Calculate test plan alone on the right
+  'fault-memory': [
+    { id: 'show-code', label: 'Show fault code', off: true },
+    { id: 'delete-faults', label: 'Delete fault\nmemory' },
+    { id: 'filter-faults', label: 'Filter fault memory' },
+    { id: 'delete-filter', label: 'Delete filter', off: true },
+    { id: 'show-all', label: 'Show completely' },
+    { spacer: true },
+    { id: 'calc-plan', label: 'Calculate test plan', off: true },
+  ],
+  // the two-pane browsers: these DO step through hits, so they keep the arrows
+  'service-functions': [
+    { id: 'filters', label: 'Filters' },
+    { nav: true },
+    { id: 'add-plan', label: 'Add to test plan', off: true },
+    { id: 'display', label: 'Display' },
+  ],
+  'product-structure': [
+    { id: 'filters', label: 'Filters' },
+    { nav: true },
+    { id: 'display', label: 'Display' },
+  ],
+  'fault-pattern': [
+    { spacer: true },
+    { id: 'add-pattern', label: 'Add fault pattern', off: true },
+    { id: 'show-pattern', label: 'Show fault pattern', off: true },
+    { id: 'calc-plan', label: 'Calculate test plan', off: true },
+  ],
+  // the Service plan lists
+  'hit-list': [
+    { id: 'back', label: 'Back' },
+    { id: 'filters', label: 'Filters' },
+    { id: 'symptoms', label: 'Show symptoms', off: true },
+    { nav: true },
+    { id: 'std-filter', label: 'Set standard filter', off: true },
+    { id: 'display', label: 'Display' },
+  ],
+  // a page with nothing of its own: no bar at all rather than a bare pair of
+  // arrows that step through nothing
+  none: [],
+};
+
+/**
+ * The bottom bar a page offers.
+ * @param {string} id - the leaf's id, or a page name
+ * @returns {Array<object>} the button descriptors, possibly empty
+ */
+function istaBottomFor(id) {
+  return ISTA_BOTTOM[id] || ISTA_BOTTOM.none;
+}
+
+/**
  * A tab by id.
  * @param {string} id - the tab id
  * @returns {IstaTab|null}
@@ -720,6 +823,8 @@ if (typeof module !== 'undefined' && module.exports) {
     ISTA_HOME_SUB3,
     ISTA_FAVS_KEY,
     ISTA_FAVS_CAP,
+    ISTA_BOTTOM,
+    istaBottomFor,
     istaTab,
     istaSub,
     istaSub3,
