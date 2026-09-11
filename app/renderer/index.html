@@ -448,6 +448,17 @@
   <script src="screens/techdata/data.js"></script>
   <script src="screens/techdata/render.js"></script>
   <script src="screens/techdata/screen.js"></script>
+  <!-- Repair instructions (screens/repair/): ISTA's repair manual. data.js
+       loads the per-chassis extract (the car filter already ran, at extract
+       time -- the corpus is far too big to filter in a browser), render.js
+       draws the steps, hints, torques and pictures, browser.js is the
+       reusable tree/list/document page (ISTA draws four of its structure
+       pages this way), screen.js is the sub-tab the ISTA shell opens -- so
+       it loads last, and before the shell. -->
+  <script src="screens/repair/data.js"></script>
+  <script src="screens/repair/render.js"></script>
+  <script src="screens/repair/browser.js"></script>
+  <script src="screens/repair/screen.js"></script>
   <!-- The ISTA shell (screens/ista/): workshop mode -- a banner and tab bar
        that stay up while the app's OWN screens render underneath them. It
        wraps them, it does not re-implement them, so it loads after every

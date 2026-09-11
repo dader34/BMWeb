@@ -172,6 +172,13 @@ const ISTA_TABS = [
         needsCar: true,
       },
       {
+        id: 'repair',
+        label: 'Repair/maintenance',
+        desc: 'The repair manual: browse the job groups, or search them by title',
+        page: 'repair',
+        needsCar: true,
+      },
+      {
         id: 'delete-faults',
         label: 'Delete fault memories',
         why: 'no whole-car clear exists: clearing is per module, behind its own confirm',
@@ -310,47 +317,69 @@ function istaFirstSub(tabId) {
 /**
  * Parse an ISTA route.
  *
- * The grammar is `#ista[/<tab>[/<sub>[/<car>]]]`. The car is LAST rather
- * than first (the tree puts it second) because a tab and a sub-tab are what
- * a link is usually about, and a car id is local to one browser -- a link
- * someone sends still opens the right tab when the car id means nothing on
- * the other end.
+ * The grammar is `#ista[/<tab>[/<sub>[/<car>[/<view>[/<item>]]]]]`. The car
+ * is FOURTH rather than first (the tree puts it second) because a tab and a
+ * sub-tab are what a link is usually about, and a car id is local to one
+ * browser -- a link someone sends still opens the right tab when the car id
+ * means nothing on the other end.
+ *
+ * The last two slots belong to the SUB-TAB, not the shell: a sub-tab that
+ * is really two pages with documents under them (Repair/maintenance, whose
+ * Product Structure and Text Search views each open a document) needs to
+ * say which page and which document, and nothing above it can express that.
+ * They sit after the car rather than before it so every route the shell
+ * already builds keeps its exact shape, and a sub-tab that wants no view
+ * simply never fills them.
  * @param {string} route - the hash without its '#'
- * @returns {{tab: string, sub: string|null, car: string|null}|null} null when
- *   the route is not an ISTA one.
+ * @returns {{tab: string, sub: string|null, car: string|null,
+ *   view: string|null, item: string|null}|null} null when the route is not
+ *   an ISTA one.
  */
 function istaRouteParse(route) {
-  const m =
-    /^ista(?:\/([A-Za-z0-9_-]+))?(?:\/([A-Za-z0-9_-]+))?(?:\/([A-Za-z0-9_-]+))?$/.exec(
-      String(route || '')
-    );
+  const part = '(?:\\/([A-Za-z0-9_-]+))?';
+  const m = new RegExp(`^ista${part}${part}${part}${part}${part}$`).exec(
+    String(route || '')
+  );
   if (!m) return null;
   return {
     tab: m[1] ? decodeURIComponent(m[1]) : ISTA_HOME_TAB,
     sub: m[2] ? decodeURIComponent(m[2]) : null,
     car: m[3] ? decodeURIComponent(m[3]) : null,
+    view: m[4] ? decodeURIComponent(m[4]) : null,
+    item: m[5] ? decodeURIComponent(m[5]) : null,
   };
 }
 
 /**
  * Build an ISTA route. Trailing empties are dropped, so the home tab with no
  * car is the bare `ista` and round-trips through istaRouteParse.
+ *
+ * The slots are positional, so a later one can only be filled when every
+ * earlier one is: a view with no car would land in the car's slot and read
+ * back as a car. A sub-tab that wants a view on a car the Garage has not
+ * saved therefore gets no view in the URL, which costs it the deep link but
+ * never sends the reader to the wrong place.
  * @param {string|null} [tab] - the tab id
  * @param {string|null} [sub] - the sub-tab id
  * @param {string|null} [car] - the picked car's id
+ * @param {string|null} [view] - the sub-tab's own page, when it has pages
+ * @param {string|null} [item] - what that page has open
  * @returns {string} the route, without its '#'
  */
-function istaRouteBuild(tab, sub, car) {
+function istaRouteBuild(tab, sub, car, view, item) {
   const parts = ['ista'];
   const t = tab && tab !== ISTA_HOME_TAB ? String(tab) : '';
   // a car with no sub-tab still needs the slots before it filled, so the
-  // three parts stay positional
-  if (car && !t) return 'ista';
+  // parts stay positional
   if (!t) return 'ista';
   parts.push(encodeURIComponent(t));
   if (sub) parts.push(encodeURIComponent(String(sub)));
-  else if (car) return parts.join('/');
+  else return parts.join('/');
   if (car) parts.push(encodeURIComponent(String(car)));
+  else return parts.join('/');
+  if (view) parts.push(encodeURIComponent(String(view)));
+  else return parts.join('/');
+  if (item) parts.push(encodeURIComponent(String(item)));
   return parts.join('/');
 }
 

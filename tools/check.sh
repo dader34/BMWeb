@@ -259,6 +259,14 @@ echo "== ISTA shell: tab model, routes, favourites, banner and details text =="
 node tools/verify/test_ista.js || exit 1
 
 echo
+echo "== repair manual: the extractor's document model, groups and pictures =="
+python3 tools/verify/test_repair_extract.py || exit 1
+
+echo
+echo "== repair manual: the browser's tree, the search scopes, the renderer =="
+node tools/verify/test_repair.js || exit 1
+
+echo
 echo "== parts diagrams: callout hotspot file shape, the pos join, scale mapping =="
 node tools/verify/test_etk_hotspots.js || exit 1
 

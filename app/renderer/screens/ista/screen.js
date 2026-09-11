@@ -262,6 +262,24 @@ async function istaSubReady(sub) {
       if (!has)
         return { ok: false, why: 'no workshop reference data in this build' };
     }
+    // the repair manual ships per chassis, so "is it here" is asked of THIS
+    // car's chassis, not of the extract as a whole: a build can carry E46's
+    // manual and not F30's, and saying so is more use than a blank pane
+    if (sub.page === 'repair') {
+      if (typeof showRepair !== 'function')
+        return { ok: false, why: 'not in this build' };
+      const chassis = istaChassis();
+      const has = await istaProbe(() =>
+        typeof repairIndexPresent === 'function'
+          ? repairIndexPresent(chassis)
+          : false
+      );
+      if (!has)
+        return {
+          ok: false,
+          why: `no repair data in this build for ${chassis}`,
+        };
+    }
     return { ok: true, why: '' };
   }
   const fn = sub.open ? window[sub.open] : null;
@@ -735,6 +753,8 @@ async function showIsta(tab, sub, owner, carId) {
       await istaShowDetails(host, istaState.car, istaChassis());
     else if (s.page === 'techdata')
       await showTechData(host, istaState.car, istaChassis());
+    else if (s.page === 'repair')
+      await showRepair(host, istaState.car, istaChassis());
     else await istaShowEquipment(host, istaState.car, istaChassis());
     return;
   }

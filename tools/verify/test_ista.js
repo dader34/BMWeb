@@ -117,13 +117,15 @@ const I = loadClassic('screens/ista/');
   }
   ok('activation codes gone; coding and programming are dev-only');
 
-  // the page kinds are the two details.js draws, and nothing else
+  // the page kinds the shell draws itself: the two in details.js, the
+  // workshop browser and the repair manual. A new one here must also be
+  // dispatched in showIsta and probed in istaSubReady, or it draws nothing.
   const pages = ISTA_TABS.flatMap((t) =>
     (t.subs || []).filter((s) => s.page).map((s) => s.page)
   );
   assert.deepStrictEqual(
     pages.sort(),
-    ['details', 'equipment', 'techdata'],
+    ['details', 'equipment', 'repair', 'techdata'],
     'only the pages the shell draws itself'
   );
   ok('page kinds are the ones that exist');
@@ -186,22 +188,41 @@ const I = loadClassic('screens/ista/');
     tab: 'home',
     sub: null,
     car: null,
+    view: null,
+    item: null,
   });
   assert.deepStrictEqual(istaRouteParse('ista/operations'), {
     tab: 'operations',
     sub: null,
     car: null,
+    view: null,
+    item: null,
   });
   assert.deepStrictEqual(istaRouteParse('ista/operations/test-plan'), {
     tab: 'operations',
     sub: 'test-plan',
     car: null,
+    view: null,
+    item: null,
   });
   assert.deepStrictEqual(istaRouteParse('ista/operations/test-plan/abc-12'), {
     tab: 'operations',
     sub: 'test-plan',
     car: 'abc-12',
+    view: null,
+    item: null,
   });
+  // the two slots a sub-tab with pages of its own fills
+  assert.deepStrictEqual(
+    istaRouteParse('ista/management/repair/abc-12/structure/2000006594283'),
+    {
+      tab: 'management',
+      sub: 'repair',
+      car: 'abc-12',
+      view: 'structure',
+      item: '2000006594283',
+    }
+  );
   ok('routes parse');
 
   // a route that is not ours is not ours -- the router must fall through to
@@ -223,19 +244,23 @@ const I = loadClassic('screens/ista/');
 
   // round-trip: build then parse gives back what went in
   const cases = [
-    [null, null, null],
-    ['operations', null, null],
-    ['operations', 'test-plan', null],
-    ['operations', 'test-plan', 'abc-12'],
-    ['information', 'details', 'x_9-Z'],
+    [null, null, null, null, null],
+    ['operations', null, null, null, null],
+    ['operations', 'test-plan', null, null, null],
+    ['operations', 'test-plan', 'abc-12', null, null],
+    ['information', 'details', 'x_9-Z', null, null],
+    ['management', 'repair', 'abc-12', 'structure', null],
+    ['management', 'repair', 'abc-12', 'search', '2000006594283'],
   ];
-  for (const [tab, sub, car] of cases) {
-    const route = istaRouteBuild(tab, sub, car);
+  for (const [tab, sub, car, view, item] of cases) {
+    const route = istaRouteBuild(tab, sub, car, view, item);
     const back = istaRouteParse(route);
     assert.ok(back, `${route} parses`);
     assert.strictEqual(back.tab, tab || 'home', `${route} tab`);
     assert.strictEqual(back.sub, sub, `${route} sub`);
     assert.strictEqual(back.car, car, `${route} car`);
+    assert.strictEqual(back.view, view, `${route} view`);
+    assert.strictEqual(back.item, item, `${route} item`);
   }
   ok('routes round-trip');
 
