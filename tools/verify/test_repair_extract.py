@@ -7,8 +7,9 @@ Three things have to hold or the section ships something wrong:
                        a torque nested inside an instruction is read as
                        torque data AND removed from the instruction's prose,
                        so a figure is never printed twice in two formats
-  the GROUP TREE       "67-1" and "67" are one group, not two, and a group's
-                       name is the one most of its documents give it
+  the GROUP TREE       "67-1" and "67" are one group, not two, and a group
+                       is named from ISTA's OWN objects, falling back to the
+                       document vote only where no object exists
   the PICTURE MAPPING  every naming style resolves to its segment name, and
                        ISTA's own icons resolve to nothing on purpose
 
@@ -17,6 +18,7 @@ with the workshop extract and a change that widened one would silently
 widen the other.
 """
 import os
+import sqlite3
 import struct
 import sys
 import unittest
@@ -250,6 +252,88 @@ class TestGroupNumbers(unittest.TestCase):
         self.assertEqual(R.group_number(""), "00")
         self.assertEqual(R.group_number(None), "00")
         self.assertEqual(R.group_number("General"), "00")
+
+
+class TestGroupNames(unittest.TestCase):
+    """Group names come from ISTA's own objects, not from document text."""
+
+    def setUp(self):
+        """A DiagDocDb stub holding the two name classes."""
+        self.con = sqlite3.connect(":memory:")
+        self.con.execute(
+            "CREATE TABLE XEP_DIAGNOSISOBJECTS "
+            "(NODECLASS INT, HG_NUMMER TEXT, HGUG_NUMMER TEXT, TITLE_ENGB TEXT)"
+        )
+        self.con.executemany(
+            "INSERT INTO XEP_DIAGNOSISOBJECTS VALUES (?,?,?,?)",
+            [
+                # main groups: NODECLASS 5235202, the number in HG_NUMMER
+                (5235202, "16", None, "Fuel supply"),
+                (5235202, "17", None, "Cooling"),
+                (5235202, "21", None, "Clutch"),
+                (5235202, "9", None, "Padded to two digits"),
+                (5235202, "18", None, ""),
+                # subgroups: NODECLASS 5236354, all four digits in HGUG_NUMMER
+                (5236354, None, "2100", "Clutch, check"),
+                (5236354, None, "2153", "autom. clutch operation"),
+                (5236354, None, "21", "too short to be a subgroup"),
+                (5236354, None, None, "no number at all"),
+                # another class entirely: must not be read as a group name
+                (4862722, "16", "1600", "Some diagnostic object"),
+            ],
+        )
+
+    def test_main_groups(self):
+        """The objects' names, keyed the way group_number pads them."""
+        main, _ = R.group_names_from_objects(self.con)
+        self.assertEqual(main["16"], "Fuel supply")
+        self.assertEqual(main["17"], "Cooling")
+        self.assertEqual(main["09"], "Padded to two digits")
+        # an empty title is not a name
+        self.assertNotIn("18", main)
+
+    def test_subgroups(self):
+        """HGUG_NUMMER carries group and subgroup together, as ISTA prints it."""
+        _, sub = R.group_names_from_objects(self.con)
+        self.assertEqual(sub["2100"], "Clutch, check")
+        self.assertEqual(sub["2153"], "autom. clutch operation")
+        # a number that is not four digits is not a subgroup key
+        self.assertNotIn("21", sub)
+        self.assertEqual(len(sub), 2)
+
+    def test_other_classes_are_ignored(self):
+        """Only the two naming classes are read, not every diagnosis object."""
+        main, sub = R.group_names_from_objects(self.con)
+        self.assertNotIn("1600", sub)
+        self.assertNotEqual(main.get("16"), "Some diagnostic object")
+
+    def test_objects_beat_the_document_vote(self):
+        """THE FIX: the object's name wins where both have one.
+
+        The documents mostly say "Radiator" for group 17; ISTA's tree says
+        "Cooling", and the tree is what a reader is comparing against.
+        """
+        main, sub, stats = R.merge_group_names(self.con, None)
+        self.assertEqual(main["17"], "Cooling")
+        self.assertEqual(sub["2100"], "Clutch, check")
+        self.assertEqual(stats["objMain"], 4)
+        self.assertEqual(stats["objSub"], 2)
+
+    def test_a_group_with_no_object_keeps_its_voted_name(self):
+        """The vote is a fallback, not a rival: a bare number is worse."""
+        voted_main = {"99": "Voted only"}
+        real = R.group_names_from_index
+        try:
+            R.group_names_from_index = lambda _p: (voted_main, {"9999": "Voted sub"})
+            main, sub, stats = R.merge_group_names(self.con, "ignored")
+        finally:
+            R.group_names_from_index = real
+        self.assertEqual(main["99"], "Voted only")
+        self.assertEqual(sub["9999"], "Voted sub")
+        # and the object still wins where it has one
+        self.assertEqual(main["17"], "Cooling")
+        self.assertEqual(stats["votedOnlyMain"], 1)
+        self.assertEqual(stats["votedOnlySub"], 1)
 
 
 class TestPictureNames(unittest.TestCase):

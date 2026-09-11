@@ -660,6 +660,78 @@ def group_names_from_index(path):
     return main, sub
 
 
+def group_names_from_objects(diag):
+    """Main/sub group number -> the name ISTA's own tree shows.
+
+    THE AUTHORITATIVE SOURCE, and the reason the vote below it is only a
+    fallback. ISTA does not name a group from the documents in it: it has
+    named objects for exactly this, in XEP_DIAGNOSISOBJECTS --
+
+        NODECLASS 5235202  the 42 main groups, HG_NUMMER + TITLE_ENGB
+        NODECLASS 5236354  the 482 subgroups, HGUG_NUMMER (4 digits,
+                           group and subgroup together) + TITLE_ENGB
+
+    Their names are the ones on ISTA's screen, and they differ from what a
+    vote over document text produces: the objects say "16 Fuel supply" and
+    "17 Cooling" where the documents mostly say "Fuel Tank and Fuel Lines"
+    and "Radiator". The subgroups are the bigger win -- a document states
+    its subgroup NUMBER and almost never its name, so without these the
+    tree shows a bare "2100" where ISTA shows "2100 Clutch, check".
+
+    HG_NUMMER is null on the subgroup rows; their four digits carry both
+    halves, which is also how ISTA prints them.
+
+    @param diag: an open DiagDocDb connection
+    @returns: (main, sub) dicts keyed the way group_number pads them
+    """
+    main = {}
+    sub = {}
+    for number, title in diag.execute(
+        "SELECT HG_NUMMER, TITLE_ENGB FROM XEP_DIAGNOSISOBJECTS "
+        "WHERE NODECLASS=5235202 AND TITLE_ENGB IS NOT NULL AND TITLE_ENGB<>''"
+    ):
+        if number is None or not str(number).strip():
+            continue
+        main[group_number(number)] = str(title).strip()
+    for number, title in diag.execute(
+        "SELECT HGUG_NUMMER, TITLE_ENGB FROM XEP_DIAGNOSISOBJECTS "
+        "WHERE NODECLASS=5236354 AND TITLE_ENGB IS NOT NULL AND TITLE_ENGB<>''"
+    ):
+        text = str(number or "").strip()
+        if len(text) < 4 or not text[:4].isdigit():
+            continue
+        # the key is group + subgroup, the same shape the document side builds
+        sub[text[:4]] = str(title).strip()
+    return main, sub
+
+
+def merge_group_names(diag, techdata_path):
+    """The group names, objects first and the document vote as a fallback.
+
+    A group ISTA has no object for still gets the name most of its
+    documents give it, which is better than a bare number; a group that has
+    an object takes the object's name, because that is the name on ISTA's
+    screen.
+
+    @param diag: an open DiagDocDb connection
+    @param techdata_path: the workshop extract folder, or None
+    @returns: (main, sub) and a small stats dict for the run's summary
+    """
+    voted_main, voted_sub = group_names_from_index(techdata_path)
+    obj_main, obj_sub = group_names_from_objects(diag)
+    main = dict(voted_main)
+    sub = dict(voted_sub)
+    main.update(obj_main)
+    sub.update(obj_sub)
+    stats = {
+        "objMain": len(obj_main),
+        "objSub": len(obj_sub),
+        "votedOnlyMain": len([k for k in voted_main if k not in obj_main]),
+        "votedOnlySub": len([k for k in voted_sub if k not in obj_sub]),
+    }
+    return main, sub, stats
+
+
 # ---- the pictures -----------------------------------------------------------
 def read_segments(diag):
     """Picture name -> its stream id, for every PNG segment.
@@ -941,7 +1013,15 @@ def main():
 
     if verbose:
         print("reading the group names...", file=sys.stderr)
-    main_names, sub_names = group_names_from_index(args.techdata)
+    main_names, sub_names, name_stats = merge_group_names(diag, args.techdata)
+    if verbose:
+        print(
+            f"  {name_stats['objMain']} main and {name_stats['objSub']} subgroup "
+            f"names from ISTA's own objects; "
+            f"{name_stats['votedOnlyMain']}/{name_stats['votedOnlySub']} more "
+            f"voted from the workshop extract",
+            file=sys.stderr,
+        )
 
     if verbose:
         print("reading the picture segment table...", file=sys.stderr)
