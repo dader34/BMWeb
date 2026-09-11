@@ -940,6 +940,36 @@ async function istaOpenEcuWindow(slot, box, chassis) {
  */
 const istaTestPlan = [];
 
+/** Hosted copy of the diagnosis structures, beside the repair extract. */
+const ISTA_DIAG_HF_BASE =
+  'https://huggingface.co/datasets/CraigFf/bmweb-etk/resolve/main/ista/diag/';
+
+/**
+ * Fetch one diagnosis-structure file, local first then the dataset.
+ *
+ * The same rule as repairUrls: a build with a local extract never reaches
+ * the network, and the hosted site, which ships no data/ista/diag, still
+ * finds the file. Null when neither answers.
+ * @param {string} rel - the path under data/ista/diag/
+ * @returns {Promise<Response|null>}
+ */
+async function istaDiagFetch(rel) {
+  const base = typeof WEB_BASE === 'string' && WEB_BASE ? WEB_BASE : '.';
+  const real =
+    typeof webRealFetch === 'function'
+      ? webRealFetch
+      : window.fetch.bind(window);
+  for (const u of [`${base}/data/ista/diag/${rel}`, ISTA_DIAG_HF_BASE + rel]) {
+    try {
+      const r = await real(u);
+      if (r && r.ok) return r;
+    } catch (e) {
+      /* try the next source */
+    }
+  }
+  return null;
+}
+
 /**
  * The body text of every diagnosis document for a chassis, by id.
  *
@@ -954,12 +984,9 @@ async function istaDiagBodies(chassis) {
   const code = String(chassis || '').toUpperCase();
   const out = new Map();
   if (!code) return out;
-  const base = typeof WEB_BASE === 'string' && WEB_BASE ? WEB_BASE : '.';
   const raw = await istaProbe(async () => {
-    const r = await fetch(
-      `${base}/data/ista/diag/${code}/search-index.json.gz`
-    );
-    if (!r.ok || typeof fflate === 'undefined') return null;
+    const r = await istaDiagFetch(`${code}/search-index.json.gz`);
+    if (!r || typeof fflate === 'undefined') return null;
     const bytes = new Uint8Array(await r.arrayBuffer());
     return JSON.parse(
       new TextDecoder('utf-8').decode(fflate.gunzipSync(bytes))
@@ -1153,9 +1180,8 @@ function istaBrowse(host, src, key, opts) {
 async function istaDiagLoad(chassis, which, car) {
   const code = String(chassis || '').toUpperCase();
   if (!code) return null;
-  const base = typeof WEB_BASE === 'string' && WEB_BASE ? WEB_BASE : '.';
-  const res = await fetch(`${base}/data/ista/diag/${code}/${which}.json.gz`);
-  if (!res.ok) return null;
+  const res = await istaDiagFetch(`${code}/${which}.json.gz`);
+  if (!res) return null;
   // the structures ship gzipped, and a plain file server serves them as
   // bytes rather than as content-encoding: gzip, so they are unpacked here
   // with the same library the chassis archives use
@@ -1199,7 +1225,6 @@ function istaDiagFacts(car) {
  */
 async function istaDiagBody(chassis, doc) {
   const code = String(chassis || '').toUpperCase();
-  const base = typeof WEB_BASE === 'string' && WEB_BASE ? WEB_BASE : '.';
   // an ABL test module is a compiled procedure: its halves are documents but
   // the procedure itself cannot run here, and the page says so rather than
   // pretending a button will start it
@@ -1212,10 +1237,8 @@ async function istaDiagBody(chassis, doc) {
       `</div></div></div>`
     );
   const body = await istaProbe(async () => {
-    const r = await fetch(
-      `${base}/data/ista/diag/${code}/docs/${doc.id}.json.gz`
-    );
-    if (!r.ok || typeof fflate === 'undefined') return null;
+    const r = await istaDiagFetch(`${code}/docs/${doc.id}.json.gz`);
+    if (!r || typeof fflate === 'undefined') return null;
     const bytes = new Uint8Array(await r.arrayBuffer());
     return JSON.parse(
       new TextDecoder('utf-8').decode(fflate.gunzipSync(bytes))
