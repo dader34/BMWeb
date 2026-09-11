@@ -220,6 +220,7 @@ const I = loadClassic('screens/ista/');
       'basic',
       'details',
       'diag',
+      'diag-search',
       'equipment',
       'fault-memory',
       'finished',
@@ -268,6 +269,28 @@ const I = loadClassic('screens/ista/');
     assert.ok(!leaf.open, `${tab}/${sub} opens no app screen`);
   }
   ok('every rebuilt tab is a page, not an app screen');
+
+  // Operations report and Info from Service Consultation are GONE: the
+  // report is reachable from Repair history, and the consultation feed is a
+  // dealer system this build has no access to
+  for (const gone of ['report', 'service-consultation'])
+    assert.strictEqual(
+      istaSub('information', gone),
+      null,
+      `Vehicle information has no ${gone} tab`
+    );
+  assert.deepStrictEqual(
+    I.istaSubsOf('information').map((x) => x.label),
+    [
+      'Vehicle details',
+      'Vehicle equipment',
+      'Repair history',
+      'Control unit tree',
+      'Control unit list',
+    ],
+    'Vehicle information has its five tabs'
+  );
+  ok('the two dropped tabs are gone');
   ok('page kinds are the ones that exist');
 
   assert.strictEqual(istaTab('operations').label, 'Operations');
@@ -1084,76 +1107,255 @@ const I = loadClassic('screens/ista/');
 // ---- Basic Features: opening a vehicle without a VIN ------------------------
 {
   const {
-    istaBasicRows,
-    istaBasicMatches,
-    istaBasicOptions,
-    istaBasicCriteria,
+    istaBasicModel,
+    istaBasicRoots,
+    istaBasicHits,
+    istaBasicValues,
+    istaBasicChassis,
+    istaBasicRow,
   } = I;
 
-  // a tiny stand-in for the catalogue index: two ranges naming two variants
-  const idx = {
-    variants: [
-      ['E46', 'BN53', "3'", 'Cou', 'M54', 'L'],
-      ['E46', 'AP32', "3'", 'Lim', 'M43', 'L'],
-      ['E39', 'DD62', "5'", 'Lim', 'M54', 'R'],
-    ],
-    ranges: [
-      ['AA00000', 'AA99999', 0, '20020115'],
-      ['AB00000', 'AB99999', 1, '19990320'],
-      ['AC00000', 'AC99999', 2, '20010710'],
-      // the same variant under a second range: the page must fold these, or
-      // the middle pane lists production batches instead of choices
-      ['AD00000', 'AD99999', 0, '20020115'],
-    ],
+  // A stand-in for the workshop extract's three files, in their real shapes:
+  // roots.json names the features, typekeys.json gives each type key one
+  // value id per feature, characteristics.json prints a value id.
+  //
+  // Four type keys over three E46s and one E39, plus two features nothing
+  // carries: 'Model month', which roots.json names and no type key answers,
+  // and 'Doors', which one type key answers.
+  const roots = {
+    63685259: 'Model series',
+    53088651: 'Development code',
+    53046411: 'Body',
+    53363595: 'Engine',
+    53508235: 'Steering',
+    63814539: 'Doors',
+    '-101': 'Model month',
   };
-  const rows = istaBasicRows(idx);
-  assert.strictEqual(rows.length, 3, 'repeated ranges fold to one row each');
-  ok('the catalogue rows fold');
+  const chars = {
+    11: "3'",
+    12: "5'",
+    21: 'E46',
+    22: 'E39',
+    31: 'COU',
+    32: 'LIM',
+    41: 'M54',
+    42: 'M43',
+    51: 'LL',
+    52: 'RL',
+    61: '4',
+  };
+  const typekeys = {
+    AL01: {
+      63685259: [11],
+      53088651: [21],
+      53046411: [31],
+      53363595: [41],
+      53508235: [51],
+    },
+    AL02: {
+      63685259: [11],
+      53088651: [21],
+      53046411: [32],
+      53363595: [42],
+      53508235: [51],
+      63814539: [61],
+    },
+    AL03: {
+      63685259: [11],
+      53088651: [21],
+      53046411: [32],
+      53363595: [41],
+      53508235: [52],
+    },
+    DD62: {
+      63685259: [12],
+      53088651: [22],
+      53046411: [32],
+      53363595: [41],
+      53508235: [51],
+    },
+  };
+  const model = istaBasicModel(roots, typekeys, chars);
+  assert.ok(model, 'the three files fold into one model');
+  assert.strictEqual(model.keys.length, 4, 'one row per type key');
+  ok('the characteristic tree folds');
 
-  // no choices yet: every value of every criterion is on offer
-  assert.deepStrictEqual(istaBasicOptions(rows, {}, 'series'), ["3'", "5'"]);
-  assert.deepStrictEqual(istaBasicOptions(rows, {}, 'chassis'), ['E39', 'E46']);
-
-  // picking the series narrows the others
-  assert.deepStrictEqual(istaBasicOptions(rows, { series: "3'" }, 'engine'), [
-    'M43',
-    'M54',
+  // A FEATURE NO TYPE KEY CARRIES IS NOT LISTED AT ALL. Drawing it would ask
+  // a question this data can never answer.
+  const listed = istaBasicRoots(model).map((r) => r.label);
+  assert.ok(!listed.includes('Model month'), 'a feature with no values is out');
+  assert.ok(listed.includes('Doors'), 'one carried value is enough to list it');
+  // the frame's own rows keep the frame's order; the extras follow
+  assert.deepStrictEqual(listed, [
+    'Model series',
+    'Development code',
+    'Body',
+    'Engine',
+    'Steering',
+    'Doors',
   ]);
-  assert.strictEqual(istaBasicMatches(rows, { series: "3'" }).length, 2);
+  ok('the features listed are the ones the data can answer');
 
-  // A CRITERION KEEPS ITS OWN ALTERNATIVES once one is picked: only the
-  // OTHER choices narrow it, or changing your mind would mean starting over.
+  // no choices yet: every value of every feature is on offer, deduped
+  assert.deepStrictEqual(istaBasicValues(model, {}, '63685259'), ["3'", "5'"]);
+  assert.deepStrictEqual(istaBasicValues(model, {}, '53046411'), [
+    'COU',
+    'LIM',
+  ]);
+  assert.strictEqual(istaBasicHits(model, {}).length, 4, 'Hits starts at all');
+
+  // INTERSECT NARROWING: a value is offered when at least one type key
+  // carries it AND carries every value already picked. Picking the 5' leaves
+  // only the E39, so LL is the only steering still possible.
   assert.deepStrictEqual(
-    istaBasicOptions(rows, { series: "3'" }, 'series'),
-    ["3'", "5'"],
-    'the picked criterion still offers every value'
+    istaBasicValues(model, { 63685259: "5'" }, '53088651'),
+    ['E39']
   );
-  ok('the panes narrow each other, never themselves');
+  assert.deepStrictEqual(
+    istaBasicValues(model, { 63685259: "5'" }, '53508235'),
+    ['LL']
+  );
+  assert.strictEqual(istaBasicHits(model, { 63685259: "3'" }).length, 3);
+  // two features together narrow further than either alone
+  assert.deepStrictEqual(
+    istaBasicValues(model, { 63685259: "3'", 53046411: 'LIM' }, '53363595'),
+    ['M43', 'M54']
+  );
+  ok('the panes intersect over the type keys');
 
-  // two choices identify one vehicle, which is the bar for Open operation
-  const one = istaBasicMatches(rows, { series: "3'", engine: 'M54' });
-  assert.strictEqual(one.length, 1, 'two features identify one vehicle');
-  assert.strictEqual(one[0].mospid, 'BN53');
-  // a combination nobody built matches nothing rather than inventing a car
+  // A PICKED FEATURE KEEPS ITS OWN ALTERNATIVES: only the OTHER choices
+  // narrow it, or changing your mind would mean clearing the whole form.
+  assert.deepStrictEqual(
+    istaBasicValues(model, { 63685259: "5'" }, '63685259'),
+    ["3'", "5'"],
+    'the picked feature still offers every value'
+  );
+  ok('a pane never narrows itself');
+
+  // one type key is the bar for Open operation, and it resolves to a chassis
+  const hits = istaBasicHits(model, {
+    63685259: "3'",
+    53046411: 'LIM',
+    53363595: 'M54',
+  });
+  assert.strictEqual(hits.length, 1, 'three features identify one type key');
+  assert.strictEqual(istaBasicChassis(hits[0]), 'E46');
+  const row = istaBasicRow(model, hits[0]);
+  assert.strictEqual(row.typeKey, 'AL03');
+  assert.strictEqual(row.chassis, 'E46');
+  assert.strictEqual(row.motor, 'M54');
+  ok('one type key opens as a chassis');
+
+  // a combination nobody built is 0 hits rather than an invented car
   assert.strictEqual(
-    istaBasicMatches(rows, { series: "5'", engine: 'M43' }).length,
+    istaBasicHits(model, { 63685259: "5'", 53363595: 'M43' }).length,
     0,
     'an impossible combination matches nothing'
   );
-  ok('the choices resolve to a real vehicle, or to none');
+  ok('an impossible combination yields no hits');
 
-  // a criterion the catalogue cannot answer is LISTED and disabled, not
-  // hidden: a missing row reads as a tool that forgot the question
-  const crits = istaBasicCriteria();
-  const sales = crits.find((c) => c.id === 'sales');
-  assert.ok(sales, 'Sales designation is listed');
-  assert.strictEqual(sales.ok, false, 'and is disabled');
-  assert.deepStrictEqual(istaBasicOptions(rows, {}, 'sales'), []);
+  // a build without the files degrades to null, which the page says out loud
+  assert.strictEqual(istaBasicModel(null, typekeys, chars), null);
+  assert.strictEqual(istaBasicModel(roots, null, chars), null);
+  assert.deepStrictEqual(istaBasicRoots(null), []);
+  assert.deepStrictEqual(istaBasicHits(null, {}), []);
+  ok('a missing extract is null, not an empty picker');
+}
+
+// ---- one row per control unit SLOT, not per candidate SGBD -----------------
+// THE BUG THIS PINS. The chassis config lists every SGBD a chassis could
+// carry: an E46 lists eight engine variants because the model ran with any
+// of them. Drawing that list gave one car eight engines, and because the
+// fault state was matched by diagnostic address -- which all eight share --
+// the single installed engine's faults lit up its siblings too.
+{
+  const { istaSlots, istaSlotFor } = I;
+  const config = {
+    sections: [
+      {
+        name: 'Engine',
+        ecus: [
+          { code: 'MS420', sgbd: 'ms420ds0', group: 'D_0012', label: 'MS42' },
+          { code: 'MS430', sgbd: 'ms430ds0', group: 'D_0012', label: 'MS43' },
+          { code: 'MS450', sgbd: 'ms450ds0', group: 'D_0012', label: 'MS45.1' },
+        ],
+      },
+      {
+        name: 'Body',
+        ecus: [
+          { code: 'LSZ', sgbd: 'lsz', group: 'D_00E8', label: 'Light switch' },
+          { code: 'IHKA', sgbd: 'ihka46', group: 'D_005B', label: 'Climate' },
+        ],
+      },
+    ],
+  };
+
+  // three engine candidates are ONE slot
+  const cold = istaSlots(config, null, null);
+  assert.strictEqual(cold.length, 3, 'three slots, not five rows');
+  const eng = cold.find((x) => x.id === 'D_0012');
+  assert.strictEqual(eng.candidates.length, 3, 'the slot holds its candidates');
+  assert.strictEqual(eng.state, 'unread', 'nothing read it yet');
+  // it must NOT borrow one candidate's name on a car nobody has read
   assert.ok(
-    crits.filter((c) => c.ok).length >= 6,
-    'most criteria are answerable'
+    !/MS4[0-9]/.test(eng.name),
+    `an unidentified slot does not claim a variant (got ${eng.name})`
   );
-  ok('an unanswerable criterion is shown, not hidden');
+  assert.strictEqual(eng.name, 'Engine', 'it reads as its family');
+  ok('candidates for one slot collapse to one row');
+
+  // a scan that found ONE engine names the slot and lights only it
+  const faults = {
+    kind: 'faults',
+    modules: [
+      { sgbd: 'ms450ds0', via: 'ms450ds0', label: 'MS45.1', codes: [{}, {}] },
+    ],
+    silent: [{ target: 'ihka46', label: 'Climate' }],
+  };
+  const warm = istaSlots(config, faults, null);
+  const e2 = warm.find((x) => x.id === 'D_0012');
+  assert.strictEqual(e2.abbr, 'MS450', 'the slot takes the identified name');
+  assert.strictEqual(e2.name, 'MS45.1');
+  assert.strictEqual(e2.sgbd, 'ms450ds0');
+  assert.strictEqual(e2.state, 'faults');
+  assert.strictEqual(e2.faults, 2);
+  // THE WHOLE POINT: no sibling inherits it
+  assert.deepStrictEqual(
+    warm.filter((x) => x.state === 'faults').map((x) => x.abbr),
+    ['MS450'],
+    'only the installed engine is amber'
+  );
+  assert.strictEqual(
+    warm.find((x) => x.id === 'D_005B').state,
+    'silent',
+    'a module that did not answer is red'
+  );
+  assert.strictEqual(
+    warm.find((x) => x.id === 'D_00E8').state,
+    'unread',
+    'a module nobody asked is grey, not green'
+  );
+  ok('the read names the slot, and lights only it');
+
+  // an identification names the slot even with no fault scan
+  const idOnly = istaSlots(config, null, {
+    kind: 'ident',
+    modules: [
+      { sgbd: 'ms430ds0', via: 'ms430ds0', ident: { SG_VARIANTE: 'X' } },
+    ],
+  });
+  const e3 = idOnly.find((x) => x.id === 'D_0012');
+  assert.strictEqual(e3.abbr, 'MS430', 'the identification names it');
+  assert.ok(e3.ident, 'and its identification is carried');
+  assert.strictEqual(e3.state, 'unread', 'but its fault memory is unread');
+  ok('an identification alone names the slot');
+
+  // every candidate maps back to its slot, so the fault table and the tree
+  // can ask "which control unit is this module" and get one answer
+  assert.strictEqual(istaSlotFor(warm, 'ms420ds0').id, 'D_0012');
+  assert.strictEqual(istaSlotFor(warm, 'ms450ds0').id, 'D_0012');
+  assert.strictEqual(istaSlotFor(warm, 'nope'), null);
+  ok('any candidate resolves to its slot');
 }
 
 console.log(`test_ista: ${passed} checks passed`);

@@ -258,6 +258,8 @@ const OFFLINE_SHELL = [
   'screens/ista/faults.js',
   'screens/ista/trees.js',
   'screens/ista/basic.js',
+  'screens/ista/slots.js',
+  'screens/ista/ecuwin.js',
   'screens/ista/details.js',
   'screens/ista/pages.js',
   'screens/ista/screen.js',

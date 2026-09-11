@@ -777,16 +777,130 @@ function istaRealChromeBars(sub) {
 }
 
 /**
- * Open one module's own script, from the Control unit list.
- * @param {object} ecu - the picked config ECU
+ * Give the drawn bus map ISTA's own behaviour: hover shows the unit's
+ * details, a click SELECTS it and nothing else.
+ *
+ * The app's own tree opens a module when a box is clicked, which is one
+ * click too few for this tool: ISTA selects, and the window is a separate,
+ * deliberate press of Call up ECU functions. So the box's own handler is
+ * replaced rather than wrapped.
+ * @param {IstaSlot[]} slots - the car's slots
+ * @param {string} chassis - the chassis id
+ * @param {(p: {slot: object, box: object}|null) => void} onPick - selection
+ * @returns {void}
+ */
+function istaTreeBind(slots, chassis, onPick) {
+  if (typeof document === 'undefined') return;
+  const host = document.getElementById('view');
+  if (!host) return;
+  let tip = null;
+  const drop = () => {
+    if (tip && tip.parentNode) tip.parentNode.removeChild(tip);
+    tip = null;
+  };
+  host.querySelectorAll('.tree-box').forEach((el) => {
+    // the box carries the name the tree drew it under; the slot behind it is
+    // whichever one holds a candidate of that name
+    const name = String(el.dataset.name || el.textContent || '').trim();
+    const slot =
+      (slots || []).find(
+        (x) =>
+          String(x.abbr || '').toUpperCase() === name.toUpperCase() ||
+          String(x.sgbd || '').toUpperCase() === name.toUpperCase()
+      ) || null;
+    const box = {
+      name,
+      addr: el.dataset.addr || '',
+      bus: el.dataset.bus || '',
+      col: el.dataset.col,
+      row: el.dataset.row,
+    };
+    el.onmouseenter = () => {
+      if (typeof istaEcuTip !== 'function') return;
+      drop();
+      const d = document.createElement('div');
+      d.className = 'irtip-wrap';
+      d.innerHTML = istaEcuTip(box, slot);
+      const r = el.getBoundingClientRect();
+      d.style.left = `${Math.round(r.left)}px`;
+      d.style.top = `${Math.round(r.bottom + 4)}px`;
+      document.body.appendChild(d);
+      tip = d;
+    };
+    el.onmouseleave = drop;
+    el.onclick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      host.querySelectorAll('.tree-box.ista-sel').forEach((x) => {
+        x.classList.remove('ista-sel');
+      });
+      el.classList.add('ista-sel');
+      if (onPick) onPick(slot ? { slot, box } : null);
+    };
+  });
+}
+
+/**
+ * The car's control unit slots, with what the newest scans found in each.
+ *
+ * Both scans are asked for: the fault scan says which slots hold faults, the
+ * identification scan says WHICH VARIANT is in a slot. They are different
+ * reads and a car may have had only one of them.
+ * @param {string} chassis - the chassis id
+ * @param {object|null} car - the picked GarageCar
+ * @returns {Promise<IstaSlot[]>}
+ */
+async function istaLoadSlots(chassis, car) {
+  const cfg = await istaProbe(() => api(`/api/chassis/${chassis}`));
+  const scans =
+    car && typeof garageScans === 'function' ? garageScans(car.id) : [];
+  const faults = (scans.find((x) => x.kind === 'faults') || {}).report || null;
+  const ident = (scans.find((x) => x.kind === 'ident') || {}).report || null;
+  return typeof istaSlots === 'function' ? istaSlots(cfg, faults, ident) : [];
+}
+
+/**
+ * Open the control unit window for a slot.
+ *
+ * The module's decoded script comes with it, because the window's two live
+ * tabs list the screens that script offers. A slot nothing has identified
+ * has no script to list, and the window says so on its Identification tab
+ * rather than guessing which of eight candidates to load.
+ * @param {object} slot - the slot, from istaSlots
+ * @param {object|null} box - its tree box, when opened from the map
+ * @param {string} chassis - the chassis id
  * @returns {Promise<void>}
  */
-function istaOpenModuleScript(ecu) {
-  if (!ecu || !ecu.sgbd || typeof showEcu !== 'function')
-    return Promise.resolve();
-  return istaOpen({
-    label: ecu.label || ecu.sgbd,
-    _call: () => showEcu(istaChassis(), ecu.sgbd),
+async function istaOpenEcuWindow(slot, box, chassis) {
+  if (!slot || typeof istaEcuWindow !== 'function') return;
+  // the same endpoint the module view reads its script from, so the window
+  // lists exactly the screens that view would offer
+  const code =
+    slot.ecu && slot.ecu.code
+      ? `?code=${encodeURIComponent(slot.ecu.code)}`
+      : '';
+  const ir = slot.sgbd
+    ? await istaProbe(() => api(`/api/ecu/${slot.sgbd}/ir${code}`))
+    : null;
+  istaEcuWindow({
+    slot,
+    box,
+    ir,
+    run: async (screen) => {
+      // RUNNING A SCREEN IS LEAVING THIS WINDOW. The app already has one
+      // path that opens a module at a named screen, with the confirm on
+      // anything that writes and the release-on-leave that a live actuator
+      // needs; re-implementing a second runner inside a dialog would be a
+      // second place for those promises to be got wrong. So the window
+      // closes and the module view opens where it was pointed.
+      if (typeof showEcu !== 'function' || !slot.ecu) return [];
+      await istaOpen({
+        label: slot.name || slot.abbr,
+        _call: () =>
+          showEcu(chassis, slot.section, slot.ecu, null, screen.name),
+      });
+      return [];
+    },
   });
 }
 
@@ -799,6 +913,28 @@ function istaOpenModuleScript(ecu) {
  * @type {object[]}
  */
 const istaTestPlan = [];
+
+/**
+ * Open one diagnosis document in the viewer.
+ * @param {string} chassis - the chassis id
+ * @param {object} doc - the document row
+ * @returns {Promise<void>}
+ */
+async function istaOpenDiagDoc(chassis, doc) {
+  if (!doc || typeof openModal !== 'function') return;
+  const body = await istaDiagBody(chassis, doc);
+  const { overlay, close } = openModal(
+    `<div class="modal irdoc" role="dialog" aria-modal="true">` +
+      `<div class="irdoc-title">${esc(
+        `${doc.type || ''} ${doc.title || ''}`.trim()
+      )}</div>` +
+      `<div class="irdoc-body ista-repair">${body}</div>` +
+      `<div class="modal-actions">` +
+      `<button type="button" class="btn irdoc-close">Close</button>` +
+      `</div></div>`
+  );
+  overlay.querySelector('.irdoc-close').onclick = () => close();
+}
 
 /**
  * The Workshop page's Filter dialog.
@@ -865,12 +1001,33 @@ async function istaOpenBasic(row) {
  * @returns {Promise<void>}
  */
 function istaOpenStoredScan(scan) {
-  if (!scan || !istaState.car) return Promise.resolve();
-  if (typeof showGarageScan !== 'function') return Promise.resolve();
-  return istaOpen({
-    label: 'Operations report',
-    _call: () => showGarageScan(istaState.car.id, scan.id),
+  if (!scan) return Promise.resolve();
+  // inside the shell the scan is redrawn in the tool's own language rather
+  // than opening the Garage's INPA-faithful sheet; outside it, that sheet is
+  // still the right thing and nothing here changes it
+  if (!istaSkinOn()) {
+    if (typeof showGarageScan !== 'function' || !istaState.car)
+      return Promise.resolve();
+    return istaOpen({
+      label: 'Operations report',
+      _call: () => showGarageScan(istaState.car.id, scan.id),
+    });
+  }
+  view.innerHTML = '';
+  const host = document.createElement('div');
+  view.appendChild(host);
+  istaPageReport(host, scan);
+  const sum = scan.summary || {};
+  istaRealStatus({
+    items: [
+      { k: 'Modules:', v: String(sum.modules || 0) },
+      { k: 'Faults:', v: String(sum.faults || 0) },
+    ],
   });
+  istaBottomBar('report', {
+    close: () => showIsta(istaState.tab, istaState.sub, istaState.sub3),
+  });
+  return Promise.resolve();
 }
 
 /**
@@ -1199,7 +1356,12 @@ async function istaDrawPage(s, host) {
               })
           : null,
       });
+    // the car's own modules, so a code is read against the tables that can
+    // actually tell its families apart
+    const saeSlots = await istaLoadSlots(chassis, car);
+    if (!host.isConnected) return;
     istaPageSae(host, {
+      sgbds: saeSlots.map((x) => x.sgbd).filter(Boolean),
       onRows: (r) => {
         rows = r;
         istaRealStatus({
@@ -1258,6 +1420,43 @@ async function istaDrawPage(s, host) {
     return;
   }
 
+  // ---- Troubleshooting / Text Search ----------------------------------------
+  if (s.page === 'diag-search') {
+    istaRealStatus({ items: [{ k: 'Hits:', v: '0 / 0' }] });
+    istaBottomBar('diag-search', {});
+    const [fp, fn, cp] = await Promise.all([
+      istaProbe(() => istaDiagLoad(chassis, 'fault-pattern')),
+      istaProbe(() => istaDiagLoad(chassis, 'function-structure')),
+      istaProbe(() => istaDiagLoad(chassis, 'component-structure')),
+    ]);
+    if (!host.isConnected) return;
+    if (!fp && !fn && !cp)
+      return istaPageGrey(
+        host,
+        s.label,
+        `no diagnosis structures ship for ${chassis || 'this vehicle'} in ` +
+          `this build: run tools/ista/diag_structure_extract.py to add them`
+      );
+    istaDiagSearch(host, {
+      data: {
+        'fault-pattern': fp,
+        'function-structure': fn,
+        'component-structure': cp,
+      },
+      onCount: (n) => {
+        istaRealStatus({ items: [{ k: 'Hits:', v: `${n} / ${n}` }] });
+        istaBottomBar('diag-search', {
+          search: () => host._istaSearch && host._istaSearch.run(),
+        });
+      },
+      onOpen: (hit) => istaOpenDiagDoc(chassis, hit.doc),
+    });
+    istaBottomBar('diag-search', {
+      search: () => host._istaSearch && host._istaSearch.run(),
+    });
+    return;
+  }
+
   // ---- Service plan ---------------------------------------------------------
   if (s.page === 'plan') {
     let picked = null;
@@ -1303,15 +1502,24 @@ async function istaDrawPage(s, host) {
       _call: () => showEcuTreeChassis(chassis, car ? car.id : null),
     });
     if (!real) return;
-    const scan =
-      typeof istaNewestScan === 'function' ? istaNewestScan(car) : null;
-    const report = scan && scan.report;
-    const faults = ((report && report.modules) || []).reduce(
-      (a, m) => a + (m.codes || []).length,
-      0
-    );
+    const slots = await istaLoadSlots(chassis, car);
+    const faults = slots.reduce((a, x) => a + x.faults, 0);
+    const read = slots.some((x) => x.state !== 'unread');
+    let picked = null;
+    const bar = () =>
+      istaBottomBar('unit-list', {
+        'vehicle-test': () => {
+          istaState.tested = true;
+          return istaOpenVehicleTest();
+        },
+        'ecu-functions': picked
+          ? () => istaOpenEcuWindow(picked.slot, picked.box, chassis)
+          : null,
+        'display-faults': () =>
+          istaGo('management', 'troubleshooting', 'fault-memory'),
+      });
     istaRealStatus({
-      items: [{ k: 'Fault memory', v: report ? String(faults) : 'Unknown' }],
+      items: [{ k: 'Fault memory', v: read ? String(faults) : 'Unknown' }],
       legend: [
         { cls: 'ok', label: 'ECU without fault memory' },
         { cls: 'warn', label: 'ECU with fault memory' },
@@ -1319,13 +1527,10 @@ async function istaDrawPage(s, host) {
         { cls: 'blue', label: 'ECU with programming abort' },
       ],
     });
-    istaBottomBar('unit-list', {
-      'vehicle-test': () => {
-        istaState.tested = true;
-        return istaOpenVehicleTest();
-      },
-      'display-faults': () =>
-        istaGo('management', 'troubleshooting', 'fault-memory'),
+    bar();
+    istaTreeBind(slots, chassis, (p) => {
+      picked = p;
+      bar();
     });
     return;
   }
@@ -1333,40 +1538,32 @@ async function istaDrawPage(s, host) {
   // ---- Vehicle information / Control unit list ------------------------------
   if (s.page === 'unit-list') {
     let picked = null;
-    const cfg = await istaProbe(() => api(`/api/chassis/${chassis}`));
+    const slots = await istaLoadSlots(chassis, car);
     if (!host.isConnected) return;
-    const scan =
-      typeof istaNewestScan === 'function' ? istaNewestScan(car) : null;
-    const report = scan && scan.report;
-    const faults = ((report && report.modules) || []).reduce(
-      (a, m) => a + (m.codes || []).length,
-      0
-    );
+    const faults = slots.reduce((a, x) => a + x.faults, 0);
+    const read = slots.some((x) => x.state !== 'unread');
     const bar = () =>
       istaBottomBar('unit-list', {
         'vehicle-test': () => {
           istaState.tested = true;
           return istaGo('information', 'tree', null);
         },
-        'ecu-functions': picked ? () => istaOpenModuleScript(picked) : null,
+        // the window is about ONE control unit, so it needs one picked
+        'ecu-functions': picked
+          ? () => istaOpenEcuWindow(picked, null, chassis)
+          : null,
         'display-faults': () =>
           istaGo('management', 'troubleshooting', 'fault-memory'),
       });
-    const rows = istaPageUnitList(host, {
-      config: cfg,
-      report,
-      onPick: (e) => {
-        picked = e;
+    istaPageUnitList(host, {
+      slots,
+      onPick: (x) => {
+        picked = x;
         bar();
       },
     });
     istaRealStatus({
-      items: [
-        {
-          k: 'Fault memory:',
-          v: report ? String(faults) : 'Unknown',
-        },
-      ],
+      items: [{ k: 'Fault memory:', v: read ? String(faults) : 'Unknown' }],
       legend: [
         { cls: 'ok', label: 'ECU without fault memory' },
         { cls: 'warn', label: 'ECU with fault memory' },
@@ -1375,7 +1572,6 @@ async function istaDrawPage(s, host) {
       ],
     });
     bar();
-    void rows;
     return;
   }
 
@@ -1383,23 +1579,22 @@ async function istaDrawPage(s, host) {
   if (s.page === 'basic') {
     istaRealStatus({ items: [] });
     istaBottomBar('basic', {});
-    const idx = await istaProbe(() =>
-      typeof loadVinIndex === 'function' ? loadVinIndex() : null
+    // the gate is the CHARACTERISTIC TREE, not the parts catalogue: this
+    // page is built from ISTA's own basic features and never touches a VIN
+    const ok = await istaProbe(() =>
+      typeof istaBasicPresent === 'function' ? istaBasicPresent() : false
     );
     if (!host.isConnected) return;
-    if (!idx)
+    if (!ok)
       return istaPageGrey(
         host,
         s.label,
-        'the parts catalogue VIN index is not in this build, so a vehicle ' +
+        "BMW's characteristic tree is not in this build, so a vehicle " +
           'cannot be described feature by feature here'
       );
     istaPageBasic(host, {
-      idx,
       onChange: (n, row) => {
-        istaRealStatus({
-          items: [{ k: 'Hits:', v: `${n} / ${n}` }],
-        });
+        istaRealStatus({ items: [{ k: 'Hits:', v: `${n} / ${n}` }] });
         istaBottomBar('basic', {
           // exactly ONE vehicle is the bar for opening: a set of choices
           // that still describes six cars has not identified one

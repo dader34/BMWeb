@@ -19,7 +19,123 @@
  * the tree is those two joined, per car, rather than a fourth data file.
  */
 
-/* exported istaServiceSource istaDiagSource */
+/* exported istaServiceSource istaDiagSource istaDiagBodyHtml */
+
+/**
+ * One diagnosis document's body as HTML, in the repair manual's vocabulary.
+ *
+ * WHY THIS IS NOT repairDocHtml. A repair instruction is a numbered job: its
+ * model is sections of STEPS, and the renderer draws a step number beside
+ * each one because a mechanic says "I'm on four". A diagnosis document is
+ * reference material -- a pin table, an installation location, a functional
+ * description -- and numbering its paragraphs would invent a sequence that
+ * is not in the source and tell a reader to work through a wiring table in
+ * order. So the extract keeps its own block shape and this draws it.
+ *
+ * TABLES ARE WHY THE SHAPES CANNOT MERGE. 5,619 of E46's 8,311 bodies carry
+ * one, and a pin table is the document a wrong read makes dangerous: its six
+ * columns are what say which wire to back-probe. The repair step model has
+ * no table, only the torque widget, which is four fixed columns with a
+ * right-aligned figure -- so folding a pin table into it would misalign the
+ * one table that must not be misaligned. A real table is drawn instead.
+ *
+ * Everything a repair document and a diagnosis document genuinely share is
+ * shared: the same `.ista-repair` class names, so the two read identically,
+ * and repairPicUrl for the figures, because the picture pool IS the repair
+ * extract's and these documents reference it rather than owning it.
+ * @param {object|null} body - the extracted body {title, kind, sections}
+ * @returns {string} HTML
+ */
+function istaDiagBodyHtml(body) {
+  if (!body || !(body.sections || []).length)
+    return `<div class="rp-none">This document's body is not in this build.</div>`;
+
+  /**
+   * One content block.
+   * @param {object} b - {t, s} or {t:'table', rows}
+   * @returns {string} HTML
+   */
+  const block = (b) => {
+    if (!b) return '';
+    if (b.t === 'p') return `<p class="rp-step-p">${esc(b.s || '')}</p>`;
+    if (b.t === 'bullet') return `<li>${esc(b.s || '')}</li>`;
+    if (b.t === 'pic') {
+      // the extract resolves a GRAPHIC to the pooled picture's stream id, so
+      // the repair manual's own URL builder finds it; an unresolved figure
+      // keeps its name in the data and is not drawn as a broken image
+      const url =
+        typeof repairPicUrl === 'function' && typeof b.s === 'number'
+          ? repairPicUrl(b.s)
+          : '';
+      return url
+        ? `<div class="rp-pics"><img class="rp-pic" loading="lazy" ` +
+            `alt="Illustration" src="${esc(url)}"></div>`
+        : '';
+    }
+    if (b.t === 'table') {
+      const rows = b.rows || [];
+      if (!rows.length) return '';
+      // every row is padded to the widest, so a source that omits a trailing
+      // empty cell cannot shift the column a reader counts across to
+      const width = rows.reduce((w, r) => Math.max(w, r.length), 0);
+      const cells = (r, tag) => {
+        let out = '';
+        for (let i = 0; i < width; i++)
+          out += `<${tag}>${esc(r[i] || '')}</${tag}>`;
+        return out;
+      };
+      // `head: 0` marks a table whose first row is data (a legend's
+      // name/explanation pairs); drawing it as a heading would lose a part
+      const headed = b.head !== 0;
+      const head = headed ? `<tr>${cells(rows[0], 'th')}</tr>` : '';
+      const bodyRows = (headed ? rows.slice(1) : rows)
+        .map((r) => `<tr>${cells(r, 'td')}</tr>`)
+        .join('');
+      // rp-tq is the repair manual's framed, banded table: nothing in its
+      // styling is about torque, and reusing it is what keeps a pin table
+      // looking like every other table in workshop mode
+      return (
+        `<div class="rp-tq"><table class="rp-tq-table">` +
+        head +
+        `<tbody>${bodyRows}</tbody></table></div>`
+      );
+    }
+    return '';
+  };
+
+  const parts = [
+    `<h2 class="rp-doc-h">${esc(body.title || '(untitled)')}</h2>`,
+  ];
+  for (const sec of body.sections || []) {
+    // bullets are gathered into one list rather than each becoming its own,
+    // which is what the source means by a run of LISTENTRYs
+    let drawn = '';
+    let bullets = '';
+    for (const b of sec.blocks || []) {
+      const html = block(b);
+      if (!html) continue;
+      if (b.t === 'bullet') {
+        bullets += html;
+        continue;
+      }
+      if (bullets) {
+        drawn += `<ul class="rp-dg">${bullets}</ul>`;
+        bullets = '';
+      }
+      drawn += html;
+    }
+    if (bullets) drawn += `<ul class="rp-dg">${bullets}</ul>`;
+    if (!drawn) continue;
+    parts.push(
+      `<section class="rp-sec">` +
+        (sec.heading ? `<div class="rp-sec-h">${esc(sec.heading)}</div>` : '') +
+        `<div class="rp-step-body">${drawn}</div></section>`
+    );
+  }
+  return parts.length > 1
+    ? parts.join('')
+    : parts[0] + `<div class="rp-none">This document has no content.</div>`;
+}
 
 /**
  * The Service functions source: the car's modules, and what each performs.
@@ -170,10 +286,154 @@ function istaDiagSource(data, bodyOf) {
     rowTitle: (d) => d.title || '',
     docTitle: (d) => `${d.type || ''} ${d.title || ''}`.trim(),
     docId: (d) => String(d.id),
-    docHtml: (d) => bodyOf(d),
+    // an SSP row is a wiring diagram, and this build ships none: E46 alone
+    // references 10,048 of them and their SVGs come to tens of megabytes, so
+    // they belong to the wiring importer rather than to this extract. The
+    // row still lists -- ISTA holds the diagram and a reader should see that
+    // it exists -- and says what it is instead of drawing anything.
+    docHtml: (d) =>
+      d && d.type === 'SSP'
+        ? `<div class="rp-none">This is a wiring diagram. Diagrams are ` +
+          `not in this build.</div>`
+        : bodyOf(d),
   };
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { istaServiceSource, istaDiagSource };
+  module.exports = { istaServiceSource, istaDiagSource, istaDiagSearch };
+}
+
+/**
+ * Troubleshooting / Text Search: find a document across the three diagnosis
+ * structures.
+ *
+ * The same centred form the repair manual's Text Search uses, because it is
+ * the same question asked of a different shelf, and a technician should not
+ * have to learn two search pages. The scopes it offers are the ones this
+ * data can actually answer: the node titles and the document titles. A
+ * document's BODY is a separate file per document, and fetching thousands of
+ * them to answer a keystroke would cost more than the answer is worth, so
+ * that box is shown disabled with the reason rather than silently matching
+ * nothing.
+ * @param {HTMLElement} host - where to draw
+ * @param {object} ctx - {data: {tree} per structure, onOpen, onCount}
+ * @returns {void}
+ */
+function istaDiagSearch(host, ctx) {
+  let query = '';
+  /** @type {object[]} */
+  let hits = [];
+  const scopes = { structures: true, title: true };
+
+  /** Every document in every loaded structure, with the path that reaches it. */
+  const all = () => {
+    const out = [];
+    for (const [where, data] of Object.entries(ctx.data || {})) {
+      const roots = !data
+        ? []
+        : Array.isArray(data)
+          ? data
+          : Array.isArray(data.tree)
+            ? data.tree
+            : Array.isArray(data.kids)
+              ? data.kids
+              : [];
+      const walk = (n, trail) => {
+        const here = trail.concat([n.label || '']);
+        for (const d of n.docs || [])
+          out.push({ doc: d, where, path: here.join(' > ') });
+        for (const k of n.kids || []) walk(k, here);
+      };
+      for (const r of roots) walk(r, []);
+    }
+    return out;
+  };
+
+  /** Run the search and redraw the rows. */
+  const run = () => {
+    const q = query.trim().toLowerCase();
+    hits = [];
+    if (q.length >= 2) {
+      const seen = new Set();
+      for (const row of all()) {
+        const inTitle =
+          scopes.title &&
+          String(row.doc.title || '')
+            .toLowerCase()
+            .includes(q);
+        const inPath = scopes.structures && row.path.toLowerCase().includes(q);
+        if (!inTitle && !inPath) continue;
+        const key = `${row.where}:${row.doc.id}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        hits.push(row);
+        if (hits.length >= 500) break;
+      }
+    }
+    paint();
+    if (ctx.onCount) ctx.onCount(hits.length);
+  };
+
+  /** Draw the form and whatever the last search found. */
+  function paint() {
+    const box = (id, label, note) =>
+      `<label class="rp-check${note ? ' rp-check-off' : ''}">` +
+      `<input type="checkbox" data-scope="${esc(id)}"` +
+      `${scopes[id] ? ' checked' : ''}${note ? ' disabled' : ''}> ` +
+      `<span>${esc(label)}</span>` +
+      (note ? `<span class="rp-check-note">${esc(note)}</span>` : '') +
+      `</label>`;
+    host.innerHTML =
+      `<div class="ista-repair"><div class="rp-search">` +
+      `<div class="rp-search-form">` +
+      `<label class="rp-search-label" for="ista-dq">Search string:</label>` +
+      `<input type="search" id="ista-dq" class="rp-search-input" ` +
+      `value="${esc(query)}">` +
+      box('structures', 'Search in structures') +
+      box('title', 'Search in document title') +
+      box('document', 'Search in document', 'not in this build') +
+      box('number', 'Search for the document number', 'not in this build') +
+      `</div>` +
+      (hits.length
+        ? `<table class="irtable"><thead><tr><th>Type</th><th>Title</th>` +
+          `</tr></thead><tbody>` +
+          hits
+            .map(
+              (h, i) =>
+                `<tr data-h="${i}"><td>${esc(h.doc.type || '-')}</td>` +
+                `<td>${esc(h.doc.title || '')}</td></tr>`
+            )
+            .join('') +
+          `</tbody></table>`
+        : query.trim().length >= 2
+          ? `<div class="irvin-empty">Nothing matched.</div>`
+          : '') +
+      `</div></div>`;
+
+    const q = host.querySelector('#ista-dq');
+    q.oninput = () => {
+      query = q.value;
+    };
+    q.onkeydown = (e) => {
+      if (e.key === 'Enter') run();
+    };
+    host.querySelectorAll('[data-scope]').forEach((el) => {
+      el.onchange = () => {
+        scopes[el.dataset.scope] = el.checked;
+      };
+    });
+    host.querySelectorAll('tbody tr[data-h]').forEach((tr) => {
+      tr.onclick = () => {
+        host.querySelectorAll('tbody tr.sel').forEach((x) => {
+          x.classList.remove('sel');
+        });
+        tr.classList.add('sel');
+      };
+      tr.ondblclick = () => {
+        if (ctx.onOpen) ctx.onOpen(hits[Number(tr.dataset.h)]);
+      };
+    });
+    host._istaSearch = { run, pick: () => hits };
+  }
+  paint();
 }

@@ -178,18 +178,6 @@ const ISTA_TABS = [
         page: 'unit-list',
         needsCar: true,
       },
-      {
-        id: 'report',
-        label: 'Operations report',
-        desc: 'The newest stored read, as its report',
-        open: 'istaOpenLatestReport',
-        needsCar: true,
-      },
-      {
-        id: 'service-consultation',
-        label: 'Info from Service Consultation',
-        why: "BMW's service-consultation feed is a dealer system: this build has no access to it",
-      },
     ],
   },
   {
@@ -252,8 +240,9 @@ const ISTA_TABS = [
           {
             id: 'text-search',
             label: 'Text Search',
-            desc: "Find any screen or key in INPA's scripts by what it does",
-            open: 'showJobSearch',
+            desc: 'Find a diagnosis document by its title or where it sits',
+            page: 'diag-search',
+            needsCar: true,
           },
           {
             id: 'sae-input',
@@ -510,6 +499,12 @@ const ISTA_BOTTOM = {
     { nav: true },
     { id: 'display', label: 'Display' },
   ],
+  'diag-search': [
+    { id: 'keyboard', label: 'Keyboard', off: true },
+    { id: 'filter', label: 'Filter', off: true },
+    { spacer: true },
+    { id: 'search', label: 'Start search' },
+  ],
   'fault-pattern': [
     { spacer: true },
     { id: 'add-pattern', label: 'Add fault pattern', off: true },
@@ -539,6 +534,8 @@ const ISTA_BOTTOM = {
     { id: 'open-operation', label: 'Open operation' },
   ],
   history: [{ spacer: true }, { id: 'display', label: 'Display' }],
+  // a stored scan opened in the tool's own language
+  report: [{ spacer: true }, { id: 'close', label: 'Close' }],
   // Vehicle information / Control unit list (sheets2 s013's own row)
   'unit-list': [
     { id: 'vehicle-test', label: 'Start vehicle test' },

@@ -1287,12 +1287,18 @@ body.ista-mode.ista-real-body .view label {
    and the choices made so far. Each is a bordered box with the tool's own
    #4d4d4d title bar, and the rows read like table rows because that is what
    the reader is picking from. */
+/* THE THREE PANES FILL THE CONTENT AND SCROLL INSIDE THEMSELVES. The frame
+   shows three equal columns each with its own scrollbar; letting them grow
+   pushed the page down and left the reader scrolling the whole tool to see
+   the values of one feature. The host is absolutely positioned so it does
+   not depend on an ancestor passing a height down. */
 .ista-real-body .irbf {
+  position: absolute;
+  inset: 6px;
   display: flex;
   gap: 6px;
-  padding: 6px;
-  height: calc(100% - 12px);
   box-sizing: border-box;
+  min-height: 0;
 }
 .ista-real-body .irbf-pane {
   flex: 1 1 0;
@@ -1338,10 +1344,6 @@ body.ista-mode.ista-real-body .view label {
 .ista-real-body .irbf-row.on {
   background: var(--ir-teal);
   color: #fff;
-}
-.ista-real-body .irbf-row.off {
-  color: var(--ir-off);
-  cursor: default;
 }
 /* a criterion nobody has answered yet shows only its name */
 .ista-real-body .irbf-sel .irbf-row {
@@ -1399,4 +1401,129 @@ body.ista-mode.ista-real-body .view label {
 }
 .ista-real-body .irtree-host {
   height: 100%;
+}
+
+/* ---- the bus map's hover panel --------------------------------------------
+   A floating box beside the control unit, with the tool's nine rows in a
+   label : value grid. It is parked on <body> rather than inside the map so
+   the map's own overflow cannot clip it. */
+.ista-real-body .irtip-wrap {
+  position: fixed;
+  z-index: 60;
+  pointer-events: none;
+}
+.ista-real-body .irtip {
+  background: #f2f2f2;
+  border: 1px solid #9a9a9a;
+  padding: 6px 10px;
+  font-size: 12px;
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  gap: 2px 6px;
+  min-width: 260px;
+}
+.ista-real-body .irtip-k {
+  color: #333;
+}
+.ista-real-body .irtip-v {
+  font-weight: 700;
+  color: #000;
+}
+
+/* a control unit the reader picked on the map */
+.ista-real-body .view .tree-box.ista-sel rect {
+  stroke: var(--ir-teal);
+  stroke-width: 3;
+}
+
+/* ---- the control unit window ---------------------------------------------- */
+.ista-real-body .irecu {
+  min-width: 900px;
+  max-width: 1100px;
+}
+.ista-real-body .irecu-title {
+  background: var(--ir-grey);
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+}
+.ista-real-body .irecu-x {
+  margin-left: auto;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  padding: 0 2px;
+  display: inline-flex;
+  color: #1a1a1a;
+}
+.ista-real-body .irecu-x svg {
+  width: 13px;
+  height: 13px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+}
+.ista-real-body .irecu-host {
+  padding: 10px 12px;
+  height: 420px;
+  overflow: auto;
+  box-sizing: border-box;
+}
+.ista-real-body .irecu-actions {
+  gap: 6px;
+}
+
+/* Identification: a label column, then the ECU information table indented
+   under its own heading, the way the frame lays it out */
+.ista-real-body .irecu-h {
+  display: flex;
+  gap: 10px;
+  font-size: 12px;
+  margin-bottom: 3px;
+}
+.ista-real-body .irecu-hk {
+  flex: 0 0 150px;
+  color: #333;
+}
+.ista-real-body .irecu-hv {
+  font-weight: 700;
+}
+.ista-real-body .irecu-info {
+  margin: 4px 0 0 150px;
+  width: calc(100% - 150px);
+}
+.ista-real-body .irecu-info td:first-child {
+  width: 300px;
+  color: #333;
+}
+
+/* the two-pane tabs reuse the picker's columns */
+.ista-real-body .irecu-split {
+  display: flex;
+  gap: 6px;
+  height: 100%;
+  min-height: 0;
+}
+.ista-real-body .irecu-split .irbf-pane {
+  flex: 1 1 0;
+}
+
+/* ---- a stored scan, in the tool's own language ---------------------------- */
+.ista-real-body .irrep-wrap {
+  padding: 6px;
+}
+.ista-real-body .irrep {
+  margin-bottom: 10px;
+}
+.ista-real-body .irrep-sgbd {
+  font-weight: 400;
+  opacity: 0.75;
+  margin-left: 8px;
+}
+.ista-real-body .irrep-cols th {
+  background: #6a6a6a;
+}
+.ista-real-body .irrep-none {
+  color: #555;
+  font-style: italic;
 }

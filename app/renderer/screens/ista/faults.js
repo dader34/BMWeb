@@ -302,6 +302,30 @@ function istaPageSae(host, ctx) {
   const sae = host.querySelector('#ista-sae');
   const bmw = host.querySelector('#ista-bmw');
 
+  /**
+   * The text for a code, resolved the way the Fault Lookup app resolves it.
+   *
+   * THE CAR'S OWN MODULES COME FIRST. The flat fault table collides across
+   * ECU families: 2761 is the secondary-air fault on the E46's MS45 and
+   * something else entirely on another engine, and only the SGBD's own table
+   * can tell them apart. So every module this car carries is asked in turn,
+   * and the shared table is the fallback rather than the answer.
+   * @param {string} code - the BMW hex code
+   * @returns {{text: string, sgbd: string}} the text and which module knew it
+   */
+  const textFor = (code) => {
+    if (typeof faultName !== 'function') return { text: '', sgbd: '' };
+    for (const sgbd of ctx && ctx.sgbds ? ctx.sgbds : []) {
+      const own =
+        typeof scopedFaultDb === 'function' ? scopedFaultDb(sgbd) : null;
+      if (own && own[code]) {
+        const t = faultName('', code, sgbd);
+        if (t) return { text: t, sgbd };
+      }
+    }
+    return { text: faultName('', code, '') || '', sgbd: '' };
+  };
+
   /** Look up whatever is in the boxes and draw the rows. */
   const run = () => {
     const p = String(sae.value || '')
@@ -310,30 +334,32 @@ function istaPageSae(host, ctx) {
     const b = String(bmw.value || '')
       .trim()
       .toUpperCase();
-    /** @type {Array<[string, string, string]>} */
+    /** @type {Array<[string, string, string, string]>} */
     const found = [];
     if (p && typeof hexForPcode === 'function') {
       const hex = hexForPcode(p);
-      if (hex)
-        found.push([
-          p,
-          hex,
-          typeof faultName === 'function' ? faultName('', hex, '') : '',
-        ]);
+      if (hex) {
+        const t = textFor(hex);
+        found.push([p, hex, t.text, t.sgbd]);
+      }
     }
     if (b) {
       const ps =
         typeof pcodesForHex === 'function' ? pcodesForHex(b) || [] : [];
-      const text = typeof faultName === 'function' ? faultName('', b, '') : '';
-      if (ps.length) for (const one of ps) found.push([one, b, text]);
-      else found.push(['-', b, text]);
+      const t = textFor(b);
+      if (ps.length) for (const one of ps) found.push([one, b, t.text, t.sgbd]);
+      else found.push(['-', b, t.text, t.sgbd]);
     }
     tb.innerHTML = found.length
       ? found
           .map(
-            ([a, code, text]) =>
+            ([a, code, text, sgbd]) =>
               `<tr><td>${esc(a)}</td><td>${esc(code)}</td>` +
-              `<td>${esc(text || '-')}</td></tr>`
+              `<td>${esc(text || '-')}` +
+              // which module's table answered, when one did: the same code
+              // reads differently on another engine and the row says whose
+              (sgbd ? ` <span class="irsae-of">(${esc(sgbd)})</span>` : '') +
+              `</td></tr>`
           )
           .join('')
       : '';
@@ -341,16 +367,18 @@ function istaPageSae(host, ctx) {
   };
   sae.oninput = run;
   bmw.oninput = run;
-  // the P-code table is a separate load; a page that opens before it lands
-  // simply finds nothing until it does
-  if (typeof loadPcodes === 'function')
-    Promise.resolve(loadPcodes())
-      .then(() => {
-        if (host.isConnected) run();
-      })
-      .catch(() => {
-        /* the mapping is optional */
-      });
+  // the P-code table and the fault texts are separate loads; a page that
+  // opens before they land simply finds nothing until they do
+  Promise.all([
+    typeof loadPcodes === 'function' ? loadPcodes() : null,
+    typeof loadFaultDb === 'function' ? loadFaultDb() : null,
+  ])
+    .then(() => {
+      if (host.isConnected) run();
+    })
+    .catch(() => {
+      /* the mapping is optional */
+    });
 }
 
 if (typeof module !== 'undefined' && module.exports) {

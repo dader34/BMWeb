@@ -16,7 +16,7 @@
  */
 
 /* exported istaPageFinished istaPageUnitList istaPageHistory
-   istaPageServicePlan istaModuleGroups */
+   istaPageServicePlan istaModuleGroups istaPageReport */
 
 /** How ISTA colours a module's state square. */
 const ISTA_STATE_CLASS = {
@@ -175,44 +175,26 @@ function istaModuleGroups(config) {
 /**
  * Vehicle information / Control unit list.
  *
- * One row per module the chassis can carry, with the state square coloured
- * from the newest stored scan. A module nobody has read is GREY, not green:
- * "not read" and "no faults" are different answers and the tool must not
- * blur them.
+ * ONE ROW PER SLOT, not per SGBD the chassis could carry. See slots.js: the
+ * config lists eight engine variants for an E46 because the model ran with
+ * any of them, and drawing that list gave one car eight engines with the
+ * installed one's faults smeared across its siblings.
  * @param {HTMLElement} host - where to draw
- * @param {object} ctx - {config, report, onPick}
+ * @param {object} ctx - {slots, onPick}
  * @returns {object[]} the rows drawn
  */
 function istaPageUnitList(host, ctx) {
-  const report = ctx.report || null;
-  // index the stored scan by the sgbd each module answered on
-  const byId = new Map();
-  for (const m of (report && report.modules) || [])
-    byId.set(String(m.via || m.sgbd || '').toLowerCase(), {
-      state: (m.codes || []).length ? 'faults' : 'ok',
-      n: (m.codes || []).length,
-    });
-  for (const s of (report && report.silent) || [])
-    byId.set(String(s.target || '').toLowerCase(), { state: 'silent', n: 0 });
-
-  const rows = [];
-  for (const g of istaModuleGroups(ctx.config))
-    for (const e of g.ecus) rows.push(e);
-
+  const rows = ctx.slots || [];
   const body = rows
-    .map((e, i) => {
-      const hit =
-        byId.get(String(e.sgbd || '').toLowerCase()) ||
-        byId.get(String(e.group || '').toLowerCase()) ||
-        null;
-      const st = hit ? hit.state : 'unread';
-      return (
+    .map(
+      (s, i) =>
         `<tr data-i="${i}">` +
-        `<td class="irstate"><i class="${ISTA_STATE_CLASS[st]}"></i></td>` +
-        `<td>${esc(e.code || e.sgbd || '')}</td>` +
-        `<td>${esc(e.label || e.sgbd || '')}</td></tr>`
-      );
-    })
+        `<td class="irstate"><i class="${
+          ISTA_STATE_CLASS[s.state] || 'dim'
+        }"></i></td>` +
+        `<td>${esc(s.abbr)}</td>` +
+        `<td>${esc(s.name)}</td></tr>`
+    )
     .join('');
 
   host.innerHTML =
@@ -306,5 +288,103 @@ if (typeof module !== 'undefined' && module.exports) {
     istaPageHistory,
     istaPageUnitList,
     istaPageServicePlan,
+    istaPageReport,
   };
+}
+
+/**
+ * A stored scan, drawn as the workshop tool draws it.
+ *
+ * The Garage's own report is a faithful copy of INPA's printout: monospace,
+ * its own headings, Share and Save keys. That is the right thing on the
+ * INPA side and the wrong thing here, where every other page is a table. So
+ * a scan opened from inside the shell is redrawn as one table per module in
+ * the tool's own language, rather than the INPA sheet in a workshop frame.
+ *
+ * The two kinds answer different questions and get different columns: an
+ * identification scan is label/value per module, a fault scan is ISTA's own
+ * five fault columns.
+ * @param {HTMLElement} host - where to draw
+ * @param {object} scan - a GarageScan
+ * @returns {void}
+ */
+function istaPageReport(host, scan) {
+  const report = (scan && scan.report) || null;
+  const mods = (report && report.modules) || [];
+  const silent = (report && report.silent) || [];
+  const faults = report && report.kind !== 'ident';
+
+  const head = (label, sgbd) =>
+    `<thead><tr><th colspan="5">${esc(label || sgbd || '')}` +
+    (sgbd ? ` <span class="irrep-sgbd">${esc(sgbd)}</span>` : '') +
+    `</th></tr>` +
+    (faults
+      ? `<tr class="irrep-cols"><th>Code</th><th>Description</th>` +
+        `<th>Mileage</th><th>Existent</th><th>Class</th></tr>`
+      : '') +
+    `</thead>`;
+
+  const blocks = mods
+    .map((m) => {
+      const sgbd = m.sgbd || m.via || '';
+      let body;
+      if (faults) {
+        const rows =
+          typeof istaFaultRows === 'function'
+            ? istaFaultRows({ modules: [m] })
+            : [];
+        body = rows.length
+          ? rows
+              .map(
+                (r) =>
+                  `<tr><td>${esc(r.code)}</td><td>${esc(r.desc)}</td>` +
+                  `<td>${esc(r.km || '')}</td>` +
+                  `<td>${r.present ? 'yes' : 'No'}</td><td>-</td></tr>`
+              )
+              .join('')
+          : `<tr><td colspan="5" class="irrep-none">No fault memory ` +
+            `entries.</td></tr>`;
+      } else {
+        const id = m.ident || {};
+        const keys = Object.keys(id).filter(
+          (k) => !k.startsWith('_') && id[k] != null && String(id[k]).trim()
+        );
+        body = keys.length
+          ? keys
+              .map(
+                (k) =>
+                  `<tr><td>${esc(k)}</td><td colspan="4">${esc(
+                    String(id[k])
+                  )}</td></tr>`
+              )
+              .join('')
+          : `<tr><td colspan="5" class="irrep-none">Nothing was ` +
+            `returned.</td></tr>`;
+      }
+      return (
+        `<table class="irtable irrep">${head(m.label, sgbd)}` +
+        `<tbody>${body}</tbody></table>`
+      );
+    })
+    .join('');
+
+  const quiet = silent.length
+    ? `<table class="irtable irrep">` +
+      `<thead><tr><th colspan="5">Did not answer</th></tr></thead><tbody>` +
+      silent
+        .map(
+          (s) =>
+            `<tr><td>${esc(s.label || s.target || '')}</td>` +
+            `<td colspan="4">${esc(s.error || 'no answer')}</td></tr>`
+        )
+        .join('') +
+      `</tbody></table>`
+    : '';
+
+  host.innerHTML =
+    `<div class="irrep-wrap">` +
+    (mods.length || silent.length
+      ? blocks + quiet
+      : `<div class="irvin-empty">This scan holds no modules.</div>`) +
+    `</div>`;
 }
