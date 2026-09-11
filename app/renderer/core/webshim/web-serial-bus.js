@@ -757,6 +757,7 @@ class WebSerialBus extends SerialTransportBase {
         bmwSleep(DRAIN_PROBE_MS).then(() => ({ hit: false })),
       ]);
       if (!settled.hit) return; // still outstanding: leave it be
+      this.pending = null; // consumed here, as stale
       const { value, done } = settled.r || {};
       if (done || !value || !value.length) return;
     }
@@ -783,26 +784,32 @@ class WebSerialBus extends SerialTransportBase {
    */
   async readSome(deadline) {
     const ms = Math.max(1, deadline - Date.now());
-    if (!this.pending) {
-      // Tag the read so a resolved value can be told from a stale handle.
-      this.pending = this.reader.read().then(
-        (r) => {
-          this.pending = null;
-          return r;
-        },
-        (e) => {
-          this.pending = null;
-          throw e;
-        }
-      );
-    }
+    // THE CONSUMER CLEARS THE HANDLE, NEVER THE READ ITSELF. An earlier
+    // version had the read null this.pending as it resolved. A read left
+    // outstanding by the previous exchange's timeout then resolved while
+    // nobody was awaiting it -- during the 5 to 11 ms the transmit line is
+    // held after a K-line write -- and its value, the first chunk of the
+    // echo, was dropped: the next readSome found no handle and armed a
+    // fresh read that only saw the rest. On Windows, where the cable hands
+    // over one byte per chunk, every DS2 echo came back missing its first
+    // byte ("F0 04 00 F4" as "04 00 F4"); on macOS one to four bytes went,
+    // sometimes. A resolved read now stays on this.pending until a caller
+    // takes its value.
+    if (!this.pending) this.pending = this.reader.read();
     // a worker-timed race: a late wake resolves an orphaned promise, nothing
     // else, so there is no timer to clear
     const timeout = bmwSleep(ms).then(() => TIMED_OUT);
-    const r = await Promise.race([this.pending, timeout]);
+    let r;
+    try {
+      r = await Promise.race([this.pending, timeout]);
+    } catch (e) {
+      this.pending = null;
+      throw e;
+    }
     // Timed out: the read stays on this.pending for the next call. Report
     // "nothing yet" rather than done -- done means the port closed.
     if (r === TIMED_OUT) return { value: null, done: false };
+    this.pending = null;
     return r;
   }
 }
