@@ -72,12 +72,24 @@ def test_rules():
     tree, _ = parse_rule(group(0x02, leaf(1, 10)))
     eq(tree["op"], "or", "0x02 is OR")
 
-    tree, _ = parse_rule(b"\x10" + leaf(1, 10))
-    eq(tree["op"], "not", "0x10 is NOT")
+    tree, _ = parse_rule(b"\x03" + leaf(1, 10))
+    eq(tree["op"], "not", "0x03 is NOT")
     eq(len(tree["kids"]), 1, "NOT takes one operand")
 
+    # the dated and single-id leaves, ISTA's own payloads
+    mfd = b"\x13\x03" + struct.pack("<q", 631820736000000000)
+    tree, pos = parse_rule(mfd)
+    eq(tree, {"op": "mfd", "cmp": "ge", "ticks": 631820736000000000}, "0x13 is a production-date compare")
+    eq(pos, 10, "a dated leaf is 1 + 1 + 8 bytes")
+    tree, pos = parse_rule(b"\x0e" + struct.pack("<q", 42))
+    eq(tree, {"op": "salapa", "val": 42}, "0x0e is an SA/LA/PA id")
+    eq(pos, 9, "a single-id leaf is 1 + 8 bytes")
+    tree, pos = parse_rule(b"\x14\x02\x01" + struct.pack("<q", 5))
+    eq(tree, {"op": "istufex", "cmp": "gt", "flag": True, "val": 5}, "0x14 is an I-level compare")
+    eq(pos, 11, "an I-level leaf is 1 + 1 + 1 + 8 bytes")
+
     # nesting round-trips
-    nested = group(0x01, group(0x02, leaf(1, 10), leaf(1, 11)), b"\x10" + leaf(2, 20))
+    nested = group(0x01, group(0x02, leaf(1, 10), leaf(1, 11)), b"\x03" + leaf(2, 20))
     tree, pos = parse_rule(nested)
     eq(pos, len(nested), "a nested rule consumes its blob")
     eq(tree["kids"][0]["op"], "or", "the nested OR survives")
@@ -85,13 +97,13 @@ def test_rules():
 
     # an undecoded opcode is refused rather than guessed at
     try:
-        parse_rule(b"\x03\x00\x00\x00\x00")
-        raise AssertionError("0x03 should not parse")
+        parse_rule(b"\x05\x00\x00\x00\x00")
+        raise AssertionError("0x05 (VALUE) should not parse")
     except RuleParseError:
-        ok("an unknown opcode raises")
+        ok("a type the engine refuses raises")
 
     # decode_rule turns that into the flag the app reads
-    eq(decode_rule(b"\x03\x00"), (None, True), "an undecodable rule is unsure")
+    eq(decode_rule(b"\x05\x00"), (None, True), "an undecodable rule is unsure")
     eq(decode_rule(b""), (None, False), "no rule at all is not unsure")
     eq(decode_rule(None), (None, False), "a null rule is not unsure")
     # decoded but with bytes left over is NOT trusted: a tree built from part

@@ -18,6 +18,10 @@
   <link rel="stylesheet" href="css/lookup.css" />
   <link rel="stylesheet" href="css/tuning.css" />
   <link rel="stylesheet" href="css/themes.css" />
+  <!-- The ISTA layout's chrome. Every rule is scoped under .ista-real, which
+       the shell sets only while the INPA layout setting is on, so the Modern
+       look and the rest of the app are untouched by it. -->
+  <link rel="stylesheet" href="css/ista-real.css" />
 </head>
 <body>
   <!-- boot splash, dismissed once the sidecar answers. logo inherits theme vars -->
@@ -448,6 +452,17 @@
   <script src="screens/techdata/data.js"></script>
   <script src="screens/techdata/render.js"></script>
   <script src="screens/techdata/screen.js"></script>
+  <!-- Repair instructions (screens/repair/): ISTA's repair manual. data.js
+       loads the per-chassis extract (the car filter already ran, at extract
+       time -- the corpus is far too big to filter in a browser), render.js
+       draws the steps, hints, torques and pictures, browser.js is the
+       reusable tree/list/document page (ISTA draws four of its structure
+       pages this way), screen.js is the sub-tab the ISTA shell opens -- so
+       it loads last, and before the shell. -->
+  <script src="screens/repair/data.js"></script>
+  <script src="screens/repair/render.js"></script>
+  <script src="screens/repair/browser.js"></script>
+  <script src="screens/repair/screen.js"></script>
   <!-- The ISTA shell (screens/ista/): workshop mode -- a banner and tab bar
        that stay up while the app's OWN screens render underneath them. It
        wraps them, it does not re-implement them, so it loads after every
@@ -456,7 +471,16 @@
        had no screen for, screen.js the entry point -- so it loads last. -->
   <script src="screens/ista/model.js"></script>
   <script src="screens/ista/banner.js"></script>
+  <script src="screens/ista/skin.js"></script>
+  <script src="screens/ista/admin.js"></script>
+  <script src="screens/ista/tables.js"></script>
+  <script src="screens/ista/faults.js"></script>
+  <script src="screens/ista/trees.js"></script>
+  <script src="screens/ista/basic.js"></script>
+  <script src="screens/ista/slots.js"></script>
+  <script src="screens/ista/ecuwin.js"></script>
   <script src="screens/ista/details.js"></script>
+  <script src="screens/ista/pages.js"></script>
   <script src="screens/ista/screen.js"></script>
   <script src="screens/apps.js"></script>
   <script src="screens/tutorial.js"></script>

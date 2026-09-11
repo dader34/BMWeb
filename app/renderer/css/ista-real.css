@@ -1,0 +1,1646 @@
+/* ===========================================================================
+   ISTA layout: the workshop tool's own chrome, 1:1.
+
+   EVERY RULE IN THIS FILE IS SCOPED UNDER .ista-real, and .ista-real is set
+   only when Settings 'inpaScreens' is 'on' (inpaMode(), which is forced off
+   on phones). With the setting on Modern, not one selector here matches and
+   the ISTA app keeps the look it had. Nothing outside the shell is touched
+   either way: the scope class sits on the chrome container and on <body>,
+   and every rule descends from one of them.
+
+   THE COLOURS ARE MEASURED, NOT CHOSEN. Each value below was sampled off the
+   frames of a real session rather than eyeballed, because "about right" grey
+   is what makes a skin read as an imitation. The three that carry the look:
+
+     teal   #5e958f   the active tab, a selected row, a document title bar
+     grey   #c5c5c5   the toolbar, both sub-tab strips, every button face
+     black  #000000   the main tab bar
+
+   The tab strips have exactly one shape rule and it is not the obvious one.
+   The main bar and any strip that has ANOTHER strip below it are plain
+   rectangles on the tab grid; the LAST strip on the page cuts its top-right
+   corner into a trapezoid. That is why Operations/New (which has a level-3
+   strip under it) is square while Vehicle information (which has none) is
+   cut. Getting this backwards is the single most visible way to miss.
+   =========================================================================== */
+
+/* The tokens are declared on BOTH the chrome container and the body class.
+   The chrome needs them; so do the status line, the bottom bar and .view,
+   which are siblings of the chrome rather than its children. A var() that
+   does not resolve makes its whole declaration invalid at computed-value
+   time -- which silently hands .view's inset back to the rule underneath and
+   tucks the content behind the chrome -- so both scopes carry the set. */
+.ista-real,
+body.ista-real-body {
+  /* the measured palette */
+  --ir-teal: #5e958f;
+  --ir-teal-dim: #7ba8a3;
+  --ir-grey: #c5c5c5;
+  --ir-grey-line: #b3b3b3;
+  --ir-head: #4d4d4d;
+  --ir-row-alt: #e6e6e6;
+  --ir-off: #8a8a8a;
+  --ir-ink: #000;
+  /* the ground outside the content panel, and the line that boxes a tab cell */
+  --ir-page: #fff;
+  --ir-cell-edge: #9fa3a2;
+  --ir-font:
+    'Segoe UI', 'Helvetica Neue', Helvetica, Arial, 'Liberation Sans',
+    sans-serif;
+  /* the chrome's fixed bands, measured off the frames at 1728px wide and
+     kept in px: this tool does not scale its chrome with the viewport */
+  --ir-toolbar-h: 30px;
+  --ir-title-h: 32px;
+  --ir-header-h: 23px;
+  --ir-tabbar-h: 42px;
+  --ir-strip-h: 40px;
+  --ir-strip3-h: 47px;
+  --ir-status-h: 20px;
+  --ir-bottom-h: 34px;
+}
+
+/* ---- the shell replaces the app's own frame -------------------------------
+   The app's topbar, breadcrumbs and F-key bar are the app's chrome. The
+   workshop tool has its own version of all three (the toolbar row, the tab
+   bars, the bottom button bar), so showing both would be two competing
+   frames around one screen. They go while the skin is up and come back the
+   moment it is not. */
+/* These are the app's own chrome by CLASS, not by id: .topbar is a <header>
+   and .fkeybar a <footer> that carries id="fkeybar". Hiding the wrong names
+   leaves the F-key bar drawing its dark band through the gap between the
+   content panel and the status line, which is what put a black stripe
+   across the bottom of every page. */
+body.ista-mode.ista-real-body .topbar,
+body.ista-mode.ista-real-body .breadcrumbs,
+body.ista-mode.ista-real-body .fkeybar,
+body.ista-mode.ista-real-body .statusbar,
+body.ista-mode.ista-real-body .tabbar {
+  display: none !important;
+}
+
+/* THE PAGE GROUND. Measured off the frames: everything outside the content
+   panel -- the strip's empty remainder, the band under the panel, the ground
+   around the bottom buttons -- is WHITE, not a light grey. The only black on
+   the page is the main tab bar and the nav arrow blocks.
+
+   Both html and body carry it: the shell owns the whole window while it is
+   up, and without the full height the app's own dark ground shows through
+   below the bottom bar wherever the content is shorter than the viewport. */
+html:has(body.ista-real-body),
+body.ista-mode.ista-real-body {
+  height: 100%;
+  min-height: 100%;
+  background: var(--ir-page);
+  font-family: var(--ir-font);
+}
+
+body.ista-mode.ista-real-body .ista-chrome {
+  inset: 0 0 auto 0;
+  height: auto;
+  background: #fff;
+  border-bottom: 0;
+  font-family: var(--ir-font);
+  font-size: 12px;
+  color: var(--ir-ink);
+}
+
+/* the screen fills everything the chrome left, and the bottom bar floats
+   over its last band: the content box's own border is what the frames show
+   under the strips, so .view carries it rather than the screen inside */
+body.ista-mode.ista-real-body .view {
+  inset: var(--ista-h) 0 calc(var(--ir-status-h) + var(--ir-bottom-h)) 0;
+  padding: 0;
+  margin: 0 4px;
+  background: #fff;
+  border: 1px solid var(--ir-teal);
+  border-bottom: 0;
+  overflow: auto;
+  font-family: var(--ir-font);
+  font-size: 12px;
+  /* The app's themes paint light ink on a dark ground. This page is white
+     paper, so the ink has to come with it -- the tokens are re-pointed for
+     the whole subtree rather than colour-by-colour, so a screen the shell
+     wraps inherits readable text without being touched. */
+  color: var(--ir-ink);
+  --ink: #000;
+  --ink-dim: #333;
+  --muted: #555;
+  --panel: #fff;
+  --panel-2: var(--ir-row-alt);
+  --bg: #fff;
+  --line: var(--ir-grey-line);
+  --ink-faint: #8a8a8a;
+}
+body.ista-mode.ista-real-body .view,
+body.ista-mode.ista-real-body .view p,
+body.ista-mode.ista-real-body .view div,
+body.ista-mode.ista-real-body .view span,
+body.ista-mode.ista-real-body .view li,
+body.ista-mode.ista-real-body .view h1,
+body.ista-mode.ista-real-body .view h2,
+body.ista-mode.ista-real-body .view h3,
+body.ista-mode.ista-real-body .view label {
+  color: var(--ir-ink);
+}
+
+/* ---- toolbar row ---------------------------------------------------------- */
+.ista-real-body .irt {
+  display: flex;
+  align-items: center;
+  height: var(--ir-toolbar-h);
+  background: var(--ir-grey);
+  padding: 0 4px;
+  gap: 4px;
+  box-sizing: border-box;
+}
+
+/* the session squares: one per open car, the active one outlined teal */
+.ista-real-body .irt-sess {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.ista-real-body .irt-sq {
+  width: 26px;
+  height: 20px;
+  border: 1px solid #9a9a9a;
+  background: var(--ir-grey);
+  color: #6a6a6a;
+  font: 11px/18px var(--ir-font);
+  text-align: center;
+  padding: 0;
+  cursor: pointer;
+}
+.ista-real-body .irt-sq.on {
+  border-color: var(--ir-teal);
+  color: var(--ir-ink);
+  box-shadow: inset 0 0 0 1px var(--ir-teal);
+}
+
+.ista-real-body .irt-spacer {
+  flex: 1;
+}
+
+.ista-real-body .irt-clock {
+  font-size: 12px;
+  color: #1a1a1a;
+  margin-right: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* every toolbar icon is the same 26x20 square with a drawn glyph inside: no
+   emoji anywhere, so the row renders identically on every platform */
+.ista-real-body .irt-ico {
+  width: 26px;
+  height: 20px;
+  border: 1px solid transparent;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #1a1a1a;
+}
+.ista-real-body .irt-ico:hover {
+  border-color: #9a9a9a;
+  background: #d4d4d4;
+}
+.ista-real-body .irt-ico svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+  stroke-linecap: square;
+  stroke-linejoin: miter;
+}
+.ista-real-body .irt-ico.irt-ico-fill svg {
+  fill: currentColor;
+  stroke: none;
+}
+
+/* ---- title row ------------------------------------------------------------ */
+.ista-real-body .irtitle {
+  height: var(--ir-title-h);
+  background: var(--ir-grey);
+  border-top: 1px solid #fff;
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  font-size: 17px;
+  font-weight: 700;
+  color: #111;
+  box-sizing: border-box;
+}
+
+/* ---- header line (VIN / Vehicle / KL15 / KL30) ---------------------------- */
+.ista-real-body .irhead {
+  height: var(--ir-header-h);
+  background: #fff;
+  display: flex;
+  align-items: center;
+  font-size: 11px;
+  padding: 0 8px;
+  box-sizing: border-box;
+  gap: 6px;
+}
+.ista-real-body .irhead b {
+  font-weight: 700;
+}
+.ista-real-body .irhead .irhead-k {
+  color: #333;
+  font-weight: 700;
+}
+/* the VIN label and the Vehicle label sit on a fixed grid in the frames:
+   "VIN" at the left edge, the value, then "Vehicle" at a fixed offset */
+.ista-real-body .irhead-vin {
+  min-width: 130px;
+}
+.ista-real-body .irhead-veh {
+  flex: 1;
+}
+.ista-real-body .irhead-kl {
+  display: flex;
+  gap: 26px;
+  padding-right: 10px;
+  color: #333;
+}
+/* the green session pill after a whole-car test */
+.ista-real-body .irhead-test {
+  background: var(--ir-teal);
+  color: #fff;
+  padding: 1px 14px;
+  font-weight: 700;
+}
+
+/* ---- main tab bar --------------------------------------------------------- */
+.ista-real-body .irtabs {
+  display: flex;
+  height: var(--ir-tabbar-h);
+  background: #000;
+  box-sizing: border-box;
+}
+.ista-real-body .irtab {
+  /* the frames put seven tabs on a fixed 129px grid with a 1px white gutter,
+     and leave the rest of the bar black -- the tabs do NOT stretch */
+  flex: 0 0 122px;
+  margin-right: 5px;
+  border: 0;
+  background: #000;
+  color: #fff;
+  font: 13px/1.15 var(--ir-font);
+  text-align: left;
+  padding: 0 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  white-space: pre-line;
+}
+.ista-real-body .irtab:hover:not(.off) {
+  background: #262626;
+}
+.ista-real-body .irtab.on {
+  background: var(--ir-teal);
+  color: #fff;
+}
+.ista-real-body .irtab.off {
+  color: var(--ir-off);
+  cursor: default;
+}
+
+/* ---- the sub-tab strips --------------------------------------------------- */
+/* Both strips are a row of BOXED CELLS on a white ground, not a grey band
+   with labels floating on it. The frames are unambiguous: the strip itself
+   is white, each tab is a #c5c5c5 cell, and the white gutter between cells
+   is the ground showing through. A flat grey band loses the cell edges and
+   with them the sense that these are tabs at all.
+
+   The two strips differ only in shape and inset; the shape rule (square
+   while another strip follows, cut corner when last) lives in skin.js. */
+.ista-real-body .irstrip {
+  display: flex;
+  background: var(--ir-page);
+  box-sizing: border-box;
+  height: var(--ir-strip-h);
+  align-items: stretch;
+  padding-top: 3px;
+}
+.ista-real-body .irstrip-3 {
+  height: var(--ir-strip3-h);
+  padding-left: 12px;
+  align-items: flex-start;
+}
+
+.ista-real-body .irsub {
+  border: 0;
+  /* the cell's own bottom edge: a darker line that seats it on the ground */
+  border-bottom: 1px solid var(--ir-cell-edge);
+  background: var(--ir-grey);
+  color: var(--ir-ink);
+  font: 13px/1.15 var(--ir-font);
+  text-align: left;
+  padding: 0 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  white-space: pre-line;
+  position: relative;
+  box-sizing: border-box;
+}
+.ista-real-body .irsub.on {
+  background: var(--ir-teal);
+  color: #fff;
+}
+.ista-real-body .irsub.off {
+  color: var(--ir-off);
+  cursor: default;
+}
+
+/* square grid: a strip with another strip beneath it. The white gutter
+   is what separates the cells; without it the strip reads as one grey band
+   and the columns stop lining up with the black tabs above them.
+
+   No background here on purpose: the base .irsub already carries the grey
+   and .irsub.on the teal, and re-declaring the grey in this later rule is
+   what silently paints over the active cell. */
+.ista-real-body .irstrip-grid .irsub {
+  flex: 0 0 122px;
+  margin-right: 5px;
+}
+/* trapezoid: the LAST strip on the page. The cut is 17px across and 16px
+   down, and the cell keeps the SAME 127px grid as the bar above it -- the
+   frames put every level on one set of columns, so a tab at level 3 lines
+   up with the tab at level 1 it descends from. Only the strip's left inset
+   and the cut corner tell the levels apart. */
+.ista-real-body .irstrip-cut .irsub {
+  /* the grid is a MINIMUM, not a cap: a long label (Info from Service
+     Consultation) takes the next column rather than wrapping to three
+     lines inside one, which is what the frames show */
+  flex: 0 1 auto;
+  min-width: 122px;
+  margin-right: 5px;
+  padding: 0 22px 0 10px;
+  /* the clip cuts the corner, so the cell's bottom edge is drawn by the
+     clip's own silhouette rather than by a border that would ride over it */
+  border-bottom: 0;
+  clip-path: polygon(0 0, calc(100% - 17px) 0, 100% 16px, 100% 100%, 0 100%);
+}
+.ista-real-body .irstrip-cut.irstrip {
+  align-items: stretch;
+}
+.ista-real-body .irstrip-3 .irsub {
+  height: calc(var(--ir-strip3-h) - 5px);
+}
+
+/* the pin star: a small overlay on a sub-tab, drawn rather than an emoji.
+   A square cell has no cut to avoid, so it keeps the corner. */
+.ista-real-body .irstrip-grid .irsub-star {
+  top: 2px;
+  right: 3px;
+}
+/* THE STAR IS NOT INSIDE THE CUT. A trapezoid cell clips its own top-right
+   corner, and the pin sat exactly there -- so the glyph came out sliced in
+   half. It moves left of the cut and down out of the diagonal, which is the
+   only part of the cell the clip does not touch. */
+.ista-real-body .irsub-star {
+  position: absolute;
+  top: 4px;
+  right: 21px;
+  width: 11px;
+  height: 11px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  opacity: 0;
+  color: #555;
+}
+.ista-real-body .irsub:hover .irsub-star,
+.ista-real-body .irsub-star.on {
+  opacity: 1;
+}
+.ista-real-body .irsub.on .irsub-star {
+  color: #fff;
+}
+.ista-real-body .irsub-star svg {
+  width: 11px;
+  height: 11px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+}
+.ista-real-body .irsub-star.on svg {
+  fill: currentColor;
+}
+
+/* ---- status line ---------------------------------------------------------- */
+.ista-real-body .irstatus {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: var(--ir-bottom-h);
+  height: var(--ir-status-h);
+  background: #fff;
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  font-size: 11px;
+  color: #1a1a1a;
+  box-sizing: border-box;
+  gap: 18px;
+  z-index: 5;
+}
+.ista-real-body .irstatus b {
+  font-weight: 700;
+}
+.ista-real-body .irstatus-spacer {
+  flex: 1;
+}
+
+/* the legend: five (or four) little squares with a label each */
+.ista-real-body .irlegend {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  font-size: 11px;
+}
+.ista-real-body .irlegend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.ista-real-body .irlegend i {
+  width: 9px;
+  height: 9px;
+  border: 1px solid #666;
+  display: inline-block;
+  background: #fff;
+}
+.ista-real-body .irlegend i.ok {
+  background: #4caf50;
+}
+.ista-real-body .irlegend i.warn {
+  background: #f0b400;
+}
+.ista-real-body .irlegend i.bad {
+  background: #d33;
+}
+.ista-real-body .irlegend i.dim {
+  background: #9a9a9a;
+}
+.ista-real-body .irlegend i.blue {
+  background: #4472c4;
+}
+
+/* ---- bottom button bar ---------------------------------------------------- */
+.ista-real-body .irbottom {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--ir-bottom-h);
+  background: #fff;
+  display: flex;
+  align-items: center;
+  padding: 0 6px;
+  gap: 6px;
+  box-sizing: border-box;
+  z-index: 5;
+}
+.ista-real-body .irbottom-spacer {
+  flex: 1;
+}
+
+.ista-real-body .irbtn {
+  background: var(--ir-grey);
+  border: 1px solid #9a9a9a;
+  border-radius: 0;
+  color: var(--ir-ink);
+  font: 12px/1.1 var(--ir-font);
+  min-width: 112px;
+  height: 28px;
+  padding: 2px 8px;
+  cursor: pointer;
+  box-shadow: none;
+  white-space: pre-line;
+}
+.ista-real-body .irbtn:hover:not(:disabled) {
+  background: #d4d4d4;
+}
+.ista-real-body .irbtn:disabled {
+  color: var(--ir-off);
+  cursor: default;
+}
+
+/* the two black nav blocks, centred: a white triangle on a black rectangle */
+.ista-real-body .irnav {
+  background: #000;
+  border: 0;
+  width: 90px;
+  height: 22px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+.ista-real-body .irnav svg {
+  width: 20px;
+  height: 14px;
+  fill: #fff;
+}
+.ista-real-body .irnav:disabled {
+  /* still black: the frames grey the TRIANGLE, not the block */
+  cursor: default;
+}
+.ista-real-body .irnav:disabled svg {
+  fill: #7a7a7a;
+}
+
+/* ===========================================================================
+   The content language: tables, trees, panes, buttons and dialogs.
+
+   These rules restyle the app's OWN screens through the scope class rather
+   than rewriting them. A screen that draws a <table class="tbl"> keeps its
+   markup and its behaviour and simply reads as ISTA while the skin is up.
+   =========================================================================== */
+
+/* ---- tables --------------------------------------------------------------- */
+.ista-real-body .view table,
+.ista-real-body .irtable {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 12px;
+  background: #fff;
+}
+.ista-real-body .view th,
+.ista-real-body .irtable th {
+  background: var(--ir-head);
+  color: #fff;
+  font-weight: 700;
+  text-align: left;
+  padding: 4px 6px;
+  height: 22px;
+  border: 0;
+  border-right: 1px solid #6a6a6a;
+  box-sizing: border-box;
+  white-space: nowrap;
+}
+.ista-real-body .view td,
+.ista-real-body .irtable td {
+  padding: 3px 6px;
+  height: 22px;
+  border: 0;
+  border-right: 1px solid #ccc;
+  box-sizing: border-box;
+  color: var(--ir-ink);
+  background: transparent;
+}
+.ista-real-body .view tbody tr,
+.ista-real-body .irtable tbody tr {
+  background: #fff;
+}
+.ista-real-body .view tbody tr:nth-child(even),
+.ista-real-body .irtable tbody tr:nth-child(even) {
+  background: var(--ir-row-alt);
+}
+.ista-real-body .view tbody tr.sel,
+.ista-real-body .view tbody tr[aria-selected='true'],
+.ista-real-body .irtable tbody tr.sel {
+  background: var(--ir-teal);
+  color: #fff;
+}
+.ista-real-body .irtable tbody tr.sel td {
+  color: #fff;
+}
+/* a grey heading row inside a table (the hit list groups by one) */
+.ista-real-body .irtable tbody tr.irgroup td {
+  background: var(--ir-grey);
+  font-weight: 700;
+}
+
+/* ---- pane title bars ------------------------------------------------------ */
+.ista-real-body .irpane {
+  border: 1px solid var(--ir-grey-line);
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.ista-real-body .irpane-head {
+  background: var(--ir-head);
+  color: #fff;
+  font-weight: 700;
+  font-size: 12px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  padding: 0 6px;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+.ista-real-body .irpane-head .irpane-spacer {
+  flex: 1;
+}
+.ista-real-body .irpane-head button {
+  background: transparent;
+  border: 0;
+  color: #fff;
+  font: 12px var(--ir-font);
+  cursor: pointer;
+  padding: 0 4px;
+}
+.ista-real-body .irpane-body {
+  flex: 1;
+  overflow: auto;
+  min-height: 0;
+}
+
+/* ---- trees ---------------------------------------------------------------- */
+.ista-real-body .irtree {
+  font-size: 12px;
+}
+.ista-real-body .irtree-row {
+  display: flex;
+  align-items: center;
+  height: 18px;
+  gap: 6px;
+  padding: 0 6px;
+  cursor: pointer;
+  border-bottom: 1px solid #fff;
+}
+/* a child row carries the grey fill, a parent stays white: that is what
+   makes the nesting readable without any indent guides */
+.ista-real-body .irtree-row.kid {
+  background: var(--ir-row-alt);
+}
+.ista-real-body .irtree-row.sel {
+  background: var(--ir-teal);
+  color: #fff;
+}
+/* the expander is a drawn black square with a white + or -, never an emoji */
+.ista-real-body .irtree-exp {
+  width: 11px;
+  height: 11px;
+  flex: 0 0 11px;
+  border: 0;
+  background: #1a1a1a;
+  padding: 0;
+  cursor: pointer;
+  position: relative;
+}
+.ista-real-body .irtree-exp::before,
+.ista-real-body .irtree-exp::after {
+  content: '';
+  position: absolute;
+  background: #fff;
+}
+.ista-real-body .irtree-exp::before {
+  left: 2px;
+  right: 2px;
+  top: 5px;
+  height: 1px;
+}
+.ista-real-body .irtree-exp::after {
+  top: 2px;
+  bottom: 2px;
+  left: 5px;
+  width: 1px;
+}
+.ista-real-body .irtree-exp.open::after {
+  display: none;
+}
+/* a leaf has no expander: it shows the "- " prefix the frames show */
+.ista-real-body .irtree-leaf {
+  width: 11px;
+  flex: 0 0 11px;
+  text-align: center;
+  color: #444;
+}
+
+/* ---- buttons the app's own screens draw ----------------------------------- */
+.ista-real-body .view .btn,
+.ista-real-body .view button.btn {
+  background: var(--ir-grey);
+  border: 1px solid #9a9a9a;
+  border-radius: 0;
+  color: var(--ir-ink);
+  font: 12px var(--ir-font);
+  box-shadow: none;
+  padding: 4px 10px;
+  min-height: 26px;
+}
+.ista-real-body .view .btn:hover:not(:disabled) {
+  background: #d4d4d4;
+}
+.ista-real-body .view .btn:disabled {
+  color: var(--ir-off);
+}
+
+/* square corners and no shadows, everywhere inside the skin */
+.ista-real-body .view * {
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+/* ---- dialogs -------------------------------------------------------------- */
+.ista-real-body .modal {
+  background: #fff;
+  border: 1px solid #999;
+  border-radius: 0;
+  box-shadow: none;
+  font-family: var(--ir-font);
+  font-size: 12px;
+}
+.ista-real-body .modal-title {
+  background: var(--ir-grey);
+  color: var(--ir-ink);
+  font-weight: 700;
+  font-size: 12px;
+  padding: 4px 8px;
+  border-bottom: 1px solid #999;
+}
+.ista-real-body .modal-actions .btn {
+  background: var(--ir-grey);
+  border: 1px solid #9a9a9a;
+  border-radius: 0;
+  min-width: 112px;
+}
+
+/* the "Ongoing background process" progress dialog */
+.ista-real-body .irprog {
+  min-width: 320px;
+}
+.ista-real-body .irprog-body {
+  padding: 14px 12px;
+  font-size: 12px;
+}
+.ista-real-body .irprog-bar {
+  margin-top: 10px;
+  height: 14px;
+  border: 1px solid #999;
+  background: #fff;
+  overflow: hidden;
+}
+.ista-real-body .irprog-fill {
+  height: 100%;
+  width: 35%;
+  background: var(--ir-teal);
+  animation: ir-prog 1.3s linear infinite;
+}
+@keyframes ir-prog {
+  0% {
+    margin-left: -35%;
+  }
+  100% {
+    margin-left: 100%;
+  }
+}
+
+/* ===========================================================================
+   The pages this shell draws itself.
+   =========================================================================== */
+
+/* ---- Operations / New / VIN ----------------------------------------------- */
+.ista-real-body .irvin {
+  padding: 60px 0 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 26px;
+}
+.ista-real-body .irvin-label {
+  font-weight: 700;
+  font-size: 12px;
+  /* the label sits directly over the box, both centred on the page: the
+     gap between them is the pair's own, not the column's */
+  margin: 0 0 -20px;
+}
+.ista-real-body .irvin-box {
+  width: 312px;
+  height: 20px;
+  border: 1px solid #7a7a7a;
+  background: #fff;
+  font: 12px var(--ir-font);
+  padding: 0 4px;
+  box-sizing: border-box;
+  text-transform: uppercase;
+}
+/* the Garage table under the box: ours, not BMW's, so it is labelled */
+.ista-real-body .irvin-garage {
+  width: 640px;
+  max-width: calc(100% - 40px);
+}
+.ista-real-body .irvin-garage h3 {
+  font-size: 12px;
+  font-weight: 700;
+  margin: 0 0 4px;
+  padding: 0;
+}
+.ista-real-body .irvin-garage tbody tr {
+  cursor: pointer;
+}
+.ista-real-body .irvin-empty {
+  border: 1px solid var(--ir-grey-line);
+  border-top: 0;
+  padding: 10px 8px;
+  font-size: 12px;
+  color: #555;
+  background: #fff;
+}
+
+/* ---- Operations / New / Read Out Vehicle Data ----------------------------- */
+.ista-real-body .irread {
+  padding: 12px;
+  font-size: 12px;
+}
+.ista-real-body .irread-lines {
+  margin: 0 0 18px;
+  padding: 0;
+  list-style: none;
+}
+.ista-real-body .irread-lines li {
+  margin: 0 0 3px;
+}
+.ista-real-body .irconn {
+  border: 1px solid var(--ir-grey-line);
+  max-width: 900px;
+}
+.ista-real-body .irconn-head {
+  background: var(--ir-grey);
+  font-weight: 700;
+  padding: 3px 6px;
+  border-bottom: 1px solid var(--ir-grey-line);
+}
+.ista-real-body .irconn-foot {
+  display: flex;
+  gap: 6px;
+  padding: 6px;
+  align-items: center;
+  border-top: 1px solid var(--ir-grey-line);
+}
+
+/* ---- Vehicle details ------------------------------------------------------ */
+.ista-real-body .irdet {
+  padding: 10px 12px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0 24px;
+  align-items: start;
+}
+.ista-real-body .irdet-col {
+  min-width: 0;
+}
+/* THE RHYTHM IS MEASURED, not chosen: in the frames a label sits 18px above
+   its value and the next label 39px below the last, so the four columns line
+   up row for row across the page. A looser pair breaks that alignment and
+   the grid stops reading as a grid. */
+.ista-real-body .irdet-f {
+  margin: 0 0 3px;
+}
+.ista-real-body .irdet-l {
+  font-size: 11px;
+  line-height: 18px;
+  color: #333;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.ista-real-body .irdet-v {
+  font-size: 12px;
+  line-height: 18px;
+  font-weight: 700;
+  color: #000;
+  min-height: 18px;
+  word-break: break-word;
+}
+/* the warning triangle beside a label whose value came from the VIN rather
+   than from the car itself: drawn, never an emoji */
+.ista-real-body .irdet-warn {
+  width: 11px;
+  height: 11px;
+  flex: 0 0 11px;
+}
+.ista-real-body .irdet-warn svg {
+  width: 11px;
+  height: 11px;
+  fill: #e8a33d;
+  stroke: #8a6000;
+  stroke-width: 0.8;
+}
+.ista-real-body .irdet-sub {
+  text-decoration: underline;
+  font-size: 11px;
+  color: #333;
+  margin: 6px 0 3px;
+}
+.ista-real-body .irdet-ta {
+  border-collapse: collapse;
+  font-size: 11px;
+  width: 100%;
+}
+.ista-real-body .irdet-ta th {
+  background: transparent;
+  color: #333;
+  font-weight: 400;
+  border: 0;
+  border-right: 1px solid #ccc;
+  border-bottom: 1px solid #ccc;
+  padding: 2px 6px;
+  height: auto;
+}
+.ista-real-body .irdet-ta td {
+  border-right: 1px solid #ccc;
+  padding: 2px 6px;
+  height: 18px;
+}
+/* the Breakdown radios, centred under the second column as in the frames */
+.ista-real-body .irdet-bd {
+  grid-column: 2;
+  margin-top: 10px;
+}
+.ista-real-body .irdet-bd-l {
+  text-decoration: underline;
+  font-size: 11px;
+  color: #333;
+  margin-bottom: 3px;
+}
+.ista-real-body .irdet-bd-r {
+  display: flex;
+  gap: 60px;
+  font-size: 12px;
+}
+.ista-real-body .irdet-bd-r label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+}
+/* the app's skins paint radios and checkboxes as square boxes of their own.
+   The workshop tool uses the platform's, so hand these back to the browser
+   rather than inheriting a square "radio". */
+.ista-real-body .view input[type='radio'],
+.ista-real-body .view input[type='checkbox'] {
+  appearance: auto;
+  -webkit-appearance: auto;
+  width: auto;
+  height: auto;
+  background: none;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--ir-teal);
+}
+.ista-real-body .view input[type='radio']::before,
+.ista-real-body .view input[type='radio']::after,
+.ista-real-body .view input[type='checkbox']::before,
+.ista-real-body .view input[type='checkbox']::after {
+  content: none;
+}
+
+/* ---- Vehicle equipment ---------------------------------------------------- */
+.ista-real-body .ireq {
+  padding: 10px 12px;
+  font-size: 12px;
+}
+.ista-real-body .ireq h3 {
+  font-size: 12px;
+  font-weight: 700;
+  margin: 14px 0 4px;
+  padding: 0;
+}
+.ista-real-body .ireq h3:first-child {
+  margin-top: 0;
+}
+.ista-real-body .ireq-empty {
+  color: #555;
+  font-size: 11px;
+  padding: 3px 0;
+}
+.ista-real-body .ireq-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  columns: 2;
+  column-gap: 40px;
+}
+.ista-real-body .ireq-list li {
+  break-inside: avoid;
+  padding: 1px 0;
+  font-size: 12px;
+}
+.ista-real-body .ireq-list b {
+  font-weight: 700;
+  margin-right: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- a greyed page: the tab ISTA has that we cannot fill ------------------ */
+.ista-real-body .irgrey {
+  padding: 40px 20px;
+  max-width: 760px;
+}
+.ista-real-body .irgrey-t {
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+.ista-real-body .irgrey-w {
+  border: 1px solid var(--ir-grey-line);
+  background: var(--ir-row-alt);
+  padding: 10px 12px;
+  font-size: 12px;
+  color: #333;
+}
+.ista-real-body .irgrey-att {
+  border: 1px solid #9a9a9a;
+  background: #fff;
+  padding: 10px 12px;
+  margin-top: 16px;
+  font-size: 12px;
+}
+.ista-real-body .irgrey-att b {
+  font-weight: 700;
+}
+
+/* an empty bordered box, as the replacement pages draw */
+.ista-real-body .irempty-box {
+  border: 1px solid var(--ir-grey-line);
+  min-height: 180px;
+  background: #fff;
+}
+
+/* ---- the level-3 content host the repair pages own ------------------------ */
+/* Repair/maintenance is built on its own branch and scopes its CSS under
+   .ista-repair. This is only the empty host it draws into, so the two can
+   land without either one owning the other's rules. */
+.ista-real-body .irrepair-host {
+  height: 100%;
+  min-height: 0;
+}
+
+/* ===========================================================================
+   Round 2: the pages that stopped being app screens.
+
+   Everything below is still scoped under .ista-real-body, so the Modern
+   layout and the rest of the app remain untouched.
+   =========================================================================== */
+
+/* ---- the state square in the Control unit list ---------------------------- */
+.ista-real-body .irstate {
+  width: 54px;
+  text-align: center;
+}
+.ista-real-body .irstate i {
+  width: 10px;
+  height: 10px;
+  display: inline-block;
+  border: 1px solid #666;
+  background: #fff;
+}
+.ista-real-body .irstate i.ok {
+  background: #4caf50;
+}
+.ista-real-body .irstate i.warn {
+  background: #f0b400;
+}
+.ista-real-body .irstate i.bad {
+  background: #d33;
+}
+.ista-real-body .irstate i.dim {
+  background: #9a9a9a;
+}
+
+/* ---- a group heading row inside the Service plan -------------------------- */
+.ista-real-body .irplan tbody tr.irgroup td,
+.ista-real-body .irtable tbody tr.irgroup td {
+  background: var(--ir-grey);
+  font-weight: 700;
+}
+.ista-real-body .irplan tbody tr.irgroup-none td {
+  color: #666;
+  font-style: italic;
+  padding-left: 18px;
+}
+
+/* ---- SAE fault code input ------------------------------------------------- */
+.ista-real-body .irsae {
+  padding: 12px;
+}
+.ista-real-body .irsae-form {
+  display: flex;
+  gap: 40px;
+  margin-bottom: 16px;
+}
+.ista-real-body .irsae-f {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11px;
+  color: #333;
+}
+.ista-real-body .irsae-f .irvin-box {
+  width: 200px;
+}
+
+/* ---- the Administration dialog -------------------------------------------- */
+.ista-real-body .iradmin {
+  min-width: 720px;
+  max-width: 900px;
+}
+.ista-real-body .iradmin-title {
+  background: var(--ir-grey);
+  font-weight: 700;
+}
+/* its tab strip is the level-2 strip's language, at dialog scale */
+.ista-real-body .iradmin-tabs,
+.ista-real-body .irfd-tabs {
+  display: flex;
+  background: var(--ir-page);
+  padding: 4px 6px 0;
+  gap: 4px;
+  border-bottom: 1px solid var(--ir-grey-line);
+}
+.ista-real-body .iradmin-tab {
+  border: 0;
+  border-bottom: 1px solid var(--ir-cell-edge);
+  background: var(--ir-grey);
+  color: var(--ir-ink);
+  font: 12px var(--ir-font);
+  padding: 5px 12px;
+  cursor: pointer;
+}
+.ista-real-body .iradmin-tab.on {
+  background: var(--ir-teal);
+  color: #fff;
+}
+.ista-real-body .iradmin-host,
+.ista-real-body .irfd-host {
+  padding: 12px;
+  max-height: 440px;
+  overflow: auto;
+}
+.ista-real-body .iradmin-row {
+  margin-bottom: 14px;
+}
+.ista-real-body .iradmin-row-t {
+  font-weight: 700;
+  font-size: 12px;
+  margin-bottom: 5px;
+}
+.ista-real-body .iradmin-why {
+  font-weight: 400;
+  color: #666;
+}
+.ista-real-body .iradmin-opts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 28px;
+}
+.ista-real-body .iradmin-opt {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.ista-real-body .iradmin-opt.off {
+  color: var(--ir-off);
+  cursor: default;
+}
+.ista-real-body .iradmin-gw,
+.ista-real-body .iradmin-note {
+  font-size: 12px;
+  color: #333;
+}
+.ista-real-body .iradmin-note {
+  margin-top: 12px;
+  color: #666;
+}
+
+/* ---- the fault detail dialog ---------------------------------------------- */
+.ista-real-body .irfd {
+  min-width: 760px;
+  max-width: 1000px;
+}
+.ista-real-body .irfd-title {
+  background: var(--ir-teal);
+  color: #fff;
+  font-weight: 700;
+}
+/* its Description and Details tabs are two-column: the field name on the
+   left in the header grey, the value beside it */
+.ista-real-body .irfd-two th {
+  background: var(--ir-row-alt);
+  color: var(--ir-ink);
+  width: 260px;
+  vertical-align: top;
+  border-right: 1px solid #ccc;
+}
+.ista-real-body .irfd-two td {
+  white-space: pre-line;
+  vertical-align: top;
+}
+
+/* ---- a document opened from the Service plan ------------------------------ */
+.ista-real-body .irdoc {
+  min-width: 760px;
+  max-width: 1000px;
+}
+.ista-real-body .irdoc-title {
+  background: var(--ir-teal);
+  color: #fff;
+  font-weight: 700;
+  font-size: 13px;
+  padding: 5px 8px;
+}
+.ista-real-body .irdoc-body {
+  padding: 12px;
+  max-height: 460px;
+  overflow: auto;
+  font-size: 12px;
+}
+.ista-real-body .irdoc-body h3 {
+  font-size: 12px;
+  font-weight: 700;
+  margin: 14px 0 4px;
+}
+.ista-real-body .irdoc-body p {
+  margin: 0 0 6px;
+}
+
+/* ---- an ABL test module's two-pane page ----------------------------------- */
+.ista-real-body .irabl {
+  display: flex;
+  gap: 8px;
+  height: 100%;
+}
+.ista-real-body .irabl-pane {
+  flex: 1;
+  border: 1px solid var(--ir-grey-line);
+  min-width: 0;
+}
+
+/* ---- Operations / New / Basic Features ------------------------------------
+   Three panes side by side: the criteria, the values of the selected one,
+   and the choices made so far. Each is a bordered box with the tool's own
+   #4d4d4d title bar, and the rows read like table rows because that is what
+   the reader is picking from. */
+/* THE THREE PANES FILL THE CONTENT AND SCROLL INSIDE THEMSELVES. The frame
+   shows three equal columns each with its own scrollbar; letting them grow
+   pushed the page down and left the reader scrolling the whole tool to see
+   the values of one feature. The host is absolutely positioned so it does
+   not depend on an ancestor passing a height down. */
+.ista-real-body .irbf {
+  position: absolute;
+  inset: 6px;
+  display: flex;
+  gap: 6px;
+  box-sizing: border-box;
+  min-height: 0;
+}
+.ista-real-body .irbf-pane {
+  flex: 1 1 0;
+  min-width: 0;
+  border: 1px solid var(--ir-grey-line);
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+}
+/* the third pane is the answer, not a chooser, so it takes a little less */
+.ista-real-body .irbf-sel {
+  flex: 0 0 300px;
+}
+.ista-real-body .irbf-head {
+  background: var(--ir-head);
+  color: #fff;
+  font-weight: 700;
+  font-size: 12px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  padding: 0 6px;
+  flex: 0 0 auto;
+}
+.ista-real-body .irbf-list {
+  flex: 1;
+  overflow: auto;
+  min-height: 0;
+}
+.ista-real-body .irbf-row {
+  padding: 4px 8px;
+  font-size: 12px;
+  cursor: pointer;
+  border-bottom: 1px solid #fff;
+  background: var(--ir-row-alt);
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+}
+.ista-real-body .irbf-row:nth-child(even) {
+  background: #fff;
+}
+.ista-real-body .irbf-row.on {
+  background: var(--ir-teal);
+  color: #fff;
+}
+/* a criterion nobody has answered yet shows only its name */
+.ista-real-body .irbf-sel .irbf-row {
+  cursor: default;
+  color: #8a8a8a;
+  background: #fff;
+}
+.ista-real-body .irbf-sel .irbf-row.has {
+  color: var(--ir-ink);
+  cursor: pointer;
+}
+.ista-real-body .irbf-k {
+  flex: 0 0 auto;
+}
+.ista-real-body .irbf-v {
+  font-weight: 700;
+  margin-left: auto;
+}
+.ista-real-body .irbf-none {
+  padding: 10px 8px;
+  font-size: 12px;
+  color: #555;
+}
+
+/* ---- a wrapped screen drops its own chrome --------------------------------
+   A screen the shell opens (the bus map, a module's script) brings its own
+   heading, its own car picker and its own action row. Inside the workshop
+   frame that is a second tool's furniture around this one's content: the
+   tab strip already says where you are, the header line already says which
+   car, and the bottom bar already carries the actions. So the screen keeps
+   its BODY and loses its frame.
+
+   Scoped to .view, so the same screen opened outside the shell is untouched. */
+.ista-real-body .view .screen-head,
+.ista-real-body .view .tree-bar {
+  display: none !important;
+}
+
+/* The Workshop page's own section tabs and Show all checkbox: the level-3
+   strip is the sections now, and Show all is behind the Filters button, so
+   the page's bar would be a second set of the same controls. */
+.ista-real-body .view .td-bar {
+  display: none !important;
+}
+
+/* the bus map's own legend duplicates the status line's, which already
+   carries the four ECU states in ISTA's own words */
+.ista-real-body .view .tree-legend-slot {
+  display: none !important;
+}
+
+/* the bus map fills the panel it was given */
+.ista-real-body .view .tree-wrap {
+  padding: 8px;
+}
+.ista-real-body .irtree-host {
+  height: 100%;
+}
+
+/* ---- the bus map's hover panel --------------------------------------------
+   A floating box beside the control unit, with the tool's nine rows in a
+   label : value grid. It is parked on <body> rather than inside the map so
+   the map's own overflow cannot clip it. */
+.ista-real-body .irtip-wrap {
+  position: fixed;
+  z-index: 60;
+  pointer-events: none;
+}
+/* ONE ROW PER LINE. The panel is a vertical white box of "Label : value"
+   lines; laying it out as a grid of three columns let the rows flow side by
+   side into a wide strip, which ran the fields together ("Group type EML
+   (0x22)EML") and read as one sentence rather than nine facts. */
+.ista-real-body .irtip {
+  background: #fff;
+  border: 1px solid #9a9a9a;
+  padding: 6px 10px;
+  font-size: 12px;
+  min-width: 250px;
+  max-width: 360px;
+}
+.ista-real-body .irtip-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  white-space: nowrap;
+  line-height: 17px;
+}
+.ista-real-body .irtip-k {
+  flex: 0 0 120px;
+}
+.ista-real-body .irtip-s {
+  flex: 0 0 auto;
+}
+.ista-real-body .irtip-v {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ista-real-body .irtip-k {
+  color: #333;
+}
+.ista-real-body .irtip-v {
+  font-weight: 700;
+  color: #000;
+}
+
+/* HOVER IS A THIN OUTLINE, NOT A REPAINT. The tree app fills the box with
+   its own raised colour on hover, which under this skin came out dark on
+   light and read as a selected box. Here the box only gains an outline, and
+   the panel beside it carries the detail. */
+.ista-real-body .view .tree-box:hover rect,
+.ista-real-body .view .tree-box:focus-visible rect {
+  fill: var(--ir-row-alt);
+  stroke: var(--ir-teal);
+  stroke-width: 1.5;
+}
+
+/* a control unit the reader picked on the map: it keeps its outline until
+   another box is picked, which is what makes the selection readable while
+   the reader reaches for Call up ECU functions */
+.ista-real-body .view .tree-box.ista-sel rect {
+  stroke: var(--ir-teal);
+  stroke-width: 3;
+}
+
+/* ---- the control unit window ---------------------------------------------- */
+.ista-real-body .irecu {
+  min-width: 900px;
+  max-width: 1100px;
+}
+.ista-real-body .irecu-title {
+  background: var(--ir-grey);
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+}
+.ista-real-body .irecu-x {
+  margin-left: auto;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  padding: 0 2px;
+  display: inline-flex;
+  color: #1a1a1a;
+}
+.ista-real-body .irecu-x svg {
+  width: 13px;
+  height: 13px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+}
+.ista-real-body .irecu-host {
+  padding: 10px 12px;
+  height: 420px;
+  overflow: auto;
+  box-sizing: border-box;
+}
+.ista-real-body .irecu-actions {
+  gap: 6px;
+}
+
+/* Identification: a label column, then the ECU information table indented
+   under its own heading, the way the frame lays it out */
+.ista-real-body .irecu-h {
+  display: flex;
+  gap: 10px;
+  font-size: 12px;
+  margin-bottom: 3px;
+}
+.ista-real-body .irecu-hk {
+  flex: 0 0 150px;
+  color: #333;
+}
+.ista-real-body .irecu-hv {
+  font-weight: 700;
+}
+.ista-real-body .irecu-info {
+  margin: 4px 0 0 150px;
+  width: calc(100% - 150px);
+}
+.ista-real-body .irecu-info td:first-child {
+  width: 300px;
+  color: #333;
+}
+
+/* the two-pane tabs reuse the picker's columns */
+.ista-real-body .irecu-split {
+  display: flex;
+  gap: 6px;
+  height: 100%;
+  min-height: 0;
+}
+.ista-real-body .irecu-split .irbf-pane {
+  flex: 1 1 0;
+}
+
+/* ---- a stored scan, in the tool's own language ---------------------------- */
+.ista-real-body .irrep-wrap {
+  padding: 6px;
+}
+.ista-real-body .irrep {
+  margin-bottom: 10px;
+}
+.ista-real-body .irrep-sgbd {
+  font-weight: 400;
+  opacity: 0.75;
+  margin-left: 8px;
+}
+.ista-real-body .irrep-cols th {
+  background: #6a6a6a;
+}
+.ista-real-body .irrep-none {
+  color: #555;
+  font-style: italic;
+}
+
+/* ---- the reused browser inside the workshop chrome ------------------------
+   The browser draws its own hits line because on its own page it is the only
+   one. Inside this shell the status line above the bottom bar already counts
+   the hits, so its copy is a second answer to the same question and goes. */
+.ista-real-body .view .rp-foot,
+.ista-real-body .view .rp-hits {
+  display: none !important;
+}
+
+/* Its pane title bar is the tool's #4d4d4d header, so the text on it has to
+   be white like every other header in the app. It inherited the page ink and
+   came out black on dark. */
+.ista-real-body .view .rp-pane-head,
+.ista-real-body .view .rp-pane-head .rp-pane-title,
+.ista-real-body .view .rp-pane-head button {
+  color: #fff;
+}
+
+/* ---- the fault detail dialog, in the tool's own language ------------------
+   It was inheriting the app's modal: dark ground, rounded buttons. Under the
+   skin it is the tool's window -- white paper, a grey title bar, the level-2
+   tab strip, and square grey buttons. */
+.ista-real-body .irfd {
+  background: #fff;
+  min-width: 820px;
+  max-width: 1080px;
+}
+.ista-real-body .irfd-title {
+  background: var(--ir-grey);
+  color: var(--ir-ink);
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ista-real-body .irfd-title .irfd-icons {
+  margin-left: auto;
+  display: inline-flex;
+  gap: 2px;
+}
+.ista-real-body .irfd-title button {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  padding: 0 2px;
+  display: inline-flex;
+  color: #1a1a1a;
+}
+.ista-real-body .irfd-title button svg {
+  width: 13px;
+  height: 13px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+}
+.ista-real-body .irfd-host {
+  background: #fff;
+}
+.ista-real-body .irfd-actions {
+  background: #fff;
+  gap: 6px;
+}
+/* the two-column tables: a grey label column, white values, thin rules */
+.ista-real-body .irfd-two th {
+  background: var(--ir-row-alt);
+  color: var(--ir-ink);
+  font-weight: 400;
+  border-right: 1px solid #ccc;
+  border-bottom: 1px solid #ccc;
+}
+.ista-real-body .irfd-two td {
+  background: #fff;
+  border-bottom: 1px solid #ccc;
+}
+.ista-real-body .irfd-two tbody tr:nth-child(even) td,
+.ista-real-body .irfd-two tbody tr:nth-child(even) th {
+  background: inherit;
+}
+.ista-real-body .irfd-sub {
+  font-weight: 700;
+  font-size: 12px;
+  margin: 14px 0 4px;
+}

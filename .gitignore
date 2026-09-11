@@ -184,3 +184,9 @@ E46/
 # wrangler local state for the beta collector (tools/beta)
 .wrangler/
 app/renderer/bundle.js
+
+# Local test-harness only: a static file server needs the chassis archives and
+# the extracted ISTA data where the app looks for them. Both are built from
+# data/ by the packaging step in a real build, so neither belongs in the tree.
+app/renderer/api/
+app/renderer/data/ista

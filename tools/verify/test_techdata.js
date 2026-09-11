@@ -125,6 +125,44 @@ const T = loadClassic('screens/techdata/');
   // extractor keeps undecoded rules: a document that might not apply beats a
   // figure that quietly went missing.
   assert.strictEqual(techDataRuleApplies({ op: 'whatever' }, car), true);
+  // ISTA's dated and single-id leaves: decided from facts, unknown otherwise
+  const { techDataRuleEval, techDataDateTicks } = T;
+  assert.strictEqual(techDataDateTicks(2003, 3, 1), 631820736000000000);
+  const mfd = { op: 'mfd', cmp: 'ge', ticks: techDataDateTicks(2003, 3) };
+  assert.strictEqual(
+    techDataRuleApplies(mfd, car, { built: techDataDateTicks(2004, 9) }),
+    true
+  );
+  assert.strictEqual(
+    techDataRuleApplies(mfd, car, { built: techDataDateTicks(2002, 1) }),
+    false
+  );
+  assert.strictEqual(techDataRuleApplies(mfd, car), true);
+  assert.strictEqual(techDataRuleEval({ op: 'not', kids: [mfd] }, car), null);
+  assert.strictEqual(
+    techDataRuleApplies({ op: 'not', kids: [mfd] }, car),
+    true
+  );
+  assert.strictEqual(
+    techDataRuleApplies({ op: 'salapa', val: 42 }, car, {
+      salapa: new Set([42]),
+    }),
+    true
+  );
+  assert.strictEqual(
+    techDataRuleApplies({ op: 'salapa', val: 42 }, car, {
+      salapa: new Set([1]),
+    }),
+    false
+  );
+  assert.strictEqual(
+    techDataRuleApplies({ op: 'and', kids: [mfd, eq(999)] }, car),
+    false
+  );
+  const ym = { op: 'date', cmp: 'ge', ym: 199809 };
+  assert.strictEqual(techDataRuleApplies(ym, car, { ym: 200409 }), true);
+  assert.strictEqual(techDataRuleApplies(ym, car, { ym: 199803 }), false);
+  assert.strictEqual(techDataRuleApplies(ym, car), true);
   assert.strictEqual(techDataRuleApplies({ op: 'and', kids: [] }, car), true);
   assert.strictEqual(techDataRuleApplies({ op: 'or', kids: [] }, car), false);
   ok('an unknown node applies');
