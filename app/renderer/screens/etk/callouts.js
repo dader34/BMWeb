@@ -158,6 +158,10 @@ function etkLoupeMarks(loupe, host, img, fx, fy, bw, bh) {
  * @param {EtkHotspot[]} opts.hotspots - the diagram's rectangles
  * @param {HTMLElement|null} [opts.table] - the parts table to cross-highlight, if any
  * @param {boolean} [opts.scrollRows] - scroll the first matching row into view on a pick
+ * @param {(pos: string) => void} [opts.onPick] - told after a callout is pinned (the
+ *   enlarged view closes itself on a pick and hands the pin to the pane)
+ * @param {string|null} [opts.initialPin] - a callout to start pinned, carried over
+ *   from the view that was just closed
  * @returns {() => void} a teardown that removes the overlay and its listeners
  */
 function etkAttachHotspots({
@@ -166,6 +170,8 @@ function etkAttachHotspots({
   hotspots,
   table = null,
   scrollRows = false,
+  onPick = null,
+  initialPin = null,
 }) {
   const layer = document.createElement('div');
   layer.className = 'etk-hotspots';
@@ -228,10 +234,13 @@ function etkAttachHotspots({
   function pick(pos) {
     pinned = pinned === pos ? null : pos;
     paint(pinned, pinned != null);
-    if (!pinned || !scrollRows) return;
-    const first = (byPos.get(pinned) || [])[0];
-    if (first && first.scrollIntoView)
-      first.scrollIntoView({ block: 'nearest' });
+    if (!pinned) return;
+    if (scrollRows) {
+      const first = (byPos.get(pinned) || [])[0];
+      if (first && first.scrollIntoView)
+        first.scrollIntoView({ block: 'nearest' });
+    }
+    if (onPick) onPick(pinned);
   }
 
   // ---- the rectangles -----------------------------------------------------
@@ -294,6 +303,16 @@ function etkAttachHotspots({
       a.style.width = box.width + 'px';
       a.style.height = box.height + 'px';
     }
+  }
+
+  // a pin handed over from the enlarged view: the reader clicked a number
+  // there, so the pane opens already answering which part it is
+  if (initialPin && areas.some((a) => a.dataset.pos === String(initialPin))) {
+    pinned = String(initialPin);
+    paint(pinned, true);
+    const first = (byPos.get(pinned) || [])[0];
+    if (first && first.scrollIntoView)
+      first.scrollIntoView({ block: 'nearest' });
   }
 
   // ---- rows point back at the drawing -------------------------------------

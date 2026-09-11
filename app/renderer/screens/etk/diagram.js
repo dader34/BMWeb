@@ -406,9 +406,10 @@ function renderDiagram(data, chassisId, d, viewEl) {
  * re-render already rebuilt the overlay).
  * @param {string|undefined} btnr - the diagram whose rectangles to restore
  * @param {string|undefined} chassisId - chassis code, for the hotspot file
+ * @param {string|null} [pin] - a callout the enlarged view was closed on, to start pinned
  * @returns {void}
  */
-function etkRestorePaneHotspots(btnr, chassisId) {
+function etkRestorePaneHotspots(btnr, chassisId, pin) {
   if (!btnr || !chassisId || typeof loadEtkHotspots !== 'function') return;
   const fig = document.querySelector('.etk-figure');
   const img = fig ? fig.querySelector('img') : null;
@@ -423,6 +424,7 @@ function etkRestorePaneHotspots(btnr, chassisId) {
       hotspots: rects,
       table: document.querySelector('.etk-parts'),
       scrollRows: true,
+      initialPin: pin || null,
     });
   });
 }
@@ -472,6 +474,8 @@ function etkOpenLightbox(url, name, btnr, chassisId) {
   // of the image, cross-highlighting the parts table still on screen behind it
   /** @type {(() => void)|null} */
   let dropHs = null;
+  /** @type {string|null} the callout a pick in here closed the view on */
+  let carry = null;
   /** @type {HTMLElement|null} the pane's table, cross-highlighted from in here too */
   const paneTable = document.querySelector('.etk-parts');
   if (btnr && chassisId && typeof loadEtkHotspots === 'function') {
@@ -491,6 +495,12 @@ function etkOpenLightbox(url, name, btnr, chassisId) {
         hotspots: rects,
         table: paneTable,
         scrollRows: false,
+        // a pick in the enlarged view answers the question and leaves: the
+        // view closes and the pane behind opens on that callout, row in view
+        onPick: (pos) => {
+          carry = pos;
+          m.close();
+        },
       });
     });
   }
@@ -504,7 +514,7 @@ function etkOpenLightbox(url, name, btnr, chassisId) {
       if (!dropHs) return;
       dropHs();
       dropHs = null;
-      etkRestorePaneHotspots(btnr, chassisId);
+      etkRestorePaneHotspots(btnr, chassisId, carry);
     });
     gone.observe(document.body, { childList: true });
   }
