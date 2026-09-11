@@ -65,7 +65,14 @@ from ista_extract import Content, _collect_blocks, _flat, _parse_table
 
 # the validity grammar and the characteristic maps are shared with the
 # repair-instruction extract so both filter a car the same way
-from validity_rules import decode_rule, read_roots, read_typekeys, read_char_names
+from validity_rules import (  # noqa: F401  re-exported for the tests
+    RuleParseError,
+    decode_rule,
+    parse_rule,
+    read_char_names,
+    read_roots,
+    read_typekeys,
+)
 
 # ---- the five classes -------------------------------------------------------
 # id -> (slug, the label the app's "Type" column shows)
