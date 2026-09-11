@@ -268,12 +268,46 @@ function wiringBindCrossLinks(art, ctx) {
 }
 
 /**
- * Cross-links inside a schematic. BMW's SVGs carry <a> elements pointing at
- * other WDS documents ("...file=SP1234.htm"), but unlike the HTML descriptions
- * their targets are never rewritten at import time -- the .svgz is stored
- * verbatim -- so left alone a click would leave the app (or 404). Extract the
- * same "<id>.htm" the description path rewrites to "#wds/<id>" and rebind the
- * anchor to open that document as a tab, exactly like wiringBindCrossLinks.
+ * The component a schematic link names, and where it lives in this archive.
+ *
+ * BMW's schematics are not linked by file: every clickable label in the SVG
+ * is `<a xlink:href="javascript:locateTree('X60004')">X60004</a>`, the call
+ * WDS's own frame answered by selecting that component in its tree. The
+ * archive's tree carries the same components as folders ("A8680 Fuse
+ * carrier...") and documents ("X60004, X60005 (DME MS42)" location views,
+ * "A8680, X8680" connector views), so the id is matched as a whole token
+ * against each entry's name and the folders above it. Whole token: F3 must
+ * not land on F34.
+ * @param {WiringIndexEntry[]} index - the flat archive index
+ * @param {string} id - the component id from the link (X60004, A8680, F3)
+ * @returns {WiringIndexEntry[]} every document about that component, tree order
+ */
+function wiringComponentDocs(index, id) {
+  const tok = new RegExp(
+    `(^|[\\s,(/])${id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?=$|[\\s,)/])`
+  );
+  return index.filter(
+    (e) => tok.test(e.name) || (e.trail || []).some((t) => tok.test(t))
+  );
+}
+
+/** Which of a component's documents a link opens first, by document kind. */
+const WIRING_LOCATE_ORDER = [
+  'connector',
+  'location',
+  'pins',
+  'description',
+  'schematic',
+];
+
+/**
+ * Cross-links inside a schematic: each `locateTree('<id>')` label opens the
+ * component's own document as a tab and reveals it in the tree, which is
+ * what WDS did with the call. A connector's pin view comes before its
+ * location view, a control unit's location before its schematic; a
+ * component the archive has no document for stays a plain label rather
+ * than a link that does nothing. The original href is removed so the
+ * browser can never try to run the script.
  * @param {SVGElement} svg - the injected schematic
  * @param {WiringViewCtx} ctx - the open view
  * @returns {void}
@@ -284,21 +318,28 @@ function wiringBindSvgLinks(svg, ctx) {
     const raw =
       a.getAttribute('xlink:href') ||
       a.getAttributeNS(XLINK, 'href') ||
-      a.getAttribute('href');
-    if (!raw) return;
-    const m = raw.match(/(?:file=)?([A-Za-z0-9_.-]+)\.htm/i);
-    if (!m) return;
-    const target = m[1];
-    // drop the original target so the anchor can't navigate the frame away
+      a.getAttribute('href') ||
+      '';
+    const m = raw.match(/locateTree\(\s*['"]([^'"]+)['"]\s*\)/);
     a.removeAttribute('href');
     a.removeAttribute('xlink:href');
     a.removeAttributeNS(XLINK, 'href');
+    if (!m) return;
+    const docs = wiringComponentDocs(ctx.index, m[1]);
+    if (!docs.length) return;
+    const rank = (e) => {
+      const r = WIRING_LOCATE_ORDER.indexOf(e.kind);
+      return r < 0 ? WIRING_LOCATE_ORDER.length : r;
+    };
+    const hit = docs.slice().sort((x, y) => rank(x) - rank(y))[0];
+    a.classList.add('wiring-svg-link');
     a.style.cursor = 'pointer';
     a.addEventListener('click', (ev) => {
       ev.preventDefault();
       ev.stopPropagation();
-      const hit = ctx.index.find((e) => e.doc === target);
-      ctx.tabs.openTab(hit || { name: target, kind: 'document', doc: target });
+      ctx.tabs.openTab(hit);
+      if (ctx.treeEl && ctx.data && ctx.data.tree)
+        wiringExpandTreeToDoc(ctx.treeEl, ctx.data.tree, hit.doc);
     });
   });
 }
