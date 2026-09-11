@@ -1068,3 +1068,205 @@ body.ista-mode.ista-real-body .view label {
   height: 100%;
   min-height: 0;
 }
+
+/* ===========================================================================
+   Round 2: the pages that stopped being app screens.
+
+   Everything below is still scoped under .ista-real-body, so the Modern
+   layout and the rest of the app remain untouched.
+   =========================================================================== */
+
+/* ---- the state square in the Control unit list ---------------------------- */
+.ista-real-body .irstate {
+  width: 54px;
+  text-align: center;
+}
+.ista-real-body .irstate i {
+  width: 10px;
+  height: 10px;
+  display: inline-block;
+  border: 1px solid #666;
+  background: #fff;
+}
+.ista-real-body .irstate i.ok {
+  background: #4caf50;
+}
+.ista-real-body .irstate i.warn {
+  background: #f0b400;
+}
+.ista-real-body .irstate i.bad {
+  background: #d33;
+}
+.ista-real-body .irstate i.dim {
+  background: #9a9a9a;
+}
+
+/* ---- a group heading row inside the Service plan -------------------------- */
+.ista-real-body .irplan tbody tr.irgroup td,
+.ista-real-body .irtable tbody tr.irgroup td {
+  background: var(--ir-grey);
+  font-weight: 700;
+}
+.ista-real-body .irplan tbody tr.irgroup-none td {
+  color: #666;
+  font-style: italic;
+  padding-left: 18px;
+}
+
+/* ---- SAE fault code input ------------------------------------------------- */
+.ista-real-body .irsae {
+  padding: 12px;
+}
+.ista-real-body .irsae-form {
+  display: flex;
+  gap: 40px;
+  margin-bottom: 16px;
+}
+.ista-real-body .irsae-f {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11px;
+  color: #333;
+}
+.ista-real-body .irsae-f .irvin-box {
+  width: 200px;
+}
+
+/* ---- the Administration dialog -------------------------------------------- */
+.ista-real-body .iradmin {
+  min-width: 720px;
+  max-width: 900px;
+}
+.ista-real-body .iradmin-title {
+  background: var(--ir-grey);
+  font-weight: 700;
+}
+/* its tab strip is the level-2 strip's language, at dialog scale */
+.ista-real-body .iradmin-tabs,
+.ista-real-body .irfd-tabs {
+  display: flex;
+  background: var(--ir-page);
+  padding: 4px 6px 0;
+  gap: 4px;
+  border-bottom: 1px solid var(--ir-grey-line);
+}
+.ista-real-body .iradmin-tab {
+  border: 0;
+  border-bottom: 1px solid var(--ir-cell-edge);
+  background: var(--ir-grey);
+  color: var(--ir-ink);
+  font: 12px var(--ir-font);
+  padding: 5px 12px;
+  cursor: pointer;
+}
+.ista-real-body .iradmin-tab.on {
+  background: var(--ir-teal);
+  color: #fff;
+}
+.ista-real-body .iradmin-host,
+.ista-real-body .irfd-host {
+  padding: 12px;
+  max-height: 440px;
+  overflow: auto;
+}
+.ista-real-body .iradmin-row {
+  margin-bottom: 14px;
+}
+.ista-real-body .iradmin-row-t {
+  font-weight: 700;
+  font-size: 12px;
+  margin-bottom: 5px;
+}
+.ista-real-body .iradmin-why {
+  font-weight: 400;
+  color: #666;
+}
+.ista-real-body .iradmin-opts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 28px;
+}
+.ista-real-body .iradmin-opt {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.ista-real-body .iradmin-opt.off {
+  color: var(--ir-off);
+  cursor: default;
+}
+.ista-real-body .iradmin-gw,
+.ista-real-body .iradmin-note {
+  font-size: 12px;
+  color: #333;
+}
+.ista-real-body .iradmin-note {
+  margin-top: 12px;
+  color: #666;
+}
+
+/* ---- the fault detail dialog ---------------------------------------------- */
+.ista-real-body .irfd {
+  min-width: 760px;
+  max-width: 1000px;
+}
+.ista-real-body .irfd-title {
+  background: var(--ir-teal);
+  color: #fff;
+  font-weight: 700;
+}
+/* its Description and Details tabs are two-column: the field name on the
+   left in the header grey, the value beside it */
+.ista-real-body .irfd-two th {
+  background: var(--ir-row-alt);
+  color: var(--ir-ink);
+  width: 260px;
+  vertical-align: top;
+  border-right: 1px solid #ccc;
+}
+.ista-real-body .irfd-two td {
+  white-space: pre-line;
+  vertical-align: top;
+}
+
+/* ---- a document opened from the Service plan ------------------------------ */
+.ista-real-body .irdoc {
+  min-width: 760px;
+  max-width: 1000px;
+}
+.ista-real-body .irdoc-title {
+  background: var(--ir-teal);
+  color: #fff;
+  font-weight: 700;
+  font-size: 13px;
+  padding: 5px 8px;
+}
+.ista-real-body .irdoc-body {
+  padding: 12px;
+  max-height: 460px;
+  overflow: auto;
+  font-size: 12px;
+}
+.ista-real-body .irdoc-body h3 {
+  font-size: 12px;
+  font-weight: 700;
+  margin: 14px 0 4px;
+}
+.ista-real-body .irdoc-body p {
+  margin: 0 0 6px;
+}
+
+/* ---- an ABL test module's two-pane page ----------------------------------- */
+.ista-real-body .irabl {
+  display: flex;
+  gap: 8px;
+  height: 100%;
+}
+.ista-real-body .irabl-pane {
+  flex: 1;
+  border: 1px solid var(--ir-grey-line);
+  min-width: 0;
+}

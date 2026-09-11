@@ -123,9 +123,14 @@ const I = loadClassic('screens/ista/');
       'Service plan',
       'Favourites',
       'Workshop/Operating fluids',
-      'Measuring devices',
     ],
     "the main bar's labels are the real tool's"
+  );
+  // Measuring devices is GONE, not greyed: this build talks to a diagnostic
+  // cable, and a tab for hardware it will never speak to is furniture
+  assert.ok(
+    !ISTA_TABS.some((t) => /measuring/i.test(t.id + t.label)),
+    'no Measuring devices tab at all'
   );
   assert.deepStrictEqual(
     I.istaSubs3Of('operations', 'new').map((s) => s.label),
@@ -207,14 +212,61 @@ const I = loadClassic('screens/ista/');
   );
   assert.deepStrictEqual(
     [...new Set(pages)].sort(),
-    ['active', 'details', 'equipment', 'readout', 'repair', 'techdata', 'vin'],
+    [
+      'active',
+      'details',
+      'diag',
+      'equipment',
+      'fault-memory',
+      'finished',
+      'history',
+      'plan',
+      'readout',
+      'repair',
+      'sae',
+      'service-tree',
+      'techdata',
+      'unit-list',
+      'vin',
+    ],
     'only the pages the shell draws itself'
   );
+
+  // THE TABS DO ISTA'S OWN WORK. Every one of these used to open one of the
+  // app's screens inside the workshop chrome, which put a second tool's
+  // layout inside this one's frame. They are pages now, and this pins that:
+  // a regression here is the old screen coming back.
+  for (const [tab, sub, sub3] of [
+    ['management', 'troubleshooting', 'fault-memory'],
+    ['management', 'troubleshooting', 'fault-pattern'],
+    ['management', 'troubleshooting', 'function-structure'],
+    ['management', 'troubleshooting', 'component-structure'],
+    ['management', 'troubleshooting', 'sae-input'],
+    ['management', 'service-functions', 'service-functions'],
+  ]) {
+    const leaf = I.istaSub3(tab, sub, sub3);
+    assert.ok(leaf, `${tab}/${sub}/${sub3} exists`);
+    assert.ok(leaf.page, `${tab}/${sub}/${sub3} is a page the shell draws`);
+    assert.ok(!leaf.open, `${tab}/${sub}/${sub3} opens no app screen`);
+  }
+  for (const [tab, sub] of [
+    ['operations', 'finished'],
+    ['information', 'history'],
+    ['information', 'unit-list'],
+    ['service-plan', 'hit-list'],
+    ['service-plan', 'test-plan'],
+    ['service-plan', 'programming-plan'],
+  ]) {
+    const leaf = istaSub(tab, sub);
+    assert.ok(leaf && leaf.page, `${tab}/${sub} is a page`);
+    assert.ok(!leaf.open, `${tab}/${sub} opens no app screen`);
+  }
+  ok('every rebuilt tab is a page, not an app screen');
   ok('page kinds are the ones that exist');
 
   assert.strictEqual(istaTab('operations').label, 'Operations');
   assert.strictEqual(istaTab('nope'), null);
-  assert.strictEqual(istaSub('service-plan', 'hit-list').open, 'showLookup');
+  assert.strictEqual(istaSub('service-plan', 'hit-list').page, 'plan');
   assert.strictEqual(istaSub('operations', 'nope'), null);
   assert.strictEqual(istaSub('nope', 'hit-list'), null);
   assert.strictEqual(

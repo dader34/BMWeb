@@ -428,12 +428,21 @@ function istaToolbarAct(act) {
   }
   if (act === 'print') return window.print();
   if (act === 'settings')
-    return typeof showSettings === 'function' ? showSettings() : undefined;
+    // a WINDOW over the page, not a navigation: the real tool never leaves
+    // the vehicle to change a setting, and neither does this
+    return typeof istaAdminOpen === 'function'
+      ? istaAdminOpen(() =>
+          showIsta(istaState.tab, istaState.sub, istaState.sub3)
+        )
+      : undefined;
   if (act === 'help')
     return typeof showDocs === 'function'
       ? showDocs()
       : window.open('README.md', '_blank');
-  if (act === 'sessions') return istaPickCar();
+  // NO CAR PICKER. ISTA opens a vehicle in exactly one place, Operations /
+  // New, and a second way in is a second answer to "which car is this" --
+  // the one question a workshop tool must never have two of.
+  if (act === 'sessions') return istaGo('operations', 'new', 'vin');
   // tile and restore are window-manager buttons of the real tool's own
   // desktop shell: drawn so the row is the row, inert because a browser tab
   // has no windows to tile
@@ -666,7 +675,10 @@ function istaRouteStamp() {
  * @returns {Promise<void>}
  */
 async function istaOpen(sub) {
-  const fn = window[sub.open];
+  // a synthetic row (a stored scan, one module's script) carries its own
+  // call rather than a global name: the tab table names functions, but these
+  // are built from a row the reader just picked
+  const fn = sub._call || window[sub.open];
   istaOpeningSet(true); // the router must not read this render as "left"
   try {
     await fn();
@@ -769,6 +781,209 @@ function istaRealChromeBars(sub) {
 }
 
 /**
+ * Open one module's own script, from the Control unit list.
+ * @param {object} ecu - the picked config ECU
+ * @returns {Promise<void>}
+ */
+function istaOpenModuleScript(ecu) {
+  if (!ecu || !ecu.sgbd || typeof showEcu !== 'function')
+    return Promise.resolve();
+  return istaOpen({
+    label: ecu.label || ecu.sgbd,
+    _call: () => showEcu(istaChassis(), ecu.sgbd),
+  });
+}
+
+/**
+ * Session state the Service plan's Test plan holds.
+ *
+ * Deliberately in memory and not in Settings: a test plan is what THIS
+ * session decided to look at, and a plan that outlived the car on the ramp
+ * would be worse than no plan at all.
+ * @type {object[]}
+ */
+const istaTestPlan = [];
+
+/**
+ * Open a stored scan's report inside the shell.
+ * @param {object} scan - a GarageScan
+ * @returns {Promise<void>}
+ */
+function istaOpenStoredScan(scan) {
+  if (!scan || !istaState.car) return Promise.resolve();
+  if (typeof showGarageScan !== 'function') return Promise.resolve();
+  return istaOpen({
+    label: 'Operations report',
+    _call: () => showGarageScan(istaState.car.id, scan.id),
+  });
+}
+
+/**
+ * Clear the fault memory of the module a picked fault came from.
+ *
+ * Routed through the app's own per-module clear, which asks first and then
+ * RE-READS to prove the memory is empty. A clear that reports success
+ * without re-reading hides a live fault that re-enters the moment the ECU
+ * sees it again, so this must not grow a shortcut.
+ * @param {object} row - the picked fault row
+ * @param {() => void} after - redraw the table
+ * @returns {Promise<void>}
+ */
+async function istaClearPicked(row, after) {
+  if (!row || !row.sgbd) return;
+  if (typeof clearModule !== 'function') return;
+  await istaProbe(() =>
+    clearModule({
+      ecu: { sgbd: row.sgbd },
+      label: row.module || row.sgbd,
+      codes: [],
+    })
+  );
+  if (typeof after === 'function') after();
+}
+
+/**
+ * Draw a browser page (tree, list, document) into the content area.
+ *
+ * One call site for every structure page, so the deep-link slots and the
+ * selection state are handled the same way whichever tree is showing.
+ * @param {HTMLElement} host - where to draw
+ * @param {object} src - a BrowserSource
+ * @param {string} key - which browser's state this is
+ * @param {object} [opts] - passed through to browserPaint
+ * @returns {void}
+ */
+function istaBrowse(host, src, key, opts) {
+  if (typeof browserPaint !== 'function') {
+    host.innerHTML =
+      `<div class="irgrey-w">The structure browser did not ship in this ` +
+      `build.</div>`;
+    return;
+  }
+  if (!istaState.browse) istaState.browse = {};
+  if (!istaState.browse[key])
+    istaState.browse[key] = {
+      path: null,
+      open: new Set(),
+      hits: [],
+      doc: null,
+    };
+  browserPaint(host, src, istaState.browse[key], opts || {});
+}
+
+/**
+ * Load a diagnosis structure for a chassis.
+ * @param {string} chassis - the chassis id
+ * @param {string} which - fault-pattern, function-structure, component-structure
+ * @returns {Promise<object|null>}
+ */
+async function istaDiagLoad(chassis, which) {
+  const code = String(chassis || '').toUpperCase();
+  if (!code) return null;
+  const base = typeof WEB_BASE === 'string' && WEB_BASE ? WEB_BASE : '.';
+  const res = await fetch(`${base}/data/ista/diag/${code}/${which}.json`);
+  if (!res.ok) return null;
+  return res.json();
+}
+
+/**
+ * A diagnosis document's body, rendered.
+ * @param {string} chassis - the chassis id
+ * @param {object} doc - the document row
+ * @returns {Promise<string>} HTML
+ */
+async function istaDiagBody(chassis, doc) {
+  const code = String(chassis || '').toUpperCase();
+  const base = typeof WEB_BASE === 'string' && WEB_BASE ? WEB_BASE : '.';
+  // an ABL test module is a compiled procedure: its halves are documents but
+  // the procedure itself cannot run here, and the page says so rather than
+  // pretending a button will start it
+  if (doc && doc.type === 'ABL')
+    return (
+      `<div class="irabl"><div class="irabl-pane">` +
+      `<div class="irpane-head">Procedure</div>` +
+      `<div class="irgrey-w">This test module is a compiled procedure and ` +
+      `cannot run in this build. Its linked documents are on the right.` +
+      `</div></div></div>`
+    );
+  const body = await istaProbe(async () => {
+    const res = await fetch(
+      `${base}/data/ista/diag/${code}/docs/${doc.id}.json`
+    );
+    return res.ok ? res.json() : null;
+  });
+  if (!body)
+    return `<div class="irgrey-w">No text body ships for this document.</div>`;
+  if (typeof repairBodyHtml === 'function') return repairBodyHtml(body);
+  return `<div class="rp-doc-body">${esc(JSON.stringify(body).slice(0, 400))}</div>`;
+}
+
+/**
+ * The Service plan's groups, per list.
+ *
+ * The hit list groups the linked procedures UNDER THE FAULT that points at
+ * them, because that is the question a technician is asking: this fault is
+ * stored, what does BMW say to do about it. A fault with no linked procedure
+ * keeps its heading and says so.
+ * @param {string} which - hit-list, test-plan or programming-plan
+ * @param {object|null} car - the picked GarageCar
+ * @returns {Promise<object[]>} the groups
+ */
+async function istaPlanGroups(which, car) {
+  if (which === 'programming-plan') return [];
+  if (which === 'test-plan')
+    return istaTestPlan.length
+      ? [{ title: 'Test plan', rows: istaTestPlan }]
+      : [];
+  const scan =
+    typeof istaNewestScan === 'function' ? istaNewestScan(car) : null;
+  const rows =
+    typeof istaFaultRows === 'function'
+      ? istaFaultRows(scan && scan.report)
+      : [];
+  if (!rows.length) return [];
+  await istaProbe(() =>
+    typeof loadIstaTests === 'function' ? loadIstaTests() : null
+  );
+  return rows.map((r) => {
+    const doc = typeof istaTestFor === 'function' ? istaTestFor(r.desc) : null;
+    return {
+      title: `${r.code}  ${r.desc}`,
+      none: 'no procedure is linked to this fault in this build',
+      rows: doc
+        ? [{ type: 'ABL', title: doc.title || r.desc, state: '', _doc: doc }]
+        : [],
+    };
+  });
+}
+
+/**
+ * Open a Service plan row's document in the viewer.
+ * @param {object} row - the picked row
+ * @returns {void}
+ */
+function istaOpenPlanDoc(row) {
+  if (!row || !row._doc || typeof openModal !== 'function') return;
+  const doc = row._doc;
+  const chapters = (doc.chapters || [])
+    .map(
+      (ch) =>
+        `<h3>${esc(ch.heading || '')}</h3>` +
+        (ch.paras || []).map((p) => `<p>${esc(p)}</p>`).join('')
+    )
+    .join('');
+  const { overlay, close } = openModal(
+    `<div class="modal irdoc" role="dialog" aria-modal="true">` +
+      `<div class="irdoc-title">${esc(doc.title || row.title)}</div>` +
+      `<div class="irdoc-body">${chapters}</div>` +
+      `<div class="modal-actions">` +
+      `<button type="button" class="btn irdoc-close">Close</button>` +
+      `</div></div>`
+  );
+  overlay.querySelector('.irdoc-close').onclick = () => close();
+}
+
+/**
  * Draw one of the shell's own pages, in the face the setting asks for.
  * @param {IstaSub|IstaSub3} s - the leaf
  * @param {HTMLElement} host - where to draw
@@ -799,6 +1014,259 @@ async function istaDrawPage(s, host) {
       onValid: bar,
     });
     bar(valid);
+    return;
+  }
+
+  // ---- Operations / Finished ------------------------------------------------
+  if (s.page === 'finished') {
+    let picked = null;
+    const bar = () =>
+      istaBottomBar('finished', {
+        'open-operation': picked ? () => istaOpenStoredScan(picked) : null,
+      });
+    const scans = istaPageFinished(host, {
+      car,
+      onPick: (sc) => {
+        picked = sc;
+        bar();
+      },
+    });
+    istaRealStatus({
+      items: [{ k: 'Operations:', v: `${scans.length} / ${scans.length}` }],
+    });
+    bar();
+    return;
+  }
+
+  // ---- Vehicle information / Repair history ---------------------------------
+  if (s.page === 'history') {
+    let picked = null;
+    const bar = () =>
+      istaBottomBar('history', {
+        display: picked ? () => istaOpenStoredScan(picked) : null,
+      });
+    const scans = istaPageHistory(host, {
+      car,
+      onPick: (sc) => {
+        picked = sc;
+        bar();
+      },
+    });
+    istaRealStatus({
+      items: [{ k: 'Entries:', v: `${scans.length} / ${scans.length}` }],
+    });
+    bar();
+    return;
+  }
+
+  // ---- Troubleshooting / Fault memory ---------------------------------------
+  if (s.page === 'fault-memory') {
+    let picked = null;
+    const draw = () => {
+      const rows = istaPageFaultMemory(host, {
+        car,
+        filter: istaState.faultFilter || '',
+        onPick: (r) => {
+          picked = r;
+          bar(rows);
+        },
+      });
+      istaRealStatus({
+        items: [
+          {
+            k: 'Number of fault memories:',
+            v: `${rows.length} / ${rows.length}`,
+          },
+          { k: 'No. fault patterns:', v: '0' },
+          { k: 'Filter:', v: istaState.faultFilter ? 'Module' : 'Default' },
+        ],
+      });
+      bar(rows);
+      return rows;
+    };
+    const bar = (rows) =>
+      istaBottomBar('fault-memory', {
+        'show-code': picked ? () => istaFaultDialog(picked) : null,
+        // the clear is the app's own per-module one, behind its own confirm:
+        // ISTA deletes the memory of the module the picked fault came from
+        'delete-faults': picked ? () => istaClearPicked(picked, draw) : null,
+        'filter-faults':
+          picked && rows.length
+            ? () => {
+                istaState.faultFilter = picked.sgbd;
+                draw();
+              }
+            : null,
+        'delete-filter': istaState.faultFilter
+          ? () => {
+              istaState.faultFilter = '';
+              draw();
+            }
+          : null,
+        'show-all': istaState.faultFilter
+          ? () => {
+              istaState.faultFilter = '';
+              draw();
+            }
+          : null,
+      });
+    draw();
+    return;
+  }
+
+  // ---- Troubleshooting / SAE fault code input -------------------------------
+  if (s.page === 'sae') {
+    let rows = [];
+    const bar = () =>
+      istaBottomBar('sae', {
+        'show-code': rows.length
+          ? () =>
+              istaFaultDialog({
+                code: rows[0][1],
+                desc: rows[0][2],
+                module: '',
+                sgbd: '',
+                raw: {},
+              })
+          : null,
+      });
+    istaPageSae(host, {
+      onRows: (r) => {
+        rows = r;
+        istaRealStatus({
+          items: [
+            { k: 'No. fault patterns:', v: '0' },
+            { k: 'SAE fault code number:', v: String(r.length) },
+          ],
+        });
+        bar();
+      },
+    });
+    istaRealStatus({
+      items: [
+        { k: 'No. fault patterns:', v: '0' },
+        { k: 'SAE fault code number:', v: '0' },
+      ],
+    });
+    bar();
+    return;
+  }
+
+  // ---- Vehicle management / Service functions -------------------------------
+  if (s.page === 'service-tree') {
+    istaRealStatus({ items: [{ k: 'Hits:', v: '0 / 0' }] });
+    istaBottomBar('service-functions', {});
+    const cfg = await istaProbe(() => api(`/api/chassis/${chassis}`));
+    const index = await istaProbe(() =>
+      typeof serviceIndexLoad === 'function' ? serviceIndexLoad() : null
+    );
+    if (!host.isConnected) return;
+    const src = istaServiceSource(cfg, index, chassis, (hit) => {
+      if (typeof serviceRunHit === 'function') serviceRunHit(hit, chassis);
+    });
+    istaBrowse(host, src, 'service', { emptyTitle: 'Service Functions' });
+    return;
+  }
+
+  // ---- Troubleshooting / the diagnosis structures ---------------------------
+  if (s.page === 'diag') {
+    istaRealStatus({ items: [{ k: 'Hits:', v: '0 / 0' }] });
+    istaBottomBar(
+      s.id === 'fault-pattern' ? 'fault-pattern' : 'service-functions',
+      {}
+    );
+    const data = await istaProbe(() => istaDiagLoad(chassis, s.id));
+    if (!host.isConnected) return;
+    if (!data)
+      return istaPageGrey(
+        host,
+        s.label,
+        `no ${s.label.toLowerCase()} data ships for ${chassis || 'this vehicle'} ` +
+          `in this build: run tools/ista/diag_structure_extract.py to add it`
+      );
+    const src = istaDiagSource(data, (d) => istaDiagBody(chassis, d));
+    istaBrowse(host, src, `diag-${s.id}`, { emptyTitle: s.label });
+    return;
+  }
+
+  // ---- Service plan ---------------------------------------------------------
+  if (s.page === 'plan') {
+    let picked = null;
+    const groups = await istaPlanGroups(s.id, car);
+    if (!host.isConnected) return;
+    const bar = () =>
+      istaBottomBar('hit-list', {
+        back: () => showIsta('information', 'details', null),
+        display: picked ? () => istaOpenPlanDoc(picked) : null,
+      });
+    const flat = istaPageServicePlan(host, {
+      groups,
+      empty:
+        s.id === 'hit-list'
+          ? 'No fault has been read on this vehicle yet, so nothing points ' +
+            'at a procedure.'
+          : s.id === 'test-plan'
+            ? 'Nothing has been added to the test plan in this session.'
+            : 'Programming is not offered by this build.',
+      onPick: (r) => {
+        picked = r;
+        bar();
+      },
+      onOpen: (r) => istaOpenPlanDoc(r),
+    });
+    istaRealStatus({
+      items: [{ k: 'Hits:', v: `${flat.length} / ${flat.length}` }],
+    });
+    bar();
+    return;
+  }
+
+  // ---- Vehicle information / Control unit list ------------------------------
+  if (s.page === 'unit-list') {
+    let picked = null;
+    const cfg = await istaProbe(() => api(`/api/chassis/${chassis}`));
+    if (!host.isConnected) return;
+    const scan =
+      typeof istaNewestScan === 'function' ? istaNewestScan(car) : null;
+    const report = scan && scan.report;
+    const faults = ((report && report.modules) || []).reduce(
+      (a, m) => a + (m.codes || []).length,
+      0
+    );
+    const bar = () =>
+      istaBottomBar('unit-list', {
+        'vehicle-test': () => {
+          istaState.tested = true;
+          return istaGo('information', 'tree', null);
+        },
+        'ecu-functions': picked ? () => istaOpenModuleScript(picked) : null,
+        'display-faults': () =>
+          istaGo('management', 'troubleshooting', 'fault-memory'),
+      });
+    const rows = istaPageUnitList(host, {
+      config: cfg,
+      report,
+      onPick: (e) => {
+        picked = e;
+        bar();
+      },
+    });
+    istaRealStatus({
+      items: [
+        {
+          k: 'Fault memory:',
+          v: report ? String(faults) : 'Unknown',
+        },
+      ],
+      legend: [
+        { cls: 'ok', label: 'ECU without fault memory' },
+        { cls: 'warn', label: 'ECU with fault memory' },
+        { cls: 'bad', label: 'ECU not responding' },
+        { cls: 'dim', label: 'ECU not read' },
+      ],
+    });
+    bar();
+    void rows;
     return;
   }
 
