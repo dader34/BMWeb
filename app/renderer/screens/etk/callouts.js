@@ -93,6 +93,58 @@ function etkHotspotName(pos, count) {
 }
 
 /**
+ * The lit callouts, drawn magnified inside the loupe.
+ *
+ * The loupe is an opaque copy of the drawing scaled by its zoom, painted
+ * above the overlay so the pointer's own box does not show through it at
+ * the unmagnified size and place. What the reader wants to see under the
+ * glass is the same box, magnified with the drawing, so the lit rectangles
+ * are redrawn in the loupe's coordinates: the loupe's background is the
+ * image at `bw` x `bh` shifted so the pointer's fraction (`fx`, `fy`) sits
+ * at the loupe's centre, and a rectangle scaled to that same size shifts
+ * with it.
+ * @param {HTMLElement} loupe - the magnifier element (its width is its diameter)
+ * @param {HTMLElement} host - the element holding the `.etk-hotspot` buttons
+ * @param {HTMLImageElement} img - the drawing, for its natural size
+ * @param {number} fx - pointer x as a fraction of the drawing's width
+ * @param {number} fy - pointer y as a fraction of the drawing's height
+ * @param {number} bw - the magnified drawing's width, px
+ * @param {number} bh - the magnified drawing's height, px
+ * @returns {number} how many marks were drawn
+ */
+function etkLoupeMarks(loupe, host, img, fx, fy, bw, bh) {
+  let wrap = loupe.querySelector('.etk-loupe-marks');
+  if (!wrap) {
+    wrap = document.createElement('div');
+    wrap.className = 'etk-loupe-marks';
+    loupe.appendChild(wrap);
+  }
+  wrap.innerHTML = '';
+  const half = loupe.clientWidth / 2;
+  let n = 0;
+  for (const a of host.querySelectorAll('.etk-hotspot.on')) {
+    const box = etkScaleHotspot(
+      /** @type {any} */ (a)._hs,
+      img.naturalWidth,
+      img.naturalHeight,
+      bw,
+      bh
+    );
+    if (!box) continue;
+    const d = document.createElement('div');
+    d.className =
+      'etk-loupe-mark' + (a.classList.contains('pinned') ? ' pinned' : '');
+    d.style.left = half - fx * bw + box.left + 'px';
+    d.style.top = half - fy * bh + box.top + 'px';
+    d.style.width = box.width + 'px';
+    d.style.height = box.height + 'px';
+    wrap.appendChild(d);
+    n++;
+  }
+  return n;
+}
+
+/**
  * Wire one drawing to one parts table: build the rectangle overlay, keep it
  * aligned, and cross-highlight in both directions.
  *

@@ -536,6 +536,9 @@ function etkOpenLightbox(url, name, btnr, chassisId) {
     loupe.style.top = ev.clientY - pr.top - ETK_LOUPE_PX / 2 + 'px';
     loupe.style.backgroundSize = `${bw}px ${bh}px`;
     loupe.style.backgroundPosition = `${ETK_LOUPE_PX / 2 - fx * bw}px ${ETK_LOUPE_PX / 2 - fy * bh}px`;
+    // the lit callout, magnified under the glass with the drawing
+    if (typeof etkLoupeMarks === 'function')
+      etkLoupeMarks(loupe, plate, img, fx, fy, bw, bh);
   };
   plate.onpointerleave = () => {
     loupe.hidden = true;
