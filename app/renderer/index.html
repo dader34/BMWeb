@@ -18,6 +18,10 @@
   <link rel="stylesheet" href="css/lookup.css" />
   <link rel="stylesheet" href="css/tuning.css" />
   <link rel="stylesheet" href="css/themes.css" />
+  <!-- The ISTA layout's chrome. Every rule is scoped under .ista-real, which
+       the shell sets only while the INPA layout setting is on, so the Modern
+       look and the rest of the app are untouched by it. -->
+  <link rel="stylesheet" href="css/ista-real.css" />
 </head>
 <body>
   <!-- boot splash, dismissed once the sidecar answers. logo inherits theme vars -->
@@ -456,7 +460,9 @@
        had no screen for, screen.js the entry point -- so it loads last. -->
   <script src="screens/ista/model.js"></script>
   <script src="screens/ista/banner.js"></script>
+  <script src="screens/ista/skin.js"></script>
   <script src="screens/ista/details.js"></script>
+  <script src="screens/ista/pages.js"></script>
   <script src="screens/ista/screen.js"></script>
   <script src="screens/apps.js"></script>
   <script src="screens/tutorial.js"></script>

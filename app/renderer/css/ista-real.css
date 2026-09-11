@@ -1,0 +1,973 @@
+/* ===========================================================================
+   ISTA layout: the workshop tool's own chrome, 1:1.
+
+   EVERY RULE IN THIS FILE IS SCOPED UNDER .ista-real, and .ista-real is set
+   only when Settings 'inpaScreens' is 'on' (inpaMode(), which is forced off
+   on phones). With the setting on Modern, not one selector here matches and
+   the ISTA app keeps the look it had. Nothing outside the shell is touched
+   either way: the scope class sits on the chrome container and on <body>,
+   and every rule descends from one of them.
+
+   THE COLOURS ARE MEASURED, NOT CHOSEN. Each value below was sampled off the
+   frames of a real session rather than eyeballed, because "about right" grey
+   is what makes a skin read as an imitation. The three that carry the look:
+
+     teal   #5e958f   the active tab, a selected row, a document title bar
+     grey   #c5c5c5   the toolbar, both sub-tab strips, every button face
+     black  #000000   the main tab bar
+
+   The tab strips have exactly one shape rule and it is not the obvious one.
+   The main bar and any strip that has ANOTHER strip below it are plain
+   rectangles on the tab grid; the LAST strip on the page cuts its top-right
+   corner into a trapezoid. That is why Operations/New (which has a level-3
+   strip under it) is square while Vehicle information (which has none) is
+   cut. Getting this backwards is the single most visible way to miss.
+   =========================================================================== */
+
+.ista-real {
+  /* the measured palette */
+  --ir-teal: #5e958f;
+  --ir-teal-dim: #7ba8a3;
+  --ir-grey: #c5c5c5;
+  --ir-grey-line: #b3b3b3;
+  --ir-head: #4d4d4d;
+  --ir-row-alt: #e6e6e6;
+  --ir-off: #8a8a8a;
+  --ir-ink: #000;
+  --ir-font:
+    'Segoe UI', 'Helvetica Neue', Helvetica, Arial, 'Liberation Sans',
+    sans-serif;
+  /* the chrome's fixed bands, measured off the frames at 1728px wide and
+     kept in px: this tool does not scale its chrome with the viewport */
+  --ir-toolbar-h: 30px;
+  --ir-title-h: 32px;
+  --ir-header-h: 23px;
+  --ir-tabbar-h: 42px;
+  --ir-strip-h: 40px;
+  --ir-strip3-h: 47px;
+  --ir-status-h: 20px;
+  --ir-bottom-h: 34px;
+}
+
+/* ---- the shell replaces the app's own frame -------------------------------
+   The app's topbar, breadcrumbs and F-key bar are the app's chrome. The
+   workshop tool has its own version of all three (the toolbar row, the tab
+   bars, the bottom button bar), so showing both would be two competing
+   frames around one screen. They go while the skin is up and come back the
+   moment it is not. */
+body.ista-mode.ista-real-body #topbar,
+body.ista-mode.ista-real-body #crumbs,
+body.ista-mode.ista-real-body #fkeys,
+body.ista-mode.ista-real-body .statusbar {
+  display: none !important;
+}
+
+body.ista-mode.ista-real-body {
+  background: #fff;
+  font-family: var(--ir-font);
+}
+
+body.ista-mode.ista-real-body .ista-chrome {
+  inset: 0 0 auto 0;
+  height: auto;
+  background: #fff;
+  border-bottom: 0;
+  font-family: var(--ir-font);
+  font-size: 12px;
+  color: var(--ir-ink);
+}
+
+/* the screen fills everything the chrome left, and the bottom bar floats
+   over its last band: the content box's own border is what the frames show
+   under the strips, so .view carries it rather than the screen inside */
+body.ista-mode.ista-real-body .view {
+  inset: var(--ista-h) 0 calc(var(--ir-status-h) + var(--ir-bottom-h)) 0;
+  padding: 0;
+  margin: 0 4px;
+  background: #fff;
+  border: 1px solid var(--ir-teal);
+  border-bottom: 0;
+  overflow: auto;
+  font-family: var(--ir-font);
+  font-size: 12px;
+}
+
+/* ---- toolbar row ---------------------------------------------------------- */
+.ista-real .irt {
+  display: flex;
+  align-items: center;
+  height: var(--ir-toolbar-h);
+  background: var(--ir-grey);
+  padding: 0 4px;
+  gap: 4px;
+  box-sizing: border-box;
+}
+
+/* the session squares: one per open car, the active one outlined teal */
+.ista-real .irt-sess {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.ista-real .irt-sq {
+  width: 26px;
+  height: 20px;
+  border: 1px solid #9a9a9a;
+  background: var(--ir-grey);
+  color: #6a6a6a;
+  font: 11px/18px var(--ir-font);
+  text-align: center;
+  padding: 0;
+  cursor: pointer;
+}
+.ista-real .irt-sq.on {
+  border-color: var(--ir-teal);
+  color: var(--ir-ink);
+  box-shadow: inset 0 0 0 1px var(--ir-teal);
+}
+
+.ista-real .irt-spacer {
+  flex: 1;
+}
+
+.ista-real .irt-clock {
+  font-size: 12px;
+  color: #1a1a1a;
+  margin-right: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* every toolbar icon is the same 26x20 square with a drawn glyph inside: no
+   emoji anywhere, so the row renders identically on every platform */
+.ista-real .irt-ico {
+  width: 26px;
+  height: 20px;
+  border: 1px solid transparent;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #1a1a1a;
+}
+.ista-real .irt-ico:hover {
+  border-color: #9a9a9a;
+  background: #d4d4d4;
+}
+.ista-real .irt-ico svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+  stroke-linecap: square;
+  stroke-linejoin: miter;
+}
+.ista-real .irt-ico.irt-ico-fill svg {
+  fill: currentColor;
+  stroke: none;
+}
+
+/* ---- title row ------------------------------------------------------------ */
+.ista-real .irtitle {
+  height: var(--ir-title-h);
+  background: var(--ir-grey);
+  border-top: 1px solid #fff;
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  font-size: 17px;
+  font-weight: 700;
+  color: #111;
+  box-sizing: border-box;
+}
+
+/* ---- header line (VIN / Vehicle / KL15 / KL30) ---------------------------- */
+.ista-real .irhead {
+  height: var(--ir-header-h);
+  background: #fff;
+  display: flex;
+  align-items: center;
+  font-size: 11px;
+  padding: 0 8px;
+  box-sizing: border-box;
+  gap: 6px;
+}
+.ista-real .irhead b {
+  font-weight: 700;
+}
+.ista-real .irhead .irhead-k {
+  color: #333;
+  font-weight: 700;
+}
+/* the VIN label and the Vehicle label sit on a fixed grid in the frames:
+   "VIN" at the left edge, the value, then "Vehicle" at a fixed offset */
+.ista-real .irhead-vin {
+  min-width: 130px;
+}
+.ista-real .irhead-veh {
+  flex: 1;
+}
+.ista-real .irhead-kl {
+  display: flex;
+  gap: 26px;
+  padding-right: 10px;
+  color: #333;
+}
+/* the green session pill after a whole-car test */
+.ista-real .irhead-test {
+  background: var(--ir-teal);
+  color: #fff;
+  padding: 1px 14px;
+  font-weight: 700;
+}
+
+/* ---- main tab bar --------------------------------------------------------- */
+.ista-real .irtabs {
+  display: flex;
+  height: var(--ir-tabbar-h);
+  background: #000;
+  box-sizing: border-box;
+}
+.ista-real .irtab {
+  /* the frames put seven tabs on a fixed 129px grid with a 1px white gutter,
+     and leave the rest of the bar black -- the tabs do NOT stretch */
+  flex: 0 0 129px;
+  border: 0;
+  border-right: 1px solid #fff;
+  background: #000;
+  color: #fff;
+  font: 13px/1.15 var(--ir-font);
+  text-align: left;
+  padding: 0 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  white-space: pre-line;
+}
+.ista-real .irtab:hover:not(.off) {
+  background: #262626;
+}
+.ista-real .irtab.on {
+  background: var(--ir-teal);
+  color: #fff;
+}
+.ista-real .irtab.off {
+  color: var(--ir-off);
+  cursor: default;
+}
+
+/* ---- the sub-tab strips --------------------------------------------------- */
+/* Both strips share everything but their shape and their grid. A strip that
+   is NOT the last one on the page keeps the main bar's 129px columns and
+   square corners; the last one cuts its corner and sizes to its label. */
+.ista-real .irstrip {
+  display: flex;
+  background: var(--ir-grey);
+  box-sizing: border-box;
+  height: var(--ir-strip-h);
+  align-items: stretch;
+}
+.ista-real .irstrip-3 {
+  height: var(--ir-strip3-h);
+  background: #fff;
+  padding-left: 12px;
+  align-items: flex-start;
+}
+
+.ista-real .irsub {
+  border: 0;
+  background: var(--ir-grey);
+  color: var(--ir-ink);
+  font: 13px/1.15 var(--ir-font);
+  text-align: left;
+  padding: 0 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  white-space: pre-line;
+  position: relative;
+}
+.ista-real .irsub.on {
+  background: var(--ir-teal);
+  color: #fff;
+}
+.ista-real .irsub.off {
+  color: var(--ir-off);
+  cursor: default;
+}
+
+/* square grid: a strip with another strip beneath it */
+.ista-real .irstrip-grid .irsub {
+  flex: 0 0 129px;
+  border-right: 1px solid #fff;
+}
+/* the grid strip draws its empty remainder in the same grey, so the row
+   reads as a full-width band rather than as tabs floating on white */
+.ista-real .irstrip-grid {
+  background: var(--ir-grey);
+}
+
+/* trapezoid: the LAST strip on the page. The cut is 17px across and 16px
+   down, measured off the frames. */
+.ista-real .irstrip-cut .irsub {
+  margin: 0 4px 0 0;
+  padding: 0 24px 0 12px;
+  min-width: 96px;
+  clip-path: polygon(0 0, calc(100% - 17px) 0, 100% 16px, 100% 100%, 0 100%);
+}
+.ista-real .irstrip-cut.irstrip {
+  padding-left: 6px;
+  align-items: stretch;
+}
+.ista-real .irstrip-3 .irsub {
+  height: calc(var(--ir-strip3-h) - 5px);
+}
+
+/* the pin star: a small overlay on a sub-tab, drawn rather than an emoji */
+.ista-real .irsub-star {
+  position: absolute;
+  top: 2px;
+  right: 3px;
+  width: 11px;
+  height: 11px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  opacity: 0;
+  color: #555;
+}
+.ista-real .irsub:hover .irsub-star,
+.ista-real .irsub-star.on {
+  opacity: 1;
+}
+.ista-real .irsub.on .irsub-star {
+  color: #fff;
+}
+.ista-real .irsub-star svg {
+  width: 11px;
+  height: 11px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+}
+.ista-real .irsub-star.on svg {
+  fill: currentColor;
+}
+
+/* ---- status line ---------------------------------------------------------- */
+.ista-real-body .irstatus {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: var(--ir-bottom-h);
+  height: var(--ir-status-h);
+  background: #fff;
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  font-size: 11px;
+  color: #1a1a1a;
+  box-sizing: border-box;
+  gap: 18px;
+  z-index: 5;
+}
+.ista-real-body .irstatus b {
+  font-weight: 700;
+}
+.ista-real-body .irstatus-spacer {
+  flex: 1;
+}
+
+/* the legend: five (or four) little squares with a label each */
+.ista-real-body .irlegend {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  font-size: 11px;
+}
+.ista-real-body .irlegend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.ista-real-body .irlegend i {
+  width: 9px;
+  height: 9px;
+  border: 1px solid #666;
+  display: inline-block;
+  background: #fff;
+}
+.ista-real-body .irlegend i.ok {
+  background: #4caf50;
+}
+.ista-real-body .irlegend i.warn {
+  background: #f0b400;
+}
+.ista-real-body .irlegend i.bad {
+  background: #d33;
+}
+.ista-real-body .irlegend i.dim {
+  background: #9a9a9a;
+}
+.ista-real-body .irlegend i.blue {
+  background: #4472c4;
+}
+
+/* ---- bottom button bar ---------------------------------------------------- */
+.ista-real-body .irbottom {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--ir-bottom-h);
+  background: #fff;
+  display: flex;
+  align-items: center;
+  padding: 0 6px;
+  gap: 6px;
+  box-sizing: border-box;
+  z-index: 5;
+}
+.ista-real-body .irbottom-spacer {
+  flex: 1;
+}
+
+.ista-real-body .irbtn {
+  background: var(--ir-grey);
+  border: 1px solid #9a9a9a;
+  border-radius: 0;
+  color: var(--ir-ink);
+  font: 12px/1.1 var(--ir-font);
+  min-width: 112px;
+  height: 28px;
+  padding: 2px 8px;
+  cursor: pointer;
+  box-shadow: none;
+  white-space: pre-line;
+}
+.ista-real-body .irbtn:hover:not(:disabled) {
+  background: #d4d4d4;
+}
+.ista-real-body .irbtn:disabled {
+  color: var(--ir-off);
+  cursor: default;
+}
+
+/* the two black nav blocks, centred: a white triangle on a black rectangle */
+.ista-real-body .irnav {
+  background: #000;
+  border: 0;
+  width: 92px;
+  height: 26px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+.ista-real-body .irnav svg {
+  width: 20px;
+  height: 14px;
+  fill: #fff;
+}
+.ista-real-body .irnav:disabled {
+  background: #6a6a6a;
+  cursor: default;
+}
+
+/* ===========================================================================
+   The content language: tables, trees, panes, buttons and dialogs.
+
+   These rules restyle the app's OWN screens through the scope class rather
+   than rewriting them. A screen that draws a <table class="tbl"> keeps its
+   markup and its behaviour and simply reads as ISTA while the skin is up.
+   =========================================================================== */
+
+/* ---- tables --------------------------------------------------------------- */
+.ista-real-body .view table,
+.ista-real .irtable {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 12px;
+  background: #fff;
+}
+.ista-real-body .view th,
+.ista-real .irtable th {
+  background: var(--ir-head);
+  color: #fff;
+  font-weight: 700;
+  text-align: left;
+  padding: 4px 6px;
+  height: 22px;
+  border: 0;
+  border-right: 1px solid #6a6a6a;
+  box-sizing: border-box;
+  white-space: nowrap;
+}
+.ista-real-body .view td,
+.ista-real .irtable td {
+  padding: 3px 6px;
+  height: 22px;
+  border: 0;
+  border-right: 1px solid #ccc;
+  box-sizing: border-box;
+  color: var(--ir-ink);
+  background: transparent;
+}
+.ista-real-body .view tbody tr,
+.ista-real .irtable tbody tr {
+  background: #fff;
+}
+.ista-real-body .view tbody tr:nth-child(even),
+.ista-real .irtable tbody tr:nth-child(even) {
+  background: var(--ir-row-alt);
+}
+.ista-real-body .view tbody tr.sel,
+.ista-real-body .view tbody tr[aria-selected='true'],
+.ista-real .irtable tbody tr.sel {
+  background: var(--ir-teal);
+  color: #fff;
+}
+.ista-real .irtable tbody tr.sel td {
+  color: #fff;
+}
+/* a grey heading row inside a table (the hit list groups by one) */
+.ista-real .irtable tbody tr.irgroup td {
+  background: var(--ir-grey);
+  font-weight: 700;
+}
+
+/* ---- pane title bars ------------------------------------------------------ */
+.ista-real .irpane {
+  border: 1px solid var(--ir-grey-line);
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.ista-real .irpane-head {
+  background: var(--ir-head);
+  color: #fff;
+  font-weight: 700;
+  font-size: 12px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  padding: 0 6px;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+.ista-real .irpane-head .irpane-spacer {
+  flex: 1;
+}
+.ista-real .irpane-head button {
+  background: transparent;
+  border: 0;
+  color: #fff;
+  font: 12px var(--ir-font);
+  cursor: pointer;
+  padding: 0 4px;
+}
+.ista-real .irpane-body {
+  flex: 1;
+  overflow: auto;
+  min-height: 0;
+}
+
+/* ---- trees ---------------------------------------------------------------- */
+.ista-real .irtree {
+  font-size: 12px;
+}
+.ista-real .irtree-row {
+  display: flex;
+  align-items: center;
+  height: 18px;
+  gap: 6px;
+  padding: 0 6px;
+  cursor: pointer;
+  border-bottom: 1px solid #fff;
+}
+/* a child row carries the grey fill, a parent stays white: that is what
+   makes the nesting readable without any indent guides */
+.ista-real .irtree-row.kid {
+  background: var(--ir-row-alt);
+}
+.ista-real .irtree-row.sel {
+  background: var(--ir-teal);
+  color: #fff;
+}
+/* the expander is a drawn black square with a white + or -, never an emoji */
+.ista-real .irtree-exp {
+  width: 11px;
+  height: 11px;
+  flex: 0 0 11px;
+  border: 0;
+  background: #1a1a1a;
+  padding: 0;
+  cursor: pointer;
+  position: relative;
+}
+.ista-real .irtree-exp::before,
+.ista-real .irtree-exp::after {
+  content: '';
+  position: absolute;
+  background: #fff;
+}
+.ista-real .irtree-exp::before {
+  left: 2px;
+  right: 2px;
+  top: 5px;
+  height: 1px;
+}
+.ista-real .irtree-exp::after {
+  top: 2px;
+  bottom: 2px;
+  left: 5px;
+  width: 1px;
+}
+.ista-real .irtree-exp.open::after {
+  display: none;
+}
+/* a leaf has no expander: it shows the "- " prefix the frames show */
+.ista-real .irtree-leaf {
+  width: 11px;
+  flex: 0 0 11px;
+  text-align: center;
+  color: #444;
+}
+
+/* ---- buttons the app's own screens draw ----------------------------------- */
+.ista-real-body .view .btn,
+.ista-real-body .view button.btn {
+  background: var(--ir-grey);
+  border: 1px solid #9a9a9a;
+  border-radius: 0;
+  color: var(--ir-ink);
+  font: 12px var(--ir-font);
+  box-shadow: none;
+  padding: 4px 10px;
+  min-height: 26px;
+}
+.ista-real-body .view .btn:hover:not(:disabled) {
+  background: #d4d4d4;
+}
+.ista-real-body .view .btn:disabled {
+  color: var(--ir-off);
+}
+
+/* square corners and no shadows, everywhere inside the skin */
+.ista-real-body .view * {
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+/* ---- dialogs -------------------------------------------------------------- */
+.ista-real-body .modal {
+  background: #fff;
+  border: 1px solid #999;
+  border-radius: 0;
+  box-shadow: none;
+  font-family: var(--ir-font);
+  font-size: 12px;
+}
+.ista-real-body .modal-title {
+  background: var(--ir-grey);
+  color: var(--ir-ink);
+  font-weight: 700;
+  font-size: 12px;
+  padding: 4px 8px;
+  border-bottom: 1px solid #999;
+}
+.ista-real-body .modal-actions .btn {
+  background: var(--ir-grey);
+  border: 1px solid #9a9a9a;
+  border-radius: 0;
+  min-width: 112px;
+}
+
+/* the "Ongoing background process" progress dialog */
+.ista-real .irprog {
+  min-width: 320px;
+}
+.ista-real .irprog-body {
+  padding: 14px 12px;
+  font-size: 12px;
+}
+.ista-real .irprog-bar {
+  margin-top: 10px;
+  height: 14px;
+  border: 1px solid #999;
+  background: #fff;
+  overflow: hidden;
+}
+.ista-real .irprog-fill {
+  height: 100%;
+  width: 35%;
+  background: var(--ir-teal);
+  animation: ir-prog 1.3s linear infinite;
+}
+@keyframes ir-prog {
+  0% {
+    margin-left: -35%;
+  }
+  100% {
+    margin-left: 100%;
+  }
+}
+
+/* ===========================================================================
+   The pages this shell draws itself.
+   =========================================================================== */
+
+/* ---- Operations / New / VIN ----------------------------------------------- */
+.ista-real .irvin {
+  padding: 60px 0 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 26px;
+}
+.ista-real .irvin-label {
+  font-weight: 700;
+  font-size: 12px;
+  align-self: center;
+  margin-bottom: -18px;
+}
+.ista-real .irvin-box {
+  width: 312px;
+  height: 20px;
+  border: 1px solid #7a7a7a;
+  background: #fff;
+  font: 12px var(--ir-font);
+  padding: 0 4px;
+  box-sizing: border-box;
+  text-transform: uppercase;
+}
+/* the Garage table under the box: ours, not BMW's, so it is labelled */
+.ista-real .irvin-garage {
+  width: 640px;
+  max-width: calc(100% - 40px);
+}
+.ista-real .irvin-garage h3 {
+  font-size: 12px;
+  font-weight: 700;
+  margin: 0 0 4px;
+  padding: 0;
+}
+.ista-real .irvin-garage tbody tr {
+  cursor: pointer;
+}
+.ista-real .irvin-empty {
+  border: 1px solid var(--ir-grey-line);
+  border-top: 0;
+  padding: 10px 8px;
+  font-size: 12px;
+  color: #555;
+  background: #fff;
+}
+
+/* ---- Operations / New / Read Out Vehicle Data ----------------------------- */
+.ista-real .irread {
+  padding: 12px;
+  font-size: 12px;
+}
+.ista-real .irread-lines {
+  margin: 0 0 18px;
+  padding: 0;
+  list-style: none;
+}
+.ista-real .irread-lines li {
+  margin: 0 0 3px;
+}
+.ista-real .irconn {
+  border: 1px solid var(--ir-grey-line);
+  max-width: 900px;
+}
+.ista-real .irconn-head {
+  background: var(--ir-grey);
+  font-weight: 700;
+  padding: 3px 6px;
+  border-bottom: 1px solid var(--ir-grey-line);
+}
+.ista-real .irconn-foot {
+  display: flex;
+  gap: 6px;
+  padding: 6px;
+  align-items: center;
+  border-top: 1px solid var(--ir-grey-line);
+}
+
+/* ---- Vehicle details ------------------------------------------------------ */
+.ista-real .irdet {
+  padding: 10px 12px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0 24px;
+  align-items: start;
+}
+.ista-real .irdet-col {
+  min-width: 0;
+}
+.ista-real .irdet-f {
+  margin-bottom: 8px;
+}
+.ista-real .irdet-l {
+  font-size: 11px;
+  color: #333;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.ista-real .irdet-v {
+  font-size: 12px;
+  font-weight: 700;
+  color: #000;
+  min-height: 15px;
+  word-break: break-word;
+}
+/* the warning triangle beside a label whose value came from the VIN rather
+   than from the car itself: drawn, never an emoji */
+.ista-real .irdet-warn {
+  width: 11px;
+  height: 11px;
+  flex: 0 0 11px;
+}
+.ista-real .irdet-warn svg {
+  width: 11px;
+  height: 11px;
+  fill: #e8a33d;
+  stroke: #8a6000;
+  stroke-width: 0.8;
+}
+.ista-real .irdet-sub {
+  text-decoration: underline;
+  font-size: 11px;
+  color: #333;
+  margin: 6px 0 3px;
+}
+.ista-real .irdet-ta {
+  border-collapse: collapse;
+  font-size: 11px;
+  width: 100%;
+}
+.ista-real .irdet-ta th {
+  background: transparent;
+  color: #333;
+  font-weight: 400;
+  border: 0;
+  border-right: 1px solid #ccc;
+  border-bottom: 1px solid #ccc;
+  padding: 2px 6px;
+  height: auto;
+}
+.ista-real .irdet-ta td {
+  border-right: 1px solid #ccc;
+  padding: 2px 6px;
+  height: 18px;
+}
+/* the Breakdown radios, centred under the second column as in the frames */
+.ista-real .irdet-bd {
+  grid-column: 2;
+  margin-top: 10px;
+}
+.ista-real .irdet-bd-l {
+  text-decoration: underline;
+  font-size: 11px;
+  color: #333;
+  margin-bottom: 3px;
+}
+.ista-real .irdet-bd-r {
+  display: flex;
+  gap: 60px;
+  font-size: 12px;
+}
+.ista-real .irdet-bd-r label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+}
+
+/* ---- Vehicle equipment ---------------------------------------------------- */
+.ista-real .ireq {
+  padding: 10px 12px;
+  font-size: 12px;
+}
+.ista-real .ireq h3 {
+  font-size: 12px;
+  font-weight: 700;
+  margin: 14px 0 4px;
+  padding: 0;
+}
+.ista-real .ireq h3:first-child {
+  margin-top: 0;
+}
+.ista-real .ireq-empty {
+  color: #555;
+  font-size: 11px;
+  padding: 3px 0;
+}
+.ista-real .ireq-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  columns: 2;
+  column-gap: 40px;
+}
+.ista-real .ireq-list li {
+  break-inside: avoid;
+  padding: 1px 0;
+  font-size: 12px;
+}
+.ista-real .ireq-list b {
+  font-weight: 700;
+  margin-right: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- a greyed page: the tab ISTA has that we cannot fill ------------------ */
+.ista-real .irgrey {
+  padding: 40px 20px;
+  max-width: 760px;
+}
+.ista-real .irgrey-t {
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+.ista-real .irgrey-w {
+  border: 1px solid var(--ir-grey-line);
+  background: var(--ir-row-alt);
+  padding: 10px 12px;
+  font-size: 12px;
+  color: #333;
+}
+.ista-real .irgrey-att {
+  border: 1px solid #9a9a9a;
+  background: #fff;
+  padding: 10px 12px;
+  margin-top: 16px;
+  font-size: 12px;
+}
+.ista-real .irgrey-att b {
+  font-weight: 700;
+}
+
+/* an empty bordered box, as the replacement pages draw */
+.ista-real .irempty-box {
+  border: 1px solid var(--ir-grey-line);
+  min-height: 180px;
+  background: #fff;
+}
+
+/* ---- the level-3 content host the repair pages own ------------------------ */
+/* Repair/maintenance is built on its own branch and scopes its CSS under
+   .ista-repair. This is only the empty host it draws into, so the two can
+   land without either one owning the other's rules. */
+.ista-real .irrepair-host {
+  height: 100%;
+  min-height: 0;
+}

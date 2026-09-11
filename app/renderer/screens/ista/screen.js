@@ -5,8 +5,16 @@
  * Nothing in here is a second copy of a screen. Every sub-tab resolves to a
  * show*() the app already has, called with the picked car filled in; the
  * shell's job is to be the frame around it and to know which of them exist
- * on this car. The two pages it does draw itself (details.js) are the ones
- * the app had no screen for.
+ * on this car. The pages it does draw itself (details.js, pages.js) are the
+ * ones the app had no screen for.
+ *
+ * TWO FACES, ONE SHELL. With the layout setting on INPA (inpaMode, which
+ * skin.js reads through istaSkinOn) the chrome is the workshop tool's own,
+ * 1:1: toolbar row, header line, black tab bar, sub-tab strips, status line,
+ * bottom button bar. With it on Modern, none of that is drawn and the shell
+ * keeps the banner-and-pills look it had. The routing, the readiness checks
+ * and the openers below are shared -- only the paint differs, so a tab
+ * cannot work in one face and be missing in the other.
  *
  * HOW THE ROUTE SURVIVES. setCrumbs syncs the hash from `lastScreen` on
  * every render, so a wrapped screen would rewrite `#ista/...` into its own
@@ -25,13 +33,17 @@ const ISTA_CHASSIS_KEY = 'bmweb.ista.chassis';
 
 /**
  * What the shell is pointed at now.
- * @type {{car: object|null, chassis: string, tab: string, sub: string|null}}
+ * @type {{car: object|null, chassis: string, tab: string, sub: string|null,
+ *   sub3: string|null, etk: object|null, tested: boolean}}
  */
 const istaState = {
   car: null,
   chassis: '',
   tab: ISTA_HOME_TAB,
   sub: null,
+  sub3: null,
+  etk: null,
+  tested: false,
 };
 
 /**
@@ -56,6 +68,20 @@ function istaSetCar(car, chassis) {
   istaState.chassis = String(
     (car && car.chassis) || chassis || ''
   ).toUpperCase();
+  // the VIN decode behind the header line and the details grid; it is a
+  // catalogue lookup, not a read, so it costs the car nothing
+  istaState.etk = null;
+  if (car && car.vin && typeof viEtkDecode === 'function')
+    viEtkDecode(car.vin)
+      .then((e) => {
+        if (istaState.car === car) {
+          istaState.etk = e;
+          if (istaChromeActive()) istaPaintChrome();
+        }
+      })
+      .catch(() => {
+        /* the parts index is optional */
+      });
   if (typeof Settings === 'object' && Settings && Settings.set) {
     Settings.set(ISTA_CAR_KEY, car ? car.id : '');
     Settings.set(ISTA_CHASSIS_KEY, istaState.chassis);
@@ -232,15 +258,15 @@ async function istaProbe(probe) {
 }
 
 /**
- * Is a sub-tab openable on the car the shell is pointed at?
+ * Is a leaf openable on the car the shell is pointed at?
  *
- * This is where a grey row stops being a guess. A sub-tab can be dark for
+ * This is where a grey row stops being a guess. A leaf can be dark for
  * three different reasons and the shell says which: the model marked it
  * `why` (nothing to open, ever, or not yet); the screen it names did not
  * ship in this build; or it needs something this particular car has not got
  * -- a whole-car script (only 10 of 27 chassis ship one), a saved car, a
  * stored scan.
- * @param {IstaSub} sub - the sub-tab
+ * @param {IstaSub|IstaSub3} sub - the leaf
  * @returns {Promise<{ok: boolean, why: string}>}
  */
 async function istaSubReady(sub) {
@@ -249,8 +275,8 @@ async function istaSubReady(sub) {
   if (sub.needsCar && !istaChassis())
     return { ok: false, why: 'no vehicle picked' };
   if (sub.page) {
-    // the two identity pages read the car and always have something to draw;
-    // the workshop browser is nothing without its extract, so it says so
+    // the workshop browser is nothing without its extract, so it says so;
+    // every other page the shell draws always has something to draw
     if (sub.page === 'techdata') {
       if (typeof showTechData !== 'function')
         return { ok: false, why: 'not in this build' };
@@ -267,9 +293,9 @@ async function istaSubReady(sub) {
   const fn = sub.open ? window[sub.open] : null;
   if (typeof fn !== 'function') return { ok: false, why: 'not in this build' };
 
-  // the per-car checks, by sub-tab
+  // the per-car checks, by leaf id
   const chassis = istaChassis();
-  if (sub.id === 'coding') {
+  if (sub.id === 'conversion-coding' || sub.id === 'remove-coding') {
     const has =
       typeof chassisHasCoding === 'function' &&
       (await istaProbe(chassisHasCoding(chassis)));
@@ -285,13 +311,13 @@ async function istaSubReady(sub) {
         };
     }
   }
-  if (sub.id === 'vehicle-test' || sub.id === 'tree') {
+  if (sub.id === 'tree') {
     if (typeof ecuTreeNameFor === 'function') {
       const name = await istaProbe(() => ecuTreeNameFor(chassis));
       if (!name) return { ok: false, why: `no bus map ships for ${chassis}` };
     }
   }
-  if (sub.id === 'history' && !istaState.car)
+  if ((sub.id === 'history' || sub.id === 'finished') && !istaState.car)
     return { ok: false, why: 'no saved car: add one in the Garage first' };
   if (sub.id === 'report') {
     if (!istaState.car)
@@ -300,25 +326,14 @@ async function istaSubReady(sub) {
       typeof garageScans === 'function' ? garageScans(istaState.car.id) : [];
     if (!scans.length) return { ok: false, why: 'no scan stored yet' };
   }
-  if (sub.id === 'identification' && typeof chassisHasIdentity === 'function') {
-    const any = await istaProbe(() => chassisHasIdentity(chassis));
-    if (!any)
-      return {
-        ok: false,
-        why: `no module on ${chassis} declares the build record`,
-      };
-  }
   if (
-    (sub.id === 'service-functions' || sub.id === 'resets') &&
+    sub.id === 'service-functions' &&
     typeof serviceIndexPresent === 'function'
   ) {
     const has = await istaProbe(() => serviceIndexPresent());
     if (!has) return { ok: false, why: 'no service mapping in this build' };
   }
-  if (
-    sub.id === 'function-search' &&
-    typeof searchIndexPresent === 'function'
-  ) {
+  if (sub.id === 'text-search' && typeof searchIndexPresent === 'function') {
     const has = await istaProbe(() => searchIndexPresent());
     if (!has) return { ok: false, why: 'no job index in this build' };
   }
@@ -328,65 +343,164 @@ async function istaSubReady(sub) {
 // ---- the chrome ------------------------------------------------------------
 
 /**
- * Draw the banner and the tab bar. Called on every navigation inside the
- * shell, so the active tab and the car description stay right.
+ * Draw the chrome, in whichever face the layout setting asks for.
+ *
+ * The setting is re-read HERE, on every paint, rather than cached: Settings
+ * fires no change event, and the Settings screen simply re-renders itself,
+ * so the shell's next paint is the first moment it can notice. Coming back
+ * to the shell after flipping the switch therefore lands on the right face.
  * @returns {void}
  */
 function istaPaintChrome() {
   const el = istaChromeEnsure();
   if (!el) return;
+  const real = istaSkinOn();
+  el.classList.toggle('ista-real', real);
+  if (typeof document !== 'undefined')
+    document.body.classList.toggle('ista-real-body', real);
+  if (real) return istaPaintRealChrome(el);
+  istaRealStatus(null);
+  istaRealBottom(null);
+  istaPaintModernChrome(el);
+}
+
+/**
+ * Paint the workshop tool's own chrome.
+ * @param {HTMLElement} el - the chrome container
+ * @returns {void}
+ */
+function istaPaintRealChrome(el) {
+  istaPaintReal(el, {
+    car: istaState.car,
+    etk: istaState.etk,
+    tested: istaState.tested,
+    tab: istaState.tab,
+    sub: istaState.sub,
+    sub3: istaState.sub3,
+    go: (kind, ids) => {
+      if (kind === 'tab') return istaGo(ids.tab, null, null);
+      if (kind === 'sub') return istaGo(ids.tab, ids.sub, null);
+      return istaGo(istaState.tab, istaState.sub, ids.sub3);
+    },
+    act: (a) => istaToolbarAct(a),
+    pin: (ids) => {
+      istaFavouriteToggle(ids.tab, ids.sub, ids.sub3);
+      istaPaintChrome();
+    },
+  });
+  istaBannerSync();
+  if (typeof tipify === 'function') tipify(el);
+}
+
+/**
+ * A toolbar icon was pressed.
+ * @param {string} act - which one
+ * @returns {void}
+ */
+function istaToolbarAct(act) {
+  if (act === 'home' || act === 'close') {
+    istaChromeHide();
+    if (typeof document !== 'undefined')
+      document.body.classList.remove('ista-real-body');
+    istaRealStatus(null);
+    istaRealBottom(null);
+    return act === 'home' && typeof showApps === 'function'
+      ? showApps()
+      : showChassis();
+  }
+  if (act === 'print') return window.print();
+  if (act === 'settings')
+    return typeof showSettings === 'function' ? showSettings() : undefined;
+  if (act === 'help')
+    return typeof showDocs === 'function'
+      ? showDocs()
+      : window.open('README.md', '_blank');
+  if (act === 'sessions') return istaPickCar();
+  // tile and restore are window-manager buttons of the real tool's own
+  // desktop shell: drawn so the row is the row, inert because a browser tab
+  // has no windows to tile
+}
+
+/**
+ * Draw the modern chrome: the banner and the pill tabs the shell had before
+ * the workshop layout existed.
+ * @param {HTMLElement} el - the chrome container
+ * @returns {void}
+ */
+function istaPaintModernChrome(el) {
   const tabs = ISTA_TABS.map((t) => {
     const on = t.id === istaState.tab;
     return (
       `<button type="button" class="ista-tab${on ? ' on' : ''}" ` +
       `data-tab="${esc(t.id)}"${on ? ' aria-current="page"' : ''}>` +
-      `${esc(t.label)}</button>`
+      `${esc(String(t.label).replace(/\n/g, ' '))}</button>`
     );
   }).join('');
   const subs = istaSubsOf(istaState.tab);
-  const strip = subs.length
-    ? `<div class="ista-subs">` +
-      subs
-        .map((s) => {
-          const owner = s._tab || istaState.tab;
-          const on = s.id === istaState.sub && owner === istaState.tab;
-          const pinned = istaIsFavourite(owner, s.id);
-          return (
-            `<span class="ista-sub-wrap">` +
-            `<button type="button" class="ista-sub${on ? ' on' : ''}" ` +
-            `data-sub="${esc(s.id)}" data-owner="${esc(owner)}">` +
-            `${esc(s.label)}</button>` +
-            `<button type="button" class="ista-star${pinned ? ' on' : ''}" ` +
-            `data-star="${esc(s.id)}" data-owner="${esc(owner)}" ` +
-            `title="${pinned ? 'Unpin from Favourites' : 'Pin to Favourites'}" ` +
-            `aria-label="${pinned ? 'Unpin' : 'Pin'} ${esc(s.label)}">` +
-            `★</button></span>`
-          );
-        })
-        .join('') +
-      `</div>`
-    : '';
+  const subs3 = istaState.sub ? istaSubs3Of(istaState.tab, istaState.sub) : [];
+  const stripOf = (rows, level) =>
+    rows.length
+      ? `<div class="ista-subs">` +
+        rows
+          .map((s) => {
+            const owner = level === 2 ? s._tab || istaState.tab : istaState.tab;
+            const on =
+              level === 2
+                ? s.id === istaState.sub && owner === istaState.tab
+                : s.id === istaState.sub3;
+            const pinned =
+              level === 2
+                ? istaIsFavourite(owner, s.id)
+                : istaIsFavourite(istaState.tab, istaState.sub, s.id);
+            const attr =
+              level === 2
+                ? `data-sub="${esc(s.id)}" data-owner="${esc(owner)}"`
+                : `data-sub3="${esc(s.id)}"`;
+            const star =
+              level === 2
+                ? `data-star="${esc(s.id)}" data-owner="${esc(owner)}"`
+                : `data-star3="${esc(s.id)}"`;
+            return (
+              `<span class="ista-sub-wrap">` +
+              `<button type="button" class="ista-sub${on ? ' on' : ''}" ` +
+              `${attr}>${esc(s.label)}</button>` +
+              `<button type="button" class="ista-star${pinned ? ' on' : ''}" ` +
+              `${star} ` +
+              `title="${pinned ? 'Unpin from Favourites' : 'Pin to Favourites'}" ` +
+              `aria-label="${pinned ? 'Unpin' : 'Pin'} ${esc(s.label)}">` +
+              `★</button></span>`
+            );
+          })
+          .join('') +
+        `</div>`
+      : '';
 
   el.innerHTML =
     istaBannerHtml(istaState.car, istaState.chassis) +
-    `<div class="ista-tabs" role="tablist">` +
-    `<button type="button" class="ista-tab ista-tab-home` +
-    `${istaState.tab === ISTA_HOME_TAB ? ' on' : ''}" ` +
-    `data-tab="${ISTA_HOME_TAB}" title="Back to the shell's home">⌂</button>` +
-    tabs +
-    `</div>` +
-    strip;
+    `<div class="ista-tabs" role="tablist">${tabs}</div>` +
+    stripOf(subs, 2) +
+    stripOf(subs3, 3);
 
   el.querySelectorAll('.ista-tab[data-tab]').forEach((b) => {
-    b.onclick = () => istaGo(b.dataset.tab, null);
+    b.onclick = () => istaGo(b.dataset.tab, null, null);
   });
   el.querySelectorAll('.ista-sub[data-sub]').forEach((b) => {
-    b.onclick = () => istaGo(istaState.tab, b.dataset.sub, b.dataset.owner);
+    b.onclick = () => istaGo(b.dataset.owner, b.dataset.sub, null);
+  });
+  el.querySelectorAll('.ista-sub[data-sub3]').forEach((b) => {
+    b.onclick = () => istaGo(istaState.tab, istaState.sub, b.dataset.sub3);
   });
   el.querySelectorAll('.ista-star[data-star]').forEach((b) => {
     b.onclick = (e) => {
       e.stopPropagation();
       istaFavouriteToggle(b.dataset.owner, b.dataset.star);
+      istaPaintChrome();
+    };
+  });
+  el.querySelectorAll('.ista-star[data-star3]').forEach((b) => {
+    b.onclick = (e) => {
+      e.stopPropagation();
+      istaFavouriteToggle(istaState.tab, istaState.sub, b.dataset.star3);
       istaPaintChrome();
     };
   });
@@ -461,7 +575,7 @@ async function istaPickCar() {
       }
       close();
       // the picked car changes what every tab can do, so redraw from the top
-      showIsta(istaState.tab, istaState.sub);
+      showIsta(istaState.tab, istaState.sub, istaState.sub3);
     };
   });
   const cancel = overlay.querySelector('.ista-pick-cancel');
@@ -472,95 +586,22 @@ async function istaPickCar() {
  * Navigate inside the shell.
  * @param {string} tab - the tab id
  * @param {string|null} sub - the sub-tab id, or null for the tab's first
- * @param {string} [owner] - the tab a pinned sub-tab really belongs to
+ * @param {string|null} [sub3] - the level-3 tab id, or null for the first
  * @returns {Promise<void>}
  */
-async function istaGo(tab, sub, owner) {
+async function istaGo(tab, sub, sub3) {
   const t = istaTab(tab) ? tab : ISTA_HOME_TAB;
-  istaState.tab = t;
-  if (t === ISTA_HOME_TAB) {
-    istaState.sub = null;
-    return showIsta(t, null);
-  }
-  const first = sub || (istaFirstSub(t) || {}).id || null;
-  istaState.sub = first;
-  return showIsta(t, first, owner);
-}
-
-// ---- the shell's own home --------------------------------------------------
-
-/**
- * The shell's home: every tab as a card, and every sub-tab under it. This is
- * what a keyboard user navigates -- the tab bar is a pointer affordance, the
- * cards are the real list.
- * @param {HTMLElement} host - where to draw
- * @param {string} [onlyTab] - draw just this tab's card (an empty tab lands
- *   here rather than on a sub-tab it has not got)
- * @returns {Promise<void>}
- */
-async function istaHome(host, onlyTab) {
-  const chassis = istaChassis();
-  const show = onlyTab ? ISTA_TABS.filter((t) => t.id === onlyTab) : ISTA_TABS;
-  host.innerHTML =
-    `<div class="ista-home">` +
-    (onlyTab
-      ? ''
-      : `<p class="ista-home-note">${
-          chassis
-            ? `ISTA on ${esc(
-                typeof dispChassis === 'function'
-                  ? dispChassis(chassis)
-                  : chassis
-              )}. Every tab opens one of the app's own screens with this ` +
-              `vehicle already filled in.`
-            : `Pick a vehicle in the banner above to begin. Every tab opens ` +
-              `one of the app's own screens with it already filled in.`
-        }</p>`) +
-    `<div class="ista-home-grid"></div></div>`;
-  const grid = host.querySelector('.ista-home-grid');
-
-  for (const t of show) {
-    const subs = istaSubsOf(t.id);
-    const card = document.createElement('section');
-    card.className = 'ista-card';
-    card.innerHTML =
-      `<h2 class="ista-card-title">${esc(t.label)}</h2>` +
-      (t.desc ? `<p class="ista-card-desc">${esc(t.desc)}</p>` : '') +
-      `<div class="ista-card-rows"></div>`;
-    const rows = card.querySelector('.ista-card-rows');
-    if (!subs.length) {
-      rows.innerHTML = `<div class="ista-row-none">${
-        t.id === 'favourites'
-          ? 'Nothing pinned yet. The star beside a sub-tab pins it here.'
-          : 'Nothing here yet.'
-      }</div>`;
-    }
-    for (const s of subs) {
-      const owner = s._tab || t.id;
-      const state = await istaSubReady(s);
-      const row = document.createElement('button');
-      row.type = 'button';
-      row.className = 'ista-row' + (state.ok ? '' : ' ista-row-off');
-      row.innerHTML =
-        `<span class="ista-row-label">${esc(s.label)}</span>` +
-        `<span class="ista-row-desc">${esc(
-          state.ok ? s.desc || '' : state.why
-        )}</span>` +
-        `<span class="ista-row-arrow">${state.ok ? '→' : ''}</span>`;
-      if (state.ok) row.onclick = () => istaGo(t.id, s.id, owner);
-      else row.disabled = true;
-      rows.appendChild(row);
-    }
-    grid.appendChild(card);
-  }
+  const s = sub || (istaFirstSub(t) || {}).id || null;
+  const s3 = sub3 || (s ? (istaFirstSub3(t, s) || {}).id || null : null);
+  return showIsta(t, s, s3);
 }
 
 // ---- the entry point -------------------------------------------------------
 
 /**
  * Stamp the shell's route into the URL. Done by hand rather than through
- * ROUTE_FOR_SCREEN because the route carries the tab, the sub-tab and the
- * car, none of which a function name can express.
+ * ROUTE_FOR_SCREEN because the route carries the tab, the sub-tab, the
+ * level-3 tab and the car, none of which a function name can express.
  * @returns {void}
  */
 function istaRouteStamp() {
@@ -568,6 +609,7 @@ function istaRouteStamp() {
   const route = istaRouteBuild(
     istaState.tab,
     istaState.sub,
+    istaState.sub3,
     istaState.car ? istaState.car.id : null
   );
   history.replaceState(null, '', '#' + route);
@@ -582,7 +624,7 @@ function istaRouteStamp() {
  * syncs to the shell rather than the wrapped screen), and the hash is
  * re-stamped after the render (so the wrapped screen's own routeSetX call
  * does not win). Esc is re-pointed at the shell's home for the same reason.
- * @param {IstaSub} sub - the sub-tab being opened
+ * @param {IstaSub|IstaSub3} sub - the leaf being opened
  * @returns {Promise<void>}
  */
 async function istaOpen(sub) {
@@ -600,9 +642,11 @@ async function istaOpen(sub) {
   } finally {
     istaOpeningSet(false);
   }
-  lastScreen = () => showIsta(istaState.tab, istaState.sub);
+  lastScreen = () => showIsta(istaState.tab, istaState.sub, istaState.sub3);
   istaRouteStamp();
   istaBackAction();
+  // the wrapped screen owns #view; the shell still owns the bars around it
+  if (istaSkinOn()) istaRealChromeBars(sub);
 }
 
 /**
@@ -627,37 +671,282 @@ function istaBackAction() {
       keyLabel: 'Esc',
       label: 'ISTA',
       kind: 'back',
-      fn: () => showIsta(ISTA_HOME_TAB, null),
+      fn: () => showIsta(ISTA_HOME_TAB, null, null),
     },
   ]);
+}
+
+/**
+ * The status line and bottom bar for a wrapped screen.
+ *
+ * A wrapped screen keeps its own F-key row (which the skin hides) and its
+ * own buttons inside #view. What the skin adds around it is the tool's two
+ * bottom bands: the status line, and the nav blocks with a Back that leaves
+ * the sub-tab. The screen's own keys stay reachable through the keyboard,
+ * so nothing it offered is lost.
+ * @param {IstaSub|IstaSub3} sub - the leaf that was opened
+ * @returns {void}
+ */
+function istaRealChromeBars(sub) {
+  istaRealStatus({ items: [{ k: 'Filter:', v: 'Default' }] });
+  istaRealBottom([
+    {
+      label: 'Back',
+      fn: () => showIsta(istaState.tab, istaState.sub, istaState.sub3),
+    },
+    { nav: true, back: null, fwd: null },
+    { label: 'Print', fn: () => window.print() },
+  ]);
+}
+
+/**
+ * Draw one of the shell's own pages, in the face the setting asks for.
+ * @param {IstaSub|IstaSub3} s - the leaf
+ * @param {HTMLElement} host - where to draw
+ * @returns {Promise<void>}
+ */
+async function istaDrawPage(s, host) {
+  const real = istaSkinOn();
+  const car = istaState.car;
+  const chassis = istaChassis();
+
+  if (s.page === 'vin') {
+    if (!real) return istaPageVinModern(host);
+    let valid = false;
+    const bar = (ok) => {
+      valid = ok;
+      istaRealBottom([
+        { label: 'Keyboard', off: true },
+        { nav: true, back: null, fwd: null },
+        {
+          label: 'Open operation',
+          off: !ok,
+          fn: () => {
+            const p = host._istaPick ? host._istaPick() : null;
+            if (p) istaOpenOperation(p.car, p.vin);
+          },
+        },
+      ]);
+    };
+    istaRealStatus({ items: [] });
+    istaPageVin(host, {
+      open: (c, vin) => istaOpenOperation(c, vin),
+      onValid: bar,
+    });
+    bar(valid);
+    return;
+  }
+
+  if (s.page === 'readout') {
+    istaRealStatus(real ? { items: [] } : null);
+    if (real)
+      istaRealBottom([
+        { label: 'Cancel', fn: () => istaGo('operations', 'new', 'vin') },
+        { nav: true, back: null, fwd: null },
+        {
+          label: 'Identification without vehicle test',
+          fn: () => istaGo('information', 'details', null),
+          title: 'Read the build record, then open Vehicle details',
+        },
+        {
+          label: 'Complete identification',
+          fn: () => {
+            istaState.tested = true;
+            return istaGo('information', 'tree', null);
+          },
+          title: 'Identify the car and run the whole-car test',
+        },
+      ]);
+    return istaPageReadout(host, {});
+  }
+
+  if (s.page === 'active') {
+    if (real) {
+      istaRealStatus({ items: [] });
+      istaRealBottom([{ nav: true, back: null, fwd: null }]);
+    }
+    return istaPageActive(host, car, chassis);
+  }
+
+  if (s.page === 'repair-host') {
+    // Repair/maintenance is built on its own branch: it scopes its CSS under
+    // .ista-repair and draws into this host. Left empty here on purpose --
+    // the strip, the route and the frame are this branch's half of the seam.
+    host.innerHTML = `<div class="irrepair-host" id="ista-repair-host"></div>`;
+    if (real) {
+      istaRealStatus({ items: [{ k: 'Hits:', v: '0 / 0' }] });
+      istaRealBottom([{ nav: true, back: null, fwd: null }]);
+    }
+    if (typeof istaRepairShow === 'function')
+      return istaRepairShow(host.firstChild, s.id, car, chassis);
+    if (real)
+      return istaPageGrey(
+        host,
+        s.label,
+        'the repair document browser is not in this build yet'
+      );
+    host.innerHTML =
+      `<div class="ista-page"><h2 class="ista-page-title">${esc(s.label)}` +
+      `</h2><div class="ista-none-box">the repair document browser is ` +
+      `not in this build yet</div></div>`;
+    return;
+  }
+
+  if (s.page === 'details') {
+    if (!real) return istaShowDetails(host, car, chassis);
+    istaRealStatus({ items: [] });
+    istaRealBottom([
+      { label: 'Display measures plan', off: true },
+      { label: 'Write service history', off: true },
+      { nav: true, back: null, fwd: null },
+      {
+        label: 'Start vehicle test',
+        fn: () => {
+          istaState.tested = true;
+          return istaGo('information', 'tree', null);
+        },
+      },
+      {
+        label: 'Information search',
+        fn: () => istaGo('management', 'troubleshooting', 'text-search'),
+      },
+    ]);
+    // the grid draws from the catalogue decode at once, then fills in what a
+    // read finds; nothing is read unless the user asked for it elsewhere
+    istaRealDetails(host, car, istaState.etk, {});
+    return;
+  }
+
+  if (s.page === 'equipment') {
+    if (!real) return istaShowEquipment(host, car, chassis);
+    istaRealStatus({ items: [] });
+    istaRealBottom([
+      { label: 'Display measures plan', off: true },
+      { label: 'Write service history', off: true },
+      { nav: true, back: null, fwd: null },
+      {
+        label: 'Show vehicle test',
+        fn: () => istaGo('information', 'tree', null),
+      },
+      {
+        label: 'Information search',
+        fn: () => istaGo('management', 'troubleshooting', 'text-search'),
+      },
+    ]);
+    istaRealEquipment(host, [], null);
+    const got = await istaProbe(async () => {
+      if (typeof readIdentityCodes !== 'function') return null;
+      if (typeof loadTables === 'function') await loadTables();
+      if (typeof loadSaNames === 'function') await loadSaNames();
+      return readIdentityCodes(chassis);
+    });
+    if (!host.isConnected) return;
+    const codes = (got && got.codes) || [];
+    const date = car && car.prod ? Number(String(car.prod).padEnd(8, '0')) : 0;
+    istaRealEquipment(host, codes, (c) =>
+      typeof saName === 'function' ? saName(chassis, c, date) : ''
+    );
+    return;
+  }
+
+  if (s.page === 'techdata') {
+    if (real) {
+      istaRealStatus({ items: [{ k: 'Filter:', v: 'Default' }] });
+      istaRealBottom([{ nav: true, back: null, fwd: null }]);
+    }
+    return showTechData(host, car, chassis);
+  }
+}
+
+/**
+ * The modern face's VIN page: the Garage picker as a plain list.
+ * @param {HTMLElement} host - where to draw
+ * @returns {void}
+ */
+function istaPageVinModern(host) {
+  host.innerHTML =
+    `<div class="ista-page"><h2 class="ista-page-title">New operation</h2>` +
+    `<p class="ista-page-note">Pick the vehicle to work on.</p>` +
+    `<div class="ista-none-box">Use the vehicle picker in the banner ` +
+    `above, or switch Settings to the INPA layout for the full start ` +
+    `page.</div></div>`;
+}
+
+/**
+ * Open a vehicle and go to its details: the VIN page's Open operation.
+ *
+ * A row that was picked is already a saved car. A VIN that was typed is
+ * looked up in the Garage first (so the same car is not saved twice) and
+ * only then decoded and added -- the decode is a catalogue lookup, so this
+ * costs the car nothing and works with no cable at all.
+ * @param {object|null} car - the picked GarageCar, or null
+ * @param {string} vin - what was in the box
+ * @returns {Promise<void>}
+ */
+async function istaOpenOperation(car, vin) {
+  let use = car;
+  const v = String(vin || '')
+    .trim()
+    .toUpperCase();
+  if (!use && v) {
+    if (typeof garageFindByVin === 'function') use = garageFindByVin(v) || null;
+    if (!use) {
+      const etk = await istaProbe(() =>
+        typeof viEtkDecode === 'function' ? viEtkDecode(v) : null
+      );
+      if (!etk) {
+        if (typeof toast === 'function')
+          toast(`No vehicle in the parts index matches ${v}`);
+        return;
+      }
+      if (typeof garageAddCar === 'function')
+        use = garageAddCar({
+          vin: v,
+          chassis: etk.chassis,
+          model: etk.model,
+          body: etk.body,
+          motor: etk.motor,
+          prod: String(etk.prod || ''),
+        });
+    }
+  }
+  if (!use) return;
+  istaSetCar(use);
+  return istaGo('information', 'details', null);
 }
 
 /**
  * The ISTA shell.
  * @param {string} [tab] - the tab to open
  * @param {string|null} [sub] - the sub-tab on it
- * @param {string} [owner] - the tab a pinned sub-tab belongs to
+ * @param {string|null} [sub3] - the level-3 tab on that
  * @param {string|null} [carId] - a car id from the route
  * @returns {Promise<void>}
  */
-async function showIsta(tab, sub, owner, carId) {
+async function showIsta(tab, sub, sub3, carId) {
   if (typeof cancelSweep === 'function') cancelSweep();
   if (!istaState.car && !istaState.chassis) istaRestoreCar(carId);
   else if (carId) istaRestoreCar(carId);
   istaState.tab = istaTab(tab) ? tab : ISTA_HOME_TAB;
-  istaState.sub = istaState.tab === ISTA_HOME_TAB ? null : sub || null;
+  const firstSub = (istaFirstSub(istaState.tab) || {}).id || null;
+  istaState.sub = istaSub(istaState.tab, sub) ? sub : firstSub;
+  const first3 = istaState.sub
+    ? (istaFirstSub3(istaState.tab, istaState.sub) || {}).id || null
+    : null;
+  istaState.sub3 =
+    istaState.sub && istaSub3(istaState.tab, istaState.sub, sub3)
+      ? sub3
+      : first3;
 
-  lastScreen = () => showIsta(istaState.tab, istaState.sub);
+  lastScreen = () => showIsta(istaState.tab, istaState.sub, istaState.sub3);
   // the shell drawing itself is not the user leaving it: hold the flag over
   // setCrumbs so the router's teardown check sees the shell's own render
   istaOpeningSet(true);
   try {
     setCrumbs([
       { label: 'Vehicles', fn: showChassis },
-      { label: 'ISTA', fn: () => showIsta(ISTA_HOME_TAB, null) },
-      ...(istaState.tab === ISTA_HOME_TAB
-        ? []
-        : [{ label: (istaTab(istaState.tab) || {}).label || istaState.tab }]),
+      { label: 'ISTA', fn: () => showIsta(ISTA_HOME_TAB, null, null) },
+      { label: (istaTab(istaState.tab) || {}).label || istaState.tab },
     ]);
   } finally {
     istaOpeningSet(false);
@@ -666,62 +955,69 @@ async function showIsta(tab, sub, owner, carId) {
   istaPaintChrome();
   istaRouteStamp();
   sbLeft.textContent = 'workshop';
+  sbRight.textContent = istaChassis() || 'no vehicle';
 
-  const backAction = {
-    key: 'Escape',
-    keyLabel: 'Esc',
-    label: 'Back',
-    kind: 'back',
-    fn: () => {
-      istaChromeHide();
-      showChassis();
-    },
-  };
+  const real = istaSkinOn();
   const printAction = {
     key: 'p',
     label: 'Print',
     kind: 'print',
     fn: () => window.print(),
   };
-
-  // the home tab: the cards
-  if (istaState.tab === ISTA_HOME_TAB) {
-    view.innerHTML = '';
-    setActions([printAction, backAction]);
-    await istaHome(view);
-    sbRight.textContent = istaChassis() || 'no vehicle';
-    return;
-  }
-
-  // A tab with nothing in it is not a broken sub-tab, it is an empty tab --
-  // Favourites before anything is pinned. Show the tab's own (empty) card so
-  // it says what to do, rather than a sub-tab error about a row that is not
-  // there.
-  const s =
-    istaSub(istaState.tab, istaState.sub) || istaFirstSub(istaState.tab);
-  if (!s) {
-    view.innerHTML = '';
-    setActions([printAction, backAction]);
-    await istaHome(view, istaState.tab);
-    sbRight.textContent = istaChassis() || 'no vehicle';
-    return;
-  }
   const homeAction = {
     key: 'Escape',
     keyLabel: 'Esc',
-    label: 'ISTA',
+    label: 'Back',
     kind: 'back',
-    fn: () => showIsta(ISTA_HOME_TAB, null),
+    fn: () => {
+      istaChromeHide();
+      if (typeof document !== 'undefined')
+        document.body.classList.remove('ista-real-body');
+      istaRealStatus(null);
+      istaRealBottom(null);
+      showChassis();
+    },
   };
+
+  const s = istaLeaf(istaState.tab, istaState.sub, istaState.sub3);
+  if (!s) {
+    // an empty tab (Favourites before anything is pinned) is not a broken
+    // sub-tab: it says what to do rather than erroring about a missing row
+    view.innerHTML = '';
+    setActions([printAction, homeAction]);
+    if (real) {
+      istaRealStatus({ items: [] });
+      istaRealBottom([{ nav: true, back: null, fwd: null }]);
+      istaPageGrey(
+        view,
+        (istaTab(istaState.tab) || {}).label || istaState.tab,
+        istaState.tab === 'favourites'
+          ? 'Nothing pinned yet. The star on a sub-tab pins it here.'
+          : 'Nothing here yet.'
+      );
+    } else {
+      await istaHome(view, istaState.tab);
+    }
+    return;
+  }
+
   const state = await istaSubReady(s);
-  sbRight.textContent = istaChassis() || 'no vehicle';
 
   if (!state.ok) {
-    view.innerHTML =
-      `<div class="ista-page"><h2 class="ista-page-title">${esc(
-        s.label
-      )}</h2>` + `<div class="ista-none-box">${esc(state.why)}</div></div>`;
+    view.innerHTML = '';
     setActions([printAction, homeAction]);
+    if (real) {
+      istaRealStatus({ items: [] });
+      istaRealBottom([{ nav: true, back: null, fwd: null }]);
+      // the greyed tabs that have a layout of their own get it drawn
+      const shape = ISTA_GREY_SHAPES[s.id] || null;
+      istaPageGrey(view, s.label, state.why, shape);
+    } else {
+      view.innerHTML =
+        `<div class="ista-page"><h2 class="ista-page-title">${esc(
+          s.label
+        )}</h2>` + `<div class="ista-none-box">${esc(state.why)}</div></div>`;
+    }
     return;
   }
 
@@ -731,16 +1027,120 @@ async function showIsta(tab, sub, owner, carId) {
     setActions([printAction, homeAction]);
     const host = document.createElement('div');
     view.appendChild(host);
-    if (s.page === 'details')
-      await istaShowDetails(host, istaState.car, istaChassis());
-    else if (s.page === 'techdata')
-      await showTechData(host, istaState.car, istaChassis());
-    else await istaShowEquipment(host, istaState.car, istaChassis());
+    await istaDrawPage(s, host);
     return;
   }
 
   // a screen the app already has
   await istaOpen(s);
+}
+
+/**
+ * The layouts the greyed tabs draw under their reason.
+ *
+ * Each one is the real tool's own layout for that page, so the tab reads as
+ * the tab it is rather than as an error. The reason itself comes from the
+ * model, not from here.
+ * @type {Object<string, object>}
+ */
+const ISTA_GREY_SHAPES = {
+  before: { cols: ['Abbreviation', 'Control unit name', 'Replaced'] },
+  after: { cols: ['Abbreviation', 'Control unit name', 'Replaced'] },
+  retrofit: {
+    cols: ['Description', 'Selection'],
+    attention:
+      'For a change of control unit (installation or exchange), also ' +
+      "select the relevant control unit via the 'After Replacement' button.",
+  },
+  conversion: { cols: ['Description', 'Selection'] },
+  removal: { cols: ['Description', 'Selection'] },
+  immediate: { cols: ['Description', 'Selection'] },
+  comfort: {
+    attention:
+      'Programming is not offered by this build: flashing a module can ' +
+      'brick it.',
+  },
+  advanced: {
+    attention:
+      'Programming is not offered by this build: flashing a module can ' +
+      'brick it.',
+  },
+  additional: {
+    attention:
+      'Programming is not offered by this build: flashing a module can ' +
+      'brick it.',
+  },
+  'test-plan': { cols: ['Type', 'Title', 'State', 'Priority'] },
+  'programming-plan': { cols: ['Type', 'Title', 'State', 'Priority'] },
+  'fault-pattern': { cols: ['Hits', 'Search terms'] },
+};
+
+// ---- the shell's own home (modern face only) -------------------------------
+
+/**
+ * The modern face's home: every tab as a card, and every sub-tab under it.
+ * @param {HTMLElement} host - where to draw
+ * @param {string} [onlyTab] - draw just this tab's card
+ * @returns {Promise<void>}
+ */
+async function istaHome(host, onlyTab) {
+  const chassis = istaChassis();
+  const show = onlyTab ? ISTA_TABS.filter((t) => t.id === onlyTab) : ISTA_TABS;
+  host.innerHTML =
+    `<div class="ista-home">` +
+    (onlyTab
+      ? ''
+      : `<p class="ista-home-note">${
+          chassis
+            ? `ISTA on ${esc(
+                typeof dispChassis === 'function'
+                  ? dispChassis(chassis)
+                  : chassis
+              )}.`
+            : `Pick a vehicle in the banner above to begin.`
+        }</p>`) +
+    `<div class="ista-home-grid"></div></div>`;
+  const grid = host.querySelector('.ista-home-grid');
+
+  for (const t of show) {
+    const subs = istaSubsOf(t.id);
+    const card = document.createElement('section');
+    card.className = 'ista-card';
+    card.innerHTML =
+      `<h2 class="ista-card-title">${esc(
+        String(t.label).replace(/\n/g, ' ')
+      )}</h2>` +
+      (t.desc ? `<p class="ista-card-desc">${esc(t.desc)}</p>` : '') +
+      `<div class="ista-card-rows"></div>`;
+    const rows = card.querySelector('.ista-card-rows');
+    if (!subs.length) {
+      rows.innerHTML = `<div class="ista-row-none">${
+        t.id === 'favourites'
+          ? 'Nothing pinned yet. The star beside a sub-tab pins it here.'
+          : 'Nothing here yet.'
+      }</div>`;
+    }
+    for (const s of subs) {
+      const owner = s._tab || t.id;
+      // a sub-tab with a strip under it is a group: its first leaf is what
+      // the row would open, so that is what it reports on
+      const leaf = s.subs3 ? istaFirstSub3(owner, s.id) || s : s;
+      const state = await istaSubReady(leaf);
+      const row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'ista-row' + (state.ok ? '' : ' ista-row-off');
+      row.innerHTML =
+        `<span class="ista-row-label">${esc(s.label)}</span>` +
+        `<span class="ista-row-desc">${esc(
+          state.ok ? s.desc || leaf.desc || '' : state.why
+        )}</span>` +
+        `<span class="ista-row-arrow">${state.ok ? '→' : ''}</span>`;
+      if (state.ok) row.onclick = () => istaGo(owner, s.id, null);
+      else row.disabled = true;
+      rows.appendChild(row);
+    }
+    grid.appendChild(card);
+  }
 }
 
 if (typeof document !== 'undefined' && document.getElementById) {
@@ -767,12 +1167,14 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     ISTA_CAR_KEY,
     ISTA_CHASSIS_KEY,
+    ISTA_GREY_SHAPES,
     istaState,
     istaChassis,
     istaSetCar,
     istaRestoreCar,
     istaSubReady,
     istaRouteStamp,
+    istaOpenOperation,
     showIsta,
   };
 }

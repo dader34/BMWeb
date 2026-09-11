@@ -72,23 +72,84 @@ const I = loadClassic('screens/ista/');
   }
   ok('ids are unique');
 
-  // EVERY sub-tab is exactly one of the three kinds. A row that is none of
-  // them draws as an enabled button that does nothing when clicked.
+  // EVERY row is exactly one of the four kinds. A row that is none of them
+  // draws as an enabled button that does nothing when clicked; a row that is
+  // two of them has an opener the shell will never reach.
+  const kindOf = (s) => [s.open, s.page, s.why, s.subs3].filter(Boolean).length;
   for (const t of ISTA_TABS) {
     for (const s of t.subs || []) {
-      const kinds = [s.open, s.page, s.why].filter(Boolean).length;
       assert.strictEqual(
-        kinds,
+        kindOf(s),
         1,
-        `${t.id}/${s.id} is exactly one of open|page|why (got ${kinds})`
+        `${t.id}/${s.id} is exactly one of open|page|why|subs3 (got ${kindOf(s)})`
       );
       assert.ok(s.label, `${t.id}/${s.id} has a label`);
-      // an openable row must say what it does; a grey one says why instead
       if (s.open || s.page)
         assert.ok(s.desc, `${t.id}/${s.id} has a description`);
+      // a level-3 strip's own rows follow the same rule, minus the nesting:
+      // the tree is exactly three deep and never four
+      for (const c of s.subs3 || []) {
+        const k = [c.open, c.page, c.why].filter(Boolean).length;
+        assert.strictEqual(
+          k,
+          1,
+          `${t.id}/${s.id}/${c.id} is exactly one of open|page|why (got ${k})`
+        );
+        assert.ok(c.label, `${t.id}/${s.id}/${c.id} has a label`);
+        assert.ok(!c.subs3, `${t.id}/${s.id}/${c.id} does not nest further`);
+        if (c.open || c.page)
+          assert.ok(c.desc, `${t.id}/${s.id}/${c.id} has a description`);
+      }
+      // level-3 ids are unique inside their strip
+      const ids3 = (s.subs3 || []).map((c) => c.id);
+      assert.strictEqual(
+        new Set(ids3).size,
+        ids3.length,
+        `level-3 ids unique in ${t.id}/${s.id}`
+      );
     }
   }
-  ok('every sub-tab is open, page or why');
+  ok('every row is open, page, why or a level-3 strip');
+
+  // THE TAB LABELS ARE BMW'S, verbatim. They are landmarks a technician
+  // navigates by, so a tidy-up here is a tool that no longer matches the one
+  // they trained on -- this pins the seven that name the main bar.
+  assert.deepStrictEqual(
+    ISTA_TABS.map((t) => t.label.replace(/\n/g, '')),
+    [
+      'Operations',
+      'Vehicle information',
+      'Vehicle management',
+      'Service plan',
+      'Favourites',
+      'Workshop/Operating fluids',
+      'Measuring devices',
+    ],
+    "the main bar's labels are the real tool's"
+  );
+  assert.deepStrictEqual(
+    I.istaSubs3Of('operations', 'new').map((s) => s.label),
+    ['VIN', 'Read Out Vehicle Data', 'Model code', 'Basic Features'],
+    'Operations / New has its four level-3 tabs'
+  );
+  assert.deepStrictEqual(
+    I.istaSubs3Of('management', 'troubleshooting').map((s) => s.label),
+    [
+      'Fault memory',
+      'Fault pattern',
+      'Function Structure',
+      'Component Structure',
+      'Text Search',
+      'SAE fault code input',
+    ],
+    'Troubleshooting has its six level-3 tabs'
+  );
+  assert.deepStrictEqual(
+    ISTA_TABS.find((t) => t.id === 'service-plan').subs.map((s) => s.label),
+    ['Hit list', 'Test plan', 'Programming plan'],
+    'Service plan has its three sub-tabs'
+  );
+  ok("the labels are the real tool's");
 
   // Activation codes are gone for good, and the dev-only rows (Coding,
   // Programming) never reach the public site: not listed, not routable, and
@@ -99,49 +160,121 @@ const I = loadClassic('screens/ista/');
   for (const t of ISTA_TABS)
     for (const s of t.subs || [])
       assert.notStrictEqual(s.id, 'cbs', 'no CBS status row');
+  // the dev-only rows are the two coding leaves under Vehicle modification;
+  // programming has no row at all any more, it is a `why` on every leaf that
+  // would have needed it
   const devIds = ISTA_TABS.flatMap((t) =>
-    (t.subs || []).filter((s) => s.dev).map((s) => s.id)
+    (t.subs || []).flatMap((s) =>
+      [s, ...(s.subs3 || [])].filter((x) => x.dev).map((x) => x.id)
+    )
   );
-  assert.deepStrictEqual(devIds.sort(), ['coding', 'programming']);
-  assert.ok(istaSub('management', 'coding'), 'dev host lists Coding');
+  assert.deepStrictEqual(devIds.sort(), ['conversion-coding', 'remove-coding']);
+  assert.ok(
+    I.istaSub3('management', 'modification', 'conversion-coding'),
+    'dev host lists the coding leaf'
+  );
   global.codingReady = () => false;
   try {
-    const pub = istaSubsOf('management').map((s) => s.id);
-    assert.ok(!pub.includes('coding'), 'public: no Coding row');
-    assert.ok(!pub.includes('programming'), 'public: no Programming row');
-    assert.ok(pub.includes('unit-functions'), 'public keeps the rest');
-    assert.strictEqual(istaSub('management', 'coding'), null, 'not routable');
-    assert.ok(istaSub('management', 'unit-functions'), 'others route');
+    const pub = I.istaSubs3Of('management', 'modification').map((s) => s.id);
+    assert.ok(!pub.includes('conversion-coding'), 'public: no Coding leaf');
+    assert.ok(!pub.includes('remove-coding'), 'public: no second Coding leaf');
+    assert.ok(pub.includes('retrofit'), 'public keeps the rest');
+    assert.strictEqual(
+      I.istaSub3('management', 'modification', 'conversion-coding'),
+      null,
+      'not routable'
+    );
   } finally {
     delete global.codingReady;
   }
-  ok('activation codes gone; coding and programming are dev-only');
+  // programming is refused everywhere it could be asked for, by a reason
+  // rather than by a missing tab
+  const progWhy = ISTA_TABS.flatMap((t) =>
+    (t.subs || []).flatMap((s) =>
+      [s, ...(s.subs3 || [])].filter((x) => /programming/i.test(x.why || ''))
+    )
+  );
+  assert.ok(progWhy.length >= 4, 'programming is refused, with a reason');
+  ok('activation codes gone; coding is dev-only; programming is refused');
 
   // the page kinds are the two details.js draws, and nothing else
   const pages = ISTA_TABS.flatMap((t) =>
-    (t.subs || []).filter((s) => s.page).map((s) => s.page)
+    (t.subs || []).flatMap((s) =>
+      [s, ...(s.subs3 || [])].filter((x) => x.page).map((x) => x.page)
+    )
   );
   assert.deepStrictEqual(
-    pages.sort(),
-    ['details', 'equipment', 'techdata'],
+    [...new Set(pages)].sort(),
+    [
+      'active',
+      'details',
+      'equipment',
+      'readout',
+      'repair-host',
+      'techdata',
+      'vin',
+    ],
     'only the pages the shell draws itself'
   );
   ok('page kinds are the ones that exist');
 
   assert.strictEqual(istaTab('operations').label, 'Operations');
   assert.strictEqual(istaTab('nope'), null);
-  assert.strictEqual(istaSub('operations', 'test-plan').open, 'showLookup');
+  assert.strictEqual(istaSub('service-plan', 'hit-list').open, 'showLookup');
   assert.strictEqual(istaSub('operations', 'nope'), null);
-  assert.strictEqual(istaSub('nope', 'test-plan'), null);
+  assert.strictEqual(istaSub('nope', 'hit-list'), null);
+  assert.strictEqual(
+    I.istaSub3('operations', 'new', 'vin').page,
+    'vin',
+    'a level-3 tab looks up'
+  );
+  assert.strictEqual(I.istaSub3('operations', 'new', 'nope'), null);
+  assert.strictEqual(I.istaSub3('operations', 'finished', 'vin'), null);
   ok('lookups by id');
 
   assert.strictEqual(
     istaFirstSub('operations').id,
-    'fault-memory',
+    'new',
     'a tab opens on its first sub-tab'
+  );
+  assert.strictEqual(
+    I.istaFirstSub3('operations', 'new').id,
+    'vin',
+    'a sub-tab with a strip opens on its first level-3 tab'
+  );
+  assert.strictEqual(
+    I.istaFirstSub3('operations', 'finished'),
+    null,
+    'a sub-tab with no strip has no level-3 tab'
   );
   assert.strictEqual(istaSubsOf('nope').length, 0);
   ok('first sub-tab');
+
+  // THE LEAF: what a route actually lands on. A sub-tab with a strip resolves
+  // to a level-3 row; one without resolves to itself. Everything downstream
+  // works on this, so a wrong answer here opens the wrong screen.
+  assert.strictEqual(
+    I.istaLeaf('operations', 'new', null).id,
+    'vin',
+    'a group resolves to its first leaf'
+  );
+  assert.strictEqual(
+    I.istaLeaf('operations', 'new', 'model-code').id,
+    'model-code',
+    'a named leaf wins'
+  );
+  assert.strictEqual(
+    I.istaLeaf('operations', 'new', 'nope').id,
+    'vin',
+    'an unknown leaf falls back to the first'
+  );
+  assert.strictEqual(
+    I.istaLeaf('operations', 'finished', null).id,
+    'finished',
+    'a sub-tab with no strip is its own leaf'
+  );
+  assert.strictEqual(I.istaLeaf('operations', 'nope', null), null);
+  ok('the leaf resolves');
 }
 
 // ---- every named opener actually exists ------------------------------------
@@ -168,11 +301,14 @@ const I = loadClassic('screens/ista/');
   );
   for (const t of I.ISTA_TABS) {
     for (const s of t.subs || []) {
-      if (!s.open) continue;
-      assert.ok(
-        names.has(s.open),
-        `${t.id}/${s.id} names ${s.open}, which no renderer file defines`
-      );
+      for (const x of [s, ...(s.subs3 || [])]) {
+        if (!x.open) continue;
+        assert.ok(
+          names.has(x.open),
+          `${t.id}/${s.id}/${x.id} names ${x.open}, which no renderer ` +
+            `file defines`
+        );
+      }
     }
   }
   ok('every named opener is a real function');
@@ -183,26 +319,54 @@ const I = loadClassic('screens/ista/');
   const { istaRouteParse, istaRouteBuild } = I;
 
   assert.deepStrictEqual(istaRouteParse('ista'), {
-    tab: 'home',
-    sub: null,
-    car: null,
-  });
-  assert.deepStrictEqual(istaRouteParse('ista/operations'), {
     tab: 'operations',
     sub: null,
+    sub3: null,
     car: null,
   });
-  assert.deepStrictEqual(istaRouteParse('ista/operations/test-plan'), {
-    tab: 'operations',
-    sub: 'test-plan',
+  assert.deepStrictEqual(istaRouteParse('ista/information'), {
+    tab: 'information',
+    sub: null,
+    sub3: null,
     car: null,
   });
-  assert.deepStrictEqual(istaRouteParse('ista/operations/test-plan/abc-12'), {
+  assert.deepStrictEqual(istaRouteParse('ista/information/details'), {
+    tab: 'information',
+    sub: 'details',
+    sub3: null,
+    car: null,
+  });
+  assert.deepStrictEqual(istaRouteParse('ista/operations/new/vin'), {
     tab: 'operations',
-    sub: 'test-plan',
+    sub: 'new',
+    sub3: 'vin',
+    car: null,
+  });
+  assert.deepStrictEqual(istaRouteParse('ista/operations/new/vin/abc-12'), {
+    tab: 'operations',
+    sub: 'new',
+    sub3: 'vin',
     car: 'abc-12',
   });
   ok('routes parse');
+
+  // A THREE-PART ROUTE WRITTEN BEFORE THE LEVEL-3 STRIPS EXISTED still opens
+  // the car it named. The two shapes cannot be told apart by their text, so
+  // the third part is read as a level-3 tab only when the tab and sub-tab
+  // ahead of it really have one of that name -- which no old link ever did.
+  assert.deepStrictEqual(istaRouteParse('ista/information/details/abc-12'), {
+    tab: 'information',
+    sub: 'details',
+    sub3: null,
+    car: 'abc-12',
+  });
+  assert.deepStrictEqual(istaRouteParse('ista/operations/new/abc-12'), {
+    tab: 'operations',
+    sub: 'new',
+    sub3: null,
+    car: 'abc-12',
+  });
+  ok('old three-part routes still name a car');
 
   // a route that is not ours is not ours -- the router must fall through to
   // the vehicle and apps patterns rather than swallowing them
@@ -223,26 +387,33 @@ const I = loadClassic('screens/ista/');
 
   // round-trip: build then parse gives back what went in
   const cases = [
-    [null, null, null],
-    ['operations', null, null],
-    ['operations', 'test-plan', null],
-    ['operations', 'test-plan', 'abc-12'],
-    ['information', 'details', 'x_9-Z'],
+    [null, null, null, null],
+    ['information', null, null, null],
+    ['information', 'details', null, null],
+    ['information', 'details', null, 'abc-12'],
+    ['operations', 'new', 'vin', null],
+    ['operations', 'new', 'vin', 'abc-12'],
+    ['management', 'troubleshooting', 'fault-memory', 'x_9-Z'],
   ];
-  for (const [tab, sub, car] of cases) {
-    const route = istaRouteBuild(tab, sub, car);
+  for (const [tab, sub, sub3, car] of cases) {
+    const route = istaRouteBuild(tab, sub, sub3, car);
     const back = istaRouteParse(route);
     assert.ok(back, `${route} parses`);
-    assert.strictEqual(back.tab, tab || 'home', `${route} tab`);
+    assert.strictEqual(back.tab, tab || 'operations', `${route} tab`);
     assert.strictEqual(back.sub, sub, `${route} sub`);
+    assert.strictEqual(back.sub3, sub3, `${route} sub3`);
     assert.strictEqual(back.car, car, `${route} car`);
   }
   ok('routes round-trip');
 
-  assert.strictEqual(istaRouteBuild(null, null, null), 'ista');
-  assert.strictEqual(istaRouteBuild('home', null, null), 'ista');
-  // a car with no tab has nowhere positional to sit; the bare route stands
-  assert.strictEqual(istaRouteBuild(null, null, 'abc'), 'ista');
+  // the car sits in the fourth slot, so a route with a car and no level-3
+  // must still fill the slot ahead of it or the two would swap places
+  assert.strictEqual(
+    istaRouteBuild('information', 'details', null, 'abc'),
+    'ista/information/details/-/abc'
+  );
+  assert.strictEqual(istaRouteBuild(null, null, null, null), 'ista');
+  assert.strictEqual(istaRouteBuild(null, null, null, 'abc'), 'ista');
   ok('the home route is bare');
 }
 
@@ -277,12 +448,12 @@ const I = loadClassic('screens/ista/');
 
   delete store[ISTA_FAVS_KEY];
   assert.deepStrictEqual(istaFavourites(), [], 'empty to begin with');
-  assert.strictEqual(istaIsFavourite('operations', 'test-plan'), false);
+  assert.strictEqual(istaIsFavourite('service-plan', 'hit-list'), false);
 
-  assert.strictEqual(istaFavouriteToggle('operations', 'test-plan'), true);
-  assert.strictEqual(istaIsFavourite('operations', 'test-plan'), true);
+  assert.strictEqual(istaFavouriteToggle('service-plan', 'hit-list'), true);
+  assert.strictEqual(istaIsFavourite('service-plan', 'hit-list'), true);
   assert.deepStrictEqual(istaFavourites(), [
-    { tab: 'operations', sub: 'test-plan' },
+    { tab: 'service-plan', sub: 'hit-list' },
   ]);
   ok('a pin sticks');
 
@@ -294,10 +465,47 @@ const I = loadClassic('screens/ista/');
   });
   ok('newest pin leads');
 
-  assert.strictEqual(istaFavouriteToggle('operations', 'test-plan'), false);
-  assert.strictEqual(istaIsFavourite('operations', 'test-plan'), false);
+  assert.strictEqual(istaFavouriteToggle('service-plan', 'hit-list'), false);
+  assert.strictEqual(istaIsFavourite('service-plan', 'hit-list'), false);
   assert.strictEqual(istaFavourites().length, 1, 'unpin removes it');
   ok('a pin unpins');
+
+  // A LEVEL-3 PIN IS ITS OWN PIN. Pinning Troubleshooting/Fault memory must
+  // not read as pinning Troubleshooting itself, or the star on the strip
+  // would light for a row nobody pinned and un-pin one they did.
+  store[ISTA_FAVS_KEY] = [];
+  assert.strictEqual(
+    istaFavouriteToggle('management', 'troubleshooting', 'fault-memory'),
+    true
+  );
+  assert.strictEqual(
+    istaIsFavourite('management', 'troubleshooting', 'fault-memory'),
+    true
+  );
+  assert.strictEqual(
+    istaIsFavourite('management', 'troubleshooting'),
+    false,
+    'the level-3 pin is not a pin on its parent'
+  );
+  assert.deepStrictEqual(istaFavourites(), [
+    { tab: 'management', sub: 'troubleshooting', sub3: 'fault-memory' },
+  ]);
+  assert.strictEqual(
+    istaFavouriteToggle('management', 'troubleshooting', 'fault-memory'),
+    false
+  );
+  assert.deepStrictEqual(istaFavourites(), []);
+  ok('a level-3 pin is its own pin');
+
+  // a pin naming a level-3 tab this build no longer has is dropped too
+  store[ISTA_FAVS_KEY] = [
+    { tab: 'management', sub: 'troubleshooting', sub3: 'gone-away' },
+    { tab: 'management', sub: 'troubleshooting', sub3: 'fault-memory' },
+  ];
+  assert.deepStrictEqual(istaFavourites(), [
+    { tab: 'management', sub: 'troubleshooting', sub3: 'fault-memory' },
+  ]);
+  ok('stale level-3 pins are dropped');
 
   // A pin naming a sub-tab this build no longer has is DROPPED, not drawn.
   // Otherwise a renamed tab leaves a row that greys with no reason and
@@ -423,12 +631,19 @@ const I = loadClassic('screens/ista/');
   for (const f of [
     'screens/ista/model.js',
     'screens/ista/banner.js',
+    'screens/ista/skin.js',
     'screens/ista/details.js',
+    'screens/ista/pages.js',
     'screens/ista/screen.js',
   ]) {
     assert.ok(html.includes(f), `index.html loads ${f}`);
     assert.ok(off.includes(f), `OFFLINE_SHELL carries ${f}`);
   }
+  assert.ok(html.includes('css/ista-real.css'), 'index.html loads the skin');
+  assert.ok(
+    off.includes('css/ista-real.css'),
+    'OFFLINE_SHELL carries the skin'
+  );
   assert.ok(html.includes('id="ista-btn"'), 'the topbar has the entry');
   const apps = fs.readFileSync(
     path.join(ROOT, 'app', 'renderer', 'screens', 'apps.js'),
@@ -436,6 +651,216 @@ const I = loadClassic('screens/ista/');
   );
   assert.ok(/id: 'ista'/.test(apps), 'the hub has the tile');
   ok('the shell is wired into the app');
+}
+
+// ---- the skin is scoped, and shaped by its one rule -------------------------
+// THE WHOLE POINT OF THE SCOPE CLASS is that the Modern layout and the rest
+// of the app are untouched. A rule that escapes .ista-real restyles screens
+// nobody asked to restyle, and the only way that is caught is by reading the
+// stylesheet: it has no test a click could fail.
+{
+  const css = fs.readFileSync(
+    path.join(ROOT, 'app', 'renderer', 'css', 'ista-real.css'),
+    'utf8'
+  );
+  const body = css.replace(/\/\*[\s\S]*?\*\//g, '');
+  const selectors = body
+    .split('}')
+    .map((b) => b.split('{')[0].trim())
+    .filter((sel) => sel && !sel.startsWith('@') && !/^\d+%$/.test(sel));
+  for (const sel of selectors)
+    for (const one of sel.split(','))
+      assert.ok(
+        /\.ista-real/.test(one),
+        `every rule is scoped under .ista-real, but "${one.trim()}" is not`
+      );
+  ok('every skin rule is scoped');
+
+  // the shape rule, in one function: square while another strip follows,
+  // trapezoid when it is the last strip on the page. Getting this backwards
+  // is the single most visible way to miss the real tool's chrome.
+  const { istaStripClass } = I;
+  assert.strictEqual(istaStripClass(true), 'irstrip-cut');
+  assert.strictEqual(istaStripClass(false), 'irstrip-grid');
+  assert.ok(
+    /irstrip-cut[^{]*\{[^}]*clip-path/.test(body.replace(/\n/g, '')),
+    'the cut strip is the one with the clip-path'
+  );
+  ok('the strip shape rule holds');
+
+  // the measured palette: these three carry the look and are sampled off
+  // the frames, not chosen -- a drifted value is what makes a skin read as
+  // an imitation, and nothing else in the app would notice
+  for (const [name, value] of [
+    ['--ir-teal', '#5e958f'],
+    ['--ir-grey', '#c5c5c5'],
+    ['--ir-head', '#4d4d4d'],
+  ])
+    assert.ok(
+      new RegExp(`${name}:\\s*${value}`).test(body),
+      `${name} is the measured ${value}`
+    );
+  ok('the measured palette is intact');
+}
+
+// ---- the skin's own pieces --------------------------------------------------
+{
+  const { istaRealIcon, istaRealClock, istaRealVehicleLine } = I;
+
+  // EVERY ICON IS DRAWN. An emoji is a font the machine may not have, and a
+  // toolbar that renders a tofu box where its close button should be is
+  // worse than no icon at all.
+  for (const n of [
+    'home',
+    'tile',
+    'print',
+    'wrench',
+    'help',
+    'restore',
+    'close',
+    'list',
+    'star',
+    'warn',
+  ]) {
+    const svg = istaRealIcon(n);
+    assert.ok(svg.startsWith('<svg'), `${n} is an svg`);
+    assert.ok(/<path/.test(svg), `${n} has a path`);
+    // no emoji anywhere in the chrome
+    assert.ok(
+      !/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}]/u.test(svg),
+      `${n} is drawn, not an emoji`
+    );
+  }
+  assert.strictEqual(istaRealIcon('no-such-icon'), '');
+  ok('every toolbar icon is drawn');
+
+  assert.strictEqual(
+    istaRealClock(new Date(2021, 0, 27, 17, 2, 32)),
+    '27/01/2021 17:02:32',
+    "the clock is in the tool's own format"
+  );
+  ok('the clock formats');
+
+  // the header's vehicle line is POSITIONAL: ten slash-separated parts, with
+  // a '-' wherever nobody knows, so it can be read by position even when
+  // half of it is unknown
+  const line = istaRealVehicleLine(
+    { chassis: 'E46' },
+    {
+      model: "3'",
+      chassis: 'E46',
+      body: 'Cou',
+      motor: 'M54',
+      gear: 'M',
+      market: 'US',
+      steer: 'L',
+      prod: 20020115,
+    }
+  );
+  assert.strictEqual(line.split('/').length, 10, 'ten parts, always');
+  assert.ok(line.includes('M54'), 'the engine is in it');
+  assert.ok(line.includes('MANUAL'), 'the gearbox reads as a word');
+  assert.ok(line.includes('LL'), 'the steering reads as LL/RL');
+  assert.ok(line.endsWith('2002/01'), 'the build year and month end it');
+  assert.strictEqual(
+    istaRealVehicleLine(null, null),
+    '',
+    'nothing known, no line'
+  );
+  assert.strictEqual(
+    istaRealVehicleLine({}, {}).split('/').length,
+    10,
+    'an unknown car still keeps its ten slots'
+  );
+  ok('the header vehicle line composes');
+}
+
+// ---- the VIN the start page will act on -------------------------------------
+{
+  const { istaVinOk, istaVal } = I;
+  assert.ok(istaVinOk('WBABN53422JU26661'), 'a full VIN');
+  assert.ok(istaVinOk('JU26661'), 'the seven-character production number');
+  assert.ok(istaVinOk(' wbabn53422ju26661 '), 'trimmed and upper-cased');
+  assert.ok(!istaVinOk(''), 'nothing is not a VIN');
+  assert.ok(!istaVinOk('ABC'), 'too short');
+  assert.ok(!istaVinOk('WBABN53422JU266611'), 'too long');
+  // I, O and Q are not VIN characters: a typo for 1 or 0 must not open a car
+  assert.ok(!istaVinOk('WBABN53422IU26661'), 'I is not a VIN character');
+  assert.ok(!istaVinOk('WBABN53422OU26661'), 'O is not a VIN character');
+  ok('the VIN box knows what a VIN is');
+
+  assert.strictEqual(istaVal(''), '-', 'the tool writes - for nothing');
+  assert.strictEqual(istaVal(null), '-');
+  assert.strictEqual(istaVal(undefined), '-');
+  assert.strictEqual(istaVal(0), '0', 'zero is a value, not nothing');
+  assert.strictEqual(istaVal('<b>'), '&lt;b&gt;', 'values are escaped');
+  ok('the - placeholder holds');
+}
+
+// ---- the details grid is the tool's own four columns ------------------------
+{
+  const { istaDetailColumns } = I;
+  const cols = istaDetailColumns(
+    { vin: 'WBABN53422JU26661', chassis: 'E46' },
+    {
+      model: "3'",
+      chassis: 'E46',
+      body: 'Cou',
+      motor: 'M54',
+      gear: 'M',
+      market: 'US',
+      steer: 'L',
+      mospid: 'BN53',
+      prod: 20020101,
+    },
+    {}
+  );
+  assert.strictEqual(cols.length, 4, 'four columns');
+  for (const c of cols)
+    assert.strictEqual(c.length, 7, 'seven fields in each column');
+  // THE ORDER IS THE TOOL'S, not alphabetical and not grouped by source: a
+  // technician reads this grid by position, so a re-ordered column is a
+  // field they will read as the wrong one
+  assert.deepStrictEqual(
+    cols.map((c) => c[0][0]),
+    ['VIN', 'Series', 'Development code:', 'Sales designation'],
+    'each column starts where the tool starts it'
+  );
+  assert.deepStrictEqual(
+    cols[0].map((f) => f[0]),
+    [
+      'VIN',
+      'Mileage:',
+      'Drive type',
+      'Production date',
+      'Body',
+      'First registration',
+      'Basic version',
+    ],
+    "the first column is the tool's"
+  );
+  const flat = cols.flat();
+  assert.ok(
+    flat.some((f) => f[0] === 'Gearbox' && f[1] === 'MANUAL'),
+    'the gearbox reads as a word'
+  );
+  assert.ok(
+    flat.some((f) => f[0] === 'Model code' && f[1] === 'BN53'),
+    'the model code comes off the catalogue decode'
+  );
+  // a field the catalogue inferred from the VIN carries the warning triangle;
+  // one the car itself would have to answer does not
+  assert.strictEqual(
+    flat.find((f) => f[0] === 'Series')[2],
+    true,
+    'a VIN-derived value is flagged'
+  );
+  assert.strictEqual(
+    flat.find((f) => f[0] === 'Engine number')[2],
+    false,
+    'a value only the car could give is not flagged'
+  );
+  ok("the details grid is the tool's four columns");
 }
 
 console.log(`test_ista: ${passed} checks passed`);

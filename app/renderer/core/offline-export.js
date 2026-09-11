@@ -17,6 +17,7 @@ const OFFLINE_SHELL = [
   'css/lookup.css',
   'css/tuning.css',
   'css/themes.css',
+  'css/ista-real.css',
 
   'vendor/fflate.min.js',
 
@@ -247,7 +248,9 @@ const OFFLINE_SHELL = [
   'screens/techdata/screen.js',
   'screens/ista/model.js',
   'screens/ista/banner.js',
+  'screens/ista/skin.js',
   'screens/ista/details.js',
+  'screens/ista/pages.js',
   'screens/ista/screen.js',
   'screens/apps.js',
   'screens/tutorial.js',

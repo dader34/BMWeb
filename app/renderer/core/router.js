@@ -87,18 +87,15 @@ const ROUTE_FOR_SCREEN = {
 function resolveRoute(route) {
   const exact = APPS_ROUTES[route];
   if (exact) return exact;
-  // #ista/<TAB>[/<SUB>[/<CAR>]] -- workshop mode, on a tab. The car is last
-  // and optional: a link someone sends should still open the right tab on a
-  // machine where that local car id means nothing.
-  const is =
-    /^ista\/([A-Za-z0-9_-]+)(?:\/([A-Za-z0-9_-]+))?(?:\/([A-Za-z0-9_-]+))?$/.exec(
-      route
-    );
-  if (is && typeof showIsta === 'function') {
-    const tab = decodeURIComponent(is[1]);
-    const sub = is[2] ? decodeURIComponent(is[2]) : null;
-    const car = is[3] ? decodeURIComponent(is[3]) : null;
-    return () => showIsta(tab, sub, null, car);
+  // #ista/<TAB>[/<SUB>[/<SUB3>[/<CAR>]]] -- workshop mode, on a tab. The car
+  // is last and optional: a link someone sends should still open the right
+  // tab on a machine where that local car id means nothing. The grammar
+  // itself (including how a three-part route written before the level-3
+  // strips existed is read) lives in the model, so both agree.
+  if (/^ista\//.test(route) && typeof istaRouteParse === 'function') {
+    const r = istaRouteParse(route);
+    if (r && typeof showIsta === 'function')
+      return () => showIsta(r.tab, r.sub, r.sub3, r.car);
   }
   // #car/<CHASSIS>[/<SGBD>[/<MENU>[/<SCREEN>]]] -- the vehicle side. The
   // module is keyed by SGBD (stable, unlike a display label) and the submenu

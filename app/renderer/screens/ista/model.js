@@ -7,18 +7,25 @@
  * already has, and opening a tab is calling it. So this file is a table of
  * what exists, what does not, and why; screen.js turns a row into a click.
  *
- * A sub-tab is one of three things:
+ * A sub-tab is one of four things:
  *   `open`    a function name the app ships -- the tab calls it
- *   `page`    a page this shell draws itself (only Vehicle details/equipment)
+ *   `page`    a page this shell draws itself (see details.js / pages.js)
+ *   `subs3`   a level-3 strip: the real leaves are one level further down
  *   `why`     nothing yet: the tab greys and says this instead
  * `why` is the whole reason a row exists rather than being left out. A
  * workshop tool with a missing tab reads as broken; one that says "CBS
  * readout not built yet" reads as honest.
+ *
+ * THE LABELS ARE BMW'S. The tab and sub-tab names below are the exact
+ * strings the real workshop tool shows, including its capitalisation
+ * inconsistencies ("Control Unit Replacement" beside "Vehicle modification").
+ * They are not ours to tidy: a technician reads them as landmarks, and a
+ * renamed landmark is a tool that no longer matches the one they trained on.
  */
 
 /* exported ISTA_TABS istaRouteParse istaRouteBuild istaFavourites
    istaFavouriteToggle istaIsFavourite istaCarBits istaTab istaSub
-   istaSubsOf istaFirstSub */
+   istaSubsOf istaFirstSub istaSub3 istaSubs3Of istaFirstSub3 istaLeaf */
 
 /** Settings key holding the pinned sub-tabs, newest first. */
 const ISTA_FAVS_KEY = 'bmweb.ista.favourites';
@@ -27,7 +34,26 @@ const ISTA_FAVS_KEY = 'bmweb.ista.favourites';
 const ISTA_FAVS_CAP = 24;
 
 /** The tab the shell opens on when a route names none. */
-const ISTA_HOME_TAB = 'home';
+const ISTA_HOME_TAB = 'operations';
+
+/** The sub-tab the shell opens on: Operations / New. */
+const ISTA_HOME_SUB = 'new';
+
+/** The level-3 the shell opens on: Operations / New / VIN. */
+const ISTA_HOME_SUB3 = 'vin';
+
+/**
+ * One level-3 tab: a row in the strip under a sub-tab.
+ * @typedef {object} IstaSub3
+ * @property {string} id - stable id; the fourth part of the route
+ * @property {string} label - what the strip shows
+ * @property {string} [desc] - one line, shown on the home cards
+ * @property {string} [open] - name of the app screen function this opens
+ * @property {string} [page] - a page this shell draws itself
+ * @property {string} [why] - greyed instead, with this as the reason
+ * @property {boolean} [needsCar] - the opener takes the picked car's id
+ * @property {boolean} [dev] - dev hosts only
+ */
 
 /**
  * One sub-tab: a row in a tab's strip.
@@ -37,8 +63,10 @@ const ISTA_HOME_TAB = 'home';
  * @property {string} [desc] - one line, shown on the home cards
  * @property {string} [open] - name of the app screen function this opens
  * @property {string} [page] - a page this shell draws itself
+ * @property {IstaSub3[]} [subs3] - a level-3 strip under this sub-tab
  * @property {string} [why] - greyed instead, with this as the reason
  * @property {boolean} [needsCar] - the opener takes the picked car's id
+ * @property {boolean} [dev] - dev hosts only
  */
 
 /**
@@ -61,47 +89,55 @@ const ISTA_HOME_TAB = 'home';
  * WHAT IS DEV-ONLY. A sub-tab with `dev: true` exists only where Coding does
  * (codingReady in core/nav.js: not on the public site): the public build
  * never lists it, never routes to it and never resolves a pin to it.
- * Activation codes are BMW-issued licences and have no row at all.
  * @type {IstaTab[]}
  */
 const ISTA_TABS = [
   {
     id: 'operations',
     label: 'Operations',
-    desc: 'Read the car: fault memory, a whole-vehicle test, the test plan',
+    desc: 'Open a vehicle: by VIN, off the cable, or by model code',
     subs: [
       {
-        id: 'fault-memory',
-        label: 'Fault memory',
-        desc: 'The whole-car fault menu: its read key scans every module the chassis carries',
-        open: 'istaOpenFaultMemory',
+        id: 'new',
+        label: 'New',
+        desc: 'Start work on a vehicle',
+        subs3: [
+          {
+            id: 'vin',
+            label: 'VIN',
+            desc: 'Type a VIN, or pick a car the Garage already holds',
+            page: 'vin',
+          },
+          {
+            id: 'readout',
+            label: 'Read Out Vehicle Data',
+            desc: 'Ask the car on the cable what it is',
+            page: 'readout',
+          },
+          {
+            id: 'model-code',
+            label: 'Model code',
+            why: 'the four-character model code is not indexed in this build: open the car by VIN instead',
+          },
+          {
+            id: 'basic-features',
+            label: 'Basic Features',
+            why: 'picking a car by series, body and engine alone is not in this build: open it by VIN instead',
+          },
+        ],
+      },
+      {
+        id: 'finished',
+        label: 'Finished',
+        desc: 'Every scan the Garage has kept, newest first',
+        open: 'istaOpenHistory',
         needsCar: true,
       },
       {
-        id: 'vehicle-test',
-        label: 'Vehicle test',
-        desc: 'Start the whole-car read now; the bus map colours in as modules answer',
-        open: 'istaOpenVehicleTest',
-        needsCar: true,
-      },
-      {
-        id: 'test-plan',
-        label: 'Test plan',
-        desc: 'Fault codes with the ISTA procedure that diagnoses them',
-        open: 'showLookup',
-      },
-      {
-        id: 'service-functions',
-        label: 'Service functions',
-        desc: 'Calibrations, adaptation resets and service routines',
-        open: 'istaOpenService',
-        needsCar: true,
-      },
-      {
-        id: 'function-search',
-        label: 'Function search',
-        desc: "Find any screen or key in INPA's scripts by what it does",
-        open: 'showJobSearch',
+        id: 'active',
+        label: 'Active',
+        desc: 'The vehicle this session is open on',
+        page: 'active',
       },
     ],
   },
@@ -113,7 +149,7 @@ const ISTA_TABS = [
       {
         id: 'details',
         label: 'Vehicle details',
-        desc: 'VIN, chassis, model, engine, body and build date, read off the car',
+        desc: 'VIN, chassis, model, engine, body and build date',
         page: 'details',
         needsCar: true,
       },
@@ -153,77 +189,195 @@ const ISTA_TABS = [
         needsCar: true,
       },
       {
-        id: 'service-cases',
-        label: 'Information in Service Cases',
-        why: "BMW's service-case bulletins are not in this build",
+        id: 'service-consultation',
+        label: 'Info from Service Consultation',
+        why: "BMW's service-consultation feed is a dealer system: this build has no access to it",
       },
     ],
   },
   {
     id: 'management',
     label: 'Vehicle management',
-    desc: 'Identify the car, open a module, and the write paths (mostly closed)',
+    desc: 'Repair documents, fault memory, service functions and the write paths',
     subs: [
       {
-        id: 'identification',
-        label: 'Identification',
-        desc: 'What the car reports about its own build',
-        open: 'istaOpenIdentity',
-        needsCar: true,
+        id: 'repair',
+        label: 'Repair/maintenance',
+        desc: 'Repair instructions, tightening torques and technical data',
+        subs3: [
+          {
+            id: 'product-structure',
+            label: 'Product Structure',
+            desc: 'Browse the repair documents by assembly group',
+            page: 'repair-host',
+          },
+          {
+            id: 'text-search',
+            label: 'Text Search',
+            desc: 'Find a repair document by what it is called',
+            page: 'repair-host',
+          },
+        ],
       },
       {
-        id: 'delete-faults',
-        label: 'Delete fault memories',
-        why: 'no whole-car clear exists: clearing is per module, behind its own confirm',
+        id: 'troubleshooting',
+        label: 'Troubleshooting',
+        desc: 'Fault memory, fault patterns and the structures that index them',
+        subs3: [
+          {
+            id: 'fault-memory',
+            label: 'Fault memory',
+            desc: 'The whole-car fault menu: its read key scans every module the chassis carries',
+            open: 'istaOpenFaultMemory',
+            needsCar: true,
+          },
+          {
+            id: 'fault-pattern',
+            label: 'Fault pattern',
+            why: "BMW's fault-pattern catalogue is not in this build",
+          },
+          {
+            id: 'function-structure',
+            label: 'Function Structure',
+            why: "BMW's function structure tree is not in this build",
+          },
+          {
+            id: 'component-structure',
+            label: 'Component Structure',
+            why: "BMW's component structure tree is not in this build",
+          },
+          {
+            id: 'text-search',
+            label: 'Text Search',
+            desc: "Find any screen or key in INPA's scripts by what it does",
+            open: 'showJobSearch',
+          },
+          {
+            id: 'sae-input',
+            label: 'SAE fault code input',
+            desc: 'Look a fault code up by its number',
+            open: 'showLookup',
+          },
+        ],
       },
       {
-        id: 'unit-functions',
-        label: 'Control unit functions',
-        desc: "The chassis's module list; each one opens its INPA script",
-        open: 'istaOpenModules',
-        needsCar: true,
+        id: 'service-functions',
+        label: 'Service functions',
+        desc: 'Calibrations, adaptation resets and service routines',
+        subs3: [
+          {
+            id: 'service-functions',
+            label: 'Service Functions',
+            desc: 'Calibrations, adaptation resets and service routines',
+            open: 'istaOpenService',
+            needsCar: true,
+          },
+        ],
       },
       {
-        id: 'coding',
-        label: 'Coding',
-        desc: "The chassis's coding hub: feature toggles and the expert editor",
-        open: 'istaOpenCoding',
-        needsCar: true,
-        dev: true,
+        id: 'software-update',
+        label: 'Software update',
+        desc: 'Programming: deliberately not offered',
+        subs3: [
+          {
+            id: 'comfort',
+            label: 'Comfort',
+            why: 'programming is deliberately not offered: flashing a module can brick it',
+          },
+          {
+            id: 'advanced',
+            label: 'Advanced',
+            why: 'programming is deliberately not offered: flashing a module can brick it',
+          },
+          {
+            id: 'additional',
+            label: 'Additional software',
+            why: 'programming is deliberately not offered: flashing a module can brick it',
+          },
+        ],
       },
       {
-        id: 'programming',
-        label: 'Programming',
-        why: 'deliberately not offered: flashing a module can brick it',
-        dev: true,
+        id: 'unit-replacement',
+        label: 'Control Unit Replacement',
+        desc: 'What a swapped module needs before and after the exchange',
+        subs3: [
+          {
+            id: 'before',
+            label: 'Before Replacement',
+            why: 'the replacement workflow needs programming, which is deliberately not offered',
+          },
+          {
+            id: 'after',
+            label: 'After Replacement',
+            why: 'the replacement workflow needs programming, which is deliberately not offered',
+          },
+        ],
+      },
+      {
+        id: 'modification',
+        label: 'Vehicle modification',
+        desc: 'Retrofits and conversions',
+        subs3: [
+          {
+            id: 'retrofit',
+            label: 'Retrofit',
+            why: 'retrofit measures need programming, which is deliberately not offered',
+          },
+          {
+            id: 'conversion',
+            label: 'Conversion',
+            why: 'conversion measures need programming, which is deliberately not offered',
+          },
+          {
+            id: 'conversion-coding',
+            label: 'Conversion (coding only)',
+            desc: "The chassis's coding hub: feature toggles and the expert editor",
+            open: 'istaOpenCoding',
+            needsCar: true,
+            dev: true,
+          },
+          {
+            id: 'removal',
+            label: 'Removal of Retrofit/Conversion',
+            why: 'removal measures need programming, which is deliberately not offered',
+          },
+          {
+            id: 'remove-coding',
+            label: 'Remove conversion (coding only)',
+            desc: "The chassis's coding hub: feature toggles and the expert editor",
+            open: 'istaOpenCoding',
+            needsCar: true,
+            dev: true,
+          },
+          {
+            id: 'immediate',
+            label: 'Immediate actions',
+            why: 'immediate-action measures need programming, which is deliberately not offered',
+          },
+        ],
       },
     ],
   },
   {
     id: 'service-plan',
     label: 'Service plan',
-    desc: 'Condition Based Service and the routines that reset it',
+    desc: 'The documents a stored fault points at, and the plans built from them',
     subs: [
       {
-        id: 'resets',
-        label: 'Service functions',
-        desc: 'Only the service-interval resets this chassis carries',
-        open: 'istaOpenServiceResets',
-        needsCar: true,
+        id: 'hit-list',
+        label: 'Hit list',
+        desc: 'Fault codes with the documents that diagnose them',
+        open: 'showLookup',
       },
-    ],
-  },
-  {
-    id: 'workshop',
-    label: 'Workshop',
-    desc: 'Technical data, tightening torques, operating fluids and special tools',
-    subs: [
       {
-        id: 'equipment',
-        label: 'Workshop / Operating fluids',
-        desc: 'Browse the reference documents by category, filtered to this car',
-        page: 'techdata',
-        needsCar: true,
+        id: 'test-plan',
+        label: 'Test plan',
+        why: 'test plans are calculated by the guided-diagnosis engine, which is not in this build',
+      },
+      {
+        id: 'programming-plan',
+        label: 'Programming plan',
+        why: 'programming is deliberately not offered: flashing a module can brick it',
       },
     ],
   },
@@ -232,6 +386,32 @@ const ISTA_TABS = [
     label: 'Favourites',
     desc: 'The sub-tabs you pinned with the star',
     subs: [],
+  },
+  {
+    id: 'workshop',
+    label: 'Workshop/\nOperating fluids',
+    desc: 'Technical data, tightening torques, operating fluids and special tools',
+    subs: [
+      {
+        id: 'techdata',
+        label: 'Workshop/Operating fluids',
+        desc: 'Browse the reference documents by category, filtered to this car',
+        page: 'techdata',
+        needsCar: true,
+      },
+    ],
+  },
+  {
+    id: 'measuring',
+    label: 'Measuring devices',
+    desc: "BMW's measuring hardware",
+    subs: [
+      {
+        id: 'devices',
+        label: 'Measuring devices',
+        why: 'no measuring devices in this build: the app talks to a diagnostic cable, not to a multimeter or oscilloscope',
+      },
+    ],
   },
 ];
 
@@ -256,7 +436,7 @@ function istaDevHost() {
 
 /**
  * Whether a sub-tab exists on this host.
- * @param {IstaSub} s - the sub-tab
+ * @param {IstaSub|IstaSub3} s - the sub-tab
  * @returns {boolean}
  */
 function istaSubShown(s) {
@@ -290,10 +470,33 @@ function istaSubsOf(tabId) {
   return istaFavourites()
     .map((f) => {
       const s = istaSub(f.tab, f.sub);
-      // carry the owning tab so the strip can route a pinned row back
-      return s ? Object.assign({}, s, { _tab: f.tab }) : null;
+      if (!s) return null;
+      // carry the owning tab and level-3 so the strip can route a pin back
+      return Object.assign({}, s, { _tab: f.tab, _sub3: f.sub3 || null });
     })
     .filter(Boolean);
+}
+
+/**
+ * A sub-tab's level-3 strip, empty when it has none.
+ * @param {string} tabId - the tab
+ * @param {string} subId - the sub-tab
+ * @returns {IstaSub3[]}
+ */
+function istaSubs3Of(tabId, subId) {
+  const s = istaSub(tabId, subId);
+  return s && s.subs3 ? s.subs3.filter(istaSubShown) : [];
+}
+
+/**
+ * A level-3 tab by tab, sub and sub3 id.
+ * @param {string} tabId - the tab
+ * @param {string} subId - the sub-tab
+ * @param {string} sub3Id - the level-3 tab
+ * @returns {IstaSub3|null}
+ */
+function istaSub3(tabId, subId, sub3Id) {
+  return istaSubs3Of(tabId, subId).find((x) => x.id === sub3Id) || null;
 }
 
 /**
@@ -308,27 +511,78 @@ function istaFirstSub(tabId) {
 }
 
 /**
+ * The level-3 tab a sub-tab opens on: its first, or null when it has no
+ * level-3 strip at all.
+ * @param {string} tabId - the tab
+ * @param {string} subId - the sub-tab
+ * @returns {IstaSub3|null}
+ */
+function istaFirstSub3(tabId, subId) {
+  return istaSubs3Of(tabId, subId)[0] || null;
+}
+
+/**
+ * The row a route actually lands on: the level-3 tab when the sub-tab has a
+ * strip, else the sub-tab itself.
+ *
+ * This is the one place that knows a two-level route and a three-level route
+ * mean the same kind of thing. Everything downstream -- readiness, opening,
+ * the favourites star -- works on the leaf this returns and never has to ask
+ * how deep it was.
+ * @param {string} tabId - the tab
+ * @param {string} subId - the sub-tab
+ * @param {string|null} [sub3Id] - the level-3 tab, when the route named one
+ * @returns {IstaSub|IstaSub3|null}
+ */
+function istaLeaf(tabId, subId, sub3Id) {
+  const s = istaSub(tabId, subId);
+  if (!s) return null;
+  if (!s.subs3) return s;
+  return (
+    (sub3Id && istaSub3(tabId, subId, sub3Id)) || istaFirstSub3(tabId, subId)
+  );
+}
+
+/**
  * Parse an ISTA route.
  *
- * The grammar is `#ista[/<tab>[/<sub>[/<car>]]]`. The car is LAST rather
- * than first (the tree puts it second) because a tab and a sub-tab are what
- * a link is usually about, and a car id is local to one browser -- a link
- * someone sends still opens the right tab when the car id means nothing on
- * the other end.
+ * The grammar is `#ista[/<tab>[/<sub>[/<sub3>[/<car>]]]]`. The car is LAST
+ * rather than first (the tree puts it second) because a tab and a sub-tab
+ * are what a link is usually about, and a car id is local to one browser --
+ * a link someone sends still opens the right tab when the car id means
+ * nothing on the other end.
+ *
+ * THREE-PART ROUTES STILL PARSE. A route written before the level-3 strips
+ * existed put the car where the sub3 now sits. Telling them apart by shape
+ * alone is not possible, so the third part is read as a sub3 when the tab
+ * and sub name a real strip that has it, and as a car otherwise -- which is
+ * what every old link was.
  * @param {string} route - the hash without its '#'
- * @returns {{tab: string, sub: string|null, car: string|null}|null} null when
- *   the route is not an ISTA one.
+ * @returns {{tab: string, sub: string|null, sub3: string|null,
+ *   car: string|null}|null} null when the route is not an ISTA one.
  */
 function istaRouteParse(route) {
   const m =
-    /^ista(?:\/([A-Za-z0-9_-]+))?(?:\/([A-Za-z0-9_-]+))?(?:\/([A-Za-z0-9_-]+))?$/.exec(
+    /^ista(?:\/([A-Za-z0-9_-]+))?(?:\/([A-Za-z0-9_-]+))?(?:\/([A-Za-z0-9_-]+))?(?:\/([A-Za-z0-9_-]+))?$/.exec(
       String(route || '')
     );
   if (!m) return null;
+  const tab = m[1] ? decodeURIComponent(m[1]) : ISTA_HOME_TAB;
+  const sub = m[2] ? decodeURIComponent(m[2]) : null;
+  const third = m[3] ? decodeURIComponent(m[3]) : null;
+  const fourth = m[4] ? decodeURIComponent(m[4]) : null;
+  // '-' in the third slot is the placeholder istaRouteBuild writes when a
+  // route carries a car but no level-3 tab: it keeps the car in the fourth
+  // slot without inventing a level-3 id nobody has
+  if (fourth)
+    return { tab, sub, sub3: third === '-' ? null : third, car: fourth };
+  // three parts: a sub3 when one of that name exists here, else a car id
+  const isSub3 = !!(third && sub && istaSub3(tab, sub, third));
   return {
-    tab: m[1] ? decodeURIComponent(m[1]) : ISTA_HOME_TAB,
-    sub: m[2] ? decodeURIComponent(m[2]) : null,
-    car: m[3] ? decodeURIComponent(m[3]) : null,
+    tab,
+    sub,
+    sub3: isSub3 ? third : null,
+    car: isSub3 ? null : third,
   };
 }
 
@@ -337,19 +591,21 @@ function istaRouteParse(route) {
  * car is the bare `ista` and round-trips through istaRouteParse.
  * @param {string|null} [tab] - the tab id
  * @param {string|null} [sub] - the sub-tab id
+ * @param {string|null} [sub3] - the level-3 tab id
  * @param {string|null} [car] - the picked car's id
  * @returns {string} the route, without its '#'
  */
-function istaRouteBuild(tab, sub, car) {
-  const parts = ['ista'];
-  const t = tab && tab !== ISTA_HOME_TAB ? String(tab) : '';
-  // a car with no sub-tab still needs the slots before it filled, so the
-  // three parts stay positional
-  if (car && !t) return 'ista';
+function istaRouteBuild(tab, sub, sub3, car) {
+  const t = tab ? String(tab) : '';
   if (!t) return 'ista';
-  parts.push(encodeURIComponent(t));
-  if (sub) parts.push(encodeURIComponent(String(sub)));
-  else if (car) return parts.join('/');
+  const parts = ['ista', encodeURIComponent(t)];
+  if (!sub) return parts.join('/');
+  parts.push(encodeURIComponent(String(sub)));
+  // the car sits in the fourth slot, so a route with a car but no level-3
+  // still needs the slot filled; '-' is not a legal id, so it reads back
+  // as "no level-3" rather than as one nobody has
+  if (sub3) parts.push(encodeURIComponent(String(sub3)));
+  else if (car) parts.push('-');
   if (car) parts.push(encodeURIComponent(String(car)));
   return parts.join('/');
 }
@@ -372,42 +628,56 @@ function istaRead(key, fallback, shapeOk) {
 /**
  * The pinned sub-tabs, newest first. A pin that names a tab or sub-tab this
  * build no longer has is dropped on read rather than drawn as a dead row.
- * @returns {Array<{tab: string, sub: string}>}
+ * @returns {Array<{tab: string, sub: string, sub3?: string}>}
  */
 function istaFavourites() {
   const raw = istaRead(ISTA_FAVS_KEY, [], Array.isArray);
-  return raw
-    .filter((f) => f && typeof f.tab === 'string' && typeof f.sub === 'string')
-    .filter((f) => !!istaSub(f.tab, f.sub))
-    .slice(0, ISTA_FAVS_CAP);
+  return (
+    raw
+      .filter(
+        (f) => f && typeof f.tab === 'string' && typeof f.sub === 'string'
+      )
+      .filter((f) => !!istaSub(f.tab, f.sub))
+      // a pin naming a level-3 must still find it; one naming none is fine
+      .filter((f) => !f.sub3 || !!istaSub3(f.tab, f.sub, f.sub3))
+      .slice(0, ISTA_FAVS_CAP)
+  );
 }
 
 /**
  * Is this sub-tab pinned?
  * @param {string} tab - the tab id
  * @param {string} sub - the sub-tab id
+ * @param {string|null} [sub3] - the level-3 tab id
  * @returns {boolean}
  */
-function istaIsFavourite(tab, sub) {
-  return istaFavourites().some((f) => f.tab === tab && f.sub === sub);
+function istaIsFavourite(tab, sub, sub3) {
+  return istaFavourites().some(
+    (f) => f.tab === tab && f.sub === sub && (f.sub3 || null) === (sub3 || null)
+  );
 }
 
 /**
  * Pin or unpin a sub-tab; returns its state after the toggle.
  * @param {string} tab - the tab id
  * @param {string} sub - the sub-tab id
+ * @param {string|null} [sub3] - the level-3 tab id
  * @returns {boolean} true when it is now pinned
  */
-function istaFavouriteToggle(tab, sub) {
+function istaFavouriteToggle(tab, sub, sub3) {
+  const s3 = sub3 || null;
   const now = istaFavourites();
-  const at = now.findIndex((f) => f.tab === tab && f.sub === sub);
+  const at = now.findIndex(
+    (f) => f.tab === tab && f.sub === sub && (f.sub3 || null) === s3
+  );
   let next;
   let pinned;
   if (at >= 0) {
     next = now.filter((_, i) => i !== at);
     pinned = false;
   } else {
-    next = [{ tab, sub }, ...now].slice(0, ISTA_FAVS_CAP);
+    const entry = s3 ? { tab, sub, sub3: s3 } : { tab, sub };
+    next = [entry, ...now].slice(0, ISTA_FAVS_CAP);
     pinned = true;
   }
   if (typeof Settings === 'object' && Settings && Settings.set)
@@ -446,12 +716,18 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     ISTA_TABS,
     ISTA_HOME_TAB,
+    ISTA_HOME_SUB,
+    ISTA_HOME_SUB3,
     ISTA_FAVS_KEY,
     ISTA_FAVS_CAP,
     istaTab,
     istaSub,
+    istaSub3,
     istaSubsOf,
+    istaSubs3Of,
     istaFirstSub,
+    istaFirstSub3,
+    istaLeaf,
     istaRouteParse,
     istaRouteBuild,
     istaFavourites,
