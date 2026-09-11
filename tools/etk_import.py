@@ -22,6 +22,38 @@ THE JOIN PATH (proven against the real data):
 All display text is a `textcode` resolved through w_ben_gk filtered to English
 (ben_iso='en'). TIFs are converted to PNG so the browser can draw them.
 
+THE CALLOUT HOTSPOTS (--hotspots, <chassis>.hs.json.gz):
+    w_grafik_hs[grafikid] -> the clickable rectangles drawn over one graphic
+
+ETK ships, per graphic, the rectangle each callout number occupies on the
+drawing:
+
+    w_grafik_hs(grafikhs_grafikid, grafikhs_art, grafikhs_bildposnr,
+                grafikhs_topleft_x, grafikhs_topleft_y,
+                grafikhs_bottomright_x, grafikhs_bottomright_y)
+
+COORDINATE SPACE. The x/y values are PIXELS OF THE 'Z' RENDERING of that
+graphic, which is exactly the image this importer ships: load_grafik prefers
+grafik_art='Z' over the small 'T' thumbnail. So a rectangle maps onto the
+shipped image by dividing through img.naturalWidth/naturalHeight -- no scale
+factor, no offset. grafikhs_art is 'Z' for every row in the catalogue, which
+is consistent with that. Rows whose rectangle falls outside the image are
+dropped rather than clamped, because an out-of-range rectangle means the row
+belongs to a rendering we did not ship.
+
+THE POS KEY. grafikhs_bildposnr IS the callout number, the same value
+w_btzeilen.btzeilen_bildposnr carries and the same string this importer
+writes as each part's `pos` in tree.json (see `callouts` in build()). That is
+what joins a rectangle to its parts rows. The relation is many-to-many: one
+pos can own several rectangles (a part drawn in two places), and several
+parts can share one pos (fitment variants of the same position).
+
+WHY A SEPARATE FILE. The .etk bundles are 6.86 GB published as-is; adding a
+few kilobytes of rectangles to each would mean re-uploading all of them. The
+hotspots ride alongside as <chassis>.hs.json.gz (tens of KB), fetched through
+the same local-then-dataset path. A chassis with no file, or a diagram with
+no rectangles, keeps the plain non-interactive drawing.
+
 WHAT IS DROPPED. The 100+ condition/marketing/admin tables (w_bed_*, w_sft_*,
 w_tc_*, REACH, prices): a parts *viewer* needs the tree, the diagrams, the
 part numbers and names, and the fitment. The rest is generator plumbing.
@@ -290,6 +322,117 @@ def build(con, chassis, names, out_dir, quiet=False):
     return (ndiag, nparts, size)
 
 
+def chassis_btnrs(con, chassis):
+    """The diagrams (btnr) one chassis's bundle carries, and nothing else.
+
+    Derived exactly the way build() derives them -- the chassis's mospids from
+    w_fztyp, then the diagrams their parts are drawn on via the fitment table --
+    so the hotspot file covers the same diagram set as the .etk beside it, with
+    no orphan entries and no missing ones."""
+    mospids = [r[0] for r in con.execute(
+        "SELECT fztyp_mospid FROM w_fztyp WHERE fztyp_baureihe=?", (chassis,))]
+    if not mospids:
+        return set()
+    btnrs = set()
+    for (btnr,) in chunked_in(con,
+            "SELECT DISTINCT btzeilenv_btnr FROM w_btzeilen_verbauung "
+            "WHERE btzeilenv_mospid IN (%s)", mospids):
+        btnrs.add(btnr)
+    return btnrs
+
+
+def build_hotspots(con, chassis, out_dir, quiet=False):
+    """Write <chassis>.hs.json.gz: the clickable callout rectangles of every
+    diagram that chassis's bundle carries.
+
+    Shape (see the module docstring for the tables and the coordinate space):
+
+        {"v": 1, "bt": {"<btnr>": [["<pos>", x1, y1, x2, y2], ...], ...}}
+
+    Coordinates are pixels of the shipped ('Z') rendering of the diagram's
+    graphic, top-left origin, so the viewer scales them by the rendered image's
+    size over its naturalWidth/naturalHeight. `pos` is the callout key that
+    joins a rectangle to the parts rows carrying the same `pos`.
+
+    Kept deliberately small: integers only, no whitespace, gzipped. An E-chassis
+    lands in the tens of KB, so it can ride beside the (much larger, already
+    published) bundle instead of forcing a re-upload of it.
+
+    Returns (diagrams with rectangles, rectangle count, bytes) or None when the
+    chassis has no diagram with rectangles."""
+    import gzip
+    btnrs = chassis_btnrs(con, chassis)
+    if not btnrs:
+        return None
+
+    # btnr -> grafikid. Several diagrams can share one graphic, so the
+    # rectangles are fetched per DISTINCT graphic and fanned back out.
+    bt_gid = {}
+    for btnr, gid in chunked_in(con,
+            "SELECT bildtaf_btnr, bildtaf_grafikid FROM w_bildtaf "
+            "WHERE bildtaf_btnr IN (%s)", sorted(btnrs)):
+        if gid:
+            bt_gid[btnr] = gid
+    if not bt_gid:
+        return None
+
+    # grafikid -> [[pos, x1, y1, x2, y2], ...]. art is 'Z' throughout the
+    # catalogue, but filter on it anyway so a future 'T' (thumbnail-space) row
+    # cannot leak in with coordinates of a different rendering.
+    gid_rects = {}
+    for gid, pos, x1, y1, x2, y2 in chunked_in(con,
+            "SELECT grafikhs_grafikid, grafikhs_bildposnr, grafikhs_topleft_x, "
+            "       grafikhs_topleft_y, grafikhs_bottomright_x, grafikhs_bottomright_y "
+            "FROM w_grafik_hs WHERE grafikhs_art='Z' AND grafikhs_grafikid IN (%s)",
+            sorted(set(bt_gid.values()))):
+        if pos is None or None in (x1, y1, x2, y2):
+            continue
+        x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
+        # a zero-area or inverted rectangle is unclickable; normalise the order
+        # and drop the degenerate ones rather than shipping dead hit targets
+        lo_x, hi_x = min(x1, x2), max(x1, x2)
+        lo_y, hi_y = min(y1, y2), max(y1, y2)
+        if hi_x <= lo_x or hi_y <= lo_y:
+            continue
+        gid_rects.setdefault(gid, []).append(
+            [str(pos), lo_x, lo_y, hi_x, hi_y])
+
+    bt = {}
+    nrect = 0
+    for btnr in sorted(bt_gid):
+        rects = gid_rects.get(bt_gid[btnr])
+        if not rects:
+            continue
+        bt[btnr] = rects
+        nrect += len(rects)
+    if not bt:
+        return None
+
+    payload = json.dumps({'v': 1, 'bt': bt},
+                         ensure_ascii=False,
+                         separators=(',', ':')).encode('utf-8')
+    os.makedirs(out_dir, exist_ok=True)
+    path = os.path.join(out_dir, f'{chassis}.hs.json.gz')
+    # same temp-then-replace as the bundle: an interrupted run must not leave a
+    # truncated .gz that the viewer would fail to gunzip
+    tmp_path = path + '.tmp'
+    try:
+        with open(tmp_path, 'wb') as f:
+            f.write(gzip.compress(payload, 9))
+    except BaseException:
+        try:
+            os.remove(tmp_path)
+        except OSError:
+            pass
+        raise
+    os.replace(tmp_path, path)
+    size = os.path.getsize(path)
+    if not quiet:
+        print(f"  {chassis}: {len(bt)} diagrams with callouts, {nrect} rectangles "
+              f"-> {size/1e3:.1f} KB")
+    return (len(bt), nrect, size)
+
+
 def build_vin_index(con, out_dir):
     """Write vin-index.json.gz: every BMW production-number range mapped to the
     vehicle it identifies, so the viewer can decode a VIN.
@@ -420,6 +563,9 @@ def main():
                     help='write only vehicles.json (the attribute drill-down) and exit')
     ap.add_argument('--thumbs-only', action='store_true',
                     help='write only thumbs/ (the car photos) and exit')
+    ap.add_argument('--hotspots', action='store_true',
+                    help='write only <chassis>.hs.json.gz (the diagram callout '
+                         'rectangles) and exit; a full run always writes them')
     args = ap.parse_args()
 
     if not os.path.exists(args.db):
@@ -432,6 +578,24 @@ def main():
         return
     if args.vehicles_only:
         build_vehicle_index(con, args.out)
+        return
+
+    # Hotspots read no image blobs, so this runs before the w_grafik index
+    # below (which exists only to make blob lookups bearable) and is fast
+    # enough to re-run for every chassis on its own.
+    if args.hotspots:
+        targets = [args.chassis] if args.chassis else chassis_list(con)
+        print(f"writing callout hotspots for {len(targets)} chassis...")
+        nch = ndiag = nrect = nbytes = 0
+        for ch in targets:
+            r = build_hotspots(con, ch, args.out, quiet=False)
+            if r:
+                nch += 1
+                ndiag += r[0]
+                nrect += r[1]
+                nbytes += r[2]
+        print(f"done: {nch}/{len(targets)} chassis, {ndiag:,} diagrams with "
+              f"callouts, {nrect:,} rectangles, {nbytes/1e6:.2f} MB total")
         return
 
     # Everything past here fetches image blobs by grafikid. The dumped
@@ -465,6 +629,10 @@ def main():
         r = build(con, ch, names, args.out, quiet=False)
         if r:
             built.append(ch)
+            # the callout rectangles ride beside the bundle and are derived from
+            # the same diagram set, so they are written in the same pass -- a
+            # bundle without its hotspots would silently lose the interaction
+            build_hotspots(con, ch, args.out, quiet=False)
     print(f"done: {len(built)}/{len(targets)} chassis packed into {args.out}/")
 
     # index.json: the list of chassis that actually have a bundle, so the viewer
