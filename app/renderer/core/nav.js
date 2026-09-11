@@ -64,7 +64,6 @@ async function showChassis() {
         <div class="inpa-vlist inpa-vlist-right">
           ${old.length ? `<button class="inpa-fn inpa-fn-more" id="vsel-old"><span class="inpa-fn-key">&lt; F9 &gt;</span><span class="inpa-fn-label">Other models …</span></button>` : ''}
           <button class="inpa-fn inpa-fn-lookup" id="vsel-apps"><span class="inpa-fn-key">▦</span><span class="inpa-fn-label">Apps …</span></button>
-          ${typeof showVinDecoder === 'function' ? `<button class="inpa-fn inpa-fn-lookup" id="vsel-vin"><span class="inpa-fn-key">⌗</span><span class="inpa-fn-label">VIN decoder (full VIN or its last 7) …</span></button>` : ''}
         </div>
       </div>`;
     view.appendChild(panel);
@@ -74,19 +73,6 @@ async function showChassis() {
     const oldBtn = panel.querySelector('#vsel-old');
     if (oldBtn) oldBtn.onclick = () => showOtherModels(old);
     panel.querySelector('#vsel-apps').onclick = () => showApps();
-    // the VIN box lived only under Apps > Parts, where owners did not look
-    // for it; the vehicle screen offers it in both layouts (the card below
-    // for the modern grid)
-    const vinBtn = panel.querySelector('#vsel-vin');
-    const openVin = () =>
-      showVinDecoder({
-        back: showChassis,
-        crumbs: [
-          { label: 'Vehicles', fn: showChassis },
-          { label: 'VIN Decoder' },
-        ],
-      });
-    if (vinBtn) vinBtn.onclick = openVin;
     sbRight.textContent = `${main.length} common · ${old.length} more`;
     syncVselState();
     const acts = main.slice(0, 8).map((id, i) => ({
@@ -101,8 +87,6 @@ async function showChassis() {
         fn: () => showOtherModels(old),
       });
     acts.push({ key: '0', label: 'Apps', fn: () => showApps() });
-    if (vinBtn)
-      acts.push({ key: 'v', keyLabel: 'V', label: 'VIN', fn: openVin });
     setActions(acts);
     return;
   }
@@ -128,31 +112,6 @@ async function showChassis() {
     <span class="lookup-entry-arrow">→</span>`;
   appsCard.onclick = () => showApps();
   view.appendChild(appsCard);
-
-  // VIN Decoder: the last 7 characters of a VIN (the production number) resolve
-  // straight to the exact variant. The box lived only under Apps -> Parts, so
-  // owners could not find where to type their VIN; surface it on the home
-  // screen next to Apps, spelling out the last-7 shortcut in the description.
-  if (typeof showVinDecoder === 'function') {
-    const vinCard = document.createElement('button');
-    vinCard.className = 'lookup-entry etk-vin-entry';
-    vinCard.innerHTML = `
-      <span class="lookup-entry-icon">⌗</span>
-      <span class="lookup-entry-text">
-        <span class="lookup-entry-title">VIN Decoder</span>
-        <span class="lookup-entry-desc">Enter your VIN, or just its last 7 characters, to identify your exact vehicle</span>
-      </span>
-      <span class="lookup-entry-arrow">→</span>`;
-    vinCard.onclick = () =>
-      showVinDecoder({
-        back: showChassis,
-        crumbs: [
-          { label: 'Vehicles', fn: showChassis },
-          { label: 'VIN Decoder' },
-        ],
-      });
-    view.appendChild(vinCard);
-  }
 
   // Garage: the cars this user keeps, and the scan history read from each.
   // Above the chassis grid because a returning owner wants their own car, not
