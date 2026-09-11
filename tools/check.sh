@@ -227,6 +227,7 @@ node tools/verify/test_vmbridge.js || exit 1
 echo
 echo "== the wire: framing, checksums, port settings, sessions =="
 node tools/verify/test_transport.js || exit 1
+node tools/verify/test_port_label.js || exit 1
 
 echo
 echo "== write guard holds =="

@@ -340,9 +340,29 @@ class WebSerialBus extends SerialTransportBase {
     if (this.port && typeof this.port.label === 'function')
       return this.port.label();
     const i = this.port && this.port.getInfo ? this.port.getInfo() : {};
-    return i.usbVendorId
-      ? `USB ${i.usbVendorId.toString(16)}:${(i.usbProductId || 0).toString(16)}`
-      : 'serial';
+    if (i.usbVendorId)
+      return `USB ${i.usbVendorId.toString(16)}:${(i.usbProductId || 0).toString(16)}`;
+    // A K+DCAN cable is a USB device and the browser reports its ids. A port
+    // without them is a Bluetooth adapter (the browser names those by their
+    // service class) or a virtual port, and neither has a K line to echo on:
+    // a tester spent four days on "no echo from the cable" with a port the
+    // chip merely called "serial". Say what it is.
+    if (i.bluetoothServiceClassId)
+      return 'Bluetooth serial, not a K+DCAN cable';
+    return 'serial port without a USB id, not a K+DCAN cable';
+  }
+
+  /**
+   * Why this port cannot be a K+DCAN cable, for the no-echo error, or ''
+   * when it reports USB ids (then the cable is real and the car is the
+   * question).
+   * @returns {string}
+   */
+  portHint() {
+    if (this.port && typeof this.port.label === 'function') return '';
+    const i = this.port && this.port.getInfo ? this.port.getInfo() : {};
+    if (i.usbVendorId) return '';
+    return ` -- this port is a ${this.portLabel()}; a K+DCAN cable shows as USB 403:6001`;
   }
 
   /** Release the streams, close the port and forget the wire state. */
