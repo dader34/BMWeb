@@ -97,10 +97,17 @@ async function readFrame(sent, timeoutMs, pump, comm) {
     else await bmwSleep(RX_POLL_MS);
   }
   if (echoLen && at < 0) {
+    // what came back instead of the echo is the whole diagnosis (a clipped
+    // last byte, a late answer from the previous address, line noise), so it
+    // goes into the wire ring and the first bytes into the message
+    if (buf.length)
+      busTrace.add('rx', buf.slice(0, 48), "not the request's echo");
+    const got =
+      busTrace.hex(buf.slice(0, 12)) + (buf.length > 12 ? ' ...' : '');
     throw ifhError(
       'IFH-0003',
       buf.length
-        ? 'echo did not match the request (bus collision?)'
+        ? `echo did not match the request (bus collision?): got ${got}`
         : 'no echo from the cable (is it connected to the car?)'
     );
   }

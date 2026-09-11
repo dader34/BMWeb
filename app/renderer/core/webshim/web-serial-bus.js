@@ -302,6 +302,11 @@ class WebSerialBus extends SerialTransportBase {
    * @param {PortConfig} cfg - The settings to reopen with.
    */
   async _reopenStreams(cfg) {
+    // a reopen can be asked for before any port was granted: the first
+    // group probe on a page load raced the silent reconnect and died on
+    // "reading 'close' of null", which the app could not tell from a bug.
+    // Name it as what it is, in the words the error screen recognises.
+    if (!this.port) throw new Error('no cable is open');
     await this.port.close();
     await this.port.open(cfg);
     this.config = cfg;
