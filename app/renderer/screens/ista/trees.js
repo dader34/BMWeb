@@ -300,7 +300,12 @@ function istaDiagSource(data, bodyOf) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { istaServiceSource, istaDiagSource, istaDiagSearch };
+  module.exports = {
+    istaServiceSource,
+    istaDiagSource,
+    istaDiagSearch,
+    istaDiagBodyHtml,
+  };
 }
 
 /**

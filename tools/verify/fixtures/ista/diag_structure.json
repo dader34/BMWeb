@@ -27,6 +27,7 @@
  "documents": [
   {
    "body": {
+    "id": 2000004537299,
     "kind": "PINASSIGNMENTS",
     "sections": [
      {
@@ -268,7 +269,8 @@
       "heading": "Pin assignments at plug connector X1170"
      }
     ],
-    "title": "A52 ABS/ASC unit"
+    "title": "A52 ABS/ASC unit",
+    "type": "PIB"
    },
    "id": 2000004537299,
    "nodeClass": 46484994,
@@ -278,12 +280,13 @@
   },
   {
    "body": {
+    "id": 2000004607508,
     "kind": "INSTALLATIONLOCATION",
     "sections": [
      {
       "blocks": [
        {
-        "s": "G_075001.png",
+        "s": 2000004152762,
         "t": "pic"
        },
        {
@@ -291,6 +294,7 @@
         "t": "p"
        },
        {
+        "head": 0,
         "rows": [
          [
           "A52",
@@ -307,7 +311,8 @@
       "heading": ""
      }
     ],
-    "title": "A52, X1170"
+    "title": "A52, X1170",
+    "type": "EBO"
    },
    "id": 2000004607508,
    "nodeClass": 46483714,
@@ -325,6 +330,7 @@
   },
   {
    "body": {
+    "id": 2000004663902,
     "kind": "HELPINFORMATION",
     "sections": [
      {
@@ -351,10 +357,11 @@
         "t": "bullet"
        },
        {
-        "s": "GRA-PIX-FB5409062.png",
+        "s": 2000004200452,
         "t": "pic"
        },
        {
+        "head": 0,
         "rows": [
          [
           "Item",
@@ -375,7 +382,8 @@
       "heading": "Repair instructions:"
      }
     ],
-    "title": "Guide pin folding sunroof"
+    "title": "Guide pin folding sunroof",
+    "type": "FUB"
    },
    "id": 2000004663902,
    "nodeClass": 46455938,
@@ -385,6 +393,7 @@
   },
   {
    "body": {
+    "id": 2000013169167,
     "kind": "SERVICEDOCUMENT",
     "sections": [
      {
@@ -445,7 +454,8 @@
       "heading": ""
      }
     ],
-    "title": "PMA control unit cannot be programmed"
+    "title": "PMA control unit cannot be programmed",
+    "type": "SIT"
    },
    "id": 2000013169167,
    "nodeClass": 46470274,
@@ -455,12 +465,13 @@
   },
   {
    "body": {
+    "id": 2000004402750,
     "kind": "PLUGIMAGE",
     "sections": [
      {
       "blocks": [
        {
-        "s": "B040021B.png",
+        "s": 20000171354258,
         "t": "pic"
        },
        {
@@ -471,7 +482,8 @@
       "heading": ""
      }
     ],
-    "title": "X18198 Plug connector (4-pin, blue)"
+    "title": "X18198 Plug connector (4-pin, blue)",
+    "type": "STA"
    },
    "id": 2000004402750,
    "nodeClass": 42874990082,
@@ -481,6 +493,7 @@
   },
   {
    "body": {
+    "id": 2000004660759,
     "kind": "FUNCTIONALDESCRIPTION",
     "sections": [
      {
@@ -537,7 +550,7 @@
         "t": "p"
        },
        {
-        "s": "GRA-PIX-FB6110061.png",
+        "s": 2000004176325,
         "t": "pic"
        },
        {
@@ -569,7 +582,8 @@
       "heading": "Notes on safety"
      }
     ],
-    "title": "Passenger's airbag deactivation"
+    "title": "Passenger's airbag deactivation",
+    "type": "FUB"
    },
    "id": 2000004660759,
    "nodeClass": 46455938,
@@ -586,6 +600,12 @@
    "xml": "<DIAGNOSISDOCUMENT CHARSET=\"UTF-8\" LANGUAGE=\"en-GB\">\n  <HELPINFORMATION>\n    <HEADING>Notes on BMW diagnosis system</HEADING>\n    <DOCUMENTTITLE>Video for check for &quot;air duct is rattling against the footwell trim&quot;</DOCUMENTTITLE>\n    <SUBSECTION1>\n      <HEADING>Video</HEADING>\n      <PARAGRAPH/>\n    </SUBSECTION1>\n  </HELPINFORMATION>\n</DIAGNOSISDOCUMENT>\n"
   }
  ],
+ "symptoms": {
+  "groups": 9,
+  "kept": 82,
+  "norule": 72,
+  "seen": 84
+ },
  "trees": {
   "component-slice": {
    "id": 2000003842477,
@@ -654,6 +674,352 @@
    ],
    "label": "A: Control Units, Modules",
    "n": 6
+  },
+  "fault-pattern": {
+   "id": 2000011340276,
+   "kids": [
+    {
+     "id": 18563360267,
+     "kids": [
+      {
+       "id": 18563454219,
+       "kids": [],
+       "label": "0101 Exhaust system",
+       "n": 0
+      },
+      {
+       "docs": [
+        {
+         "id": 2000036907298,
+         "title": "AM2301_00033 - Gearbox/clutch noise",
+         "type": "FEB"
+        },
+        {
+         "id": 2000036867859,
+         "title": "AM2401_00210 Automatic transmission noise",
+         "type": "FEB"
+        }
+       ],
+       "id": 18563467275,
+       "kids": [],
+       "label": "0102 Drive train",
+       "n": 2
+      }
+     ],
+     "label": "01 Powertrain",
+     "n": 2
+    },
+    {
+     "id": 18563370379,
+     "kids": [
+      {
+       "docs": [
+        {
+         "id": 2000004661688,
+         "title": "CD changer and DVD changer",
+         "type": "FUB"
+        },
+        {
+         "id": 2000004660140,
+         "title": "CD changer audio / video (CDC/ DVDC)",
+         "type": "FUB"
+        }
+       ],
+       "id": 18563558667,
+       "kids": [],
+       "label": "0201 Audio system",
+       "n": 2
+      },
+      {
+       "docs": [
+        {
+         "id": 2000004664205,
+         "title": "Car Information Computer",
+         "type": "FUB"
+        },
+        {
+         "id": 2000004664028,
+         "title": "Central Head Unit and Multimedia Platform",
+         "type": "FUB"
+        }
+       ],
+       "id": 18563571723,
+       "kids": [],
+       "label": "0202 Controls",
+       "n": 2
+      }
+     ],
+     "label": "02 Display, information, communication",
+     "n": 4
+    },
+    {
+     "id": 18563380491,
+     "kids": [
+      {
+       "id": 18563754507,
+       "kids": [],
+       "label": "0301 Trailer lighting",
+       "n": 0
+      },
+      {
+       "docs": [
+        {
+         "id": 2000038185848,
+         "title": "AM6303_90577 - Headlight fogging",
+         "type": "FEB"
+        },
+        {
+         "id": 2000004660384,
+         "title": "FLA high beam assistant",
+         "type": "FUB"
+        }
+       ],
+       "id": 18563767563,
+       "kids": [],
+       "label": "0302 Exterior lighting",
+       "n": 2
+      }
+     ],
+     "label": "03 Lights",
+     "n": 2
+    },
+    {
+     "id": 18563390603,
+     "kids": [
+      {
+       "docs": [
+        {
+         "id": 2000004663610,
+         "title": "Comfort Access",
+         "type": "FUB"
+        },
+        {
+         "id": 2000004660052,
+         "title": "Comfort Access System",
+         "type": "FUB"
+        }
+       ],
+       "id": 18563793675,
+       "kids": [],
+       "label": "0401 Remote control, identification transmitter",
+       "n": 2
+      },
+      {
+       "docs": [
+        {
+         "id": 2000010244092,
+         "title": "Attaching the ESD foil to the back of the microwave sensor",
+         "type": "FUB"
+        },
+        {
+         "id": 2000004664626,
+         "title": "FUB-FUB-FB-650004–K09",
+         "type": "FUB"
+        }
+       ],
+       "id": 18563806731,
+       "kids": [],
+       "label": "0402 Anti-theft alarm system",
+       "n": 2
+      }
+     ],
+     "label": "04 Locking systems, anti-theft system",
+     "n": 4
+    },
+    {
+     "id": 18563400715,
+     "kids": [
+      {
+       "docs": [
+        {
+         "id": 2000036861242,
+         "title": "AM3401_00316 - Brake noise",
+         "type": "FEB"
+        },
+        {
+         "id": 2000036860244,
+         "title": "AM3401_00328 - Brake noise",
+         "type": "FEB"
+        }
+       ],
+       "id": 18563845899,
+       "kids": [],
+       "label": "0501 Brakes",
+       "n": 2
+      },
+      {
+       "docs": [
+        {
+         "id": 2000036912164,
+         "title": "AM3204_00056 - Steering hydraulics systems - ARS leakage",
+         "type": "FEB"
+        },
+        {
+         "id": 2000036913149,
+         "title": "AM3204_00059 - Steering hydraulics systems - ARS leakage",
+         "type": "FEB"
+        }
+       ],
+       "id": 18563858955,
+       "kids": [],
+       "label": "0502 Dynamic driving system",
+       "n": 2
+      }
+     ],
+     "label": "05 Chassis and suspension",
+     "n": 4
+    },
+    {
+     "id": 18563410827,
+     "kids": [
+      {
+       "docs": [
+        {
+         "id": 2000036867691,
+         "title": "AM5003_00238 - Water ingress, complete vehicle",
+         "type": "FEB"
+        },
+        {
+         "id": 2000036832262,
+         "title": "AM5003_00499 - Water ingress, complete vehicle",
+         "type": "FEB"
+        }
+       ],
+       "id": 18563924235,
+       "kids": [],
+       "label": "0601 Roof",
+       "n": 2
+      },
+      {
+       "docs": [
+        {
+         "id": 2000036907123,
+         "title": "AM3301_00020 - Rear axle noise",
+         "type": "FEB"
+        },
+        {
+         "id": 2000036867691,
+         "title": "AM5003_00238 - Water ingress, complete vehicle",
+         "type": "FEB"
+        }
+       ],
+       "id": 18563937291,
+       "kids": [],
+       "label": "0602 Luggage compartment",
+       "n": 2
+      }
+     ],
+     "label": "06 Body",
+     "n": 4
+    },
+    {
+     "id": 18563420939,
+     "kids": [
+      {
+       "docs": [
+        {
+         "id": 2000036911530,
+         "title": "AM6401_00102 - Heating and air conditioning system noise",
+         "type": "FEB"
+        },
+        {
+         "id": 2000036865510,
+         "title": "AM6401_00254 - Heating and air conditioning system noise",
+         "type": "FEB"
+        }
+       ],
+       "id": 18564120075,
+       "kids": [],
+       "label": "0701 Blower",
+       "n": 2
+      },
+      {
+       "docs": [
+        {
+         "id": 2000036911530,
+         "title": "AM6401_00102 - Heating and air conditioning system noise",
+         "type": "FEB"
+        },
+        {
+         "id": 2000036865510,
+         "title": "AM6401_00254 - Heating and air conditioning system noise",
+         "type": "FEB"
+        }
+       ],
+       "id": 18564133131,
+       "kids": [],
+       "label": "0702 Climate control, heating",
+       "n": 2
+      }
+     ],
+     "label": "07 Ventilation, heating, climate control",
+     "n": 4
+    },
+    {
+     "id": 18563431051,
+     "kids": [
+      {
+       "id": 18564185355,
+       "kids": [],
+       "label": "0801 Airbag",
+       "n": 0
+      },
+      {
+       "docs": [
+        {
+         "id": 2000036907152,
+         "title": "AM7202_00025 - Seat belt extender malfunction",
+         "type": "FEB"
+        },
+        {
+         "id": 2000004664654,
+         "title": "Multiple restraint system (MRS)",
+         "type": "FUB"
+        }
+       ],
+       "id": 18564211211,
+       "kids": [],
+       "label": "0802 Seat belt",
+       "n": 2
+      }
+     ],
+     "label": "08 Safety, restraint, warning systems",
+     "n": 2
+    },
+    {
+     "id": 18563441163,
+     "kids": [
+      {
+       "docs": [
+        {
+         "id": 2000004663458,
+         "title": "Energy diagnosis",
+         "type": "FUB"
+        },
+        {
+         "id": 2000004665353,
+         "title": "Energy diagnosis",
+         "type": "FUB"
+        }
+       ],
+       "id": 18564276491,
+       "kids": [],
+       "label": "0901 Battery",
+       "n": 2
+      },
+      {
+       "id": 18564289547,
+       "kids": [],
+       "label": "0902 Bus systems",
+       "n": 0
+      }
+     ],
+     "label": "09 Voltage supply, bus systems",
+     "n": 2
+    }
+   ],
+   "label": "Fault patterns",
+   "n": 28
   }
  }
 }

@@ -7,11 +7,15 @@ replace: you rarely know a document's title, you know a symptom ("noise from
 exhaust system"), a function ("Tank ventilation"), or a component ("A65
 ABS/DSC control unit"), and ISTA's answer to each is a different tree.
 
-    fault-pattern        XEP_PERCEIVEDSYMPTOMS, the customer-complaint tree
-                         ("Fault pattern function" / "Component fault
-                         pattern"). Its leaves point AT diagnosis objects, so
+    fault-pattern        XEP_PERCEIVEDSYMPTOMS, the customer-complaint tree:
+                         one root "Fault patterns" over the nine numbered
+                         groups (01 Powertrain .. 09 Voltage supply, bus
+                         systems). Its leaves point AT diagnosis objects, so
                          a symptom lands on the same nodes the other two
-                         trees hold, from the customer's words instead.
+                         trees hold, from the customer's words instead. That
+                         table holds three other vocabularies beside this
+                         tree, and it is gated to the car by the same
+                         validity rules; see build_symptoms for both.
     function-structure   the Function net: Power train / Chassis and
                          suspension / Body / Supply, subdivided by function.
     component-structure  the Component structure: the same car sorted by the
@@ -174,11 +178,36 @@ from validity_rules import (  # noqa: E402
     rule_applies,
 )
 
+# the picture pool is the repair extract's, and these documents reference it;
+# its two resolvers are reused rather than reimplemented so both extracts
+# always address the same pooled file for the same figure
+from repair_extract import (  # noqa: E402
+    pic_name,
+    read_segments,
+    resolve_pic,
+)
+
 # ---- the trees --------------------------------------------------------------
 # the two structure roots. Both carry CONTROLID = 0, so their first level is
 # reached by ID rather than by control id (see the module docstring).
 FUNCTION_ROOT = 7863179
 COMPONENT_ROOT = 7863691
+
+# XEP_PERCEIVEDSYMPTOMS holds four vocabularies, all four hanging off this
+# one virtual parent, which is not itself a row in the table. See
+# build_symptoms for why the Fault patterns root is found through it.
+SYMPTOM_VIRTUAL_PARENT = 7866251
+
+# VFC_TYP marks each vocabulary's root row, and it is the ONE column that
+# names them: "RootOld" is the Fault patterns tree a workshop navigates,
+# beside RootFun (Fault pattern function), RootCon (Component fault pattern)
+# and RootFM (Standardised fault coding). It is null on every other row.
+SYMPTOM_ROOT_TYPE = "RootOld"
+
+# how many leading digits a car's fault-pattern group is titled with. The
+# motorcycle groups carry three, and nothing but the digit count separates
+# them (PKW and MOTORRAD are null on every one of the twelve).
+CAR_GROUP_DIGITS = 2
 
 # ---- the document classes ---------------------------------------------------
 # NODECLASS -> (short code, the class's name in XEP_NODECLASSES). The short
@@ -252,6 +281,23 @@ SECTION_KINDS = {
 _PASS_THROUGH = ("LIST", "GENERALLIST", "SUBSECTION2", "SUBSECTION3", "SECTION")
 
 
+def _group_digits(title):
+    """How many digits a fault-pattern group's title leads with, else 0.
+
+    "01 Powertrain" is 2 and "001 Drive" is 3; "Body equipment" is 0. The
+    number must be followed by a space, so a symptom that merely starts with
+    a figure ("4-wheel drive") is not mistaken for a group.
+
+    @param title: the row's TITLE_ENGB, or None
+    @returns: the leading digit count
+    """
+    text = str(title or "")
+    n = 0
+    while n < len(text) and text[n].isdigit():
+        n += 1
+    return n if n and text[n : n + 1] == " " else 0
+
+
 def _flat(el):
     """Full text of one element, inline children included, space-normalised.
 
@@ -268,21 +314,29 @@ def _flat(el):
 
 
 def _table_rows(tbl):
-    """A DocBook-style <TABLE> into rows of cell strings.
+    """A DocBook-style <TABLE> into rows of cell strings, and whether it heads.
+
+    A THEAD row is a heading and a TBODY row is data, and the caller needs to
+    know which the first row was: drawing a data row as a heading loses it,
+    and drawing a heading as data makes a column name look like a value.
 
     @param tbl: a TABLE element
-    @returns: a list of rows, each a list of cell strings
+    @returns: (rows, has a head row)
     """
     rows = []
+    headed = False
     for grp in tbl.iter("TGROUP"):
         for section in grp:
             if section.tag not in ("THEAD", "TBODY"):
                 continue
             for row in section.findall("ROW"):
                 cells = [_flat(e) for e in row.findall("ENTRY")]
-                if any(cells):
-                    rows.append(cells)
-    return rows
+                if not any(cells):
+                    continue
+                if section.tag == "THEAD" and not rows:
+                    headed = True
+                rows.append(cells)
+    return rows, headed
 
 
 def _blocks(el, skip=()):
@@ -317,7 +371,7 @@ def _blocks(el, skip=()):
                 if src:
                     out.append({"s": src, "t": "pic"})
             elif tag == "TABLE":
-                rows = _table_rows(child)
+                rows, headed = _table_rows(child)
                 if not rows:
                     continue
                 if max(len(r) for r in rows) == 1:
@@ -325,7 +379,10 @@ def _blocks(el, skip=()):
                         if row[0]:
                             out.append({"s": row[0], "t": "bullet"})
                 else:
-                    out.append({"rows": rows, "t": "table"})
+                    block = {"rows": rows, "t": "table"}
+                    if not headed:
+                        block["head"] = 0
+                    out.append(block)
             elif tag in _PASS_THROUGH:
                 walk(child)
             else:
@@ -397,7 +454,9 @@ def _sections_location(sec):
         if name or why:
             rows.append([name, why])
     if rows:
-        blocks.append({"rows": rows, "t": "table"})
+        # a LEGENDTABLE has no head row: its rows are all name/explanation
+        # pairs, so drawing the first as a heading would lose a real part
+        blocks.append({"head": 0, "rows": rows, "t": "table"})
     return [{"blocks": blocks, "heading": ""}] if blocks else []
 
 
@@ -464,6 +523,37 @@ def _sections_pins(sec):
                 }
             )
     return out
+
+
+def resolve_pics(sections, segments, stats):
+    """Turn every picture block's file name into the pooled stream id.
+
+    THE PICTURE POOL IS THE REPAIR EXTRACT'S. These documents reference it
+    rather than owning it, and the app's repairPicUrl addresses it by stream
+    id -- so a block left carrying "B060052.png" can never be drawn. The
+    same two-step the repair extract uses resolves it: the SRC's candidate
+    names, then XEP_INFOSEGMENTS. Measured over E46, 3,084 of 3,094 distinct
+    references resolve.
+
+    A name that does not resolve KEEPS its name, as a string rather than an
+    id, so the data still records that a figure belongs there and the
+    renderer can tell the two apart and draw nothing rather than a broken
+    image.
+
+    @param sections: the parsed sections, modified in place
+    @param segments: repair_extract.read_segments output
+    @param stats: a dict the resolved and unresolved counts are added to
+    """
+    for sec in sections:
+        for block in sec.get("blocks", ()):
+            if block.get("t") != "pic":
+                continue
+            cid = resolve_pic(pic_name(block.get("s")), segments)
+            if cid is None:
+                stats["picmiss"] = stats.get("picmiss", 0) + 1
+                continue
+            block["s"] = cid
+            stats["pics"] = stats.get("pics", 0) + 1
 
 
 def parse_document(xml):
@@ -620,12 +710,15 @@ class Diag:
     def symptoms(self):
         """The whole perceived-symptom table, id -> row.
 
-        @returns: {id: (parent id, title, selectable)}
+        VFC_TYP comes along because it is what names the four vocabularies'
+        root rows; see build_symptoms.
+
+        @returns: {id: (parent id, title, selectable, vfc type)}
         """
         return {
-            r[0]: (r[1], r[2], r[3])
+            r[0]: (r[1], r[2], r[3], r[4])
             for r in self.con.execute(
-                "SELECT ID, PARENTID, TITLE_ENGB, SELECTABLE "
+                "SELECT ID, PARENTID, TITLE_ENGB, SELECTABLE, VFC_TYP "
                 "FROM XEP_PERCEIVEDSYMPTOMS"
             )
         }
@@ -796,37 +889,105 @@ def build_structure(diag, branches, wanted):
     }
 
 
-def build_symptoms(diag, wanted):
-    """The perceived-symptom tree, leaves carrying their linked documents.
+def build_symptoms(diag, rules, ids, wanted, stats):
+    """The fault-pattern tree: ONE root, the numbered groups beneath it.
 
-    The table's PARENTID points outside itself for the 27 top rows (at a
-    shared virtual root), so those are the forest's roots. A symptom's
-    documents are the documents on the diagnosis objects it points at,
-    deduplicated: several symptom rows commonly land on the same object.
+    WHICH ROWS ARE THIS TREE. XEP_PERCEIVEDSYMPTOMS is four vocabularies in
+    one table, and only one of them is the Fault patterns tree a workshop
+    navigates. All four hang off the same virtual parent 7866251, which is
+    not itself a row, so taking "every row whose PARENTID is not in the
+    table" yields 27 unrelated roots -- three of the four vocabularies plus
+    24 rows whose parent is simply missing -- and the tree reads as a flat
+    list of thousands.
 
-    The tree is NOT filtered by chassis. The symptom vocabulary is the
-    customer's, not the car's -- "noise from exhaust system" is a sentence
-    about any BMW -- and it is the diagnosis objects behind a leaf that are
-    chassis-specific. Filtering the words would hide a complaint the car can
-    have; the objects underneath are what the other two trees scope.
+    VFC_TYP is what tells the four apart, and it is the only column that
+    does. It is null on all 5,350 other rows and set on exactly these:
+
+        RootOld  Fault patterns                  the tree ISTA draws
+        RootCon  Component fault pattern         the by-part index
+        RootFun  Fault pattern function          the by-function index
+        RootFM   Standardised fault coding       the SAE code vocabulary
+
+    Titles cannot do this job: three of the four begin "Fault pattern", and
+    RootCon's own children are numbered ("11 Engine", "12 Engine electrical
+    system") exactly like the tree's, so matching on a leading number finds
+    the wrong root. Nothing outside RootOld's descendants is in this tree.
+
+    THE NUMBERED GROUPS. That root's children are twelve rows, each titled
+    with a leading number: nine two-digit groups (01 Powertrain .. 09
+    Voltage supply, bus systems) which are the car tree, and three
+    three-digit ones (001 Drive, 002 Chassis and suspension, 003 Electrical
+    system) which are the motorcycle tree. The digit COUNT is the only thing
+    that separates those twelve -- PKW and MOTORRAD are null on every one of
+    them -- so a car chassis takes the two-digit groups and the motorcycle
+    ones are left out rather than shown as three extra top-level branches
+    the car has not got.
+
+    THE VALIDITY GATE. A symptom carries a rule in XEP_RULES keyed by its
+    own id, and most do not: 12 of the 84 nodes under the nine groups have
+    one. A symptom with no rule of its own INHERITS its parent's, which is
+    what makes the sparse coverage work -- a group's rule scopes everything
+    filed under it, and a child's own rule narrows it further. A gated-out
+    node takes its subtree with it, since a child of an excluded parent is
+    excluded whatever its own rule says.
 
     @param diag: a Diag
+    @param rules: diag.rules() output
+    @param ids: the chassis's characteristic value ids
     @param wanted: a set collecting every document id seen
-    @returns: a root node of the same {id, label, kids, n} shape
+    @param stats: a dict the gate's counts are written into
+    @returns: the root node, or None when the root row is not in this database
     """
     rows = diag.symptoms()
     links = diag.symptom_objects()
     kids_of = {}
-    roots = []
-    for sid, (parent, _title, _sel) in sorted(rows.items()):
-        if parent in rows and parent != sid:
+    for sid, (parent, _title, _sel, _vfc) in sorted(rows.items()):
+        if parent != sid:
             kids_of.setdefault(parent, []).append(sid)
-        else:
-            roots.append(sid)
 
-    def build(sid, path):
-        """One symptom and its subtree."""
-        _parent, title, selectable = rows[sid]
+    # the root: the one row under the shared virtual parent whose VFC_TYP
+    # marks it as this vocabulary's. Its three siblings are the others.
+    root_id = next(
+        (
+            sid
+            for sid in sorted(kids_of.get(SYMPTOM_VIRTUAL_PARENT, ()))
+            if rows[sid][3] == SYMPTOM_ROOT_TYPE
+        ),
+        None,
+    )
+    if root_id is None:
+        return None
+
+    groups = [
+        k
+        for k in kids_of.get(root_id, ())
+        if _group_digits(rows[k][1]) == CAR_GROUP_DIGITS
+    ]
+    stats["groups"] = len(groups)
+    stats["seen"] = 0
+    stats["kept"] = 0
+    stats["norule"] = 0
+
+    def build(sid, inherited, path):
+        """One symptom and its subtree, or None when the gate excludes it.
+
+        @param sid: the symptom's id
+        @param inherited: the nearest ancestor's decoded rule, or None
+        @param path: ids on the way here, so a cycle cannot run away
+        """
+        _parent, title, selectable, _vfc = rows[sid]
+        stats["seen"] += 1
+        blob = rules.get(sid)
+        if blob is None:
+            # no rule of its own: the parent's still applies to it
+            stats["norule"] += 1
+            rule, unsure = inherited, False
+        else:
+            rule, unsure = decode_rule(blob)
+        if not rule_applies(rule, ids):
+            return None
+        stats["kept"] += 1
+
         docs = []
         seen = set()
         for obj_id, _cls, control_id, _obj_title in links.get(sid, ()):
@@ -844,13 +1005,16 @@ def build_symptoms(diag, wanted):
                     }
                 )
         docs.sort(key=lambda d: (d["type"], d["title"], d["id"]))
+
         kids = []
         if sid not in path:
             sub = path | {sid}
             for kid in sorted(
                 kids_of.get(sid, ()), key=lambda k: (rows[k][1] or "", k)
             ):
-                kids.append(build(kid, sub))
+                built = build(kid, rule, sub)
+                if built is not None:
+                    kids.append(built)
         out = {
             "id": sid,
             "kids": kids,
@@ -863,16 +1027,23 @@ def build_symptoms(diag, wanted):
         # children hang off them, but marked so the app can grey them
         if not selectable:
             out["sel"] = 0
+        # a rule that did not decode leaves the node shown and marked, the
+        # widening-not-narrowing direction validity_rules.py documents
+        if unsure:
+            out["unsure"] = 1
         return out
 
-    trees = [build(r, frozenset()) for r in sorted(roots, key=lambda r: (rows[r][1] or "", r))]
-    if len(trees) == 1:
-        return trees[0]
+    root_rule, _unsure = decode_rule(rules.get(root_id))
+    kids = []
+    for gid in sorted(groups, key=lambda k: (rows[k][1] or "", k)):
+        built = build(gid, root_rule, frozenset({root_id}))
+        if built is not None:
+            kids.append(built)
     return {
-        "id": 0,
-        "kids": trees,
-        "label": "Fault patterns",
-        "n": sum(t["n"] for t in trees),
+        "id": root_id,
+        "kids": kids,
+        "label": rows[root_id][1] or "Fault patterns",
+        "n": sum(k["n"] for k in kids),
     }
 
 
@@ -909,11 +1080,12 @@ def write_json(path, obj):
     return os.path.getsize(path)
 
 
-def write_bodies(diag, content, wanted, out_dir, verbose=False):
+def write_bodies(diag, content, segments, wanted, out_dir, verbose=False):
     """Parse and write every text document referenced by the trees.
 
     @param diag: a Diag
     @param content: a Content over the body store
+    @param segments: repair_extract.read_segments output, for the figures
     @param wanted: {(doc id, node class)} collected by the walks
     @param out_dir: the chassis folder
     @param verbose: print progress
@@ -945,6 +1117,7 @@ def write_bodies(diag, content, wanted, out_dir, verbose=False):
             stats["unparsed"] += 1
             slot["nobody"] += 1
             continue
+        resolve_pics(body["sections"], segments, stats)
         body["id"] = doc_id
         body["type"] = code
         stats["bytes"] += write_json_gz(
@@ -1017,11 +1190,19 @@ def main():
 
     out_dir = os.path.join(args.out, chassis)
     wanted = set()
+    symptom_stats = {}
     trees = {
         "component-structure": build_structure(diag, branches["component"], wanted),
         "function-structure": build_structure(diag, branches["function"], wanted),
-        "fault-pattern": build_symptoms(diag, wanted),
+        "fault-pattern": build_symptoms(diag, rules, ids, wanted, symptom_stats),
     }
+    if args.verbose and symptom_stats:
+        print(
+            f"  fault patterns: {symptom_stats['groups']} groups, "
+            f"{symptom_stats['kept']} of {symptom_stats['seen']} symptoms kept, "
+            f"{symptom_stats['norule']} inherited a parent's rule",
+            file=sys.stderr,
+        )
 
     files = {}
     for name in sorted(trees):
@@ -1045,7 +1226,7 @@ def main():
         body_stats, by_type = {"skipped": True}, {}
     else:
         body_stats, by_type = write_bodies(
-            diag, content, wanted, out_dir, args.verbose
+            diag, content, read_segments(diag.con), wanted, out_dir, args.verbose
         )
 
     index = {
@@ -1057,6 +1238,7 @@ def main():
         },
         "documents": len(wanted),
         "files": files,
+        "symptoms": symptom_stats,
         "version": 1,
     }
     write_json(os.path.join(out_dir, "index.json"), index)

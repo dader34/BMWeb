@@ -1527,3 +1527,21 @@ body.ista-mode.ista-real-body .view label {
   color: #555;
   font-style: italic;
 }
+
+/* ---- the reused browser inside the workshop chrome ------------------------
+   The browser draws its own hits line because on its own page it is the only
+   one. Inside this shell the status line above the bottom bar already counts
+   the hits, so its copy is a second answer to the same question and goes. */
+.ista-real-body .view .rp-foot,
+.ista-real-body .view .rp-hits {
+  display: none !important;
+}
+
+/* Its pane title bar is the tool's #4d4d4d header, so the text on it has to
+   be white like every other header in the app. It inherited the page ink and
+   came out black on dark. */
+.ista-real-body .view .rp-pane-head,
+.ista-real-body .view .rp-pane-head .rp-pane-title,
+.ista-real-body .view .rp-pane-head button {
+  color: #fff;
+}

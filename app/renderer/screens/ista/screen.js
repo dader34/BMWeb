@@ -1138,10 +1138,11 @@ async function istaDiagBody(chassis, doc) {
       new TextDecoder('utf-8').decode(fflate.gunzipSync(bytes))
     );
   });
-  if (!body)
-    return `<div class="irgrey-w">No text body ships for this document.</div>`;
-  if (typeof repairBodyHtml === 'function') return repairBodyHtml(body);
-  return `<div class="rp-doc-body">${esc(JSON.stringify(body).slice(0, 400))}</div>`;
+  // istaDiagBodyHtml handles a missing body itself, and it is the ONLY path
+  // from here: the old fallback tested for a repairBodyHtml that does not
+  // exist anywhere in the app, so every document fell through to a raw
+  // JSON dump.
+  return istaDiagBodyHtml(body);
 }
 
 /**
