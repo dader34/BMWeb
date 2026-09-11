@@ -1545,4 +1545,78 @@ const I = loadClassic('screens/ista/');
   ok('the repair seam resolves to the browser that shipped');
 }
 
+// ---- the fault detail dialog reads what the module actually returned ------
+{
+  const { istaEnvFind, istaFaultRows } = I;
+
+  // env rows are label/value text straight off the module and their names
+  // vary by SGBD, so a column is found by what its label SAYS
+  const pairs = [
+    ['km-Stand', '108032'],
+    ['Fault-onset time', '14779076 Sek.'],
+    ['Batteriespannung', '12.4 V'],
+    ['Aussentemperatur', '18 C'],
+    ['Drehzahl', '820 1/min'],
+    ['Something the build has no label for', '7'],
+  ];
+  assert.strictEqual(istaEnvFind(pairs, /km|laufleistung/i), '108032');
+  assert.strictEqual(istaEnvFind(pairs, /zeit|time/i), '14779076 Sek.');
+  assert.strictEqual(istaEnvFind(pairs, /spannung|voltage/i), '12.4 V');
+  assert.strictEqual(istaEnvFind(pairs, /drehzahl|rpm/i), '820 1/min');
+  assert.strictEqual(istaEnvFind(pairs, /nothing matches this/i), '');
+  assert.strictEqual(istaEnvFind(null, /x/), '', 'no rows, no value');
+  ok('an ambient column is found by what its label says');
+
+  // A FAULT THE SCAN READ carries its module, so the dialog has something to
+  // report; one looked up from the SAE box does not, and must say "not read
+  // on this car" rather than "-", which would claim the module answered.
+  //
+  // faultFields and envPairs are the app's own projections of the raw wire
+  // row (screens/faults.js), which this test does not load; the stubs are
+  // the shape they return, so what is under test is istaFaultRows' use of
+  // them rather than a second copy of their logic.
+  global.faultFields = (c) => ({
+    code: String(c.F_ORT_TEXT || '').split(' ')[0],
+    name: c.F_ORT_TEXT || '',
+    present: /momentan vorhanden/.test(c.F_VORHANDEN_TEXT || ''),
+    count: c.F_HFK || '',
+  });
+  global.envPairs = (c) => {
+    const out = [];
+    for (let i = 1; i <= 8; i++) {
+      const t = c[`F_UW${i}_TEXT`];
+      if (t == null) continue;
+      out.push([t, `${c[`F_UW${i}_WERT`]} ${c[`F_UW${i}_EINH`] || ''}`.trim()]);
+    }
+    return out;
+  };
+  const read = istaFaultRows({
+    modules: [
+      {
+        sgbd: 'ms450ds0',
+        label: 'MS45.1',
+        codes: [
+          {
+            F_ORT_TEXT: '2761 Secondary air',
+            F_VORHANDEN_TEXT: 'Fehler momentan vorhanden',
+            F_UW1_TEXT: 'km-Stand',
+            F_UW1_WERT: 108032,
+            F_UW1_EINH: 'km',
+            F_UW2_TEXT: 'Batteriespannung',
+            F_UW2_WERT: 12.4,
+            F_UW2_EINH: 'V',
+          },
+        ],
+      },
+    ],
+  });
+  assert.strictEqual(read.length, 1);
+  assert.strictEqual(read[0].sgbd, 'ms450ds0', 'a read fault knows its module');
+  assert.strictEqual(read[0].km, '108032', 'and its mileage, off the env rows');
+  assert.strictEqual(read[0].present, true, 'and whether it is there now');
+  ok('a read fault carries what the dialog needs');
+  delete global.faultFields;
+  delete global.envPairs;
+}
+
 console.log(`test_ista: ${passed} checks passed`);

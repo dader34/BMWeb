@@ -31,6 +31,13 @@
  * now, so a second set of names would be two vocabularies for one choice and
  * a deep link would have to be translated between them.
  */
+/**
+ * Whether the body-text index has loaded, so the "Search in document" box
+ * can be live rather than greyed. Asked for on the first body search: the
+ * blob is worth fetching only when the reader actually wants it.
+ */
+let repairBodyReady = false;
+
 const REPAIR_VIEWS = [
   { id: 'product-structure', label: 'Product Structure' },
   { id: 'text-search', label: 'Text Search' },
@@ -164,11 +171,12 @@ function repairSearchFormHtml() {
     `value="${esc(repairState.query)}">` +
     box('structures', 'Search in structures') +
     box('title', 'Search in document title') +
-    // the step text lives in body shards this has not fetched, and pulling
-    // every one of them to answer a keystroke would cost megabytes per
-    // letter, so the box is shown disabled with the reason rather than
-    // silently returning nothing
-    box('document', 'Search in document', 'not in this build') +
+    // live once the body-text index has loaded; until then it says why
+    box(
+      'document',
+      'Search in document',
+      repairBodyReady ? '' : 'no text index in this build'
+    ) +
     box('number', 'Search for the document number') +
     `</div>`
   );
@@ -318,6 +326,13 @@ async function showRepair(host, car, chassis, view) {
     body.querySelectorAll('[data-scope]').forEach((cb) => {
       cb.onchange = () => {
         repairState.scopes[cb.dataset.scope] = cb.checked;
+        // ticking the body scope is what asks for its index; the form
+        // redraws when it lands so the box stops saying it has none
+        if (cb.dataset.scope === 'document' && cb.checked && !repairBodyReady)
+          repairBodyIndex(chassis).then((ok) => {
+            repairBodyReady = ok;
+            paint();
+          });
         run();
       };
     });

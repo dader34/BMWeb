@@ -20,7 +20,23 @@
  * entirely on another, and the flat table cannot tell them apart.
  */
 
-/* exported istaFaultRows istaPageFaultMemory istaFaultDialog istaPageSae */
+/* exported istaFaultRows istaPageFaultMemory istaFaultDialog istaPageSae
+   istaEnvFind */
+
+/**
+ * The first environment value whose label matches.
+ *
+ * The env rows are label/value text straight off the module, and their names
+ * vary by SGBD, so a column is found by what its label says rather than by
+ * a fixed result name.
+ * @param {Array<[string, string]>} pairs - the env rows
+ * @param {RegExp} re - what the label should look like
+ * @returns {string} the value, or ''
+ */
+function istaEnvFind(pairs, re) {
+  for (const [k, v] of pairs || []) if (re.test(k)) return String(v);
+  return '';
+}
 
 /**
  * One row of the fault table.
@@ -155,7 +171,14 @@ function istaFaultDialog(row) {
   const title = `${row.module} ${row.code} ${row.desc}`;
   const html =
     `<div class="modal irfd" role="dialog" aria-modal="true">` +
-    `<div class="modal-title irfd-title">${esc(title)}</div>` +
+    `<div class="modal-title irfd-title">${esc(title)}` +
+    `<span class="irfd-icons">` +
+    `<button type="button" class="irfd-print" aria-label="Print">` +
+    `${typeof istaRealIcon === 'function' ? istaRealIcon('print') : ''}` +
+    `</button>` +
+    `<button type="button" class="irfd-x" aria-label="Close">` +
+    `${typeof istaRealIcon === 'function' ? istaRealIcon('close') : ''}` +
+    `</button></span></div>` +
     `<div class="irfd-tabs"></div>` +
     `<div class="irfd-host"></div>` +
     `<div class="modal-actions irfd-actions">` +
@@ -198,15 +221,34 @@ function istaFaultDialog(row) {
 
   /** What the ECU recorded: the fault's own counters and status. */
   function detailsHtml() {
+    // a fault the reader reached from the SAE box was never read off this
+    // car, so it has no recorded detail at all; saying "-" there would claim
+    // the module answered and gave nothing
+    if (!row.sgbd)
+      return (
+        `<div class="irgrey-w">This fault code was looked up, not read on ` +
+        `this car, so there is nothing the module recorded about it.</div>`
+      );
     const f = typeof faultFields === 'function' ? faultFields(c, row.sgbd) : {};
+    const pairs = typeof envPairs === 'function' ? envPairs(c) : [];
     const head = [
       ['Fault code', row.code || '-'],
       ['Fault class', '-'],
       ['Fault text', row.desc || '-'],
-      ['Fault types', f.ftype || '-'],
+      [
+        'Fault types',
+        row.present ? 'Fault currently present' : 'Fault currently not present',
+      ],
       ['Occurrence [km]', row.km || '-'],
+      ['Occurrence time [s]', istaEnvFind(pairs, /zeit|time/i) || '-'],
       ['Frequency', f.count || '-'],
     ];
+    // everything else the module returned, under the tool's own heading:
+    // an unparsed name is still a fact the module reported, and dropping the
+    // rows this build has no label for would hide exactly what a technician
+    // came here to see
+    const known = /km|mileage|kilometer|laufleistung|zeit|time/i;
+    const rest = pairs.filter(([k]) => !known.test(k));
     return (
       `<table class="irtable irfd-two"><tbody>` +
       head
@@ -215,25 +257,68 @@ function istaFaultDialog(row) {
             `<tr><th scope="row">${esc(k)}</th><td>${esc(v)}</td></tr>`
         )
         .join('') +
-      `</tbody></table>`
+      `</tbody></table>` +
+      (rest.length
+        ? `<div class="irfd-sub">Fault memory ambient conditions</div>` +
+          `<table class="irtable"><thead><tr>` +
+          `<th>Condition</th><th>First entry</th></tr></thead><tbody>` +
+          rest
+            .map(([k, v]) => `<tr><td>${esc(k)}</td><td>${esc(v)}</td></tr>`)
+            .join('') +
+          `</tbody></table>`
+        : '')
     );
   }
 
   /** The freeze frame: what the car was doing when it was stored. */
   function contextHtml() {
-    const pairs = typeof envPairs === 'function' ? envPairs(c) : [];
-    if (!pairs.length)
+    if (!row.sgbd)
       return (
-        `<div class="irgrey-w">This module stored no ambient conditions ` +
-        `with the fault.</div>`
+        `<div class="irgrey-w">This fault code was looked up, not read on ` +
+        `this car, so there is no ambient snapshot for it.</div>`
       );
+    const pairs = typeof envPairs === 'function' ? envPairs(c) : [];
+    // the tool's eight columns, filled from whichever env rows map onto
+    // them; a module that supplies none of them still gets its own rows
+    // listed below rather than an empty page
+    const want = [
+      ['Timestamp', /zeit|time|stamp/i],
+      ['Mileage', /km|mileage|kilometer|laufleistung/i],
+      ['Vehicle voltage', /spannung|voltage|batt/i],
+      ['Outdoor temp.', /aussen|ambient|outdoor/i],
+      ['Engine temp.', /motor.*temp|coolant|kuehl/i],
+      ['Terminal', /klemme|terminal/i],
+      ['Velocity', /geschw|speed|velocit/i],
+      ['Engine speed', /drehzahl|rpm|engine speed/i],
+    ];
+    const mapped = want.map(([label, re]) => [
+      label,
+      istaEnvFind(pairs, re) || '-',
+    ]);
+    const used = new Set();
+    for (const [, re] of want)
+      for (const [k] of pairs) if (re.test(k)) used.add(k);
+    const rest = pairs.filter(([k]) => !used.has(k));
     return (
-      `<table class="irtable"><thead><tr>` +
-      `<th>Condition</th><th>First entry</th></tr></thead><tbody>` +
-      pairs
-        .map(([k, v]) => `<tr><td>${esc(k)}</td><td>${esc(v)}</td></tr>`)
+      `<table class="irtable irfd-two"><tbody>` +
+      mapped
+        .map(
+          ([k, v]) =>
+            `<tr><th scope="row">${esc(k)}</th><td>${esc(v)}</td></tr>`
+        )
         .join('') +
-      `</tbody></table>`
+      `</tbody></table>` +
+      (rest.length
+        ? `<div class="irfd-sub">Also recorded</div>` +
+          `<table class="irtable"><tbody>` +
+          rest
+            .map(([k, v]) => `<tr><td>${esc(k)}</td><td>${esc(v)}</td></tr>`)
+            .join('') +
+          `</tbody></table>`
+        : !pairs.length
+          ? `<div class="irgrey-w">This module stored no ambient ` +
+            `conditions with the fault.</div>`
+          : '')
     );
   }
 
@@ -268,6 +353,10 @@ function istaFaultDialog(row) {
   }
 
   overlay.querySelector('.irfd-close').onclick = () => close();
+  const x = overlay.querySelector('.irfd-x');
+  if (x) x.onclick = () => close();
+  const pr = overlay.querySelector('.irfd-print');
+  if (pr) pr.onclick = () => window.print();
   paint();
 }
 
@@ -384,6 +473,7 @@ function istaPageSae(host, ctx) {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     istaFaultRows,
+    istaEnvFind,
     istaNewestScan,
     istaPageFaultMemory,
     istaFaultDialog,

@@ -1578,3 +1578,69 @@ body.ista-mode.ista-real-body .view label {
 .ista-real-body .view .rp-pane-head button {
   color: #fff;
 }
+
+/* ---- the fault detail dialog, in the tool's own language ------------------
+   It was inheriting the app's modal: dark ground, rounded buttons. Under the
+   skin it is the tool's window -- white paper, a grey title bar, the level-2
+   tab strip, and square grey buttons. */
+.ista-real-body .irfd {
+  background: #fff;
+  min-width: 820px;
+  max-width: 1080px;
+}
+.ista-real-body .irfd-title {
+  background: var(--ir-grey);
+  color: var(--ir-ink);
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ista-real-body .irfd-title .irfd-icons {
+  margin-left: auto;
+  display: inline-flex;
+  gap: 2px;
+}
+.ista-real-body .irfd-title button {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  padding: 0 2px;
+  display: inline-flex;
+  color: #1a1a1a;
+}
+.ista-real-body .irfd-title button svg {
+  width: 13px;
+  height: 13px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+}
+.ista-real-body .irfd-host {
+  background: #fff;
+}
+.ista-real-body .irfd-actions {
+  background: #fff;
+  gap: 6px;
+}
+/* the two-column tables: a grey label column, white values, thin rules */
+.ista-real-body .irfd-two th {
+  background: var(--ir-row-alt);
+  color: var(--ir-ink);
+  font-weight: 400;
+  border-right: 1px solid #ccc;
+  border-bottom: 1px solid #ccc;
+}
+.ista-real-body .irfd-two td {
+  background: #fff;
+  border-bottom: 1px solid #ccc;
+}
+.ista-real-body .irfd-two tbody tr:nth-child(even) td,
+.ista-real-body .irfd-two tbody tr:nth-child(even) th {
+  background: inherit;
+}
+.ista-real-body .irfd-sub {
+  font-weight: 700;
+  font-size: 12px;
+  margin: 14px 0 4px;
+}

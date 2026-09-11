@@ -20,7 +20,7 @@
 
 /* exported repairIndex repairIndexPresent repairBody repairPicUrl
    repairGroupTree repairDocsIn repairDocsUnder repairBrowserTree
-   repairSearch repairFindDoc repairDocNumber */
+   repairSearch repairFindDoc repairDocNumber repairBodyIndex */
 
 /** Hosted copy, beside the other ISTA extracts. */
 const REPAIR_HF_BASE =
@@ -28,6 +28,63 @@ const REPAIR_HF_BASE =
 
 /** How many rows a search returns before it stops counting. */
 const REPAIR_SEARCH_CAP = 500;
+
+/**
+ * The body text of every document, by id, once a body search has asked for
+ * it. Empty until then: the blob is worth fetching only when the reader
+ * actually ticks "Search in document".
+ * @type {Map<string, string>}
+ */
+let repairBodyText = new Map();
+
+/** The chassis whose body text is loaded, so a car change reloads it. */
+let repairBodyChassis = null;
+
+/**
+ * Load the body-text index for a chassis, once.
+ *
+ * Returns false when the extract ships none, which is not a failure: the
+ * caller greys the scope and says so, and the other three keep working.
+ * @param {string} chassis - the chassis id
+ * @returns {Promise<boolean>} whether the index is now loaded
+ */
+async function repairBodyIndex(chassis) {
+  const code = String(chassis || '').toUpperCase();
+  if (!code) return false;
+  if (repairBodyChassis === code) return repairBodyText.size > 0;
+  repairBodyChassis = code;
+  repairBodyText = new Map();
+  try {
+    // the index ships gzipped and a plain file server serves it as bytes
+    // rather than as content-encoding gzip, so it is unpacked here with the
+    // same library the chassis archives use
+    const real =
+      typeof webRealFetch === 'function'
+        ? webRealFetch
+        : window.fetch.bind(window);
+    let raw = null;
+    for (const u of repairUrls(`${code}/search-index.json.gz`)) {
+      try {
+        const r = await real(u);
+        if (!r || !r.ok) continue;
+        const bytes = new Uint8Array(await r.arrayBuffer());
+        if (typeof fflate === 'undefined') return false;
+        raw = JSON.parse(
+          new TextDecoder('utf-8').decode(fflate.gunzipSync(bytes))
+        );
+        break;
+      } catch (e) {
+        /* try the next source */
+      }
+    }
+    if (!raw) return false;
+    for (const [id, text] of Object.entries(raw))
+      repairBodyText.set(String(id), String(text || ''));
+  } catch (e) {
+    return false;
+  }
+  return repairBodyText.size > 0;
+}
 
 /** The chassis whose index is loaded, so a car change reloads it. */
 let repairChassisLoaded = null;
@@ -214,11 +271,17 @@ function repairDocsIn(idx, group, sub) {
  *
  * The four checkboxes are ISTA's, and they mean what they say: structures
  * searches the group names, title searches the document title, number
- * searches the job number. "Search in document" is the one this build
- * cannot honour -- the step text lives in body shards this has not fetched,
- * and pulling every shard to answer a keystroke would cost megabytes per
- * letter -- so the caller greys it and says why rather than quietly
- * returning nothing.
+ * searches the job number, document searches the step text itself.
+ *
+ * THE BODY SEARCH NEEDS AN INDEX, not the bodies. The step text lives in
+ * shards this has not fetched, and pulling every shard to answer a keystroke
+ * would cost megabytes per letter. So the extract ships one lowercased text
+ * blob per document, loaded once on the first body search; until it lands
+ * this scope simply matches nothing rather than blocking the other three.
+ *
+ * THE SCOPES ARE AN OR. A document matches when every term is found in AT
+ * LEAST ONE ticked scope -- ticking more can only find more, which is what a
+ * reader expects of a checkbox that widens a search.
  *
  * Every term has to match somewhere, so "front brake" finds the front brake
  * job rather than everything about either word.
@@ -243,6 +306,7 @@ function repairSearch(idx, query, where) {
     for (const s of g.subs || [])
       names.set(`${g.id}/${s.id}`, `${s.id} ${s.name || ''}`);
   }
+  const body = opts.document ? repairBodyText : null;
   const out = [];
   for (const d of docs) {
     const bits = [];
@@ -250,6 +314,7 @@ function repairSearch(idx, query, where) {
     if (opts.structures)
       bits.push(names.get(String(d.g)) || '', names.get(`${d.g}/${d.s}`) || '');
     if (opts.number) bits.push(repairDocNumber(d), String(d.aw || ''));
+    if (body) bits.push(body.get(String(d.id)) || '');
     const hay = bits.join(' ').toLowerCase();
     if (terms.every((t) => hay.includes(t))) out.push(d);
     if (out.length >= REPAIR_SEARCH_CAP) break;

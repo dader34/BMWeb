@@ -19,7 +19,52 @@
  * the tree is those two joined, per car, rather than a fourth data file.
  */
 
-/* exported istaServiceSource istaDiagSource istaDiagBodyHtml */
+/* exported istaServiceSource istaDiagSource istaDiagBodyHtml istaDiagGate */
+
+/**
+ * Narrow a loaded diagnosis structure from the CHASSIS to the actual car.
+ *
+ * TWO WIDTHS, ONE RULE. The extract is cut per chassis, so its gate runs
+ * against every characteristic id any E46 type key carries -- which is the
+ * honest width for a car the Garage has no VIN for, and too wide for one it
+ * does. This finishes the job with the car's own ids, running the same
+ * three-valued rule the extractor ran and techdata's own browser runs.
+ *
+ * THE RULE, and the third value is not a no: no rule keeps, UNDECIDED keeps,
+ * only a decided false drops. A rule this build cannot decide -- a leaf
+ * about equipment or country, which the app carries no fact for -- is the
+ * absence of evidence, not evidence of absence, and dropping on it would
+ * hide a document because a fact is missing. techDataRuleApplies is that
+ * rule; it and the Python rule_applies are twins on purpose.
+ *
+ * A node whose own rule fails takes its subtree with it, because a child of
+ * an excluded parent is excluded whatever its own rule says. `n` is recounted
+ * on the way back up, so a branch that says 4 still has four to find.
+ * @param {object|null} node - a structure node {id, label, kids, n, docs}
+ * @param {Set<number>|null} ids - the car's characteristic ids, null for all
+ * @param {object} [facts] - see techDataRuleEval: `built`, `ym`, per-leaf Sets
+ * @returns {object|null} the pruned node, or null when the car excludes it
+ */
+function istaDiagGate(node, ids, facts) {
+  if (!node) return null;
+  // no car, no narrowing: the chassis-wide extract is already the answer
+  if (!ids || !ids.size || typeof techDataRuleApplies !== 'function')
+    return node;
+  if (!techDataRuleApplies(node.rule, ids, facts)) return null;
+  const docs = (node.docs || []).filter((d) =>
+    techDataRuleApplies(d.rule, ids, facts)
+  );
+  const kids = [];
+  for (const k of node.kids || []) {
+    const kept = istaDiagGate(k, ids, facts);
+    if (kept) kids.push(kept);
+  }
+  const out = { ...node, kids, n: docs.length };
+  for (const k of kids) out.n += k.n;
+  if (docs.length) out.docs = docs;
+  else delete out.docs;
+  return out;
+}
 
 /**
  * One diagnosis document's body as HTML, in the repair manual's vocabulary.
@@ -305,6 +350,7 @@ if (typeof module !== 'undefined' && module.exports) {
     istaDiagSource,
     istaDiagSearch,
     istaDiagBodyHtml,
+    istaDiagGate,
   };
 }
 
@@ -328,7 +374,15 @@ function istaDiagSearch(host, ctx) {
   let query = '';
   /** @type {object[]} */
   let hits = [];
-  const scopes = { structures: true, title: true };
+  const scopes = {
+    structures: true,
+    title: true,
+    document: false,
+    number: false,
+  };
+  // the body text of every document, once a body search has asked for it
+  /** @type {Map<string, string>|null} */
+  let bodies = null;
 
   /** Every document in every loaded structure, with the path that reaches it. */
   const all = () => {
@@ -396,8 +450,13 @@ function istaDiagSearch(host, ctx) {
       `value="${esc(query)}">` +
       box('structures', 'Search in structures') +
       box('title', 'Search in document title') +
-      box('document', 'Search in document', 'not in this build') +
-      box('number', 'Search for the document number', 'not in this build') +
+      // live once the body-text index has loaded; until then it says why
+      box(
+        'document',
+        'Search in document',
+        bodies ? '' : 'no text index in this build'
+      ) +
+      box('number', 'Search for the document number') +
       `</div>` +
       (hits.length
         ? `<table class="irtable"><thead><tr><th>Type</th><th>Title</th>` +
@@ -425,6 +484,22 @@ function istaDiagSearch(host, ctx) {
     host.querySelectorAll('[data-scope]').forEach((el) => {
       el.onchange = () => {
         scopes[el.dataset.scope] = el.checked;
+        // ticking the body scope is what asks for its index: the blob is
+        // worth fetching only when the reader actually wants it
+        if (
+          el.dataset.scope === 'document' &&
+          el.checked &&
+          !bodies &&
+          ctx.loadBodies
+        )
+          Promise.resolve(ctx.loadBodies())
+            .then((m) => {
+              bodies = m || new Map();
+              paint();
+            })
+            .catch(() => {
+              /* the index is optional */
+            });
       };
     });
     host.querySelectorAll('tbody tr[data-h]').forEach((tr) => {
