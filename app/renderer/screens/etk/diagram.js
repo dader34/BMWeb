@@ -19,6 +19,17 @@ const ETK_IMG_UPSCALE = 2;
 /** Widest an upscaled exploded view may become. */
 const ETK_IMG_MAX_PX = 700;
 
+/** @type {(() => void)|null} teardown for the callout overlay of the diagram on screen */
+let etkDropHotspots = null;
+
+/**
+ * Bumped on every diagram render. The hotspot file is fetched asynchronously,
+ * so a response that lands after the reader has moved on is discarded rather
+ * than drawn over the diagram that replaced it.
+ * @type {number}
+ */
+let etkRenderToken = 0;
+
 /**
  * The parts that fit the active variant (parts with no fit data always show).
  * @param {EtkPart[]} parts - a diagram's parts
@@ -307,6 +318,10 @@ function renderDiagram(data, chassisId, d, viewEl) {
   wrap.appendChild(title);
 
   const url = etkImageUrl(data, d.img);
+  /** @type {HTMLImageElement|null} the drawing, so the callouts can attach to it */
+  let figImg = null;
+  /** @type {HTMLElement|null} the plate the callout layer is positioned inside */
+  let figEl = null;
   if (url) {
     const fig = document.createElement('div');
     fig.className = 'etk-figure';
@@ -325,8 +340,10 @@ function renderDiagram(data, chassisId, d, viewEl) {
     hint.className = 'etk-figure-hint';
     hint.textContent = '⌕ enlarge';
     fig.appendChild(hint);
-    fig.onclick = () => etkOpenLightbox(url, d.name);
+    fig.onclick = () => etkOpenLightbox(url, d.name, d.btnr, chassisId);
     wrap.appendChild(fig);
+    figImg = img;
+    figEl = fig;
   }
 
   const parts = etkFitParts(d.parts);
@@ -346,10 +363,68 @@ function renderDiagram(data, chassisId, d, viewEl) {
   wrap.appendChild(table);
   viewEl.appendChild(wrap);
   viewEl.scrollTop = 0;
+
+  // the callout overlay: fetched per chassis, cached, and entirely optional.
+  // It arrives after the drawing, so the diagram is never held up waiting for
+  // it -- and a diagram re-rendered in the meantime must not be overwritten by
+  // a late arrival, which is what the staleness check below guards.
+  //
+  // The previous diagram's overlay is released FIRST, whether or not this one
+  // has a drawing of its own: innerHTML has already dropped its rectangles
+  // from the DOM, but its window keydown/resize listeners and its
+  // ResizeObserver outlive that and would accumulate one set per diagram
+  // viewed. Bumping the token here also cancels a fetch still in flight for
+  // the diagram being replaced.
+  if (etkDropHotspots) etkDropHotspots();
+  etkDropHotspots = null;
+  const token = ++etkRenderToken;
+  if (figImg && figEl) {
+    loadEtkHotspots(chassisId).then((hs) => {
+      if (token !== etkRenderToken) return; // a different diagram is on screen
+      const rects = hs && hs.bt ? hs.bt[d.btnr] : null;
+      if (!rects || !rects.length) return;
+      etkDropHotspots = etkAttachHotspots({
+        img: figImg,
+        layerHost: figEl,
+        hotspots: rects,
+        table,
+        scrollRows: true,
+      });
+    });
+  }
   const filtered = ETK_STATE.variant != null && parts.length < d.parts.length;
   sbRight.textContent =
     `${parts.length} part${parts.length === 1 ? '' : 's'}` +
     (filtered ? ` (of ${d.parts.length})` : '');
+}
+
+/**
+ * Give the diagram pane its callout overlay back after the lightbox took the
+ * rows from it. Only one controller may own a table's row handlers at a time,
+ * so the lightbox drops the pane's on open -- this puts it back on close.
+ * Does nothing when the pane has moved on (a different diagram is open, or a
+ * re-render already rebuilt the overlay).
+ * @param {string|undefined} btnr - the diagram whose rectangles to restore
+ * @param {string|undefined} chassisId - chassis code, for the hotspot file
+ * @returns {void}
+ */
+function etkRestorePaneHotspots(btnr, chassisId) {
+  if (!btnr || !chassisId || typeof loadEtkHotspots !== 'function') return;
+  const fig = document.querySelector('.etk-figure');
+  const img = fig ? fig.querySelector('img') : null;
+  if (!fig || !img) return;
+  loadEtkHotspots(chassisId).then((hs) => {
+    const rects = hs && hs.bt ? hs.bt[btnr] : null;
+    if (!rects || !rects.length) return;
+    if (etkDropHotspots || !img.isConnected) return;
+    etkDropHotspots = etkAttachHotspots({
+      img: /** @type {HTMLImageElement} */ (img),
+      layerHost: /** @type {HTMLElement} */ (fig),
+      hotspots: rects,
+      table: document.querySelector('.etk-parts'),
+      scrollRows: true,
+    });
+  });
 }
 
 /** How much the loupe magnifies the scan. */
@@ -362,11 +437,18 @@ const ETK_LOUPE_PX = 220;
  * The enlarged view: the scan as big as the window allows on a white plate,
  * with a round magnifier that follows the pointer over it. Esc, the ×, or a
  * click on the backdrop closes it.
+ *
+ * The enlarged drawing carries the same callout overlay as the pane behind
+ * it. That is the view where the numbers are actually legible, so it is the
+ * one where pointing at them matters most; it highlights the rectangles and
+ * the parts rows underneath at once, since the table is still in the DOM.
  * @param {string} url - the image URL (a blob URL from the archive)
  * @param {string} name - the diagram's name, for the caption
+ * @param {string} [btnr] - the diagram number, to look its rectangles up
+ * @param {string} [chassisId] - chassis code, for the hotspot file
  * @returns {void}
  */
-function etkOpenLightbox(url, name) {
+function etkOpenLightbox(url, name, btnr, chassisId) {
   if (typeof openModal !== 'function') return;
   const m = openModal(
     `<div class="etk-lightbox">
@@ -385,15 +467,67 @@ function etkOpenLightbox(url, name) {
   const img = box.querySelector('.etk-lightbox-img');
   const loupe = box.querySelector('.etk-loupe');
   box.querySelector('.etk-lightbox-close').onclick = () => m.close();
+
+  // the enlarged drawing gets its own overlay over its own (larger) rendering
+  // of the image, cross-highlighting the parts table still on screen behind it
+  /** @type {(() => void)|null} */
+  let dropHs = null;
+  /** @type {HTMLElement|null} the pane's table, cross-highlighted from in here too */
+  const paneTable = document.querySelector('.etk-parts');
+  if (btnr && chassisId && typeof loadEtkHotspots === 'function') {
+    loadEtkHotspots(chassisId).then((hs) => {
+      // the reader may have closed the lightbox before the file arrived
+      if (!box.isConnected) return;
+      const rects = hs && hs.bt ? hs.bt[btnr] : null;
+      if (!rects || !rects.length) return;
+      // the pane behind has its own controller on these same rows; drop it
+      // first so only one owns the row handlers at a time, and rebuild it
+      // when the lightbox goes (see the teardown below)
+      if (etkDropHotspots) etkDropHotspots();
+      etkDropHotspots = null;
+      dropHs = etkAttachHotspots({
+        img,
+        layerHost: box.querySelector('.etk-lightbox-plate'),
+        hotspots: rects,
+        table: paneTable,
+        scrollRows: false,
+      });
+    });
+  }
+  // the modal closes by four routes (the x, Escape, the backdrop, a caller),
+  // so the overlay is torn down when the box actually leaves the DOM rather
+  // than on any one of them
+  if (typeof MutationObserver === 'function') {
+    const gone = new MutationObserver(() => {
+      if (box.isConnected) return;
+      gone.disconnect();
+      if (!dropHs) return;
+      dropHs();
+      dropHs = null;
+      etkRestorePaneHotspots(btnr, chassisId);
+    });
+    gone.observe(document.body, { childList: true });
+  }
   loupe.style.width = loupe.style.height = ETK_LOUPE_PX + 'px';
   loupe.style.backgroundImage = `url("${url}")`;
   const plate = box.querySelector('.etk-lightbox-plate');
-  img.onpointermove = (ev) => {
+  // The loupe follows the pointer over the PLATE, not over the <img>. The
+  // callout overlay sits on top of the drawing and takes the pointer, so
+  // tracking the image itself would fire pointerleave the moment the pointer
+  // reached a callout -- killing the magnifier exactly over the numbers a
+  // reader most wants magnified. The plate contains both, so neither hides it;
+  // the fraction is still measured against the image, and the loupe is hidden
+  // whenever the pointer is over the plate's margins rather than the drawing.
+  plate.onpointermove = (ev) => {
     const r = img.getBoundingClientRect();
     const pr = plate.getBoundingClientRect();
     if (!r.width || !r.height) return;
     const fx = (ev.clientX - r.left) / r.width;
     const fy = (ev.clientY - r.top) / r.height;
+    if (fx < 0 || fx > 1 || fy < 0 || fy > 1) {
+      loupe.hidden = true;
+      return;
+    }
     const bw = r.width * ETK_LOUPE_ZOOM;
     const bh = r.height * ETK_LOUPE_ZOOM;
     loupe.hidden = false;
@@ -403,7 +537,7 @@ function etkOpenLightbox(url, name) {
     loupe.style.backgroundSize = `${bw}px ${bh}px`;
     loupe.style.backgroundPosition = `${ETK_LOUPE_PX / 2 - fx * bw}px ${ETK_LOUPE_PX / 2 - fy * bh}px`;
   };
-  img.onpointerleave = () => {
+  plate.onpointerleave = () => {
     loupe.hidden = true;
   };
 }
