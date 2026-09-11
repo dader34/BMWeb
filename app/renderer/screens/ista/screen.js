@@ -802,9 +802,13 @@ function istaTreeBind(slots, chassis, onPick) {
     // the box carries the name the tree drew it under; the slot behind it is
     // whichever one holds a candidate of that name
     const name = String(el.dataset.name || el.textContent || '').trim();
+    // the slot carries the box it was keyed on, so a box matches its own
+    // slot by identity rather than by a name that may have been replaced
+    // with the identified variant's
     const slot =
       (slots || []).find(
         (x) =>
+          (x.box && x.box.name === name) ||
           String(x.abbr || '').toUpperCase() === name.toUpperCase() ||
           String(x.sgbd || '').toUpperCase() === name.toUpperCase()
       ) || null;
@@ -851,12 +855,24 @@ function istaTreeBind(slots, chassis, onPick) {
  * @returns {Promise<IstaSlot[]>}
  */
 async function istaLoadSlots(chassis, car) {
-  const cfg = await istaProbe(() => api(`/api/chassis/${chassis}`));
+  // the bus map comes along because it is the authority on what counts as
+  // ONE control unit: an E46's DME is filed under two group files, and only
+  // the map's box says they are the same unit
+  const [cfg, tree] = await Promise.all([
+    istaProbe(() => api(`/api/chassis/${chassis}`)),
+    istaProbe(() =>
+      typeof ecuTreeForChassis === 'function'
+        ? ecuTreeForChassis(chassis)
+        : null
+    ),
+  ]);
   const scans =
     car && typeof garageScans === 'function' ? garageScans(car.id) : [];
   const faults = (scans.find((x) => x.kind === 'faults') || {}).report || null;
   const ident = (scans.find((x) => x.kind === 'ident') || {}).report || null;
-  return typeof istaSlots === 'function' ? istaSlots(cfg, faults, ident) : [];
+  return typeof istaSlots === 'function'
+    ? istaSlots(cfg, faults, ident, tree)
+    : [];
 }
 
 /**

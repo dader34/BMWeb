@@ -20,6 +20,20 @@
  * looked" is a different answer from "nothing is there" and the list must
  * not blur them.
  *
+ * THE BUS MAP IS THE AUTHORITY ON WHAT IS ONE UNIT, not the config's group
+ * field. An E46's DME answers on TWO group files -- d_0012 and d_motor, one
+ * per generation of the resolver -- and keying on the group alone therefore
+ * drew the engine twice: the identified MS45.1, and a second grey row for
+ * the siblings filed under the other group. The tree's box at address 18
+ * lists both groups, which is the fact that they are one control unit, so
+ * the boxes do the merging and every group they name collapses into one
+ * slot.
+ *
+ * The tree also supplies the NAMES. A slot nobody has identified is the
+ * workshop's own abbreviation (DME, EGS, DSC) rather than the internal group
+ * file's (D_0012), because the reader is looking for a control unit and not
+ * for a resolver script.
+ *
  * Everything that speaks about a control unit goes through here -- the
  * Control unit list, the tree's hover panel, the ECU window, the fault
  * table's module column -- so none of them can disagree about what the car
@@ -34,6 +48,7 @@
  * @property {string} id - the slot key: the group, or the sgbd when it has none
  * @property {string} group - the diagnostic group, or ''
  * @property {string} section - the config section it sits in
+ * @property {object|null} box - the bus map's box for it, when the map has one
  * @property {string} abbr - what the Abbreviation column shows
  * @property {string} name - what the Control unit name column shows
  * @property {object[]} candidates - every config ECU that could fill it
@@ -73,20 +88,36 @@ function istaSlotIdent(report) {
  * @param {object|null} ident - the newest identification scan's report
  * @returns {IstaSlot[]} the slots, in config order
  */
-function istaSlots(config, faults, ident) {
+function istaSlots(config, faults, ident, tree) {
   /** @type {Map<string, IstaSlot>} */
   const slots = new Map();
 
+  // every group the bus map files under one box, pointed at that box: this
+  // is what merges an E46's two engine groups into the single DME it is
+  /** @type {Map<string, object>} */
+  const boxOf = new Map();
+  for (const box of (tree && tree.ecus) || [])
+    for (const g of box.groups || [])
+      if (g) boxOf.set(String(g).toLowerCase(), box);
+
   for (const sec of (config && config.sections) || [])
     for (const ecu of sec.ecus || []) {
-      // an ECU with no group is its own slot: nothing else can be in it
-      const id = String(ecu.group || ecu.sgbd || ecu.code || '').toUpperCase();
+      const group = String(ecu.group || '');
+      const box = group ? boxOf.get(group.toLowerCase()) || null : null;
+      // the slot key is the BOX when the map knows one, so every group it
+      // carries lands in the same slot; otherwise the group stands alone,
+      // and an ECU with neither is its own slot because nothing else can be
+      // in it
+      const id = box
+        ? `@${box.name}@${box.addr}`
+        : String(group || ecu.sgbd || ecu.code || '').toUpperCase();
       if (!id) continue;
       if (!slots.has(id))
         slots.set(id, {
           id,
-          group: String(ecu.group || '').toUpperCase(),
+          group: group.toUpperCase(),
           section: sec.name || '',
+          box,
           abbr: '',
           name: '',
           candidates: [],
@@ -160,6 +191,8 @@ function istaSlots(config, faults, ident) {
  * @returns {string}
  */
 function istaSlotFamilyAbbr(slot) {
+  // the bus map's own abbreviation first: it is the one the workshop uses
+  if (slot.box && slot.box.name) return slot.box.name;
   if (slot.candidates.length === 1)
     return slot.candidates[0].code || slot.candidates[0].sgbd || slot.id;
   return slot.group || slot.id;

@@ -1356,6 +1356,78 @@ const I = loadClassic('screens/ista/');
   assert.strictEqual(istaSlotFor(warm, 'ms450ds0').id, 'D_0012');
   assert.strictEqual(istaSlotFor(warm, 'nope'), null);
   ok('any candidate resolves to its slot');
+
+  // THE BUS MAP DECIDES WHAT IS ONE UNIT. An E46's DME answers on two group
+  // files (one per generation of the resolver), so keying on the group alone
+  // drew the engine TWICE: the identified variant, and a second grey row for
+  // the siblings filed under the other group. The map's box lists both
+  // groups, which is the fact that they are one control unit.
+  const split = {
+    sections: [
+      {
+        name: 'Engine',
+        ecus: [
+          { code: 'MS450', sgbd: 'ms450ds0', group: 'D_0012', label: 'MS45.1' },
+          { code: 'ME9', sgbd: 'me9n45', group: 'D_MOTOR', label: 'ME9.2' },
+        ],
+      },
+      {
+        name: 'Transmission',
+        ecus: [
+          { code: 'GS20', sgbd: 'ags732', group: 'D_0032', label: 'GS20' },
+        ],
+      },
+    ],
+  };
+  const tree = {
+    ecus: [
+      { name: 'DME', addr: 18, groups: ['d_motor', 'd_0012'], bus: 'FACAN' },
+      { name: 'EGS', addr: 50, groups: ['d_0032'], bus: 'FACAN' },
+    ],
+  };
+
+  // read nothing: two slots, not three, and each named by the map
+  const cold2 = istaSlots(split, null, null, tree);
+  assert.strictEqual(cold2.length, 2, 'the two engine groups are one slot');
+  assert.strictEqual(
+    cold2[0].abbr,
+    'DME',
+    "the map's abbreviation, not D_0012"
+  );
+  assert.strictEqual(cold2[1].abbr, 'EGS');
+  ok('the bus map merges the groups it files under one box');
+
+  // once a variant is identified the slot takes its name, and there is no
+  // leftover group row beside it
+  const warm2 = istaSlots(
+    split,
+    {
+      kind: 'faults',
+      modules: [{ sgbd: 'ms450ds0', codes: [{}] }],
+      silent: [],
+    },
+    null,
+    tree
+  );
+  assert.strictEqual(warm2.length, 2, 'still two slots');
+  const dme = warm2.find((x) => x.box && x.box.name === 'DME');
+  assert.strictEqual(dme.abbr, 'MS450', 'the slot takes the identified name');
+  assert.strictEqual(dme.state, 'faults');
+  assert.strictEqual(
+    warm2.filter((x) => /^D_/.test(x.abbr)).length,
+    0,
+    'no group-file placeholder survives beside an identified unit'
+  );
+  ok('an identified slot leaves no group row behind');
+
+  // with no map at all the groups stand alone, which is the old behaviour
+  // and still the honest one: nothing has said they are the same unit
+  assert.strictEqual(
+    istaSlots(split, null, null, null).length,
+    3,
+    'without a map, a group is a slot'
+  );
+  ok('no map means no merging');
 }
 
 console.log(`test_ista: ${passed} checks passed`);
