@@ -749,28 +749,71 @@ body.ista-mode.ista-real-body .view label {
   box-shadow: none !important;
 }
 
-/* ---- dialogs -------------------------------------------------------------- */
-.ista-real-body .modal {
-  background: #fff;
-  border: 1px solid #999;
-  border-radius: 0;
-  box-shadow: none;
+/* ---- dialogs --------------------------------------------------------------
+   Prefixed with `html` on purpose: the app's skins style dialogs as
+   html[data-theme=...] .modal, one specificity step above a bare
+   .ista-real-body .modal, so under the INPA or GT1 skin the window kept the
+   skin's dark ground and its light ink. Same weight here, and this sheet
+   loads last, so the tool's white window wins under every skin. The
+   skins also mark their dialog and button paint !important (GT1, INPA),
+   so the paint here is marked the same: nothing the app's own skins do
+   may reach into the tool's window. */
+html .ista-real-body .modal,
+html[data-theme] .ista-real-body .modal {
+  background: #fff !important;
+  color: var(--ir-ink) !important;
+  border: 1px solid #999 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
   font-family: var(--ir-font);
   font-size: 12px;
 }
-.ista-real-body .modal-title {
-  background: var(--ir-grey);
-  color: var(--ir-ink);
+html .ista-real-body .modal-title,
+html[data-theme] .ista-real-body .modal-title {
+  background: var(--ir-grey) !important;
+  color: var(--ir-ink) !important;
   font-weight: 700;
   font-size: 12px;
   padding: 4px 8px;
-  border-bottom: 1px solid #999;
+  border-bottom: 1px solid #999 !important;
 }
-.ista-real-body .modal-actions .btn {
-  background: var(--ir-grey);
-  border: 1px solid #9a9a9a;
-  border-radius: 0;
+html .ista-real-body .modal-actions .btn,
+html[data-theme] .ista-real-body .modal-actions .btn {
+  background: var(--ir-grey) !important;
+  color: var(--ir-ink) !important;
+  border: 1px solid #9a9a9a !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
   min-width: 112px;
+}
+html .ista-real-body .modal-actions .btn:disabled,
+html[data-theme] .ista-real-body .modal-actions .btn:disabled {
+  color: var(--ir-off) !important;
+}
+/* list rows and labels inside a dialog take the tool's ink, not the
+   skin's: a group row that inherits a dark theme's text is unreadable on
+   the white pane */
+html .ista-real-body .modal .irbf-row,
+html[data-theme] .ista-real-body .modal .irbf-row,
+html .ista-real-body .modal .irbf-none,
+html[data-theme] .ista-real-body .modal .irbf-none,
+html .ista-real-body .modal td,
+html[data-theme] .ista-real-body .modal td,
+html .ista-real-body .modal th,
+html[data-theme] .ista-real-body .modal th {
+  color: var(--ir-ink) !important;
+}
+html .ista-real-body .modal .irbf-head,
+html[data-theme] .ista-real-body .modal .irbf-head {
+  color: #fff !important;
+}
+html .ista-real-body .modal .irbf-sel .irbf-row,
+html[data-theme] .ista-real-body .modal .irbf-sel .irbf-row {
+  color: #8a8a8a !important;
+}
+html .ista-real-body .modal .irbf-sel .irbf-row.has,
+html[data-theme] .ista-real-body .modal .irbf-sel .irbf-row.has {
+  color: var(--ir-ink) !important;
 }
 
 /* the "Ongoing background process" progress dialog */
