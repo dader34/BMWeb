@@ -1273,6 +1273,7 @@ Object.assign(Best2Vm.prototype, {
         if (words.length >= 2 && words[0] > 0 && words[0] <= COMM_CONCEPT_MAX) {
           this.comm = Best2Codec.decodeCommParams(words);
           if (this.answerLen) this.comm.answerLen = this.answerLen;
+          if (this.repeats !== undefined) this.comm.repeats = this.repeats;
         }
         return;
       }
@@ -1429,10 +1430,26 @@ Object.assign(Best2Vm.prototype, {
         this.comm = Object.assign({}, this.comm || {}, { answerLen: al });
         return;
       }
+      case 'xreps': {
+        // set_repeat_counter (EdOperations.OpXreps): how many times the
+        // interface RESENDS a telegram that got no usable answer before it
+        // reports the error -- CommRepeats, read by the reference's send
+        // loop (EdInterfaceObd.ObdTrans: repeats + 1 attempts, stopping
+        // early only on a cable-level IFH-0003). Every init job sets it
+        // (775 of 1,006 modules say 2, the EWS says 4); the default of 0
+        // holds only until INITIALISIERUNG runs. Ignoring it sent every
+        // telegram once, so a K-line module that sleeps through its first
+        // wake-up (the EWS, on three testers' cars) failed with IFH-0009
+        // where the tool's second attempt is answered. Carried on comm so
+        // runExchange reads the SGBD's own count.
+        const n = this.val(A) >>> 0;
+        this.repeats = n;
+        this.comm = Object.assign({}, this.comm || {}, { repeats: n });
+        return;
+      }
       case 'xconnect':
       case 'xhangup':
       case 'xstopf':
-      case 'xreps':
       case 'xkeyb':
       case 'xkeybytes':
       case 'xprog':

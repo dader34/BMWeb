@@ -31,10 +31,13 @@ vm.runInContext(
   exports.portConfig = portConfig;
   exports.isResponsePending = isResponsePending;
   exports.assertReachable = assertReachable;
-  exports.ifhError = ifhError;`,
+  exports.ifhError = ifhError;
+  exports.runExchange = runExchange;`,
   ctx
 );
 const {
+  runExchange,
+  ifhError,
   withChecksum,
   frameTotal,
   verifyChecksum,
@@ -469,5 +472,75 @@ console.log('\nDS2 answer length without xawlen');
   );
 }
 
-console.log(failures ? `\n${failures} FAILED` : '\ntransport holds');
-process.exit(failures ? 1 : 0);
+// ---- xreps: the SGBD's retransmit count -------------------------------
+// The reference sends a telegram CommRepeats + 1 times before it reports
+// silence (EdInterfaceObd.ObdTrans); the count comes from the init job's
+// xreps and rides on comm. Three testers' EWS reads died on one silent
+// telegram where the tool's second attempt is answered.
+{
+  const fakeBus = (answerOn, fail) => {
+    const bus = {
+      sent: 0,
+      lastResponseAt: 0,
+      sessionConcept: null,
+      ensureConfig: async () => {},
+      portHint: () => '',
+      exchangeRaw: async () => {
+        bus.sent++;
+        if (bus.sent >= answerOn) return [0x44, 0x04, 0xa0, 0xe0];
+        throw fail();
+      },
+    };
+    return bus;
+  };
+  const silence = () => ifhError('IFH-0009', 'no answer from ECU (timeout)');
+  const garbled = () => ifhError('IFH-0019', 'checksum');
+  const run = async (bus, comm) => {
+    try {
+      await runExchange(bus, [0x44, 0x05, 0x69, 0x04], comm);
+      return 'ok';
+    } catch (e) {
+      return e.ifh || e.message;
+    }
+  };
+  (async () => {
+    let bus = fakeBus(2, silence);
+    let r = await run(bus, { concept: 6, timeout: 10, repeats: 2 });
+    check(
+      'xreps 2: a telegram answered on the second send succeeds',
+      r === 'ok' && bus.sent === 2
+    );
+    bus = fakeBus(99, silence);
+    r = await run(bus, { concept: 6, timeout: 10, repeats: 2 });
+    check(
+      'xreps 2: silence is sent three times, then IFH-0009',
+      r === 'IFH-0009' && bus.sent === 3
+    );
+    bus = fakeBus(2, silence);
+    r = await run(bus, { concept: 6, timeout: 10, repeats: 0 });
+    check(
+      'xreps 0: a silent telegram goes out exactly once',
+      r === 'IFH-0009' && bus.sent === 1
+    );
+    bus = fakeBus(2, silence);
+    r = await run(bus, { concept: 6, timeout: 10 });
+    check(
+      'no xreps at all: the same single send',
+      r === 'IFH-0009' && bus.sent === 1
+    );
+    bus = fakeBus(2, garbled);
+    r = await run(bus, { concept: 6, timeout: 10, repeats: 0 });
+    check(
+      'a garbled answer still gets its one retransmit without xreps',
+      r === 'ok' && bus.sent === 2
+    );
+    bus = fakeBus(99, () => ifhError('IFH-0003', 'no echo from the cable'));
+    r = await run(bus, { concept: 6, timeout: 10, repeats: 4 });
+    check(
+      'a cable fault is final whatever xreps says',
+      r === 'IFH-0003' && bus.sent === 1
+    );
+    console.log(failures ? `\n${failures} FAILED` : '\ntransport holds');
+    process.exit(failures ? 1 : 0);
+  })();
+}
