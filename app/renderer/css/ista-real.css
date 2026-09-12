@@ -1485,62 +1485,59 @@ html .ista-real-body .irabl-docs-b .wiring-share {
   fill: var(--ir-teal);
 }
 
-/* clicking one splits the pane: the diagram it was clicked on stays on the
-   left, the component's own document opens on the right */
-.ista-real-body .irabl-split {
-  display: flex;
-  gap: 8px;
-  height: 100%;
-  min-height: 0;
-}
-.ista-real-body .irabl-split-l,
-.ista-real-body .irabl-split-r {
-  flex: 1 1 50%;
-  min-width: 0;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  overflow: auto;
-}
-.ista-real-body .irabl-split-l {
-  border-right: 1px solid var(--ir-line, #b9b9b9);
-  padding-right: 8px;
-}
-/* inside a split each drawing gets the half it sits in */
-.ista-real-body .irabl-split .irabl-svg {
-  height: auto;
+/* the document view: the diagram's pane is the window's LEFT half, the
+   same box the procedure occupies, because a document replaces the module
+   window rather than opening inside it */
+.ista-real-body .irabl-docl {
   flex: 1 1 auto;
-  min-height: 200px;
+  border: 1px solid var(--ir-teal);
+  background: #fff;
+  padding: 8px 10px;
+  overflow: auto;
+  min-height: 0;
+  font-size: 12px;
 }
-/* one designator can carry a location, a connector view and a pin
-   assignment; the row names them rather than collapsing to the first */
-.ista-real-body .irabl-desigrow {
-  display: flex;
-  gap: 2px;
-  margin: 0 0 6px;
-  flex: none;
+/* the component the technician clicked is lit where they clicked it */
+.ista-real-body .irabl-svg a.irabl-desig.on * {
+  stroke: var(--ir-teal);
+  fill: var(--ir-teal);
 }
-.ista-real-body .irabl-desigpick {
-  background: var(--ir-grey);
-  color: var(--ir-ink);
+/* an installation location is a PICTURE of the part in the car */
+.ista-real-body .irabl-fig {
+  margin: 0 0 8px;
+}
+.ista-real-body .irabl-fig img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  border: 1px solid var(--ir-line, #b9b9b9);
+}
+.ista-real-body .irabl-fig figcaption {
   font-size: 11px;
-  padding: 2px 8px;
-  cursor: pointer;
-  border: 1px solid #9a9a9a;
+  margin-top: 3px;
 }
-.ista-real-body .irabl-desigpick.on {
-  background: var(--ir-teal);
-  border-color: var(--ir-teal);
-  color: #fff;
+/* a legend or a pin assignment is a table, not a run of loose lines */
+.ista-real-body .irabl-tbl {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0 0 8px;
+  font-size: 11px;
 }
-/* the component's tab closes again, the way the tool closes a document */
-.ista-real-body .irabl-tabx {
-  margin-left: 8px;
-  opacity: 0.75;
-  cursor: pointer;
+.ista-real-body .irabl-tbl th,
+.ista-real-body .irabl-tbl td {
+  border: 1px solid var(--ir-line, #b9b9b9);
+  padding: 2px 5px;
+  text-align: left;
+  vertical-align: top;
 }
-.ista-real-body .irabl-tabx:hover {
-  opacity: 1;
+.ista-real-body .irabl-tbl th {
+  background: var(--ir-grey);
+  font-weight: 700;
+}
+.ista-real-body .irabl-doc h4 {
+  font-size: 12px;
+  font-weight: 700;
+  margin: 0 0 5px;
 }
 
 /* ---- SAE fault code input ------------------------------------------------- */
@@ -2067,4 +2064,19 @@ html .ista-real-body .irabl-docs-b .wiring-share {
 /* the control unit window's tabs hold their labels on one line */
 .ista-real-body .irecu-tabs .iradmin-tab {
   white-space: nowrap;
+}
+
+/* a tab's second line: which of several documents of one kind this is */
+.ista-real-body .irabl-tabd {
+  display: block;
+  font-size: 9px;
+  line-height: 1.15;
+  opacity: 0.8;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ista-real-body .irabl-tab {
+  min-width: 92px;
 }

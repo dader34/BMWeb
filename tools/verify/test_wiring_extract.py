@@ -42,6 +42,14 @@ def entry(doc_id, identifier, title, kind):
     return {"id": doc_id, "identifier": identifier, "title": title, "type": kind}
 
 
+def body(*lines, pic=None, caption=""):
+    """@returns a document body in the block shape xml_body produces"""
+    out = [{"kind": "text", "text": t} for t in lines]
+    if pic is not None:
+        out.append({"kind": "pic", "id": pic, "caption": caption})
+    return out
+
+
 class TestIdentifierDesignator(unittest.TestCase):
     def test_the_identifier_carries_the_designator(self):
         for ident, want in [
@@ -117,7 +125,7 @@ class TestRevisionCollapse(unittest.TestCase):
             entry(i, "EBO-EBO-E46_EB6254%s" % r, "B6254, X6254", "location")
             for i, r in enumerate("ABCDEF", start=1)
         ]
-        same = ["Installation position", "underside of oil pan"]
+        same = body("Installation position", "underside of oil pan")
         idx = W.designator_index(docs, {str(i): same for i in range(1, 7)})
         self.assertEqual(len(idx["X6254"]), 1)
         self.assertEqual(idx["X6254"][0]["identifier"], "EBO-EBO-E46_EB6254A")
@@ -129,8 +137,8 @@ class TestRevisionCollapse(unittest.TestCase):
             entry(2, "EBO-EBO-E46_EA6000C", "A6000, X60001", "location"),
         ]
         bodies = {
-            "1": ["Installation position", "rear LH side of engine compartment"],
-            "2": ["Installation position", "in electronics box in water box left"],
+            "1": body("Installation position", "rear LH side of engine compartment"),
+            "2": body("Installation position", "in electronics box in water box left"),
         }
         idx = W.designator_index(docs, bodies)
         self.assertEqual(len(idx["A6000"]), 2)
@@ -142,17 +150,94 @@ class TestRevisionCollapse(unittest.TestCase):
             entry(1, "EBO-EBO-E46_EB6254A", "B6254, X6254", "location"),
             entry(2, "STA-STA-E46_SX6254A", "X6254 Component connector", "connector"),
         ]
-        idx = W.designator_index(docs, {"1": ["same"], "2": ["same"]})
+        idx = W.designator_index(docs, {"1": body("same"), "2": body("same")})
         self.assertEqual([d["type"] for d in idx["X6254"]], ["location", "connector"])
 
     def test_no_private_field_reaches_the_shipped_index(self):
         idx = W.designator_index(
             [entry(1, "EBO-EBO-E46_EB6254A", "B6254, X6254", "location")],
-            {"1": ["text"]},
+            {"1": body("text")},
         )
         for rows in idx.values():
             for doc in rows:
                 self.assertNotIn("_body", doc)
+
+
+INSTALL_XML = """<DIAGNOSISDOCUMENT CHARSET="UTF-8" LANGUAGE="en-GB">
+  <INSTALLATIONLOCATION>
+    <HEADING>Installation position</HEADING>
+    <DOCUMENTTITLE>B6254, X6254</DOCUMENTTITLE>
+    <GRAPHIC SRC="G_062063.png" LINKID="G1"/>
+    <GRAPHICSUBHEADING>underside of oil pan</GRAPHICSUBHEADING>
+    <LEGENDTABLE>
+      <LEGENDROW>
+        <LEGENDNAME>B6254</LEGENDNAME>
+        <LEGENDEXPLANATION>Oil level sensor</LEGENDEXPLANATION>
+      </LEGENDROW>
+    </LEGENDTABLE>
+  </INSTALLATIONLOCATION>
+</DIAGNOSISDOCUMENT>"""
+
+
+class TestDocumentBody(unittest.TestCase):
+    """The structure IS the document: a picture and a legend, not loose lines."""
+
+    def setUp(self):
+        # G_062063 is stream 2000004114757, NOT 2000004062063; transforming
+        # the digits instead of reading the table shows a different picture
+        self.segments = {"G_062063": 2000004114757}
+
+    def test_the_graphic_resolves_through_the_segments_table(self):
+        blocks = W.xml_body(INSTALL_XML, self.segments)
+        pics = [b for b in blocks if b["kind"] == "pic"]
+        self.assertEqual(len(pics), 1)
+        self.assertEqual(pics[0]["id"], 2000004114757)
+
+    def test_the_subheading_becomes_the_pictures_caption(self):
+        blocks = W.xml_body(INSTALL_XML, self.segments)
+        pic = next(b for b in blocks if b["kind"] == "pic")
+        self.assertEqual(pic["caption"], "underside of oil pan")
+        # and it is not left behind as a loose line as well
+        self.assertNotIn(
+            "underside of oil pan",
+            [b.get("text") for b in blocks if b["kind"] != "pic"],
+        )
+
+    def test_the_legend_is_a_table(self):
+        blocks = W.xml_body(INSTALL_XML, self.segments)
+        tables = [b for b in blocks if b["kind"] == "table"]
+        self.assertEqual(len(tables), 1)
+        self.assertEqual(tables[0]["rows"], [["B6254", "Oil level sensor"]])
+        # a legend genuinely has no header row in the source
+        self.assertEqual(tables[0]["head"], [])
+
+    def test_a_graphic_with_no_segment_is_dropped_not_guessed(self):
+        blocks = W.xml_body(INSTALL_XML, {})
+        self.assertEqual([b for b in blocks if b["kind"] == "pic"], [])
+
+    def test_the_words_still_come_out_for_the_search_index(self):
+        lines = W.xml_text(INSTALL_XML)
+        self.assertIn("Installation position", lines)
+        self.assertIn("B6254 Oil level sensor", lines)
+
+
+class TestTabDetail(unittest.TestCase):
+    """Several documents of one kind must be tellable apart."""
+
+    def test_the_caption_rides_along_as_the_tabs_detail(self):
+        docs = [
+            entry(1, "EBO-EBO-E46_EA8680D", "A8680, X8680", "location"),
+            entry(2, "EBO-EBO-E46_EA8680F", "A8680, X8680", "location"),
+        ]
+        bodies = {
+            "1": body("Installation position", pic=11, caption="in water box left"),
+            "2": body("Installation position", pic=22, caption="in electronics box"),
+        }
+        idx = W.designator_index(docs, bodies)
+        self.assertEqual(
+            [d.get("detail") for d in idx["X8680"]],
+            ["in water box left", "in electronics box"],
+        )
 
 
 class TestAgainstTheRealExtract(unittest.TestCase):

@@ -489,6 +489,17 @@ const ISTA_BOTTOM = {
     { id: 'full', label: 'Full Screen' },
     { id: 'continue', label: 'Continue' },
   ],
+  // A component's document, opened from a schematic: the document view
+  // takes the whole window and brings its own row (the frames show
+  // Documents / Zoom in / Zoom out / Full Screen / Close)
+  'abl-doc': [
+    { id: 'documents', label: 'Documents', off: true },
+    { spacer: true },
+    { id: 'zoom-in', label: 'Zoom in' },
+    { id: 'zoom-out', label: 'Zoom out' },
+    { id: 'full', label: 'Full Screen' },
+    { id: 'close', label: 'Close' },
+  ],
   // Workshop: the section tabs and the Show all checkbox the app's own page
   // draws become one Filters button, in the tool's own language
   techdata: [

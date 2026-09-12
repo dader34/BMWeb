@@ -1814,14 +1814,57 @@ async function istaWiringDocHtml(chassis, id) {
     istaWiringBodies.set(key, body || null);
   }
   const shard = istaWiringBodies.get(key);
-  const lines = shard && shard[String(row.id)];
-  if (!lines || !lines.length) return null;
+  const blocks = shard && shard[String(row.id)];
+  if (!blocks || !blocks.length) return null;
   return (
     `<div class="irabl-doct">${esc(row.title || row.identifier)}</div>` +
-    `<div class="irabl-doc">` +
-    lines.map((l) => `<p>${esc(l)}</p>`).join('') +
-    `</div>`
+    `<div class="irabl-doc">${istaWiringBlocks(blocks)}</div>`
   );
+}
+
+/**
+ * A document's blocks as the tool draws them.
+ *
+ * THE STRUCTURE IS THE DOCUMENT. An installation location is a PICTURE of
+ * the part in the car with a legend naming what the arrows point at, and a
+ * pin assignment is a real table of pins; both used to come out as a column
+ * of undifferentiated lines. A picture whose file this build does not have
+ * is skipped rather than drawn as a broken image.
+ * @param {object[]} blocks - the stored body
+ * @returns {string} HTML
+ */
+function istaWiringBlocks(blocks) {
+  const cell = (c) => `<td>${esc(c || '')}</td>`;
+  return (blocks || [])
+    .map((b) => {
+      if (!b) return '';
+      if (b.kind === 'heading') return `<h4>${esc(b.text)}</h4>`;
+      if (b.kind === 'pic') {
+        const src =
+          typeof repairPicUrl === 'function' ? repairPicUrl(b.id) : null;
+        if (!src) return '';
+        return (
+          `<figure class="irabl-fig">` +
+          `<img src="${esc(src)}" alt="${esc(b.caption || '')}" ` +
+          `loading="lazy" onerror="this.closest('figure').remove()">` +
+          (b.caption ? `<figcaption>${esc(b.caption)}</figcaption>` : '') +
+          `</figure>`
+        );
+      }
+      if (b.kind === 'table') {
+        const head = (b.head || []).length
+          ? `<thead><tr>${(b.head || [])
+              .map((c) => `<th>${esc(c || '')}</th>`)
+              .join('')}</tr></thead>`
+          : '';
+        const body = (b.rows || [])
+          .map((r) => `<tr>${(r || []).map(cell).join('')}</tr>`)
+          .join('');
+        return `<table class="irabl-tbl">${head}<tbody>${body}</tbody></table>`;
+      }
+      return `<p>${esc(b.text || '')}</p>`;
+    })
+    .join('');
 }
 
 /**
@@ -1880,6 +1923,7 @@ async function istaWiringBindDesignators(box, chassis, open) {
     if (!key || !table[key]) return;
     bound += 1;
     a.classList.add('irabl-desig');
+    a.dataset.desig = key;
     a.setAttribute('href', '#');
     a.addEventListener('click', (ev) => {
       ev.preventDefault();

@@ -88,15 +88,52 @@ def strip_ns(tag):
     return tag.rsplit("}", 1)[-1] if "}" in tag else tag
 
 
-def xml_text(raw):
-    """An XML document reduced to its readable lines.
+def _local(tag):
+    """@param tag: an element tag @returns it without its namespace"""
+    return str(tag).rsplit("}", 1)[-1]
 
-    The tool's XML bodies wrap text in element trees whose tag names vary by
-    class; what every class has in common is that the words a technician
-    reads are the element text. So the text is collected in document order
-    rather than by hunting for tags this build happens to know.
+
+def _clean(part):
+    """@param part: element text @returns it on one line, or ''"""
+    return re.sub(r"\s+", " ", (part or "").strip())
+
+
+# A GRAPHIC's SRC is the picture's GRAFIKNUMMER with a .png on it; the
+# repair extract already pools every picture under its stream id, so the
+# name resolves through XEP_INFOSEGMENTS rather than by transforming the
+# digits (G_062063 is stream 2000004114757, NOT 2000004062063 -- they are
+# different pictures, and guessing shows the wrong one).
+def read_segments(diag):
+    """Picture name -> its stream id, for every PNG segment.
+
+    @param diag: an open DiagDocDb connection
+    """
+    out = {}
+    for name, cid in diag.execute(
+        "SELECT GRAFIKNUMMER, CONTENTID FROM XEP_INFOSEGMENTS "
+        "WHERE GRAFIKNUMMER IS NOT NULL AND CONTENTID IS NOT NULL "
+        "AND INFORMATIONSFORMAT LIKE '%PNG%'"
+    ):
+        out.setdefault(str(name).upper(), cid)
+    return out
+
+
+def xml_body(raw, segments=None):
+    """An XML document as the blocks the tool draws.
+
+    THE STRUCTURE IS THE DOCUMENT. An installation location is a heading, a
+    PICTURE of the part in the car, and a legend table naming what the
+    arrows point at; a pin assignment is two real tables. Flattening all of
+    that into a list of lines loses the picture entirely and leaves the
+    legend as unlabelled words, which is how the pane came to read as a
+    column of text where the tool shows a labelled photograph.
 
     @param raw: the stored document text
+    @param segments: read_segments output, to resolve a GRAPHIC's picture
+    @returns a list of blocks, or None
+        {"kind": "heading"|"text", "text": str}
+        {"kind": "pic", "id": <stream id>, "caption": str}
+        {"kind": "table", "head": [str], "rows": [[str]]}
     """
     if not raw:
         return None
@@ -104,12 +141,78 @@ def xml_text(raw):
         root = ET.fromstring(raw)
     except ET.ParseError:
         return None
+    seg = segments or {}
+    out = []
+
+    def add_text(kind, value):
+        if value:
+            out.append({"kind": kind, "text": value})
+
+    def walk(el):
+        name = _local(el.tag)
+        if name == "GRAPHIC":
+            src = re.sub(r"\.png$", "", str(el.get("SRC") or ""), flags=re.I)
+            cid = seg.get(src.upper())
+            if cid is not None:
+                out.append({"kind": "pic", "id": cid, "caption": ""})
+            return
+        if name.endswith("TABLE"):
+            head, rows = [], []
+            for row in el:
+                cells = [_clean(c.text) for c in row]
+                if not any(cells):
+                    continue
+                if _local(row.tag).endswith("HEADROW") and not head:
+                    head = cells
+                else:
+                    rows.append(cells)
+            if rows:
+                out.append({"kind": "table", "head": head, "rows": rows})
+            return
+        if name in ("HEADING", "DOCUMENTTITLE"):
+            add_text("heading", _clean(el.text))
+            return
+        add_text("text", _clean(el.text))
+        for kid in el:
+            walk(kid)
+        add_text("text", _clean(el.tail))
+
+    for el in root:
+        walk(el)
+    # a caption belongs to the picture above it, the way the tool prints it
+    for i, block in enumerate(out):
+        if block["kind"] == "pic" and i + 1 < len(out):
+            nxt = out[i + 1]
+            if nxt["kind"] == "text":
+                block["caption"] = nxt["text"]
+                nxt["_drop"] = True
+    out = [b for b in out if not b.pop("_drop", False)]
+    return out or None
+
+
+def xml_text(raw):
+    """An XML document reduced to its readable lines.
+
+    Kept for callers that only want the words (the body shards the search
+    index reads); xml_body is what the panes draw.
+
+    @param raw: the stored document text
+    """
+    blocks = xml_body(raw)
+    if not blocks:
+        return None
     lines = []
-    for el in root.iter():
-        for part in (el.text, el.tail):
-            s = (part or "").strip()
-            if s:
-                lines.append(re.sub(r"\s+", " ", s))
+    for b in blocks:
+        if b["kind"] == "table":
+            for row in [b["head"]] + b["rows"] if b["head"] else b["rows"]:
+                line = " ".join(c for c in row if c)
+                if line:
+                    lines.append(line)
+        elif b["kind"] == "pic":
+            if b["caption"]:
+                lines.append(b["caption"])
+        else:
+            lines.append(b["text"])
     return lines or None
 
 
@@ -185,7 +288,9 @@ def designator_index(index, bodies=None):
             keys.append(hit.group(1))
         keys.extend(DESIGNATOR_TITLE.findall(entry["title"]))
         seen = set()
-        body = tuple(text.get(str(entry["id"])) or ())
+        # the body is a list of blocks now, so it is compared as JSON: the
+        # blocks hold dicts, which are fine to compare but not to hash
+        body = json.dumps(text.get(str(entry["id"])) or [], sort_keys=True)
         for key in keys:
             if key in seen:
                 continue
@@ -194,26 +299,36 @@ def designator_index(index, bodies=None):
             if any(d["id"] == entry["id"] for d in row):
                 continue
             # a revision that reads exactly like one already offered here
-            if body and any(
+            if body not in ("", "[]") and any(
                 d["_body"] == body and d["type"] == entry["type"] for d in row
             ):
                 continue
-            row.append(
-                {
-                    "id": entry["id"],
-                    "type": entry["type"],
-                    "title": entry["title"],
-                    "identifier": entry["identifier"],
-                    "_body": body,
-                }
-            )
+            doc = {
+                "id": entry["id"],
+                "type": entry["type"],
+                "title": entry["title"],
+                "identifier": entry["identifier"],
+                "_body": body,
+            }
+            # WHAT MAKES THIS ONE DIFFERENT. A big component can carry a
+            # dozen installation locations that apply to different builds of
+            # the car, and a row of tabs all reading "Installation Location"
+            # is a row of tabs the technician cannot choose between. The
+            # picture's own subheading is exactly the distinguishing text
+            # ("in water box left" against "in electronics box"), so it
+            # rides along as the tab's second line.
+            for block in text.get(str(entry["id"])) or []:
+                if block.get("kind") == "pic" and block.get("caption"):
+                    doc["detail"] = block["caption"]
+                    break
+            row.append(doc)
     for row in out.values():
         for doc in row:
             del doc["_body"]
     return out
 
 
-def write_chassis(rows, rules, classes, ids, content, folder, verbose=False):
+def write_chassis(rows, rules, classes, ids, content, folder, segments=None, verbose=False):
     """Write one chassis's documents; return its counts.
 
     A document with no rule applies to everything, and one whose rule cannot
@@ -260,7 +375,7 @@ def write_chassis(rows, rules, classes, ids, content, folder, verbose=False):
                 fh.write(svg.encode("utf-8"))
             stats["diagrams"] += 1
         else:
-            lines = xml_text(raw)
+            lines = xml_body(raw, segments)
             if lines is None:
                 stats["nobody"] += 1
                 continue
@@ -316,6 +431,7 @@ def main():
     rows = read_rows(diag, classes)
     rules = {r[0]: r[1] for r in diag.execute("SELECT ID, RULE FROM XEP_RULES")}
     typekeys = read_typekeys(diag)
+    segments = read_segments(diag)
     char_names = read_char_names(diag)
     if args.verbose:
         print(f"{len(rows)} documents across {len(classes)} classes", file=sys.stderr)
@@ -324,7 +440,9 @@ def main():
     for chassis in [c.strip().upper() for c in args.chassis.split(",") if c.strip()]:
         ids = chassis_char_ids(typekeys, char_names, chassis)
         folder = os.path.join(args.out, chassis)
-        stats = write_chassis(rows, rules, classes, ids, content, folder, args.verbose)
+        stats = write_chassis(
+            rows, rules, classes, ids, content, folder, segments, args.verbose
+        )
         size = sum(
             os.path.getsize(os.path.join(dp, f))
             for dp, _dn, fn in os.walk(folder)
