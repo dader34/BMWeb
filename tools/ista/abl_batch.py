@@ -13,6 +13,13 @@ abl_extract.extract_module -> data/ista/abl/<MODULE>.json.gz. Then data/ista/abl
 from a stored fault to its test modules). failures.json lists every module that is not complete with
 the exact reason.
 
+The decompilation cache is verified, not trusted. Handed several assemblies in one invocation,
+ilspycmd truncates all but the last at a 4 KB boundary; the cut file still parses as C# and still
+yields a plausible step graph, so the loss is silent and would be indistinguishable from a module
+that genuinely ends there. Every cached file is therefore checked with cs_complete() and
+re-decompiled when it fails, one assembly per invocation, and a module whose decompilation never
+comes out whole is reported as a named failure rather than skipped.
+
 Environment: BMWFILES (root of the BMW file store), ISTA_INSTALLER (the ISTA-D .7z), ILSPYCMD,
 DOTNET_ROOT, ISTA_DIAGDOC, ISTA_XMLVAL_EN. Options: --dlls DIR (already extracted DLLs), --cs DIR
 (decompilation cache), --out DIR, --jobs N.
