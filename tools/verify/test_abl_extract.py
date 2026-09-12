@@ -200,6 +200,32 @@ class TestValidator(unittest.TestCase):
                     for label, t in (n.get("cases") or {}).items():
                         self.assertIn(t, ids, "%s/%s node %s case %s" % (name, step, n["id"], label))
 
+    def test_no_node_is_orphaned(self):
+        """Every node listed in a step must be reachable from that step's entry.
+
+        Nodes are emitted in walk order, not link order, so an orphan would mean the walker recorded
+        an event it never linked into the graph: work the engine could never run.
+        """
+        for name in ("flatten.cs", "opaque.cs", "dictswitch.cs", "arith.cs", "deadexit.cs"):
+            r = recover(name)
+            for step in r["step_order"]:
+                st = r["steps"][step]
+                nodes = {n["id"]: n for n in st.get("nodes", [])}
+                if not nodes:
+                    continue
+                seen, stack = set(), [st["entry"]]
+                while stack:
+                    i = stack.pop()
+                    if i in seen or i not in nodes:
+                        continue
+                    seen.add(i)
+                    nxt = nodes[i].get("next")
+                    for t in (nxt if isinstance(nxt, list) else [nxt]):
+                        if t is not None:
+                            stack.append(t)
+                    stack.extend((nodes[i].get("cases") or {}).values())
+                self.assertEqual(set(nodes) - seen, set(), "%s/%s orphaned nodes" % (name, step))
+
     def test_every_exit_names_a_recovered_step(self):
         for name in ("flatten.cs", "dictswitch.cs", "arith.cs"):
             r = recover(name)
