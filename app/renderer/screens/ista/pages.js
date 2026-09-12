@@ -269,6 +269,12 @@ function istaPageVehicleTest(host, state) {
       (st.running ? `<span class="loader" aria-hidden="true"></span>` : '') +
       `<span>${esc(st.text || (st.running ? 'Reading the vehicle...' : ''))}` +
       `</span></div>`;
+  // a pass that could not run is said out loud, under the tally
+  const identNote =
+    st.done && st.identError
+      ? `<div class="irvt-warn">The control units were not identified: ` +
+        `${esc(st.identError)}. Their fault memories were still read.</div>`
+      : '';
   const tally = st.done
     ? `<div class="irvt-sum">` +
       `${esc(String(st.answered || 0))} control units answered, ` +
@@ -281,6 +287,7 @@ function istaPageVehicleTest(host, state) {
     `<h3>Vehicle test</h3>` +
     head +
     tally +
+    identNote +
     `<table class="irtable"><thead><tr>` +
     `<th>Control unit</th><th>Variant</th><th>Faults</th><th>Status</th>` +
     `</tr></thead><tbody>${rows}</tbody></table>` +

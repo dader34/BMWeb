@@ -190,6 +190,32 @@ function main() {
     ok('a module that never answered is still on the list');
   }
 
+  // ---- a count is only a count once the memory has been asked --------------
+  // The identification pass carries codes: [] for every module because it
+  // never asks the fault memory. Printing 0 there claims a clean memory that
+  // has not been read -- the technician sees "0 faults" on a pass that
+  // cannot know.
+  {
+    const ctx = load();
+    const identRow = { label: 'DME', sgbd: 'ms450ds0', faults: null, note: '' };
+    ctx.istaPageVehicleTest(ctx.host, { running: true, modules: [identRow] });
+    const cells = ctx.host.innerHTML.match(/<td class="irvt-n">([^<]*)<\/td>/);
+    assert.strictEqual(
+      cells && cells[1],
+      '',
+      'an unasked memory shows a count'
+    );
+    ok('the fault column is blank until the memory has been read');
+
+    ctx.istaPageVehicleTest(ctx.host, {
+      running: false,
+      modules: [{ label: 'DME', sgbd: 'ms450ds0', faults: 0, note: '' }],
+    });
+    const zero = ctx.host.innerHTML.match(/<td class="irvt-n">([^<]*)<\/td>/);
+    assert.strictEqual(zero && zero[1], '0', 'a read memory of 0 must show 0');
+    ok('a fault memory that was read and is clean still shows 0');
+  }
+
   // ---- the strip -----------------------------------------------------------
   {
     const src = fs.readFileSync(

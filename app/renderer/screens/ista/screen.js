@@ -179,6 +179,8 @@ async function istaOpenVehicleTest() {
     // table quietly omits every ECU that did not respond
     const mods = (report && report.modules) || [];
     const silent = (report && report.silent) || [];
+    // 'ident' is the identification pass; only a fault read counts faults
+    const asked = !report || report.kind !== 'ident';
     state.modules = mods
       .map((m) => ({
         // the Control unit column is the module, the Variant column is what
@@ -190,7 +192,12 @@ async function istaOpenVehicleTest() {
             ? m.label
             : String(m.via || m.sgbd || '').toUpperCase(),
         sgbd: m.sgbd || '',
-        faults: Array.isArray(m.codes) ? m.codes.length : null,
+        // A FAULT COUNT IS ONLY A COUNT ONCE THE MEMORY HAS BEEN ASKED.
+        // An identification report carries codes: [] for every module
+        // because it never asked, and printing 0 there claims a clean
+        // fault memory this pass has not read. The report says which
+        // pass it is; blank until the fault read answers.
+        faults: asked && Array.isArray(m.codes) ? m.codes.length : null,
         note: '',
       }))
       .concat(
@@ -202,9 +209,9 @@ async function istaOpenVehicleTest() {
         }))
       );
     state.answered = mods.length;
-    state.faults = mods.filter(
-      (m) => Array.isArray(m.codes) && m.codes.length
-    ).length;
+    state.faults = asked
+      ? mods.filter((m) => Array.isArray(m.codes) && m.codes.length).length
+      : 0;
   };
   paint();
 
@@ -269,8 +276,14 @@ async function istaOpenVehicleTest() {
     try {
       ident = await pass(null, identKey, 'Identifying the control units...');
     } catch (e) {
-      // a script with no Ident key still has a fault memory worth reading
+      // A SCRIPT WITH NO IDENT KEY STILL HAS FAULT MEMORIES WORTH READING,
+      // so this does not fail the test -- but it must not vanish either.
+      // Swallowing it silently is how a test that identified nothing looked
+      // exactly like one that did: the control unit list stayed grey and
+      // nothing said why.
       ident = null;
+      state.identError = String((e && e.message) || e);
+      console.warn('[ista] identification pass:', state.identError);
     }
     if (istaTestRun !== token) return;
     const got1 = ident && ident.report && (ident.report.modules || []).length;

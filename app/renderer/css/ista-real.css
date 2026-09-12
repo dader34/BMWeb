@@ -2117,3 +2117,8 @@ html .ista-real-body .irabl-docl .wiring-share {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
+.ista-real-body .irvt-warn {
+  margin: 0 0 10px;
+  font-size: 12px;
+  color: #a60;
+}
