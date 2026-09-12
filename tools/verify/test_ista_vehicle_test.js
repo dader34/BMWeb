@@ -123,15 +123,34 @@ function main() {
     // a read in progress must reach the slot loader, or nothing colours in
     // until the very end
     assert.ok(
-      /const now = istaTestLive\(\);/.test(src),
+      /const now = istaTestLive\(\) \|\| istaTestDone;/.test(src),
       'the slots ignore a read in progress'
     );
+    // A RUNNING TEST REPLACES THE STORED SCAN ENTIRELY. Falling back to the
+    // last scan for the half that has not answered yet paints the previous
+    // run's colours as though they were this one's: the whole tree came up
+    // coloured before a single module had replied, and a module cleared
+    // since then would still have shown amber.
     assert.ok(
-      /if \(now && now\.ident\) ident = now\.ident;/.test(src) &&
-        /if \(now && now\.faults\) faults = now\.faults;/.test(src),
-      'a live report does not outrank the stored one'
+      /if \(istaTestLive\(\)\) \{[\s\S]{0,200}ident = istaTestLive\(\)\.ident \|\| null;/.test(
+        src
+      ),
+      'a running test still falls back to the stored scan'
     );
-    ok('the control units colour in as they answer');
+    ok('a running test draws only what this test has heard');
+
+    // AND THE RESULT STAYS UP WHEN IT ENDS. Clearing the live state and
+    // redrawing hands the page back to the stored scan, so everything the
+    // test just found dropped off the tree the moment it finished.
+    assert.ok(
+      /istaTestDone = istaTestLiveState;/.test(src),
+      'the finished result is thrown away instead of kept on screen'
+    );
+    assert.ok(
+      /istaTestDone = null;/.test(src),
+      'a new test does not clear the previous result'
+    );
+    ok('what the test found stays on screen after it ends');
 
     // both passes, identification first
     const identAt = fn.indexOf("pass(null, identKey, 'ident')");

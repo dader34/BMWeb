@@ -35,16 +35,36 @@
  * @type {Array<[string, string[]]>}
  */
 const ISTA_IDENT_ROWS = [
-  ['BMW part number', ['BMW_NUMMER', 'AIF_ZB_NR', 'ID_ZB_NR', 'ZB_NR']],
+  // THE NAMES ARE THE ECU'S, NOT A GUESS AT THEM. An E46 cluster answers
+  // IDENT with ID_BMW_NR, ID_COD_INDEX, ID_DIAG_INDEX, ID_BUS_INDEX and
+  // ID_LIEF_TEXT -- none of which the first list held, so the window showed
+  // a dash for every row but the two whose names it happened to have right.
+  // Checked against the real car with `bmweb job kombi46r IDENT`.
+  [
+    'BMW part number',
+    ['BMW_NUMMER', 'ID_BMW_NR', 'AIF_ZB_NR', 'ID_ZB_NR', 'ZB_NR'],
+  ],
   ['Hardware number', ['HARDWARE_NUMMER', 'ID_HW_NR', 'AIF_HW_NR', 'HW_NR']],
   ['Software number', ['SOFTWARE_NUMMER', 'AIF_SW_NR', 'ID_SW_NR', 'SW_NR']],
-  ['Coding index', ['CODIERINDEX', 'AIF_CODIERINDEX', 'ID_CODIERINDEX']],
+  [
+    'Coding index',
+    ['CODIERINDEX', 'ID_COD_INDEX', 'AIF_CODIERINDEX', 'ID_CODIERINDEX'],
+  ],
   [
     'Diagnosis index',
-    ['DIAGNOSEINDEX', 'AIF_DIAGNOSEINDEX', 'ID_DIAGNOSEINDEX'],
+    ['DIAGNOSEINDEX', 'ID_DIAG_INDEX', 'AIF_DIAGNOSEINDEX', 'ID_DIAGNOSEINDEX'],
   ],
-  ['Bus index', ['BUSINDEX', 'AIF_BUSINDEX', 'ID_BUSINDEX']],
-  ['Supplier', ['LIEFERANT', 'AIF_LIEFERANT', 'ID_LIEFERANT', 'HERSTELLER']],
+  ['Bus index', ['BUSINDEX', 'ID_BUS_INDEX', 'AIF_BUSINDEX', 'ID_BUSINDEX']],
+  [
+    'Supplier',
+    [
+      'LIEFERANT',
+      'ID_LIEF_TEXT',
+      'AIF_LIEFERANT',
+      'ID_LIEFERANT',
+      'HERSTELLER',
+    ],
+  ],
   ['Build date', ['DATUM', 'AIF_DATUM', 'ID_DATUM', 'BAU_DATUM']],
   ['Serial number', ['SERIENNUMMER', 'AIF_SERIENNUMMER', 'ID_SERIENNUMMER']],
   ['Data number', ['AIF_DATEN_NR', 'ID_DATEN_NR', 'DATEN_NR']],
@@ -59,6 +79,15 @@ const ISTA_IDENT_ROWS = [
  */
 function istaIdentValue(ident, keys) {
   if (!ident) return '';
+  // this generation reports the build date as a CALENDAR WEEK and a year,
+  // never as one field, so it is put back together rather than left blank
+  if (keys[0] === 'DATUM' && ident.ID_DATUM_KW != null) {
+    const kw = String(ident.ID_DATUM_KW).trim();
+    const yr = String(ident.ID_DATUM_JAHR == null ? '' : ident.ID_DATUM_JAHR)
+      .trim()
+      .padStart(2, '0');
+    if (kw) return yr ? `KW ${kw}/${yr}` : `KW ${kw}`;
+  }
   for (const k of keys) {
     const v = ident[k];
     if (v != null && String(v).trim() && !String(v).startsWith('_'))

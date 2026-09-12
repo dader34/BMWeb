@@ -180,6 +180,7 @@ async function istaOpenVehicleTest() {
   let painting = false;
   istaTestRun = token;
   istaTestError = '';
+  istaTestDone = null;
   istaTestLiveState = { ident: null, faults: null };
 
   /**
@@ -263,12 +264,20 @@ async function istaOpenVehicleTest() {
     if (istaTestRun === token) {
       istaTestRun = null;
       istaTestHandle = null;
-      // the stored scans now hold what the live state held
+      // THE RESULT STAYS ON SCREEN. Clearing the live state and redrawing
+      // hands the page back to the STORED scan, and everything the test just
+      // found drops off the tree the moment it finishes -- which is what it
+      // did. What this run heard is kept as the last result and goes on
+      // being drawn; only starting another test replaces it.
+      istaTestDone = istaTestLiveState;
       istaTestLiveState = null;
       redraw(true);
     }
   }
 }
+
+/** @type {{ident: object|null, faults: object|null}|null} the last result */
+let istaTestDone = null;
 
 /** @type {object|null} the pass on the bus, so Cancel can end it */
 let istaTestHandle = null;
@@ -1072,13 +1081,24 @@ async function istaLoadSlots(chassis, car) {
     car && typeof garageScans === 'function' ? garageScans(car.id) : [];
   let faults = (scans.find((x) => x.kind === 'faults') || {}).report || null;
   let ident = (scans.find((x) => x.kind === 'ident') || {}).report || null;
-  // A READ IN PROGRESS OUTRANKS THE STORED ONE. The vehicle test paints the
+  // A READ IN PROGRESS REPLACES THE STORED ONE ENTIRELY. The test paints the
   // screen it is already on as each module answers, the way the tree app's
-  // own Fault scan does, so it hands its half-finished report in here rather
-  // than waiting for the end and reloading from the Garage.
-  const now = istaTestLive();
-  if (now && now.ident) ident = now.ident;
-  if (now && now.faults) faults = now.faults;
+  // own Fault scan does. Falling back to the LAST scan for the half that has
+  // not answered yet would paint the previous run's colours as though they
+  // were this one's -- a module cleared since then would still show amber,
+  // and the whole tree came up coloured before a single module had replied.
+  // While a test runs, only what this test has heard is drawn.
+  const now = istaTestLive() || istaTestDone;
+  if (now) {
+    ident = now.ident || ident;
+    faults = now.faults || faults;
+  }
+  // while a test is RUNNING, only what it has heard is drawn: falling back
+  // to the last scan would paint the previous run's colours as this one's
+  if (istaTestLive()) {
+    ident = istaTestLive().ident || null;
+    faults = istaTestLive().faults || null;
+  }
   return typeof istaSlots === 'function'
     ? istaSlots(cfg, faults, ident, tree)
     : [];
@@ -2845,6 +2865,20 @@ function istaPaintStates(slots) {
     for (const c of ['ok', 'faults', 'silent', 'unread'])
       el.classList.toggle(`tree-${c}`, c === state);
   });
+  // the bus map's own progress bar, which the screen already ships: how far
+  // the read has got, against the addresses this chassis's tree lists
+  const bar = host.querySelector('.tree-progress');
+  if (bar) {
+    const live = istaTestLive();
+    bar.hidden = !live;
+    if (live) {
+      const done = (slots || []).filter((x) => x.state !== 'unread').length;
+      const total = (slots || []).length;
+      const pct = total ? Math.min(100, Math.round((100 * done) / total)) : 0;
+      if (bar.firstElementChild) bar.firstElementChild.style.width = `${pct}%`;
+      bar.title = `${done} of ${total} control units`;
+    }
+  }
   // the control unit list's state dots
   const rows = host.querySelectorAll('.irunits tbody tr');
   if (rows.length && typeof istaUnitListOrder === 'function') {

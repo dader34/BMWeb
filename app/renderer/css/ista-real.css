@@ -1821,6 +1821,18 @@ html .ista-real-body .irabl-docl .wiring-share {
 .ista-real-body .view .tree-wrap {
   padding: 8px;
 }
+/* the read's progress bar: the screen already ships one, and the vehicle
+   test drives it, so it wears the tool's own colour rather than the app's
+   amber and sits tight under the toolbar instead of floating in the panel */
+.ista-real-body .view .tree-progress {
+  height: 3px;
+  border-radius: 0;
+  background: #d4d4d4;
+  margin: 0 0 6px;
+}
+.ista-real-body .view .tree-progress > i {
+  background: var(--ir-teal);
+}
 .ista-real-body .irtree-host {
   height: 100%;
 }
