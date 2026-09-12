@@ -135,11 +135,114 @@ function istaOpenFaultMemory() {
  * arrival; the read is the user's key.
  * @returns {Promise<void>}
  */
-function istaOpenVehicleTest() {
-  return showEcuTreeChassis(
-    istaChassis(),
-    istaState.car ? istaState.car.id : null
-  );
+/** The vehicle test that is on the bus right now, so a second cannot start. */
+let istaTestRun = null;
+
+/**
+ * Run the tool's vehicle test, in the tool's own window.
+ *
+ * THE TEST RUNS HERE. Every "Start vehicle test" button used to navigate to
+ * the app's Control unit tree and read nothing, which is not a test: the
+ * technician pressed a button and landed on another screen. This drives
+ * INPA's whole-car fault read headless -- the same engine the tree screen
+ * uses, which declines every write -- draws the modules as they answer,
+ * keeps the result against the car in the Garage, and ends on the Control
+ * unit list, which is where the tool leaves you.
+ * @returns {Promise<void>}
+ */
+async function istaOpenVehicleTest() {
+  if (istaTestRun) return;
+  const chassis = istaChassis();
+  const car = istaState.car || null;
+  if (typeof ecuTreeScanStart !== 'function') {
+    // without the scan engine there is nothing to run, and saying so beats
+    // silently opening some other screen
+    return istaGo('information', 'unit-list', null);
+  }
+  await istaGo('information', 'vehicle-test', null);
+  const host = document.getElementById('view');
+  if (!host) return;
+
+  /** @type {object} what the page is drawing */
+  const state = { running: true, text: '', modules: [] };
+  const paint = () => {
+    if (host.isConnected && typeof istaPageVehicleTest === 'function')
+      istaPageVehicleTest(host, state);
+  };
+  /**
+   * @param {object|null} report - the read so far
+   * @returns {void} fold it into the rows the page draws
+   */
+  const fold = (report) => {
+    // the report is {modules, silent}: a module that never answered is in
+    // its OWN list, not flagged on the module row, so both are drawn or the
+    // table quietly omits every ECU that did not respond
+    const mods = (report && report.modules) || [];
+    const silent = (report && report.silent) || [];
+    state.modules = mods
+      .map((m) => ({
+        label: m.label || m.sgbd || '',
+        sgbd: m.sgbd || '',
+        faults: Array.isArray(m.codes) ? m.codes.length : null,
+        note: '',
+      }))
+      .concat(
+        silent.map((x) => ({
+          label: x.label || x.target || '',
+          sgbd: String(x.target || '').toLowerCase(),
+          faults: null,
+          note: 'no answer',
+        }))
+      );
+    state.answered = mods.length;
+    state.faults = mods.filter(
+      (m) => Array.isArray(m.codes) && m.codes.length
+    ).length;
+  };
+  paint();
+
+  const handle = ecuTreeScanStart(chassis, {
+    onProgress: (report, text) => {
+      if (istaTestRun !== handle) return;
+      if (report) fold(report);
+      if (text) state.text = text;
+      paint();
+    },
+    onMessage: (title, body) => {
+      if (istaTestRun !== handle) return;
+      state.text = `${title}${body ? `: ${body}` : ''}`;
+      paint();
+    },
+  });
+  istaTestRun = handle;
+  istaBottomBar('vehicle-test', { cancel: () => handle.cancel() });
+
+  try {
+    const { report, lines, cancelled } = await handle.done;
+    if (istaTestRun === handle) istaTestRun = null;
+    fold(report);
+    state.running = false;
+    state.done = true;
+    state.stopped = !!cancelled;
+    state.text = '';
+    // the test is only worth anything if it is kept against the car: the
+    // Control unit list, the fault memory and the test plan all read it
+    // back out of the Garage
+    const got = report && (report.modules || []).length;
+    if (car && got && typeof garageAddScan === 'function')
+      garageAddScan(car.id, { report, lines }, { chassis });
+    istaState.tested = true;
+    paint();
+    // and then the tool shows what it found
+    if (host.isConnected && got) await istaGo('information', 'unit-list', null);
+  } catch (e) {
+    if (istaTestRun === handle) istaTestRun = null;
+    state.running = false;
+    state.done = true;
+    state.error = String((e && e.message) || e);
+    paint();
+    istaBottomBar('vehicle-test', { cancel: null });
+  }
 }
 
 /**
@@ -288,6 +391,10 @@ async function istaSubReady(sub) {
       if (!has)
         return { ok: false, why: 'no workshop reference data in this build' };
     }
+    // the vehicle test needs the scan engine; without it the button would
+    // open a page that can never read anything
+    if (sub.page === 'vehicle-test' && typeof ecuTreeScanStart !== 'function')
+      return { ok: false, why: 'not in this build' };
     // the repair manual ships per chassis, so "is it here" is asked of THIS
     // car's chassis, not of the extract as a whole: a build can carry E46's
     // manual and not F30's, and saying so is more use than a blank pane
@@ -2310,10 +2417,7 @@ async function istaDrawPage(s, host) {
     let picked = null;
     const bar = () =>
       istaBottomBar('unit-list', {
-        'vehicle-test': () => {
-          istaState.tested = true;
-          return istaOpenVehicleTest();
-        },
+        'vehicle-test': () => istaOpenVehicleTest(),
         'ecu-functions': picked
           ? () => istaOpenEcuWindow(picked.slot, picked.box, chassis)
           : null,
@@ -2346,10 +2450,7 @@ async function istaDrawPage(s, host) {
     const read = slots.some((x) => x.state !== 'unread');
     const bar = () =>
       istaBottomBar('unit-list', {
-        'vehicle-test': () => {
-          istaState.tested = true;
-          return istaGo('information', 'tree', null);
-        },
+        'vehicle-test': () => istaOpenVehicleTest(),
         // the window is about ONE control unit, so it needs one picked
         'ecu-functions': picked
           ? () => istaOpenEcuWindow(picked, null, chassis)
@@ -2419,15 +2520,27 @@ async function istaDrawPage(s, host) {
         'ident-only': cable
           ? () => istaGo('information', 'details', null)
           : null,
-        'ident-full': cable
-          ? () => {
-              istaState.tested = true;
-              return istaGo('information', 'tree', null);
-            }
-          : null,
+        // Complete identification IS the vehicle test: it reads the car
+        'ident-full': cable ? () => istaOpenVehicleTest() : null,
       });
     if (real) armReadout(false);
     await istaPageReadout(host, { onCable: real ? armReadout : null });
+    return;
+  }
+
+  if (s.page === 'vehicle-test') {
+    // The page belongs to the run that started it. Landing here any other
+    // way -- a reload, Back -- means there is no read on the bus, so it
+    // says so rather than showing an empty table that looks like a test
+    // that found nothing.
+    if (real && !istaTestRun && typeof istaPageVehicleTest === 'function') {
+      istaRealStatus({ items: [] });
+      istaBottomBar('vehicle-test', { cancel: null });
+      istaPageVehicleTest(host, {
+        running: false,
+        text: 'No vehicle test is running. Start one from Control unit list.',
+      });
+    }
     return;
   }
 
@@ -2463,10 +2576,7 @@ async function istaDrawPage(s, host) {
     if (!real) return istaShowDetails(host, car, chassis);
     istaRealStatus({ items: [] });
     istaBottomBar('details', {
-      'vehicle-test': () => {
-        istaState.tested = true;
-        return istaGo('information', 'tree', null);
-      },
+      'vehicle-test': () => istaOpenVehicleTest(),
       'info-search': () =>
         istaGo('management', 'troubleshooting', 'text-search'),
     });
@@ -2494,8 +2604,11 @@ async function istaDrawPage(s, host) {
     if (!host.isConnected) return;
     const codes = (got && got.codes) || [];
     const date = car && car.prod ? Number(String(car.prod).padEnd(8, '0')) : 0;
+    // saName(code, date) -- passing the chassis as a third argument put the
+    // CHASSIS in `code` and the code in `date`, so every lookup missed and
+    // the option list came out as bare numbers
     istaRealEquipment(host, codes, (c) =>
-      typeof saName === 'function' ? saName(chassis, c, date) : ''
+      typeof saName === 'function' ? saName(c, date) || '' : ''
     );
     return;
   }

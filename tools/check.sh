@@ -261,6 +261,10 @@ echo "== ISTA shell: tab model, routes, favourites, banner and details text =="
 node tools/verify/test_ista.js || exit 1
 
 echo
+echo "== ISTA vehicle test: the read runs in the shell and is kept on the car =="
+node tools/verify/test_ista_vehicle_test.js || exit 1
+
+echo
 echo "== repair manual: the extractor's document model, groups and pictures =="
 python3 tools/verify/test_repair_extract.py || exit 1
 python3 tools/verify/test_ecu_functions_extract.py || exit 1

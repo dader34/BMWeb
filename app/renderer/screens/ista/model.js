@@ -172,6 +172,16 @@ const ISTA_TABS = [
         needsCar: true,
       },
       {
+        // the vehicle test's own page, reached from the buttons rather than
+        // the tab strip: the tool has no tab for it either
+        id: 'vehicle-test',
+        label: 'Vehicle test',
+        desc: 'The whole-car read, while it runs',
+        page: 'vehicle-test',
+        needsCar: true,
+        hidden: true,
+      },
+      {
         id: 'unit-list',
         label: 'Control unit list',
         desc: 'Every module the chassis carries, with what the newest test found',
@@ -523,6 +533,11 @@ const ISTA_BOTTOM = {
     { spacer: true },
     { id: 'display-faults', label: 'Display fault\nmemory' },
   ],
+  // The vehicle test while it RUNS: the read owns the page, so the only
+  // thing to offer is stopping it. Cancel ends the read between two jobs,
+  // the way the tool's own test does, rather than pulling the cable out
+  // from under a job that is on the bus.
+  'vehicle-test': [{ id: 'cancel', label: 'Cancel' }, { spacer: true }],
   // Troubleshooting / SAE fault code input
   sae: [
     { id: 'show-code', label: 'Show fault code' },
@@ -564,11 +579,29 @@ function istaDevHost() {
 
 /**
  * Whether a sub-tab exists on this host.
+ *
+ * A `hidden` sub-tab is a real page with no tab of its own: the vehicle
+ * test is reached by pressing the button, and the tool has no tab for it
+ * either. It still routes and still draws; it just never joins the strip.
  * @param {IstaSub|IstaSub3} s - the sub-tab
  * @returns {boolean}
  */
 function istaSubShown(s) {
   return !s.dev || istaDevHost();
+}
+
+/**
+ * Whether a sub-tab joins the strip.
+ *
+ * A `hidden` sub-tab is a real, routable page with no tab of its own: the
+ * vehicle test is reached by pressing the button, and the tool has no tab
+ * for it either. Keep this apart from istaSubShown -- folding the two
+ * together would make a hidden page fail to resolve and never route.
+ * @param {IstaSub|IstaSub3} s - the sub-tab
+ * @returns {boolean}
+ */
+function istaSubInStrip(s) {
+  return !s.hidden && istaSubShown(s);
 }
 
 /**
@@ -593,7 +626,7 @@ function istaSub(tabId, subId) {
 function istaSubsOf(tabId) {
   if (tabId !== 'favourites') {
     const t = istaTab(tabId);
-    return t ? (t.subs || []).filter(istaSubShown) : [];
+    return t ? (t.subs || []).filter(istaSubInStrip) : [];
   }
   return istaFavourites()
     .map((f) => {
@@ -613,7 +646,7 @@ function istaSubsOf(tabId) {
  */
 function istaSubs3Of(tabId, subId) {
   const s = istaSub(tabId, subId);
-  return s && s.subs3 ? s.subs3.filter(istaSubShown) : [];
+  return s && s.subs3 ? s.subs3.filter(istaSubInStrip) : [];
 }
 
 /**
