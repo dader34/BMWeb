@@ -15,7 +15,7 @@
  * carries a document class rather than a module name.
  */
 
-/* exported istaPageFinished istaPageUnitList istaPageHistory
+/* exported istaPageFinished istaPageUnitList istaUnitListOrder istaPageHistory
    istaPageServicePlan istaModuleGroups istaPageReport */
 
 /** How ISTA colours a module's state square. */
@@ -183,8 +183,27 @@ function istaModuleGroups(config) {
  * @param {object} ctx - {slots, onPick}
  * @returns {object[]} the rows drawn
  */
+/**
+ * The list's order: what has faults first, then what answered clean, then
+ * what did not answer, then what was never read. The tool draws the
+ * config's order and a technician scans for the amber squares; this puts
+ * them at the top so one glance says what the car has. Stable within a
+ * state, so the config's order still holds inside each band.
+ * @param {object[]} slots - from istaSlots
+ * @returns {object[]} a sorted copy
+ */
+function istaUnitListOrder(slots) {
+  const rank = { faults: 0, ok: 1, silent: 2, unread: 3 };
+  return (slots || [])
+    .map((s, i) => [s, i])
+    .sort(
+      (a, b) => (rank[a[0].state] ?? 9) - (rank[b[0].state] ?? 9) || a[1] - b[1]
+    )
+    .map(([s]) => s);
+}
+
 function istaPageUnitList(host, ctx) {
-  const rows = ctx.slots || [];
+  const rows = istaUnitListOrder(ctx.slots || []);
   const body = rows
     .map(
       (s, i) =>
@@ -287,6 +306,7 @@ if (typeof module !== 'undefined' && module.exports) {
     istaPageFinished,
     istaPageHistory,
     istaPageUnitList,
+    istaUnitListOrder,
     istaPageServicePlan,
     istaPageReport,
   };
