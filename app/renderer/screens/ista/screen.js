@@ -978,14 +978,24 @@ async function istaOpenEcuWindow(slot, box, chassis) {
 }
 
 /**
- * Session state the Service plan's Test plan holds.
+ * The Service plan's Test plan, for the car in front of the shell.
  *
- * Deliberately in memory and not in Settings: a test plan is what THIS
- * session decided to look at, and a plan that outlived the car on the ramp
- * would be worse than no plan at all.
- * @type {object[]}
+ * It used to be a bare array in this scope, deliberately not persisted, on
+ * the grounds that a plan outliving the car on the ramp is worse than no
+ * plan. That is right about a plan following the WRONG car and wrong about
+ * the same car tomorrow, so the store in plan.js keys the plan by the
+ * Garage car id the way the scans are keyed, and a plan belongs to exactly
+ * one car forever. This stays as the shell's reader of it.
+ * @param {object|null} [car] - the picked GarageCar; the shell's by default
+ * @returns {object[]} the rows, in the tool's Priority order
  */
-const istaTestPlan = [];
+function istaTestPlan(car) {
+  const c = car === undefined ? istaState.car : car;
+  if (typeof istaPlanRows !== 'function') return [];
+  return typeof istaPlanSort === 'function'
+    ? istaPlanSort(istaPlanRows(c), istaState.planDesc)
+    : istaPlanRows(c);
+}
 
 /** Hosted copy of the tool's control-unit function lists. */
 const ISTA_ECUFN_HF_BASE =
@@ -1347,10 +1357,16 @@ async function istaDiagBody(chassis, doc) {
  */
 async function istaPlanGroups(which, car) {
   if (which === 'programming-plan') return [];
-  if (which === 'test-plan')
-    return istaTestPlan.length
-      ? [{ title: 'Test plan', rows: istaTestPlan }]
-      : [];
+  if (which === 'test-plan') {
+    // the plan groups UNDER THE COMPONENT, which is what the frames show: a
+    // grey heading row carrying the group's priority, its ABL rows beneath
+    const rows = istaTestPlan(car);
+    return rows.length && typeof istaPlanGroupRows === 'function'
+      ? istaPlanGroupRows(rows)
+      : rows.length
+        ? [{ title: 'Test plan', rows }]
+        : [];
+  }
   const scan =
     typeof istaNewestScan === 'function' ? istaNewestScan(car) : null;
   const rows =
@@ -1392,6 +1408,303 @@ function istaOpenPlanDoc(row) {
     `<div class="modal irdoc" role="dialog" aria-modal="true">` +
       `<div class="irdoc-title">${esc(doc.title || row.title)}</div>` +
       `<div class="irdoc-body">${chapters}</div>` +
+      `<div class="modal-actions">` +
+      `<button type="button" class="btn irdoc-close">Close</button>` +
+      `</div></div>`
+  );
+  overlay.querySelector('.irdoc-close').onclick = () => close();
+}
+
+/**
+ * Calculate the test plan for one stored fault.
+ *
+ * TWO SOURCES, AND THE BETTER ONE WINS PER FAULT. The fault-to-procedure
+ * links the Hit list already uses name the procedure in words; the
+ * recovered modules' per-chassis index names it by identifier, which is
+ * what the module window needs to open anything. So a fault the index
+ * covers contributes a runnable row, a fault only the links cover
+ * contributes a readable one, and a fault neither covers contributes
+ * nothing rather than a row that dead-ends.
+ * @param {object} fault - the picked fault row, from istaFaultRows
+ * @param {object|null} car - the picked GarageCar
+ * @param {string} chassis - the development code
+ * @returns {Promise<object[]>} the rows to push into the plan
+ */
+async function istaCalcPlan(fault, car, chassis) {
+  if (!fault) return [];
+  /** @type {object[]} */
+  const out = [];
+  const code = String(fault.code || '').toUpperCase();
+  const idx = await istaProbe(() =>
+    typeof istaAblIndex === 'function' ? istaAblIndex(chassis) : null
+  );
+  // the index's fault links: {faults: {"0041AA": ["ABL-DIT-B1362_D6LDF"]}}
+  // and a per-module row of what to call it and where it belongs
+  const byFault = (idx && idx.faults) || {};
+  const modules = (idx && idx.modules) || {};
+  const ids = []
+    .concat(byFault[code] || [])
+    .concat(byFault[code.replace(/^0+/, '')] || []);
+  for (const id of ids) {
+    const m = modules[id] || {};
+    out.push({
+      id,
+      type: 'ABL',
+      title: m.title || id,
+      component: m.component || m.title || fault.desc || id,
+      priority: m.priority == null ? 0 : Number(m.priority),
+      state: 'none',
+      fault: code,
+    });
+  }
+  if (out.length) return out;
+  // no index, or no link for this fault: the linked document still tells a
+  // technician what BMW says to do, so the row is worth having
+  await istaProbe(() =>
+    typeof loadIstaTests === 'function' ? loadIstaTests() : null
+  );
+  const doc =
+    typeof istaTestFor === 'function' ? istaTestFor(fault.desc) : null;
+  if (doc)
+    out.push({
+      id: `DOC ${doc.slug || doc.title || fault.desc}`,
+      type: 'ABL',
+      title: doc.title || fault.desc,
+      component: fault.desc || doc.title,
+      priority: 0,
+      state: 'none',
+      fault: code,
+      doc,
+    });
+  return out;
+}
+
+/**
+ * Open a test plan row: the module window when the module ships, the
+ * document when only the link does, and a grey note when neither.
+ * @param {object} row - the picked plan row
+ * @param {object|null} car - the picked GarageCar
+ * @param {string} chassis - the development code
+ * @param {Function} [after] - called when the window closes, to redraw
+ * @returns {Promise<void>}
+ */
+async function istaOpenPlanRow(row, car, chassis, after) {
+  if (!row) return;
+  const graph =
+    row.id && typeof istaAblLoad === 'function'
+      ? await istaProbe(() => istaAblLoad(row.id))
+      : null;
+  if (!graph) {
+    // a row whose module this build does not ship still has its document
+    if (row.doc) return istaOpenPlanDoc(row);
+    if (typeof istaPageGrey === 'function' && typeof showIsta === 'function')
+      return istaOpenPlanNote(row);
+    return;
+  }
+  await istaOpen({
+    label: row.title || row.id,
+    _call: () => istaRunAblModule(graph, row, car, chassis, after),
+  });
+}
+
+/**
+ * Run a recovered test module in the shell's content area.
+ *
+ * This is the seam between the step player and the app: the engine asks for
+ * a job, a library module, a fault list or a document, and each of those is
+ * something the app already does. Nothing here re-implements any of them.
+ * @param {object} graph - the recovered module
+ * @param {object} row - the plan row it came from
+ * @param {object|null} car - the picked GarageCar
+ * @param {string} chassis - the development code
+ * @param {Function} [after] - called when the window closes
+ * @returns {Promise<void>} resolves when the window is closed
+ */
+function istaRunAblModule(graph, row, car, chassis, after) {
+  const view = document.getElementById('view');
+  if (!view || typeof istaAblWindow !== 'function') return Promise.resolve();
+  view.innerHTML = '';
+  const host = document.createElement('div');
+  host.className = 'irablhost';
+  view.appendChild(host);
+  if (typeof setActions === 'function') setActions([]);
+
+  // A TEST HOOK, AND ONLY BEHIND A QUERY FLAG. Driving the window headless
+  // needs a car that answers; wiring one in without the flag would mean a
+  // build that can be fed fake readings from a link.
+  const fake =
+    typeof location !== 'undefined' &&
+    /[?&]abltest=1\b/.test(location.search) &&
+    typeof window !== 'undefined' &&
+    typeof window.__ablRunner === 'object'
+      ? window.__ablRunner
+      : null;
+
+  return new Promise((resolve) => {
+    istaAblWindow(host, {
+      graph,
+      docs: (doc, label) => istaAblDocHtml(doc, label, chassis),
+      runner: fake || {
+        // the module addresses a GROUP; the app resolves it to the variant
+        // that answers on this car, exactly as every other screen does
+        job: async (spec) => {
+          let sgbd = spec.sgbd;
+          if (!sgbd && spec.group && typeof webResolveVariant === 'function')
+            sgbd = await istaProbe(() => webResolveVariant(spec.group));
+          if (!sgbd) return null;
+          const q = spec.argText
+            ? `?arg=${encodeURIComponent(spec.argText)}`
+            : '';
+          return istaProbe(() =>
+            api(`/api/ecu/${sgbd}/run/${encodeURIComponent(spec.job)}${q}`, {
+              method: 'POST',
+            })
+          );
+        },
+        module: ({ identifier }) =>
+          typeof istaAblLoad === 'function' ? istaAblLoad(identifier) : null,
+        native: {
+          // THE FAULT LIST IS ALREADY READ. The library module the engine
+          // would otherwise run asks the car for the fault memory of a
+          // group; the Garage scan holds that answer, so the stand-in
+          // filters the stored faults by the module's own fault locations
+          // rather than putting the car back on the bus for them.
+          submodule: async ({ seed }) => istaAblFaultList(seed, car),
+          faultList: async ({ vars }) => istaAblFaultList(vars, car),
+        },
+      },
+      onDone: (verdict) => {
+        if (row && row.id && typeof istaPlanSetState === 'function')
+          istaPlanSetState(
+            car,
+            row.id,
+            verdict === 'canceled' ? 'canceled' : 'performed'
+          );
+      },
+      onClose: () => {
+        if (typeof after === 'function') after();
+        resolve();
+      },
+    });
+  });
+}
+
+/**
+ * The fault-memory library module's contract, off the stored scan.
+ *
+ * The recovered library returns a wall of parallel arrays; what its callers
+ * actually read out of them is the count of matching faults, the resolved
+ * SGBD and the identification status. Those three come straight from the
+ * scan the Garage already holds, filtered to the fault locations the
+ * calling module named.
+ * @param {object} vars - the caller's variables (SG_gruppe_v, Fehlerorte_v)
+ * @param {object|null} car - the picked GarageCar
+ * @returns {object} the variables the caller reads back
+ */
+function istaAblFaultList(vars, car) {
+  const v = vars || {};
+  const first = (x) => (Array.isArray(x) ? x[0] : x);
+  const group = String(first(v.SG_gruppe_v) || '').toUpperCase();
+  const places = (Array.isArray(v.Fehlerorte_v) ? v.Fehlerorte_v : [])
+    .filter(Boolean)
+    .map((x) => String(x).toUpperCase().replace(/^0X/, ''));
+  const scan =
+    typeof istaNewestScan === 'function' ? istaNewestScan(car) : null;
+  const rows =
+    typeof istaFaultRows === 'function'
+      ? istaFaultRows(scan && scan.report)
+      : [];
+  // the module names an ECU GROUP; the scan names the variant that answered
+  // for it, so the match is on the module the fault came from rather than
+  // on a group name the scan never carried
+  const mine = rows.filter((r) => {
+    if (!places.length) return true;
+    const code = String(r.code || '')
+      .toUpperCase()
+      .replace(/^0X/, '');
+    return places.some((p) => code.endsWith(p));
+  });
+  const sgbd = (mine[0] && mine[0].sgbd) || (rows[0] && rows[0].sgbd) || '';
+  return {
+    Status_Fehlerspeicher_v: mine.length,
+    Anzahl_Fehlerspeicher_v: mine.length,
+    Sgbd_v: [sgbd],
+    gSgbd_v: sgbd,
+    Status_Ident_v: [scan ? 'OKAY' : ''],
+    gJobstat1_v: scan ? 'OKAY' : '',
+    Fkode_hex_v: mine.map((r) => String(r.code || '')),
+    Fkode_Text_v: mine.map((r) => String(r.desc || '')),
+    Fkode_Anzahl_ges_v: mine.length,
+    Status_Ident_ges_v: scan ? 'OKAY' : '',
+    SG_gruppe_v: [group],
+  };
+}
+
+/**
+ * A document pane's HTML: the app already serves both halves.
+ *
+ * The wiring diagram is the app's own WDS schematic for the component the
+ * module names; the function description is a diagnosis document rendered
+ * the way every other one is. Null when this build ships neither, and the
+ * window then says which one it was waiting for.
+ * @param {object} doc - the document the module asked for
+ * @param {string} label - which pane it is filling
+ * @param {string} chassis - the development code
+ * @returns {Promise<string|null>}
+ */
+async function istaAblDocHtml(doc, label, chassis) {
+  if (!doc) return null;
+  if (/Wiring/i.test(label)) {
+    const name = String(doc.name || '');
+    if (!name || typeof loadWiring !== 'function') return null;
+    const data = await istaProbe(() => loadWiring(chassis));
+    if (!data || typeof wiringIndex !== 'function') return null;
+    const index = wiringIndex(data.tree);
+    // the module names the component's own drawing; the index names it the
+    // way WDS did, so the match is on the name rather than on a doc id the
+    // module never carried
+    const want = name.replace(/_/g, ' ').toLowerCase();
+    const hit =
+      index.find((e) => String(e.name || '').toLowerCase() === want) ||
+      index.find((e) =>
+        String(e.name || '')
+          .toLowerCase()
+          .includes(want)
+      );
+    if (!hit || typeof wiringDoc !== 'function') return null;
+    const found = wiringDoc(data, hit.doc);
+    if (!found || found.type !== 'svg') return null;
+    return `<div class="irabl-svg">${found.text}</div>`;
+  }
+  // the function description: the diagnosis extract carries the FUB bodies
+  if (!doc.name && typeof istaDiagBodyHtml === 'function') {
+    const code = String(chassis || '').toUpperCase();
+    const body = await istaProbe(async () => {
+      const r = await istaDiagFetch(`${code}/docs/${doc.id || ''}.json.gz`);
+      if (!r || typeof fflate === 'undefined') return null;
+      const bytes = new Uint8Array(await r.arrayBuffer());
+      return JSON.parse(
+        new TextDecoder('utf-8').decode(fflate.gunzipSync(bytes))
+      );
+    });
+    if (body) return `<div class="ista-repair">${istaDiagBodyHtml(body)}</div>`;
+  }
+  return null;
+}
+
+/**
+ * Say, in the tool's own page, that a plan row's module does not ship.
+ * @param {object} row - the picked plan row
+ * @returns {void}
+ */
+function istaOpenPlanNote(row) {
+  if (typeof openModal !== 'function') return;
+  const { overlay, close } = openModal(
+    `<div class="modal irdoc" role="dialog" aria-modal="true">` +
+      `<div class="irdoc-title">${esc(row.title || row.id)}</div>` +
+      `<div class="irdoc-body"><p>This test module is not in this build. ` +
+      `Its recovered procedure ships under data/ista/abl/ ` +
+      `(${esc(row.id || 'no identifier')}).</p></div>` +
       `<div class="modal-actions">` +
       `<button type="button" class="btn irdoc-close">Close</button>` +
       `</div></div>`
@@ -1535,6 +1848,21 @@ async function istaDrawPage(s, host) {
               draw();
             }
           : null,
+        // CALCULATE TEST PLAN, on the fault the technician picked. The tool
+        // resolves the procedures BMW links to that fault, puts them in the
+        // plan, and lands on the plan so the next press is Display.
+        'calc-plan': picked
+          ? async () => {
+              const rows = await istaCalcPlan(picked, car, chassis);
+              const added =
+                typeof istaPlanAdd === 'function' ? istaPlanAdd(car, rows) : 0;
+              if (!added && !rows.length && typeof toast === 'function')
+                toast(
+                  `No procedure is linked to ${picked.code} in this build.`
+                );
+              return istaGo('service-plan', 'test-plan', null);
+            }
+          : null,
       });
     draw();
     return;
@@ -1663,32 +1991,61 @@ async function istaDrawPage(s, host) {
   // ---- Service plan ---------------------------------------------------------
   if (s.page === 'plan') {
     let picked = null;
-    const groups = await istaPlanGroups(s.id, car);
-    if (!host.isConnected) return;
+    const plan = s.id === 'test-plan';
+    const draw = async () => {
+      const groups = await istaPlanGroups(s.id, car);
+      if (!host.isConnected) return;
+      const flat = istaPageServicePlan(host, {
+        groups,
+        // the plan's own columns: the State glyph and the sortable Priority
+        // the frames carry, which the hit list has nothing to put in
+        state: plan,
+        sortable: plan,
+        desc: !!istaState.planDesc,
+        onSort: plan
+          ? () => {
+              istaState.planDesc = !istaState.planDesc;
+              draw();
+            }
+          : null,
+        empty:
+          s.id === 'hit-list'
+            ? 'No fault has been read on this vehicle yet, so nothing points ' +
+              'at a procedure.'
+            : plan
+              ? 'Nothing has been calculated into the test plan for this ' +
+                'vehicle yet. Pick a fault on Fault memory and press ' +
+                'Calculate test plan.'
+              : 'Programming is not offered by this build.',
+        onPick: (r) => {
+          picked = r;
+          bar();
+        },
+        onOpen: (r) => open(r),
+      });
+      istaRealStatus({
+        items: [{ k: 'Hits:', v: `${flat.length} / ${flat.length}` }],
+        legend: plan
+          ? [
+              { cls: 'none', label: 'not called' },
+              { cls: 'ok', label: 'performed' },
+              { cls: 'warn', label: 'minimized' },
+              { cls: 'bad', label: 'canceled' },
+              { cls: 'blue', label: 'suspected' },
+            ]
+          : null,
+      });
+      bar();
+    };
+    // a plan row opens the MODULE; a hit-list row has only its document
+    const open = (r) =>
+      plan ? istaOpenPlanRow(r, car, chassis, draw) : istaOpenPlanDoc(r);
     const bar = () =>
       istaBottomBar('hit-list', {
         back: () => showIsta('information', 'details', null),
-        display: picked ? () => istaOpenPlanDoc(picked) : null,
+        display: picked ? () => open(picked) : null,
       });
-    const flat = istaPageServicePlan(host, {
-      groups,
-      empty:
-        s.id === 'hit-list'
-          ? 'No fault has been read on this vehicle yet, so nothing points ' +
-            'at a procedure.'
-          : s.id === 'test-plan'
-            ? 'Nothing has been added to the test plan in this session.'
-            : 'Programming is not offered by this build.',
-      onPick: (r) => {
-        picked = r;
-        bar();
-      },
-      onOpen: (r) => istaOpenPlanDoc(r),
-    });
-    istaRealStatus({
-      items: [{ k: 'Hits:', v: `${flat.length} / ${flat.length}` }],
-    });
-    bar();
+    await draw();
     return;
   }
 

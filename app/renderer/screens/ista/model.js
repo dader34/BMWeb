@@ -477,6 +477,18 @@ const ISTA_BOTTOM = {
     { id: 'std-filter', label: 'Set standard filter', off: true },
     { id: 'display', label: 'Display' },
   ],
+  // A RUNNING TEST MODULE'S OWN ROW (sheets s05..s10). The two greyed
+  // buttons are real controls of a tool that has a multimeter plugged in:
+  // this build has none, so they draw the way the frames draw them before
+  // one is connected rather than being left out.
+  abl: [
+    { id: 'back', label: 'Back' },
+    { id: 'devices', label: 'Measuring devices', off: true },
+    { id: 'keyboard', label: 'Keyboard', off: true },
+    { spacer: true },
+    { id: 'full', label: 'Full Screen' },
+    { id: 'continue', label: 'Continue' },
+  ],
   // Workshop: the section tabs and the Show all checkbox the app's own page
   // draws become one Filters button, in the tool's own language
   techdata: [

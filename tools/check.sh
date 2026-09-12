@@ -261,6 +261,10 @@ echo "== ISTA shell: tab model, routes, favourites, banner and details text =="
 node tools/verify/test_ista.js || exit 1
 
 echo
+echo "== test modules: the step player walks B1362 the way the tool does =="
+node tools/verify/test_abl_engine.js || exit 1
+
+echo
 echo "== repair manual: the extractor's document model, groups and pictures =="
 python3 tools/verify/test_repair_extract.py || exit 1
 python3 tools/verify/test_ecu_functions_extract.py || exit 1
