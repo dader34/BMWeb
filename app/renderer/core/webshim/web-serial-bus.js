@@ -347,27 +347,37 @@ class WebSerialBus extends SerialTransportBase {
     const i = this.port && this.port.getInfo ? this.port.getInfo() : {};
     if (i.usbVendorId)
       return `USB ${i.usbVendorId.toString(16)}:${(i.usbProductId || 0).toString(16)}`;
-    // A K+DCAN cable is a USB device and the browser reports its ids. A port
-    // without them is a Bluetooth adapter (the browser names those by their
-    // service class) or a virtual port, and neither has a K line to echo on:
-    // a tester spent four days on "no echo from the cable" with a port the
-    // chip merely called "serial". Say what it is.
+    // A K+DCAN cable is a USB device and the browser usually reports its
+    // ids. A Bluetooth adapter (named by its service class) has no K line
+    // to echo on, so it is called out: a tester spent four days on "no
+    // echo from the cable" with one. A port with NO ids at all is not that
+    // verdict: Chrome inside a Chromebook's Linux container, or any
+    // passthrough, hands the same FTDI cable over as a bare serial device
+    // with its ids stripped, and a tester read the old "not a K+DCAN
+    // cable" label as a refusal and gave up. Say only what is known.
     if (i.bluetoothServiceClassId)
       return 'Bluetooth serial, not a K+DCAN cable';
-    return 'serial port without a USB id, not a K+DCAN cable';
+    return 'serial port, no USB id reported';
   }
 
   /**
-   * Why this port cannot be a K+DCAN cable, for the no-echo error, or ''
-   * when it reports USB ids (then the cable is real and the car is the
-   * question).
+   * What the port says about itself, for the no-echo error: '' when it
+   * reports USB ids (then the cable is real and the car is the question),
+   * a verdict for Bluetooth, and for a port with no ids only the fact that
+   * none were reported, since that port may well be the cable.
    * @returns {string}
    */
   portHint() {
     if (this.port && typeof this.port.label === 'function') return '';
     const i = this.port && this.port.getInfo ? this.port.getInfo() : {};
     if (i.usbVendorId) return '';
-    return ` -- this port is a ${this.portLabel()}; a K+DCAN cable shows as USB 403:6001`;
+    if (i.bluetoothServiceClassId)
+      return ` -- this port is a ${this.portLabel()}; a K+DCAN cable shows as USB 403:6001`;
+    return (
+      ' -- this port reported no USB id (a Linux container or a passthrough' +
+      ' strips it); a K+DCAN cable normally shows as USB 403:6001, but one' +
+      ' without ids can still be the cable'
+    );
   }
 
   /** Release the streams, close the port and forget the wire state. */
