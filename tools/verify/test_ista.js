@@ -1717,4 +1717,60 @@ const I = loadClassic('screens/ista/');
   delete global.envPairs;
 }
 
+// ---- a fault's name reaches its procedure ---------------------------------
+// THE HIT LIST SAID "no procedure is linked to this fault in this build" for
+// every fault on a car whose procedures were right there. faultName returns
+// "CODE Name" because a technician reads the code first, and the procedure
+// set is keyed by the component alone -- so every fault slugged to
+// "2761-secondary-air-system" and matched nothing.
+{
+  const data = fs.readFileSync(
+    path.join(ROOT, 'app', 'renderer', 'screens', 'lookup', 'data.js'),
+    'utf8'
+  );
+  const m = /const LOOKUP_CODE_PREFIX_RE = (\/.*\/[a-z]*);/.exec(data);
+  assert.ok(m, 'the code prefix is stripped before the name is slugged');
+  const re = eval(m[1]);
+  const strip = (t) => t.replace(re, '').trim();
+
+  assert.strictEqual(
+    strip('2761 Secondary air system'),
+    'Secondary air system'
+  );
+  assert.strictEqual(strip('27C3 Oil level sensor'), 'Oil level sensor');
+  assert.strictEqual(strip('BE Instrument cluster'), 'Instrument cluster');
+  assert.strictEqual(strip('P0171 Mixture too lean'), 'Mixture too lean');
+  // A COMPONENT NAME THAT STARTS WITH A NUMBER keeps it: there is no
+  // space-separated hex token in front of it, and eating the digit would
+  // turn a real name into a different one.
+  assert.strictEqual(strip('4 wheel drive'), '4 wheel drive');
+  assert.strictEqual(strip('3 series'), '3 series');
+  // nor does it eat a name with no code at all
+  assert.strictEqual(strip('Secondary air system'), 'Secondary air system');
+  ok('the fault code comes off before the name is matched');
+}
+
+// ---- the control unit window's tabs are words, not hyphenated fragments ----
+{
+  const win = fs.readFileSync(
+    path.join(ROOT, 'app', 'renderer', 'screens', 'ista', 'ecuwin.js'),
+    'utf8'
+  );
+  // the frames hyphenate these only because the real tool's tab is too
+  // narrow for them, which is its layout losing an argument with its own
+  // text rather than a name with a hyphen in it
+  for (const label of [
+    'Identification',
+    'Diagnosis scan',
+    'Component triggering',
+    'Software information',
+  ])
+    assert.ok(win.includes(`'${label}'`), `the ${label} tab reads as words`);
+  assert.ok(
+    !/Component trig-|Software infor-/.test(win),
+    'no hyphenated fragment survives'
+  );
+  ok("the window's tab labels are whole words");
+}
+
 console.log(`test_ista: ${passed} checks passed`);

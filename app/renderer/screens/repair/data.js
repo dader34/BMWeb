@@ -233,9 +233,14 @@ function repairPicShard(pic) {
  */
 function repairDocNumber(doc) {
   if (!doc) return '';
-  const parts = [doc.g, doc.s, doc.job].filter(
-    (p) => p !== undefined && p !== null && String(p) !== ''
-  );
+  const parts = [doc.g, doc.s, doc.job]
+    .filter((p) => p !== undefined && p !== null && String(p) !== '')
+    // "..." IS BMW'S OWN PLACEHOLDER for a document with no job number, on
+    // 6,643 of the 65,115 documents. Joining it printed titles like
+    // "11 65 ... Test steps in the event of turbocharger damage", where the
+    // ellipsis reads as a truncation of the number rather than as its
+    // absence. The group and subgroup still identify the document.
+    .filter((p) => !/^\.{2,}$/.test(String(p).trim()));
   if (parts.length < 2) return '';
   return parts.join(' ');
 }
