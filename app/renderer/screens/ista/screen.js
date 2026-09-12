@@ -139,6 +139,24 @@ function istaOpenFaultMemory() {
 let istaTestRun = null;
 
 /**
+ * What the last finished test heard, so its colours stay on the screen.
+ *
+ * DECLARED HERE, WITH THE OTHER TEST STATE, BECAUSE `let` IS NOT HOISTED.
+ * These were originally declared below istaOpenVehicleTest, which assigns
+ * them: the assignment threw "Cannot access before initialization" inside
+ * the finally block, so the result was dropped and the tree fell back to the
+ * stored scan the moment a test finished.
+ * @type {{ident: object|null, faults: object|null}|null}
+ */
+let istaTestDone = null;
+
+/** @type {object|null} the pass on the bus, so Cancel can end it */
+let istaTestHandle = null;
+
+/** @type {string} why the last test could not finish, if it could not */
+let istaTestError = '';
+
+/**
  * Run the tool's vehicle test, in the tool's own window.
  *
  * THE TEST RUNS HERE. Every "Start vehicle test" button used to navigate to
@@ -272,16 +290,16 @@ async function istaOpenVehicleTest() {
       // being drawn; only starting another test replaces it.
       istaTestDone = istaTestLiveState;
       istaTestLiveState = null;
-      redraw(true);
+      // REBUILDING THE PAGE REDRAWS THE TREE FROM ITS OWN PATH, which knows
+      // nothing about this run, so the colours went grey again the moment
+      // the test ended even though the result was kept. Rebuild for the
+      // buttons and the status line, then paint the states back on.
+      Promise.resolve(redraw(true))
+        .then(() => redraw())
+        .catch(() => {});
     }
   }
 }
-
-/** @type {{ident: object|null, faults: object|null}|null} the last result */
-let istaTestDone = null;
-
-/** @type {object|null} the pass on the bus, so Cancel can end it */
-let istaTestHandle = null;
 
 /**
  * The status line while the test runs: the count and what it is doing.
@@ -336,8 +354,6 @@ function istaTestCancel() {
   if (istaTestHandle && typeof istaTestHandle.cancel === 'function')
     istaTestHandle.cancel();
 }
-/** @type {string} why the last test could not finish, if it could not */
-let istaTestError = '';
 
 /**
  * The whole-car script's main menu, filed against the picked car. Its Ident
