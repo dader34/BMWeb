@@ -18,7 +18,7 @@
  *
  * THE LABELS ARE BMW'S. The tab and sub-tab names below are the exact
  * strings the real workshop tool shows, including its capitalisation
- * inconsistencies ("Control Unit Replacement" beside "Vehicle modification").
+ * inconsistencies ("Control Unit Replacement" beside "Software update").
  * They are not ours to tidy: a technician reads them as landmarks, and a
  * renamed landmark is a tool that no longer matches the one they trained on.
  */
@@ -302,49 +302,6 @@ const ISTA_TABS = [
             id: 'after',
             label: 'After Replacement',
             why: 'the replacement workflow needs programming, which is deliberately not offered',
-          },
-        ],
-      },
-      {
-        id: 'modification',
-        label: 'Vehicle modification',
-        desc: 'Retrofits and conversions',
-        subs3: [
-          {
-            id: 'retrofit',
-            label: 'Retrofit',
-            why: 'retrofit measures need programming, which is deliberately not offered',
-          },
-          {
-            id: 'conversion',
-            label: 'Conversion',
-            why: 'conversion measures need programming, which is deliberately not offered',
-          },
-          {
-            id: 'conversion-coding',
-            label: 'Conversion (coding only)',
-            desc: "The chassis's coding hub: feature toggles and the expert editor",
-            open: 'istaOpenCoding',
-            needsCar: true,
-            dev: true,
-          },
-          {
-            id: 'removal',
-            label: 'Removal of Retrofit/Conversion',
-            why: 'removal measures need programming, which is deliberately not offered',
-          },
-          {
-            id: 'remove-coding',
-            label: 'Remove conversion (coding only)',
-            desc: "The chassis's coding hub: feature toggles and the expert editor",
-            open: 'istaOpenCoding',
-            needsCar: true,
-            dev: true,
-          },
-          {
-            id: 'immediate',
-            label: 'Immediate actions',
-            why: 'immediate-action measures need programming, which is deliberately not offered',
           },
         ],
       },
