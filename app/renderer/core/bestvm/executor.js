@@ -618,7 +618,41 @@ Object.assign(Best2Vm.prototype, {
         return;
       }
       case 'flt2a': {
-        this.storeText(A, Best2Codec.fltText(this.getReg(B[1])));
+        this.storeText(
+          A,
+          Best2Codec.fltText(this.getReg(B[1]), this.floatPrecision)
+        );
+        return;
+      }
+      case 'setflt': {
+        // set_float_precision (OpSetflt): significant digits for every
+        // flt2a from here on. 1,333 uses in 102 modules: ms450ds0's
+        // MESSWERTBLOCK_LESEN sets 9 right before formatting its values,
+        // 947 uses set 6. A no-op here left every one at the default 4, so
+        // 12.3456 read as 12.35 on the measurement blocks.
+        this.floatPrecision = Math.max(1, this.val(A) >>> 0);
+        return;
+      }
+      case 'cfgig':
+      case 'cfgsg': {
+        // get config integer / string (OpCfgig / OpCfgsg): the engine's
+        // configuration, read by the SGBD. Only the keys the corpus asks
+        // for are answered, the way the engine answers them, and any other
+        // key leaves the register untouched (GetConfigProperty null):
+        //   SIMULATION  "0"  (434 uses: "are we replaying a trace?")
+        //   BipEcuFile  the SGBD file's stem (247 FS_LESEN templates)
+        //   RetryComm   "1"
+        // UserErrorHandling has no default in the engine and stays unset.
+        const key = String(this.textOf(B) || '').toUpperCase();
+        if (name === 'cfgig') {
+          if (key === 'SIMULATION') this.store(A, 0);
+          else if (key === 'RETRYCOMM') this.store(A, 1);
+          return;
+        }
+        if (key === 'BIPECUFILE') {
+          this.storeText(A, String((this.code && this.code.sgbd) || ''));
+        } else if (key === 'SIMULATION') this.storeText(A, '0');
+        else if (key === 'RETRYCOMM') this.storeText(A, '1');
         return;
       }
       case 'fix2a':
@@ -1454,10 +1488,7 @@ Object.assign(Best2Vm.prototype, {
       case 'xkeybytes':
       case 'xprog':
       case 'xreset':
-      case 'setflt':
       case 'clrflt':
-      case 'cfgig':
-      case 'cfgsg':
       case 'cfgss':
       case 'trap':
       case 'plink':

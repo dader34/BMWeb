@@ -203,6 +203,13 @@ class Best2Vm {
     // transmitted with comm=null, i.e. BMW-FAST 115200 8N1, and every
     // K-line module got line noise.
     this.comm = opts.comm || null;
+    /**
+     * Significant digits flt2a keeps (setflt / _floatPrecision). Held on
+     * the machine, not reset per job, as the engine holds it: a job that
+     * never sets one formats with whatever the last one set, default 4.
+     * @type {number}
+     */
+    this.floatPrecision = FLOAT_PRECISION;
     // A fixed clock for date/time, when the caller needs determinism.
     // webshim re-runs a job's bytecode once per telegram fetched, and the
     // answer memo is keyed on request bytes -- a timestamp that ticks
@@ -461,8 +468,8 @@ class Best2Vm {
    * @param {number} value - The float.
    * @returns {string} Its text.
    */
-  static fltText(value) {
-    return Best2Codec.fltText(value);
+  static fltText(value, digits) {
+    return Best2Codec.fltText(value, digits);
   }
 
   /**
