@@ -18,7 +18,7 @@
  * missing, so the flag is the honest failure.
  */
 
-/* exported repairIndex repairIndexPresent repairBody repairPicUrl
+/* exported repairIndex repairIndexPresent repairBody repairPicUrl repairPicShard
    repairGroupTree repairDocsIn repairDocsUnder repairBrowserTree
    repairSearch repairFindDoc repairDocNumber repairBodyIndex */
 
@@ -202,8 +202,23 @@ async function repairBody(chassis, doc) {
  * @returns {string} the URL
  */
 function repairPicUrl(pic, hosted) {
-  const urls = repairUrls(`pics/${pic}.webp`);
+  const urls = repairUrls(`pics/${repairPicShard(pic)}/${pic}.webp`);
   return hosted ? urls[1] : urls[0];
+}
+
+/**
+ * The pool folder a picture lives in: the last two digits of its stream id.
+ *
+ * The pool is one set of 54,000 files shared by every chassis, and the
+ * dataset host caps a folder at 10,000 entries, so the files sit in a
+ * hundred folders of a few hundred each. The extractor's write_pictures
+ * uses the same rule; the two must agree.
+ * @param {number|string} pic - the picture's stream id
+ * @returns {string} two characters
+ */
+function repairPicShard(pic) {
+  const id = String(pic);
+  return id.length >= 2 ? id.slice(-2) : id.padStart(2, '0');
 }
 
 /**
@@ -392,6 +407,7 @@ if (typeof module !== 'undefined' && module.exports) {
     repairIndexPresent,
     repairBody,
     repairPicUrl,
+    repairPicShard,
     repairDocNumber,
     repairGroupTree,
     repairDocsIn,

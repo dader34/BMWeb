@@ -257,11 +257,14 @@ const IDX = {
   // POOLED, not per chassis: the same illustration serves many chassis, so
   // the path carries no chassis at all
   const local = ctx.repairPicUrl(2000003991933);
-  assert.ok(local.endsWith('/data/ista/repair/pics/2000003991933.webp'), local);
+  assert.ok(
+    local.endsWith('/data/ista/repair/pics/33/2000003991933.webp'),
+    local
+  );
   assert.ok(!/E46/.test(local), 'no chassis in a pooled picture path');
   const hosted = ctx.repairPicUrl(42, true);
   assert.ok(hosted.startsWith('https://huggingface.co/'), hosted);
-  assert.ok(hosted.endsWith('/pics/42.webp'), hosted);
+  assert.ok(hosted.endsWith('/pics/42/42.webp'), hosted);
   ok('a picture resolves to a local and a hosted URL, pooled');
 }
 
@@ -343,7 +346,7 @@ const IDX = {
   assert.ok(html.includes('Support the engine.'));
   // steps are numbered from one WITHIN each section
   assert.strictEqual((html.match(/rp-step-n">1</g) || []).length, 2);
-  assert.ok(html.includes('/pics/7.webp'), 'the picture resolves');
+  assert.ok(html.includes('/pics/07/7.webp'), 'the picture resolves');
   ok('a document draws its hints, sections, steps and pictures');
 
   // an unsure document says so rather than pretending it was filtered

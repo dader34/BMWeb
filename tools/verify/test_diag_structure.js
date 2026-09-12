@@ -35,7 +35,8 @@ const ctx = vm.createContext({
       /[&<>"]/g,
       (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]
     ),
-  repairPicUrl: (pic) => `/data/ista/repair/pics/${pic}.webp`,
+  repairPicUrl: (pic) =>
+    `/data/ista/repair/pics/${String(pic).slice(-2)}/${pic}.webp`,
   module: undefined,
   console,
 });
@@ -633,7 +634,9 @@ const tablesOf = (body) =>
   assert.strictEqual(typeof pic.s, 'number', 'a resolved figure is an id');
   const html = ctx.istaDiagBodyHtml(loc);
   assert.ok(
-    html.includes(`/data/ista/repair/pics/${pic.s}.webp`),
+    html.includes(
+      `/data/ista/repair/pics/${String(pic.s).slice(-2)}/${pic.s}.webp`
+    ),
     'and it resolves through the repair pool'
   );
   ok('figures resolve through the repair manual’s pool');
