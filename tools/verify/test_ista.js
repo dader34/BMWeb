@@ -1763,14 +1763,21 @@ const I = loadClassic('screens/ista/');
     'Identification',
     'Diagnosis scan',
     'Component triggering',
-    'Software information',
   ])
     assert.ok(win.includes(`'${label}'`), `the ${label} tab reads as words`);
   assert.ok(
     !/Component trig-|Software infor-/.test(win),
     'no hyphenated fragment survives'
   );
-  ok("the window's tab labels are whole words");
+  // the programming view is not offered, so the tab that would only ever
+  // be greyed is not drawn at all
+  assert.ok(
+    !win.includes("'Software information'"),
+    'no Software information tab'
+  );
+  ok(
+    "the window's tab labels are whole words, and the programming tab is gone"
+  );
 }
 
 console.log(`test_ista: ${passed} checks passed`);
