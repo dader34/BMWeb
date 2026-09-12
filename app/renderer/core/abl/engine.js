@@ -72,8 +72,7 @@ function ablText(t, vars) {
   if (t == null) return '';
   if (typeof t === 'string') return t;
   if (Array.isArray(t)) return t.map((x) => ablText(x, vars)).join('');
-  if (Array.isArray(t.text_concat))
-    return t.text_concat.map((x) => ablText(x, vars)).join('');
+  if (Array.isArray(t.text_concat)) return ablConcat(t.text_concat, vars);
   let s = typeof t.en === 'string' ? t.en : '';
   // the recovery names the placeholders it found; substituting only those
   // keeps a literal brace in a text (a unit, a range) from being eaten
@@ -85,6 +84,49 @@ function ablText(t, vars) {
     }
   }
   return s;
+}
+
+/**
+ * Join the parts of a composite text the way the tool lays them out.
+ *
+ * THE CONCAT IS LINES, NOT ONE RUN. The base API's Concat takes a newline
+ * flag beside each part, and what the recovery carries of that flag is the
+ * part it produced: an empty text whose name ends in _NEWLINE. A bare
+ * string in the list is a separator the flow put there itself (the space
+ * between "Test probe 1 (+):" and the pin name), so it joins what is around
+ * it; every other part starts a line. Joining the whole list with nothing
+ * runs a measurement instruction together into one unreadable sentence,
+ * which is what the frames show it is not.
+ * @param {Array<*>} parts - the concat list
+ * @param {Object<string, *>} [vars] - the module variables
+ * @returns {string}
+ */
+function ablConcat(parts, vars) {
+  /** @type {string[]} the lines built so far */
+  const lines = [];
+  let glue = false;
+  for (const part of parts) {
+    if (typeof part === 'string') {
+      // a separator belongs to the line it sits in, and holds the next
+      // part on that same line
+      if (lines.length) lines[lines.length - 1] += part;
+      else lines.push(part);
+      glue = true;
+      continue;
+    }
+    const s = ablText(part, vars);
+    const name = String((part && part.name) || '');
+    if (!s) {
+      // the recovery's newline marker: an empty part that only breaks
+      if (/NEWLINE/i.test(name)) lines.push('');
+      glue = false;
+      continue;
+    }
+    if (glue && lines.length) lines[lines.length - 1] += s;
+    else lines.push(s);
+    glue = false;
+  }
+  return lines.join('\n');
 }
 
 /**
@@ -1271,6 +1313,7 @@ if (typeof module !== 'undefined')
     ABL_RESULTS,
     ABL_NATIVE,
     ablText,
+    ablConcat,
     ablValueText,
     ablChoices,
     ablEval,

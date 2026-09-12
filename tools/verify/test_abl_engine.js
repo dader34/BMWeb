@@ -144,6 +144,23 @@ async function main() {
     assert.ok(t.includes('Boost pressure: 1034 mbar'), t);
     assert.ok(t.includes('Difference: -32 mbar'), t);
     ok('a text substitutes its variables');
+
+    // A COMPOSITE TEXT IS LINES, NOT ONE RUN. The measurement instruction
+    // is built by concatenation, and the recovery carries the base API's
+    // newline flag as an empty _NEWLINE part. Joining the list with nothing
+    // gives "Voltage measurementTest probe 1 (+): A_LDF", which is one
+    // unreadable sentence where the frames show four lines.
+    const meas = B1362.steps.Pruefung_Sensor_08_s.nodes.find(
+      (n) => n.type === 'measurement'
+    );
+    assert.strictEqual(
+      ablText(meas.params.AdaptionsText, {}),
+      'Voltage measurement\n\n' +
+        'Test probe 1 (+): A_LDF\n' +
+        'Test probe 1 (-): M_LDF\n' +
+        'Measure voltage with engine stationary.'
+    );
+    ok('a composite text lays out as the lines the frames show');
   }
 
   // ---- a scripted run of the whole module ------------------------------------

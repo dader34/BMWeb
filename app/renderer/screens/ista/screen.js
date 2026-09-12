@@ -1442,9 +1442,15 @@ async function istaCalcPlan(fault, car, chassis) {
   // and a per-module row of what to call it and where it belongs
   const byFault = (idx && idx.faults) || {};
   const modules = (idx && idx.modules) || {};
-  const ids = []
-    .concat(byFault[code] || [])
-    .concat(byFault[code.replace(/^0+/, '')] || []);
+  // THE FAULT TABLE SHOWS THE LOCATION BYTE, THE INDEX KEYS THE FULL WORD.
+  // The screen's Code column reads 41AA for the fault BMW's own links call
+  // 0041AA, because the table prefers the shorter location byte the fault
+  // database keys on. Matching on the padded form as well as the raw one
+  // is the whole difference between a plan with rows and a plan without.
+  const keys = [code, code.replace(/^0+/, ''), code.padStart(6, '0')];
+  const ids = [];
+  for (const k of keys)
+    for (const one of byFault[k] || []) if (!ids.includes(one)) ids.push(one);
   for (const id of ids) {
     const m = modules[id] || {};
     out.push({
