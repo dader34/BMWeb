@@ -1573,6 +1573,23 @@ const I = loadClassic('screens/ista/');
   ok('a run maps each declared result by name, with its unit');
 }
 
+// The Control unit list sorts by state so a glance says what the car has:
+// faults first, then clean, then silent, then never read, stable inside
+// each band so the config's order holds there.
+{
+  const order = I.istaUnitListOrder([
+    { abbr: 'A', state: 'unread' },
+    { abbr: 'B', state: 'ok' },
+    { abbr: 'C', state: 'faults' },
+    { abbr: 'D', state: 'silent' },
+    { abbr: 'E', state: 'ok' },
+    { abbr: 'F', state: 'faults' },
+  ]).map((s) => s.abbr);
+  assert.deepStrictEqual(order, ['C', 'F', 'B', 'E', 'D', 'A']);
+  assert.deepStrictEqual(I.istaUnitListOrder([]), []);
+  ok('the control unit list puts fault memories first');
+}
+
 // Show fault code stayed disabled with a fault picked: the bar treated the
 // model's `off` (how a button looks before the page binds it) as permanent.
 // A button with a handler is on. And the fault table names faults through
