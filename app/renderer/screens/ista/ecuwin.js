@@ -22,7 +22,7 @@
  * when someone expected a number.
  */
 
-/* exported istaEcuWindow istaEcuTip istaEcuScreens */
+/* exported istaEcuFnLists istaEcuFnRows istaEcuWindow istaEcuTip istaEcuScreens */
 
 /**
  * The identification rows, in the order the tool prints them.
@@ -161,6 +161,81 @@ function istaEcuScreens(ir) {
 }
 
 /**
+ * The window's two lists from the tool's own function data.
+ *
+ * ISTA does not list the INPA script's screens: per ECU variant its
+ * database carries function groups (ECUStateReadStructure under Diagnosis
+ * scan, ECUControllingActuatorStructure under Component triggering), each
+ * with English-titled leaves that name one EDIABAS job, its arguments and
+ * the results to show. tools/ista/ecu_functions_extract.py ships that per
+ * variant; this hands the window the groups as the tool draws them.
+ * @param {object|null} fn - data/ista/ecufn/<variant>.json, or null
+ * @returns {{read: object[], write: object[]}} groups of items
+ */
+function istaEcuFnLists(fn) {
+  const groups = (list) =>
+    (Array.isArray(list) ? list : [])
+      .filter((g) => g && Array.isArray(g.items) && g.items.length)
+      .map((g) => ({
+        title: String(g.title || ''),
+        items: g.items.map((it) => ({
+          title: String(it.title || it.job || ''),
+          job: String(it.job || ''),
+          args: String(it.args || ''),
+          results: Array.isArray(it.results) ? it.results : [],
+          ms: it.ms || 0,
+        })),
+      }));
+  return { read: groups(fn && fn.reads), write: groups(fn && fn.acts) };
+}
+
+/**
+ * The rows the right pane shows after a run: each declared result of the
+ * item, found in the job's result sets by name (the VM uppercases result
+ * keys), with its unit. An item that declares no results shows every value
+ * the first data set carried, so nothing a module answered is hidden.
+ * @param {object} item - the list item that ran
+ * @param {object[]} sets - the job's result sets
+ * @returns {Array<[string, string]>} label/value pairs
+ */
+function istaEcuFnRows(item, sets) {
+  const data = (Array.isArray(sets) ? sets : []).filter(
+    (x) => x && typeof x === 'object'
+  );
+  const find = (name) => {
+    const want = String(name || '').toUpperCase();
+    for (const set of data)
+      for (const k of Object.keys(set))
+        if (k.toUpperCase() === want) return set[k];
+    return undefined;
+  };
+  const text = (v) =>
+    v === undefined || v === null
+      ? '-'
+      : Array.isArray(v)
+        ? v.map((b) => Number(b).toString(16).padStart(2, '0')).join(' ')
+        : String(v);
+  const rows = [];
+  const declared = (item && item.results) || [];
+  if (declared.length) {
+    for (const r of declared) {
+      const v = find(r.name);
+      const unit = r.unit && v !== undefined && v !== null ? ` ${r.unit}` : '';
+      rows.push([r.title || r.name, `${text(v)}${unit}`]);
+    }
+    return rows;
+  }
+  const first = data[0] || {};
+  for (const k of Object.keys(first)) {
+    if (/^_|^JOB_STATUS$|^SAETZE$/.test(k)) continue;
+    rows.push([k, text(first[k])]);
+  }
+  const status = find('JOB_STATUS');
+  if (status !== undefined) rows.push(['Job status', text(status)]);
+  return rows;
+}
+
+/**
  * The control unit window.
  * @param {object} ctx - what to draw
  * @param {object} ctx.slot - the slot, from istaSlots
@@ -179,6 +254,16 @@ function istaEcuWindow(ctx) {
   let picked = null;
   /** @type {Array<[string, string]>} rows the last run produced */
   let results = [];
+  // ISTA's lists drill down: the groups first, then a group's items. With
+  // the tool's function data the pane shows groups; a script-only module
+  // keeps the flat screen list the app can offer.
+  const fn = ctx.fn ? istaEcuFnLists(ctx.fn) : null;
+  /** @type {object|null} the group opened on the current tab */
+  let group = null;
+  /** @type {Set<number>} item indexes ticked for Read state */
+  let chosen = new Set();
+  /** @type {string} the right pane's heading: the opened group */
+  let resultHead = '';
 
   const html =
     `<div class="modal irecu" role="dialog" aria-modal="true">` +
@@ -238,24 +323,51 @@ function istaEcuWindow(ctx) {
 
   /** The two-pane tabs: a list of screens, and what the last one returned. */
   function paneHtml(list, headLeft) {
-    const rows = list.length
-      ? list
-          .map(
-            (s, i) =>
-              `<div class="irbf-row${
-                picked && picked.name === s.name ? ' on' : ''
-              }" data-s="${i}">- ${esc(s.label)}</div>`
-          )
-          .join('')
-      : `<div class="irbf-none">This module's script offers nothing of ` +
-        `this kind.</div>`;
-    const out = results.length
-      ? `<table class="irtable"><tbody>` +
-        results
-          .map(([k, v]) => `<tr><td>${esc(k)}</td><td>${esc(v)}</td></tr>`)
-          .join('') +
-        `</tbody></table>`
-      : '';
+    let rows;
+    if (fn) {
+      // groups, or the opened group's items; a ticked item reads on Read
+      // state (the scan tab takes several, the trigger tab one)
+      rows = group
+        ? group.items
+            .map(
+              (it, i) =>
+                `<div class="irbf-row${chosen.has(i) ? ' on' : ''}" ` +
+                `data-i="${i}">${esc(it.title)}</div>`
+            )
+            .join('')
+        : list.length
+          ? list
+              .map(
+                (g, i) =>
+                  `<div class="irbf-row" data-g="${i}">- ${esc(g.title)}</div>`
+              )
+              .join('')
+          : `<div class="irbf-none">The tool lists no functions of this ` +
+            `kind for this control unit.</div>`;
+    } else {
+      rows = list.length
+        ? list
+            .map(
+              (s, i) =>
+                `<div class="irbf-row${
+                  picked && picked.name === s.name ? ' on' : ''
+                }" data-s="${i}">- ${esc(s.label)}</div>`
+            )
+            .join('')
+        : `<div class="irbf-none">This module's script offers nothing of ` +
+          `this kind.</div>`;
+    }
+    const out =
+      (resultHead
+        ? `<div class="irbf-row irbf-sub">- ${esc(resultHead)}</div>`
+        : '') +
+      (results.length
+        ? `<table class="irtable"><tbody>` +
+          results
+            .map(([k, v]) => `<tr><td>${esc(k)}</td><td>${esc(v)}</td></tr>`)
+            .join('') +
+          `</tbody></table>`
+        : '');
     return (
       `<div class="irecu-split">` +
       `<div class="irbf-pane"><div class="irbf-head">${esc(headLeft)}</div>` +
@@ -287,11 +399,18 @@ function istaEcuWindow(ctx) {
         tab = b.dataset.t;
         picked = null;
         results = [];
+        group = null;
+        chosen = new Set();
+        resultHead = '';
         paint();
       };
     });
 
-    const split = ctx.ir ? istaEcuScreens(ctx.ir) : { read: [], write: [] };
+    const split = fn
+      ? fn
+      : ctx.ir
+        ? istaEcuScreens(ctx.ir)
+        : { read: [], write: [] };
     const list = tab === 'scan' ? split.read : split.write;
     const host = overlay.querySelector('.irecu-host');
     host.innerHTML =
@@ -307,19 +426,52 @@ function istaEcuWindow(ctx) {
         paint();
       };
     });
+    host.querySelectorAll('[data-g]').forEach((el) => {
+      el.onclick = () => {
+        group = list[Number(el.dataset.g)];
+        chosen = new Set();
+        results = [];
+        resultHead = group.title;
+        paint();
+      };
+    });
+    host.querySelectorAll('[data-i]').forEach((el) => {
+      el.onclick = () => {
+        const i = Number(el.dataset.i);
+        if (tab === 'trigger')
+          chosen = chosen.has(i) ? new Set() : new Set([i]);
+        else if (chosen.has(i)) chosen.delete(i);
+        else chosen.add(i);
+        paint();
+      };
+    });
 
     // the bottom row, per tab; only Read state and Trigger component reach
     // the car, and neither has been pressed yet
     const act = overlay.querySelector('.irecu-actions');
     const btns = [];
+    const undo = () => {
+      group = null;
+      chosen = new Set();
+      results = [];
+      resultHead = '';
+      paint();
+    };
+    const ready = fn ? group && chosen.size > 0 : !!picked;
     if (tab === 'scan')
       btns.push(
-        ['Undo all', null],
-        ['Undo', null],
-        ['Read state', picked ? () => fire(picked) : null]
+        ['Undo all', fn && (group || results.length) ? undo : null],
+        ['Undo', fn && group ? undo : null],
+        [
+          'Read state',
+          ready ? () => (fn ? fireItems(false) : fire(picked)) : null,
+        ]
       );
     else if (tab === 'trigger')
-      btns.push(['Trigger component', picked ? () => fire(picked) : null]);
+      btns.push([
+        'Trigger component',
+        ready ? () => (fn ? fireItems(true) : fire(picked)) : null,
+      ]);
     btns.push(['Close', () => close()]);
     act.innerHTML = btns
       .map(
@@ -353,6 +505,39 @@ function istaEcuWindow(ctx) {
     paint();
   }
 
+  /**
+   * Run the ticked items of the opened group and show their results in
+   * the right pane, the way the tool does: one job per distinct job and
+   * argument string, each item's declared results picked out by name.
+   * @param {boolean} write - Component triggering (the job commands the ECU)
+   * @returns {Promise<void>}
+   */
+  async function fireItems(write) {
+    if (typeof ctx.runJob !== 'function' || !group) return;
+    const items = [...chosen].sort((a, b) => a - b).map((i) => group.items[i]);
+    results = [['Reading...', '']];
+    paint();
+    const rows = [];
+    const done = new Map();
+    for (const it of items) {
+      const key = `${it.job}\u0000${it.args}`;
+      try {
+        if (!done.has(key))
+          done.set(key, await ctx.runJob(it.job, it.args, write));
+        const r = done.get(key);
+        if (r === null) {
+          rows.push([it.title, 'not sent']);
+          continue;
+        }
+        rows.push(...istaEcuFnRows(it, (r && r.sets) || []));
+      } catch (e) {
+        rows.push([it.title, (e && e.message) || String(e)]);
+      }
+    }
+    results = rows.length ? rows : [['-', 'the module answered nothing']];
+    paint();
+  }
+
   const x = overlay.querySelector('.irecu-x');
   if (x) x.onclick = () => close();
   paint();
@@ -364,6 +549,8 @@ if (typeof module !== 'undefined' && module.exports) {
     istaIdentValue,
     istaEcuTip,
     istaEcuScreens,
+    istaEcuFnLists,
+    istaEcuFnRows,
     istaEcuWindow,
   };
 }

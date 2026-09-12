@@ -1505,6 +1505,74 @@ const I = loadClassic('screens/ista/');
 
 // ---- Repair/maintenance resolves to the repair screen ----------------------
 // THE SEAM BROKE ONCE ALREADY: the shell called an istaRepairShow that the
+// The ECU functions window lists what the tool lists: per variant, ISTA's
+// function groups and their English-titled leaves, each one EDIABAS job
+// with its arguments and the results to show. The KOMBI showed "nothing of
+// this kind" because the window read the INPA script's menus and the slot
+// had no script loaded; the tool never reads the script at all.
+{
+  const fn = {
+    variant: 'kombi46',
+    reads: [
+      {
+        title: 'Supply, instrument cluster',
+        items: [
+          {
+            title: 'Terminal 15',
+            job: 'STATUS_IO_LESEN',
+            args: '',
+            results: [{ name: 'STAT_KL15_EIN', title: 'Terminal 15' }],
+          },
+        ],
+      },
+      { title: 'Empty group', items: [] },
+    ],
+    acts: [
+      {
+        title: 'General functions',
+        items: [
+          {
+            title: 'Fuel gauge',
+            job: 'STEUERN_ANZEIGE',
+            args: 'TANKINHALT;25',
+            ms: 5000,
+          },
+        ],
+      },
+    ],
+  };
+  const lists = I.istaEcuFnLists(fn);
+  assert.strictEqual(lists.read.length, 1, 'an empty group is not listed');
+  assert.strictEqual(lists.read[0].items[0].job, 'STATUS_IO_LESEN');
+  assert.strictEqual(lists.write[0].items[0].args, 'TANKINHALT;25');
+  assert.deepStrictEqual(I.istaEcuFnLists(null), { read: [], write: [] });
+  ok('the window takes its groups from the tool data');
+  const rows = I.istaEcuFnRows(lists.read[0].items[0], [
+    { STAT_KL15_EIN: 1, JOB_STATUS: 'OKAY' },
+  ]);
+  assert.deepStrictEqual(rows, [['Terminal 15', '1']]);
+  const unit = I.istaEcuFnRows(
+    {
+      title: 'x',
+      results: [
+        { name: 'STAT_TANKINHALT_WERT', title: 'Fuel level', unit: 'l' },
+      ],
+    },
+    [{ STAT_TANKINHALT_WERT: 42.5 }]
+  );
+  assert.deepStrictEqual(unit, [['Fuel level', '42.5 l']]);
+  const missing = I.istaEcuFnRows(lists.read[0].items[0], [{ OTHER: 1 }]);
+  assert.deepStrictEqual(missing, [['Terminal 15', '-']]);
+  const undeclared = I.istaEcuFnRows({ title: 'y', results: [] }, [
+    { _TEL_ANTWORT: [1], STAT_A: 'on', JOB_STATUS: 'OKAY' },
+  ]);
+  assert.deepStrictEqual(undeclared, [
+    ['STAT_A', 'on'],
+    ['Job status', 'OKAY'],
+  ]);
+  ok('a run maps each declared result by name, with its unit');
+}
+
 // Show fault code stayed disabled with a fault picked: the bar treated the
 // model's `off` (how a button looks before the page binds it) as permanent.
 // A button with a handler is on. And the fault table names faults through
