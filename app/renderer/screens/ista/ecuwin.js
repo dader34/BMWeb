@@ -387,7 +387,10 @@ function istaEcuWindow(ctx) {
       // is its layout losing an argument with its own text, not a name with
       // a hyphen in it. Ours are wide enough, so they read as words.
       ['trigger', 'Component triggering'],
-      ['sw', 'Software information', true],
+      // no Software information tab: it is the tool's programming view
+      // (software identifiers, integration level against target, pending
+      // update actions), fed by programming data this build does not
+      // carry, and flashing is deliberately not offered
     ];
     overlay.querySelector('.irecu-tabs').innerHTML = tabs
       .map(
@@ -420,10 +423,7 @@ function istaEcuWindow(ctx) {
     host.innerHTML =
       tab === 'ident'
         ? identHtml()
-        : tab === 'sw'
-          ? `<div class="irgrey-w">Software information needs BMW's ` +
-            `programming data, which this build does not carry.</div>`
-          : paneHtml(list, tab === 'scan' ? 'ECU function' : 'Component');
+        : paneHtml(list, tab === 'scan' ? 'ECU function' : 'Component');
     host.querySelectorAll('[data-s]').forEach((el) => {
       el.onclick = () => {
         picked = list[Number(el.dataset.s)];
