@@ -1505,6 +1505,36 @@ const I = loadClassic('screens/ista/');
 
 // ---- Repair/maintenance resolves to the repair screen ----------------------
 // THE SEAM BROKE ONCE ALREADY: the shell called an istaRepairShow that the
+// Show fault code stayed disabled with a fault picked: the bar treated the
+// model's `off` (how a button looks before the page binds it) as permanent.
+// A button with a handler is on. And the fault table names faults through
+// the lazily loaded English texts, so the page must wait for them as the
+// report views do, or it draws the raw German.
+{
+  const screen = fs.readFileSync(
+    path.join(ROOT, 'app', 'renderer', 'screens', 'ista', 'screen.js'),
+    'utf8'
+  );
+  const bar = screen.slice(
+    screen.indexOf('function istaBottomBar('),
+    screen.indexOf('function istaRealChromeBars(')
+  );
+  assert.ok(/off: !fn,/.test(bar), 'a button with a handler is on');
+  assert.ok(
+    !/!!b\.off \|\| !fn/.test(bar),
+    "the model's off flag no longer pins a bound button shut"
+  );
+  const faults = screen.slice(
+    screen.indexOf("if (s.page === 'fault-memory') {"),
+    screen.indexOf('const draw = () => {')
+  );
+  assert.ok(
+    /await loadFaultDb\(\)/.test(faults),
+    'the fault table waits for the English fault texts'
+  );
+  ok('the fault memory buttons bind, and the names load in English');
+}
+
 // repair branch never defined, so Product Structure showed a grey "not in
 // this build" over a browser that had shipped. Pin the real name.
 {

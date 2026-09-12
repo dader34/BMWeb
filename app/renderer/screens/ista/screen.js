@@ -744,10 +744,14 @@ function istaBottomBar(pageId, actions) {
       return { nav: true, back: act._back || null, fwd: act._fwd || null };
     if (b.spacer) return { spacer: true };
     const fn = act[b.id];
+    // A button is off when the page gave it nothing to do. The model's
+    // `off` only says what the button looks like before a page binds it
+    // (Show fault code with no fault picked); it must not pin a button
+    // shut once the page hands it a handler, which it did.
     return {
       label: b.label,
       fn: fn || null,
-      off: !!b.off || !fn,
+      off: !fn,
       title: b.title || '',
     };
   });
@@ -1395,6 +1399,16 @@ async function istaDrawPage(s, host) {
   // ---- Troubleshooting / Fault memory ---------------------------------------
   if (s.page === 'fault-memory') {
     let picked = null;
+    // the rows name faults through the English fault texts, which load
+    // lazily: the report views wait for them, and so must this table, or
+    // it draws the raw German F_ORT_TEXT until something else loads them
+    if (typeof loadFaultDb === 'function') {
+      try {
+        await loadFaultDb();
+      } catch (e) {
+        /* the texts are optional: the raw name still shows */
+      }
+    }
     const draw = () => {
       const rows = istaPageFaultMemory(host, {
         car,
