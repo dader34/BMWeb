@@ -909,12 +909,26 @@ async function istaOpenEcuWindow(slot, box, chassis) {
     slot.ecu && slot.ecu.code
       ? `?code=${encodeURIComponent(slot.ecu.code)}`
       : '';
-  const ir = slot.sgbd
-    ? await istaProbe(() => api(`/api/ecu/${slot.sgbd}/ir${code}`))
+  // An unidentified slot has no sgbd of its own yet, only its candidates:
+  // one for most slots (the KOMBI is kombi46 and nothing else), several for
+  // the engine. The tool's lists are per variant, so the first candidate
+  // the extract carries stands for the slot until a scan identifies it.
+  const names = [slot.sgbd]
+    .concat((slot.candidates || []).map((c) => c && c.sgbd))
+    .filter((n, i, a) => n && a.indexOf(n) === i);
+  let variant = slot.sgbd || '';
+  let fn = null;
+  for (const n of names) {
+    fn = await istaEcuFnLoad(n);
+    if (fn) {
+      variant = n;
+      break;
+    }
+  }
+  if (!variant && names.length) variant = names[0];
+  const ir = variant
+    ? await istaProbe(() => api(`/api/ecu/${variant}/ir${code}`))
     : null;
-  // the tool's own function lists for this variant (English, one EDIABAS
-  // job per entry); the script's screens stand in when none ship
-  const fn = slot.sgbd ? await istaEcuFnLoad(slot.sgbd) : null;
   istaEcuWindow({
     slot,
     box,
@@ -930,7 +944,7 @@ async function istaOpenEcuWindow(slot, box, chassis) {
         const okGo =
           typeof confirmDialog === 'function'
             ? await confirmDialog({
-                title: `${job} commands ${slot.abbr || slot.sgbd}`,
+                title: `${job} commands ${slot.abbr || variant}`,
                 body:
                   'This function drives a component rather than reading ' +
                   'it. Make sure the module and anything it moves are safe.',
@@ -941,7 +955,7 @@ async function istaOpenEcuWindow(slot, box, chassis) {
         if (!okGo) return null;
       }
       const q = args ? `?arg=${encodeURIComponent(args)}` : '';
-      return api(`/api/ecu/${slot.sgbd}/run/${encodeURIComponent(job)}${q}`, {
+      return api(`/api/ecu/${variant}/run/${encodeURIComponent(job)}${q}`, {
         method: 'POST',
       });
     },
