@@ -1098,9 +1098,14 @@ Object.assign(Best2Vm.prototype, {
         return;
       }
       case 'tabline': {
+        // ONE operand, the row index (OpTabline reads arg0; the opcode has
+        // no second operand anywhere in the corpus). Reading B here made
+        // every tabline throw on an undefined operand, which surfaced as
+        // "op is not iterable" on the DSC MK60's FS_LESEN_DETAIL and would
+        // have on the 501 other modules whose jobs use it.
         // 0-based over DATA rows; an out-of-range index clamps to the last
         // row and reports Zero=true (GetTableLine), it does not fail
-        const i = this.val(B);
+        const i = this.val(A);
         if (!this.table) {
           f.zero = true;
           return;

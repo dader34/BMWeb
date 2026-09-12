@@ -110,6 +110,7 @@ python3 tools/export/inpa_config.py --check || exit 1
 echo
 echo "== the VM against captured telegrams =="
 node tools/verify/test_bestvm.js || exit 1
+node tools/verify/test_tabline.js || exit 1
 node tools/verify/test_fa_stream.js || exit 1
 
 echo
