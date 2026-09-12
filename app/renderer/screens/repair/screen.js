@@ -37,6 +37,8 @@
  * blob is worth fetching only when the reader actually wants it.
  */
 let repairBodyReady = false;
+/** Whether the index was asked for and answered, so "none" means none. */
+let repairBodyTried = false;
 
 const REPAIR_VIEWS = [
   { id: 'product-structure', label: 'Product Structure' },
@@ -154,7 +156,10 @@ function repairSource(idx, chassis) {
 function repairSearchFormHtml() {
   const box = (id, label, note) => {
     const on = !!repairState.scopes[id];
-    const off = id === 'document';
+    // the body box was pinned disabled for good, and ticking it was what
+    // fetched the index: a box nobody can tick never asks. It is live once
+    // the index has loaded, and the view asks for the index on open.
+    const off = id === 'document' && !repairBodyReady;
     return (
       `<label class="rp-check${off ? ' rp-check-off' : ''}">` +
       `<input type="checkbox" data-scope="${esc(id)}"` +
@@ -175,7 +180,11 @@ function repairSearchFormHtml() {
     box(
       'document',
       'Search in document',
-      repairBodyReady ? '' : 'no text index in this build'
+      repairBodyReady
+        ? ''
+        : repairBodyTried
+          ? 'no text index in this build'
+          : 'loading the text index'
     ) +
     box('number', 'Search for the document number') +
     `</div>`
@@ -323,16 +332,19 @@ async function showRepair(host, car, chassis, view) {
           `&nbsp;&nbsp;Filter: Default`;
       wireFound();
     };
+    // the body index is asked for when the search view opens, once per
+    // chassis, so the box goes live by itself; ticking it before the index
+    // lands simply searches the other scopes until the redraw
+    if (!repairBodyReady && !repairBodyTried) {
+      repairBodyTried = true;
+      repairBodyIndex(chassis).then((ok) => {
+        repairBodyReady = ok;
+        if (body.isConnected) paint();
+      });
+    }
     body.querySelectorAll('[data-scope]').forEach((cb) => {
       cb.onchange = () => {
         repairState.scopes[cb.dataset.scope] = cb.checked;
-        // ticking the body scope is what asks for its index; the form
-        // redraws when it lands so the box stops saying it has none
-        if (cb.dataset.scope === 'document' && cb.checked && !repairBodyReady)
-          repairBodyIndex(chassis).then((ok) => {
-            repairBodyReady = ok;
-            paint();
-          });
         run();
       };
     });
