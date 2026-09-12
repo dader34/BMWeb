@@ -533,29 +533,34 @@ body.ista-mode.ista-real-body .view label {
   cursor: default;
 }
 
-/* the two black nav blocks, centred: a white triangle on a black rectangle */
+/* THE NAV BLOCKS ARE GREY BUTTONS WITH BLACK TRIANGLES, measured off the
+   frames (face #c5c5c5, the same grey as every other button). I had them
+   inverted as black blocks with white triangles, which made the one control
+   that is not a button look like the only one that is. */
 .ista-real-body .irnav {
-  background: #000;
-  border: 0;
+  background: var(--ir-grey);
+  border: 1px solid #9a9a9a;
   width: 90px;
-  height: 22px;
+  height: 26px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   padding: 0;
 }
+.ista-real-body .irnav:hover:not(:disabled) {
+  background: #d4d4d4;
+}
 .ista-real-body .irnav svg {
   width: 20px;
   height: 14px;
-  fill: #fff;
+  fill: #111;
 }
 .ista-real-body .irnav:disabled {
-  /* still black: the frames grey the TRIANGLE, not the block */
   cursor: default;
 }
 .ista-real-body .irnav:disabled svg {
-  fill: #7a7a7a;
+  fill: var(--ir-off);
 }
 
 /* ===========================================================================
@@ -1643,4 +1648,9 @@ body.ista-mode.ista-real-body .view label {
   font-weight: 700;
   font-size: 12px;
   margin: 14px 0 4px;
+}
+
+/* the control unit window's tabs hold their labels on one line */
+.ista-real-body .irecu-tabs .iradmin-tab {
+  white-space: nowrap;
 }

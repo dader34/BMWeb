@@ -382,8 +382,12 @@ function istaEcuWindow(ctx) {
     const tabs = [
       ['ident', 'Identification'],
       ['scan', 'Diagnosis scan'],
-      ['trigger', 'Component trig-\ngering'],
-      ['sw', 'Software infor-\nmation', true],
+      // ONE LINE EACH. The frames show these labels hyphenated across two
+      // lines only because the real tool's tab is too narrow for them; that
+      // is its layout losing an argument with its own text, not a name with
+      // a hyphen in it. Ours are wide enough, so they read as words.
+      ['trigger', 'Component triggering'],
+      ['sw', 'Software information', true],
     ];
     overlay.querySelector('.irecu-tabs').innerHTML = tabs
       .map(
