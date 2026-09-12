@@ -530,6 +530,54 @@ async function main() {
     );
     ok('a service this build lacks halts by name');
   }
+
+  // ---- what a finished run leaves on the plan row ----------------------------
+  // A module that ran and was never written back is a plan the technician
+  // cannot read: every row stays "not called" however much work was done.
+  // So every CollectiveResult the engine can return must land on a state
+  // the legend has a colour for, and the mapping must not quietly widen
+  // when a new result value is added to the engine.
+  {
+    const PLAN = require(
+      path.join(ROOT, 'app', 'renderer', 'screens', 'ista', 'plan.js')
+    );
+    const want = {
+      Ok: 'performed',
+      Verified: 'performed',
+      Repaired: 'performed',
+      NotOk: 'suspected',
+      Unknown: 'minimized',
+      None: 'minimized',
+    };
+    for (const [result, state] of Object.entries(want))
+      assert.strictEqual(PLAN.istaPlanStateFor(result), state, result);
+    ok('every result maps to its plan state');
+
+    // the engine's own list is the whole domain: a value it can return and
+    // this table does not name would fall through to "canceled" and read as
+    // a test the technician abandoned
+    for (const r of E.ABL_RESULTS)
+      assert.ok(want[r], `ABL_RESULTS has ${r} but the plan does not map it`);
+    ok('the plan maps every result the engine can return');
+
+    // closing the window, and a step this build cannot run, are both
+    // canceled rather than a pass
+    assert.strictEqual(PLAN.istaPlanStateFor('canceled'), 'canceled');
+    assert.strictEqual(PLAN.istaPlanStateFor(''), 'canceled');
+    ok('an abandoned run is canceled, not performed');
+
+    // and each of those states must be one the State column can draw
+    const css = fs.readFileSync(
+      path.join(ROOT, 'app', 'renderer', 'css', 'ista-real.css'),
+      'utf8'
+    );
+    for (const state of new Set(Object.values(want)))
+      assert.ok(
+        css.includes(`.irplan-st-${state}`),
+        `no colour for state ${state}`
+      );
+    ok('every plan state has its legend colour');
+  }
 }
 
 main().then(

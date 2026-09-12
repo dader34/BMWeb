@@ -1,4 +1,5 @@
-/* exported istaAblWindow istaAblStepHtml istaAblDocPanes ISTA_ABL_STATE */
+/* exported istaAblWindow istaAblStepHtml istaAblDocPanes ISTA_ABL_STATE
+   ISTA_ABL_DESIG_LABEL */
 /* global esc AblEngine AblHalt istaBottomBar */
 
 // The test module's own window: the page a test plan row opens.
@@ -138,6 +139,13 @@ function istaAblStepHtml(shown, state) {
   return '';
 }
 
+/** What each kind of component document is called in the split. */
+const ISTA_ABL_DESIG_LABEL = {
+  location: 'Installation Location',
+  connector: 'Connector View',
+  pinout: 'Pin Assignment',
+};
+
 /**
  * The two right-hand panes a module's documents fill.
  *
@@ -190,6 +198,11 @@ function istaAblWindow(host, ctx) {
   let picked = null;
   /** @type {boolean} set once the window is gone */
   let closed = false;
+  /**
+   * The component a designator click opened, drawn beside its diagram.
+   * @type {{key: string, docs: object[], pick: number}|null}
+   */
+  let split = null;
   /** @type {string} the verdict, once there is one */
   let verdict = '';
 
@@ -311,13 +324,23 @@ function istaAblWindow(host, ctx) {
   function paint() {
     if (closed || !host.isConnected) return;
     const panes = istaAblDocPanes(engine.documents);
-    const tabs = panes
-      .map(
-        (p, i) =>
-          `<div class="irabl-tab${i === tab ? ' on' : ''}" data-tab="${i}">` +
-          `${esc(p.label)}</div>`
-      )
-      .join('');
+    // a designator clicked on the diagram earns its own tab, next to the
+    // two the module itself asked for, and can be closed again
+    const tabs =
+      panes
+        .map(
+          (p, i) =>
+            `<div class="irabl-tab${i === tab ? ' on' : ''}" data-tab="${i}">` +
+            `${esc(p.label)}</div>`
+        )
+        .join('') +
+      (split
+        ? `<div class="irabl-tab${
+            tab === panes.length ? ' on' : ''
+          }" data-tab="${panes.length}">${esc(split.key)}` +
+          `<span class="irabl-tabx" role="button" tabindex="0" ` +
+          `aria-label="Close ${esc(split.key)}">✕</span></div>`
+        : '');
     const title =
       `${engine.identifier}` +
       (engine.title ? ` - ${engine.title}` : '') +
@@ -369,23 +392,40 @@ function istaAblWindow(host, ctx) {
 
     host.querySelector('.irablwin-x').onclick = () => closeWin();
     host.querySelectorAll('.irabl-tab[data-tab]').forEach((el) => {
-      el.onclick = () => {
+      el.onclick = (ev) => {
+        if (ev.target && ev.target.classList.contains('irabl-tabx')) {
+          ev.stopPropagation();
+          split = null;
+          tab = 0;
+          paint();
+          return;
+        }
         tab = Number(el.dataset.tab);
         paint();
       };
     });
-    drawDoc(panes[tab]);
+    drawDoc(tab < panes.length ? panes[tab] : null, panes);
     bar();
   }
 
   /**
    * Fill the right pane with the open tab's document.
-   * @param {object} pane - {label, doc}
-   * @returns {void}
+   *
+   * With a component tab open the pane splits: the diagram the designator
+   * was clicked on stays on the left and the component's own document sits
+   * on the right, which is how the tool shows "this wire, and here is where
+   * that connector lives".
+   * @param {object|null} pane - {label, doc}, or null for the component tab
+   * @param {object[]} panes - the module's own two panes
+   * @returns {Promise<void>}
    */
-  async function drawDoc(pane) {
+  async function drawDoc(pane, panes) {
     const box = host.querySelector('.irabl-docs-b');
     if (!box) return;
+    if (!pane && split) {
+      await drawSplit(box, panes);
+      return;
+    }
     if (!pane || !pane.doc) {
       box.innerHTML =
         `<div class="irgrey-w">The module does not name a ` +
@@ -398,11 +438,110 @@ function istaAblWindow(host, ctx) {
         ? await ctx.docs(pane.doc, pane.label)
         : null;
     if (!box.isConnected) return;
+    // No document matched. Say what was asked for and that nothing in
+    // this car's set answered it, rather than claiming the build ships
+    // none: it ships the tool's own documents, and this request simply
+    // did not resolve to one.
     box.innerHTML =
       html ||
-      `<div class="irgrey-w">This build does not ship the ` +
-        `${esc(pane.label)} the module asks for ` +
+      `<div class="irgrey-w">No ${esc(pane.label.toLowerCase())} in ` +
+        `this vehicle's set matches what the module asked for ` +
         `(${esc(pane.doc.name || pane.doc.info || 'unnamed')}).</div>`;
+    camera(box);
+    bindDesig(box, panes);
+  }
+
+  /**
+   * Draw the diagram and the clicked component side by side.
+   * @param {HTMLElement} box - the right pane's body
+   * @param {object[]} panes - the module's own two panes
+   * @returns {Promise<void>}
+   */
+  async function drawSplit(box, panes) {
+    box.innerHTML = `<div class="irgrey-w">Loading...</div>`;
+    const diagram = panes && panes[0];
+    const left =
+      diagram && diagram.doc && ctx.docs
+        ? await ctx.docs(diagram.doc, diagram.label)
+        : null;
+    const doc = split.docs[split.pick] || null;
+    const right =
+      doc && ctx.designatorHtml ? await ctx.designatorHtml(doc.id) : null;
+    if (!box.isConnected || !split) return;
+    // One designator can carry several documents: the installation
+    // location, the connector view, the pin assignment. They are offered
+    // as a row rather than silently collapsed to the first.
+    const choices =
+      split.docs.length > 1
+        ? `<div class="irabl-desigrow">` +
+          split.docs
+            .map(
+              (d, i) =>
+                `<span class="irabl-desigpick${
+                  i === split.pick ? ' on' : ''
+                }" data-desig="${i}">${esc(
+                  ISTA_ABL_DESIG_LABEL[d.type] || d.type
+                )}</span>`
+            )
+            .join('') +
+          `</div>`
+        : '';
+    box.innerHTML =
+      `<div class="irabl-split">` +
+      `<div class="irabl-split-l">${
+        left || `<div class="irgrey-w">No wiring diagram is open.</div>`
+      }</div>` +
+      `<div class="irabl-split-r">${choices}${
+        right ||
+        `<div class="irgrey-w">No document for ${esc(split.key)}.</div>`
+      }</div></div>`;
+    box.querySelectorAll('.irabl-desigpick').forEach((el) => {
+      el.onclick = () => {
+        split.pick = Number(el.dataset.desig);
+        drawSplit(box, panes);
+      };
+    });
+    camera(box);
+    bindDesig(box, panes);
+  }
+
+  /**
+   * Give every drawing in the pane the wiring app's camera.
+   *
+   * A schematic is read by zooming into a corner of it, so the pane gets the
+   * same camera the wiring app uses rather than a second one of its own:
+   * wheel, pinch, drag and the zoom controls, all by rewriting the viewBox.
+   * @param {HTMLElement} box - the right pane's body
+   * @returns {void}
+   */
+  function camera(box) {
+    if (typeof fitAndPan !== 'function') return;
+    box.querySelectorAll('.irabl-svg').forEach((stage) => {
+      const svg = stage.querySelector('svg');
+      if (!svg) return;
+      const bar =
+        (stage.parentElement &&
+          stage.parentElement.querySelector('.irabl-doct')) ||
+        stage;
+      fitAndPan(svg, stage, bar);
+    });
+  }
+
+  /**
+   * Make the diagram's component anchors open their documents.
+   * @param {HTMLElement} box - the right pane's body
+   * @param {object[]} panes - the module's own two panes
+   * @returns {void}
+   */
+  function bindDesig(box, panes) {
+    if (!ctx.bindDesignators || !ctx.designatorDocs) return;
+    ctx.bindDesignators(box, async (key) => {
+      const docs = await ctx.designatorDocs(key);
+      if (!docs || !docs.length || closed) return;
+      split = { key, docs, pick: 0 };
+      tab = (panes || []).length;
+      paint();
+    });
   }
 
   /** @returns {void} the bottom row, in the frames' own order */

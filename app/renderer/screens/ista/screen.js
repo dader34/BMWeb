@@ -1526,7 +1526,7 @@ async function istaOpenPlanRow(row, car, chassis, after) {
  * @param {Function} [after] - called when the window closes
  * @returns {Promise<void>} resolves when the window is closed
  */
-function istaRunAblModule(graph, row, car, chassis, after) {
+async function istaRunAblModule(graph, row, car, chassis, after) {
   const view = document.getElementById('view');
   if (!view || typeof istaAblWindow !== 'function') return Promise.resolve();
   view.innerHTML = '';
@@ -1546,10 +1546,33 @@ function istaRunAblModule(graph, row, car, chassis, after) {
       ? window.__ablRunner
       : null;
 
+  // the documents the module's diagnosis object links to, by identifier
+  const idx = await istaProbe(() =>
+    typeof istaAblIndex === 'function' ? istaAblIndex(chassis) : null
+  );
+  const linked =
+    (idx &&
+      idx.modules &&
+      idx.modules[(row && row.id) || (graph && graph.identifier)] &&
+      idx.modules[(row && row.id) || (graph && graph.identifier)].documents) ||
+    [];
+
   return new Promise((resolve) => {
     istaAblWindow(host, {
       graph,
-      docs: (doc, label) => istaAblDocHtml(doc, label, chassis),
+      // A PLAN ROW IS A POINTER, NOT A COPY (see plan.js), so the row
+      // carries no documents to hand on: the module's own linked documents
+      // are read from the index when the window opens, the same place the
+      // graph itself comes from.
+      docs: (doc, label) => istaAblDocHtml(doc, label, chassis, linked),
+      // clicking a component on a schematic is how the tool moves from
+      // "which wire" to "where is it": the anchor carries the designator,
+      // and these two hand the window the lookup without teaching it the
+      // shape of the wiring index
+      bindDesignators: (box, open) =>
+        istaWiringBindDesignators(box, chassis, open),
+      designatorDocs: (key) => istaWiringForDesignator(chassis, key),
+      designatorHtml: (id) => istaWiringDocHtml(chassis, id),
       runner: fake || {
         // the module addresses a GROUP; the app resolves it to the variant
         // that answers on this car, exactly as every other screen does
@@ -1579,13 +1602,20 @@ function istaRunAblModule(graph, row, car, chassis, after) {
           faultList: async ({ vars }) => istaAblFaultList(vars, car),
         },
       },
+      // THE RUN IS WRITTEN BACK. A module that ends leaves its result on
+      // the plan row, so the State column's square carries the legend's
+      // colour and the technician can see at a glance what has been done
+      // and what is still open. The mapping from the six CollectiveResult
+      // values to the plan's five states lives in plan.js.
       onDone: (verdict) => {
-        if (row && row.id && typeof istaPlanSetState === 'function')
-          istaPlanSetState(
-            car,
-            row.id,
-            verdict === 'canceled' ? 'canceled' : 'performed'
-          );
+        if (!row || !row.id || typeof istaPlanSetState !== 'function') return;
+        const state =
+          typeof istaPlanStateFor === 'function'
+            ? istaPlanStateFor(verdict)
+            : verdict === 'canceled'
+              ? 'canceled'
+              : 'performed';
+        istaPlanSetState(car, row.id, state);
       },
       onClose: () => {
         if (typeof after === 'function') after();
@@ -1646,56 +1676,218 @@ function istaAblFaultList(vars, car) {
   };
 }
 
+/** Hosted copy of the tool's own wiring documents. */
+const ISTA_WIRING_HF_BASE =
+  'https://huggingface.co/datasets/CraigFf/bmweb-etk/resolve/main/ista/wiring/';
+
+/** @type {Map<string, object|null>} chassis -> its wiring index, once. */
+const istaWiringIndexes = new Map();
+
+/** @type {Map<string, object|null>} chassis + shard -> its bodies, once. */
+const istaWiringBodies = new Map();
+
 /**
- * A document pane's HTML: the app already serves both halves.
- *
- * The wiring diagram is the app's own WDS schematic for the component the
- * module names; the function description is a diagnosis document rendered
- * the way every other one is. Null when this build ships neither, and the
- * window then says which one it was waiting for.
- * @param {object} doc - the document the module asked for
- * @param {string} label - which pane it is filling
- * @param {string} chassis - the development code
- * @returns {Promise<string|null>}
+ * Fetch one wiring file, local first then the dataset.
+ * @param {string} rel - the path under data/ista/wiring/
+ * @returns {Promise<Response|null>}
  */
-async function istaAblDocHtml(doc, label, chassis) {
-  if (!doc) return null;
-  if (/Wiring/i.test(label)) {
-    const name = String(doc.name || '');
-    if (!name || typeof loadWiring !== 'function') return null;
-    const data = await istaProbe(() => loadWiring(chassis));
-    if (!data || typeof wiringIndex !== 'function') return null;
-    const index = wiringIndex(data.tree);
-    // the module names the component's own drawing; the index names it the
-    // way WDS did, so the match is on the name rather than on a doc id the
-    // module never carried
-    const want = name.replace(/_/g, ' ').toLowerCase();
-    const hit =
-      index.find((e) => String(e.name || '').toLowerCase() === want) ||
-      index.find((e) =>
-        String(e.name || '')
-          .toLowerCase()
-          .includes(want)
-      );
-    if (!hit || typeof wiringDoc !== 'function') return null;
-    const found = wiringDoc(data, hit.doc);
-    if (!found || found.type !== 'svg') return null;
-    return `<div class="irabl-svg">${found.text}</div>`;
-  }
-  // the function description: the diagnosis extract carries the FUB bodies
-  if (!doc.name && typeof istaDiagBodyHtml === 'function') {
-    const code = String(chassis || '').toUpperCase();
-    const body = await istaProbe(async () => {
-      const r = await istaDiagFetch(`${code}/docs/${doc.id || ''}.json.gz`);
-      if (!r || typeof fflate === 'undefined') return null;
-      const bytes = new Uint8Array(await r.arrayBuffer());
-      return JSON.parse(
-        new TextDecoder('utf-8').decode(fflate.gunzipSync(bytes))
-      );
-    });
-    if (body) return `<div class="ista-repair">${istaDiagBodyHtml(body)}</div>`;
+async function istaWiringFetch(rel) {
+  const base = typeof WEB_BASE === 'string' && WEB_BASE ? WEB_BASE : '.';
+  const real =
+    typeof webRealFetch === 'function'
+      ? webRealFetch
+      : window.fetch.bind(window);
+  for (const u of [
+    `${base}/data/ista/wiring/${rel}`,
+    ISTA_WIRING_HF_BASE + rel,
+  ]) {
+    try {
+      const r = await real(u);
+      if (r && r.ok) return r;
+    } catch (e) {
+      /* try the next source */
+    }
   }
   return null;
+}
+
+/**
+ * The tool's own wiring documents for a chassis, once per session.
+ * @param {string} chassis - the development code
+ * @returns {Promise<object|null>}
+ */
+async function istaWiringIndex(chassis) {
+  const code = String(chassis || '').toUpperCase();
+  if (!code) return null;
+  if (istaWiringIndexes.has(code)) return istaWiringIndexes.get(code);
+  const out = await istaProbe(async () => {
+    const r = await istaWiringFetch(`${code}/index.json`);
+    return r ? r.json() : null;
+  });
+  istaWiringIndexes.set(code, out || null);
+  return out || null;
+}
+
+/**
+ * The document a module's request resolves to, or null.
+ *
+ * A module never names a document and nothing here matches on a name: the
+ * diagnosis object the module belongs to carries its documents, and the
+ * extract keeps that link on the module's index entry. So the request's
+ * CLASS picks among the documents that link already named. When a module
+ * has several diagrams the request's format preference is the tie-break,
+ * and failing that the first the link listed, which is the order the tool
+ * itself stores them in.
+ * @param {object[]} documents - the module's linked documents
+ * @param {string} label - which pane is asking
+ * @returns {object|null}
+ */
+function istaWiringPick(documents, label) {
+  // a caller that hands this anything but the row's list is a wiring bug,
+  // and a pane stuck on "Loading..." is how it showed: say so in the log
+  // rather than throwing inside a promise the pane never awaits
+  if (documents && !Array.isArray(documents)) {
+    console.warn('istaWiringPick: expected the row documents, got', documents);
+    return null;
+  }
+  const docs = documents || [];
+  if (!docs.length) return null;
+  const want = /Wiring/i.test(label) ? 'diagram' : 'function';
+  return docs.find((d) => d && d.type === want) || null;
+}
+
+/**
+ * A document pane's HTML, from the document the module's own link names.
+ *
+ * The lookup is by identifier end to end: the module's index entry lists
+ * the documents its diagnosis object links to, and the wiring extract
+ * stores those under the tool's own ids. Nothing is matched by title, so a
+ * pane is either the document the step means or it is empty.
+ * @param {object} doc - the document request the module made
+ * @param {string} label - which pane it is filling
+ * @param {string} chassis - the development code
+ * @param {object[]} documents - the module's linked documents
+ * @returns {Promise<string|null>}
+ */
+async function istaAblDocHtml(doc, label, chassis, documents) {
+  if (!doc) return null;
+  const hit = istaWiringPick(documents, label);
+  if (!hit) return null;
+  return istaWiringDocHtml(chassis, hit.id);
+}
+
+/**
+ * One wiring document's HTML, by the tool's own document id.
+ *
+ * Split out of the pane so a designator clicked on a diagram can draw its
+ * installation location beside that diagram through the same path.
+ * @param {string} chassis - the development code
+ * @param {number|string} id - the document id
+ * @returns {Promise<string|null>}
+ */
+async function istaWiringDocHtml(chassis, id) {
+  const code = String(chassis || '').toUpperCase();
+  const index = await istaWiringIndex(code);
+  const row = ((index && index.documents) || []).find(
+    (d) => String(d.id) === String(id)
+  );
+  if (!row) return null;
+  if (row.type === 'diagram') {
+    const svg = await istaProbe(async () => {
+      const r = await istaWiringFetch(`${code}/svg/${row.id}.svgz`);
+      if (!r || typeof fflate === 'undefined') return null;
+      const bytes = new Uint8Array(await r.arrayBuffer());
+      return new TextDecoder('utf-8').decode(fflate.gunzipSync(bytes));
+    });
+    if (!svg) return null;
+    return (
+      `<div class="irabl-doct">${esc(row.title || row.identifier)}</div>` +
+      `<div class="irabl-svg">${svg}</div>`
+    );
+  }
+  const key = `${code}/${row.shard}`;
+  if (!istaWiringBodies.has(key)) {
+    const body = await istaProbe(async () => {
+      const r = await istaWiringFetch(`${code}/body/${row.shard}.json`);
+      return r ? r.json() : null;
+    });
+    istaWiringBodies.set(key, body || null);
+  }
+  const shard = istaWiringBodies.get(key);
+  const lines = shard && shard[String(row.id)];
+  if (!lines || !lines.length) return null;
+  return (
+    `<div class="irabl-doct">${esc(row.title || row.identifier)}</div>` +
+    `<div class="irabl-doc">` +
+    lines.map((l) => `<p>${esc(l)}</p>`).join('') +
+    `</div>`
+  );
+}
+
+/**
+ * The documents a component designator on a diagram opens.
+ *
+ * A designator is a structured field, not a name: the extract indexes each
+ * location, connector and pin-assignment document under the designator its
+ * own identifier declares (EBO-EBO-E46_EB6217B is designator B6217) and the
+ * ones its title lists, which for an installation location IS its designator
+ * list. So this is a lookup in the tool's own index, never a word match.
+ * Several revisions of the same document can carry one designator; they are
+ * offered in the order the extract stored them, newest identifier last, and
+ * the first is what a click opens.
+ * @param {string} chassis - the development code
+ * @param {string} designator - what the clicked anchor carried
+ * @returns {Promise<object[]>} the documents, installation location first
+ */
+async function istaWiringForDesignator(chassis, designator) {
+  const key = String(designator || '')
+    .trim()
+    .toUpperCase();
+  if (!key) return [];
+  const index = await istaWiringIndex(chassis);
+  const hits = (index && index.designators && index.designators[key]) || [];
+  const order = ['location', 'connector', 'pinout'];
+  return hits
+    .slice()
+    .sort((a, b) => order.indexOf(a.type) - order.indexOf(b.type));
+}
+
+/**
+ * Bind the designator anchors a diagram carries.
+ *
+ * The tool's own schematics name the component in the anchor itself
+ * (href="X6254"), so the designator is read off the link rather than parsed
+ * out of prose. An anchor whose designator has no document in this chassis
+ * is left inert instead of being drawn as a dead link.
+ * @param {HTMLElement} box - the pane holding the drawing
+ * @param {string} chassis - the development code
+ * @param {Function} open - (designator, docs) => void, on a click
+ * @returns {Promise<number>} how many anchors were bound
+ */
+async function istaWiringBindDesignators(box, chassis, open) {
+  const svg = box && box.querySelector('.irabl-svg svg');
+  if (!svg) return 0;
+  const index = await istaWiringIndex(chassis);
+  const table = (index && index.designators) || {};
+  let bound = 0;
+  svg.querySelectorAll('a').forEach((a) => {
+    const raw =
+      a.getAttribute('href') ||
+      a.getAttribute('xlink:href') ||
+      a.getAttribute('target') ||
+      '';
+    const key = String(raw).trim().toUpperCase();
+    if (!key || !table[key]) return;
+    bound += 1;
+    a.classList.add('irabl-desig');
+    a.setAttribute('href', '#');
+    a.addEventListener('click', (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      open(key);
+    });
+  });
+  return bound;
 }
 
 /**

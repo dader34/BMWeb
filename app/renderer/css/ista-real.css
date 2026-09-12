@@ -1413,9 +1413,134 @@ html[data-theme] .ista-real-body .modal .irbf-sel .irbf-row.has {
 .ista-real-body .irabl-full .irabl-docs {
   display: none;
 }
+/* The camera's own controls arrive from the wiring app, which builds them
+   in its app styling and always appends a Share button. Neither belongs in
+   a workshop pane, so they take the tool's buttons here and the share is
+   not drawn: a procedure step is not something a technician links out of. */
+html .ista-real-body .irabl-docs-b .wiring-zoom {
+  display: flex;
+  gap: 4px;
+  margin: 0 0 6px;
+}
+html .ista-real-body .irabl-docs-b .wiring-zoom .btn,
+html .ista-real-body .irabl-docs-b .wiring-zoom button {
+  background: var(--ir-grey) !important;
+  border: 1px solid #9a9a9a !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  color: var(--ir-ink) !important;
+  font: 12px/1.1 var(--ir-font) !important;
+  min-width: 44px;
+  height: 24px;
+  padding: 2px 8px;
+  cursor: pointer;
+}
+html .ista-real-body .irabl-docs-b .wiring-zoom .btn:hover:not(:disabled),
+html .ista-real-body .irabl-docs-b .wiring-zoom button:hover:not(:disabled) {
+  background: #d4d4d4 !important;
+}
+html .ista-real-body .irabl-docs-b .wiring-share {
+  display: none !important;
+}
+
+/* the schematic's stage: the drawing fills it and the camera pans inside
+   it, so it takes the pane's height rather than the drawing's */
+.ista-real-body .irabl-svg {
+  position: relative;
+  height: calc(100% - 26px);
+  min-height: 260px;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+}
+.ista-real-body .irabl-svg:active {
+  cursor: grabbing;
+}
 .ista-real-body .irabl-svg svg {
-  max-width: 100%;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+/* the document's own title above it, the way the tool heads a pane */
+.ista-real-body .irabl-doct {
+  font-weight: 700;
+  font-size: 12px;
+  margin: 0 0 6px;
+}
+/* a text document: the tool's own lines, one paragraph each */
+.ista-real-body .irabl-doc p {
+  margin: 0 0 6px;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+/* a component on a schematic is a link to where that component lives, so
+   it is drawn like one; anchors whose designator has no document in this
+   chassis are never given the class and stay inert */
+.ista-real-body .irabl-svg a.irabl-desig {
+  cursor: pointer;
+}
+.ista-real-body .irabl-svg a.irabl-desig:hover * {
+  stroke: var(--ir-teal);
+  fill: var(--ir-teal);
+}
+
+/* clicking one splits the pane: the diagram it was clicked on stays on the
+   left, the component's own document opens on the right */
+.ista-real-body .irabl-split {
+  display: flex;
+  gap: 8px;
+  height: 100%;
+  min-height: 0;
+}
+.ista-real-body .irabl-split-l,
+.ista-real-body .irabl-split-r {
+  flex: 1 1 50%;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+}
+.ista-real-body .irabl-split-l {
+  border-right: 1px solid var(--ir-line, #b9b9b9);
+  padding-right: 8px;
+}
+/* inside a split each drawing gets the half it sits in */
+.ista-real-body .irabl-split .irabl-svg {
   height: auto;
+  flex: 1 1 auto;
+  min-height: 200px;
+}
+/* one designator can carry a location, a connector view and a pin
+   assignment; the row names them rather than collapsing to the first */
+.ista-real-body .irabl-desigrow {
+  display: flex;
+  gap: 2px;
+  margin: 0 0 6px;
+  flex: none;
+}
+.ista-real-body .irabl-desigpick {
+  background: var(--ir-grey);
+  color: var(--ir-ink);
+  font-size: 11px;
+  padding: 2px 8px;
+  cursor: pointer;
+  border: 1px solid #9a9a9a;
+}
+.ista-real-body .irabl-desigpick.on {
+  background: var(--ir-teal);
+  border-color: var(--ir-teal);
+  color: #fff;
+}
+/* the component's tab closes again, the way the tool closes a document */
+.ista-real-body .irabl-tabx {
+  margin-left: 8px;
+  opacity: 0.75;
+  cursor: pointer;
+}
+.ista-real-body .irabl-tabx:hover {
+  opacity: 1;
 }
 
 /* ---- SAE fault code input ------------------------------------------------- */

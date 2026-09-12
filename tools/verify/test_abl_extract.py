@@ -319,5 +319,74 @@ class TestDeterminism(unittest.TestCase):
         self.assertEqual(a, b)
 
 
+class TestChassisIndex(unittest.TestCase):
+    """The per-chassis file the app actually reads.
+
+    The app opens this file by fault code and by module identifier, so the two
+    things that can go silently wrong are the key format and the document order.
+    Both have: the database stores fault codes in DECIMAL while every screen in
+    the app reads HEX, and the document links carry no order of their own.
+    """
+
+    def setUp(self):
+        import json
+
+        path = os.path.join(HERE, "..", "..", "data", "ista", "abl", "E46.json")
+        if not os.path.exists(path):
+            self.skipTest("no E46 ABL index on this machine")
+        with open(path, encoding="utf-8") as fh:
+            self.index = json.load(fh)
+
+    def test_fault_codes_are_keyed_in_hex_not_the_stored_decimal(self):
+        # XEP_FAULTCODES.CODE for the misfire fault the app shows as 27C3 is
+        # the string "10179". A decimal key finds nothing, for any fault, and
+        # the failure is silent: every calculated test plan comes out empty.
+        self.assertIn("27C3", self.index["faults"])
+        self.assertNotIn("10179", self.index["faults"])
+        for key in self.index["faults"]:
+            code = key.rpartition(":")[2]
+            self.assertTrue(code, f"empty code in key {key!r}")
+            int(code, 16)  # raises if a decimal-only or malformed key crept back
+
+    def test_a_fault_is_reachable_by_the_lookup_the_app_performs(self):
+        table = self.index["faults"]
+
+        def look(code):
+            code = code.upper()
+            out = []
+            for key in (code, code.lstrip("0") or "0", code.rjust(6, "0")):
+                for one in table.get(key, []):
+                    if one not in out:
+                        out.append(one)
+            return out
+
+        self.assertEqual(look("27C3"), ["ABL-DIT-B1214_NGTOENS"])
+        self.assertEqual(look("0027C3"), ["ABL-DIT-B1214_NGTOENS"])
+
+    def test_a_variant_qualified_key_agrees_with_the_bare_one(self):
+        table = self.index["faults"]
+        for key, mods in table.items():
+            variant, sep, code = key.rpartition(":")
+            if not sep:
+                continue
+            self.assertTrue(variant, f"{key!r} has an empty variant prefix")
+            for one in mods:
+                self.assertIn(one, table.get(code, []), f"{key} not under {code}")
+
+    def test_documents_are_in_a_stable_chosen_order(self):
+        # the link rows carry no PRIORITY, so the order is the tool's choice;
+        # the app opens the FIRST of the class a step asked for, so an order
+        # that moves between rebuilds changes which diagram is shown
+        for ident, mod in self.index["modules"].items():
+            docs = mod.get("documents") or []
+            keys = [(d["type"], d["identifier"], d["id"]) for d in docs]
+            self.assertEqual(keys, sorted(keys), f"{ident} is not in order")
+
+    def test_a_module_carries_only_what_a_plan_row_needs(self):
+        allowed = {"complete", "component", "documents", "priority", "steps", "title"}
+        for ident, mod in self.index["modules"].items():
+            self.assertTrue(set(mod) <= allowed, f"{ident} has {set(mod) - allowed}")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

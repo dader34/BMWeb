@@ -85,6 +85,26 @@ def dll_name(identifier):
     return identifier.replace("-", "_", 2) + ".dll"
 
 
+# A module never names a document. It asks the DocumentHandler for a CLASS
+# (a wiring diagram, a functional description) and the tool resolves that
+# through the links: module -> diagnosis object -> documents. These are the
+# classes those links reach, mapped to the pane each one fills, so the app
+# picks by class and never by a document's name.
+DOC_CLASSES = {
+    "Schaltplan": "diagram",
+    "SchaltplanLanguage": "diagram",
+    "Funktionsbeschreibung": "function",
+    "Einbauort": "location",
+    "Steckeransicht": "connector",
+    "Pinbelegung": "pinout",
+    "Fehlerbehebung": "troubleshooting",
+    "Reparaturanleitung": "repair",
+    "Serviceinformation": "service",
+    "Reparaturhinweis": "repairnote",
+    "FahrzeugtechnikDiagnose": "diagnosis",
+}
+
+
 def links_for(db, module_rows):
     """diagnosis objects and fault codes linking to the given modules (by infoobject id)."""
     ids = [m["id"] for m in module_rows]
@@ -112,7 +132,39 @@ def links_for(db, module_rows):
          "left join XEP_ECUVARIANTS v on v.ID=f.ECUVARIANTID where r.LINK_TYPE_ID='FaultcodeFkbLink'")
     for mid, code, variant, fid in db.execute(q):
         faults.setdefault(mid, {}).setdefault((code, variant), {"code": code, "ecu_variant": variant, "fault_id": fid, "via": "fkb"})
-    return diag, faults
+    # second hop: the documents those diagnosis objects link to. This is the
+    # whole of the app's document resolution, and the reason a pane can say
+    # "the module asked for a wiring diagram" and open the right one.
+    docs = {}
+    seen = set()
+    q = ("select r.INFOOBJECTID, io.ID, io.IDENTIFIER, io.TITLE_ENGB, n.NAME "
+         "from XEP_REFINFOOBJECTS r "
+         "join temp.mods m on m.ID=r.INFOOBJECTID "
+         "join XEP_REFINFOOBJECTS rd on rd.ID=r.ID "
+         "  and rd.LINK_TYPE_ID='DiagobjDocumentLink' "
+         "join XEP_INFOOBJECTS io on io.ID=rd.INFOOBJECTID "
+         "join XEP_NODECLASSES n on n.ID=io.NODECLASS "
+         "where r.LINK_TYPE_ID='DiagobjServiceprogramLink'")
+    for mid, did, dident, dtitle, cls in db.execute(q):
+        if (mid, did) in seen:
+            continue
+        seen.add((mid, did))
+        docs.setdefault(mid, []).append({
+            "id": did,
+            "identifier": dident or "",
+            "title": (dtitle or "").strip(),
+            "type": DOC_CLASSES.get(cls, cls.lower()),
+        })
+    # THE ORDER IS A CHOICE, SO IT IS MADE ONCE AND MADE STABLE. The link
+    # rows carry a PRIORITY column and it is NULL on every one of them, so
+    # the tool has no order to honour and the database returns rows in
+    # whatever order it likes. The app opens the FIRST document of the class
+    # a step asked for, so an unstable order means a rebuild quietly changes
+    # which diagram a technician is shown. Sorting on the identifier fixes
+    # that: the same input gives the same document, every time.
+    for row in docs.values():
+        row.sort(key=lambda d: (d["type"], d["identifier"], d["id"]))
+    return diag, faults, docs
 
 
 # ----------------------------------------------------------------------------
@@ -224,7 +276,7 @@ def write_failures(out_dir, index):
 
 def write_chassis(db, out_dir, chassis, modules, index):
     rows = [m for m in modules.values() if chassis in m["chassis"]]
-    diag, faults = links_for(db, rows)
+    diag, faults, docs = links_for(db, rows)
     entries = []
     for m in rows:
         ix = index.get(m["identifier"], {})
@@ -232,10 +284,66 @@ def write_chassis(db, out_dir, chassis, modules, index):
             ("identifier", m["identifier"]), ("title", m["title"]), ("dll", dll_name(m["identifier"])),
             ("steps", ix.get("steps")), ("complete", ix.get("complete")),
             ("diag_objects", diag.get(m["id"], [])),
+            ("documents", docs.get(m["id"], [])),
             ("fault_codes", sorted(faults.get(m["id"], {}).values(), key=lambda f: (f["ecu_variant"] or "", f["code"] or ""))),
         ]))
-    with open(os.path.join(out_dir, chassis + ".json"), "w") as fh:
+    # The app reads this file, so it is written in the shape the app reads:
+    # modules keyed by identifier with only the fields a PLAN ROW and the
+    # module window need, and a fault -> modules table the test-plan
+    # calculation looks up directly. The wide per-module records above stay
+    # as the tool's own record under <CHASSIS>.full.json.
+    with open(os.path.join(out_dir, chassis + ".full.json"), "w") as fh:
         json.dump({"chassis": chassis, "modules": entries}, fh, ensure_ascii=False)
+
+    app_modules = OrderedDict()
+    for e in sorted(entries, key=lambda x: x["identifier"]):
+        objs = e["diag_objects"]
+        app_modules[e["identifier"]] = OrderedDict([
+            ("complete", e["complete"]),
+            # the component the row sits under is the diagnosis object the
+            # module belongs to, named in the technician's language
+            ("component", (objs[0]["title"] if objs else "") or ""),
+            ("documents", e["documents"]),
+            ("priority", 0),
+            ("steps", e["steps"]),
+            ("title", e["title"]),
+        ])
+        if not e["documents"]:
+            del app_modules[e["identifier"]]["documents"]
+
+    # fault code -> the modules that test it, which is the whole of
+    # "calculate test plan": a fault the car reported names its procedures
+    # THE DATABASE STORES THE FAULT CODE IN DECIMAL; EVERY SCREEN READS HEX.
+    # XEP_FAULTCODES.CODE for the MS45 misfire fault the app shows as 27C3
+    # is the string "10179". Writing the stored digits through unchanged is
+    # not a formatting nit: the app looks a fault up by the hex it displays,
+    # so a decimal key means no plan row is ever found, for any fault.
+    #
+    # Both forms are written. The same code means different things on
+    # different ECU variants, so the variant-qualified key is what a caller
+    # that knows the variant should use; the bare key is what the fault
+    # table can offer, since its Code column carries no variant.
+    by_fault = {}
+    for e in entries:
+        for f in e["fault_codes"]:
+            if f["code"] is None:
+                continue
+            try:
+                code = format(int(str(f["code"])), "X")
+            except ValueError:
+                code = str(f["code"]).upper()
+            by_fault.setdefault(code, set()).add(e["identifier"])
+            variant = f["ecu_variant"]
+            if variant:
+                key = "%s:%s" % (variant, code)
+                by_fault.setdefault(key, set()).add(e["identifier"])
+    faults = OrderedDict((k, sorted(v)) for k, v in sorted(by_fault.items()))
+
+    with open(os.path.join(out_dir, chassis + ".json"), "w") as fh:
+        json.dump(
+            {"chassis": chassis, "faults": faults, "modules": app_modules},
+            fh, ensure_ascii=False,
+        )
     return entries
 
 
