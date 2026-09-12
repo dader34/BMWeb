@@ -264,6 +264,7 @@ echo
 echo "== repair manual: the extractor's document model, groups and pictures =="
 python3 tools/verify/test_repair_extract.py || exit 1
 python3 tools/verify/test_ecu_functions_extract.py || exit 1
+python3 tools/verify/test_repair_search_index.py || exit 1
 
 echo
 echo "== repair manual: the browser's tree, the search scopes, the renderer =="

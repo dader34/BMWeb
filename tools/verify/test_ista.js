@@ -168,33 +168,25 @@ const I = loadClassic('screens/ista/');
   for (const t of ISTA_TABS)
     for (const s of t.subs || [])
       assert.notStrictEqual(s.id, 'cbs', 'no CBS status row');
-  // the dev-only rows are the two coding leaves under Vehicle modification;
-  // programming has no row at all any more, it is a `why` on every leaf that
-  // would have needed it
+  // Vehicle modification is gone (retrofit and conversion measures need
+  // programming, which is not offered, and its two coding leaves went with
+  // it), so no dev-only row remains anywhere in the model
   const devIds = ISTA_TABS.flatMap((t) =>
     (t.subs || []).flatMap((s) =>
       [s, ...(s.subs3 || [])].filter((x) => x.dev).map((x) => x.id)
     )
   );
-  assert.deepStrictEqual(devIds.sort(), ['conversion-coding', 'remove-coding']);
-  assert.ok(
-    I.istaSub3('management', 'modification', 'conversion-coding'),
-    'dev host lists the coding leaf'
+  assert.deepStrictEqual(devIds, []);
+  assert.strictEqual(
+    I.istaSub('management', 'modification'),
+    null,
+    'no Vehicle modification tab'
   );
-  global.codingReady = () => false;
-  try {
-    const pub = I.istaSubs3Of('management', 'modification').map((s) => s.id);
-    assert.ok(!pub.includes('conversion-coding'), 'public: no Coding leaf');
-    assert.ok(!pub.includes('remove-coding'), 'public: no second Coding leaf');
-    assert.ok(pub.includes('retrofit'), 'public keeps the rest');
-    assert.strictEqual(
-      I.istaSub3('management', 'modification', 'conversion-coding'),
-      null,
-      'not routable'
-    );
-  } finally {
-    delete global.codingReady;
-  }
+  assert.deepStrictEqual(
+    I.istaSubs3Of('management', 'modification'),
+    [],
+    'and no level-3 strip under it'
+  );
   // programming is refused everywhere it could be asked for, by a reason
   // rather than by a missing tab
   const progWhy = ISTA_TABS.flatMap((t) =>
