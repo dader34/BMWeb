@@ -225,9 +225,6 @@ const I = loadClassic('screens/ista/');
       'techdata',
       'tree',
       'unit-list',
-      // the vehicle test's own page: no tab of its own, reached from the
-      // Start vehicle test button
-      'vehicle-test',
       'vin',
     ],
     'only the pages the shell draws itself'

@@ -172,16 +172,6 @@ const ISTA_TABS = [
         needsCar: true,
       },
       {
-        // the vehicle test's own page, reached from the buttons rather than
-        // the tab strip: the tool has no tab for it either
-        id: 'vehicle-test',
-        label: 'Vehicle test',
-        desc: 'The whole-car read, while it runs',
-        page: 'vehicle-test',
-        needsCar: true,
-        hidden: true,
-      },
-      {
         id: 'unit-list',
         label: 'Control unit list',
         desc: 'Every module the chassis carries, with what the newest test found',
@@ -537,7 +527,17 @@ const ISTA_BOTTOM = {
   // thing to offer is stopping it. Cancel ends the read between two jobs,
   // the way the tool's own test does, rather than pulling the cable out
   // from under a job that is on the bus.
-  'vehicle-test': [{ id: 'cancel', label: 'Cancel' }, { spacer: true }],
+  // The Control unit list WHILE THE TEST RUNS: the read happens on this
+  // screen, so only the first button changes -- Start becomes Cancel, which
+  // ends the read between two jobs rather than pulling the cable out from
+  // under one already on the bus. The rest grey: nothing else is safe to
+  // press while the script owns the cable.
+  'unit-list-busy': [
+    { id: 'cancel', label: 'Cancel vehicle test' },
+    { id: 'ecu-functions', label: 'Call up ECU\nfunctions', off: true },
+    { spacer: true },
+    { id: 'display-faults', label: 'Display fault\nmemory', off: true },
+  ],
   // Troubleshooting / SAE fault code input
   sae: [
     { id: 'show-code', label: 'Show fault code' },

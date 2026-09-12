@@ -20,7 +20,7 @@
  */
 
 /* exported istaPageVin istaPageReadout istaPageActive istaPageGrey
-   istaRealDetails istaRealEquipment istaPageVehicleTest */
+   istaRealDetails istaRealEquipment */
 
 /** A VIN is 17 characters, or the 7-character production number alone. */
 const ISTA_VIN_RE = /^(?:[A-HJ-NPR-Z0-9]{17}|[A-Z0-9]{7})$/;
@@ -233,67 +233,6 @@ function istaPageActive(host, car, chassis) {
       ? ''
       : `<div class="irvin-empty">No vehicle is open. Start one on ` +
         `Operations / New.</div>`) +
-    `</div>`;
-}
-
-// ---- the vehicle test -------------------------------------------------------
-
-/**
- * The vehicle test while it runs, and what it found when it ends.
- *
- * The tool reads the whole car from inside its own window: a line saying
- * what is happening, and the modules filling in as each one answers. It
- * does NOT leave for another screen, which is what this page exists to
- * stop -- every "Start vehicle test" button used to navigate to the app's
- * Control unit tree instead of running anything.
- * @param {HTMLElement} host - where to draw
- * @param {object} state - {running, text, answered, faults, error, done}
- * @returns {void}
- */
-function istaPageVehicleTest(host, state) {
-  const st = state || {};
-  const rows = (st.modules || [])
-    .map(
-      (m) =>
-        `<tr><td>${esc(m.label || m.sgbd || '')}</td>` +
-        `<td>${esc(m.sgbd || '')}</td>` +
-        `<td class="irvt-n">${m.faults == null ? '' : esc(String(m.faults))}</td>` +
-        `<td>${esc(m.note || '')}</td></tr>`
-    )
-    .join('');
-  const head = st.error
-    ? `<div class="irvt-bad">${esc(st.error)}</div>`
-    : `<div class="irvt-line">` +
-      // the app's own loader -- the roundel turning -- the way every other
-      // waiting screen in the app shows it, rather than a second spinner
-      (st.running ? `<span class="loader" aria-hidden="true"></span>` : '') +
-      `<span>${esc(st.text || (st.running ? 'Reading the vehicle...' : ''))}` +
-      `</span></div>`;
-  // a pass that could not run is said out loud, under the tally
-  const identNote =
-    st.done && st.identError
-      ? `<div class="irvt-warn">The control units were not identified: ` +
-        `${esc(st.identError)}. Their fault memories were still read.</div>`
-      : '';
-  const tally = st.done
-    ? `<div class="irvt-sum">` +
-      `${esc(String(st.answered || 0))} control units answered, ` +
-      `${esc(String(st.faults || 0))} with an entry in the fault memory` +
-      (st.stopped ? ' (test cancelled)' : '') +
-      `</div>`
-    : '';
-  host.innerHTML =
-    `<div class="irvt">` +
-    `<h3>Vehicle test</h3>` +
-    head +
-    tally +
-    identNote +
-    `<table class="irtable"><thead><tr>` +
-    `<th>Control unit</th><th>Variant</th><th>Faults</th><th>Status</th>` +
-    `</tr></thead><tbody>${rows}</tbody></table>` +
-    (rows
-      ? ''
-      : `<div class="irvin-empty">No control unit has answered yet.</div>`) +
     `</div>`;
 }
 
@@ -518,6 +457,5 @@ if (typeof module !== 'undefined' && module.exports) {
     istaDetailColumns,
     istaRealDetails,
     istaRealEquipment,
-    istaPageVehicleTest,
   };
 }

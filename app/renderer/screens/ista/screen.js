@@ -152,178 +152,179 @@ let istaTestRun = null;
  */
 async function istaOpenVehicleTest() {
   if (istaTestRun) return;
+  if (typeof ecuTreeScanStart !== 'function') return;
   const chassis = istaChassis();
   const car = istaState.car || null;
-  if (typeof ecuTreeScanStart !== 'function') {
-    // without the scan engine there is nothing to run, and saying so beats
-    // silently opening some other screen
-    return istaGo('information', 'unit-list', null);
-  }
-  await istaGo('information', 'vehicle-test', null);
-  const host = document.getElementById('view');
-  if (!host) return;
 
-  /** @type {object} what the page is drawing */
-  const state = { running: true, text: '', modules: [] };
-  const paint = () => {
-    if (host.isConnected && typeof istaPageVehicleTest === 'function')
-      istaPageVehicleTest(host, state);
-  };
+  // THE TEST RUNS ON THE SCREEN YOU PRESSED IT FROM. The tool does not
+  // leave for a progress page: the control units colour in where they are
+  // already listed, exactly as the tree app's own Fault scan paints its
+  // boxes. So this repaints the current ISTA page after every answer and
+  // never navigates -- the earlier version opened a page of its own, which
+  // is the thing to avoid.
   /**
-   * @param {object|null} report - the read so far
-   * @returns {void} fold it into the rows the page draws
+   * Paint what has answered so far onto the screen already showing.
+   * @param {boolean} [full] - rebuild the page (start and finish only)
+   * @returns {Promise<void>|null}
    */
-  const fold = (report) => {
-    // the report is {modules, silent}: a module that never answered is in
-    // its OWN list, not flagged on the module row, so both are drawn or the
-    // table quietly omits every ECU that did not respond
-    const mods = (report && report.modules) || [];
-    const silent = (report && report.silent) || [];
-    // 'ident' is the identification pass; only a fault read counts faults
-    const asked = !report || report.kind !== 'ident';
-    state.modules = mods
-      .map((m) => ({
-        // the Control unit column is the module, the Variant column is what
-        // answered for it. protocol.js falls back to the sgbd for `label`
-        // when its dictionary has no name, which put the SAME string in
-        // both columns; the GROUP is the name the rest of the tool uses
-        label:
-          m.label && m.label !== m.sgbd
-            ? m.label
-            : String(m.via || m.sgbd || '').toUpperCase(),
-        sgbd: m.sgbd || '',
-        // A FAULT COUNT IS ONLY A COUNT ONCE THE MEMORY HAS BEEN ASKED.
-        // An identification report carries codes: [] for every module
-        // because it never asked, and printing 0 there claims a clean
-        // fault memory this pass has not read. The report says which
-        // pass it is; blank until the fault read answers.
-        faults: asked && Array.isArray(m.codes) ? m.codes.length : null,
-        note: '',
-      }))
-      .concat(
-        silent.map((x) => ({
-          label: x.label || x.target || '',
-          sgbd: String(x.target || '').toLowerCase(),
-          faults: null,
-          note: 'no answer',
-        }))
-      );
-    state.answered = mods.length;
-    state.faults = asked
-      ? mods.filter((m) => Array.isArray(m.codes) && m.codes.length).length
-      : 0;
+  const redraw = async (full) => {
+    if (full) return istaRedraw();
+    const slots = await istaLoadSlots(chassis, car);
+    istaPaintStates(slots);
+    istaTestStatus(slots);
+    return null;
   };
-  paint();
 
-  /** @type {object|null} the pass on the bus right now */
-  let handle = null;
+  const token = {};
+  /** true while a repaint is in flight, so ticks do not pile up */
+  let painting = false;
+  istaTestRun = token;
+  istaTestError = '';
+  istaTestLiveState = { ident: null, faults: null };
+
   /**
-   * Run one pass of the whole-car script.
-   * @param {object|null} menu - the menu to open, or null for the main one
+   * Run one pass of the whole-car script, painting as it answers.
+   * @param {object|null} menu - the menu to open, null for the main one
    * @param {RegExp} key - the key to press, by caption
-   * @param {string} what - what to say while it runs
+   * @param {'ident'|'faults'} slot - which half of the read this is
    * @returns {Promise<object>} {report, lines, cancelled}
    */
-  const pass = (menu, key, what) => {
-    state.text = what;
-    paint();
-    handle = ecuTreeScanStart(
+  const pass = (menu, key, slot) => {
+    const handle = ecuTreeScanStart(
       chassis,
       {
-        onProgress: (report, text) => {
-          if (istaTestRun !== token) return;
-          if (report) fold(report);
-          if (text) state.text = text;
-          paint();
-        },
-        onMessage: (title, body) => {
-          if (istaTestRun !== token) return;
-          state.text = `${title}${body ? `: ${body}` : ''}`;
-          paint();
+        onProgress: (report) => {
+          if (istaTestRun !== token || !report) return;
+          istaTestLiveState[slot] = report;
+          // the tick fires every 250 ms; a repaint that is still loading
+          // its slots must not stack up behind the next one
+          if (!painting) {
+            painting = true;
+            Promise.resolve(redraw())
+              .catch(() => {})
+              .then(() => {
+                painting = false;
+              });
+          }
         },
       },
       { faultMenu: menu, faultKey: key }
     );
-    istaBottomBar('vehicle-test', { cancel: () => handle && handle.cancel() });
+    istaTestRun = token;
+    istaTestHandle = handle;
     return handle.done;
   };
 
-  const token = {};
-  istaTestRun = token;
+  const identKey =
+    typeof GARAGE_IDENT_KEY !== 'undefined'
+      ? GARAGE_IDENT_KEY
+      : /^(Ident|Identifikation|Identification)$/i;
+  const faultKey =
+    typeof GARAGE_FAULT_KEY !== 'undefined'
+      ? GARAGE_FAULT_KEY
+      : /^(FS lesen|Fehlerspeicher lesen|Read fault memory)$/i;
+  const faultMenu =
+    typeof IPO_VEHICLE_FAULT_MENU !== 'undefined'
+      ? IPO_VEHICLE_FAULT_MENU
+      : 'm_fs';
 
+  const keep = (report, lines) => {
+    if (!car || typeof garageAddScan !== 'function') return;
+    if (!report || !(report.modules || []).length) return;
+    garageAddScan(car.id, { report, lines }, { chassis });
+  };
+
+  redraw(true);
   try {
-    // TWO PASSES, THE WAY THE TOOL'S OWN TEST WORKS. Identification says
-    // WHICH variant sits in each slot and fills the ECU window's
-    // Identification tab; the fault read says what each one has stored.
-    // A fault read alone leaves every control unit reading "not identified
-    // yet" -- and the message telling the technician to run the vehicle
-    // test could never be satisfied by running it.
-    const identKey =
-      typeof GARAGE_IDENT_KEY !== 'undefined'
-        ? GARAGE_IDENT_KEY
-        : /^(Ident|Identifikation|Identification)$/i;
-    const faultKey =
-      typeof GARAGE_FAULT_KEY !== 'undefined'
-        ? GARAGE_FAULT_KEY
-        : /^(FS lesen|Fehlerspeicher lesen|Read fault memory)$/i;
-    const faultMenu =
-      typeof IPO_VEHICLE_FAULT_MENU !== 'undefined'
-        ? IPO_VEHICLE_FAULT_MENU
-        : 'm_fs';
-
-    /** an identification pass is worth having but must not fail the test */
-    let ident = null;
+    // identification names the variant in each slot, the fault read says
+    // what each one has stored; the tool's test does both
     try {
-      ident = await pass(null, identKey, 'Identifying the control units...');
+      const r = await pass(null, identKey, 'ident');
+      if (istaTestRun !== token) return;
+      istaTestLiveState.ident = r.report;
+      keep(r.report, r.lines);
     } catch (e) {
-      // A SCRIPT WITH NO IDENT KEY STILL HAS FAULT MEMORIES WORTH READING,
-      // so this does not fail the test -- but it must not vanish either.
-      // Swallowing it silently is how a test that identified nothing looked
-      // exactly like one that did: the control unit list stayed grey and
-      // nothing said why.
-      ident = null;
-      state.identError = String((e && e.message) || e);
-      console.warn('[ista] identification pass:', state.identError);
+      // a script with no Ident key still has fault memories worth reading,
+      // but the reason must not vanish: a test that identified nothing
+      // looked exactly like one that worked
+      istaTestError = String((e && e.message) || e);
+      console.warn('[ista] identification pass:', istaTestError);
     }
     if (istaTestRun !== token) return;
-    const got1 = ident && ident.report && (ident.report.modules || []).length;
-    if (car && got1 && typeof garageAddScan === 'function')
-      garageAddScan(
-        car.id,
-        { report: ident.report, lines: ident.lines },
-        { chassis }
-      );
-
-    const {
-      report,
-      lines,
-      cancelled: stopped,
-    } = await pass(faultMenu, faultKey, 'Reading the fault memories...');
-    if (istaTestRun === token) istaTestRun = null;
-    fold(report);
-    state.running = false;
-    state.done = true;
-    state.stopped = !!stopped;
-    state.text = '';
-    // the test is only worth anything if it is kept against the car: the
-    // Control unit list, the fault memory and the test plan all read it
-    // back out of the Garage
-    const got = report && (report.modules || []).length;
-    if (car && got && typeof garageAddScan === 'function')
-      garageAddScan(car.id, { report, lines }, { chassis });
+    const r2 = await pass(faultMenu, faultKey, 'faults');
+    if (istaTestRun !== token) return;
+    istaTestLiveState.faults = r2.report;
+    keep(r2.report, r2.lines);
     istaState.tested = true;
-    paint();
-    // and then the tool shows what it found
-    if (host.isConnected && got) await istaGo('information', 'unit-list', null);
   } catch (e) {
-    if (istaTestRun === token) istaTestRun = null;
-    state.running = false;
-    state.done = true;
-    state.error = String((e && e.message) || e);
-    paint();
-    istaBottomBar('vehicle-test', { cancel: null });
+    istaTestError = String((e && e.message) || e);
+    console.warn('[ista] vehicle test:', istaTestError);
+  } finally {
+    if (istaTestRun === token) {
+      istaTestRun = null;
+      istaTestHandle = null;
+      // the stored scans now hold what the live state held
+      istaTestLiveState = null;
+      redraw(true);
+    }
   }
 }
+
+/** @type {object|null} the pass on the bus, so Cancel can end it */
+let istaTestHandle = null;
+
+/**
+ * The status line while the test runs: the count and what it is doing.
+ * @param {object[]} slots - the slots as they stand now
+ * @returns {void}
+ */
+function istaTestStatus(slots) {
+  if (typeof istaRealStatus !== 'function') return;
+  const faults = (slots || []).reduce((a, x) => a + x.faults, 0);
+  const read = (slots || []).some((x) => x.state !== 'unread');
+  istaRealStatus({
+    items: [
+      { k: 'Fault memory', v: read ? String(faults) : 'Unknown' },
+      { k: 'Vehicle test', v: istaTestPhase() },
+    ],
+    legend: [
+      { cls: 'ok', label: 'ECU without fault memory' },
+      { cls: 'warn', label: 'ECU with fault memory' },
+      { cls: 'bad', label: 'ECU not responding' },
+      { cls: 'blue', label: 'ECU with programming abort' },
+    ],
+  });
+}
+
+/**
+ * What the running test is doing, for the status line.
+ * @returns {string}
+ */
+function istaTestPhase() {
+  const live = istaTestLiveState;
+  if (!live) return 'starting...';
+  const count = (r) =>
+    ((r && r.modules) || []).length + ((r && r.silent) || []).length;
+  // which half is on the bus: the fault read only starts once the
+  // identification has been put away
+  return live.ident
+    ? `reading fault memories (${count(live.faults)} answered)`
+    : `identifying control units (${count(live.ident)} answered)`;
+}
+
+/**
+ * End the vehicle test between two jobs.
+ *
+ * The handle's own cancel stops the script after the job on the bus
+ * finishes, rather than abandoning a read mid-telegram.
+ * @returns {void}
+ */
+function istaTestCancel() {
+  if (istaTestHandle && typeof istaTestHandle.cancel === 'function')
+    istaTestHandle.cancel();
+}
+/** @type {string} why the last test could not finish, if it could not */
+let istaTestError = '';
 
 /**
  * The whole-car script's main menu, filed against the picked car. Its Ident
@@ -1069,11 +1070,29 @@ async function istaLoadSlots(chassis, car) {
   ]);
   const scans =
     car && typeof garageScans === 'function' ? garageScans(car.id) : [];
-  const faults = (scans.find((x) => x.kind === 'faults') || {}).report || null;
-  const ident = (scans.find((x) => x.kind === 'ident') || {}).report || null;
+  let faults = (scans.find((x) => x.kind === 'faults') || {}).report || null;
+  let ident = (scans.find((x) => x.kind === 'ident') || {}).report || null;
+  // A READ IN PROGRESS OUTRANKS THE STORED ONE. The vehicle test paints the
+  // screen it is already on as each module answers, the way the tree app's
+  // own Fault scan does, so it hands its half-finished report in here rather
+  // than waiting for the end and reloading from the Garage.
+  const now = istaTestLive();
+  if (now && now.ident) ident = now.ident;
+  if (now && now.faults) faults = now.faults;
   return typeof istaSlots === 'function'
     ? istaSlots(cfg, faults, ident, tree)
     : [];
+}
+
+/** @type {{ident: object|null, faults: object|null}|null} the live read */
+let istaTestLiveState = null;
+
+/**
+ * The vehicle test's reads so far, while one is running.
+ * @returns {{ident: object|null, faults: object|null}|null}
+ */
+function istaTestLive() {
+  return istaTestLiveState;
 }
 
 /**
@@ -2496,16 +2515,27 @@ async function istaDrawPage(s, host) {
     const read = slots.some((x) => x.state !== 'unread');
     let picked = null;
     const bar = () =>
-      istaBottomBar('unit-list', {
-        'vehicle-test': () => istaOpenVehicleTest(),
-        'ecu-functions': picked
-          ? () => istaOpenEcuWindow(picked.slot, picked.box, chassis)
-          : null,
-        'display-faults': () =>
-          istaGo('management', 'troubleshooting', 'fault-memory'),
-      });
+      istaTestRun
+        ? istaBottomBar('unit-list-busy', {
+            cancel: () => istaTestCancel(),
+          })
+        : istaBottomBar('unit-list', {
+            'vehicle-test': () => istaOpenVehicleTest(),
+            'ecu-functions': picked
+              ? () => istaOpenEcuWindow(picked.slot, picked.box, chassis)
+              : null,
+            'display-faults': () =>
+              istaGo('management', 'troubleshooting', 'fault-memory'),
+          });
     istaRealStatus({
-      items: [{ k: 'Fault memory', v: read ? String(faults) : 'Unknown' }],
+      items: [
+        { k: 'Fault memory', v: read ? String(faults) : 'Unknown' },
+        ...(istaTestRun
+          ? [{ k: 'Vehicle test', v: istaTestPhase() }]
+          : istaTestError
+            ? [{ k: 'Vehicle test', v: istaTestError }]
+            : []),
+      ],
       legend: [
         { cls: 'ok', label: 'ECU without fault memory' },
         { cls: 'warn', label: 'ECU with fault memory' },
@@ -2529,15 +2559,19 @@ async function istaDrawPage(s, host) {
     const faults = slots.reduce((a, x) => a + x.faults, 0);
     const read = slots.some((x) => x.state !== 'unread');
     const bar = () =>
-      istaBottomBar('unit-list', {
-        'vehicle-test': () => istaOpenVehicleTest(),
-        // the window is about ONE control unit, so it needs one picked
-        'ecu-functions': picked
-          ? () => istaOpenEcuWindow(picked, null, chassis)
-          : null,
-        'display-faults': () =>
-          istaGo('management', 'troubleshooting', 'fault-memory'),
-      });
+      istaTestRun
+        ? istaBottomBar('unit-list-busy', {
+            cancel: () => istaTestCancel(),
+          })
+        : istaBottomBar('unit-list', {
+            'vehicle-test': () => istaOpenVehicleTest(),
+            // the window is about ONE control unit, so it needs one picked
+            'ecu-functions': picked
+              ? () => istaOpenEcuWindow(picked, null, chassis)
+              : null,
+            'display-faults': () =>
+              istaGo('management', 'troubleshooting', 'fault-memory'),
+          });
     istaPageUnitList(host, {
       slots,
       onPick: (x) => {
@@ -2546,7 +2580,14 @@ async function istaDrawPage(s, host) {
       },
     });
     istaRealStatus({
-      items: [{ k: 'Fault memory:', v: read ? String(faults) : 'Unknown' }],
+      items: [
+        { k: 'Fault memory:', v: read ? String(faults) : 'Unknown' },
+        ...(istaTestRun
+          ? [{ k: 'Vehicle test:', v: istaTestPhase() }]
+          : istaTestError
+            ? [{ k: 'Vehicle test:', v: istaTestError }]
+            : []),
+      ],
       legend: [
         { cls: 'ok', label: 'ECU without fault memory' },
         { cls: 'warn', label: 'ECU with fault memory' },
@@ -2605,22 +2646,6 @@ async function istaDrawPage(s, host) {
       });
     if (real) armReadout(false);
     await istaPageReadout(host, { onCable: real ? armReadout : null });
-    return;
-  }
-
-  if (s.page === 'vehicle-test') {
-    // The page belongs to the run that started it. Landing here any other
-    // way -- a reload, Back -- means there is no read on the bus, so it
-    // says so rather than showing an empty table that looks like a test
-    // that found nothing.
-    if (real && !istaTestRun && typeof istaPageVehicleTest === 'function') {
-      istaRealStatus({ items: [] });
-      istaBottomBar('vehicle-test', { cancel: null });
-      istaPageVehicleTest(host, {
-        running: false,
-        text: 'No vehicle test is running. Start one from Control unit list.',
-      });
-    }
     return;
   }
 
@@ -2773,6 +2798,69 @@ async function istaOpenOperation(car, vin) {
  * @param {string|null} [carId] - a car id from the route
  * @returns {Promise<void>}
  */
+/**
+ * Draw the page the shell is already on again.
+ *
+ * The vehicle test uses this to colour the control units in as they answer,
+ * so the read happens on the screen it was started from instead of a page
+ * of its own. It is deliberately a re-render of the CURRENT route, not a
+ * navigation: nothing about where the technician is changes.
+ * @returns {Promise<void>}
+ */
+function istaRedraw() {
+  return showIsta(istaState.tab, istaState.sub, istaState.sub3);
+}
+
+/**
+ * Recolour the control units in place, without rebuilding the page.
+ *
+ * REDRAWING THE WHOLE SHELL ON EVERY ANSWER IS A FLASHING SCREEN. showIsta
+ * rebuilds the chrome, the crumbs, the tab strips and the tree's canvas, so
+ * calling it per module made the page blink about once a second and threw
+ * away the drawing each time. The read only ever changes two things -- each
+ * box's state class and the status line -- so those are all that is touched.
+ * @param {object[]} slots - the slots as they stand now
+ * @returns {void}
+ */
+function istaPaintStates(slots) {
+  if (typeof document === 'undefined') return;
+  const host = document.getElementById('view');
+  if (!host) return;
+  const find = (key) => {
+    const at = String(key).lastIndexOf('@');
+    const name = at > 0 ? String(key).slice(0, at) : String(key);
+    const addr = at > 0 ? String(key).slice(at + 1) : '';
+    return (
+      (slots || []).find(
+        (x) =>
+          (x.box && x.box.name === name && String(x.box.addr) === addr) ||
+          (x.box && x.box.name === name)
+      ) || null
+    );
+  };
+  // the bus map's boxes
+  host.querySelectorAll('.tree-box').forEach((el) => {
+    const slot = find(el.getAttribute('data-key') || '');
+    const state = (slot && slot.state) || 'unread';
+    for (const c of ['ok', 'faults', 'silent', 'unread'])
+      el.classList.toggle(`tree-${c}`, c === state);
+  });
+  // the control unit list's state dots
+  const rows = host.querySelectorAll('.irunits tbody tr');
+  if (rows.length && typeof istaUnitListOrder === 'function') {
+    const order = istaUnitListOrder(slots || []);
+    rows.forEach((tr, i) => {
+      const dot = tr.querySelector('.irstate i');
+      const slot = order[i];
+      if (dot && slot)
+        dot.className =
+          (typeof ISTA_STATE_CLASS !== 'undefined' &&
+            ISTA_STATE_CLASS[slot.state]) ||
+          'dim';
+    });
+  }
+}
+
 async function showIsta(tab, sub, sub3, carId) {
   if (typeof cancelSweep === 'function') cancelSweep();
   if (!istaState.car && !istaState.chassis) istaRestoreCar(carId);

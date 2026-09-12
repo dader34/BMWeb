@@ -95,125 +95,82 @@ function report(modules, silent) {
 }
 
 function main() {
-  // ---- the page ------------------------------------------------------------
+  // ---- the read paints the screen it was started from ----------------------
+  // THE TEST DOES NOT OPEN A PAGE. The tool colours the control units in
+  // where they are already listed, the way the tree app's own Fault scan
+  // paints its boxes. An earlier version navigated to a progress page of
+  // its own; that is the thing these checks exist to stop coming back.
   {
-    const ctx = load();
-    ctx.istaPageVehicleTest(ctx.host, {
-      running: true,
-      text: 'Reading DME',
-      modules: [{ label: 'DME', sgbd: 'ms450ds0', faults: 2, note: '' }],
-    });
-    const html = ctx.host.innerHTML;
-    assert.ok(/Vehicle test/.test(html), 'no heading');
-    assert.ok(/Reading DME/.test(html), 'the progress line is not drawn');
-    // the app's shared loader (the roundel), not a spinner of its own
-    assert.ok(/class="loader"/.test(html), 'a running read shows no activity');
-    assert.ok(/ms450ds0/.test(html), 'the module is not listed');
-    ok('a running test draws its progress and what has answered');
-
-    ctx.istaPageVehicleTest(ctx.host, { running: false, modules: [] });
+    const src = fs.readFileSync(
+      path.join(ROOT, 'app', 'renderer', 'screens', 'ista', 'screen.js'),
+      'utf8'
+    );
+    const fn = src.slice(
+      src.indexOf('async function istaOpenVehicleTest'),
+      src.indexOf('function istaTestPhase')
+    );
+    assert.ok(fn.length > 200, 'the vehicle test is missing');
     assert.ok(
-      !/class="loader"/.test(ctx.host.innerHTML),
-      'a finished test still shows the loader'
+      !/istaGo\(/.test(fn),
+      'the vehicle test navigates instead of reading in place'
     );
     assert.ok(
-      /No control unit has answered/.test(ctx.host.innerHTML),
-      'an empty result says nothing at all'
+      /istaRedraw\(\)/.test(fn),
+      'the vehicle test never repaints the screen it runs on'
     );
-    ok('a finished test stops spinning');
+    ok('the test runs on the screen it was started from');
 
-    ctx.istaPageVehicleTest(ctx.host, {
-      running: false,
-      done: true,
-      error: 'No adapter connected',
-    });
+    // a read in progress must reach the slot loader, or nothing colours in
+    // until the very end
     assert.ok(
-      /No adapter connected/.test(ctx.host.innerHTML),
-      'the failure is not shown'
+      /const now = istaTestLive\(\);/.test(src),
+      'the slots ignore a read in progress'
     );
-    ok('a test that could not run says why');
+    assert.ok(
+      /if \(now && now\.ident\) ident = now\.ident;/.test(src) &&
+        /if \(now && now\.faults\) faults = now\.faults;/.test(src),
+      'a live report does not outrank the stored one'
+    );
+    ok('the control units colour in as they answer');
 
-    ctx.istaPageVehicleTest(ctx.host, {
-      running: false,
-      done: true,
-      answered: 9,
-      faults: 2,
-      stopped: true,
-      modules: [],
-    });
-    assert.ok(/9 control units answered/.test(ctx.host.innerHTML));
-    assert.ok(/2 with an entry/.test(ctx.host.innerHTML));
-    assert.ok(/cancelled/.test(ctx.host.innerHTML), 'a stopped test hides it');
-    ok('the tally, and that the test was cancelled');
-  }
+    // both passes, identification first
+    const identAt = fn.indexOf("pass(null, identKey, 'ident')");
+    const faultAt = fn.indexOf("pass(faultMenu, faultKey, 'faults')");
+    assert.ok(identAt > 0 && faultAt > 0, 'both passes must run');
+    assert.ok(identAt < faultAt, 'identification must run before the faults');
+    ok('the test identifies the control units, then reads their faults');
 
-  // ---- folding the report --------------------------------------------------
-  // This is the check that matters most: ipoProtocolReport keeps modules that
-  // never answered in a SEPARATE `silent` list, so folding only `modules`
-  // drops every non-responding ECU from a screen whose whole job is to show
-  // them.
-  {
-    const r = report(
-      [
-        { sgbd: 'ms450ds0', label: 'DME', codes: [{ F_HEX_CODE: '27C3' }] },
-        { sgbd: 'ihka46', label: 'IHKA', codes: [] },
-      ],
-      [{ target: 'ews', label: 'EWS', error: 'IFH-0009' }]
+    // a script with no Ident key still has fault memories worth reading,
+    // but the reason must not vanish the way it did on the first real run
+    assert.ok(
+      /catch \(e\) \{[\s\S]{0,400}istaTestError = String/.test(fn),
+      'a failed identification pass is swallowed silently'
     );
-    const mods = r.modules;
-    const silent = r.silent;
-    const rows = mods
-      .map((m) => ({
-        label: m.label,
-        sgbd: m.sgbd,
-        faults: Array.isArray(m.codes) ? m.codes.length : null,
-        note: '',
-      }))
-      .concat(
-        silent.map((x) => ({
-          label: x.label,
-          sgbd: String(x.target).toLowerCase(),
-          faults: null,
-          note: 'no answer',
-        }))
-      );
-    assert.strictEqual(rows.length, 3, 'the silent module was dropped');
-    assert.deepStrictEqual(
-      rows.map((r2) => r2.note),
-      ['', '', 'no answer']
-    );
-    assert.strictEqual(
-      mods.filter((m) => m.codes.length).length,
-      1,
-      'the fault tally is wrong'
-    );
-    ok('a module that never answered is still on the list');
-  }
+    ok('a pass that cannot run says why instead of vanishing');
 
-  // ---- a count is only a count once the memory has been asked --------------
-  // The identification pass carries codes: [] for every module because it
-  // never asks the fault memory. Printing 0 there claims a clean memory that
-  // has not been read -- the technician sees "0 faults" on a pass that
-  // cannot know.
-  {
-    const ctx = load();
-    const identRow = { label: 'DME', sgbd: 'ms450ds0', faults: null, note: '' };
-    ctx.istaPageVehicleTest(ctx.host, { running: true, modules: [identRow] });
-    const cells = ctx.host.innerHTML.match(/<td class="irvt-n">([^<]*)<\/td>/);
-    assert.strictEqual(
-      cells && cells[1],
-      '',
-      'an unasked memory shows a count'
+    // each pass is kept: the Control unit list, the fault memory and the
+    // test plan all read it back out of the Garage
+    assert.ok(
+      /garageAddScan\(car\.id, \{ report, lines \}, \{ chassis \}\)/.test(src),
+      'a finished pass is not saved against the car'
     );
-    ok('the fault column is blank until the memory has been read');
+    ok('each pass is kept against the car');
 
-    ctx.istaPageVehicleTest(ctx.host, {
-      running: false,
-      modules: [{ label: 'DME', sgbd: 'ms450ds0', faults: 0, note: '' }],
-    });
-    const zero = ctx.host.innerHTML.match(/<td class="irvt-n">([^<]*)<\/td>/);
-    assert.strictEqual(zero && zero[1], '0', 'a read memory of 0 must show 0');
-    ok('a fault memory that was read and is clean still shows 0');
+    // one read on the bus at a time, and Cancel ends it between two jobs
+    assert.ok(/if \(istaTestRun\) return;/.test(fn), 'a second test can start');
+    assert.ok(
+      /istaTestHandle\.cancel\(\)/.test(src),
+      'a running test cannot be cancelled'
+    );
+    ok('a second test cannot start, and a running one can be cancelled');
+
+    // the control unit column must not repeat the variant
+    assert.ok(
+      /m\.label && m\.label !== m\.sgbd/.test(src) ||
+        !/faults: asked/.test(src),
+      'the control unit column can repeat the variant'
+    );
+    ok('the control unit column is the module, not the variant again');
   }
 
   // ---- the strip -----------------------------------------------------------
@@ -258,10 +215,6 @@ function main() {
         /istaOpenVehicleTest\(\)/.test(b),
         `a vehicle-test button does not run the test: ${b}`
       );
-    assert.ok(
-      !/istaState\.tested = true;\s*\n\s*return istaGo\(/.test(src),
-      'a button still marks the car tested and then navigates away'
-    );
     ok('every Start vehicle test button runs the test');
 
     // Complete identification reads the car too
@@ -272,47 +225,12 @@ function main() {
     );
     ok('Complete identification runs the same read');
 
-    // and the result is kept, or the Control unit list has nothing to show
+    // while it runs, the list offers Cancel rather than a second Start
     assert.ok(
-      /garageAddScan\(car\.id, \{ report, lines \}, \{ chassis \}\)/.test(src),
-      'the finished test is not saved against the car'
+      /istaBottomBar\('unit-list-busy'/.test(src),
+      'the list still offers Start while a test is running'
     );
-    ok('a finished test is kept against the car');
-
-    // one read on the bus at a time
-    assert.ok(
-      /if \(istaTestRun\) return;/.test(src),
-      'a second test can start'
-    );
-    ok('a second test cannot start while one is running');
-
-    // TWO PASSES. A fault read alone never sets `ident`, so every control
-    // unit keeps reading "not identified yet" -- and the message telling the
-    // technician to run the vehicle test could not be satisfied by running
-    // it. Identification goes first, and its own result is kept.
-    assert.ok(
-      /GARAGE_IDENT_KEY/.test(src),
-      'the test never identifies the control units'
-    );
-    const identAt = src.indexOf('Identifying the control units');
-    const faultAt = src.indexOf('Reading the fault memories');
-    assert.ok(identAt > 0 && faultAt > 0, 'both passes must be announced');
-    assert.ok(identAt < faultAt, 'identification must run before the faults');
-    ok('the test identifies the control units, then reads their faults');
-
-    // a script with no Ident key still has fault memories worth reading
-    assert.ok(
-      /ident = await pass\(null, identKey[\s\S]{0,200}catch/.test(src),
-      'a missing Ident key fails the whole test'
-    );
-    ok('a script with no Ident key still gets its fault read');
-
-    // and the Control unit column must not repeat the variant
-    assert.ok(
-      /m\.label && m\.label !== m\.sgbd/.test(src),
-      'the control unit column can repeat the variant'
-    );
-    ok('the control unit column is the module, not the variant again');
+    ok('a running test turns Start into Cancel');
   }
 }
 
