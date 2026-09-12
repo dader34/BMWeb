@@ -912,10 +912,39 @@ async function istaOpenEcuWindow(slot, box, chassis) {
   const ir = slot.sgbd
     ? await istaProbe(() => api(`/api/ecu/${slot.sgbd}/ir${code}`))
     : null;
+  // the tool's own function lists for this variant (English, one EDIABAS
+  // job per entry); the script's screens stand in when none ship
+  const fn = slot.sgbd ? await istaEcuFnLoad(slot.sgbd) : null;
   istaEcuWindow({
     slot,
     box,
     ir,
+    fn,
+    runJob: async (job, args, write) => {
+      // the same rule the raw job runner follows: a job that commands the
+      // ECU asks first unless the user turned actuator confirmations off
+      if (
+        write &&
+        (typeof confirmActuators !== 'function' || confirmActuators())
+      ) {
+        const okGo =
+          typeof confirmDialog === 'function'
+            ? await confirmDialog({
+                title: `${job} commands ${slot.abbr || slot.sgbd}`,
+                body:
+                  'This function drives a component rather than reading ' +
+                  'it. Make sure the module and anything it moves are safe.',
+                confirmLabel: 'Trigger',
+                danger: true,
+              })
+            : true;
+        if (!okGo) return null;
+      }
+      const q = args ? `?arg=${encodeURIComponent(args)}` : '';
+      return api(`/api/ecu/${slot.sgbd}/run/${encodeURIComponent(job)}${q}`, {
+        method: 'POST',
+      });
+    },
     run: async (screen) => {
       // RUNNING A SCREEN IS LEAVING THIS WINDOW. The app already has one
       // path that opens a module at a named screen, with the confirm on
@@ -943,6 +972,42 @@ async function istaOpenEcuWindow(slot, box, chassis) {
  * @type {object[]}
  */
 const istaTestPlan = [];
+
+/** Hosted copy of the tool's control-unit function lists. */
+const ISTA_ECUFN_HF_BASE =
+  'https://huggingface.co/datasets/CraigFf/bmweb-etk/resolve/main/ista/ecufn/';
+
+/**
+ * The tool's function lists for one ECU variant, local first then the
+ * dataset; null when neither ships it (36 configured modules have none).
+ * @param {string} variant - the SGBD name
+ * @returns {Promise<object|null>}
+ */
+async function istaEcuFnLoad(variant) {
+  const v = String(variant || '').toLowerCase();
+  if (!v || typeof fflate === 'undefined') return null;
+  const base = typeof WEB_BASE === 'string' && WEB_BASE ? WEB_BASE : '.';
+  const real =
+    typeof webRealFetch === 'function'
+      ? webRealFetch
+      : window.fetch.bind(window);
+  for (const u of [
+    `${base}/data/ista/ecufn/${v}.json.gz`,
+    ISTA_ECUFN_HF_BASE + `${v}.json.gz`,
+  ]) {
+    try {
+      const r = await real(u);
+      if (!r || !r.ok) continue;
+      const bytes = new Uint8Array(await r.arrayBuffer());
+      return JSON.parse(
+        new TextDecoder('utf-8').decode(fflate.gunzipSync(bytes))
+      );
+    } catch (e) {
+      /* try the next source */
+    }
+  }
+  return null;
+}
 
 /** Hosted copy of the diagnosis structures, beside the repair extract. */
 const ISTA_DIAG_HF_BASE =
