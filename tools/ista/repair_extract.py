@@ -74,7 +74,8 @@ Output, under data/ista/repair/ (gitignored, uploaded to the dataset):
     <chassis>/index.json    that chassis's documents: id, title, numbers,
                             validity rule, `unsure`, and its body shard
     <chassis>/body/NN.json  bodies, sharded by main group
-    pics/<id>.webp          the illustrations, pooled across every chassis
+    pics/<nn>/<id>.webp     the illustrations, pooled across every chassis,
+                            nn = the last two digits of the id
                             (only when --pictures was given)
 
 Usage:
@@ -773,6 +774,28 @@ def resolve_pic(names, segments):
     return None
 
 
+def pic_shard(cid):
+    """The pool folder a picture lives in: the last two digits of its id.
+
+    The pool is shared by every chassis and the dataset host caps a folder
+    at 10,000 entries, so 54,000 files sit in a hundred folders. The app's
+    repairPicShard applies the same rule; the two must agree.
+
+    @param cid: the stream id
+    """
+    s = str(cid)
+    return s[-2:] if len(s) >= 2 else s.zfill(2)
+
+
+def pic_path(out_dir, cid):
+    """Where a picture is written under the pool.
+
+    @param out_dir: the pool folder
+    @param cid: the stream id
+    """
+    return os.path.join(out_dir, pic_shard(cid), f"{cid}.webp")
+
+
 def write_pictures(streams, wanted, out_dir, verbose=False):
     """Re-encode each wanted picture into out_dir as <stream id>.webp.
 
@@ -797,7 +820,8 @@ def write_pictures(streams, wanted, out_dir, verbose=False):
     os.makedirs(out_dir, exist_ok=True)
     written = missing = total = 0
     for n, cid in enumerate(sorted(wanted)):
-        dest = os.path.join(out_dir, f"{cid}.webp")
+        dest = pic_path(out_dir, cid)
+        os.makedirs(os.path.dirname(dest), exist_ok=True)
         if os.path.exists(dest):
             written += 1
             total += os.path.getsize(dest)
