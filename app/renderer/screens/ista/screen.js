@@ -181,7 +181,7 @@ async function istaOpenVehicleTest() {
   istaTestRun = token;
   istaTestError = '';
   istaTestDone = null;
-  istaTestLiveState = { ident: null, faults: null };
+  istaTestLiveState = { ident: null, faults: null, phase: 'ident' };
 
   /**
    * Run one pass of the whole-car script, painting as it answers.
@@ -191,6 +191,7 @@ async function istaOpenVehicleTest() {
    * @returns {Promise<object>} {report, lines, cancelled}
    */
   const pass = (menu, key, slot) => {
+    if (istaTestLiveState) istaTestLiveState.phase = slot;
     const handle = ecuTreeScanStart(
       chassis,
       {
@@ -312,13 +313,16 @@ function istaTestStatus(slots) {
 function istaTestPhase() {
   const live = istaTestLiveState;
   if (!live) return 'starting...';
-  const count = (r) =>
-    ((r && r.modules) || []).length + ((r && r.silent) || []).length;
-  // which half is on the bus: the fault read only starts once the
-  // identification has been put away
-  return live.ident
-    ? `reading fault memories (${count(live.faults)} answered)`
-    : `identifying control units (${count(live.ident)} answered)`;
+  // WHICH PASS IS ON THE BUS IS SAID, NOT INFERRED. Reading it off
+  // `live.ident` was wrong: that report fills in as the identification
+  // PROGRESSES, so the line flipped to "reading fault memories" the moment
+  // the first module identified -- for the whole of the pass that was
+  // actually running.
+  const r = live.phase === 'faults' ? live.faults : live.ident;
+  const n = ((r && r.modules) || []).length + ((r && r.silent) || []).length;
+  return live.phase === 'faults'
+    ? `reading fault memories (${n} answered)`
+    : `identifying control units (${n} answered)`;
 }
 
 /**
@@ -2872,11 +2876,19 @@ function istaPaintStates(slots) {
     const live = istaTestLive();
     bar.hidden = !live;
     if (live) {
-      const done = (slots || []).filter((x) => x.state !== 'unread').length;
+      // COUNT WHAT THE RUNNING PASS HAS HEARD. Counting slots that have left
+      // 'unread' leaves the bar frozen for the whole identification pass,
+      // because identification deliberately leaves them unread: it proves a
+      // module is there without asking its fault memory.
+      const r = live.phase === 'faults' ? live.faults : live.ident;
+      const done =
+        ((r && r.modules) || []).length + ((r && r.silent) || []).length;
       const total = (slots || []).length;
       const pct = total ? Math.min(100, Math.round((100 * done) / total)) : 0;
       if (bar.firstElementChild) bar.firstElementChild.style.width = `${pct}%`;
-      bar.title = `${done} of ${total} control units`;
+      bar.title =
+        `${done} of about ${total} control units, ` +
+        (live.phase === 'faults' ? 'fault memories' : 'identification');
     }
   }
   // the control unit list's state dots
