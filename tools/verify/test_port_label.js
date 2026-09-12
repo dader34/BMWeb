@@ -69,16 +69,23 @@ assert.match(
   /Bluetooth serial/
 );
 ok('a Bluetooth port is named as one');
-assert.strictEqual(
+assert.strictEqual(busWith({}).portLabel(), 'serial port, no USB id reported');
+assert.doesNotMatch(
   busWith({}).portLabel(),
-  'serial port without a USB id, not a K+DCAN cable'
+  /not a K\+DCAN/,
+  'no ids is not a verdict: a Linux container strips them from a real cable'
 );
 assert.match(
   busWith({}).portHint(),
   /USB 403:6001/,
   'the hint says what a real cable looks like'
 );
-ok('a port without USB ids is named as one');
+assert.match(
+  busWith({}).portHint(),
+  /can still be the cable/,
+  'and that this port may be one'
+);
+ok('a port without USB ids is named as one, without a verdict');
 // a gateway port carries its own label and gets no hint (the remote side knows)
 const g = Object.create(WebSerialBus.prototype);
 g.port = { label: () => 'gateway 192.168.1.9:6801', getInfo: () => ({}) };
