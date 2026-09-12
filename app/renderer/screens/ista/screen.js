@@ -181,7 +181,14 @@ async function istaOpenVehicleTest() {
     const silent = (report && report.silent) || [];
     state.modules = mods
       .map((m) => ({
-        label: m.label || m.sgbd || '',
+        // the Control unit column is the module, the Variant column is what
+        // answered for it. protocol.js falls back to the sgbd for `label`
+        // when its dictionary has no name, which put the SAME string in
+        // both columns; the GROUP is the name the rest of the tool uses
+        label:
+          m.label && m.label !== m.sgbd
+            ? m.label
+            : String(m.via || m.sgbd || '').toUpperCase(),
         sgbd: m.sgbd || '',
         faults: Array.isArray(m.codes) ? m.codes.length : null,
         note: '',
@@ -201,29 +208,89 @@ async function istaOpenVehicleTest() {
   };
   paint();
 
-  const handle = ecuTreeScanStart(chassis, {
-    onProgress: (report, text) => {
-      if (istaTestRun !== handle) return;
-      if (report) fold(report);
-      if (text) state.text = text;
-      paint();
-    },
-    onMessage: (title, body) => {
-      if (istaTestRun !== handle) return;
-      state.text = `${title}${body ? `: ${body}` : ''}`;
-      paint();
-    },
-  });
-  istaTestRun = handle;
-  istaBottomBar('vehicle-test', { cancel: () => handle.cancel() });
+  /** @type {object|null} the pass on the bus right now */
+  let handle = null;
+  /**
+   * Run one pass of the whole-car script.
+   * @param {object|null} menu - the menu to open, or null for the main one
+   * @param {RegExp} key - the key to press, by caption
+   * @param {string} what - what to say while it runs
+   * @returns {Promise<object>} {report, lines, cancelled}
+   */
+  const pass = (menu, key, what) => {
+    state.text = what;
+    paint();
+    handle = ecuTreeScanStart(
+      chassis,
+      {
+        onProgress: (report, text) => {
+          if (istaTestRun !== token) return;
+          if (report) fold(report);
+          if (text) state.text = text;
+          paint();
+        },
+        onMessage: (title, body) => {
+          if (istaTestRun !== token) return;
+          state.text = `${title}${body ? `: ${body}` : ''}`;
+          paint();
+        },
+      },
+      { faultMenu: menu, faultKey: key }
+    );
+    istaBottomBar('vehicle-test', { cancel: () => handle && handle.cancel() });
+    return handle.done;
+  };
+
+  const token = {};
+  istaTestRun = token;
 
   try {
-    const { report, lines, cancelled } = await handle.done;
-    if (istaTestRun === handle) istaTestRun = null;
+    // TWO PASSES, THE WAY THE TOOL'S OWN TEST WORKS. Identification says
+    // WHICH variant sits in each slot and fills the ECU window's
+    // Identification tab; the fault read says what each one has stored.
+    // A fault read alone leaves every control unit reading "not identified
+    // yet" -- and the message telling the technician to run the vehicle
+    // test could never be satisfied by running it.
+    const identKey =
+      typeof GARAGE_IDENT_KEY !== 'undefined'
+        ? GARAGE_IDENT_KEY
+        : /^(Ident|Identifikation|Identification)$/i;
+    const faultKey =
+      typeof GARAGE_FAULT_KEY !== 'undefined'
+        ? GARAGE_FAULT_KEY
+        : /^(FS lesen|Fehlerspeicher lesen|Read fault memory)$/i;
+    const faultMenu =
+      typeof IPO_VEHICLE_FAULT_MENU !== 'undefined'
+        ? IPO_VEHICLE_FAULT_MENU
+        : 'm_fs';
+
+    /** an identification pass is worth having but must not fail the test */
+    let ident = null;
+    try {
+      ident = await pass(null, identKey, 'Identifying the control units...');
+    } catch (e) {
+      // a script with no Ident key still has a fault memory worth reading
+      ident = null;
+    }
+    if (istaTestRun !== token) return;
+    const got1 = ident && ident.report && (ident.report.modules || []).length;
+    if (car && got1 && typeof garageAddScan === 'function')
+      garageAddScan(
+        car.id,
+        { report: ident.report, lines: ident.lines },
+        { chassis }
+      );
+
+    const {
+      report,
+      lines,
+      cancelled: stopped,
+    } = await pass(faultMenu, faultKey, 'Reading the fault memories...');
+    if (istaTestRun === token) istaTestRun = null;
     fold(report);
     state.running = false;
     state.done = true;
-    state.stopped = !!cancelled;
+    state.stopped = !!stopped;
     state.text = '';
     // the test is only worth anything if it is kept against the car: the
     // Control unit list, the fault memory and the test plan all read it
@@ -236,7 +303,7 @@ async function istaOpenVehicleTest() {
     // and then the tool shows what it found
     if (host.isConnected && got) await istaGo('information', 'unit-list', null);
   } catch (e) {
-    if (istaTestRun === handle) istaTestRun = null;
+    if (istaTestRun === token) istaTestRun = null;
     state.running = false;
     state.done = true;
     state.error = String((e && e.message) || e);

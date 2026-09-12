@@ -264,7 +264,9 @@ function istaPageVehicleTest(host, state) {
   const head = st.error
     ? `<div class="irvt-bad">${esc(st.error)}</div>`
     : `<div class="irvt-line">` +
-      (st.running ? `<span class="irvt-spin" aria-hidden="true"></span>` : '') +
+      // the app's own loader -- the roundel turning -- the way every other
+      // waiting screen in the app shows it, rather than a second spinner
+      (st.running ? `<span class="loader" aria-hidden="true"></span>` : '') +
       `<span>${esc(st.text || (st.running ? 'Reading the vehicle...' : ''))}` +
       `</span></div>`;
   const tally = st.done

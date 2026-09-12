@@ -106,14 +106,15 @@ function main() {
     const html = ctx.host.innerHTML;
     assert.ok(/Vehicle test/.test(html), 'no heading');
     assert.ok(/Reading DME/.test(html), 'the progress line is not drawn');
-    assert.ok(/irvt-spin/.test(html), 'a running read shows no activity');
+    // the app's shared loader (the roundel), not a spinner of its own
+    assert.ok(/class="loader"/.test(html), 'a running read shows no activity');
     assert.ok(/ms450ds0/.test(html), 'the module is not listed');
     ok('a running test draws its progress and what has answered');
 
     ctx.istaPageVehicleTest(ctx.host, { running: false, modules: [] });
     assert.ok(
-      !/irvt-spin/.test(ctx.host.innerHTML),
-      'a finished test still shows the spinner'
+      !/class="loader"/.test(ctx.host.innerHTML),
+      'a finished test still shows the loader'
     );
     assert.ok(
       /No control unit has answered/.test(ctx.host.innerHTML),
@@ -258,6 +259,34 @@ function main() {
       'a second test can start'
     );
     ok('a second test cannot start while one is running');
+
+    // TWO PASSES. A fault read alone never sets `ident`, so every control
+    // unit keeps reading "not identified yet" -- and the message telling the
+    // technician to run the vehicle test could not be satisfied by running
+    // it. Identification goes first, and its own result is kept.
+    assert.ok(
+      /GARAGE_IDENT_KEY/.test(src),
+      'the test never identifies the control units'
+    );
+    const identAt = src.indexOf('Identifying the control units');
+    const faultAt = src.indexOf('Reading the fault memories');
+    assert.ok(identAt > 0 && faultAt > 0, 'both passes must be announced');
+    assert.ok(identAt < faultAt, 'identification must run before the faults');
+    ok('the test identifies the control units, then reads their faults');
+
+    // a script with no Ident key still has fault memories worth reading
+    assert.ok(
+      /ident = await pass\(null, identKey[\s\S]{0,200}catch/.test(src),
+      'a missing Ident key fails the whole test'
+    );
+    ok('a script with no Ident key still gets its fault read');
+
+    // and the Control unit column must not repeat the variant
+    assert.ok(
+      /m\.label && m\.label !== m\.sgbd/.test(src),
+      'the control unit column can repeat the variant'
+    );
+    ok('the control unit column is the module, not the variant again');
   }
 }
 
