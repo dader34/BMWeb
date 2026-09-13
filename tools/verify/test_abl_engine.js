@@ -623,6 +623,86 @@ async function main() {
     ok('a host with no way to ask or read halts by name');
   }
 
+  // ---- a job that fails says why; an activation's failure is shown --------
+  // The host used to turn every thrown job into null, and the engine read
+  // null as "no communication": on the real car the cluster self-test the
+  // technician had just been warned about simply did not happen, with no
+  // word about why. The router's reason now travels back on the answer.
+  {
+    const job = (id, name, next) => ({
+      type: 'ecu_job',
+      id,
+      next,
+      job: name,
+      args: {},
+      group_path: ['Group', 'D_0080'],
+      results: ['JOB_STATUS'],
+    });
+    const graph = {
+      identifier: 'T',
+      entry: 'S',
+      steps: {
+        S: {
+          nodes: [
+            { type: 'startstep', id: 1, next: 2 },
+            job(2, 'STEUERN_SELBSTTEST', 3),
+            { type: 'end', id: 3 },
+          ],
+        },
+      },
+    };
+    // an activation that failed: the technician sees the reason, the module goes on
+    const seen = [];
+    const e1 = new AblEngine(graph, {
+      native: {},
+      job: async () => ({
+        error: 'kombi46r: no module answered on the wire',
+        notify: true,
+        sgbd: 'kombi46r',
+      }),
+      ui: { message: async (m) => (seen.push(m), { quit: true }) },
+    });
+    const v1 = await e1.run();
+    assert.strictEqual(seen.length, 1, 'the failed activation was not shown');
+    assert.ok(
+      /STEUERN_SELBSTTEST could not be executed on kombi46r/.test(seen[0].text),
+      seen[0].text
+    );
+    assert.ok(/no module answered/.test(seen[0].text));
+    const t1 = e1.trace.find((x) => x.kind === 'job');
+    assert.ok(
+      t1 && /no module answered/.test(t1.error) && t1.answered === false,
+      JSON.stringify(t1)
+    );
+    assert.ok(typeof v1 === 'string', 'the module must still end');
+    ok('a failed activation is shown to the technician with the reason');
+
+    // a failed READ is the flow's own no-communication path: recorded, not shown
+    const e2 = new AblEngine(graph, {
+      native: {},
+      job: async () => ({ error: 'IFH-0009', sgbd: 'kombi46r' }),
+      ui: {
+        message: async () => assert.fail('a read failure must not interrupt'),
+      },
+    });
+    await e2.run();
+    assert.ok(/IFH-0009/.test(e2.trace.find((x) => x.kind === 'job').error));
+    ok('a failed read is recorded and the flow takes its own path');
+
+    // an activation the technician declined at the confirm
+    const e3 = new AblEngine(graph, {
+      native: {},
+      job: async () => ({ refused: true, sgbd: 'kombi46r' }),
+      ui: {
+        message: async () => assert.fail('a decline is not an error to show'),
+      },
+    });
+    await e3.run();
+    const t3 = e3.trace.find((x) => x.kind === 'job');
+    assert.ok(t3.refused && t3.error === 'declined', JSON.stringify(t3));
+    ok('a declined activation is recorded as such');
+  }
+
   // ---- a job that never settles must not stop the module forever -------------
   // There was no timeout on a job at all. On the real car a module sat on
   // "Fault code memory being read..." indefinitely -- no error, no halt,

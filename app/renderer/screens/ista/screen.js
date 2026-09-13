@@ -1838,11 +1838,57 @@ async function istaRunAblModule(graph, row, car, chassis, after) {
           const q = spec.argText
             ? `?arg=${encodeURIComponent(spec.argText)}`
             : '';
-          return istaProbe(() =>
-            api(`/api/ecu/${sgbd}/run/${encodeURIComponent(spec.job)}${q}`, {
-              method: 'POST',
-            })
-          );
+          // AN ACTIVATION ASKS FIRST. A module's STEUERN_* job drives a
+          // component (the cluster self-test sweeps every gauge and lamp),
+          // and the app's contract is that a write is confirmed unless the
+          // user turned actuator confirmations off -- the same rule the ECU
+          // window and the raw job runner follow. The module's own words are
+          // the warning; this is the consent.
+          // DIAGNOSE_ENDE is classed a write (no read token, default-deny)
+          // but it ends the diagnostic session and drives nothing, and the
+          // library modules send it after every activation: a confirm for
+          // it would be noise on every run, teaching the hand to click
+          // through the confirm that matters.
+          const write =
+            typeof isWriteJob === 'function' &&
+            isWriteJob(spec.job) &&
+            !/^DIAGNOSE_ENDE$/i.test(String(spec.job || ''));
+          if (
+            write &&
+            (typeof confirmActuators !== 'function' || confirmActuators()) &&
+            typeof confirmDialog === 'function'
+          ) {
+            const okGo = await confirmDialog({
+              title: `${spec.job} commands ${sgbd}`,
+              body:
+                'The test module is about to drive a component rather than ' +
+                'read it. Make sure the module and anything it moves are safe.',
+              confirmLabel: 'Trigger',
+              danger: true,
+            });
+            if (!okGo) return { refused: true, job: spec.job, sgbd };
+          }
+          // A FAILED JOB IS REPORTED, NOT SWALLOWED. api() throws the
+          // router's real reason -- "no module answered on the wire", an
+          // IFH code, "no job code shipped" -- and turning that into null
+          // told the engine "no communication" and told the technician
+          // nothing: an activation they had just been warned about could
+          // simply not happen, silently. The reason travels back; an
+          // activation's failure is shown, a read's is the flow's own
+          // no-communication path.
+          try {
+            return await api(
+              `/api/ecu/${sgbd}/run/${encodeURIComponent(spec.job)}${q}`,
+              { method: 'POST' }
+            );
+          } catch (e) {
+            return {
+              error: String((e && e.message) || e),
+              notify: write,
+              job: spec.job,
+              sgbd,
+            };
+          }
         },
         module: ({ identifier }) =>
           typeof istaAblLoad === 'function' ? istaAblLoad(identifier) : null,

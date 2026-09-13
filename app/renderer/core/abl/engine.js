@@ -1268,6 +1268,42 @@ class AblEngine {
       shown.timedOut = /timed out/.test(String((e && e.message) || ''));
       if (shown.timedOut) console.warn(`[abl] ${e.message}`);
     }
+    // A HOST MAY ANSWER WITH A REASON INSTEAD OF SETS. {error} is a job that
+    // did not run or did not answer, with the router's own words; {refused}
+    // is an activation the technician declined at the confirm. Both are the
+    // flow's no-communication path -- but they are recorded, and a failure
+    // the host marks notify (an activation) is put in front of the
+    // technician, because a self-test that silently does not happen is
+    // worse than one that says why.
+    if (
+      answer &&
+      typeof answer === 'object' &&
+      (answer.error || answer.refused)
+    ) {
+      shown.error = answer.error ? String(answer.error) : 'declined';
+      shown.refused = !!answer.refused;
+      console.warn(
+        `[abl] ${spec.job || 'job'} on ${answer.sgbd || spec.sgbd || spec.group}: ${shown.error}`
+      );
+      if (
+        answer.notify &&
+        answer.error &&
+        this.host.ui &&
+        typeof this.host.ui.message === 'function'
+      )
+        await this.host.ui.message({
+          kind: 'message',
+          step: stepName,
+          text:
+            `${spec.job} could not be executed on ` +
+            `${answer.sgbd || spec.sgbd || spec.group}:\n${shown.error}`,
+          value: '',
+          wait: true,
+          timeout: 0,
+          live: false,
+        });
+      answer = null;
+    }
     this.answer = answer || null;
     answer = this.answer;
     shown.answered = !!(answer && Array.isArray(answer.sets));
