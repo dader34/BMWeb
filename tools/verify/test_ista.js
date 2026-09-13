@@ -2173,4 +2173,65 @@ const I = loadClassic('screens/ista/');
   ok("the document tabs take the module's own two documents");
 }
 
+// ---- a box answers to more than one group name ------------------------------
+// INPA's E46 sweep reads the body module at D_0000 FIRST and only falls back
+// to D_ZKE_GM when that fails. On the real car D_0000 answers (as ZKE5_S12,
+// part 6944840), so the read is filed under a name the chassis config never
+// mentions -- and the module sat there reading "not read" while it was
+// answering. The bus map already carries both names on the box, which is the
+// fact that they are one control unit.
+{
+  const { istaSlots } = I;
+  const cfg = {
+    sections: [
+      {
+        name: 'Body',
+        ecus: [
+          { code: 'zke5', label: 'ZKE5', sgbd: 'zke5', group: 'D_ZKE_GM' },
+        ],
+      },
+    ],
+  };
+  const tree = {
+    ecus: [{ name: 'ZKE', addr: 0, groups: ['D_0000', 'D_ZKE_GM'] }],
+  };
+  const under = (via, codes) =>
+    istaSlots(
+      cfg,
+      {
+        kind: 'faults',
+        modules: [{ sgbd: 'zke5_s12', via, label: 'ZKE', codes: codes || [] }],
+        silent: [],
+      },
+      null,
+      tree
+    )[0];
+
+  assert.strictEqual(
+    under('d_0000').state,
+    'ok',
+    'the alias the sweep actually used must match'
+  );
+  assert.strictEqual(
+    under('d_0000').sgbd,
+    'zke5_s12',
+    'and the slot takes the variant the car reported'
+  );
+  assert.strictEqual(
+    under('d_zke_gm').state,
+    'ok',
+    'the config name must still match'
+  );
+  assert.strictEqual(under('d_0000', [{}]).state, 'faults');
+  // a module nothing reached is still honestly unread, not silently "ok"
+  const none = istaSlots(
+    cfg,
+    { kind: 'faults', modules: [], silent: [] },
+    null,
+    tree
+  )[0];
+  assert.strictEqual(none.state, 'unread');
+  ok('a slot matches any group name its bus-map box carries');
+}
+
 console.log(`test_ista: ${passed} checks passed`);

@@ -165,7 +165,24 @@ function istaSlots(config, faults, ident, tree) {
     // grey and the tree uncoloured however many times the test was run. So
     // the group answers first, and the sgbd is the fallback for a slot that
     // has no group.
-    const group = String(slot.group || '').toLowerCase();
+    // AND A BOX'S OTHER GROUP NAMES COUNT TOO. One control unit answers to
+    // more than one group: the bus map files the E46's body module under
+    // both D_0000 and D_ZKE_GM, and INPA's sweep tries D_0000 FIRST, only
+    // falling back to D_ZKE_GM when that fails. On a car where D_0000
+    // answers -- it does, as ZKE5_S12, part 6944840 -- the read is filed
+    // under a name the chassis config never mentions, so matching the
+    // config's single group left the module reading "not read" while it sat
+    // there answering. The map already carries the alias (that is what
+    // merges the two engine groups into one DME); the match now uses it.
+    const names = [
+      String(slot.group || ''),
+      ...((slot.box && slot.box.groups) || []),
+    ]
+      .map((g) => String(g || '').toLowerCase())
+      .filter(Boolean);
+    const group =
+      names.find((g) => identBy.has(g) || faultBy.has(g) || silentBy.has(g)) ||
+      String(slot.group || '').toLowerCase();
     const byGroup =
       group &&
       (identBy.has(group) || faultBy.has(group) || silentBy.has(group));
