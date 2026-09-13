@@ -2754,12 +2754,19 @@ async function istaDrawPage(s, host) {
     if (!host.isConnected) return;
     const codes = (got && got.codes) || [];
     const date = car && car.prod ? Number(String(car.prod).padEnd(8, '0')) : 0;
-    // saName(code, date) -- passing the chassis as a third argument put the
-    // CHASSIS in `code` and the code in `date`, so every lookup missed and
-    // the option list came out as bare numbers
-    istaRealEquipment(host, codes, (c) =>
-      typeof saName === 'function' ? saName(c, date) || '' : ''
-    );
+    // THE NAME LIVES ON VehicleIdentity, NOT AS A BARE GLOBAL. sa-names.js
+    // assigns saName onto the VehicleIdentity namespace only, so a guard of
+    // `typeof saName === 'function'` was ALWAYS false and returned '' --
+    // every SA came out as a bare number, and the earlier fix to the
+    // argument order (saName(code, date), not (chassis, code, date)) never
+    // ran at all. The identity screen calls it the same way this does now.
+    const names =
+      typeof VehicleIdentity === 'object' &&
+      VehicleIdentity &&
+      typeof VehicleIdentity.saName === 'function'
+        ? VehicleIdentity.saName
+        : null;
+    istaRealEquipment(host, codes, (c) => (names ? names(c, date) || '' : ''));
     return;
   }
 
