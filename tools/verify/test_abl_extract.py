@@ -11,6 +11,8 @@ one property the recovery depends on:
   dictswitch.cs  the newer template's measure selection: a string key through a
                  <PrivateImplementationDetails> Dictionary<string,int> into an integer switch
   arith.cs       a dispatch register computed arithmetically instead of assigned a literal
+  lostassign.cs  the dispatch register reused as a data temporary: a job reading parked in `num`
+                 and copied into the local a later branch tests, which the lift must emit
   deadexit.cs    a step wired into an exit switch whose register never takes that value: provably
                  dead flow authoring, which must be reported as dead and never as a recovery gap
 
@@ -138,6 +140,48 @@ class TestArithmeticRegister(unittest.TestCase):
         errors = [n for st in self.r["steps"].values()
                   for n in st.get("nodes", []) if n["type"] == "error"]
         self.assertEqual(errors, [])
+
+
+class TestReusedDispatchRegister(unittest.TestCase):
+    """The compiler reuses its own dispatch register `num` as an ordinary data temporary.
+
+    After a job read the flattener parks the result in `num` and the flow copies it out
+    (`num3 = num`) before testing it. `num` being the register the flattening is followed through
+    does not make its value a constant at that point, and the copy is the only thing that carries
+    the reading into the register the next branch tests. Losing it leaves the tell-tale shape: a
+    `branch` whose two arms are the same node -- the test survived, the assignment on the taken
+    arm did not -- and the register stays pinned at the literal it last held.
+    """
+
+    def setUp(self):
+        self.r = recover("lostassign.cs")
+        self.nodes = self.r["steps"]["Fehlerspeicher_Lesen_01_s"]["nodes"]
+
+    def test_the_copy_out_of_the_dispatch_register_is_emitted(self):
+        assigns = [n for n in self.nodes if n["type"] == "assign" and n["lhs"] == "num3"]
+        self.assertEqual([n["rhs"] for n in assigns],
+                         ["0", 'job_result("/Result/Status/SAETZE", int)'])
+
+    def test_no_branch_has_both_arms_on_the_same_node(self):
+        same = [n for n in self.nodes if n["type"] == "branch"
+                and n["cases"].get("true") == n["cases"].get("false")]
+        self.assertEqual(same, [], "a branch whose arms coincide is an assignment the lift dropped")
+
+    def test_the_reading_decides_the_branch(self):
+        # the arm that read a record count must test a num3 that is no longer the literal 0
+        null_test = next(n for n in self.nodes if n["type"] == "branch" and "!= null" in n["cond"])
+        loaded = next(n for n in self.nodes if n["id"] == null_test["cases"]["true"])
+        self.assertEqual(loaded["type"], "assign")
+        self.assertEqual(loaded["lhs"], "num3")
+        after = next(n for n in self.nodes if n["id"] == loaded["next"])
+        self.assertEqual(after["cond"], "num3 != 0")
+        self.assertNotEqual(after["cases"]["true"], after["cases"]["false"])
+
+    def test_both_outcomes_stay_reachable(self):
+        self.assertTrue(self.r["complete"])
+        self.assertEqual(self.r["unreached_steps"], [])
+        self.assertIn("Mit_Fehler_05_s", self.r["step_order"])
+        self.assertIn("Ohne_Fehler_04_s", self.r["step_order"])
 
 
 class TestDeadExit(unittest.TestCase):

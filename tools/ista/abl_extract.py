@@ -1068,9 +1068,26 @@ def lift(walker, start):
                 temps[e["lhs"]] = subst(e["rhs"])
                 continue
             # multiply-assigned temp (loop counter etc.): keep it as a named variable,
-            # except pure buffer set-up (new T[n] {...}) and temp-to-temp copies
+            # except pure buffer set-up (new T[n] {...}).
+            #
+            # A copy `dst = src` between generated temps is NOT droppable here. Elision is only
+            # sound when subst() can put the value back for every later reader, and that is the
+            # `assign_count == 1` case above: a single-assigned destination is inlined into
+            # `temps` and never appears as a name again. A destination assigned more than once
+            # keeps its name in every downstream expression, so there is nothing to substitute
+            # and dropping the copy simply deletes the write -- the destination stays pinned at
+            # whatever literal it last held.
+            #
+            # These copies are real dataflow because the compiler reuses its own scratch
+            # registers as ordinary data temporaries. The control-flow-flattening dispatch
+            # register `num` is one of them: after a job read the flattener parks the record
+            # count in `num` and the flow copies it out with `num3 = num`, exactly as it copies
+            # `num4 = (int)iSTAResultAsType` (the $Count of the returned rows). Losing either
+            # leaves a `branch` whose two arms are the same node -- the test survived, the
+            # assignment on the taken arm did not -- and every later test of that register
+            # decides the wrong way.
             rhs0 = e["rhs"].strip()
-            if rhs0.startswith("new ") or TEMPVAR.match(rhs0) or rhs0 == '""':
+            if rhs0.startswith("new ") or rhs0 == '""':
                 continue
             n = {"type": "assign", "lhs": e["lhs"], "rhs": subst(e["rhs"])}
             n["id"] = e["id"]
