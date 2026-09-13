@@ -61,50 +61,12 @@ function expectedWireRe() {
     ok('expected silence never consumes a report slot');
   }
 
-  // ---- the whole-car script's own plumbing -----------------------------
-  {
-    const ctx = { console };
-    ctx.globalThis = ctx;
-    vm.createContext(ctx);
-    vm.runInContext(
-      fs.readFileSync(
-        path.join(ROOT, 'app/renderer/screens/ipo-runtime/wire-policy.js'),
-        'utf8'
-      ) + '\n;globalThis.__x = { ipoWireTarget, IPO_PLUMBING };',
-      ctx
-    );
-    const { ipoWireTarget, IPO_PLUMBING } = ctx.__x;
-
-    // THE BUG THIS GUARDS: a whole-car script's ecu record carries the
-    // CHASSIS as its sgbd, because e46.ipo is what is running -- there is no
-    // module called "e46" on any bus. An unresolved target falls back to it.
-    const vehicle = { sgbd: 'e46', kind: 'vehicle' };
-    assert.strictEqual(ipoWireTarget(vehicle, ''), 'e46');
-    assert.ok(IPO_PLUMBING.test('INFO') && IPO_PLUMBING.test('IDENT'));
-    ok('an unresolved target on a vehicle script falls back to the chassis');
-
-    // a real module keeps every one of those jobs: the skip is for the
-    // vehicle script alone, and must not silence a module's own startup
-    const module_ = { sgbd: 'ms450ds0', kind: 'module' };
-    assert.strictEqual(ipoWireTarget(module_, ''), 'ms450ds0');
-    ok("a module's own INFO/IDENT target is unchanged");
-
-    // a group the script names explicitly is still addressed as the group
-    assert.strictEqual(ipoWireTarget(vehicle, 'd_0012'), 'd_0012');
-    ok('a group SGBD is still the target on a vehicle script');
-  }
-
-  // the skip itself lives in program.js; assert it is wired to all three
-  // conditions, so a later edit cannot silence a module by accident
-  {
-    const src = fs.readFileSync(
-      path.join(ROOT, 'app/renderer/screens/ipo-runtime/program.js'),
-      'utf8'
-    );
-    assert.match(src, /kind === 'vehicle'/, 'guarded on the vehicle kind');
-    assert.match(src, /IPO_PLUMBING\.test\(job\)/, 'guarded on plumbing jobs');
-    ok('the skip is guarded on vehicle-kind AND a plumbing job');
-  }
+  // The vehicle-script plumbing skip that used to live here was REVERTED.
+  // It suppressed a job whose target fell back to the vehicle's own name,
+  // on the theory that "no job code shipped for e46" was noise. It is not:
+  // those are the whole-car script's own Ident sweep, and blocking them
+  // emptied the identification report entirely (test_ipo_runtime's F2 Ident).
+  // The journal lines are honest records of groups that did not answer.
 
   console.log(`report noise: ${passed} checks passed`);
 })().catch((e) => {
