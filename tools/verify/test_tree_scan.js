@@ -30,10 +30,31 @@ const tree = {
   series: 'T46',
   mainSgbd: 'zcs_all',
   ecus: [
-    { name: 'ZKE', addr: 0, groups: ['d_0000', 'd_zke_gm'], bus: 'KBUS', col: 1, row: 1 },
+    {
+      name: 'ZKE',
+      addr: 0,
+      groups: ['d_0000', 'd_zke_gm'],
+      bus: 'KBUS',
+      col: 1,
+      row: 1,
+    },
     { name: 'DME', addr: 18, groups: ['d_0012'], bus: 'FACAN', col: 2, row: 1 },
-    { name: 'KOMBI', addr: 128, groups: ['d_0080'], bus: 'KBUS', col: 1, row: 2 },
-    { name: 'SM/SPM', addr: 113, groups: ['d_0071'], bus: 'UNKNOWN', col: 0, row: 0 },
+    {
+      name: 'KOMBI',
+      addr: 128,
+      groups: ['d_0080'],
+      bus: 'KBUS',
+      col: 1,
+      row: 2,
+    },
+    {
+      name: 'SM/SPM',
+      addr: 113,
+      groups: ['d_0071'],
+      bus: 'UNKNOWN',
+      col: 0,
+      row: 0,
+    },
     { name: 'EGS', addr: 24, groups: ['d_egs'], bus: 'FACAN', col: 2, row: 2 },
   ],
   buses: [],
@@ -129,7 +150,9 @@ const deps = {
     await T.ecuTreeFaultJobFor(
       'lsz_2',
       names({ lsz_2: ['FS_LESEN', 'FS_LESEN_GESAMT', 'FS_LESEN_DETAIL'] }),
-      argsOf({ lsz_2: { FS_LESEN: [{ ARG: 'ALL_BLOCKS', ARGTYPE: 'string' }] } })
+      argsOf({
+        lsz_2: { FS_LESEN: [{ ARG: 'ALL_BLOCKS', ARGTYPE: 'string' }] },
+      })
     ),
     { job: 'FS_LESEN', arg: 'ALL_BLOCKS' }
   );
@@ -155,7 +178,11 @@ const deps = {
   ok('without an arguments lookup a read is still found, called bare');
 
   assert.strictEqual(
-    await T.ecuTreeFaultJobFor('e', names({ e: ['FS_LESEN_DETAIL'] }), argsOf({})),
+    await T.ecuTreeFaultJobFor(
+      'e',
+      names({ e: ['FS_LESEN_DETAIL'] }),
+      argsOf({})
+    ),
     null
   );
   ok('the detail read is never chosen on its own');
@@ -227,13 +254,17 @@ const deps = {
   // and the scan would just be slower for nothing.
   const sent = [];
   const aliasReport = (
-    await T.ecuTreeWalkStart('E46', {}, {
-      ...walkDeps,
-      run: async (sgbd) => {
-        sent.push(sgbd);
-        return { sets: [{}] };
-      },
-    }).done
+    await T.ecuTreeWalkStart(
+      'E46',
+      {},
+      {
+        ...walkDeps,
+        run: async (sgbd) => {
+          sent.push(sgbd);
+          return { sets: [{}] };
+        },
+      }
+    ).done
   ).report;
   assert.strictEqual(
     sent.filter((s) => s === 'zke5').length,
@@ -251,10 +282,14 @@ const deps = {
   // ---- an all-silent car is a missing cable, not a clean scan ---------------
   let threw = '';
   try {
-    await T.ecuTreeWalkStart('E46', {}, {
-      ...walkDeps,
-      resolve: async () => null,
-    }).done;
+    await T.ecuTreeWalkStart(
+      'E46',
+      {},
+      {
+        ...walkDeps,
+        resolve: async () => null,
+      }
+    ).done;
   } catch (e) {
     threw = String(e.message);
   }
@@ -264,11 +299,15 @@ const deps = {
   // ---- a chassis ISTA has no tree for ---------------------------------------
   threw = '';
   try {
-    await T.ecuTreeWalkStart('E31', {}, {
-      ...walkDeps,
-      tree: async () => null,
-      extras: async () => [],
-    }).done;
+    await T.ecuTreeWalkStart(
+      'E31',
+      {},
+      {
+        ...walkDeps,
+        tree: async () => null,
+        extras: async () => [],
+      }
+    ).done;
   } catch (e) {
     threw = String(e.message);
   }

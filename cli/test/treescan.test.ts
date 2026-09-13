@@ -51,12 +51,14 @@ function deps() {
     extras: async () => EXTRAS,
     // d_egs is an option this car does not have: nothing answers there
     resolve: async (g: string) =>
-      (({
-        d_0000: 'zke5',
-        d_zke_gm: 'zke5',
-        d_0012: 'ms450ds0',
-        d_xen_l: 'xenon_l',
-      }) as Record<string, string>)[g] || null,
+      (
+        ({
+          d_0000: 'zke5',
+          d_zke_gm: 'zke5',
+          d_0012: 'ms450ds0',
+          d_xen_l: 'xenon_l',
+        }) as Record<string, string>
+      )[g] || null,
     jobNames: async () => ['IDENT', 'FS_LESEN', 'FS_LESEN_DETAIL'],
   };
 }
@@ -120,10 +122,14 @@ test('the report folds exactly as the script path does', async () => {
 test('a chassis ISTA draws no tree for says so', async () => {
   const R = loadRuntime();
   await assert.rejects(
-    R.ecuTreeWalkStart('E31', {}, {
-      tree: async () => null,
-      extras: async () => [],
-    }).done,
+    R.ecuTreeWalkStart(
+      'E31',
+      {},
+      {
+        tree: async () => null,
+        extras: async () => [],
+      }
+    ).done,
     /no control unit tree/i
   );
 });

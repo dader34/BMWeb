@@ -278,8 +278,7 @@ async function treeScanRun(
   const jobNames = async (sgbd: string): Promise<string[]> => {
     try {
       const j = (await apiOf()(`/api/ecu/${sgbd}/jobs`)) as
-        | unknown[]
-        | { jobs?: unknown[] };
+        unknown[] | { jobs?: unknown[] };
       const list = Array.isArray(j) ? j : j.jobs || [];
       return list
         .map((x) =>

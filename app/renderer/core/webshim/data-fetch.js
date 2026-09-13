@@ -102,8 +102,10 @@ const HF_MIRRORS = [
 function hfUrls(rel, localPrefix) {
   const base = typeof WEB_BASE === 'string' ? WEB_BASE : '';
   const local = localPrefix == null ? `data/${rel}` : localPrefix;
-  return [`${base}/${local}`.replace(/([^:])\/\//g, '$1/'),
-          ...HF_MIRRORS.map((m) => m + rel)];
+  return [
+    `${base}/${local}`.replace(/([^:])\/\//g, '$1/'),
+    ...HF_MIRRORS.map((m) => m + rel),
+  ];
 }
 
 /**
