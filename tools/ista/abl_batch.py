@@ -292,7 +292,8 @@ def write_chassis(db, out_dir, chassis, modules, index):
     # module window need, and a fault -> modules table the test-plan
     # calculation looks up directly. The wide per-module records above stay
     # as the tool's own record under <CHASSIS>.full.json.
-    with open(os.path.join(out_dir, chassis + ".full.json"), "w") as fh:
+    with gzip.open(os.path.join(out_dir, chassis + ".full.json.gz"),
+                   "wt", encoding="utf-8") as fh:
         json.dump({"chassis": chassis, "modules": entries}, fh, ensure_ascii=False)
 
     app_modules = OrderedDict()
@@ -339,7 +340,10 @@ def write_chassis(db, out_dir, chassis, modules, index):
                 by_fault.setdefault(key, set()).add(e["identifier"])
     faults = OrderedDict((k, sorted(v)) for k, v in sorted(by_fault.items()))
 
-    with open(os.path.join(out_dir, chassis + ".json"), "w") as fh:
+    # gzipped like every module beside it: E46.json is 1.5 MB of JSON and
+    # 107 KB compressed, and the app pays that on opening the Test plan
+    with gzip.open(os.path.join(out_dir, chassis + ".json.gz"),
+                   "wt", encoding="utf-8") as fh:
         json.dump(
             {"chassis": chassis, "faults": faults, "modules": app_modules},
             fh, ensure_ascii=False,

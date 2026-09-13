@@ -337,7 +337,12 @@ async function istaAblFetch(rel) {
 async function istaAblIndex(chassis) {
   const code = String(chassis || '').toUpperCase();
   if (!code) return null;
-  return istaAblFetch(`${code}.json`);
+  // gzipped since the indexes grew to 1.5 MB; the plain name stays as a
+  // fallback so a build carrying older data still opens
+  return (
+    (await istaAblFetch(`${code}.json.gz`)) ||
+    (await istaAblFetch(`${code}.json`))
+  );
 }
 
 /**
