@@ -54,6 +54,26 @@ CHASSIS = ["E31", "E34", "E36", "E38", "E39", "E46", "E52", "E53", "E60", "E65",
 # database side: chassis ids, module sets, links
 # ----------------------------------------------------------------------------
 
+def abl_shard(name):
+    """Which sub-directory a module's graph belongs in.
+
+    The pool does not fit in one directory: Hugging Face caps a directory at
+    10,000 files and there are 20,831 modules -- a push over the limit is
+    rejected outright. Splitting per chassis would duplicate half the corpus,
+    because 48% of modules are shared between chassis and one appears in 20 of
+    them, so a hash keeps the single pool and spreads it evenly (256 shards,
+    53-118 files each).
+
+    A plain character hash, not a digest, so the browser can compute the same
+    path synchronously -- see istaAblShard in screens/ista/plan.js, which must
+    stay in step with this.
+    """
+    h = 0
+    for ch in str(name).replace("_", "-"):
+        h = (h * 31 + ord(ch)) & 0xFFFFFFFF
+    return "%02x" % (h & 0xFF)
+
+
 def chassis_ids(db):
     rows = db.execute("select NAME, ID from XEP_CHARACTERISTICS where NAME in (%s) and NODECLASS=40128130"
                       % ",".join("?" * len(CHASSIS)), CHASSIS).fetchall()
@@ -237,7 +257,9 @@ def _worker(args):
             _TEXTS = A.Texts()
         result = A.extract_module(cs, _TEXTS, dll=dll, chassis=chassis)
         name = result["module"]
-        with gzip.open(os.path.join(out_dir, name + ".json.gz"), "wt", encoding="utf-8") as fh:
+        shard_dir = os.path.join(out_dir, abl_shard(name))
+        os.makedirs(shard_dir, exist_ok=True)
+        with gzip.open(os.path.join(shard_dir, name + ".json.gz"), "wt", encoding="utf-8") as fh:
             json.dump(result, fh, ensure_ascii=False)
         io = result.get("infoobject") or {}
         return {"identifier": result["identifier"], "module": name, "title": io.get("title"), "dll": dll,

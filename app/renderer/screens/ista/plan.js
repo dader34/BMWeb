@@ -350,7 +350,37 @@ async function istaAblIndex(chassis) {
 async function istaAblLoad(id) {
   const name = String(id || '').trim();
   if (!name) return null;
-  return istaAblFetch(`${name}.json.gz`);
+  // sharded since the pool outgrew the host's limit; the flat name is still
+  // tried, so a build carrying an older extract keeps working
+  return (
+    (await istaAblFetch(`${istaAblShard(name)}/${name}.json.gz`)) ||
+    (await istaAblFetch(`${name}.json.gz`))
+  );
+}
+
+/**
+ * Which sub-directory a module's graph lives in.
+ *
+ * THE POOL DOES NOT FIT IN ONE DIRECTORY. Hugging Face caps a directory at
+ * 10,000 files and the corpus is 20,831; the push is rejected outright at the
+ * limit ("too many files per directory"). Splitting per chassis was the
+ * obvious alternative and the wrong one -- 48% of modules are shared between
+ * chassis and one appears in 20 of them, so it would have stored half the
+ * corpus twice. A hash keeps the single pool and spreads it evenly: 256
+ * shards, 53 to 118 files each.
+ *
+ * The rule is a plain character hash rather than a real digest so the browser
+ * can compute it synchronously -- crypto.subtle is async and this sits on the
+ * path of every row the user opens. tools/ista/abl_batch.py writes the same
+ * layout with the same rule.
+ * @param {string} id - the module identifier (ABL-DIT-B1362_D6LDF)
+ * @returns {string} two lower-case hex digits
+ */
+function istaAblShard(id) {
+  let h = 0;
+  const s = String(id || '').replace(/_/g, '-');
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return (h & 0xff).toString(16).padStart(2, '0');
 }
 
 if (typeof module !== 'undefined')
