@@ -224,6 +224,8 @@ function istaAblWindow(host, ctx) {
     module: ctx.runner && ctx.runner.module,
     native: (ctx.runner && ctx.runner.native) || {},
     sleep: ctx.runner && ctx.runner.sleep,
+    // the part/state names a vehicle_state step shows, from the shipped table
+    vehicleText: ctx.runner && ctx.runner.vehicleText,
     ui: {
       message: (m) => ask(m),
       selection: (s) => ask(s),

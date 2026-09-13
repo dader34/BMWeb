@@ -554,6 +554,9 @@ function ablParsePrimary(p, ctx) {
     }
     if (t === '__convertToDouble') return ablNum(args[0]);
     if (t === '__convertToString') return ablValueText(args[0]);
+    // __Part("49624331") / __State("49631243") wrap an id and nothing else:
+    // the id is what a vehicle_state step resolves through the shipped table
+    if (t === '__Part' || t === '__State') return ablValueText(args[0]);
     return undefined;
   }
   // an index read: Fehlerorte_v[0], gVerdacht_Versorgung_v[num2]
@@ -926,6 +929,10 @@ class AblEngine {
         await this.runSubmodule(node, stepName);
         return undefined;
 
+      case 'vehicle_state':
+        await this.runVehicleState(node, stepName);
+        return undefined;
+
       case 'dialog':
         await this.runNative(node, stepName);
         return undefined;
@@ -1039,6 +1046,81 @@ class AblEngine {
     // the message dialog's only output is Quit: the Continue button. A live
     // frame that the user did not quit leaves it false and the loop runs on.
     this.out = { Quit: !!(r && r.quit) || (wait && r !== false) };
+  }
+
+  /**
+   * Bring a part of the car to a state, then go on.
+   *
+   * VehicleStateServiceDlg (dialog 51872651): "Ignition -> Switch on
+   * terminal R.", "Motor -> Turn engine on." 343 of the 891 E46 modules
+   * call it, most often to have the ignition switched on or off around a
+   * read. It has no output the flow reads; it returns when the state is
+   * reached. VerificationMethod "TEST" means the tool checks the car itself,
+   * "" means it asks the technician. A host that can read the state answers
+   * through native.vehicleState (returning {confirmed: true}); otherwise the
+   * instruction is put to the technician, in the tool's own words, and
+   * Continue is the confirmation -- which is what the tool does when it
+   * cannot verify either.
+   * @param {object} node - a vehicle_state node
+   * @param {string} stepName - the step
+   * @returns {Promise<void>}
+   */
+  async runVehicleState(node, stepName) {
+    const p = node.params || {};
+    const ctx = { vars: this.vars, out: this.out, answer: this.answer };
+    const read = (key) => {
+      const v = p[key];
+      return v && typeof v === 'object' && 'expr' in v
+        ? ablValueText(ablEval(v.expr, ctx))
+        : ablValueText(v);
+    };
+    const partId = read('/WurzelIn/Vehicle/VehicleParts[0]/VehiclePart');
+    const stateId = read('/WurzelIn/Vehicle/VehicleParts[0]/VehicleState');
+    const verify = read('/WurzelIn/Vehicle/VehicleParts[0]/VerificationMethod');
+    // the ids resolve through the shipped XEP_VEHICLEPART / XEP_VEHICLESTATE
+    // table (data/ista/abl/vehicle-states.json); without it the ids are
+    // shown as they are rather than invented around
+    const table = this.host.vehicleText || {};
+    const part = (table.parts && table.parts[partId]) || partId || '';
+    const state = (table.states && table.states[stateId]) || stateId || '';
+    const shown = {
+      kind: 'vehicle_state',
+      step: stepName,
+      part,
+      state,
+      partId,
+      stateId,
+      verify,
+    };
+    this.trace.push(shown);
+    const native = this.host.native || {};
+    if (typeof native.vehicleState === 'function') {
+      const r = await native.vehicleState({ ...shown, vars: this.vars, node });
+      if (r && r.confirmed) {
+        shown.verified = 'read';
+        this.out = {};
+        return;
+      }
+    }
+    if (!this.host.ui || typeof this.host.ui.message !== 'function')
+      throw new AblHalt(
+        `this build does not provide the vehicleState service that ` +
+          `${stepName} needs`,
+        { step: stepName, node: node.id, kind: 'dialog 51872651' }
+      );
+    shown.verified = 'asked';
+    // the state text is already the instruction ("Switch on terminal R.");
+    // the part names what it is about, the way the tool heads the dialog
+    await this.host.ui.message({
+      kind: 'message',
+      step: stepName,
+      text: part && state ? `${part}\n${state}` : state || part,
+      value: '',
+      wait: true,
+      timeout: 0,
+      live: false,
+    });
+    this.out = {};
   }
 
   /**

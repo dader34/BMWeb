@@ -1803,6 +1803,14 @@ async function istaRunAblModule(graph, row, car, chassis, after) {
       idx.modules[(row && row.id) || (graph && graph.identifier)].documents) ||
     [];
 
+  // the names a vehicle_state step shows ("Ignition", "Switch on terminal
+  // R."), one small table for every module rather than a copy in each graph
+  const vehicleText = await istaProbe(() =>
+    typeof istaAblFetch === 'function'
+      ? istaAblFetch('vehicle-states.json')
+      : null
+  );
+
   return new Promise((resolve) => {
     istaAblWindow(host, {
       graph,
@@ -1838,6 +1846,7 @@ async function istaRunAblModule(graph, row, car, chassis, after) {
         },
         module: ({ identifier }) =>
           typeof istaAblLoad === 'function' ? istaAblLoad(identifier) : null,
+        vehicleText: vehicleText || null,
         native: {
           // THE FAULT LIST IS ALREADY READ. The library module the engine
           // would otherwise run asks the car for the fault memory of a

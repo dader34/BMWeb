@@ -531,6 +531,98 @@ async function main() {
     ok('a service this build lacks halts by name');
   }
 
+  // ---- a vehicle_state step: bring a part to a state, in the tool's words ---
+  // 343 of the 891 E46 modules call it. It used to fall to the "does not run
+  // a vehicle_state step" halt, which ended the oil-level module on the real
+  // car right after its fault read. The ids resolve through the shipped
+  // part/state table; the technician confirms with Continue unless the host
+  // can read the state itself.
+  {
+    const vs = (id, next) => ({
+      type: 'vehicle_state',
+      dialog_ref: '51872651',
+      id,
+      next,
+      params: {
+        Display: true,
+        '/WurzelIn/Vehicle/VehicleParts[0]/VehiclePart': {
+          expr: '__Part("49624331")',
+        },
+        '/WurzelIn/Vehicle/VehicleParts[0]/VehicleState': {
+          expr: '__State("49631243")',
+        },
+        '/WurzelIn/Vehicle/VehicleParts[0]/VerificationMethod': '',
+      },
+    });
+    const graph = {
+      identifier: 'T',
+      entry: 'S',
+      steps: {
+        S: {
+          nodes: [
+            { type: 'startstep', id: 1, next: 2 },
+            vs(2, 3),
+            { type: 'end', id: 3 },
+          ],
+        },
+      },
+    };
+    const table = {
+      parts: { 49624331: 'Ignition' },
+      states: { 49631243: 'Switch on terminal R.' },
+    };
+
+    // asked of the technician, in the tool's own words
+    const seen = [];
+    const eng = new AblEngine(graph, {
+      native: {},
+      vehicleText: table,
+      ui: { message: async (m) => (seen.push(m), { quit: true }) },
+    });
+    await eng.run();
+    assert.strictEqual(
+      seen.length,
+      1,
+      'the instruction was not put to the technician'
+    );
+    assert.ok(
+      /Ignition/.test(seen[0].text) &&
+        /Switch on terminal R\./.test(seen[0].text),
+      seen[0].text
+    );
+    assert.strictEqual(
+      seen[0].wait,
+      true,
+      'a state confirmation must wait for Continue'
+    );
+    const t = eng.trace.find((x) => x.kind === 'vehicle_state');
+    assert.ok(
+      t && t.verified === 'asked' && t.partId === '49624331',
+      JSON.stringify(t)
+    );
+    ok("a vehicle_state step asks the technician in the tool's words");
+
+    // a host that can read the state answers it and asks nothing
+    const eng2 = new AblEngine(graph, {
+      vehicleText: table,
+      native: { vehicleState: async () => ({ confirmed: true }) },
+      ui: { message: async () => assert.fail('asked despite a read') },
+    });
+    await eng2.run();
+    assert.strictEqual(
+      eng2.trace.find((x) => x.kind === 'vehicle_state').verified,
+      'read'
+    );
+    ok('a host that reads the state confirms it without asking');
+
+    // and a host with neither still halts by name, honestly
+    await assert.rejects(
+      () => new AblEngine(graph, { ui: {}, native: {} }).run(),
+      (e) => e instanceof AblHalt && /vehicleState/.test(e.message)
+    );
+    ok('a host with no way to ask or read halts by name');
+  }
+
   // ---- a job that never settles must not stop the module forever -------------
   // There was no timeout on a job at all. On the real car a module sat on
   // "Fault code memory being read..." indefinitely -- no error, no halt,

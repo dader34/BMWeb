@@ -347,6 +347,28 @@ def write_chassis(db, out_dir, chassis, modules, index):
     return entries
 
 
+
+def write_vehicle_states(db, out_dir):
+    """The parts and states a vehicle_state step names, by id.
+
+    A VehicleStateServiceDlg step (dialog 51872651) asks for a PART to be
+    brought to a STATE: `__Part("49624331")` is Ignition, `__State("49631243")`
+    is "Switch on terminal R." The ids resolve through XEP_VEHICLEPART and
+    XEP_VEHICLESTATE, 24 and 55 rows, so the whole table ships as one small
+    file the engine reads at run time rather than being folded into every
+    module graph. 343 of the 891 E46 modules use it.
+    """
+    out = {
+        "parts": {str(i): (t or "").strip() for i, t in db.execute(
+            "SELECT ID, TITLE_ENGB FROM XEP_VEHICLEPART ORDER BY ID")},
+        "states": {str(i): (t or "").strip() for i, t in db.execute(
+            "SELECT ID, TITLE_ENGB FROM XEP_VEHICLESTATE ORDER BY ID")},
+    }
+    with open(os.path.join(out_dir, "vehicle-states.json"), "w") as fh:
+        json.dump(out, fh, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return out
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--chassis", help="comma separated chassis names (see CHASSIS)")
@@ -410,6 +432,7 @@ def main(argv=None):
         index = write_index(args.out, rows + undecompiled)
     else:
         index = json.load(open(os.path.join(args.out, "index.json"))) if os.path.exists(os.path.join(args.out, "index.json")) else {}
+    write_vehicle_states(db, args.out)
     fails = write_failures(args.out, index)
     for c in wanted:
         entries = write_chassis(db, args.out, c, modules, index)
