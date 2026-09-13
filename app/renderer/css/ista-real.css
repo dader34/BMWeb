@@ -1172,6 +1172,380 @@ html[data-theme] .ista-real-body .modal .irbf-sel .irbf-row.has {
   padding-left: 18px;
 }
 
+/* ---- the Test plan's State and Priority columns ---------------------------
+   The frames put a small square in State whose fill says what happened to
+   the row, and the same five fills in the status line's legend. An unrun
+   row draws the EMPTY square rather than nothing: the column has to read as
+   "not called yet" and not as a value that failed to arrive. */
+.ista-real-body .irplan-st {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border: 1px solid #6b6b6b;
+  background: #fff;
+  vertical-align: middle;
+}
+.ista-real-body .irplan-st-performed {
+  background: #3c9a3c;
+}
+.ista-real-body .irplan-st-canceled {
+  background: #222;
+}
+.ista-real-body .irplan-st-suspected {
+  background: #2f6fd0;
+}
+.ista-real-body .irplan-st-minimized {
+  background: #d8a21a;
+}
+.ista-real-body .irplan-sort {
+  cursor: pointer;
+  user-select: none;
+}
+.ista-real-body .irplan-arrow {
+  font-size: 9px;
+}
+
+/* ---- a running test module's window (sheets s05..s10) ---------------------
+   A FULL PAGE, NOT A DIALOG. The frames give the module its own teal title
+   bar under the vehicle header and hand it the whole content area: two
+   panes side by side, each with its own tab row, and the shell's bottom bar
+   carrying the module's six buttons. Anything smaller would cover the
+   wiring diagram the current step is telling the reader to look at. */
+.ista-real-body .irablhost {
+  position: absolute;
+  inset: 0;
+}
+.ista-real-body .irablwin {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--ir-page);
+  min-height: 0;
+}
+.ista-real-body .irablwin-title {
+  background: var(--ir-teal);
+  color: #fff;
+  font-weight: 700;
+  font-size: 12px;
+  padding: 4px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: none;
+}
+.ista-real-body .irablwin-x {
+  cursor: pointer;
+  padding: 0 4px;
+  font-size: 12px;
+  line-height: 1;
+}
+.ista-real-body .irablwin-body {
+  flex: 1 1 auto;
+  display: flex;
+  gap: 6px;
+  padding: 6px;
+  min-height: 0;
+  box-sizing: border-box;
+}
+.ista-real-body .irablwin-body .irabl-pane {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  border: none;
+}
+/* the pane tabs are the tool's trapezoid cells, teal for the open one */
+.ista-real-body .irabl-tabrow {
+  display: flex;
+  gap: 2px;
+  flex: none;
+}
+.ista-real-body .irabl-tab {
+  background: var(--ir-grey);
+  color: var(--ir-ink);
+  font-size: 11px;
+  padding: 4px 12px 3px;
+  cursor: pointer;
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 100%, 0 100%);
+  min-width: 92px;
+}
+.ista-real-body .irabl-tab.on {
+  background: var(--ir-teal);
+  color: #fff;
+}
+.ista-real-body .irabl-proc-b,
+.ista-real-body .irabl-docs-b {
+  flex: 1 1 auto;
+  border: 1px solid var(--ir-teal);
+  background: #fff;
+  padding: 8px 10px;
+  overflow: auto;
+  min-height: 0;
+  font-size: 12px;
+}
+/* the step's own text: the recovered blank lines are real paragraph breaks
+   and the frames keep every one of them */
+.ista-real-body .irabl-l {
+  line-height: 1.45;
+}
+.ista-real-body .irabl-gap {
+  height: 10px;
+}
+.ista-real-body .irabl-val {
+  margin-top: 8px;
+  font-weight: 700;
+}
+/* a numbered selection: the square badge, then the choice */
+.ista-real-body .irabl-picks {
+  margin: 10px 0;
+}
+.ista-real-body .irabl-pick {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 3px 0;
+  cursor: pointer;
+}
+.ista-real-body .irabl-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  background: var(--ir-grey);
+  border: 1px solid var(--ir-grey-line);
+  font-size: 11px;
+  flex: none;
+}
+.ista-real-body .irabl-pick.on .irabl-pick-t {
+  background: var(--ir-teal-dim);
+  color: #fff;
+  padding: 0 4px;
+}
+/* a replayed screen is a RE-READ: Back shows what the last step said, and
+   nothing on it can be answered until Continue brings the live one back */
+.ista-real-body .irabl-replay .irabl-pick,
+.ista-real-body .irabl-replay .irabl-in {
+  cursor: default;
+  opacity: 0.65;
+  pointer-events: none;
+}
+/* the measurement entry and its Notice box */
+.ista-real-body .irabl-entry {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 0;
+}
+.ista-real-body .irabl-in {
+  width: 190px;
+  border: 1px solid #6b6b6b;
+  border-radius: 0;
+  padding: 3px 5px;
+  font-family: var(--ir-font);
+  font-size: 12px;
+  background: #fff;
+  color: var(--ir-ink);
+}
+.ista-real-body .irabl-unit {
+  font-size: 12px;
+}
+.ista-real-body .irabl-note {
+  margin: 10px 0;
+  max-width: 340px;
+  border: 1px solid #2f6fd0;
+}
+.ista-real-body .irabl-note-h {
+  background: #2f6fd0;
+  color: #fff;
+  font-weight: 700;
+  font-size: 11px;
+  padding: 3px 8px;
+}
+.ista-real-body .irabl-note-b {
+  padding: 5px 8px;
+  font-size: 11px;
+  background: #fff;
+}
+/* the progress box a job draws over the pane */
+.ista-real-body .irabl-busy {
+  border: 1px solid #999;
+  max-width: 340px;
+  margin: 40px auto;
+  background: var(--ir-grey);
+}
+.ista-real-body .irabl-busy-h {
+  background: var(--ir-grey);
+  font-size: 11px;
+  padding: 4px 8px;
+  border-bottom: 1px solid #999;
+}
+.ista-real-body .irabl-busy-b {
+  padding: 8px;
+  font-weight: 700;
+  font-size: 12px;
+}
+.ista-real-body .irabl-busy-bar {
+  margin: 0 8px 10px;
+  height: 14px;
+  border: 1px solid #6b6b6b;
+  background: #fff;
+  overflow: hidden;
+}
+.ista-real-body .irabl-busy-bar i {
+  display: block;
+  height: 100%;
+  width: 35%;
+  background: var(--ir-teal-dim);
+  animation: irabl-sweep 1.1s linear infinite;
+}
+@keyframes irabl-sweep {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(290%);
+  }
+}
+/* Full Screen hands the whole page to the procedure, which is what the
+   button does in the tool: the documents step aside, they do not close */
+.ista-real-body .irabl-full .irabl-docs {
+  display: none;
+}
+/* The camera's own controls arrive from the wiring app, which builds them
+   in its app styling and always appends a Share button. Neither belongs in
+   a workshop pane, so they take the tool's buttons here and the share is
+   not drawn: a procedure step is not something a technician links out of. */
+html .ista-real-body .irabl-docs-b .wiring-zoom,
+html .ista-real-body .irabl-docl .wiring-zoom {
+  display: flex;
+  gap: 4px;
+  margin: 0 0 6px;
+}
+html .ista-real-body .irabl-docs-b .wiring-zoom .btn,
+html .ista-real-body .irabl-docs-b .wiring-zoom button,
+html .ista-real-body .irabl-docl .wiring-zoom .btn,
+html .ista-real-body .irabl-docl .wiring-zoom button {
+  background: var(--ir-grey) !important;
+  border: 1px solid #9a9a9a !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  color: var(--ir-ink) !important;
+  font: 12px/1.1 var(--ir-font) !important;
+  min-width: 44px;
+  height: 24px;
+  padding: 2px 8px;
+  cursor: pointer;
+}
+html .ista-real-body .irabl-docs-b .wiring-zoom .btn:hover:not(:disabled),
+html .ista-real-body .irabl-docs-b .wiring-zoom button:hover:not(:disabled),
+html .ista-real-body .irabl-docl .wiring-zoom .btn:hover:not(:disabled),
+html .ista-real-body .irabl-docl .wiring-zoom button:hover:not(:disabled) {
+  background: #d4d4d4 !important;
+}
+html .ista-real-body .irabl-docs-b .wiring-share,
+html .ista-real-body .irabl-docl .wiring-share {
+  display: none !important;
+}
+
+/* the schematic's stage: the drawing fills it and the camera pans inside
+   it, so it takes the pane's height rather than the drawing's */
+.ista-real-body .irabl-svg {
+  position: relative;
+  height: calc(100% - 26px);
+  min-height: 260px;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+}
+.ista-real-body .irabl-svg:active {
+  cursor: grabbing;
+}
+.ista-real-body .irabl-svg svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+/* the document's own title above it, the way the tool heads a pane */
+.ista-real-body .irabl-doct {
+  font-weight: 700;
+  font-size: 12px;
+  margin: 0 0 6px;
+}
+/* a text document: the tool's own lines, one paragraph each */
+.ista-real-body .irabl-doc p {
+  margin: 0 0 6px;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+/* a component on a schematic is a link to where that component lives, so
+   it is drawn like one; anchors whose designator has no document in this
+   chassis are never given the class and stay inert */
+.ista-real-body .irabl-svg a.irabl-desig {
+  cursor: pointer;
+}
+.ista-real-body .irabl-svg a.irabl-desig:hover * {
+  stroke: var(--ir-teal);
+  fill: var(--ir-teal);
+}
+
+/* the document view: the diagram's pane is the window's LEFT half, the
+   same box the procedure occupies, because a document replaces the module
+   window rather than opening inside it */
+.ista-real-body .irabl-docl {
+  flex: 1 1 auto;
+  border: 1px solid var(--ir-teal);
+  background: #fff;
+  padding: 8px 10px;
+  overflow: auto;
+  min-height: 0;
+  font-size: 12px;
+}
+/* the component the technician clicked is lit where they clicked it */
+.ista-real-body .irabl-svg a.irabl-desig.on * {
+  stroke: var(--ir-teal);
+  fill: var(--ir-teal);
+}
+/* an installation location is a PICTURE of the part in the car */
+.ista-real-body .irabl-fig {
+  margin: 0 0 8px;
+}
+.ista-real-body .irabl-fig img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  border: 1px solid var(--ir-line, #b9b9b9);
+}
+.ista-real-body .irabl-fig figcaption {
+  font-size: 11px;
+  margin-top: 3px;
+}
+/* a legend or a pin assignment is a table, not a run of loose lines */
+.ista-real-body .irabl-tbl {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0 0 8px;
+  font-size: 11px;
+}
+.ista-real-body .irabl-tbl th,
+.ista-real-body .irabl-tbl td {
+  border: 1px solid var(--ir-line, #b9b9b9);
+  padding: 2px 5px;
+  text-align: left;
+  vertical-align: top;
+}
+.ista-real-body .irabl-tbl th {
+  background: var(--ir-grey);
+  font-weight: 700;
+}
+.ista-real-body .irabl-doc h4 {
+  font-size: 12px;
+  font-weight: 700;
+  margin: 0 0 5px;
+}
+
 /* ---- SAE fault code input ------------------------------------------------- */
 .ista-real-body .irsae {
   padding: 12px;
@@ -1447,6 +1821,18 @@ html[data-theme] .ista-real-body .modal .irbf-sel .irbf-row.has {
 .ista-real-body .view .tree-wrap {
   padding: 8px;
 }
+/* the read's progress bar: the screen already ships one, and the vehicle
+   test drives it, so it wears the tool's own colour rather than the app's
+   amber and sits tight under the toolbar instead of floating in the panel */
+.ista-real-body .view .tree-progress {
+  height: 3px;
+  border-radius: 0;
+  background: #d4d4d4;
+  margin: 0 0 6px;
+}
+.ista-real-body .view .tree-progress > i {
+  background: var(--ir-teal);
+}
 .ista-real-body .irtree-host {
   height: 100%;
 }
@@ -1696,4 +2082,55 @@ html[data-theme] .ista-real-body .modal .irbf-sel .irbf-row.has {
 /* the control unit window's tabs hold their labels on one line */
 .ista-real-body .irecu-tabs .iradmin-tab {
   white-space: nowrap;
+}
+
+/* a tab's second line: which of several documents of one kind this is */
+.ista-real-body .irabl-tabd {
+  display: block;
+  font-size: 9px;
+  line-height: 1.15;
+  opacity: 0.8;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ista-real-body .irabl-tab {
+  min-width: 92px;
+}
+
+/* ---- the vehicle test, while it runs ------------------------------------- */
+.ista-real-body .irvt {
+  padding: 12px;
+}
+.ista-real-body .irvt h3 {
+  font-size: 13px;
+  font-weight: 700;
+  margin: 0 0 8px;
+}
+.ista-real-body .irvt-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 10px;
+  font-size: 12px;
+}
+.ista-real-body .irvt-bad {
+  margin: 0 0 10px;
+  font-size: 12px;
+  color: #a11;
+}
+.ista-real-body .irvt-sum {
+  margin: 0 0 10px;
+  font-size: 12px;
+  font-weight: 700;
+}
+.ista-real-body .irvt-n {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.ista-real-body .irvt-warn {
+  margin: 0 0 10px;
+  font-size: 12px;
+  color: #a60;
 }

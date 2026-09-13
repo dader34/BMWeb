@@ -53,10 +53,31 @@ const TN_IDENTITY_LEN = 24;
 const TN_IDENTITY_REVERSED_LEN = 10;
 
 /**
- * The library index from the first mirror that answers.
+ * The library index: the local copy an offline build ships, else the first
+ * mirror that answers.
+ *
+ * THE LOCAL COPY HAS TO COME FIRST, and it has to be cached normally. Going
+ * straight to the mirrors is what made the definition library the one dataset
+ * that could not work offline: every other screen probes
+ * `${WEB_BASE}/data/...` before its fallback, and `cache: 'no-store'` told the
+ * service worker not to keep the answer either, so an unplugged machine got
+ * nothing even after a successful online visit. The mirrors keep no-store --
+ * they are the live copy and should not go stale -- while the local read is an
+ * ordinary fetch the worker can serve.
  * @returns {Promise<{ base: string, index: { definitions: XdfIndexEntry[] } }|null>}
  */
 async function tnFetchXdfIndex() {
+  const web = typeof WEB_BASE === 'string' ? WEB_BASE : '';
+  const local = `${web}/data/tuning/xdf/`;
+  try {
+    const r = await fetch(local + 'index.json');
+    if (r && r.ok) {
+      const j = await r.json();
+      if (j && Array.isArray(j.definitions)) return { base: local, index: j };
+    }
+  } catch (e) {
+    /* no local copy in this build: the mirrors below */
+  }
   for (const base of XDF_MIRRORS) {
     try {
       const r = await fetch(base + 'index.json', { cache: 'no-store' });

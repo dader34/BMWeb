@@ -120,7 +120,9 @@ node tools/verify/test_groups.js || exit 1
 
 echo
 echo "== whole-vehicle sweep plans every chassis from its own config =="
-node tools/verify/test_sweep.js || exit 1
+node tools/verify/test_sweep.js
+node tools/verify/test_fault_read_arg.js
+node tools/verify/test_report_noise.js || exit 1
 
 echo
 echo "== export ships every variant a group can identify, not just the menu =="
@@ -255,10 +257,15 @@ node tools/verify/test_fault_report.js || exit 1
 echo
 echo "== control unit tree: layout, scan status join, extractor =="
 node tools/verify/test_ecu_tree.js
+node tools/verify/test_tree_scan.js
 
 echo
 echo "== ISTA shell: tab model, routes, favourites, banner and details text =="
 node tools/verify/test_ista.js || exit 1
+
+echo
+echo "== ISTA vehicle test: the read runs in the shell and is kept on the car =="
+node tools/verify/test_ista_vehicle_test.js || exit 1
 
 echo
 echo "== repair manual: the extractor's document model, groups and pictures =="
@@ -273,6 +280,14 @@ node tools/verify/test_repair.js || exit 1
 echo
 echo "== diagnosis structures: the tree joins, the document classes, the bodies =="
 node tools/verify/test_diag_structure.js || exit 1
+
+echo
+echo "== ISTA test modules: flattening, the opaque switch, dispatch, the validator =="
+python3 tools/verify/test_abl_extract.py || exit 1
+
+echo
+echo "== ISTA wiring: the designator index a clicked schematic resolves through =="
+python3 tools/verify/test_wiring_extract.py || exit 1
 
 echo
 echo "== parts diagrams: callout hotspot file shape, the pos join, scale mapping =="

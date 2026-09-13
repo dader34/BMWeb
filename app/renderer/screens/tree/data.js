@@ -6,8 +6,6 @@
 // Hugging Face dataset, and never before the app is opened.
 
 /** Hosted copy of the trees (the bmweb-etk dataset, beside faulttests.json). */
-const ECU_TREE_HF_BASE =
-  'https://huggingface.co/datasets/CraigFf/bmweb-etk/resolve/main/ista/ecu-tree/';
 
 /** Buses ISTA lists a module on but never draws. */
 const ECU_TREE_HIDDEN = new Set(['UNKNOWN', 'VIRTUAL', 'NONE', 'INTERNAL']);
@@ -61,23 +59,7 @@ const ecuTreeCache = new Map();
  * @returns {Promise<object|null>}
  */
 async function ecuTreeFetchJson(rel) {
-  const real =
-    typeof webRealFetch === 'function'
-      ? webRealFetch
-      : window.fetch.bind(window);
-  const base = typeof WEB_BASE === 'string' ? WEB_BASE : '';
-  for (const u of [
-    `${base}/data/ista/ecu-tree/${rel}`,
-    ECU_TREE_HF_BASE + rel,
-  ]) {
-    try {
-      const r = await real(u);
-      if (r && r.ok) return await r.json();
-    } catch (e) {
-      /* try the next source */
-    }
-  }
-  return null;
+  return hfFetchFirst(`ista/ecu-tree/${rel}`);
 }
 
 /**
@@ -115,6 +97,29 @@ async function ecuTreeNameFor(chassis) {
   return idx.chassis[String(chassis).toUpperCase()] || null;
 }
 
+/** scan-extras.json, once: {CHASSIS: [{group, label}]}. */
+let ecuTreeExtrasCache = null;
+
+/**
+ * The groups a chassis's INPA script reaches that its tree does not carry.
+ *
+ * ISTA draws one box where INPA addresses a pair -- E46's mirror memory is
+ * one SM/SPM box but D_SPMFT and D_SPMBT on the wire, its xenon lights one
+ * LWR box but D_XEN_L and D_XEN_R. Scanning the tree alone would stop
+ * reading those, so the scan list unions these in.
+ * tools/ista/scan_union.py derives the file from the decompiled scripts.
+ * @param {string} chassis - the chassis id
+ * @returns {Promise<{group: string, label: string}[]>} empty when the file
+ *   is absent (an older data drop) or the chassis needs no extras
+ */
+async function ecuTreeScanExtras(chassis) {
+  if (!ecuTreeExtrasCache) {
+    const j = await ecuTreeFetchJson('scan-extras.json').catch(() => null);
+    ecuTreeExtrasCache = (j && j.extras) || {};
+  }
+  return ecuTreeExtrasCache[String(chassis).toUpperCase()] || [];
+}
+
 /**
  * The tree a chassis draws with.
  * @param {string} chassis - the chassis id
@@ -131,5 +136,10 @@ async function ecuTreeForChassis(chassis) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { ECU_TREE_HIDDEN, ecuTreeFetchJson, ecuTreeForChassis };
+  module.exports = {
+    ECU_TREE_HIDDEN,
+    ecuTreeFetchJson,
+    ecuTreeForChassis,
+    ecuTreeScanExtras,
+  };
 }

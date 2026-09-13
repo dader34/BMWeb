@@ -322,8 +322,6 @@ function loadPcodes() {
 // one (offline/desktop). Loading is a plain <script src> that sets a window
 // global; cross-origin classic scripts load fine from HF.
 /** Where the BMW-derived fault tables are hosted when a build ships none. */
-const FAULT_HF_BASE =
-  'https://huggingface.co/datasets/CraigFf/bmweb-etk/resolve/main/faults/';
 
 /**
  * Whether a same-origin data file exists, asked without a console error: a
@@ -392,9 +390,9 @@ function _lazyScript(src, ready, holder) {
     if (window[ready]) return Promise.resolve();
     if (holder.p) return holder.p;
     // basename for the HF fallback (src is like 'data/faultinfo.js')
-    const base = typeof WEB_BASE === 'string' ? WEB_BASE : '';
+    // the fault DBs sit at the dataset root under faults/, not data/
     const file = src.split('/').pop();
-    const urls = [`${base}/${src}`, `${FAULT_HF_BASE}${file}`];
+    const urls = hfUrls(`faults/${file}`, src);
     holder.p = webInjectFirst(urls).then((loaded) => {
       if (!loaded) holder.p = null; // every source failed: allow a retry
     });

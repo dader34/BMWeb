@@ -72,8 +72,6 @@
 // other large BMW-derived fault data it isn't shipped in the repo -- try a
 // local build copy first, then fall back to the Hugging Face dataset.
 /** Hosted copy of the fault index. */
-const FAULT_INDEX_HF =
-  'https://huggingface.co/datasets/CraigFf/bmweb-etk/resolve/main/faults/faultindex.js';
 
 /**
  * Inject faultindex.js once (local build copy first, then the hosted one).
@@ -83,8 +81,7 @@ const FAULT_INDEX_HF =
 function loadFaultIndex() {
   if (window.BMW_FAULT_INDEX) return Promise.resolve();
   if (window.__faultIndexLoading) return window.__faultIndexLoading;
-  const base = typeof WEB_BASE === 'string' ? WEB_BASE : '';
-  const urls = [`${base}/data/faultindex.js`, FAULT_INDEX_HF];
+  const urls = hfUrls('faults/faultindex.js', 'data/faultindex.js');
   // the local copy is probed quietly first (core/translate.js): a hosted
   // build has none and must not log a 404
   window.__faultIndexLoading = webInjectFirst(urls).then((loaded) => {
@@ -98,8 +95,6 @@ function loadFaultIndex() {
 // hosted on the same Hugging Face dataset as the ETK data, so it loads lazily
 // the first time a fault detail is opened and never for a plain DTC search.
 /** Hosted copy of the ISTA component procedures. */
-const ISTA_TESTS_URL =
-  'https://huggingface.co/datasets/CraigFf/bmweb-etk/resolve/main/ista/faulttests.json';
 
 /** @type {Record<string, IstaTestDoc>|null} slug -> procedure, once loaded */
 let istaTestDocs = null;
@@ -119,7 +114,7 @@ function loadIstaTests() {
   const base = typeof WEB_BASE === 'string' ? WEB_BASE : '';
   window.__istaTestsLoading = (async () => {
     // local copy first (if a build ever ships one), then Hugging Face
-    for (const u of [`${base}/data/ista/faulttests.json`, ISTA_TESTS_URL]) {
+    for (const u of hfUrls('ista/faulttests.json')) {
       try {
         const r = await real(u);
         if (r && r.ok) {

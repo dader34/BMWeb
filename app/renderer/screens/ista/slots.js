@@ -133,6 +133,14 @@ function istaSlots(config, faults, ident, tree) {
   // what answered, and what it said it was
   const identBy = istaSlotIdent(ident);
   const faultBy = new Map();
+  /** group or sgbd -> the variant the car actually answered as */
+  const variantBy = new Map();
+  for (const m of [
+    ...((ident && ident.modules) || []),
+    ...((faults && faults.modules) || []),
+  ])
+    for (const key of [m.sgbd, m.via])
+      if (key && m.sgbd) variantBy.set(String(key).toLowerCase(), m.sgbd);
   for (const m of (faults && faults.modules) || [])
     for (const key of [m.sgbd, m.via])
       if (key)
@@ -149,14 +157,48 @@ function istaSlots(config, faults, ident, tree) {
     // config. A candidate counts as installed when a read reached it by name
     // -- an identification, a fault read, or a recorded silence -- because
     // only a read can tell eight engine variants apart.
-    const hit = slot.candidates.find((c) => {
-      const key = String(c.sgbd || '').toLowerCase();
-      return identBy.has(key) || faultBy.has(key) || silentBy.has(key);
-    });
+    // THE GROUP IS WHAT BOTH SIDES AGREE ON. A read reaches a module by its
+    // GROUP (D_0080) and the module answers with the variant that is really
+    // fitted (kombi46r), which is very often NOT the sgbd the config lists
+    // for that slot (kombi46). Matching on the sgbd alone left six of this
+    // E46's eight answering modules unmatched -- the control unit list stayed
+    // grey and the tree uncoloured however many times the test was run. So
+    // the group answers first, and the sgbd is the fallback for a slot that
+    // has no group.
+    // AND A BOX'S OTHER GROUP NAMES COUNT TOO. One control unit answers to
+    // more than one group: the bus map files the E46's body module under
+    // both D_0000 and D_ZKE_GM, and INPA's sweep tries D_0000 FIRST, only
+    // falling back to D_ZKE_GM when that fails. On a car where D_0000
+    // answers -- it does, as ZKE5_S12, part 6944840 -- the read is filed
+    // under a name the chassis config never mentions, so matching the
+    // config's single group left the module reading "not read" while it sat
+    // there answering. The map already carries the alias (that is what
+    // merges the two engine groups into one DME); the match now uses it.
+    const names = [
+      String(slot.group || ''),
+      ...((slot.box && slot.box.groups) || []),
+    ]
+      .map((g) => String(g || '').toLowerCase())
+      .filter(Boolean);
+    const group =
+      names.find((g) => identBy.has(g) || faultBy.has(g) || silentBy.has(g)) ||
+      String(slot.group || '').toLowerCase();
+    const byGroup =
+      group &&
+      (identBy.has(group) || faultBy.has(group) || silentBy.has(group));
+    const hit =
+      slot.candidates.find((c) => {
+        const key = String(c.sgbd || '').toLowerCase();
+        return identBy.has(key) || faultBy.has(key) || silentBy.has(key);
+      }) || (byGroup ? slot.candidates[0] || null : null);
     if (hit) {
       slot.ecu = hit;
       slot.sgbd = hit.sgbd || '';
-      const key = String(hit.sgbd || '').toLowerCase();
+      // whichever key the read is filed under: the variant when the config
+      // happens to name it, else the group it was reached through
+      const own = String(hit.sgbd || '').toLowerCase();
+      const key =
+        identBy.has(own) || faultBy.has(own) || silentBy.has(own) ? own : group;
       slot.ident = identBy.get(key) || null;
       const f = faultBy.get(key);
       if (f) {
@@ -171,6 +213,11 @@ function istaSlots(config, faults, ident, tree) {
       }
       slot.abbr = hit.code || hit.sgbd || slot.id;
       slot.name = hit.label || hit.sgbd || slot.id;
+      // the car's own answer outranks the config's guess at the variant:
+      // an E46 whose cluster answers kombi46r is not the kombi46 the config
+      // lists, and the slot should say what is really fitted
+      const said = variantBy.get(key);
+      if (said) slot.sgbd = said;
     } else {
       // NOTHING HAS IDENTIFIED THIS SLOT. It keeps the family's name rather
       // than borrowing one candidate's, because naming it "MS45.1" on a car

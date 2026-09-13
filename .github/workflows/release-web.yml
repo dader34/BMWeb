@@ -7,6 +7,10 @@ name: Release offline web builds
 # at runtime, because a build that still fetches them is not offline:
 #
 #   faults/*.js + ista/faulttests.json   fault lookup, ~100 MB   -> every zip
+#   ista/{ecu-tree,abl,diag,ecufn,       the ISTA app, ~355 MB   -> every zip
+#         techdata,wiring}
+#   tuning/xdf, ~29 MB                   XDF definitions         -> every zip
+#   ista/repair, ~675 MB                 repair manual           -> "complete" only
 #   the ETK parts tree, ~5.8 GB          parts catalogue         -> "complete" only
 #
 # Two jobs:
@@ -61,6 +65,20 @@ jobs:
 
       - name: Fault lookup data (every variant)
         run: scripts/build/ci-fetch-hf-data.sh faults
+
+      # the ISTA app's own data. Without it every ISTA screen -- the control
+      # unit tree, the whole-car scan, the test plan, wiring, technical data --
+      # falls back to fetching from Hugging Face, so an "offline" zip does not
+      # actually work offline. The repair manual (675 MB) rides with the
+      # complete build only.
+      - name: ISTA data (every variant)
+        run: scripts/build/ci-fetch-hf-data.sh ista
+
+      # the XDF definition library (29 MB, a different dataset). Without it
+      # the Tuning screen's definition list is empty offline: xdf-library.js
+      # went straight to its mirrors before this.
+      - name: XDF definition library (every variant)
+        run: scripts/build/ci-fetch-hf-data.sh tuning
 
       - name: Wiring diagrams
         run: |
@@ -139,6 +157,8 @@ jobs:
         if: steps.hf.outputs.ok == 'true'
         run: |
           scripts/build/ci-fetch-hf-data.sh faults
+          scripts/build/ci-fetch-hf-data.sh ista-all
+          scripts/build/ci-fetch-hf-data.sh tuning
           scripts/build/ci-fetch-hf-data.sh etk
           df -h /
 

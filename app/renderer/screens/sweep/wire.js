@@ -26,6 +26,63 @@
  */
 
 /**
+ * The argument a module's fault read wants, or '' when it wants none.
+ *
+ * MOST MODULES DECLARE NO ARGUMENT AND A BARE FS_LESEN IS RIGHT. Some do not.
+ * E46's light switch centre (lsz_2) stores faults in EIGHT blocks and declares
+ * `FS_LESEN(ALL_BLOCKS)`; called bare it answers F_ZAHL 0 -- documented as
+ * "Gesamtfehler der Bloecke 1 bis 3 (schwere Fehler)" -- so a real fault
+ * sitting in block 5 reads as a clean module. On a real car a CURRENT
+ * "Fernlicht rechts defekt" (3A21) was invisible exactly this way, in the
+ * sweep, the fault screen and INPA's own whole-car script alike.
+ *
+ * A declared argument's NAME is the keyword to pass (ALL_BLOCKS is both). A
+ * read wanting more than one argument is left bare: nothing here can invent
+ * those values, and a half-filled argument list is worse than none.
+ *
+ * The arguments live on their own route. /api/ecu/<s>/jobs answers a plain
+ * list of NAMES with no arguments on it, and a job declaring none 404s here,
+ * so a failure means "no argument", not an error.
+ * @param {string} sgbd - The SGBD.
+ * @param {string} [job] - The fault read (FS_LESEN unless a caller differs).
+ * @returns {Promise<string>} The argument to send, or ''.
+ */
+async function faultReadArg(sgbd, job) {
+  const name = job || 'FS_LESEN';
+  if (!_faultArg.has(sgbd)) {
+    _faultArg.set(
+      sgbd,
+      api(`/api/ecu/${sgbd}/arguments/${name}`)
+        .then((j) => {
+          const args = (j && j.arguments) || [];
+          if (args.length !== 1) return '';
+          return String(args[0] && (args[0].ARG || args[0].name)) || '';
+        })
+        .catch(() => '')
+    );
+  }
+  return _faultArg.get(sgbd);
+}
+/** faultReadArg's per-SGBD cache: one lookup per module per session. */
+const _faultArg = new Map();
+
+/**
+ * The query for a fault read: the address group, and the argument the module
+ * declares. Both are optional and independent; the router reads each on its
+ * own.
+ * @param {{sgbd: string, group?: string}} ecu - The module.
+ * @param {string} [job] - The fault read.
+ * @returns {Promise<string>} The query string, leading '?' included, or ''.
+ */
+async function faultReadQuery(ecu, job) {
+  const parts = [];
+  if (ecu && ecu.group) parts.push(`group=${encodeURIComponent(ecu.group)}`);
+  const arg = await faultReadArg(ecu.sgbd, job);
+  if (arg) parts.push(`arg=${encodeURIComponent(arg)}`);
+  return parts.length ? `?${parts.join('&')}` : '';
+}
+
+/**
  * Read fault memory. FS_LESEN is the job every fault-capable SGBD declares;
  * set 0 is the EDIABAS system summary, the rest are fault entries. This is
  * the same call faults.js and live.js make -- the old `/api/ecu/<s>/read`
@@ -37,7 +94,8 @@
  *   "clean".
  */
 async function readFaults(sgbd) {
-  const d = await api(`/api/ecu/${sgbd}/run/FS_LESEN`, { method: 'POST' });
+  const q = await faultReadQuery({ sgbd });
+  const d = await api(`/api/ecu/${sgbd}/run/FS_LESEN${q}`, { method: 'POST' });
   return dataSets(d.sets).filter((c) => c.F_HEX_CODE || c.F_ORT_NR);
 }
 

@@ -513,6 +513,22 @@ class IpoProgram {
 
   async runJob(sgbd, job, arg, ctx) {
     const target = ipoWireTarget(this.ecu, sgbd);
+    // A WHOLE-CAR SCRIPT IS NOT A MODULE. Its ecu record carries the chassis
+    // as its sgbd (e46), because that is the .IPO that is running -- there is
+    // no ECU of that name on any bus. When such a script asks INFO or IDENT
+    // with a target it has not resolved yet, ipoWireTarget falls back to
+    // `mine` and the job is addressed to "e46", which ships no job code and
+    // fails instantly. It cost nothing on the wire, but it wrote 208 failures
+    // into one afternoon's journals and buried the real ones. Skip it: the
+    // script's own startup plumbing has nothing to identify.
+    if (
+      this.ecu &&
+      this.ecu.kind === 'vehicle' &&
+      target === String(this.ecu.sgbd || '').toLowerCase() &&
+      IPO_PLUMBING.test(job)
+    ) {
+      return null;
+    }
     const entry = !!(ctx && (ctx.scope === 'entry' || ctx.scope === 'exit'));
     const write = !entry && ipoNeedsConfirm(job);
     const ckey = `${ctx && ctx.scope ? ctx.scope : '*'}:${job}`;

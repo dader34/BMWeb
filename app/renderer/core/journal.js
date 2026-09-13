@@ -12,6 +12,9 @@
 // is included as captured (it is the evidence), which the dialog says.
 
 /** The default collector / signaling endpoint, baked in at deploy. */
+/** @see maybeAutoReport */
+const BETA_EXPECTED_WIRE = /^IFH-(0009|0018)$/;
+
 const BETA_ENDPOINT_DEFAULT =
   'https://bmweb-beta.danner-baumgartner.workers.dev/report';
 
@@ -172,6 +175,11 @@ const Journal = {
   // press Report. One auto-report per distinct code per session, five per
   // session at most, silent, and only while beta reporting is on -- a dead
   // cable repeating IFH-0009 on every job must not flood the collector.
+  /**
+   * Wire codes that mean "nothing is there to answer", not "something broke".
+   * IFH-0009 is a silent address; IFH-0018 an interface that cannot reach the
+   * module's bus concept at all. A scan produces these by design.
+   */
   /** Auto-report bookkeeping: distinct codes seen, count sent, and the cap. */
   _auto: { seen: new Set(), sent: 0, max: 5 },
   /**
@@ -184,6 +192,16 @@ const Journal = {
   async maybeAutoReport(msg, ctx) {
     const m = /IFH-\d{4}/.exec(String(msg || ''));
     if (!m) return false;
+    // A MODULE THAT IS NOT FITTED IS NOT A FAULT. A whole-car scan addresses
+    // every module the series can carry -- 75 groups on an E46, of which ~55
+    // are options this car does not have -- and each one answers IFH-0009
+    // (no answer) or IFH-0018 (its bus concept is unreachable on this cable,
+    // like the ADS-only modules a K+DCAN cannot see at all). Both are the
+    // expected result of asking, not something a tester should file.
+    // Reporting them anyway made 45 of 48 auto-reports in one week the same
+    // routine silence, 30 of those for a single absent module, which buried
+    // the three real failures underneath.
+    if (BETA_EXPECTED_WIRE.test(m[0])) return false;
     if (
       typeof Settings !== 'undefined' &&
       Settings.get('betaReports', true) === false

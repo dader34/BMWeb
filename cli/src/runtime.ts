@@ -483,6 +483,37 @@ export interface Runtime {
     exec: IpoExec
   ): Promise<EcuRecord | null>;
   webResolveVariant(group: string): Promise<string | null>;
+  /** ISTA's control unit tree for a chassis (screens/tree/data.js). */
+  ecuTreeForChassis(chassis: string): Promise<{
+    series?: string;
+    mainSgbd?: string;
+    ecus: { name: string; addr: number; groups: string[]; bus: string }[];
+  } | null>;
+  /** the groups only the INPA script reaches (scan-extras.json). */
+  ecuTreeScanExtras(
+    chassis: string
+  ): Promise<{ group: string; label: string }[]>;
+  /** the tree-driven whole-car scan (screens/tree/treescan.js). */
+  ecuTreeWalkTargets(
+    chassis: string,
+    deps?: Record<string, unknown>
+  ): Promise<
+    { group: string; label: string; addr: number; bus: string }[]
+  >;
+  ecuTreeWalkStart(
+    chassis: string,
+    hooks: {
+      onProgress?: (report: ProtocolReport | null, text: string) => void;
+    },
+    deps?: Record<string, unknown>
+  ): {
+    done: Promise<{
+      report: ProtocolReport;
+      lines: string[];
+      cancelled: boolean;
+    }>;
+    cancel: () => void;
+  };
   webResolveVariantLast(): {
     group: string;
     path: string;

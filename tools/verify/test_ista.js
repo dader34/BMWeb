@@ -1719,11 +1719,76 @@ const I = loadClassic('screens/ista/');
   });
   assert.strictEqual(read.length, 1);
   assert.strictEqual(read[0].sgbd, 'ms450ds0', 'a read fault knows its module');
-  assert.strictEqual(read[0].km, '108032', 'and its mileage, off the env rows');
+  assert.strictEqual(read[0].km, '108032', 'and its mileage');
   assert.strictEqual(read[0].present, true, 'and whether it is there now');
   ok('a read fault carries what the dialog needs');
+
+  // THE MILEAGE IS ITS OWN FLAT RESULT, NOT AN AMBIENT ROW. The column was
+  // empty on every fault of every module because it scanned the
+  // F_UWn_TEXT/F_UWn_WERT triples for a km-ish LABEL; the SGBDs that report
+  // the reading declare F_UW_KM beside those triples, where envPairs --
+  // which only ever walks the triples -- can never see it.
+  const { istaFaultKm } = I;
+  assert.strictEqual(
+    istaFaultKm({ F_UW_KM: '372336' }, []),
+    '372336',
+    "the module's own flat F_UW_KM is the reading"
+  );
+  assert.strictEqual(
+    istaFaultKm({ F_UW_KM: '372336' }, [['km-Stand', '1']]),
+    '372336',
+    'and it wins over an ambient row'
+  );
+  assert.strictEqual(
+    istaFaultKm({ F_KM_STAND: '108032 km' }, []),
+    '108032',
+    "the DME's other spellings count, digits only"
+  );
+  // a module that declares NO mileage result reports no mileage, and the
+  // column stays blank rather than borrowing the cluster's odometer: the
+  // question is what it read WHEN THE FAULT WAS STORED
+  assert.strictEqual(
+    istaFaultKm({ F_HEX_CODE: 'BE', F_ORT_NR: '190' }, []),
+    '',
+    'a module with no mileage result reports none'
+  );
+  // the CKM coding flags on the body modules merely contain "km" and must
+  // not be mistaken for a reading, which is why the flat names are listed
+  assert.strictEqual(
+    istaFaultKm({ F_LENKM_ENA: '1', F_ZYKL_TIPP_BLK_CKM: '3' }, []),
+    '',
+    'a result that merely mentions km is not a mileage'
+  );
+  // a module that does put it in the freeze frame instead still counts
+  assert.strictEqual(
+    istaFaultKm({}, [['km-Stand', '108032 km']]),
+    '108032',
+    'an ambient mileage row is still read'
+  );
+  ok('the mileage comes off the flat result, not the ambient labels');
+
   delete global.faultFields;
   delete global.envPairs;
+}
+
+// ---- Class is blank because the classification is not in the wire data ----
+// Parity, not a gap: the real tool leaves this column empty too (ISTA
+// 4.30.30 walkthrough, 5:51-6:12). The check holds the REASON in the file,
+// so the next person does not re-investigate it from the fault read.
+{
+  const src = fs.readFileSync(
+    path.join(ROOT, 'app', 'renderer', 'screens', 'ista', 'faults.js'),
+    'utf8'
+  );
+  assert.ok(
+    /CLASS IS EMPTY IN THE REAL TOOL TOO/.test(src),
+    'the Class column says why it is blank'
+  );
+  assert.ok(
+    /XEP_FAULTCODES\.WEIGHTING/.test(src),
+    'and names the one field that does carry a classification'
+  );
+  ok('the blank Class column carries its reason');
 }
 
 // ---- a fault's name reaches its procedure ---------------------------------
@@ -1787,6 +1852,386 @@ const I = loadClassic('screens/ista/');
   ok(
     "the window's tab labels are whole words, and the programming tab is gone"
   );
+}
+
+// ---- the Test plan store ----------------------------------------------------
+// A PLAN BELONGS TO ONE CAR, AND IT OUTLIVES THE SESSION. The old plan was
+// a bare array in module scope on the grounds that a plan outliving the car
+// on the ramp is worse than no plan. That is right about a plan following
+// the WRONG car -- which is what these checks hold -- and wrong about the
+// same car after lunch, which is why the store is keyed and persisted.
+{
+  const {
+    ISTA_PLAN_KEY,
+    istaPlanRows,
+    istaPlanAdd,
+    istaPlanSet,
+    istaPlanSetState,
+    istaPlanClear,
+    istaPlanSort,
+    istaPlanGroupRows,
+    istaAblUrls,
+  } = I;
+
+  istaPlanClear('car-a');
+  istaPlanClear('car-b');
+  assert.deepStrictEqual(istaPlanRows('car-a'), [], 'a new car has no plan');
+
+  const added = istaPlanAdd('car-a', [
+    {
+      id: 'ABL-DIT-B1362_D6LDF',
+      title: 'Charging pressure sensor',
+      component: 'Charging pressure sensor',
+      priority: 4,
+      fault: '0041AA',
+    },
+    {
+      id: 'ABL-DIT-B6450_50018',
+      title: 'Washer jet heating',
+      component: 'Washer jet heating',
+      priority: 3,
+    },
+  ]);
+  assert.strictEqual(added, 2, 'both rows landed');
+  assert.strictEqual(istaPlanRows('car-a').length, 2);
+  assert.deepStrictEqual(istaPlanRows('car-b'), [], 'the other car is clean');
+  ok('a plan is per car');
+
+  // the same module reached from a second fault is ONE row: a plan is a
+  // list of work, and the same procedure twice is two technicians doing it
+  const again = istaPlanAdd('car-a', [
+    { id: 'ABL-DIT-B1362_D6LDF', title: 'Charging pressure sensor' },
+  ]);
+  assert.strictEqual(again, 0, 'a module already in the plan is not re-added');
+  assert.strictEqual(istaPlanRows('car-a').length, 2);
+  ok('a plan holds one row per module');
+
+  // CALCULATE TEST PLAN REPLACES THE PLAN, IT DOES NOT ADD TO IT. The button
+  // calculates the plan for the ONE fault the technician picked, and the
+  // tool's frames show the Test plan counting up from 0/0 as that
+  // calculation's rows arrive. When the handler appended, rows from every
+  // fault ever calculated piled up behind the one asked for -- a single
+  // picked code landed on 59 rows.
+  istaPlanSetState('car-a', 'ABL-DIT-B1362_D6LDF', 'performed');
+  const now = istaPlanSet('car-a', [
+    {
+      id: 'ABL-DIT-B1362_D6LDF',
+      title: 'Charging pressure sensor',
+      component: 'Charging pressure sensor',
+      priority: 4,
+      fault: '0041AA',
+    },
+    {
+      id: 'ABL-DIT-NEW_ONE',
+      title: 'Ambient pressure sensor',
+      component: 'Ambient pressure sensor',
+      priority: 2,
+      fault: '0041AA',
+    },
+  ]);
+  assert.strictEqual(now, 2, 'the plan is exactly what was calculated');
+  assert.deepStrictEqual(
+    istaPlanRows('car-a').map((r) => r.id),
+    ['ABL-DIT-B1362_D6LDF', 'ABL-DIT-NEW_ONE'],
+    "the other fault's row is gone, not appended behind"
+  );
+  // the work already DONE survives the recalculation: a carried-over module
+  // keeps the verdict its run reached, so recalculating never silently
+  // un-performs a finished test
+  assert.strictEqual(
+    istaPlanRows('car-a').find((r) => r.id === 'ABL-DIT-B1362_D6LDF').state,
+    'performed',
+    'a carried-over row keeps the state its run left it in'
+  );
+  assert.strictEqual(
+    istaPlanRows('car-a').find((r) => r.id === 'ABL-DIT-NEW_ONE').state,
+    'none',
+    'a newly calculated row starts not called'
+  );
+  // a fault with no linked procedure empties the plan rather than leaving
+  // the previous fault's rows standing under the new fault's name
+  assert.strictEqual(istaPlanSet('car-a', []), 0);
+  assert.deepStrictEqual(istaPlanRows('car-a'), [], 'and the plan is empty');
+  assert.deepStrictEqual(istaPlanRows('car-b'), [], 'car-b never moved');
+  ok('Calculate test plan replaces the plan, keeping finished verdicts');
+
+  // put car-a back the way the checks below expect it
+  istaPlanSet('car-a', [
+    {
+      id: 'ABL-DIT-B6450_50018',
+      title: 'Washer jet heating',
+      component: 'Washer jet heating',
+      priority: 3,
+    },
+    {
+      id: 'ABL-DIT-B1362_D6LDF',
+      title: 'Charging pressure sensor',
+      component: 'Charging pressure sensor',
+      priority: 4,
+      fault: '0041AA',
+    },
+  ]);
+
+  // Priority sorts, and equal priorities keep the order the faults came in
+  const sorted = istaPlanSort(istaPlanRows('car-a'));
+  assert.deepStrictEqual(
+    sorted.map((r) => r.priority),
+    [3, 4],
+    'ascending by default, as the header arrow says'
+  );
+  assert.deepStrictEqual(
+    istaPlanSort(istaPlanRows('car-a'), true).map((r) => r.priority),
+    [4, 3],
+    'the header flips it'
+  );
+  ok('Priority sorts both ways');
+
+  // the rows group under their component, and the heading carries the
+  // group's own priority, which is what the frames put in that column
+  const groups = istaPlanGroupRows(sorted);
+  assert.deepStrictEqual(
+    groups.map((g) => [g.title, g.priority, g.rows.length]),
+    [
+      ['Washer jet heating', 3, 1],
+      ['Charging pressure sensor', 4, 1],
+    ]
+  );
+  ok('the plan groups under its components');
+
+  // a run writes its verdict back into the row the plan draws
+  istaPlanSetState('car-a', 'ABL-DIT-B1362_D6LDF', 'performed');
+  const after = istaPlanRows('car-a').find(
+    (r) => r.id === 'ABL-DIT-B1362_D6LDF'
+  );
+  assert.strictEqual(after.state, 'performed');
+  istaPlanSetState('car-a', 'ABL-DIT-B1362_D6LDF', 'canceled');
+  assert.strictEqual(
+    istaPlanRows('car-a').find((r) => r.id === 'ABL-DIT-B1362_D6LDF').state,
+    'canceled',
+    'a cancelled run says so rather than staying performed'
+  );
+  ok('a run records its state on the row');
+
+  // it is persisted, which is the whole change: the same key the Settings
+  // store holds it under is what a reload reads back
+  assert.ok(
+    store[ISTA_PLAN_KEY] && store[ISTA_PLAN_KEY]['car-a'],
+    'the plan is in Settings, not only in memory'
+  );
+  ok('the plan survives a reload');
+
+  // THE LOCAL EXTRACT IS TRIED BEFORE THE DATASET. A build that ships the
+  // modules must never reach the network for them.
+  const urls = istaAblUrls('ABL-DIT-B1362_D6LDF.json.gz');
+  assert.ok(/data\/ista\/abl\//.test(urls[0]), urls[0]);
+  assert.ok(/^https:\/\//.test(urls[1]), urls[1]);
+  ok('a module is looked for locally first');
+
+  istaPlanClear('car-a');
+  assert.deepStrictEqual(istaPlanRows('car-a'), [], 'clearing empties it');
+  ok('a plan can be cleared');
+}
+
+// ---- Calculate test plan is bound -------------------------------------------
+// The button has been in the model since the fault page was drawn, and it
+// was greyed because nothing bound it. A greyed button is honest; a bound
+// one that goes nowhere is not, so this holds the whole chain: the id is in
+// the table, the page hands it a handler, and the handler lands on the plan.
+{
+  const model = fs.readFileSync(
+    path.join(ROOT, 'app', 'renderer', 'screens', 'ista', 'model.js'),
+    'utf8'
+  );
+  const screen = fs.readFileSync(
+    path.join(ROOT, 'app', 'renderer', 'screens', 'ista', 'screen.js'),
+    'utf8'
+  );
+  assert.ok(
+    /'fault-memory':[\s\S]*?id: 'calc-plan'/.test(model),
+    'the fault page offers Calculate test plan'
+  );
+  assert.ok(
+    /'calc-plan':\s*picked/.test(screen),
+    'the page binds it, and only with a fault picked'
+  );
+  assert.ok(
+    /istaCalcPlan\(picked, car, chassis\)/.test(screen),
+    'it resolves the procedures of the picked fault'
+  );
+  // IT REPLACES THE PLAN, IT DOES NOT ADD TO IT. The button calculates the
+  // plan for the ONE picked fault; appending piled every fault ever
+  // calculated behind it, so one code came back with 59 rows.
+  assert.ok(
+    /istaPlanSet\(car, rows\)/.test(screen),
+    "it makes that car's plan the picked fault's rows"
+  );
+  assert.ok(
+    !/'calc-plan':[\s\S]{0,900}?istaPlanAdd\(/.test(screen),
+    'and never appends to what was already there'
+  );
+  assert.ok(
+    /istaGo\('service-plan', 'test-plan', null\)/.test(screen),
+    'and lands on the Test plan, where Display is the next press'
+  );
+  ok('Calculate test plan is wired end to end');
+
+  // the module window's own bottom row, in the frames' order
+  const { ISTA_BOTTOM } = I;
+  assert.deepStrictEqual(
+    ISTA_BOTTOM.abl.map((b) => b.label || (b.spacer ? '|' : '')),
+    ['Back', 'Measuring devices', 'Keyboard', '|', 'Full Screen', 'Continue'],
+    "the running module's row is the frames' six"
+  );
+  // the two that need a meter this build has no way to talk to are greyed
+  // in the model, which is how the frames draw them before one is plugged in
+  assert.ok(
+    ISTA_BOTTOM.abl.find((b) => b.id === 'devices').off,
+    'Measuring devices is greyed'
+  );
+  ok("the module window's bottom row matches the frames");
+}
+
+// ---- the module window draws what the engine asks for -----------------------
+{
+  const { istaAblStepHtml, istaAblDocPanes } = I;
+
+  // a message keeps its blank lines: the recovered texts use them as real
+  // paragraph breaks and the frames show every one
+  const msg = istaAblStepHtml({
+    kind: 'message',
+    text: 'Compare setpoints and actual values\n\nBoost pressure: 1034 mbar',
+  });
+  assert.ok(msg.includes('Compare setpoints and actual values'), msg);
+  assert.ok(msg.includes('irabl-gap'), 'the blank line is a gap, not lost');
+
+  // a selection is numbered badges beside their texts
+  const sel = istaAblStepHtml({
+    kind: 'selection',
+    prior: 'Selection:',
+    choices: [
+      { label: '1', text: 'Check lines and plug connections' },
+      { label: '2', text: 'Check boost pressure sensor' },
+    ],
+  });
+  assert.ok(/data-pick="1"[\s\S]*?Check lines/.test(sel), sel);
+  assert.ok(/data-pick="2"/.test(sel));
+  ok('a message and a selection draw the way the frames do');
+
+  // THE MEASUREMENT STEP IS THREE THINGS IN ONE PANE: the entry with its
+  // unit, the setpoint question, and the Note split out into the blue
+  // Notice box the frames draw under the box.
+  const val = istaAblStepHtml(
+    {
+      kind: 'value',
+      instruction: 'Voltage measurement\n\nTest probe 1 (+):\nA_LDF',
+      question:
+        'Setpoint: 1.1-1.5 V\n\nWas the setpoint reached?\n\n' +
+        'Note: The measured voltage is mainly dependent on the current ' +
+        'altitude above sea level.',
+      unit: 'V',
+      manual: true,
+    },
+    { value: '1.3' }
+  );
+  assert.ok(/class="irabl-in" value="1.3"/.test(val), val);
+  assert.ok(val.includes('>V</span>'), 'the unit sits beside the box');
+  assert.ok(val.includes('Setpoint: 1.1-1.5 V'), 'the setpoint is shown');
+  assert.ok(val.includes('Was the setpoint reached?'));
+  assert.ok(val.includes('Notice!'), 'the Note became the Notice box');
+  assert.ok(
+    /irabl-note-b">The measured voltage/.test(val),
+    'and the word Note itself is not repeated inside it'
+  );
+  assert.ok(/data-pick="1"[\s\S]*?Yes/.test(val), 'Yes is 1');
+  assert.ok(/data-pick="2"[\s\S]*?No/.test(val), 'No is 2');
+  ok('the measurement step draws its box, setpoint, Notice and Yes/No');
+
+  // a job on the bus draws the tool's own progress box (sheet s05)
+  const busy = istaAblStepHtml(null, { busy: true });
+  assert.ok(busy.includes('Ongoing background process'), busy);
+  assert.ok(busy.includes('It will take a moment...'), busy);
+  ok('a job draws the frames progress box');
+
+  // the two right-hand tabs take the documents the module asked for by
+  // name, and a tab with nothing says so rather than drawing an empty box
+  const panes = istaAblDocPanes([
+    { name: 'Ladedruckregelung_DDE', info: 'Schaltplan', slot: 0 },
+    { name: '', info: 'Funktionsbeschreibung', slot: 1 },
+  ]);
+  assert.deepStrictEqual(
+    panes.map((p) => [p.label, !!p.doc]),
+    [
+      ['Wiring Diagram', true],
+      ['Functional Description', true],
+    ]
+  );
+  assert.strictEqual(
+    istaAblDocPanes([])[0].doc,
+    null,
+    'a module with no diagram leaves the tab empty rather than guessing'
+  );
+  ok("the document tabs take the module's own two documents");
+}
+
+// ---- a box answers to more than one group name ------------------------------
+// INPA's E46 sweep reads the body module at D_0000 FIRST and only falls back
+// to D_ZKE_GM when that fails. On the real car D_0000 answers (as ZKE5_S12,
+// part 6944840), so the read is filed under a name the chassis config never
+// mentions -- and the module sat there reading "not read" while it was
+// answering. The bus map already carries both names on the box, which is the
+// fact that they are one control unit.
+{
+  const { istaSlots } = I;
+  const cfg = {
+    sections: [
+      {
+        name: 'Body',
+        ecus: [
+          { code: 'zke5', label: 'ZKE5', sgbd: 'zke5', group: 'D_ZKE_GM' },
+        ],
+      },
+    ],
+  };
+  const tree = {
+    ecus: [{ name: 'ZKE', addr: 0, groups: ['D_0000', 'D_ZKE_GM'] }],
+  };
+  const under = (via, codes) =>
+    istaSlots(
+      cfg,
+      {
+        kind: 'faults',
+        modules: [{ sgbd: 'zke5_s12', via, label: 'ZKE', codes: codes || [] }],
+        silent: [],
+      },
+      null,
+      tree
+    )[0];
+
+  assert.strictEqual(
+    under('d_0000').state,
+    'ok',
+    'the alias the sweep actually used must match'
+  );
+  assert.strictEqual(
+    under('d_0000').sgbd,
+    'zke5_s12',
+    'and the slot takes the variant the car reported'
+  );
+  assert.strictEqual(
+    under('d_zke_gm').state,
+    'ok',
+    'the config name must still match'
+  );
+  assert.strictEqual(under('d_0000', [{}]).state, 'faults');
+  // a module nothing reached is still honestly unread, not silently "ok"
+  const none = istaSlots(
+    cfg,
+    { kind: 'faults', modules: [], silent: [] },
+    null,
+    tree
+  )[0];
+  assert.strictEqual(none.state, 'unread');
+  ok('a slot matches any group name its bus-map box carries');
 }
 
 console.log(`test_ista: ${passed} checks passed`);

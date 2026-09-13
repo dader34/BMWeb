@@ -477,6 +477,29 @@ const ISTA_BOTTOM = {
     { id: 'std-filter', label: 'Set standard filter', off: true },
     { id: 'display', label: 'Display' },
   ],
+  // A RUNNING TEST MODULE'S OWN ROW (sheets s05..s10). The two greyed
+  // buttons are real controls of a tool that has a multimeter plugged in:
+  // this build has none, so they draw the way the frames draw them before
+  // one is connected rather than being left out.
+  abl: [
+    { id: 'back', label: 'Back' },
+    { id: 'devices', label: 'Measuring devices', off: true },
+    { id: 'keyboard', label: 'Keyboard', off: true },
+    { spacer: true },
+    { id: 'full', label: 'Full Screen' },
+    { id: 'continue', label: 'Continue' },
+  ],
+  // A component's document, opened from a schematic: the document view
+  // takes the whole window and brings its own row (the frames show
+  // Documents / Zoom in / Zoom out / Full Screen / Close)
+  'abl-doc': [
+    { id: 'documents', label: 'Documents', off: true },
+    { spacer: true },
+    { id: 'zoom-in', label: 'Zoom in' },
+    { id: 'zoom-out', label: 'Zoom out' },
+    { id: 'full', label: 'Full Screen' },
+    { id: 'close', label: 'Close' },
+  ],
   // Workshop: the section tabs and the Show all checkbox the app's own page
   // draws become one Filters button, in the tool's own language
   techdata: [
@@ -499,6 +522,21 @@ const ISTA_BOTTOM = {
     { id: 'ecu-functions', label: 'Call up ECU\nfunctions' },
     { spacer: true },
     { id: 'display-faults', label: 'Display fault\nmemory' },
+  ],
+  // The vehicle test while it RUNS: the read owns the page, so the only
+  // thing to offer is stopping it. Cancel ends the read between two jobs,
+  // the way the tool's own test does, rather than pulling the cable out
+  // from under a job that is on the bus.
+  // The Control unit list WHILE THE TEST RUNS: the read happens on this
+  // screen, so only the first button changes -- Start becomes Cancel, which
+  // ends the read between two jobs rather than pulling the cable out from
+  // under one already on the bus. The rest grey: nothing else is safe to
+  // press while the script owns the cable.
+  'unit-list-busy': [
+    { id: 'cancel', label: 'Cancel vehicle test' },
+    { id: 'ecu-functions', label: 'Call up ECU\nfunctions', off: true },
+    { spacer: true },
+    { id: 'display-faults', label: 'Display fault\nmemory', off: true },
   ],
   // Troubleshooting / SAE fault code input
   sae: [
@@ -541,11 +579,29 @@ function istaDevHost() {
 
 /**
  * Whether a sub-tab exists on this host.
+ *
+ * A `hidden` sub-tab is a real page with no tab of its own: the vehicle
+ * test is reached by pressing the button, and the tool has no tab for it
+ * either. It still routes and still draws; it just never joins the strip.
  * @param {IstaSub|IstaSub3} s - the sub-tab
  * @returns {boolean}
  */
 function istaSubShown(s) {
   return !s.dev || istaDevHost();
+}
+
+/**
+ * Whether a sub-tab joins the strip.
+ *
+ * A `hidden` sub-tab is a real, routable page with no tab of its own: the
+ * vehicle test is reached by pressing the button, and the tool has no tab
+ * for it either. Keep this apart from istaSubShown -- folding the two
+ * together would make a hidden page fail to resolve and never route.
+ * @param {IstaSub|IstaSub3} s - the sub-tab
+ * @returns {boolean}
+ */
+function istaSubInStrip(s) {
+  return !s.hidden && istaSubShown(s);
 }
 
 /**
@@ -570,7 +626,7 @@ function istaSub(tabId, subId) {
 function istaSubsOf(tabId) {
   if (tabId !== 'favourites') {
     const t = istaTab(tabId);
-    return t ? (t.subs || []).filter(istaSubShown) : [];
+    return t ? (t.subs || []).filter(istaSubInStrip) : [];
   }
   return istaFavourites()
     .map((f) => {
@@ -590,7 +646,7 @@ function istaSubsOf(tabId) {
  */
 function istaSubs3Of(tabId, subId) {
   const s = istaSub(tabId, subId);
-  return s && s.subs3 ? s.subs3.filter(istaSubShown) : [];
+  return s && s.subs3 ? s.subs3.filter(istaSubInStrip) : [];
 }
 
 /**

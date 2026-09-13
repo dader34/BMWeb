@@ -16,7 +16,7 @@
  */
 
 /* exported istaPageFinished istaPageUnitList istaUnitListOrder istaPageHistory
-   istaPageServicePlan istaModuleGroups istaPageReport */
+   istaPageServicePlan istaModuleGroups istaPageReport istaPlanStateCell */
 
 /** How ISTA colours a module's state square. */
 const ISTA_STATE_CLASS = {
@@ -238,6 +238,31 @@ function istaPageUnitList(host, ctx) {
 }
 
 /**
+ * The State column's glyph for a plan row.
+ *
+ * The frames draw a small square whose fill says what happened to the row,
+ * and the footer's legend names the five states. An unrun row draws the
+ * empty square rather than nothing at all, because the column has to read
+ * as "not called yet" rather than as a missing value.
+ * @param {string} state - none | performed | canceled | suspected | minimized
+ * @returns {string} HTML for the cell
+ */
+function istaPlanStateCell(state) {
+  const s = String(state || 'none');
+  const label =
+    {
+      performed: 'performed',
+      canceled: 'canceled',
+      suspected: 'suspected',
+      minimized: 'minimized',
+    }[s] || 'not called';
+  return (
+    `<span class="irplan-st irplan-st-${esc(s)}" ` +
+    `title="${esc(label)}" aria-label="${esc(label)}"></span>`
+  );
+}
+
+/**
  * Service plan: Hit list, Test plan or Programming plan.
  *
  * The rows are DOCUMENTS, grouped under whatever pointed at them. The hit
@@ -246,7 +271,8 @@ function istaPageUnitList(host, ctx) {
  * heading, because "this fault has no procedure in this build" is worth
  * seeing.
  * @param {HTMLElement} host - where to draw
- * @param {object} ctx - {groups, onPick, empty}
+ * @param {object} ctx - {groups, onPick, onOpen, onSort, state, sortable,
+ *   desc, empty}
  * @returns {object[]} the flat row list, in draw order
  */
 function istaPageServicePlan(host, ctx) {
@@ -255,7 +281,13 @@ function istaPageServicePlan(host, ctx) {
   const flat = [];
   let html = '';
   for (const g of groups) {
-    html += `<tr class="irgroup"><td colspan="4">${esc(g.title)}</td></tr>`;
+    // a GROUP CARRIES ITS OWN PRIORITY. The frames show the grey component
+    // heading with a number in the Priority column, which is how a reader
+    // sees which component to start with before opening anything.
+    const gp = g.priority == null ? '' : String(g.priority);
+    html +=
+      `<tr class="irgroup"><td colspan="3">${esc(g.title)}</td>` +
+      `<td>${esc(gp)}</td></tr>`;
     if (!(g.rows || []).length)
       html +=
         `<tr class="irgroup-none"><td colspan="4">` +
@@ -267,21 +299,40 @@ function istaPageServicePlan(host, ctx) {
         `<tr data-i="${i}">` +
         `<td>${esc(r.type || '-')}</td>` +
         `<td>${esc(r.title || '')}</td>` +
-        `<td>${esc(r.state || '')}</td>` +
+        `<td>${ctx.state ? istaPlanStateCell(r.state) : esc(r.state || '')}` +
+        `</td>` +
         `<td>${esc(r.priority == null ? '' : String(r.priority))}</td>` +
         `</tr>`;
     }
   }
 
+  // the Priority header carries the tool's sort arrow, and it is the only
+  // sortable column the frames offer
+  const arrow = ctx.desc ? '▼' : '▲';
+  const prio = ctx.sortable
+    ? `<th class="irplan-sort" role="button" tabindex="0">Priority ` +
+      `<span class="irplan-arrow">${arrow}</span></th>`
+    : `<th>Priority</th>`;
   host.innerHTML =
     `<table class="irtable irplan"><thead><tr>` +
-    `<th>Type</th><th>Title</th><th>State</th><th>Priority</th>` +
+    `<th>Type</th><th>Title</th><th>State</th>${prio}` +
     `</tr></thead><tbody>${html}</tbody></table>` +
     (groups.length
       ? ''
       : `<div class="irvin-empty">${esc(
           ctx.empty || 'Nothing in the plan.'
         )}</div>`);
+
+  const sorter = host.querySelector('.irplan-sort');
+  if (sorter && ctx.onSort) {
+    sorter.onclick = () => ctx.onSort();
+    sorter.onkeydown = (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        ctx.onSort();
+      }
+    };
+  }
 
   host.querySelectorAll('tbody tr[data-i]').forEach((tr) => {
     tr.onclick = () => {
@@ -308,6 +359,7 @@ if (typeof module !== 'undefined' && module.exports) {
     istaPageUnitList,
     istaUnitListOrder,
     istaPageServicePlan,
+    istaPlanStateCell,
     istaPageReport,
   };
 }

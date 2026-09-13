@@ -23,8 +23,6 @@
    repairSearch repairFindDoc repairDocNumber repairBodyIndex */
 
 /** Hosted copy, beside the other ISTA extracts. */
-const REPAIR_HF_BASE =
-  'https://huggingface.co/datasets/CraigFf/bmweb-etk/resolve/main/ista/repair/';
 
 /** How many rows a search returns before it stops counting. */
 const REPAIR_SEARCH_CAP = 500;
@@ -104,8 +102,7 @@ let repairLoading = null;
  * @returns {string[]} the URLs to try, in order
  */
 function repairUrls(rel) {
-  const base = typeof WEB_BASE === 'string' ? WEB_BASE : '';
-  return [`${base}/data/ista/repair/${rel}`, REPAIR_HF_BASE + rel];
+  return hfUrls(`ista/repair/${rel}`);
 }
 
 /**
@@ -404,7 +401,6 @@ if (typeof window !== 'undefined') {
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
-    REPAIR_HF_BASE,
     REPAIR_SEARCH_CAP,
     repairUrls,
     repairFetchJson,

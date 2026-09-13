@@ -443,7 +443,9 @@ async function readFaultsDetailed(ecu, container) {
   try {
     // normal read -> fault numbers (via the address group so EDIABAS picks the
     // exact variant)
-    const gq = groupQuery(ecu);
+    // the group AND the argument the module declares: lsz_2 stores faults in
+    // eight blocks and answers F_ZAHL 0 (blocks 1-3) unless asked ALL_BLOCKS
+    const gq = await faultReadQuery(ecu);
     const base = await api(`/api/ecu/${ecu.sgbd}/run/FS_LESEN${gq}`, {
       method: 'POST',
     });

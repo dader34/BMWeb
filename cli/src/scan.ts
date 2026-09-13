@@ -70,6 +70,12 @@ export interface ScanOptions {
   ecu?: EcuRecord;
   /** the car's label on the share link */
   label?: string;
+  /**
+   * walk ISTA's control unit tree instead of running INPA's script.
+   * Reaches every chassis ISTA draws a tree for -- 22 against the 10 that
+   * ship a script -- and more modules on the ones that ship both.
+   */
+  tree?: boolean;
 }
 
 /**
@@ -132,7 +138,9 @@ export async function scanCommand(
   // handed in (a test's fake car) stands in for the shim while this runs
   if (opts.apiFn) setApiImpl(opts.apiFn);
   try {
-    return await scanRun(R, cid, opts);
+    return opts.tree
+      ? await treeScanRun(R, cid, opts)
+      : await scanRun(R, cid, opts);
   } finally {
     if (opts.apiFn) setApiImpl(null);
   }
@@ -225,6 +233,116 @@ async function scanRun(
   const lines = formatTable([
     ['Scan', `${cid} fault memories (${ecu.sgbd}.ipo)`],
     ['Read', at],
+    [
+      'Modules',
+      `${summary.modules} answered, ${summary.withFaults} with faults, ${summary.faults} fault${
+        summary.faults === 1 ? '' : 's'
+      }, ${summary.silent} silent`,
+    ],
+  ]);
+  lines.push('', ...reportBodyLines(report, report.kind));
+  if (link) lines.push('', `Share: ${link}`);
+  return { report, lines, link };
+}
+
+/**
+ * The tree-driven scan: ISTA's control unit tree walked module by module.
+ *
+ * Where scanRun drives INPA's whole-car script, this addresses each group the
+ * tree names directly. It is the only whole-car read most chassis can have --
+ * ISTA ships a tree for 22 of ours, INPA a script for 10 -- and on a chassis
+ * with both it reaches more modules (75 targets against 41 on E46). The walk
+ * itself lives in the app (screens/tree/treescan.js) so the terminal and the
+ * page run the same scanner; only the progress sink differs.
+ * @param R - the runtime
+ * @param cid - the chassis id, upper-case
+ * @param opts - see ScanOptions
+ * @returns the report and the lines
+ */
+async function treeScanRun(
+  R: Runtime,
+  cid: string,
+  opts: ScanOptions
+): Promise<{ report: ProtocolReport; lines: string[]; link?: string }> {
+  const progress =
+    opts.progress || ((l: string) => process.stderr.write(`${l}\n`));
+  const targets = await R.ecuTreeWalkTargets(cid);
+  if (!targets.length)
+    throw new CliError(
+      `no control unit tree for ${cid} (ISTA ships none, or the tree data is not reachable)`
+    );
+  progress(`${cid}: ${targets.length} modules on ISTA's tree`);
+  // jobNamesFor is a page-side helper the runtime does not export; the walk
+  // takes it as a dependency, so the CLI asks the engine the same way
+  const apiOf = () => opts.apiFn || (runtimeGlobals().api as ApiFn);
+  const jobNames = async (sgbd: string): Promise<string[]> => {
+    try {
+      const j = (await apiOf()(`/api/ecu/${sgbd}/jobs`)) as
+        | unknown[]
+        | { jobs?: unknown[] };
+      const list = Array.isArray(j) ? j : j.jobs || [];
+      return list
+        .map((x) =>
+          typeof x === 'string' ? x : (x as { job?: string; name?: string }).job
+        )
+        .filter((x): x is string => !!x);
+    } catch {
+      return [];
+    }
+  };
+  // a fault read that declares an argument must be SENT with it: lsz_2
+  // declares FS_LESEN(ALL_BLOCKS) and answers F_ZAHL 0 -- blocks 1-3 only --
+  // when called bare, hiding a real fault in block 5. The /jobs route carries
+  // names only, so the arguments come from their own route.
+  const jobArgs = async (sgbd: string, job: string): Promise<unknown[]> => {
+    try {
+      const j = (await apiOf()(`/api/ecu/${sgbd}/arguments/${job}`)) as {
+        arguments?: unknown[];
+      };
+      return j.arguments || [];
+    } catch {
+      return [];
+    }
+  };
+  let last = '';
+  const { report } = await R.ecuTreeWalkStart(
+    cid,
+    {
+      onProgress: (_r, text) => {
+        if (text && text !== last) {
+          last = text;
+          progress(text);
+        }
+      },
+    },
+    { jobNames, jobArgs }
+  ).done;
+  const summary = R.garageScanSummary(report);
+  const at = new Date().toISOString();
+  let link: string | undefined;
+  if (opts.share) {
+    const payload = await R.garageShareEncode(
+      { kind: report.kind, at, chassis: cid, report, summary },
+      { label: opts.label || '', chassis: cid }
+    );
+    link = `https://bmweb.danner.ink/#report/${payload}`;
+  }
+  if (opts.json)
+    return {
+      report,
+      link,
+      lines: [
+        JSON.stringify(
+          { chassis: cid, at, source: 'ista-tree', summary, report, link },
+          null,
+          2
+        ),
+      ],
+    };
+  const lines = formatTable([
+    ['Scan', `${cid} fault memories (ISTA control unit tree)`],
+    ['Read', at],
+    ['Targets', `${targets.length} groups`],
     [
       'Modules',
       `${summary.modules} answered, ${summary.withFaults} with faults, ${summary.faults} fault${
