@@ -255,6 +255,22 @@ function istaAblWindow(host, ctx) {
       history.push(what);
       answer = resolve;
       paint();
+      // A MESSAGE THAT DOES NOT ASK TO BE ACKNOWLEDGED IS NOT A PROMPT. The
+      // engine hands over Quittierung and TIMEOUT (wait / timeout) and this
+      // used to ignore both, parking every message until Continue was
+      // pressed. "Fault code memory being read..." is Quittierung=false,
+      // TIMEOUT=2000: the tool shows it for two seconds and moves on by
+      // itself. Parked beside a live Continue button it read as a hang --
+      // and on the real car that is exactly what it looked like. Continue
+      // still ends it early; the timer only fires if nothing else has.
+      if (what.kind === 'message' && !what.wait && what.timeout > 0) {
+        const mine = resolve;
+        setTimeout(() => {
+          if (answer !== mine || closed) return; // answered or gone already
+          answer = null;
+          mine({ quit: false });
+        }, what.timeout);
+      }
     });
   }
 
