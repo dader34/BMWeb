@@ -100,6 +100,19 @@ function istaAblStepHtml(shown, state) {
       `<span class="irabl-pick-t">No</span></div></div>`
     );
 
+  if (shown.kind === 'input') {
+    // the tool's text entry: the prompt, one box, and Continue takes what
+    // was typed (an empty entry is an answer too -- the flow decides)
+    const val = st.value == null ? '' : String(st.value);
+    return (
+      `<div class="irabl-text">${para(shown.text)}</div>` +
+      `<div class="irabl-entry">` +
+      `<input type="text" class="irabl-in" value="${esc(val)}" ` +
+      (shown.max > 0 ? `maxlength="${Number(shown.max)}" ` : '') +
+      `aria-label="entry"></div>`
+    );
+  }
+
   if (shown.kind === 'value') {
     // the question text carries the setpoint, the "was it reached" line and
     // -- after a blank line and the word Note -- what the tool draws as the
@@ -228,6 +241,7 @@ function istaAblWindow(host, ctx) {
     vehicleText: ctx.runner && ctx.runner.vehicleText,
     ui: {
       message: (m) => ask(m),
+      input: (i) => ask(i),
       selection: (s) => ask(s),
       question: (q) => ask(q),
       value: (v) => ask(v),
@@ -300,6 +314,10 @@ function istaAblWindow(host, ctx) {
         return;
       }
       done({ yes: picked === 1 });
+      return;
+    }
+    if (shown.kind === 'input') {
+      done({ text: typed });
       return;
     }
     if (shown.kind === 'value') {
@@ -628,6 +646,7 @@ function istaAblWindow(host, ctx) {
       !!shown &&
       (shown.kind === 'message' ||
         shown.kind === 'end' ||
+        shown.kind === 'input' ||
         picked != null ||
         (shown.kind === 'value' && picked != null));
     istaBottomBar('abl', {

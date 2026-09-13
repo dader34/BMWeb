@@ -453,7 +453,11 @@ async function main() {
   // ---- what it refuses -------------------------------------------------------
   {
     // AN UNKNOWN NODE KIND HALTS, NAMING ITSELF. Skipping it would show a
-    // procedure that quietly did less than the tool would have.
+    // procedure that quietly did less than the tool would have. The example
+    // is synthetic on purpose: a census of every node kind across all 891
+    // E46 modules against the switch leaves nothing unmodelled (oscilloscope
+    // was this test's example until it was), so only an invented kind can
+    // exercise the guard now.
     const graph = {
       entry: 'Start',
       steps: {
@@ -461,7 +465,7 @@ async function main() {
           entry: 1,
           nodes: [
             { type: 'startstep', id: 1, next: 2 },
-            { type: 'oscilloscope', id: 2, next: 3 },
+            { type: 'teleport', id: 2, next: 3 },
             { type: 'end', id: 3 },
           ],
         },
@@ -475,9 +479,9 @@ async function main() {
           e instanceof AblHalt,
           'it halts rather than throwing anything'
         );
-        assert.ok(/oscilloscope/.test(e.message), e.message);
+        assert.ok(/teleport/.test(e.message), e.message);
         assert.ok(/Start/.test(e.message), e.message);
-        assert.strictEqual(e.where.kind, 'oscilloscope');
+        assert.strictEqual(e.where.kind, 'teleport');
         return true;
       }
     );
@@ -621,6 +625,226 @@ async function main() {
       (e) => e instanceof AblHalt && /vehicleState/.test(e.message)
     );
     ok('a host with no way to ask or read halts by name');
+  }
+
+  // ---- the last three node kinds the E46 corpus has: no more no-ops --------
+  // A census of every node kind across all 891 E46 modules against the
+  // engine's switch left exactly three unhandled: oscilloscope (259 nodes,
+  // 69 modules), input (96, 35) and feedback (1, 1). Each used to fall to
+  // the "does not run a ... step" halt -- the oil-level module hit the first
+  // of them right after its self-test on the real car.
+  {
+    const wrap = (nodes) => ({
+      identifier: 'T',
+      entry: 'S',
+      steps: {
+        S: { nodes: [{ type: 'startstep', id: 1, next: 2 }, ...nodes] },
+      },
+    });
+    // oscilloscope: the real node's shape (ABL-DIT-B1214_NGTOENS, Satus_Geber_01_s)
+    const osc = {
+      type: 'oscilloscope',
+      dialog_ref: '51884811',
+      id: 2,
+      next: 3,
+      reads: ['ERROR', 'TimeStamp', 'CH1Values'],
+      params: {
+        DSCConfig: {
+          adapter: 'BMW IMIB',
+          device: 'DSO',
+          measure: {
+            function: 'Voltage',
+            range: '500V',
+            mode: 'Auto',
+            coupling: 'DC',
+          },
+        },
+        txtParam: {
+          text_concat: [
+            { text: '1', en: 'Oscilloscope measurement' },
+            { text: '2', en: '' },
+            { text: '3', en: 'Test probe 1 (+):' },
+            ' ',
+            { text: '4', en: 'F_OLN Signal, oil level sensor' },
+            { text: '5', en: 'Test probe 1 (-):' },
+            ' ',
+            { text: '6', en: 'Ground (body)' },
+            {
+              text: '7',
+              en: 'Run engine at idle speed.\nA square-wave signal must appear.',
+            },
+          ],
+        },
+      },
+    };
+    const q = {
+      type: 'question',
+      dialog_ref: '51878795',
+      id: 3,
+      next: 4,
+      params: { txtParam: { text: '8', en: 'Was the setpoint reached?' } },
+      reads: ['Result'],
+    };
+    const seen = [];
+    const e1 = new AblEngine(wrap([osc, q, { type: 'end', id: 4 }]), {
+      native: {},
+      ui: {
+        message: async (m) => (seen.push(m), { quit: true }),
+        question: async (x) => (seen.push(x), 1),
+      },
+    });
+    await e1.run();
+    assert.strictEqual(
+      seen.length,
+      2,
+      'the scope instruction and the question must both be asked'
+    );
+    assert.ok(
+      /Test probe 1 \(\+\)/.test(seen[0].text) &&
+        /oil level sensor/.test(seen[0].text),
+      seen[0].text
+    );
+    assert.ok(
+      /square-wave/.test(seen[0].text),
+      'the expected signal is what the technician judges'
+    );
+    assert.ok(/DSO: Voltage, 500V, DC, Auto/.test(seen[0].text), seen[0].text);
+    assert.strictEqual(seen[0].wait, true);
+    const t1 = e1.trace.find((x) => x.kind === 'oscilloscope');
+    assert.ok(
+      t1 && t1.verified === 'asked' && t1.measure.range === '500V',
+      JSON.stringify(t1)
+    );
+    assert.ok(
+      seen[1].kind === 'question',
+      'the flow goes on to its own setpoint question'
+    );
+    ok(
+      'an oscilloscope step shows the probes and the expected trace, then the flow asks'
+    );
+
+    // input: "Enter the DOT number", and the flow converts the text itself
+    const inp = {
+      type: 'input',
+      dialog_ref: '51888523',
+      id: 2,
+      next: 3,
+      reads: ['Result'],
+      params: {
+        txtParam: {
+          text: '9',
+          en: 'Enter the DOT number.\n\n- Front right tyre',
+        },
+        Datentyp: 2,
+        MaxTextLength: 10,
+        Display: true,
+      },
+    };
+    const e2 = new AblEngine(
+      wrap([
+        inp,
+        { type: 'assign', id: 3, next: 4, lhs: 'TmpVar', rhs: 'out.Result' },
+        {
+          type: 'assign',
+          id: 4,
+          next: 5,
+          lhs: 'a_v',
+          rhs: '__convertToInt32(TmpVar)',
+        },
+        { type: 'end', id: 5 },
+      ]),
+      {
+        native: {},
+        ui: {
+          input: async (i) => {
+            assert.ok(/DOT number/.test(i.text));
+            assert.strictEqual(i.max, 10);
+            return { text: '0304' };
+          },
+        },
+      }
+    );
+    await e2.run();
+    assert.strictEqual(
+      e2.vars.TmpVar,
+      '0304',
+      'Result must be the text as typed (a DOT number keeps its zero)'
+    );
+    assert.strictEqual(e2.vars.a_v, 304, 'the flow converts it itself');
+    ok('a text entry hands back what was typed, and the flow converts it');
+
+    // input honours MaxTextLength
+    const e2b = new AblEngine(wrap([inp, { type: 'end', id: 3 }]), {
+      native: {},
+      ui: { input: async () => '123456789012345' },
+    });
+    await e2b.run();
+    assert.strictEqual(
+      e2b.trace.find((x) => x.kind === 'input').entered,
+      '1234567890'
+    );
+    ok('a text entry is bounded by MaxTextLength');
+
+    // feedback: the real node (ABL-MDT-AM1104_00071): one option, no button text, a diagnosis code
+    const fb = {
+      type: 'feedback',
+      dialog_ref: '51937067403',
+      method: 'Maximal_6_Diagnosekodes',
+      id: 2,
+      next: 3,
+      reads: [],
+      params: {
+        Display: true,
+        __Anfang: {
+          text: '10',
+          en: 'Fault pattern was not covered by test module.',
+        },
+        _1er_Button: { expr: '__Text()' },
+        _1er_Diagnosekode: {
+          text: '11',
+          en: 'DIAGCODE: D1110_MX000000_99_901',
+        },
+      },
+    };
+    const asked = [];
+    const e3 = new AblEngine(wrap([fb, { type: 'end', id: 3 }]), {
+      native: {},
+      ui: { selection: async (s) => (asked.push(s), 1) },
+    });
+    await e3.run();
+    assert.strictEqual(asked.length, 1);
+    assert.ok(/not covered/.test(asked[0].prior), asked[0].prior);
+    assert.ok(
+      /DIAGCODE: D1110/.test(asked[0].choices[0].text),
+      'a button with no text shows its code'
+    );
+    assert.deepStrictEqual(e3.feedbacks, [
+      { step: 'S', code: 'DIAGCODE: D1110_MX000000_99_901' },
+    ]);
+    assert.strictEqual(
+      e3.trace.find((x) => x.kind === 'feedback').chosen.code,
+      'DIAGCODE: D1110_MX000000_99_901'
+    );
+    ok('a feedback dialog journals the chosen diagnosis code');
+
+    // and a host that can show none of them still halts by name
+    await assert.rejects(
+      () =>
+        new AblEngine(wrap([osc, { type: 'end', id: 3 }]), {
+          ui: {},
+          native: {},
+        }).run(),
+      (e) => e instanceof AblHalt && /oscilloscope/.test(e.message)
+    );
+    await assert.rejects(
+      () =>
+        new AblEngine(wrap([inp, { type: 'end', id: 3 }]), {
+          ui: {},
+          native: {},
+        }).run(),
+      (e) => e instanceof AblHalt && /text entry/.test(e.message)
+    );
+    ok('a host with no way to ask halts by name');
   }
 
   // ---- a job that fails says why; an activation's failure is shown --------

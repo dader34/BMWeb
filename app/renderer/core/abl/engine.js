@@ -7,7 +7,7 @@
 // semantics below can be held still while the screen around them changes.
 //
 //   const eng = new AblEngine(graph, {
-//     ui: { message, selection, question, value, progress },
+//     ui: { message, selection, question, value, input, progress },
 //     job: async (spec) => ({ sets }),      // the car
 //     module: async (ref) => graph2,        // callModuleRef
 //     native: { faultList, context },       // the services with no GUI
@@ -693,6 +693,8 @@ class AblEngine {
     this.documents = [];
     /** @type {string[]} the diagnosis objects it marked suspicious */
     this.suspicions = [];
+    /** @type {Array<{step: string, code: string}>} the feedback dialogs' chosen codes */
+    this.feedbacks = [];
     /** @type {boolean} set once the module has ended */
     this.done = false;
     /** @type {object[]} the assignments rebind recovered, for the record */
@@ -929,6 +931,18 @@ class AblEngine {
         await this.runSubmodule(node, stepName);
         return undefined;
 
+      case 'oscilloscope':
+        await this.showOscilloscope(node, stepName);
+        return undefined;
+
+      case 'input':
+        await this.showInput(node, stepName);
+        return undefined;
+
+      case 'feedback':
+        await this.showFeedback(node, stepName);
+        return undefined;
+
       case 'vehicle_state':
         await this.runVehicleState(node, stepName);
         return undefined;
@@ -1046,6 +1060,186 @@ class AblEngine {
     // the message dialog's only output is Quit: the Continue button. A live
     // frame that the user did not quit leaves it false and the loop runs on.
     this.out = { Quit: !!(r && r.quit) || (wait && r !== false) };
+  }
+
+  /**
+   * An oscilloscope step: where to put the probes and what the trace must
+   * look like, then the technician judges it.
+   *
+   * Dialog 51884811 parametrises the IMIB's scope (Voltage, 500V, DC,
+   * Auto) and prints the probe placement and the expected signal. Across
+   * every E46 module that has one (259 nodes in 69 modules) NOTHING reads
+   * the waveform back -- no assign or branch touches CH1Values, TimeStamp
+   * or ERROR -- and 238 of them are followed directly by "Was the setpoint
+   * reached?". So the step is observe-and-judge, and without a scope the
+   * faithful stand-in is the instruction with Continue, the IMIB settings
+   * shown the way the tool heads its scope pane. A host with a scope answers
+   * through native.oscilloscope and its values are taken as the outputs.
+   * @param {object} node - an oscilloscope node
+   * @param {string} stepName - the step
+   * @returns {Promise<void>}
+   */
+  async showOscilloscope(node, stepName) {
+    const p = node.params || {};
+    const cfg = p.DSCConfig || {};
+    const m = cfg.measure || {};
+    const settings = [m.function, m.range, m.coupling, m.mode]
+      .filter(Boolean)
+      .join(', ');
+    const text = ablText(p.txtParam, this.vars);
+    const shown = {
+      kind: 'oscilloscope',
+      step: stepName,
+      text,
+      device: String(cfg.device || 'DSO'),
+      adapter: String(cfg.adapter || ''),
+      measure: m,
+    };
+    this.trace.push(shown);
+    const native = this.host.native || {};
+    if (typeof native.oscilloscope === 'function') {
+      const r = await native.oscilloscope({ ...shown, vars: this.vars, node });
+      if (r && typeof r === 'object') {
+        shown.verified = 'read';
+        this.out = r;
+        return;
+      }
+    }
+    if (!this.host.ui || typeof this.host.ui.message !== 'function')
+      throw new AblHalt(
+        `this build does not provide the oscilloscope service that ` +
+          `${stepName} needs`,
+        { step: stepName, node: node.id, kind: 'dialog 51884811' }
+      );
+    shown.verified = 'asked';
+    await this.host.ui.message({
+      kind: 'message',
+      step: stepName,
+      text:
+        text +
+        (settings
+          ? `\n\n${shown.adapter || 'Oscilloscope'} ${shown.device}: ${settings}`
+          : ''),
+      value: '',
+      wait: true,
+      timeout: 0,
+      live: false,
+    });
+    // the dialog's outputs, shaped as the tool's: no device fault, and no
+    // samples because none were taken -- nothing in the corpus reads them
+    this.out = {
+      ERROR: false,
+      TimeStamp: Date.now(),
+      CH1Values: [],
+      CH1PhysicalValues: [],
+      CH2Values: [],
+      CH2PhysicalValues: [],
+    };
+  }
+
+  /**
+   * A text entry: the tool's EnterServiceDlg (51888523).
+   *
+   * "Enter the DOT number" and the like. The prompt is txtParam (or
+   * AnzeigeText), Datentyp says what the flow expects and MaxTextLength
+   * bounds it. Result IS THE TEXT AS TYPED: every module in the corpus
+   * stores it (`TmpVar = out.Result`) and converts it itself
+   * (`__convertToInt32(TmpVar)`, `__convertToDouble`, character walks), so
+   * converting here would be doing the flow's job for it -- and wrongly for
+   * a DOT number that starts with a zero.
+   * @param {object} node - an input node
+   * @param {string} stepName - the step
+   * @returns {Promise<void>}
+   */
+  async showInput(node, stepName) {
+    const p = node.params || {};
+    const max = ablNum(p.MaxTextLength) || 0;
+    const shown = {
+      kind: 'input',
+      step: stepName,
+      text: ablText(p.txtParam || p.AnzeigeText, this.vars),
+      max,
+      datatype: p.Datentyp == null ? null : Number(p.Datentyp),
+    };
+    this.trace.push(shown);
+    if (!this.host.ui || typeof this.host.ui.input !== 'function')
+      throw new AblHalt('this build cannot ask for a text entry', {
+        step: stepName,
+        node: node.id,
+      });
+    const a = await this.host.ui.input(shown);
+    let text = a && typeof a === 'object' ? a.text : a;
+    text = text == null ? '' : String(text);
+    if (max > 0) text = text.slice(0, max);
+    shown.entered = text;
+    this.out = { Result: text, MaxTextLengthUsed: max };
+  }
+
+  /**
+   * The feedback dialog: RueckmeldeDialog (51937067403).
+   *
+   * Up to six options, each a button text paired with a diagnosis code
+   * (`_1er_Button` / `_1er_Diagnosekode` .. `_6er_...`, or the `_Buttons` /
+   * `_Diagnosekodes` lists), under a heading. The chosen option's code is
+   * what the tool journals as the module's feedback; Result is its 1-based
+   * index. A button with no text of its own shows its code, which is what
+   * the one E46 module that has this ("Fault pattern was not covered by
+   * test module." / DIAGCODE-901) ships.
+   * @param {object} node - a feedback node
+   * @param {string} stepName - the step
+   * @returns {Promise<void>}
+   */
+  async showFeedback(node, stepName) {
+    const p = node.params || {};
+    const heading = ablText(p.__Anfang || p._Anfang, this.vars);
+    const footer = ablText(p._Ende, this.vars);
+    const choices = [];
+    const buttons = Array.isArray(p._Buttons) ? p._Buttons : [];
+    const codes = Array.isArray(p._Diagnosekodes) ? p._Diagnosekodes : [];
+    for (let i = 1; i <= 6; i++) {
+      const b =
+        p[`_${i}er_Button`] != null ? p[`_${i}er_Button`] : buttons[i - 1];
+      const c =
+        p[`_${i}er_Diagnosekode`] != null
+          ? p[`_${i}er_Diagnosekode`]
+          : codes[i - 1];
+      if (b == null && c == null) continue;
+      const code = ablText(c, this.vars);
+      choices.push({
+        label: String(i),
+        text: ablText(b, this.vars) || code || `Option ${i}`,
+        code,
+      });
+    }
+    const shown = {
+      kind: 'feedback',
+      step: stepName,
+      heading,
+      footer,
+      choices,
+    };
+    this.trace.push(shown);
+    if (!choices.length) {
+      this.out = { Result: 0 };
+      return;
+    }
+    if (!this.host.ui || typeof this.host.ui.selection !== 'function')
+      throw new AblHalt('this build cannot ask for feedback', {
+        step: stepName,
+        node: node.id,
+      });
+    const pick = await this.host.ui.selection({
+      kind: 'selection',
+      step: stepName,
+      prior: heading,
+      past: footer,
+      choices: choices.map(({ label, text }) => ({ label, text })),
+    });
+    let n = ablNum(pick && typeof pick === 'object' ? pick.result : pick);
+    if (n == null || n < 1 || n > choices.length) n = 1;
+    shown.chosen = choices[n - 1];
+    this.feedbacks.push({ step: stepName, code: choices[n - 1].code });
+    this.out = { Result: n };
   }
 
   /**
