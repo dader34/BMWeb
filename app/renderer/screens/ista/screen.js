@@ -2052,6 +2052,27 @@ function istaWiringPick(documents, label) {
 }
 
 /**
+ * Every document of the pane's kind the module links, in the order it links
+ * them.
+ *
+ * THE FIRST LINK IS NOT ALWAYS THE ONE THAT RESOLVES. A module links the
+ * documents ISTA associates with it, and this build ships the tool's own
+ * wiring set -- which does not carry every id those links name. The AUC
+ * module links three diagrams: the first two are absent from the wiring
+ * index, the third ("AUC sensor") is there with its drawing. Taking only the
+ * first meant a pane that said nothing matched while the drawing sat on
+ * disk.
+ * @param {object[]} documents - the row's linked documents
+ * @param {string} label - the pane's label
+ * @returns {object[]} the candidates, best-effort order
+ */
+function istaWiringPicks(documents, label) {
+  if (documents && !Array.isArray(documents)) return [];
+  const want = /Wiring/i.test(label) ? 'diagram' : 'function';
+  return (documents || []).filter((d) => d && d.type === want);
+}
+
+/**
  * A document pane's HTML, from the document the module's own link names.
  *
  * The lookup is by identifier end to end: the module's index entry lists
@@ -2066,9 +2087,12 @@ function istaWiringPick(documents, label) {
  */
 async function istaAblDocHtml(doc, label, chassis, documents) {
   if (!doc) return null;
-  const hit = istaWiringPick(documents, label);
-  if (!hit) return null;
-  return istaWiringDocHtml(chassis, hit.id);
+  // the first link that this build can actually draw, not just the first
+  for (const hit of istaWiringPicks(documents, label)) {
+    const html = await istaWiringDocHtml(chassis, hit.id);
+    if (html) return html;
+  }
+  return null;
 }
 
 /**
@@ -2117,6 +2141,61 @@ async function istaWiringDocHtml(chassis, id) {
   );
 }
 
+/** Roughly how long a joined run may grow before it is split at a sentence. */
+const ISTA_DOC_PARA = 400;
+
+/**
+ * Consecutive text blocks joined back into paragraphs.
+ *
+ * A SENTENCE IS NOT ONE BLOCK. ISTA marks emphasis inline and the extract
+ * keeps every run as its own node, so "The air quality is sensed by the AUC
+ * sensor in the engine compartment." arrives as seven text blocks. Drawn one
+ * <p> each, a paragraph became a column of fragments one or two words wide.
+ *
+ * Runs are joined until something that is genuinely its own block -- a
+ * heading, a picture, a table -- interrupts them. Spacing follows the text:
+ * a fragment opening with punctuation closes up against the one before it,
+ * the way it reads in the tool.
+ * @param {object[]} blocks - the stored body
+ * @returns {object[]} the same blocks with text runs merged
+ */
+function istaWiringRuns(blocks) {
+  const out = [];
+  let run = null;
+  for (const b of blocks || []) {
+    if (!b) continue;
+    if (b.kind && b.kind !== 'text') {
+      run = null;
+      out.push(b);
+      continue;
+    }
+    const t = String(b.text || '').trim();
+    if (!t) continue;
+    if (!run) {
+      run = { kind: 'text', text: t };
+      out.push(run);
+      continue;
+    }
+    // no space before punctuation that closes the previous fragment, and
+    // none after an opening bracket -- otherwise the join reads as typed
+    const tight = /^[.,;:!?)\]]/.test(t) || /[([]$/.test(run.text);
+    run.text += (tight ? '' : ' ') + t;
+    // the extract keeps no paragraph marks, so a run that has grown past a
+    // readable length is closed at its last sentence end rather than left to
+    // run on; the remainder starts the next one
+    if (run.text.length > ISTA_DOC_PARA) {
+      const cut = run.text.lastIndexOf('. ');
+      if (cut > 40) {
+        const rest = run.text.slice(cut + 2).trim();
+        run.text = run.text.slice(0, cut + 1);
+        run = rest ? { kind: 'text', text: rest } : null;
+        if (run) out.push(run);
+      }
+    }
+  }
+  return out;
+}
+
 /**
  * A document's blocks as the tool draws them.
  *
@@ -2130,7 +2209,7 @@ async function istaWiringDocHtml(chassis, id) {
  */
 function istaWiringBlocks(blocks) {
   const cell = (c) => `<td>${esc(c || '')}</td>`;
-  return (blocks || [])
+  return istaWiringRuns(blocks)
     .map((b) => {
       if (!b) return '';
       if (b.kind === 'heading') return `<h4>${esc(b.text)}</h4>`;
