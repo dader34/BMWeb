@@ -9,6 +9,7 @@ name: Release offline web builds
 #   faults/*.js + ista/faulttests.json   fault lookup, ~100 MB   -> every zip
 #   ista/{ecu-tree,abl,diag,ecufn,       the ISTA app, ~355 MB   -> every zip
 #         techdata,wiring}
+#   tuning/xdf, ~29 MB                   XDF definitions         -> every zip
 #   ista/repair, ~675 MB                 repair manual           -> "complete" only
 #   the ETK parts tree, ~5.8 GB          parts catalogue         -> "complete" only
 #
@@ -72,6 +73,12 @@ jobs:
       # complete build only.
       - name: ISTA data (every variant)
         run: scripts/build/ci-fetch-hf-data.sh ista
+
+      # the XDF definition library (29 MB, a different dataset). Without it
+      # the Tuning screen's definition list is empty offline: xdf-library.js
+      # went straight to its mirrors before this.
+      - name: XDF definition library (every variant)
+        run: scripts/build/ci-fetch-hf-data.sh tuning
 
       - name: Wiring diagrams
         run: |
@@ -151,6 +158,7 @@ jobs:
         run: |
           scripts/build/ci-fetch-hf-data.sh faults
           scripts/build/ci-fetch-hf-data.sh ista-all
+          scripts/build/ci-fetch-hf-data.sh tuning
           scripts/build/ci-fetch-hf-data.sh etk
           df -h /
 

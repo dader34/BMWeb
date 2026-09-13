@@ -3,6 +3,7 @@
 # dist-web/data, so an offline build is actually offline. Plain HTTPS, no token.
 #
 #   scripts/build/ci-fetch-hf-data.sh faults   fault lookup + ISTA + VIN index, ~110 MB
+#   scripts/build/ci-fetch-hf-data.sh tuning   the XDF definition library, ~29 MB
 #   scripts/build/ci-fetch-hf-data.sh ista     the ISTA app's own data, ~355 MB
 #   scripts/build/ci-fetch-hf-data.sh ista-all adds the repair manual, ~1.0 GB
 #   scripts/build/ci-fetch-hf-data.sh etk      the ETK parts tree, ~5.8 GB
@@ -15,6 +16,7 @@
 # tree/data.js  -> data/ista/ecu-tree/  (the control unit tree AND the scan)
 # ista/plan.js  -> data/ista/abl/       (the test modules)
 # ista/*.js     -> data/ista/{diag,ecufn,techdata,wiring,repair}/
+# tuning/xdf-library.js -> data/tuning/xdf/ (a DIFFERENT dataset: bmw-files)
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 DATASET="${HF_DATA:-CraigFf/bmweb-etk}"
@@ -42,6 +44,16 @@ case "${1:-}" in
     # it lives under data/etk/ but is tiny next to the parts tree, so it ships
     # with every variant, not only the complete build
     get vin-index.json.gz      "$DIST/data/etk/vin-index.json.gz" 3000000
+    ;;
+  tuning)
+    # The XDF definition library, from bmw-files (not bmweb-etk like the rest).
+    # 29 MB, so it ships with every variant. xdf-library.js probes
+    # data/tuning/xdf/ before its three mirrors.
+    echo "==> XDF definition library -> $DIST/data/tuning/xdf"
+    pip install -q 'huggingface_hub>=0.30'
+    python3 scripts/build/fetch_tuning.py "${HF_TUNING:-CraigFf/bmw-files}" "$DIST/data"
+    rm -rf "$DIST/data/.cache"
+    du -sh "$DIST/data/tuning"
     ;;
   ista|ista-all)
     # WITHOUT THESE AN "OFFLINE" BUILD IS NOT OFFLINE: every ISTA screen --
@@ -77,5 +89,5 @@ PY
     rm -rf "$DIST/data/etk/.cache"
     du -sh "$DIST/data/etk"
     ;;
-  *) echo "usage: $0 faults|ista|ista-all|etk" >&2; exit 2 ;;
+  *) echo "usage: $0 faults|tuning|ista|ista-all|etk" >&2; exit 2 ;;
 esac
