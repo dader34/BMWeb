@@ -531,6 +531,56 @@ async function main() {
     ok('a service this build lacks halts by name');
   }
 
+  // ---- a job that never settles must not stop the module forever -------------
+  // There was no timeout on a job at all. On the real car a module sat on
+  // "Fault code memory being read..." indefinitely -- no error, no halt,
+  // nothing in the console -- because a runner promise never resolved. A
+  // module that reads nothing is a path the flow already handles; a module
+  // that hangs is not.
+  {
+    const graph = {
+      identifier: 'T',
+      entry: 'S',
+      steps: {
+        S: {
+          nodes: [
+            { type: 'startstep', id: 1, next: 2 },
+            {
+              type: 'ecu_job',
+              id: 2,
+              job: 'IDENT',
+              args: {},
+              group_path: ['Group', 'D_0000'],
+              results: ['JOB_STATUS'],
+              next: 3,
+            },
+            { type: 'end', id: 3 },
+          ],
+        },
+      },
+    };
+    const eng = new AblEngine(graph, {
+      ui: {},
+      native: {},
+      jobTimeoutMs: 300,
+      job: () => new Promise(() => {}), // never settles
+    });
+    const t0 = Date.now();
+    const v = await Promise.race([
+      eng.run(),
+      new Promise((r) => setTimeout(() => r('__stuck__'), 5000)),
+    ]);
+    assert.notStrictEqual(
+      v,
+      '__stuck__',
+      'a never-settling job hangs the module'
+    );
+    assert.ok(Date.now() - t0 < 4000, 'the timeout fired far too late');
+    const job = eng.trace.find((t) => t.kind === 'job');
+    assert.ok(job && job.timedOut, 'the trace does not record the timeout');
+    ok('a job that never settles times out and the module goes on');
+  }
+
   // ---- what a finished run leaves on the plan row ----------------------------
   // A module that ran and was never written back is a plan the technician
   // cannot read: every row stays "not called" however much work was done.

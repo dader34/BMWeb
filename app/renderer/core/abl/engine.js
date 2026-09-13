@@ -38,6 +38,38 @@
 // than the tool would have.
 
 /** The module's verdict register, in the tool's own order. */
+/**
+ * How long one job may take before the flow treats it as no communication.
+ *
+ * Generous on purpose: a group probe legitimately walks several diagnostic
+ * addresses, each waiting out its own bus timeout, so this is a backstop
+ * against a promise that never settles rather than a performance limit.
+ */
+const ABL_JOB_TIMEOUT_MS = 60000;
+
+/**
+ * Reject a promise that takes too long, naming what it was waiting on.
+ * @param {Promise<*>} p - the work
+ * @param {number} ms - how long to allow
+ * @param {string} what - for the message
+ * @returns {Promise<*>}
+ */
+function ablWithTimeout(p, ms, what) {
+  let timer = null;
+  return Promise.race([
+    Promise.resolve(p).finally(() => {
+      if (timer) clearTimeout(timer);
+    }),
+    new Promise((_, rej) => {
+      timer = setTimeout(
+        () =>
+          rej(new Error(`${what} timed out after ${Math.round(ms / 1000)}s`)),
+        ms
+      );
+    }),
+  ]);
+}
+
 const ABL_RESULTS = ['Ok', 'Verified', 'NotOk', 'Unknown', 'Repaired', 'None'];
 
 /**
@@ -1134,11 +1166,25 @@ class AblEngine {
     // a job that does not answer is a real path through the flow (no
     // communication), so a thrown runner is an answer of nothing rather
     // than the end of the module
+    //
+    // AND A JOB THAT NEVER SETTLES MUST NOT STOP THE MODULE FOREVER. There
+    // was no timeout here at all: a runner whose promise never resolves --
+    // a group probe walking addresses that do not answer, a read the cable
+    // never returns -- left the step waiting silently, with no error, no
+    // halt and nothing in the console. A module that reads nothing is a
+    // path the flow already handles; a module that hangs is not.
     let answer;
     try {
-      answer = await this.host.job(spec);
+      answer = await ablWithTimeout(
+        this.host.job(spec),
+        // the host may shorten it (tests do); the default is the backstop
+        Number(this.host.jobTimeoutMs) || ABL_JOB_TIMEOUT_MS,
+        `${spec.job || 'a job'} on ${spec.sgbd || spec.group || 'the car'}`
+      );
     } catch (e) {
       answer = null;
+      shown.timedOut = /timed out/.test(String((e && e.message) || ''));
+      if (shown.timedOut) console.warn(`[abl] ${e.message}`);
     }
     this.answer = answer || null;
     answer = this.answer;
