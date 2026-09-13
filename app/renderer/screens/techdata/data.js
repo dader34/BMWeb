@@ -20,8 +20,6 @@
    techDataFilter techDataGroups techDataSearch */
 
 /** Hosted copy, beside the other ISTA extracts. */
-const TECHDATA_HF_BASE =
-  'https://huggingface.co/datasets/CraigFf/bmweb-etk/resolve/main/ista/techdata/';
 
 /** The characteristic root that names a car's chassis (E46, F10 ...). */
 const TECHDATA_CHASSIS_ROOT = '53088651';
@@ -44,23 +42,7 @@ let techDataCharNames = null;
  * @returns {Promise<object|null>}
  */
 async function techDataFetchJson(rel) {
-  const real =
-    typeof webRealFetch === 'function'
-      ? webRealFetch
-      : window.fetch.bind(window);
-  const base = typeof WEB_BASE === 'string' ? WEB_BASE : '';
-  for (const u of [
-    `${base}/data/ista/techdata/${rel}`,
-    TECHDATA_HF_BASE + rel,
-  ]) {
-    try {
-      const r = await real(u);
-      if (r && r.ok) return await r.json();
-    } catch (e) {
-      /* try the next source */
-    }
-  }
-  return null;
+  return hfFetchFirst(`ista/techdata/${rel}`);
 }
 
 /**

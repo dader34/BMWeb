@@ -24,8 +24,6 @@
 const ISTA_PLAN_KEY = 'bmweb.ista.testplan';
 
 /** Hosted copy of the recovered test modules. */
-const ISTA_ABL_HF_BASE =
-  'https://huggingface.co/datasets/CraigFf/bmweb-etk/resolve/main/ista/abl/';
 
 /**
  * @typedef {object} IstaPlanRow
@@ -289,8 +287,7 @@ function istaPlanGroupRows(rows) {
  * @returns {string[]} the urls to try, in order
  */
 function istaAblUrls(rel) {
-  const base = typeof WEB_BASE === 'string' && WEB_BASE ? WEB_BASE : '.';
-  return [`${base}/data/ista/abl/${rel}`, ISTA_ABL_HF_BASE + rel];
+  return hfUrls(`ista/abl/${rel}`);
 }
 
 /**
@@ -359,7 +356,6 @@ async function istaAblLoad(id) {
 if (typeof module !== 'undefined')
   module.exports = {
     ISTA_PLAN_KEY,
-    ISTA_ABL_HF_BASE,
     istaPlanAll,
     istaPlanRows,
     istaPlanAdd,

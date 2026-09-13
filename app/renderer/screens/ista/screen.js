@@ -1244,8 +1244,6 @@ function istaTestPlan(car) {
 }
 
 /** Hosted copy of the tool's control-unit function lists. */
-const ISTA_ECUFN_HF_BASE =
-  'https://huggingface.co/datasets/CraigFf/bmweb-etk/resolve/main/ista/ecufn/';
 
 /**
  * The tool's function lists for one ECU variant, local first then the
@@ -1263,7 +1261,7 @@ async function istaEcuFnLoad(variant) {
       : window.fetch.bind(window);
   for (const u of [
     `${base}/data/ista/ecufn/${v}.json.gz`,
-    ISTA_ECUFN_HF_BASE + `${v}.json.gz`,
+    ...hfUrls(`ista/ecufn/${v}.json.gz`).slice(1),
   ]) {
     try {
       const r = await real(u);
@@ -1280,8 +1278,6 @@ async function istaEcuFnLoad(variant) {
 }
 
 /** Hosted copy of the diagnosis structures, beside the repair extract. */
-const ISTA_DIAG_HF_BASE =
-  'https://huggingface.co/datasets/CraigFf/bmweb-etk/resolve/main/ista/diag/';
 
 /**
  * Fetch one diagnosis-structure file, local first then the dataset.
@@ -1298,7 +1294,7 @@ async function istaDiagFetch(rel) {
     typeof webRealFetch === 'function'
       ? webRealFetch
       : window.fetch.bind(window);
-  for (const u of [`${base}/data/ista/diag/${rel}`, ISTA_DIAG_HF_BASE + rel]) {
+  for (const u of hfUrls(`ista/diag/${rel}`)) {
     try {
       const r = await real(u);
       if (r && r.ok) return r;
@@ -1978,8 +1974,6 @@ function istaAblFaultList(vars, car) {
 }
 
 /** Hosted copy of the tool's own wiring documents. */
-const ISTA_WIRING_HF_BASE =
-  'https://huggingface.co/datasets/CraigFf/bmweb-etk/resolve/main/ista/wiring/';
 
 /** @type {Map<string, object|null>} chassis -> its wiring index, once. */
 const istaWiringIndexes = new Map();
@@ -2000,7 +1994,7 @@ async function istaWiringFetch(rel) {
       : window.fetch.bind(window);
   for (const u of [
     `${base}/data/ista/wiring/${rel}`,
-    ISTA_WIRING_HF_BASE + rel,
+    ...hfUrls(`ista/wiring/${rel}`).slice(1),
   ]) {
     try {
       const r = await real(u);

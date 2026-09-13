@@ -6,8 +6,6 @@
 // Hugging Face dataset, and never before the app is opened.
 
 /** Hosted copy of the trees (the bmweb-etk dataset, beside faulttests.json). */
-const ECU_TREE_HF_BASE =
-  'https://huggingface.co/datasets/CraigFf/bmweb-etk/resolve/main/ista/ecu-tree/';
 
 /** Buses ISTA lists a module on but never draws. */
 const ECU_TREE_HIDDEN = new Set(['UNKNOWN', 'VIRTUAL', 'NONE', 'INTERNAL']);
@@ -61,23 +59,7 @@ const ecuTreeCache = new Map();
  * @returns {Promise<object|null>}
  */
 async function ecuTreeFetchJson(rel) {
-  const real =
-    typeof webRealFetch === 'function'
-      ? webRealFetch
-      : window.fetch.bind(window);
-  const base = typeof WEB_BASE === 'string' ? WEB_BASE : '';
-  for (const u of [
-    `${base}/data/ista/ecu-tree/${rel}`,
-    ECU_TREE_HF_BASE + rel,
-  ]) {
-    try {
-      const r = await real(u);
-      if (r && r.ok) return await r.json();
-    } catch (e) {
-      /* try the next source */
-    }
-  }
-  return null;
+  return hfFetchFirst(`ista/ecu-tree/${rel}`);
 }
 
 /**
