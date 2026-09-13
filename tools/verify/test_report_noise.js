@@ -54,12 +54,14 @@ function expectedWireRe() {
     // still burn one of the five per-session slots
     const guard = src.indexOf('BETA_EXPECTED_WIRE.test');
     const dedupe = src.indexOf('this._auto.seen.has');
-    assert.ok(guard > 0 && dedupe > guard,
-      'the expected-silence guard runs before the per-session cap');
+    assert.ok(
+      guard > 0 && dedupe > guard,
+      'the expected-silence guard runs before the per-session cap'
+    );
     ok('expected silence never consumes a report slot');
   }
 
-// ---- the whole-car script's own plumbing -----------------------------
+  // ---- the whole-car script's own plumbing -----------------------------
   {
     const ctx = { console };
     ctx.globalThis = ctx;

@@ -164,8 +164,7 @@ async function ecuTreeFaultJobFor(sgbd, names, argsOf) {
 function ecuTreeWalkStart(chassis, hooks, deps) {
   const D = {
     targets: ecuTreeWalkTargets,
-    resolve:
-      typeof webResolveVariant === 'function' ? webResolveVariant : null,
+    resolve: typeof webResolveVariant === 'function' ? webResolveVariant : null,
     jobNames: typeof jobNamesFor === 'function' ? jobNamesFor : null,
     identJob: typeof identJobFor === 'function' ? identJobFor : null,
     run: (sgbd, job, arg) =>
@@ -190,8 +189,7 @@ function ecuTreeWalkStart(chassis, hooks, deps) {
         return [];
       }
     },
-    report:
-      typeof ipoProtocolReport === 'function' ? ipoProtocolReport : null,
+    report: typeof ipoProtocolReport === 'function' ? ipoProtocolReport : null,
     cableReady: typeof window !== 'undefined' ? window.cableReady : null,
     ...(deps || {}),
   };

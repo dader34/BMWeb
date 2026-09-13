@@ -497,9 +497,7 @@ export interface Runtime {
   ecuTreeWalkTargets(
     chassis: string,
     deps?: Record<string, unknown>
-  ): Promise<
-    { group: string; label: string; addr: number; bus: string }[]
-  >;
+  ): Promise<{ group: string; label: string; addr: number; bus: string }[]>;
   ecuTreeWalkStart(
     chassis: string,
     hooks: {
