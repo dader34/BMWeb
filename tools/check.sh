@@ -255,6 +255,7 @@ node tools/verify/test_fault_report.js || exit 1
 echo
 echo "== control unit tree: layout, scan status join, extractor =="
 node tools/verify/test_ecu_tree.js
+node tools/verify/test_tree_scan.js
 
 echo
 echo "== ISTA shell: tab model, routes, favourites, banner and details text =="
