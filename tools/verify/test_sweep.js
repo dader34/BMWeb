@@ -488,7 +488,13 @@ const SHIPPED = new Set(GROUPS.groups || []);
     !/\/clear`/.test(CODE),
     'sweep.js still calls the dead /clear route'
   );
-  assert.ok(/run\/FS_LESEN`/.test(CODE), 'sweep.js must read via run/FS_LESEN');
+  // the query after it is optional: a module that declares a fault-read
+  // argument (lsz_2 wants ALL_BLOCKS) gets it appended, and one that declares
+  // none still sends the bare read
+  assert.ok(
+    /run\/FS_LESEN(\$\{[^}]*\})?`/.test(CODE),
+    'sweep.js must read via run/FS_LESEN'
+  );
   assert.ok(
     /run\/FS_LOESCHEN`/.test(CODE),
     'sweep.js must clear via run/FS_LOESCHEN'

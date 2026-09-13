@@ -363,7 +363,10 @@ async function runJob(ecu, job, container, danger, presetArg) {
       // immediately shows instead of hiding behind "cleared".
       container.innerHTML = `<div class="empty"><span class="loader"></span><span>Cleared · re-reading…</span></div>`;
       try {
-        const rq = ecu.group ? `?group=${encodeURIComponent(ecu.group)}` : '';
+        // same query the first read used, argument included, or a module
+        // that answers only to ALL_BLOCKS would read clean straight after a
+        // clear and hide a fault that re-set immediately
+        const rq = await faultReadQuery(ecu);
         const rr = await api(`/api/ecu/${ecu.sgbd}/run/FS_LESEN${rq}`, {
           method: 'POST',
         });

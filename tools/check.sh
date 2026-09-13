@@ -120,7 +120,8 @@ node tools/verify/test_groups.js || exit 1
 
 echo
 echo "== whole-vehicle sweep plans every chassis from its own config =="
-node tools/verify/test_sweep.js || exit 1
+node tools/verify/test_sweep.js
+node tools/verify/test_fault_read_arg.js || exit 1
 
 echo
 echo "== export ships every variant a group can identify, not just the menu =="
