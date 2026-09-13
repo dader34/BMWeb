@@ -3,6 +3,8 @@
 # dist-web/data, so an offline build is actually offline. Plain HTTPS, no token.
 #
 #   scripts/build/ci-fetch-hf-data.sh faults   fault lookup + ISTA + VIN index, ~110 MB
+#   scripts/build/ci-fetch-hf-data.sh ista     the ISTA app's own data, ~355 MB
+#   scripts/build/ci-fetch-hf-data.sh ista-all adds the repair manual, ~1.0 GB
 #   scripts/build/ci-fetch-hf-data.sh etk      the ETK parts tree, ~5.8 GB
 #
 # Layout matches what the renderer probes locally before falling back to HF:
@@ -10,6 +12,9 @@
 # lookup.js     -> data/ista/faulttests.json
 # etk.js        -> data/etk/<id>.etk, index.json, vehicles.json, thumbs/, vin-index.json.gz
 # wiring.js     -> data/etk/vin-index.json.gz (VIN search on the wiring picker)
+# tree/data.js  -> data/ista/ecu-tree/  (the control unit tree AND the scan)
+# ista/plan.js  -> data/ista/abl/       (the test modules)
+# ista/*.js     -> data/ista/{diag,ecufn,techdata,wiring,repair}/
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 DATASET="${HF_DATA:-CraigFf/bmweb-etk}"
@@ -38,6 +43,20 @@ case "${1:-}" in
     # with every variant, not only the complete build
     get vin-index.json.gz      "$DIST/data/etk/vin-index.json.gz" 3000000
     ;;
+  ista|ista-all)
+    # WITHOUT THESE AN "OFFLINE" BUILD IS NOT OFFLINE: every ISTA screen --
+    # the control unit tree, the whole-car scan, the test plan, wiring,
+    # technical data -- falls back to fetching from Hugging Face, so none of
+    # it works with no internet. The repair manual is 675 MB on its own, so it
+    # rides with ista-all (the complete build) rather than every zip.
+    echo "==> ISTA data -> $DIST/data/ista"
+    pip install -q 'huggingface_hub>=0.30'
+    WANT='ista/ecu-tree/* ista/abl/* ista/diag/* ista/ecufn/* ista/techdata/* ista/wiring/*'
+    if [ "${1}" = "ista-all" ]; then WANT="$WANT ista/repair/*"; fi
+    python3 scripts/build/fetch_ista.py "$DATASET" "$DIST/data" "$WANT"
+    rm -rf "$DIST/data/.cache"
+    du -sh "$DIST/data/ista"
+    ;;
   etk)
     echo "==> ETK parts tree -> $DIST/data/etk"
     pip install -q 'huggingface_hub>=0.30'
@@ -58,5 +77,5 @@ PY
     rm -rf "$DIST/data/etk/.cache"
     du -sh "$DIST/data/etk"
     ;;
-  *) echo "usage: $0 faults|etk" >&2; exit 2 ;;
+  *) echo "usage: $0 faults|ista|ista-all|etk" >&2; exit 2 ;;
 esac
