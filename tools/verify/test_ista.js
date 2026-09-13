@@ -1719,11 +1719,76 @@ const I = loadClassic('screens/ista/');
   });
   assert.strictEqual(read.length, 1);
   assert.strictEqual(read[0].sgbd, 'ms450ds0', 'a read fault knows its module');
-  assert.strictEqual(read[0].km, '108032', 'and its mileage, off the env rows');
+  assert.strictEqual(read[0].km, '108032', 'and its mileage');
   assert.strictEqual(read[0].present, true, 'and whether it is there now');
   ok('a read fault carries what the dialog needs');
+
+  // THE MILEAGE IS ITS OWN FLAT RESULT, NOT AN AMBIENT ROW. The column was
+  // empty on every fault of every module because it scanned the
+  // F_UWn_TEXT/F_UWn_WERT triples for a km-ish LABEL; the SGBDs that report
+  // the reading declare F_UW_KM beside those triples, where envPairs --
+  // which only ever walks the triples -- can never see it.
+  const { istaFaultKm } = I;
+  assert.strictEqual(
+    istaFaultKm({ F_UW_KM: '372336' }, []),
+    '372336',
+    "the module's own flat F_UW_KM is the reading"
+  );
+  assert.strictEqual(
+    istaFaultKm({ F_UW_KM: '372336' }, [['km-Stand', '1']]),
+    '372336',
+    'and it wins over an ambient row'
+  );
+  assert.strictEqual(
+    istaFaultKm({ F_KM_STAND: '108032 km' }, []),
+    '108032',
+    "the DME's other spellings count, digits only"
+  );
+  // a module that declares NO mileage result reports no mileage, and the
+  // column stays blank rather than borrowing the cluster's odometer: the
+  // question is what it read WHEN THE FAULT WAS STORED
+  assert.strictEqual(
+    istaFaultKm({ F_HEX_CODE: 'BE', F_ORT_NR: '190' }, []),
+    '',
+    'a module with no mileage result reports none'
+  );
+  // the CKM coding flags on the body modules merely contain "km" and must
+  // not be mistaken for a reading, which is why the flat names are listed
+  assert.strictEqual(
+    istaFaultKm({ F_LENKM_ENA: '1', F_ZYKL_TIPP_BLK_CKM: '3' }, []),
+    '',
+    'a result that merely mentions km is not a mileage'
+  );
+  // a module that does put it in the freeze frame instead still counts
+  assert.strictEqual(
+    istaFaultKm({}, [['km-Stand', '108032 km']]),
+    '108032',
+    'an ambient mileage row is still read'
+  );
+  ok('the mileage comes off the flat result, not the ambient labels');
+
   delete global.faultFields;
   delete global.envPairs;
+}
+
+// ---- Class is blank because the classification is not in the wire data ----
+// Parity, not a gap: the real tool leaves this column empty too (ISTA
+// 4.30.30 walkthrough, 5:51-6:12). The check holds the REASON in the file,
+// so the next person does not re-investigate it from the fault read.
+{
+  const src = fs.readFileSync(
+    path.join(ROOT, 'app', 'renderer', 'screens', 'ista', 'faults.js'),
+    'utf8'
+  );
+  assert.ok(
+    /CLASS IS EMPTY IN THE REAL TOOL TOO/.test(src),
+    'the Class column says why it is blank'
+  );
+  assert.ok(
+    /XEP_FAULTCODES\.WEIGHTING/.test(src),
+    'and names the one field that does carry a classification'
+  );
+  ok('the blank Class column carries its reason');
 }
 
 // ---- a fault's name reaches its procedure ---------------------------------
@@ -1800,6 +1865,7 @@ const I = loadClassic('screens/ista/');
     ISTA_PLAN_KEY,
     istaPlanRows,
     istaPlanAdd,
+    istaPlanSet,
     istaPlanSetState,
     istaPlanClear,
     istaPlanSort,
@@ -1839,6 +1905,72 @@ const I = loadClassic('screens/ista/');
   assert.strictEqual(again, 0, 'a module already in the plan is not re-added');
   assert.strictEqual(istaPlanRows('car-a').length, 2);
   ok('a plan holds one row per module');
+
+  // CALCULATE TEST PLAN REPLACES THE PLAN, IT DOES NOT ADD TO IT. The button
+  // calculates the plan for the ONE fault the technician picked, and the
+  // tool's frames show the Test plan counting up from 0/0 as that
+  // calculation's rows arrive. When the handler appended, rows from every
+  // fault ever calculated piled up behind the one asked for -- a single
+  // picked code landed on 59 rows.
+  istaPlanSetState('car-a', 'ABL-DIT-B1362_D6LDF', 'performed');
+  const now = istaPlanSet('car-a', [
+    {
+      id: 'ABL-DIT-B1362_D6LDF',
+      title: 'Charging pressure sensor',
+      component: 'Charging pressure sensor',
+      priority: 4,
+      fault: '0041AA',
+    },
+    {
+      id: 'ABL-DIT-NEW_ONE',
+      title: 'Ambient pressure sensor',
+      component: 'Ambient pressure sensor',
+      priority: 2,
+      fault: '0041AA',
+    },
+  ]);
+  assert.strictEqual(now, 2, 'the plan is exactly what was calculated');
+  assert.deepStrictEqual(
+    istaPlanRows('car-a').map((r) => r.id),
+    ['ABL-DIT-B1362_D6LDF', 'ABL-DIT-NEW_ONE'],
+    "the other fault's row is gone, not appended behind"
+  );
+  // the work already DONE survives the recalculation: a carried-over module
+  // keeps the verdict its run reached, so recalculating never silently
+  // un-performs a finished test
+  assert.strictEqual(
+    istaPlanRows('car-a').find((r) => r.id === 'ABL-DIT-B1362_D6LDF').state,
+    'performed',
+    'a carried-over row keeps the state its run left it in'
+  );
+  assert.strictEqual(
+    istaPlanRows('car-a').find((r) => r.id === 'ABL-DIT-NEW_ONE').state,
+    'none',
+    'a newly calculated row starts not called'
+  );
+  // a fault with no linked procedure empties the plan rather than leaving
+  // the previous fault's rows standing under the new fault's name
+  assert.strictEqual(istaPlanSet('car-a', []), 0);
+  assert.deepStrictEqual(istaPlanRows('car-a'), [], 'and the plan is empty');
+  assert.deepStrictEqual(istaPlanRows('car-b'), [], 'car-b never moved');
+  ok('Calculate test plan replaces the plan, keeping finished verdicts');
+
+  // put car-a back the way the checks below expect it
+  istaPlanSet('car-a', [
+    {
+      id: 'ABL-DIT-B6450_50018',
+      title: 'Washer jet heating',
+      component: 'Washer jet heating',
+      priority: 3,
+    },
+    {
+      id: 'ABL-DIT-B1362_D6LDF',
+      title: 'Charging pressure sensor',
+      component: 'Charging pressure sensor',
+      priority: 4,
+      fault: '0041AA',
+    },
+  ]);
 
   // Priority sorts, and equal priorities keep the order the faults came in
   const sorted = istaPlanSort(istaPlanRows('car-a'));
@@ -1926,9 +2058,16 @@ const I = loadClassic('screens/ista/');
     /istaCalcPlan\(picked, car, chassis\)/.test(screen),
     'it resolves the procedures of the picked fault'
   );
+  // IT REPLACES THE PLAN, IT DOES NOT ADD TO IT. The button calculates the
+  // plan for the ONE picked fault; appending piled every fault ever
+  // calculated behind it, so one code came back with 59 rows.
   assert.ok(
-    /istaPlanAdd\(car, rows\)/.test(screen),
-    "it pushes them into that car's plan"
+    /istaPlanSet\(car, rows\)/.test(screen),
+    "it makes that car's plan the picked fault's rows"
+  );
+  assert.ok(
+    !/'calc-plan':[\s\S]{0,900}?istaPlanAdd\(/.test(screen),
+    'and never appends to what was already there'
   );
   assert.ok(
     /istaGo\('service-plan', 'test-plan', null\)/.test(screen),

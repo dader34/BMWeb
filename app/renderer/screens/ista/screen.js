@@ -2339,12 +2339,17 @@ async function istaDrawPage(s, host) {
         // CALCULATE TEST PLAN, on the fault the technician picked. The tool
         // resolves the procedures BMW links to that fault, puts them in the
         // plan, and lands on the plan so the next press is Display.
+        //
+        // IT REPLACES THE PLAN, it does not add to it. The button calculates
+        // the plan for ONE picked fault, and the tool's frames show the Test
+        // plan counting up from 0/0 as that calculation's rows arrive. When
+        // this appended instead, rows from every fault ever calculated piled
+        // up behind the one asked for -- a single code landed on 59 rows.
         'calc-plan': picked
           ? async () => {
               const rows = await istaCalcPlan(picked, car, chassis);
-              const added =
-                typeof istaPlanAdd === 'function' ? istaPlanAdd(car, rows) : 0;
-              if (!added && !rows.length && typeof toast === 'function')
+              if (typeof istaPlanSet === 'function') istaPlanSet(car, rows);
+              if (!rows.length && typeof toast === 'function')
                 toast(
                   `No procedure is linked to ${picked.code} in this build.`
                 );

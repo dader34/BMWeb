@@ -21,7 +21,47 @@
  */
 
 /* exported istaFaultRows istaPageFaultMemory istaFaultDialog istaPageSae
-   istaEnvFind */
+   istaEnvFind istaFaultKm */
+
+/**
+ * The odometer reading a fault was stored at, or ''.
+ *
+ * THE MILEAGE IS ITS OWN RESULT, NOT AN AMBIENT ROW. This read the freeze
+ * frame -- the F_UWn_TEXT/F_UWn_WERT label/value triples -- and matched the
+ * label against /km|mileage|kilometer|laufleistung/i, so it could never
+ * find the reading on any module: the SGBDs that report it declare a FLAT
+ * result named F_UW_KM (a bare kilometre count, '372336') alongside the
+ * ambient triples, and envPairs only ever walks the triples.
+ *
+ * WHICH MODULES HAVE IT AT ALL. It is per-SGBD and most of an E46 does not
+ * carry it. Of this car's modules, only the DME (ms450ds0: F_UW_KM, plus
+ * F_KM and F_KM_STAND) and the DSC (dsc_mk60: F_UW_KM) declare a mileage
+ * result, and only on FS_LESEN_DETAIL -- their plain FS_LESEN does not. The
+ * cluster (kombi46r), IHKA (ihka46_3) and airbag (mrs4) declare no mileage
+ * result in any fault job, so their rows are blank because the module never
+ * reported it. That is the honest answer, not a missing lookup: the reading
+ * is NOT taken from the cluster's odometer, because the question the column
+ * asks is what the odometer said WHEN THE FAULT WAS STORED.
+ *
+ * The flat names are listed rather than matched by pattern so that a result
+ * that merely mentions km -- F_LENKM_ENA, F_ZYKL_TIPP_BLK_CKM and the other
+ * CKM coding flags on the body modules -- cannot be mistaken for one.
+ * @param {object} c - the wire fault row
+ * @param {Array<[string, string]>} pairs - its ambient rows, if any
+ * @returns {string} the reading in km, digits only, or ''
+ */
+function istaFaultKm(c, pairs) {
+  for (const k of ['F_UW_KM', 'F_KM_STAND', 'F_KM']) {
+    const v = c && c[k];
+    if (v == null || String(v).trim() === '') continue;
+    const digits = String(v).replace(/[^0-9]/g, '');
+    if (digits) return digits;
+  }
+  // a module that puts it in the freeze frame instead still counts; the
+  // label is the only handle there, so it stays a pattern
+  const env = istaEnvFind(pairs, /km|mileage|kilometer|laufleistung/i);
+  return env ? String(env).replace(/[^0-9]/g, '') : '';
+}
 
 /**
  * The first environment value whose label matches.
@@ -68,15 +108,10 @@ function istaFaultRows(report) {
         typeof faultFields === 'function'
           ? faultFields(c, sgbd)
           : { code: c.F_HEX_CODE || '', name: '', present: false };
-      // the odometer rides in the freeze frame, not in the fault row; the
-      // env pairs are label/value text, so the reading is found by its label
-      let km = '';
+      // the reading is the module's own F_UW_KM where it declares one, and
+      // blank where it does not -- see istaFaultKm for which modules do
       const pairs = typeof envPairs === 'function' ? envPairs(c) : [];
-      for (const [k, v] of pairs)
-        if (/km|mileage|kilometer|laufleistung/i.test(k)) {
-          km = String(v).replace(/[^0-9]/g, '');
-          break;
-        }
+      const km = istaFaultKm(c, pairs);
       out.push({
         code: f.code || '',
         desc: f.name || '',
@@ -124,6 +159,28 @@ function istaPageFaultMemory(host, ctx) {
         `<td>${esc(r.desc)}</td>` +
         `<td>${esc(r.km || '')}</td>` +
         `<td>${r.present ? 'yes' : 'No'}</td>` +
+        // CLASS IS EMPTY IN THE REAL TOOL TOO, so this is parity, not a gap.
+        // The walkthrough frames of ISTA 4.30.30 show the column blank on
+        // every row of a car with three faults stored (scratchpad
+        // ista-video3, 5:51-6:12).
+        //
+        // IT IS NOT IN THE WIRE DATA AT ALL. No fault job on any of this
+        // car's modules returns a classification; the nearest thing is a
+        // property of the ECU VARIANT's fault DEFINITION in ISTA's own
+        // database (XEP_FAULTCODES.WEIGHTING, keyed by ECUVARIANTID), which
+        // the car never sends.
+        //
+        // WHY THAT COLUMN IS NOT WIRED UP EITHER. WEIGHTING does reach this
+        // car -- 34 of the 38 E46 SGBDs have rows, and it is genuinely
+        // per-variant (code 190 weighs 100 on kombi46 but 50 on kombi46r).
+        // But it is a bare 25/50/75/100 and NOTHING IN ANY SHIPPED SOURCE
+        // MAPS THOSE NUMBERS TO WORDS: XEP_FAULTCLASSES is three
+        // battery-voltage context rules, XEP_REFDIAGOBJECTS' weighting
+        // limits are all zero, and the translation DBs have no
+        // Fehlergewichtung text. Rendering it would mean inventing the
+        // severity labels, and a made-up class on a fault table is worse
+        // than a blank one. RELEVANCE and SICHERHEITSRELEVANT are dead
+        // columns (SICHERHEITSRELEVANT is 0 in all 146,614 rows).
         `<td>-</td></tr>`
     )
     .join('');
@@ -233,6 +290,7 @@ function istaFaultDialog(row) {
     const pairs = typeof envPairs === 'function' ? envPairs(c) : [];
     const head = [
       ['Fault code', row.code || '-'],
+      // '-' for the same reason the table's Class column is: see there
       ['Fault class', '-'],
       ['Fault text', row.desc || '-'],
       [
@@ -293,7 +351,10 @@ function istaFaultDialog(row) {
     ];
     const mapped = want.map(([label, re]) => [
       label,
-      istaEnvFind(pairs, re) || '-',
+      // Mileage is the module's own F_UW_KM where it has one; the other
+      // seven columns exist only as ambient rows, so they stay label-matched
+      (label === 'Mileage' ? istaFaultKm(c, pairs) : istaEnvFind(pairs, re)) ||
+        '-',
     ]);
     const used = new Set();
     for (const [, re] of want)
@@ -473,6 +534,7 @@ function istaPageSae(host, ctx) {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     istaFaultRows,
+    istaFaultKm,
     istaEnvFind,
     istaNewestScan,
     istaPageFaultMemory,

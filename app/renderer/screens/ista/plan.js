@@ -1,6 +1,6 @@
-/* exported istaPlanRows istaPlanAdd istaPlanSetState istaPlanClear
-   istaPlanGroupRows istaPlanSort ISTA_PLAN_KEY istaAblIndex istaAblLoad
-   istaAblUrls istaPlanStateFor */
+/* exported istaPlanRows istaPlanAdd istaPlanSet istaPlanSetState
+   istaPlanClear istaPlanGroupRows istaPlanSort ISTA_PLAN_KEY istaAblIndex
+   istaAblLoad istaAblUrls istaPlanStateFor */
 /* global Settings WEB_BASE webRealFetch */
 
 // The Test plan: what this car's diagnosis decided to test, and where the
@@ -84,31 +84,95 @@ function istaPlanWrite(id, rows) {
  * @param {IstaPlanRow[]} rows - what to add
  * @returns {number} how many were actually added
  */
+/**
+ * One caller's row as the store holds it.
+ *
+ * A row is a POINTER, so every field is flattened to the primitive the
+ * store round-trips through Settings; handing in a live object would
+ * otherwise put whatever it referenced into the saved plan.
+ * @param {IstaPlanRow} r - the caller's row
+ * @returns {IstaPlanRow} the stored shape
+ */
+function istaPlanRowOf(r) {
+  return {
+    id: String(r.id || ''),
+    type: String(r.type || 'ABL'),
+    title: String(r.title || r.id || ''),
+    component: String(r.component || r.title || ''),
+    priority: r.priority == null ? 0 : Number(r.priority),
+    state: String(r.state || 'none'),
+    fault: r.fault ? String(r.fault) : '',
+    doc: r.doc || null,
+  };
+}
+
+/**
+ * The key that makes two rows the same piece of work.
+ * @param {IstaPlanRow} r - a row
+ * @returns {string} its identity
+ */
+function istaPlanKeyOf(r) {
+  return `${r.type || 'ABL'}\u0000${r.id || r.title}`;
+}
+
 function istaPlanAdd(car, rows) {
   const id = car && typeof car === 'object' ? car.id : car;
   if (!id || !Array.isArray(rows) || !rows.length) return 0;
   const have = istaPlanRows(id);
-  const seen = new Set(have.map((r) => `${r.type}\u0000${r.id || r.title}`));
+  const seen = new Set(have.map(istaPlanKeyOf));
   let added = 0;
   for (const r of rows) {
     if (!r) continue;
-    const key = `${r.type || 'ABL'}\u0000${r.id || r.title}`;
+    const key = istaPlanKeyOf(r);
     if (seen.has(key)) continue;
     seen.add(key);
-    have.push({
-      id: String(r.id || ''),
-      type: String(r.type || 'ABL'),
-      title: String(r.title || r.id || ''),
-      component: String(r.component || r.title || ''),
-      priority: r.priority == null ? 0 : Number(r.priority),
-      state: String(r.state || 'none'),
-      fault: r.fault ? String(r.fault) : '',
-      doc: r.doc || null,
-    });
+    have.push(istaPlanRowOf(r));
     added++;
   }
   if (added) istaPlanWrite(id, have);
   return added;
+}
+
+/**
+ * REPLACE a car's plan with these rows.
+ *
+ * WHY REPLACE RATHER THAN APPEND. "Calculate test plan" calculates A plan,
+ * for the fault the technician just picked, and the tool's own frames show
+ * it doing exactly that: the Test plan's hit count counts UP FROM ZERO
+ * (0/0 -> 1/2 -> 2/3 -> 3/4) as the rows build, so what lands is that one
+ * calculation's result and nothing else. Appending instead accumulated
+ * every fault ever calculated on the car -- one picked code came back with
+ * 59 rows, which is not a test plan, it is a pile.
+ *
+ * The work a technician already DID is not thrown away with the rows: a
+ * module carried over from the previous plan keeps the state its run left
+ * it in, so recalculating never silently un-performs a finished test.
+ * @param {object|string|null} car - the GarageCar, or its id
+ * @param {IstaPlanRow[]} rows - the whole new plan
+ * @returns {number} how many rows the plan now holds
+ */
+function istaPlanSet(car, rows) {
+  const id = car && typeof car === 'object' ? car.id : car;
+  if (!id) return 0;
+  // what the old plan knew about each module's run, keyed the same way the
+  // de-duplication is, so a recalculated row is recognised as the same work
+  const was = new Map();
+  for (const r of istaPlanRows(id)) was.set(istaPlanKeyOf(r), r.state);
+  const seen = new Set();
+  const out = [];
+  for (const r of Array.isArray(rows) ? rows : []) {
+    if (!r) continue;
+    const key = istaPlanKeyOf(r);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const row = istaPlanRowOf(r);
+    // a row the caller left at 'none' takes back the verdict its last run
+    // reached; an explicit state from the caller wins over the old one
+    if (row.state === 'none' && was.has(key)) row.state = was.get(key);
+    out.push(row);
+  }
+  istaPlanWrite(id, out);
+  return out.length;
 }
 
 /**
@@ -294,6 +358,7 @@ if (typeof module !== 'undefined')
     istaPlanAll,
     istaPlanRows,
     istaPlanAdd,
+    istaPlanSet,
     istaPlanSetState,
     istaPlanStateFor,
     istaPlanClear,
