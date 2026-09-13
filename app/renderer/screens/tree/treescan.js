@@ -88,25 +88,59 @@ async function ecuTreeWalkTargets(chassis, deps) {
 }
 
 /**
- * The fault-read job an SGBD declares. FS_LESEN is near-universal, but the
- * corpus is not unanimous, so this asks the module the same way the ident
- * sweep asks for its ident job rather than assuming the name.
+ * The fault-read job an SGBD declares, and the argument to send with it.
+ *
+ * FS_LESEN is near-universal, but neither the name nor the ARGUMENT is
+ * uniform, so both come from what the module declares.
+ *
+ * The argument is why this returns a pair. E46's light switch centre (lsz_2)
+ * stores faults in EIGHT blocks and declares `FS_LESEN(ALL_BLOCKS)`; called
+ * bare it answers F_ZAHL 0 -- documented as "Gesamtfehler der Bloecke 1 bis 3
+ * (schwere Fehler)" -- so a real fault sitting in block 5 reads as a clean
+ * module. A current "Fernlicht rechts defekt" on a real car was invisible
+ * exactly this way. INPA's own script has the same hole: it sends FS_LESEN
+ * with an empty argument to every module.
+ *
+ * A declared argument's NAME is the keyword to pass (ALL_BLOCKS is both), so
+ * a single-argument read is sent with its own name. A read wanting more than
+ * one argument is not a sweep job -- nothing can supply those values here --
+ * and is passed over for one that needs none.
  * @param {string} sgbd - the SGBD that answered
  * @param {(s: string) => Promise<string[]>} names - job-name lookup
- * @returns {Promise<string|null>} the job, or null when it declares no read
+ * @param {(s: string) => Promise<object[]>} [decls] - job declarations, for
+ *   the arguments; without it every job is called bare, as before
+ * @returns {Promise<{job: string, arg: string}|null>} the job and its
+ *   argument (''), or null when the module declares no fault read
  */
-async function ecuTreeFaultJobFor(sgbd, names) {
+async function ecuTreeFaultJobFor(sgbd, names, argsOf) {
   const all = await names(sgbd);
-  const reads = all.filter(
-    (n) => /^FS_LESEN$/i.test(n) || /^FS_LESEN(_|$)/i.test(n)
-  );
+  const reads = all.filter((n) => /^FS_LESEN(_|$)/i.test(n));
   if (!reads.length) return null;
-  const exact = reads.find((n) => /^FS_LESEN$/i.test(n));
-  if (exact) return exact;
-  // never the detail read on its own: it needs a fault code as an argument
+  // the detail read needs a fault code as an argument: never a sweep on its own
   const plain = reads.filter((n) => !/DETAIL/i.test(n));
   if (!plain.length) return null;
-  return plain.sort((a, b) => a.length - b.length)[0];
+
+  // exact FS_LESEN first, then the narrowest prefixed read
+  const order = [
+    ...plain.filter((n) => /^FS_LESEN$/i.test(n)),
+    ...plain
+      .filter((n) => !/^FS_LESEN$/i.test(n))
+      .sort((a, b) => a.length - b.length),
+  ];
+  if (!argsOf) return { job: order[0], arg: '' };
+  for (const job of order) {
+    const args = (await argsOf(sgbd, job)) || [];
+    if (!args.length) return { job, arg: '' };
+    // a declared argument's NAME is the keyword to pass (ALL_BLOCKS is both)
+    if (args.length === 1) {
+      const a = args[0];
+      const name = String((a && (a.ARG || a.name)) || '');
+      if (name) return { job, arg: name };
+    }
+    // more than one argument, or an unnamed one: nothing here can supply
+    // those values, so try the next read rather than half-asking this one
+  }
+  return null;
 }
 
 /**
@@ -134,8 +168,28 @@ function ecuTreeWalkStart(chassis, hooks, deps) {
       typeof webResolveVariant === 'function' ? webResolveVariant : null,
     jobNames: typeof jobNamesFor === 'function' ? jobNamesFor : null,
     identJob: typeof identJobFor === 'function' ? identJobFor : null,
-    run: (sgbd, job) =>
-      api(`/api/ecu/${sgbd}/run/${job}`, { method: 'POST' }),
+    run: (sgbd, job, arg) =>
+      api(
+        `/api/ecu/${sgbd}/run/${job}` +
+          (arg ? `?arg=${encodeURIComponent(arg)}` : ''),
+        { method: 'POST' }
+      ),
+    /**
+     * A job's declared arguments (/api/ecu/<s>/arguments/<JOB>).
+     *
+     * NOT the /jobs route: that answers a plain list of NAMES, with no
+     * arguments on it at all. The arguments live on their own route, and a
+     * job that declares none 404s there -- which is the common case, so a
+     * failure here means "no arguments", not an error.
+     */
+    jobArgs: async (sgbd, job) => {
+      try {
+        const j = await api(`/api/ecu/${sgbd}/arguments/${job}`);
+        return (j && j.arguments) || [];
+      } catch (e) {
+        return [];
+      }
+    },
     report:
       typeof ipoProtocolReport === 'function' ? ipoProtocolReport : null,
     cableReady: typeof window !== 'undefined' ? window.cableReady : null,
@@ -144,11 +198,13 @@ function ecuTreeWalkStart(chassis, hooks, deps) {
   const h = hooks || {};
   let cancelled = false;
   const done = (async () => {
-    if (!D.resolve || !D.report || !D.jobNames)
-      throw new Error('the scan runtime is not loaded');
+    // the target list first: "no tree for this chassis" is the answer the
+    // caller acts on, and it must not be masked by a runtime-wiring check
     const targets = await D.targets(chassis, deps);
     if (!targets.length)
       throw new Error(`ISTA ships no control unit tree for ${chassis}`);
+    if (!D.resolve || !D.report || !D.jobNames)
+      throw new Error('the scan runtime is not loaded');
     if (D.cableReady) await D.cableReady.catch(() => {});
 
     /** @type {object[]} the wire log, in ipoProtocolReport's shape */
@@ -170,7 +226,8 @@ function ecuTreeWalkStart(chassis, hooks, deps) {
     for (let i = 0; i < targets.length; i++) {
       if (cancelled) break;
       const t = targets[i];
-      tick(`${t.label} (${i + 1}/${targets.length})`);
+      const at = `${i + 1}/${targets.length}`;
+      tick(`${at} ${t.label} (${t.group})`);
       let sgbd = null;
       try {
         sgbd = await D.resolve(t.group);
@@ -185,6 +242,7 @@ function ecuTreeWalkStart(chassis, hooks, deps) {
           job: 'FS_LESEN',
           error: 'no response',
         });
+        tick(`${at} ${t.label} (${t.group}) - silent`);
         continue;
       }
       if (seen.has(sgbd)) {
@@ -192,8 +250,8 @@ function ecuTreeWalkStart(chassis, hooks, deps) {
         continue;
       }
       seen.set(sgbd, t.group);
-      const job = await ecuTreeFaultJobFor(sgbd, D.jobNames);
-      if (!job) {
+      const pick = await ecuTreeFaultJobFor(sgbd, D.jobNames, D.jobArgs);
+      if (!pick) {
         reads.push({
           target: t.group,
           variant: sgbd,
@@ -202,20 +260,24 @@ function ecuTreeWalkStart(chassis, hooks, deps) {
         });
         continue;
       }
+      const { job, arg } = pick;
       try {
-        const d = await D.run(sgbd, job);
+        const d = await D.run(sgbd, job, arg);
         reads.push({
           target: t.group,
           variant: sgbd,
           job,
+          arg: arg || null,
           sets: (d && d.sets) || [],
         });
         answered++;
+        tick(`${at} ${t.label} -> ${sgbd}`);
       } catch (e) {
         reads.push({
           target: t.group,
           variant: sgbd,
           job,
+          arg: arg || null,
           error: String((e && e.message) || e),
         });
       }

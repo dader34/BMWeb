@@ -346,10 +346,14 @@ const COMMANDS: Record<string, Command> = {
   },
   scan: {
     usage:
-      'bmweb scan <chassis> [--port p] [--gateway h:p] [--api url] [--share] [--json]',
-    summary: `INPA's whole-vehicle script over the cable (${SCAN_CHASSIS.join(' ')}): every fault memory as a report, --share adds a Garage link`,
+      'bmweb scan <chassis> [--tree] [--port p] [--gateway h:p] [--api url] [--share] [--json]',
+    summary: `INPA's whole-vehicle script over the cable (${SCAN_CHASSIS.join(' ')}): every fault memory as a report, --share adds a Garage link, --tree walks ISTA's control unit tree instead (more chassis, more modules)`,
     flags: {
       ...LIVE,
+      tree: {
+        kind: 'bool',
+        help: "walk ISTA's control unit tree instead of INPA's script: every module the series can carry, on any chassis ISTA draws a tree for",
+      },
       share: {
         kind: 'bool',
         help: 'print a Garage share link carrying the report',
@@ -367,6 +371,7 @@ const COMMANDS: Record<string, Command> = {
       const { R } = await connectBus(liveOptions(flags));
       try {
         const r = await scanCommand(chassis, {
+          tree: !!flags.tree,
           share: !!flags.share,
           json: !!flags.json,
           label: flags.label as string | undefined,

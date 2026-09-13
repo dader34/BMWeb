@@ -95,28 +95,75 @@ const deps = {
   assert.strictEqual(once[0].label, 'A', 'the first entry names it');
   ok('a group two boxes share is read once');
 
-  // ---- the fault-read job ---------------------------------------------------
+  // ---- the fault-read job, and the argument it wants --------------------
   const names = (map) => async (s) => map[s] || [];
-  assert.strictEqual(
-    await T.ecuTreeFaultJobFor('a', names({ a: ['IDENT', 'FS_LESEN', 'FS_LESEN_DETAIL'] })),
-    'FS_LESEN'
-  );
-  ok('exact FS_LESEN wins');
+  /** the arguments route: {sgbd: {JOB: [{ARG}]}}, absent meaning none */
+  const argsOf = (map) => async (s, j) => (map[s] || {})[j] || [];
 
-  assert.strictEqual(
-    await T.ecuTreeFaultJobFor('b', names({ b: ['FS_LESEN_FUNKTIONAL', 'FS_LESEN_DETAIL'] })),
-    'FS_LESEN_FUNKTIONAL'
+  assert.deepStrictEqual(
+    await T.ecuTreeFaultJobFor(
+      'a',
+      names({ a: ['IDENT', 'FS_LESEN', 'FS_LESEN_DETAIL'] }),
+      argsOf({})
+    ),
+    { job: 'FS_LESEN', arg: '' }
+  );
+  ok('exact FS_LESEN wins, sent bare when it declares no argument');
+
+  assert.deepStrictEqual(
+    await T.ecuTreeFaultJobFor(
+      'b',
+      names({ b: ['FS_LESEN_FUNKTIONAL', 'FS_LESEN_DETAIL'] }),
+      argsOf({})
+    ),
+    { job: 'FS_LESEN_FUNKTIONAL', arg: '' }
   );
   ok('the narrowest prefixed read is taken when FS_LESEN is absent');
 
-  // the detail read needs a fault code as an argument: alone it is not a sweep
+  // THE REGRESSION THIS GUARDS. E46's light switch centre stores faults in
+  // eight blocks and declares FS_LESEN(ALL_BLOCKS); called bare it answers
+  // F_ZAHL 0, which counts only blocks 1-3, so a real fault in block 5 reads
+  // as a clean module. A current "Fernlicht rechts defekt" on the car was
+  // invisible exactly this way. The ARG field is the route's own spelling.
+  assert.deepStrictEqual(
+    await T.ecuTreeFaultJobFor(
+      'lsz_2',
+      names({ lsz_2: ['FS_LESEN', 'FS_LESEN_GESAMT', 'FS_LESEN_DETAIL'] }),
+      argsOf({ lsz_2: { FS_LESEN: [{ ARG: 'ALL_BLOCKS', ARGTYPE: 'string' }] } })
+    ),
+    { job: 'FS_LESEN', arg: 'ALL_BLOCKS' }
+  );
+  ok('a declared single argument is sent by name (ALL_BLOCKS)');
+
+  // a read wanting values nothing here can supply is passed over for one
+  // that needs none, rather than being called bare and half-answering
+  assert.deepStrictEqual(
+    await T.ecuTreeFaultJobFor(
+      'c',
+      names({ c: ['FS_LESEN', 'FS_LESEN_GESAMT'] }),
+      argsOf({ c: { FS_LESEN: [{ ARG: 'BLOCK' }, { ARG: 'INDEX' }] } })
+    ),
+    { job: 'FS_LESEN_GESAMT', arg: '' }
+  );
+  ok('a multi-argument read is skipped for one that needs none');
+
+  // no lookup at all (an older build): every job is called bare, as before
+  assert.deepStrictEqual(
+    await T.ecuTreeFaultJobFor('d', names({ d: ['FS_LESEN'] })),
+    { job: 'FS_LESEN', arg: '' }
+  );
+  ok('without an arguments lookup a read is still found, called bare');
+
   assert.strictEqual(
-    await T.ecuTreeFaultJobFor('c', names({ c: ['FS_LESEN_DETAIL'] })),
+    await T.ecuTreeFaultJobFor('e', names({ e: ['FS_LESEN_DETAIL'] }), argsOf({})),
     null
   );
   ok('the detail read is never chosen on its own');
 
-  assert.strictEqual(await T.ecuTreeFaultJobFor('d', names({ d: ['IDENT'] })), null);
+  assert.strictEqual(
+    await T.ecuTreeFaultJobFor('f', names({ f: ['IDENT'] }), argsOf({})),
+    null
+  );
   ok('a module declaring no fault read reports none');
 
   // ---- the walk -------------------------------------------------------------
@@ -135,6 +182,7 @@ const deps = {
         d_xen_r: 'xenon_r',
       })[g] || null,
     jobNames: async () => ['FS_LESEN', 'IDENT'],
+    jobArgs: async () => [],
     run: async (sgbd) => ({
       sets: sgbd === 'ms450ds0' ? faultSets : [{}],
     }),
@@ -181,7 +229,7 @@ const deps = {
   const aliasReport = (
     await T.ecuTreeWalkStart('E46', {}, {
       ...walkDeps,
-      run: async (sgbd, job) => {
+      run: async (sgbd) => {
         sent.push(sgbd);
         return { sets: [{}] };
       },

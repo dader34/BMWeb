@@ -56,6 +56,8 @@
   "screens/ipo-runtime/dialogs.js",
   "screens/ipo-runtime/print.js",
   "screens/ipo-runtime/protocol.js",
+  "screens/tree/data.js",
+  "screens/tree/treescan.js",
   "screens/ipo-runtime/ui.js",
   "screens/ipo-runtime/open.js",
   "screens/ipo-runtime/home.js",
