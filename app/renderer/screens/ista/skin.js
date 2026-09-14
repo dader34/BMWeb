@@ -35,15 +35,20 @@ const ISTA_STATUS_ID = 'ista-status';
 /**
  * Is the ISTA layout on?
  *
- * Deliberately the LAYOUT setting (inpaMode: Settings 'inpaScreens'), not the
- * skin setting: the user asked for the tool's layout, and the two are
- * separate choices. inpaMode is already forced off on phones, which is what
- * we want here too -- this chrome is 1728px of fixed bands and cannot be
- * folded into a phone.
+ * ALWAYS, ON ANYTHING WIDE ENOUGH TO DRAW IT. The ISTA app is a facsimile of
+ * the workshop tool -- its tab bands, status line and button row ARE the
+ * thing -- so it drew the app's own chrome under the modern layout and the
+ * tool's under the INPA one, which meant the same screen looked like two
+ * different programs depending on a setting that is about the other screens.
+ * The layout setting still governs the module view, the Garage and the rest;
+ * it no longer governs this app.
+ *
+ * The phone check stays. This chrome is 1728px of fixed bands and cannot be
+ * folded into a narrow viewport, so a phone still gets the app's own layout.
  * @returns {boolean}
  */
 function istaSkinOn() {
-  return typeof inpaMode === 'function' ? inpaMode() : false;
+  return typeof isMobileViewport === 'function' ? !isMobileViewport() : true;
 }
 
 /**
