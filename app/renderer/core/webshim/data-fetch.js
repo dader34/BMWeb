@@ -6,7 +6,7 @@
  * shim -- so `data/job-code/<sgbd>.json` and friends are answered from the
  * cached ECU archives, not the network.
  */
-/* exported webFetchJson, webFetchGz, loadSharedTables, HF_MIRRORS, hfUrls, hfFetchFirst */
+/* exported webFetchJson, webFetchGz, loadSharedTables, HF_MIRRORS, hfUrls, hfFetchFirst, istaBundle, istaBundleFile */
 
 /**
  * Fetch a JSON file, or null on any failure (404, bad JSON).
@@ -144,4 +144,72 @@ async function hfFetchFirst(rel, opts) {
     }
   }
   return null;
+}
+
+/**
+ * One unpacked .ista bundle: the path inside it -> its bytes.
+ * @type {Map<string, Map<string, Uint8Array>>}
+ */
+const ISTA_BUNDLES = new Map();
+
+/** A bundle that failed to load, so a car without one is asked for once. */
+const ISTA_BUNDLE_MISS = new Set();
+
+/**
+ * One chassis's ISTA data, as a single archive.
+ *
+ * THE SAME BET THE .chassis ARCHIVES ALREADY TAKE. An ECU ships only inside
+ * its car's archive because loose copies duplicated all 310 for 47 MB and
+ * nothing read them; the ISTA data has exactly that shape. A car needs its
+ * 891 test modules, its schematics and its diagnosis documents, and asking
+ * for them one file at a time cost 26,037 requests for a release build and
+ * hundreds for a technician who opens a few screens -- enough to be rate
+ * limited part way through either.
+ *
+ * One download per car, unpacked once, and every ISTA screen afterwards is
+ * a map lookup. E46.ista is about 28 MB against E46.chassis at 20 MB, so
+ * this is the size of fetch the app already makes when a car is opened.
+ * @param {string} chassis - the development code
+ * @returns {Promise<Map<string, Uint8Array>|null>} null when none ships
+ */
+async function istaBundle(chassis) {
+  const id = String(chassis || '').toUpperCase();
+  if (!id) return null;
+  if (ISTA_BUNDLES.has(id)) return ISTA_BUNDLES.get(id);
+  if (ISTA_BUNDLE_MISS.has(id)) return null;
+  if (typeof fflate === 'undefined') return null;
+  const bytes = await hfFetchFirst(`ista/bundles/${id}.ista`, { as: 'bytes' });
+  if (!bytes) {
+    ISTA_BUNDLE_MISS.add(id);
+    return null;
+  }
+  let files;
+  try {
+    files = fflate.unzipSync(bytes);
+  } catch (e) {
+    ISTA_BUNDLE_MISS.add(id);
+    return null;
+  }
+  const map = new Map(Object.entries(files));
+  ISTA_BUNDLES.set(id, map);
+  return map;
+}
+
+/**
+ * One file out of a chassis's bundle, as a Response the callers already
+ * expect.
+ *
+ * Returns null when the bundle does not ship or does not hold the path, so
+ * every caller keeps its existing per-file fallback: a build carrying the
+ * old loose layout, or a chassis whose bundle has not been built yet, still
+ * works exactly as before.
+ * @param {string} chassis - the development code
+ * @param {string} rel - the path inside the bundle (abl/X.json.gz, ...)
+ * @returns {Promise<Response|null>}
+ */
+async function istaBundleFile(chassis, rel) {
+  const map = await istaBundle(chassis);
+  const body = map && map.get(String(rel || ''));
+  if (!body) return null;
+  return new Response(body, { status: 200 });
 }
