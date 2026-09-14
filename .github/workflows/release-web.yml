@@ -211,7 +211,7 @@ jobs:
             || gh release create "${GITHUB_REF_NAME}" --title "${GITHUB_REF_NAME}" --generate-notes \
                  $([[ "${GITHUB_REF_NAME}" == *-* ]] && echo --prerelease)
           gh release view "${GITHUB_REF_NAME}" --json body -q .body > notes.md
-          printf '\n\n## Complete offline build (%s)\n\nEverything above plus the ETK parts catalogue for every chassis, too large for a GitHub release asset:\n\n**[%s](%s)**\n' \
+          printf '\n\n## Complete offline build (%s)\n\nEverything above plus the ETK parts catalogue and the ISTA repair manual for every chassis, too large for a GitHub release asset:\n\n**[%s](%s)**\n' \
             "$size" "$name" "$url" >> notes.md
           gh release edit "${GITHUB_REF_NAME}" --notes-file notes.md
           echo "linked $url"
