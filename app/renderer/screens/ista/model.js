@@ -94,6 +94,10 @@ const ISTA_HOME_SUB3 = 'vin';
  */
 const ISTA_TABS = [
   {
+    // THE WAY IN. Every other tab needs a vehicle, and this is where one is
+    // identified -- by VIN, by reading the car, or from the Garage -- so it
+    // is the one tab that stays open with no operation started.
+    entry: true,
     id: 'operations',
     label: 'Operations',
     desc: 'Open a vehicle: by VIN, off the cable, or by model code',

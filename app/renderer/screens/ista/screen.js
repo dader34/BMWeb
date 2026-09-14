@@ -668,11 +668,16 @@ function istaToolbarAct(act) {
  * @returns {void}
  */
 function istaPaintModernChrome(el) {
+  // the same rule the workshop chrome follows: no vehicle, no tabs
+  const locked = !istaState.car;
   const tabs = ISTA_TABS.map((t) => {
     const on = t.id === istaState.tab;
+    const off = locked && !t.entry;
     return (
-      `<button type="button" class="ista-tab${on ? ' on' : ''}" ` +
-      `data-tab="${esc(t.id)}"${on ? ' aria-current="page"' : ''}>` +
+      `<button type="button" class="ista-tab${on ? ' on' : ''}` +
+      `${off ? ' off' : ''}" data-tab="${esc(t.id)}"` +
+      `${off ? ' disabled title="Start an operation first"' : ''}` +
+      `${on ? ' aria-current="page"' : ''}>` +
       `${esc(String(t.label).replace(/\n/g, ' '))}</button>`
     );
   }).join('');
@@ -722,6 +727,7 @@ function istaPaintModernChrome(el) {
     stripOf(subs3, 3);
 
   el.querySelectorAll('.ista-tab[data-tab]').forEach((b) => {
+    if (b.disabled) return;
     b.onclick = () => istaGo(b.dataset.tab, null, null);
   });
   el.querySelectorAll('.ista-sub[data-sub]').forEach((b) => {
@@ -830,7 +836,20 @@ async function istaPickCar() {
  * @returns {Promise<void>}
  */
 async function istaGo(tab, sub, sub3) {
-  const t = istaTab(tab) ? tab : ISTA_HOME_TAB;
+  let t = istaTab(tab) ? tab : ISTA_HOME_TAB;
+  // A ROUTE CANNOT WALK PAST THE GATE EITHER. The tabs are greyed with no
+  // car, but a bookmarked or reloaded URL addresses one directly -- so a
+  // tab that needs a vehicle lands on Operations instead, which is where
+  // the vehicle is identified.
+  const entry = (istaTab(t) || {}).entry;
+  if (!istaState.car && !entry) {
+    const home = ISTA_TABS.find((x) => x.entry);
+    if (home) {
+      t = home.id;
+      sub = null;
+      sub3 = null;
+    }
+  }
   const s = sub || (istaFirstSub(t) || {}).id || null;
   const s3 = sub3 || (s ? (istaFirstSub3(t, s) || {}).id || null : null);
   return showIsta(t, s, s3);
