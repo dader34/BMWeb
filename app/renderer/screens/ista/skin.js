@@ -369,12 +369,19 @@ function istaPaintReal(el, ctx) {
   const sessions = car
     ? [{ id: car.id, n: 1, label: car.label || car.vin || '' }]
     : [];
+  // NO VEHICLE, NO TABS. The tool asks which car it is looking at before it
+  // offers to do anything to one, and every tab but Operations is about a
+  // car -- its fault memories, its documents, its test plan. Until an
+  // operation is started they are greyed rather than hidden, so a technician
+  // can see what the tool does and where it will be once a car is in.
+  const locked = !car;
   const tabs = ISTA_TABS.map((t) =>
     istaRealTab({
       label: t.label,
       cls: 'irtab',
       on: t.id === ctx.tab,
-      off: false,
+      off: locked && !t.entry,
+      title: locked && !t.entry ? 'Start an operation first' : '',
       data: { tab: t.id },
     })
   ).join('');
@@ -436,6 +443,10 @@ function istaPaintReal(el, ctx) {
     strip3;
 
   el.querySelectorAll('.irtab[data-tab]').forEach((b) => {
+    if (b.classList.contains('off')) {
+      b.disabled = true;
+      return;
+    }
     b.onclick = () => ctx.go('tab', { tab: b.dataset.tab });
   });
   el.querySelectorAll('.irsub[data-sub]').forEach((b) => {

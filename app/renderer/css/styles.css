@@ -10223,6 +10223,17 @@ body.ista-mode .view {
   cursor: pointer;
   white-space: nowrap;
 }
+/* greyed until an operation is started: every tab but Operations is about a
+   car, and the tool asks which car before it offers to do anything to one */
+.ista-tab.off,
+.ista-tab:disabled {
+  opacity: 0.42;
+  cursor: default;
+}
+.ista-tab.off:hover,
+.ista-tab:disabled:hover {
+  background: none;
+}
 .ista-tab:hover {
   color: var(--ink);
   background: var(--panel);
