@@ -27,7 +27,9 @@ from huggingface_hub import snapshot_download
 
 # a floor, not a count: these grow, and an exact number would fail every time
 # the data is regenerated. What matters is that the set is not empty or a stub.
-FLOORS = {"ecu-tree": 40, "abl": 1000, "ecufn": 500}
+# bundles is one .ista per chassis -- 26 today, so 20 leaves room for a
+# chassis to be dropped without failing the build.
+FLOORS = {"ecu-tree": 40, "bundles": 20, "ecufn": 500}
 # the scan reads both of these directly; without either it falls back to the
 # network, which is exactly what this fetch exists to prevent
 NEEDED = ("ecu-tree/index.json", "ecu-tree/scan-extras.json")
@@ -58,7 +60,7 @@ def main():
     for f in NEEDED:
         if not os.path.exists(os.path.join(ista, f)):
             raise SystemExit(f"error: ista/{f} is missing; the tree scan needs it")
-    for sub in ("diag", "techdata", "wiring", "repair"):
+    for sub in ("techdata", "repair"):
         d = os.path.join(ista, sub)
         if os.path.isdir(d):
             print(f"  {sub:10} {len(os.listdir(d))} entries")

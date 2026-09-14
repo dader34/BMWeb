@@ -4,7 +4,7 @@
 #
 #   scripts/build/ci-fetch-hf-data.sh faults   fault lookup + ISTA + VIN index, ~110 MB
 #   scripts/build/ci-fetch-hf-data.sh tuning   the XDF definition library, ~29 MB
-#   scripts/build/ci-fetch-hf-data.sh ista     the ISTA app's own data, ~355 MB
+#   scripts/build/ci-fetch-hf-data.sh ista     the ISTA app's own data, ~360 MB
 #   scripts/build/ci-fetch-hf-data.sh ista-all adds the repair manual, ~1.0 GB
 #   scripts/build/ci-fetch-hf-data.sh etk      the ETK parts tree, ~5.8 GB
 #
@@ -63,7 +63,13 @@ case "${1:-}" in
     # rides with ista-all (the complete build) rather than every zip.
     echo "==> ISTA data -> $DIST/data/ista"
     pip install -q 'huggingface_hub>=0.30'
-    WANT='ista/ecu-tree/* ista/abl/* ista/diag/* ista/ecufn/* ista/techdata/* ista/wiring/*'
+    # THE BUNDLES, NOT THE LOOSE FILES. Fetching ista/abl, wiring and diag
+    # one file at a time is 26,037 downloads, and Hugging Face rate limits
+    # that part way through every time -- a token only doubles the allowance
+    # (500/300s anonymous, 1000/300s authenticated) against a fetch that
+    # wants five times it. One .ista per chassis is 26 downloads for the
+    # same bytes, and it is the layout the app reads anyway.
+    WANT='ista/bundles/* ista/ecu-tree/* ista/ecufn/* ista/techdata/*'
     if [ "${1}" = "ista-all" ]; then WANT="$WANT ista/repair/*"; fi
     python3 scripts/build/fetch_ista.py "$DATASET" "$DIST/data" "$WANT"
     rm -rf "$DIST/data/.cache"
