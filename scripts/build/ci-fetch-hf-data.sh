@@ -70,7 +70,8 @@ case "${1:-}" in
     # wants five times it. One .ista per chassis is 26 downloads for the
     # same bytes, and it is the layout the app reads anyway.
     WANT='ista/bundles/* ista/ecu-tree/* ista/ecufn/* ista/techdata/*'
-    if [ "${1}" = "ista-all" ]; then WANT="$WANT ista/repair/*"; fi
+    # the repair manual as transport archives, not 55,480 separate files
+    if [ "${1}" = "ista-all" ]; then WANT="$WANT ista/repair-bundles/*"; fi
     python3 scripts/build/fetch_ista.py "$DATASET" "$DIST/data" "$WANT"
     rm -rf "$DIST/data/.cache"
     du -sh "$DIST/data/ista"
