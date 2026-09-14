@@ -17,6 +17,13 @@ import sys
 
 from huggingface_hub import snapshot_download
 
+# ANONYMOUS DOWNLOADS ARE RATE LIMITED HARD. A release fetches tens of
+# thousands of small files, and without a token the hub starts answering 429
+# part way through -- the build then crawls at one file per 245-second
+# backoff. The workflow already holds an HF_TOKEN secret; passing it makes
+# the same fetch run at full speed. It stays optional so a fork without the
+# secret still builds, just slowly.
+
 FLOOR = 20  # 32 today; a floor, so regenerating the library does not fail CI
 
 
@@ -29,6 +36,7 @@ def main():
         repo_type="dataset",
         local_dir=out,
         allow_patterns=["tuning/xdf/*"],
+        token=os.environ.get("HF_TOKEN") or None,
         max_workers=8,
     )
     d = os.path.join(out, "tuning", "xdf")

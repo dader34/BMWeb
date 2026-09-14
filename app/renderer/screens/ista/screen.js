@@ -1684,15 +1684,66 @@ async function istaCalcPlan(fault, car, chassis) {
   // and a per-module row of what to call it and where it belongs
   const byFault = (idx && idx.faults) || {};
   const modules = (idx && idx.modules) || {};
-  // THE FAULT TABLE SHOWS THE LOCATION BYTE, THE INDEX KEYS THE FULL WORD.
-  // The screen's Code column reads 41AA for the fault BMW's own links call
-  // 0041AA, because the table prefers the shorter location byte the fault
-  // database keys on. Matching on the padded form as well as the raw one
-  // is the whole difference between a plan with rows and a plan without.
-  const keys = [code, code.replace(/^0+/, ''), code.padStart(6, '0')];
-  const ids = [];
-  for (const k of keys)
-    for (const one of byFault[k] || []) if (!ids.includes(one)) ids.push(one);
+  // THE INDEX KEYS FAULTS IN DECIMAL, AND THE SCREEN SHOWS HEX. ISTA's own
+  // database stores XEP_FAULTCODES.CODE as a decimal string -- the fault a
+  // workshop writes 0B32 is keyed "2866" -- so a hex code looked up as-is
+  // either misses or, far worse, hits a different fault that happens to
+  // share the digits. "0B" found decimal key 11 and returned its 46 modules:
+  // brake light switch, coolant temperature, oil level, heating flaps. A
+  // steering-angle fault produced a plan about the heater.
+  //
+  // THE TABLE ALSO SHOWS THE LOCATION BYTE, NOT THE WHOLE WORD. faultFields
+  // prefers the short form a workshop reads (0B), while the links are keyed
+  // on the full fault word (0B32). The raw answer is still on the row, so
+  // the full word is recovered from it and tried first -- it identifies one
+  // procedure where the location byte alone identifies dozens.
+  const raw = fault.raw || {};
+  const sgbd = String(fault.sgbd || '').toLowerCase();
+  const full =
+    typeof hexText === 'function'
+      ? String(hexText(raw.F_HEX_CODE) || '').replace(/[^0-9a-fA-F]/g, '')
+      : '';
+
+  // THE INDEX IS KEYED TWO WAYS, AND ONLY ONE OF THEM IS SAFE ALONE.
+  // BMW's links are written both bare ("B7") and scoped to the module that
+  // reports them ("dsc_e46:B7"). The bare key is a LOCATION BYTE shared
+  // across the whole car: "B" links 48 procedures spanning mirrors, seats,
+  // headlights and the K-bus, because dozens of modules number a fault at
+  // that location. Handing those to a technician who picked one row is
+  // worse than handing them nothing -- it buries the answer in noise and
+  // implies BMW linked them.
+  //
+  // So the scoped key is tried first, then the full fault word, and the
+  // bare location byte only when it is specific enough to mean something.
+  const spell = (h) => {
+    const out = [];
+    for (const k of [h, h.replace(/^0+/, ''), h.padStart(4, '0')])
+      if (k && !out.includes(k)) out.push(k);
+    return out;
+  };
+  const tiers = [];
+  // 1. this module's own link for this code
+  if (sgbd)
+    tiers.push(
+      [...(full ? spell(full) : []), ...spell(code)].map((k) => `${sgbd}:${k}`)
+    );
+  // 2. the full fault word, which identifies one fault rather than a family
+  if (full && full !== code) tiers.push(spell(full));
+  // 3. the bare code, but only when it is a whole word rather than the
+  //    location byte a hundred modules share
+  if (code.replace(/^0+/, '').length > 2) tiers.push(spell(code));
+
+  const collect = (list) => {
+    const got = [];
+    for (const k of list)
+      for (const one of byFault[k] || []) if (!got.includes(one)) got.push(one);
+    return got;
+  };
+  let ids = [];
+  for (const tier of tiers) {
+    ids = collect(tier);
+    if (ids.length) break;
+  }
   for (const id of ids) {
     const m = modules[id] || {};
     out.push({

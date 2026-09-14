@@ -18,6 +18,13 @@ import sys
 
 from huggingface_hub import snapshot_download
 
+# ANONYMOUS DOWNLOADS ARE RATE LIMITED HARD. A release fetches tens of
+# thousands of small files, and without a token the hub starts answering 429
+# part way through -- the build then crawls at one file per 245-second
+# backoff. The workflow already holds an HF_TOKEN secret; passing it makes
+# the same fetch run at full speed. It stays optional so a fork without the
+# secret still builds, just slowly.
+
 # a floor, not a count: these grow, and an exact number would fail every time
 # the data is regenerated. What matters is that the set is not empty or a stub.
 FLOORS = {"ecu-tree": 40, "abl": 1000, "ecufn": 500}
@@ -35,6 +42,7 @@ def main():
         repo_type="dataset",
         local_dir=out,
         allow_patterns=want.split(),
+        token=os.environ.get("HF_TOKEN") or None,
         max_workers=8,
     )
     ista = os.path.join(out, "ista")

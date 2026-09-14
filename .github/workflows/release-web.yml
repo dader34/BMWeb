@@ -73,12 +73,16 @@ jobs:
       # complete build only.
       - name: ISTA data (every variant)
         run: scripts/build/ci-fetch-hf-data.sh ista
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
 
       # the XDF definition library (29 MB, a different dataset). Without it
       # the Tuning screen's definition list is empty offline: xdf-library.js
       # went straight to its mirrors before this.
       - name: XDF definition library (every variant)
         run: scripts/build/ci-fetch-hf-data.sh tuning
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
 
       - name: Wiring diagrams
         run: |
