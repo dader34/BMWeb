@@ -1289,6 +1289,14 @@ async function istaEcuFnLoad(variant) {
  * @returns {Promise<Response|null>}
  */
 async function istaDiagFetch(rel) {
+  const cut = String(rel || '').indexOf('/');
+  if (cut > 0 && typeof istaBundleFile === 'function') {
+    const hit = await istaBundleFile(
+      rel.slice(0, cut),
+      `diag/${rel.slice(cut + 1)}`
+    );
+    if (hit) return hit;
+  }
   const base = typeof WEB_BASE === 'string' && WEB_BASE ? WEB_BASE : '.';
   const real =
     typeof webRealFetch === 'function'
@@ -1791,7 +1799,7 @@ async function istaOpenPlanRow(row, car, chassis, after) {
   if (!row) return;
   const graph =
     row.id && typeof istaAblLoad === 'function'
-      ? await istaProbe(() => istaAblLoad(row.id))
+      ? await istaProbe(() => istaAblLoad(row.id, chassis))
       : null;
   if (!graph) {
     // a row whose module this build does not ship still has its document
@@ -1938,7 +1946,9 @@ async function istaRunAblModule(graph, row, car, chassis, after) {
           }
         },
         module: ({ identifier }) =>
-          typeof istaAblLoad === 'function' ? istaAblLoad(identifier) : null,
+          typeof istaAblLoad === 'function'
+            ? istaAblLoad(identifier, chassis)
+            : null,
         vehicleText: vehicleText || null,
         native: {
           // THE FAULT LIST IS ALREADY READ. The library module the engine
@@ -2038,6 +2048,17 @@ const istaWiringBodies = new Map();
  * @returns {Promise<Response|null>}
  */
 async function istaWiringFetch(rel) {
+  // the car's bundle first: one archive holds every schematic and document
+  // for this chassis, so a technician pays one download instead of one
+  // request per drawing (see istaBundle)
+  const cut = String(rel || '').indexOf('/');
+  if (cut > 0 && typeof istaBundleFile === 'function') {
+    const hit = await istaBundleFile(
+      rel.slice(0, cut),
+      `wiring/${rel.slice(cut + 1)}`
+    );
+    if (hit) return hit;
+  }
   const base = typeof WEB_BASE === 'string' && WEB_BASE ? WEB_BASE : '.';
   const real =
     typeof webRealFetch === 'function'

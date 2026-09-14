@@ -295,8 +295,24 @@ function istaAblUrls(rel) {
  * @param {string} rel - the path under data/ista/abl/
  * @returns {Promise<object|null>} null when neither source answers
  */
-async function istaAblFetch(rel) {
+async function istaAblFetch(rel, chassis) {
   if (typeof fflate === 'undefined') return null;
+  // the car's bundle carries its own modules and index; the flat pool is
+  // still there for a build that ships the loose layout
+  if (chassis && typeof istaBundleFile === 'function') {
+    const hit = await istaBundleFile(chassis, `abl/${rel}`);
+    if (hit) {
+      try {
+        const bytes = new Uint8Array(await hit.arrayBuffer());
+        const text = /\.gz$/.test(rel)
+          ? new TextDecoder('utf-8').decode(fflate.gunzipSync(bytes))
+          : new TextDecoder('utf-8').decode(bytes);
+        return JSON.parse(text);
+      } catch (e) {
+        /* fall through to the loose layout */
+      }
+    }
+  }
   const real =
     typeof webRealFetch === 'function'
       ? webRealFetch
@@ -337,8 +353,8 @@ async function istaAblIndex(chassis) {
   // gzipped since the indexes grew to 1.5 MB; the plain name stays as a
   // fallback so a build carrying older data still opens
   return (
-    (await istaAblFetch(`${code}.json.gz`)) ||
-    (await istaAblFetch(`${code}.json`))
+    (await istaAblFetch(`${code}.json.gz`, code)) ||
+    (await istaAblFetch(`${code}.json`, code))
   );
 }
 
@@ -347,12 +363,13 @@ async function istaAblIndex(chassis) {
  * @param {string} id - the module identifier (ABL-DIT-B1362_D6LDF)
  * @returns {Promise<object|null>} null when this build does not ship it
  */
-async function istaAblLoad(id) {
+async function istaAblLoad(id, chassis) {
   const name = String(id || '').trim();
   if (!name) return null;
-  // sharded since the pool outgrew the host's limit; the flat name is still
-  // tried, so a build carrying an older extract keeps working
+  // the car's bundle holds the graph flat under abl/; failing that the
+  // sharded pool, and failing that the flat name an older extract used
   return (
+    (await istaAblFetch(`${name}.json.gz`, chassis)) ||
     (await istaAblFetch(`${istaAblShard(name)}/${name}.json.gz`)) ||
     (await istaAblFetch(`${name}.json.gz`))
   );
