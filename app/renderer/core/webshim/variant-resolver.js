@@ -139,7 +139,9 @@ function webResolveVariantLast() {
  */
 function noteResolve(key, path, extra) {
   _lastResolve = { group: key, path, ...extra };
-  console.info(`[variant] ${key}: ${path}`, extra || '');
+  // debug level: it is a trace for the journal, not a message for the
+  // console's default view, where testers read it as an error
+  console.debug(`[variant] ${key}: ${path}`, extra || '');
   if (typeof Journal !== 'undefined' && Journal.log) {
     Journal.log(
       'variant',

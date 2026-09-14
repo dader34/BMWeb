@@ -35,9 +35,9 @@
  * changed in the corpus -- but with INFO checked after writes (rule 3), a
  * hypothetical SYSTEMCHECK_STOP_INFO must hit the write tier, not fall
  * through to the INFO tier. Relaxing a WRITE token is the safe direction.
- * Kept identical to the classifier in tools/verify/sgbd_bulk_verify.py --
- * two different answers to "is this a write?" is worse than either alone.
- * test_write_gate.js check 3 enforces the twin token-by-token.
+ * This is the ONE classifier: the Python twin that the retired engine
+ * harness carried is gone, so there is no second answer to "is this a
+ * write?" to drift from.
  */
 
 /**

@@ -121,9 +121,10 @@ function ipoPrintRowsHtml(rows) {
  * @param {IpoProgram} p - the program
  * @returns {string} HTML, empty when the menu has no keys
  */
-function ipoPrintKeysHtml(p) {
+function ipoPrintKeysHtml(p, inpa) {
   const items = (p.items || []).filter((it) => it.nr !== 20);
   if (!items.length) return '';
+  if (inpa) return ipoPrintInpaKeysHtml(p, items);
   const menu = ipoMenuTiles(p);
   const legend = new Map();
   for (const t of (menu && menu.tiles) || []) {
@@ -165,6 +166,40 @@ function ipoPrintKeysHtml(p) {
  * @param {boolean} inpa - INPA layout (the text grid) rather than the modern rows
  * @returns {PrintDocOptions}
  */
+/**
+ * The key bar the way the INPA layout draws it on screen: a row of key
+ * numbers over a row of flat boxes with the caption centred, and a Shift
+ * row below when the menu has shifted keys.
+ * @param {object} p - the running program
+ * @param {object[]} items - the menu's keys (Shift+F10 excluded)
+ * @returns {string} HTML
+ */
+function ipoPrintInpaKeysHtml(p, items) {
+  const byKey = new Map(items.map((it) => [it.nr, it]));
+  const row = (shift) => {
+    let any = false;
+    const nums = [];
+    const btns = [];
+    for (let k = 1; k <= 10; k++) {
+      const it = byKey.get(shift ? IPO_SHIFT_BASE + k : k);
+      const label = it ? ipoKeyLabel(p, it) : '';
+      if (label) any = true;
+      nums.push(`<span class="pr-ikey-num">${shift ? '⇧' : ''}F${k}</span>`);
+      btns.push(
+        `<span class="pr-ikey${label ? '' : ' empty'}">${esc(label)}</span>`
+      );
+    }
+    return any
+      ? `<div class="pr-ikeys"><div class="pr-ikey-nums">${nums.join('')}</div>` +
+          `<div class="pr-ikey-btns">${btns.join('')}</div></div>`
+      : '';
+  };
+  const plain = row(false);
+  const shifted = row(true);
+  if (!plain && !shifted) return '';
+  return `<div class="pr-keys">${plain}${shifted}</div>`;
+}
+
 function ipoPrintDocument(p, ecu, inpa) {
   const title = ipoText(p.title || '') || p.menu || '';
   const sections = [];
@@ -193,7 +228,7 @@ function ipoPrintDocument(p, ecu, inpa) {
     const html = ipoPrintRowsHtml(rows);
     if (html) sections.push({ html });
   }
-  const keys = ipoPrintKeysHtml(p);
+  const keys = ipoPrintKeysHtml(p, inpa);
   if (keys) sections.push({ html: keys, avoidBreak: true });
   if (!sections.length) {
     sections.push({
@@ -234,6 +269,84 @@ function ipoPrintScreen(p, ecu, inpa) {
   return Promise.resolve();
 }
 
+/**
+ * Whether a printfile names the file the viewer is showing: the same path,
+ * or the same text (the API's fault read and a save-as can leave the
+ * script holding a different name for the same protocol).
+ * @param {IpoProgram} p - the program
+ * @param {string} name - the file name printfile passed
+ * @param {string[]} lines - the file's lines
+ * @returns {boolean}
+ */
+function ipoPrintFileIsView(p, name, lines) {
+  const v = p.view;
+  if (!v) return false;
+  if (v.path && v.path === name) return true;
+  const shown = v.lines || [];
+  return (
+    shown.length > 0 &&
+    shown.length === lines.length &&
+    shown.every((l, i) => l === lines[i])
+  );
+}
+
+/**
+ * The print document for INPA's printfile: the fault protocol as the
+ * report's tables plus INPA's text when the file is the one the viewer
+ * shows (what printscreen prints over that view), else the file's lines
+ * as a monospace sheet. Pure, so the harness can pin it.
+ * @param {IpoProgram} p - the program
+ * @param {EcuRecord} ecu - the module
+ * @param {string} name - the file's name
+ * @param {string[]} lines - the file's lines
+ * @returns {PrintDocOptions}
+ */
+function ipoPrintFileDocument(p, ecu, name, lines) {
+  const isView = ipoPrintFileIsView(p, name, lines);
+  const sections = [];
+  if (
+    isView &&
+    p.view.report &&
+    typeof ipoProtocolPrintSections === 'function'
+  ) {
+    sections.push(...ipoProtocolPrintSections(p.view));
+  } else {
+    sections.push({
+      html: `<pre class="pr-screen">${esc((lines || []).join('\n'))}</pre>`,
+    });
+  }
+  const subtitle =
+    isView && p.view.title ? ipoText(p.view.title) : ipoText(p.title || '');
+  return {
+    title: ecu.label || ecu.sgbd,
+    subtitle: subtitle || name,
+    meta: [
+      ecu.chassis ? ['Chassis', String(ecu.chassis).toUpperCase()] : null,
+      ['SGBD', `${ecu.sgbd}.prg`],
+      ['File', name],
+      ['Printed', new Date().toLocaleString()],
+    ],
+    sections,
+  };
+}
+
+/**
+ * INPA's printfile for the module view: the clean sheet when the print
+ * builder is loaded, nothing otherwise (the browser's own print would show
+ * the screen, not the file).
+ * @param {IpoProgram} p - the program
+ * @param {EcuRecord} ecu - the module
+ * @param {string} name - the file's name
+ * @param {string[]} lines - the file's lines
+ * @returns {Promise<void>}
+ */
+function ipoPrintFile(p, ecu, name, lines) {
+  if (typeof printDoc === 'function') {
+    return printDoc(ipoPrintFileDocument(p, ecu, name, lines));
+  }
+  return Promise.resolve();
+}
+
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     IPO_PRINT_COLS,
@@ -242,5 +355,7 @@ if (typeof module !== 'undefined' && module.exports) {
     ipoPrintKeysHtml,
     ipoPrintDocument,
     ipoPrintScreen,
+    ipoPrintFileDocument,
+    ipoPrintFile,
   };
 }

@@ -67,20 +67,43 @@ class WebSerialBus extends SerialTransportBase {
   }
 
   /**
-   * Open a port the user picks. Must be called from a user gesture -- the
-   * browser will not show the port picker otherwise. app.js wires this to the
-   * "connect cable" control.
-   * @returns {Promise<string>} The port label.
-   * @throws {Error} When the browser has no Web Serial.
+   * WHICH PORT this session drives: the one seam a gateway adds.
+   *
+   * With a gateway configured (Settings `gatewayUrl`, or `?gateway=` on the
+   * URL) the cable is on another machine, and the port is a socket to it
+   * with this same Web Serial surface. Everything below this line -- the
+   * framing, the line control, the reopens, the timeouts -- runs here
+   * either way and cannot tell the two apart, which is the whole point of
+   * putting the seam at the port rather than inside the transport.
+   * @returns {Promise<SerialPort>} The port to open.
+   * @throws {Error} When neither a gateway nor Web Serial can supply one.
    */
-  async connect() {
+  async _acquirePort() {
+    const url = typeof gatewaySetting === 'function' ? gatewaySetting() : '';
+    if (url) {
+      const remote = new GatewayPort(url);
+      await remote.dial();
+      return remote;
+    }
     if (!('serial' in navigator)) {
       throw new Error(
         'This browser has no Web Serial. Use Chrome or Edge ' +
           '(desktop), or the macOS app.'
       );
     }
-    this.port = await navigator.serial.requestPort();
+    return navigator.serial.requestPort();
+  }
+
+  /**
+   * Open a port the user picks. Must be called from a user gesture -- the
+   * browser will not show the port picker otherwise. app.js wires this to the
+   * "connect cable" control. A gateway needs no gesture (there is no picker
+   * to show), but it costs nothing to arrive through the same click.
+   * @returns {Promise<string>} The port label.
+   * @throws {Error} When no port can be acquired.
+   */
+  async connect() {
+    this.port = await this._acquirePort();
     await this.port.open(KDCAN);
     this.config = KDCAN;
     this.writer = this.port.writable.getWriter();
@@ -190,7 +213,23 @@ class WebSerialBus extends SerialTransportBase {
    *   the caller leaves the chip as "no cable".
    */
   async reconnect() {
-    if (!('serial' in navigator) || this.connected) return null;
+    if (this.connected) return null;
+    // A gateway has no permission to remember and no picker to skip: the
+    // socket either opens or it does not, so the silent path is simply the
+    // ordinary connect. A gateway that is not running stays "no cable",
+    // exactly as an unplugged cable does.
+    const gateway =
+      typeof gatewaySetting === 'function' ? gatewaySetting() : '';
+    if (gateway) {
+      try {
+        return await this.connect();
+      } catch (e) {
+        console.info(`[serial] the gateway did not answer: ${e.message}`);
+        this.port = null;
+        return null;
+      }
+    }
+    if (!('serial' in navigator)) return null;
     let ports;
     try {
       ports = await navigator.serial.getPorts();
@@ -263,6 +302,11 @@ class WebSerialBus extends SerialTransportBase {
    * @param {PortConfig} cfg - The settings to reopen with.
    */
   async _reopenStreams(cfg) {
+    // a reopen can be asked for before any port was granted: the first
+    // group probe on a page load raced the silent reconnect and died on
+    // "reading 'close' of null", which the app could not tell from a bug.
+    // Name it as what it is, in the words the error screen recognises.
+    if (!this.port) throw new Error('no cable is open');
     await this.port.close();
     await this.port.open(cfg);
     this.config = cfg;
@@ -292,22 +336,62 @@ class WebSerialBus extends SerialTransportBase {
     await this._reopenStreams(cfg);
   }
 
-  /** @returns {string} 'USB vid:pid' when the port says, else 'serial'. */
+  /**
+   * @returns {string} 'gateway host:port (device)' when the cable is on
+   *   another machine, else 'USB vid:pid' when the port says, else
+   *   'serial'. The chip shows this, so a remote car reads as remote.
+   */
   portLabel() {
+    if (this.port && typeof this.port.label === 'function')
+      return this.port.label();
     const i = this.port && this.port.getInfo ? this.port.getInfo() : {};
-    return i.usbVendorId
-      ? `USB ${i.usbVendorId.toString(16)}:${(i.usbProductId || 0).toString(16)}`
-      : 'serial';
+    if (i.usbVendorId)
+      return `USB ${i.usbVendorId.toString(16)}:${(i.usbProductId || 0).toString(16)}`;
+    // A K+DCAN cable is a USB device and the browser usually reports its
+    // ids. A Bluetooth adapter (named by its service class) has no K line
+    // to echo on, so it is called out: a tester spent four days on "no
+    // echo from the cable" with one. A port with NO ids at all is not that
+    // verdict: Chrome inside a Chromebook's Linux container, or any
+    // passthrough, hands the same FTDI cable over as a bare serial device
+    // with its ids stripped, and a tester read the old "not a K+DCAN
+    // cable" label as a refusal and gave up. Say only what is known.
+    if (i.bluetoothServiceClassId)
+      return 'Bluetooth serial, not a K+DCAN cable';
+    return 'serial port, no USB id reported';
+  }
+
+  /**
+   * What the port says about itself, for the no-echo error: '' when it
+   * reports USB ids (then the cable is real and the car is the question),
+   * a verdict for Bluetooth, and for a port with no ids only the fact that
+   * none were reported, since that port may well be the cable.
+   * @returns {string}
+   */
+  portHint() {
+    if (this.port && typeof this.port.label === 'function') return '';
+    const i = this.port && this.port.getInfo ? this.port.getInfo() : {};
+    if (i.usbVendorId) return '';
+    if (i.bluetoothServiceClassId)
+      return ` -- this port is a ${this.portLabel()}; a K+DCAN cable shows as USB 403:6001`;
+    return (
+      ' -- this port reported no USB id (a Linux container or a passthrough' +
+      ' strips it); a K+DCAN cable normally shows as USB 403:6001, but one' +
+      ' without ids can still be the cable'
+    );
   }
 
   /** Release the streams, close the port and forget the wire state. */
   async disconnect() {
     await this._releaseStreams();
+    const port = this.port;
     try {
-      if (this.port) await this.port.close();
+      if (port) await port.close();
     } catch {
       /* closing */
     }
+    // a gateway's socket is dropped AFTER the remote cable is closed: the
+    // close travels over that very socket
+    if (port && typeof port.hangUp === 'function') port.hangUp();
     this.port = this.reader = this.writer = null;
     this._resetWireState();
   }
@@ -683,6 +767,7 @@ class WebSerialBus extends SerialTransportBase {
         bmwSleep(DRAIN_PROBE_MS).then(() => ({ hit: false })),
       ]);
       if (!settled.hit) return; // still outstanding: leave it be
+      this.pending = null; // consumed here, as stale
       const { value, done } = settled.r || {};
       if (done || !value || !value.length) return;
     }
@@ -709,26 +794,32 @@ class WebSerialBus extends SerialTransportBase {
    */
   async readSome(deadline) {
     const ms = Math.max(1, deadline - Date.now());
-    if (!this.pending) {
-      // Tag the read so a resolved value can be told from a stale handle.
-      this.pending = this.reader.read().then(
-        (r) => {
-          this.pending = null;
-          return r;
-        },
-        (e) => {
-          this.pending = null;
-          throw e;
-        }
-      );
-    }
+    // THE CONSUMER CLEARS THE HANDLE, NEVER THE READ ITSELF. An earlier
+    // version had the read null this.pending as it resolved. A read left
+    // outstanding by the previous exchange's timeout then resolved while
+    // nobody was awaiting it -- during the 5 to 11 ms the transmit line is
+    // held after a K-line write -- and its value, the first chunk of the
+    // echo, was dropped: the next readSome found no handle and armed a
+    // fresh read that only saw the rest. On Windows, where the cable hands
+    // over one byte per chunk, every DS2 echo came back missing its first
+    // byte ("F0 04 00 F4" as "04 00 F4"); on macOS one to four bytes went,
+    // sometimes. A resolved read now stays on this.pending until a caller
+    // takes its value.
+    if (!this.pending) this.pending = this.reader.read();
     // a worker-timed race: a late wake resolves an orphaned promise, nothing
     // else, so there is no timer to clear
     const timeout = bmwSleep(ms).then(() => TIMED_OUT);
-    const r = await Promise.race([this.pending, timeout]);
+    let r;
+    try {
+      r = await Promise.race([this.pending, timeout]);
+    } catch (e) {
+      this.pending = null;
+      throw e;
+    }
     // Timed out: the read stays on this.pending for the next call. Report
     // "nothing yet" rather than done -- done means the port closed.
     if (r === TIMED_OUT) return { value: null, done: false };
+    this.pending = null;
     return r;
   }
 }

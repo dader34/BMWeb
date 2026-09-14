@@ -171,6 +171,58 @@ function etkMaxIntroYear(bodies) {
   return max;
 }
 
+/** @type {Map<string, number>|null} memoised end-of-build years */
+let etkProdEndCache = null;
+
+/**
+ * Each variant's real end-of-build year, taken from the VIN index. vehicles.json
+ * carries only an introduction date, so etkMaxIntroYear is a chassis-wide
+ * stand-in that runs every variant to the same year -- too long for a model
+ * that stopped early (an M3 CSL built only in 2003) and too short for one that
+ * outlived the newest introduction. The VIN index records every
+ * production-number block with its date, so a variant's newest block is its
+ * true end of build. Built once, keyed "chassis|mospid|steer".
+ * @param {EtkVinIndex} idx - the loaded VIN index
+ * @returns {Map<string, number>} key -> end-of-production year
+ */
+function etkProdEndYears(idx) {
+  if (etkProdEndCache) return etkProdEndCache;
+  const byVariant = []; // variant index -> newest production year
+  for (const r of idx.ranges) {
+    const y = +String(r[3]).slice(0, 4);
+    if (y && y > (byVariant[r[2]] || 0)) byVariant[r[2]] = y;
+  }
+  const out = new Map();
+  idx.variants.forEach((v, i) => {
+    const y = byVariant[i];
+    if (!y) return;
+    const key = `${v[0]}|${v[1]}|${v[5]}`;
+    if (y > (out.get(key) || 0)) out.set(key, y);
+  });
+  etkProdEndCache = out;
+  return out;
+}
+
+/**
+ * The newest end-of-build year across a set of variant rows, for the Year
+ * list's upper bound. Falls back to the chassis-wide stand-in until the VIN
+ * index is loaded, or for any variant it does not cover.
+ * @param {EtkVehicleRow[]} vs - the filtered variant rows ([steer,gear,date,mospid])
+ * @param {string} chassis - the chassis code
+ * @param {Map<string, number>|null} prodEnds - the loaded end-of-build map, or null
+ * @param {number} fallback - the chassis-wide stand-in (etkMaxIntroYear)
+ * @returns {number}
+ */
+function etkVariantEndYear(vs, chassis, prodEnds, fallback) {
+  if (!prodEnds) return fallback;
+  let end = 0;
+  for (const v of vs) {
+    const y = prodEnds.get(`${chassis}|${v[3]}|${v[0]}`);
+    if (y && y > end) end = y;
+  }
+  return end || fallback;
+}
+
 // The dates in the data are each variant's INTRODUCTION date, not the model
 // years it was sold. So a car whose build year sits between two intro dates
 // (a 2005 E46 325i, say) had no exact row and its year went missing from the
@@ -296,6 +348,8 @@ function etkAttributeSelector(opts, onResolve) {
   /** @type {EtkVinHit|null} the vehicle the current picks resolve to */
   let picked = null;
   let chassisMaxYear = 0; // newest intro-year anywhere in the chassis
+  /** @type {Map<string, number>|null} per-variant end-of-build from the VIN index */
+  let prodEnds = null;
   const state = {
     series: null,
     chassis: null,
@@ -449,7 +503,13 @@ function etkAttributeSelector(opts, onResolve) {
     const introYears = [...new Set(vs.map((v) => etkYearOf(v[2])))]
       .filter(Boolean)
       .sort();
-    const { years, byYear } = etkYearsInForce(introYears, chassisMaxYear);
+    const maxYear = etkVariantEndYear(
+      vs,
+      state.chassis,
+      prodEnds,
+      chassisMaxYear
+    );
+    const { years, byYear } = etkYearsInForce(introYears, maxYear);
     selYear.setOptions(years, years.length > 1 ? 'All values' : '');
     selYear._vs = vs;
     selYear._vals = years;
@@ -545,6 +605,16 @@ function etkAttributeSelector(opts, onResolve) {
       veh = await loadVehicles();
       grouped = groupBySeries(veh);
       refreshSeries();
+      // The Year list needs each variant's real end of build, which lives in
+      // the VIN index (vehicles.json has only intro dates). Pull it in the
+      // background so it never blocks the picker; until it lands the list uses
+      // the chassis-wide stand-in, and once it does a shown list is rebuilt.
+      loadVinIndex()
+        .then((idx) => {
+          prodEnds = etkProdEndYears(idx);
+          if (state.model && !selGear.disabled) selGear.onchange();
+        })
+        .catch(() => {}); // optional here: the stand-in still works without it
     } catch (e) {
       idHint.textContent = String(e.message || e);
     }

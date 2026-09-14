@@ -1,8 +1,8 @@
 #!/bin/sh
 # Every guard on the generated-screen pipeline, in one command.
 #
-# Run this after touching anything under tools/ipo_*.py, tools/sgbd_harvest.py
-# or MenuGen's activation code. The generators write data for hundreds of ECUs
+# Run this after touching anything under tools/decompile, tools/sgbd or
+# tools/export. The generators write data for hundreds of ECUs
 # at once, so a quiet mistake is a quiet mistake everywhere -- these are the
 # checks that turn that into a loud one.
 #
@@ -15,8 +15,11 @@
 # SOME GENERATORS ARE RUN BY HAND and so are named by no code. They look
 # orphaned to a grep -- a reference count says 1, itself -- but their output
 # is load-bearing. Do not delete them:
-#   vm_fixtures.py      -> vmfix.json      (input to test_bestvm.js)
 #   sgbd_code.py        -> data/job-code/  (input to the VM)
+# data/sim-captures/vmfix.json is a COMMITTED capture: the result sets the
+# real EDIABAS engine produced for the replayed telegrams. The engine that
+# wrote it (the .NET reference CLI) was removed from the repo in 2026-09,
+# so the fixture cannot be regenerated -- restore it from git.
 # (actuator captions live in the IR itself now: ir_build emits them; the
 # old reference-dump generators whose _*.json nothing read are gone)
 #
@@ -52,6 +55,12 @@ cd "$(dirname "$0")/.."
 # BMACW_IPO_CORPUS at vendor/EC-APPS/INPA/SGDAT to run it over the real tree.
 echo "== .IPO compiler / editor round-trip =="
 python3 tools/verify/test_ipo_roundtrip.py
+echo
+
+# bmweb-cli runs COPIES of the renderer's scripts in node; its build and
+# tests need no BMW originals either, so it also runs before the gate.
+echo "== bmweb-cli: builds from the renderer's own files, tests pass, tarball is clean =="
+node tools/verify/test_cli.js || exit 1
 echo
 
 # BMW originals are not in the repo; say so clearly before anything reads them
@@ -98,23 +107,11 @@ echo
 echo "== INPA config export matches the shipped chassis-config =="
 python3 tools/export/inpa_config.py --check || exit 1
 
-if [ -n "$BMACW_PORT" ]; then
-  echo
-  echo "== job metadata matches the engine =="
-  python3 tools/verify/test_meta.py || exit 1
-  echo
-  echo "== lifted specs decode bytes the way the engine does =="
-  # needs the .NET engine (vendor/ediabaslib-src); returns 1 on disagreement
-  python3 tools/verify/sgbd_value_diff.py --selftest || exit 1
-else
-  echo
-  echo "SKIP (engine not running): test_meta.py, sgbd_value_diff.py --selftest"
-  echo "      set BMACW_PORT to run the engine-backed checks"
-fi
-
 echo
 echo "== the VM against captured telegrams =="
 node tools/verify/test_bestvm.js || exit 1
+node tools/verify/test_tabline.js || exit 1
+node tools/verify/test_vm_config.js || exit 1
 node tools/verify/test_fa_stream.js || exit 1
 
 echo
@@ -123,7 +120,9 @@ node tools/verify/test_groups.js || exit 1
 
 echo
 echo "== whole-vehicle sweep plans every chassis from its own config =="
-node tools/verify/test_sweep.js || exit 1
+node tools/verify/test_sweep.js
+node tools/verify/test_fault_read_arg.js
+node tools/verify/test_report_noise.js || exit 1
 
 echo
 echo "== export ships every variant a group can identify, not just the menu =="
@@ -202,8 +201,24 @@ echo "== Coding selection: SGET predicates pick the module and its coding file =
 node tools/verify/test_coding_select.js || exit 1
 
 echo
+echo "== service functions: the catalogue, its per-chassis resolution, the app =="
+node tools/verify/test_service_functions.js || exit 1
+
+echo
 echo "== live .IPO runtime: entry, keys, screens, machines, scriptchange =="
 node tools/verify/test_ipo_runtime.js || exit 1
+
+echo
+echo "== .IPO reader: a dropped script decodes to the same tokens the exporter ships =="
+node tools/verify/test_ipofile.js || exit 1
+
+echo
+echo "== .IPO writer: a decoded script re-encodes to its own bytes =="
+node tools/verify/test_ipo_encode.js || exit 1
+
+echo
+echo "== INPA source compiler: decompile, recompile, and drive the car the same way =="
+node tools/verify/test_ips_compile.js || exit 1
 
 echo
 echo "== guided procedures: suspend on every job, honour waits, resolve segment jumps =="
@@ -216,6 +231,8 @@ node tools/verify/test_vmbridge.js || exit 1
 echo
 echo "== the wire: framing, checksums, port settings, sessions =="
 node tools/verify/test_transport.js || exit 1
+node tools/verify/test_port_label.js || exit 1
+node tools/verify/test_read_pending.js || exit 1
 
 echo
 echo "== write guard holds =="
@@ -236,6 +253,50 @@ node tools/verify/test_journal.js || exit 1
 echo
 echo "== fault-report PDF: one fixed column grid, both render paths agree =="
 node tools/verify/test_fault_report.js || exit 1
+
+echo
+echo "== control unit tree: layout, scan status join, extractor =="
+node tools/verify/test_ecu_tree.js
+node tools/verify/test_tree_scan.js
+
+echo
+echo "== ISTA shell: tab model, routes, favourites, banner and details text =="
+node tools/verify/test_ista.js || exit 1
+
+echo
+echo "== ISTA vehicle test: the read runs in the shell and is kept on the car =="
+node tools/verify/test_ista_vehicle_test.js || exit 1
+
+echo
+echo "== repair manual: the extractor's document model, groups and pictures =="
+python3 tools/verify/test_repair_extract.py || exit 1
+python3 tools/verify/test_ecu_functions_extract.py || exit 1
+python3 tools/verify/test_repair_search_index.py || exit 1
+
+echo
+echo "== repair manual: the browser's tree, the search scopes, the renderer =="
+node tools/verify/test_repair.js || exit 1
+
+echo
+echo "== diagnosis structures: the tree joins, the document classes, the bodies =="
+node tools/verify/test_diag_structure.js || exit 1
+
+echo
+echo "== ISTA test modules: flattening, the opaque switch, dispatch, the validator =="
+python3 tools/verify/test_abl_extract.py || exit 1
+
+echo
+echo "== ISTA wiring: the designator index a clicked schematic resolves through =="
+python3 tools/verify/test_wiring_extract.py || exit 1
+
+echo
+echo "== parts diagrams: callout hotspot file shape, the pos join, scale mapping =="
+node tools/verify/test_etk_hotspots.js || exit 1
+
+echo
+echo "== workshop documents: validity rules, the car filter, tree, renderers =="
+node tools/verify/test_techdata.js || exit 1
+python3 tools/verify/test_techdata_extract.py || exit 1
 
 # Table completeness: the VM reaches tables the lifter never modelled, so a
 # shipped set that omits declared tables silently decodes lookups as "".

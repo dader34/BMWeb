@@ -103,6 +103,8 @@ const IPO_SILENT_RE = /IFH-0009|IFH-0019|no answer/i;
  * @property {(p: IpoProgram, step: IpoStep) => Promise<IpoPick|null>} pickComponent - the togglelist picker
  * @property {(p: IpoProgram, names: string[], multiple: boolean, current: Set<string>|null, hints?: Array<{key: string, label: string, lines: number}>) => Promise<string[]|null>} pickLines - INPA's Select
  * @property {(p: IpoProgram) => void} printScreen - INPA's printscreen
+ * @property {(p: IpoProgram, name: string, lines: string[]) => void} [printFile] -
+ *   INPA's printfile: a file the script wrote, by name, as its lines
  * @property {(ecu: EcuRecord, script: string, exec: IpoExec) => Promise<EcuRecord|null>} [resolveScriptEcu] -
  *   the module a scriptchange target addresses, identified by the car
  * @property {(p: IpoProgram, step: IpoStep, guards: Set<number>) => Promise<'tick'|'press'|'stop'>} machineTick - a %STATE park
@@ -153,6 +155,7 @@ class IpoProgram {
     this.queued = null;
     this.gen = 0; // bumped on every navigation; stale cycles stop
     this.closed = false;
+    this.leaving = false; // leaveModule is running inpaexit
     /** @type {Set<string>} "scope:job" confirmed in this menu */
     this.confirmedWrites = new Set();
     /** @type {Array<{target: string, job: string, arg: string|null, status: string}>} sent jobs, newest last */
@@ -172,6 +175,8 @@ class IpoProgram {
     this.script = null;
     /** @type {string|null} the menu the entry set (the route's root) */
     this.rootMenu = null;
+    /** @type {string|null} the screen the entry set on the root menu */
+    this.rootScreen = null;
     this.answered = false; // INITIALISIERUNG returned any result
     this.silent = false; // INITIALISIERUNG got no answer at all
     this.noCable = false; // no adapter: the script cannot ask the car
@@ -275,6 +280,26 @@ class IpoProgram {
         this.messages.push({ title: step.title, body: step.body });
         await this.ui.message(step.title, step.body);
         step = vm.resume();
+      } else if (step.kind === 'fsread') {
+        // INPA's API fault read: FS_LESEN and every entry's detail on the
+        // wire, then the protocol file the script goes on to viewopen
+        const lines = await this.apiFaultRead(step.sgbd, step.file, ctx);
+        if (lines == null) return { done: false, cancelled: true };
+        vm.files.set(step.file, lines);
+        vm.lastWritten = step.file;
+        step = vm.resume();
+      } else if (step.kind === 'pick') {
+        // BMWeb's own picker (the home script): the host lists chassis,
+        // modules or the whole-vehicle script; a cancel leaves the body
+        this.reflect(vm.out);
+        const choice =
+          typeof this.ui.pickHome === 'function'
+            ? await this.ui.pickHome(this, step)
+            : null;
+        if (choice == null) return { done: false, cancelled: true };
+        // the chassis chosen is the car every later screen belongs to
+        if (step.what === 'chassis' && this.ecu) this.ecu.chassis = choice;
+        step = vm.resume(String(choice));
       } else if (step.kind === 'toggle') {
         // the picker lists the screen the machine just set (its prologue's
         // setscreen names the component list)
@@ -284,6 +309,9 @@ class IpoProgram {
         step = vm.resume(pick);
       } else if (step.kind === 'print') {
         this.ui.printScreen(this);
+        step = vm.resume();
+      } else if (step.kind === 'printfile') {
+        this.printFile(step.file);
         step = vm.resume();
       } else if (step.kind === 'select') {
         // INPA's Select: which of the screen's named logical lines to show.
@@ -326,6 +354,23 @@ class IpoProgram {
       }
     }
     return { done: true, exit: !!(vm.out && vm.out.exit) };
+  }
+
+  /**
+   * INPA's printfile: the named file's lines go to the UI's printer. The
+   * name is what the script computed; when the VM holds no file by it the
+   * last one written stands in, as viewopen's does (the API's fault read
+   * names its file for the script, and a save-as may have renamed it).
+   * @param {string} name - the file name the script passed
+   * @returns {void}
+   */
+  printFile(name) {
+    if (typeof this.ui.printFile !== 'function' || !this.vm) return;
+    const { files, lastWritten } = this.vm;
+    let path = name;
+    if (!files.has(path) && lastWritten && files.has(lastWritten))
+      path = lastWritten;
+    this.ui.printFile(this, path, [...(files.get(path) || [])]);
   }
 
   /**
@@ -393,6 +438,79 @@ class IpoProgram {
    * @param {IpoRunContext} ctx - what is running
    * @returns {Promise<IpoFeed|null>} the feed, or null when the user declined
    */
+  /**
+   * What INPAapiFsLesen does inside INPA: read the module's fault memory
+   * (FS_LESEN), then the detail of every stored fault (FS_LESEN_DETAIL by
+   * its location number), and write the protocol file. The reads go through
+   * runJob, so wireReads carries them and the viewopen that follows draws
+   * the report joined with the fault lookup, as the whole-vehicle protocol
+   * does; the lines are INPA's own layout for the plain-text view.
+   * @param {string} sgbd - the module the script names
+   * @param {string} file - the file the script will viewopen
+   * @param {object} ctx - the body's context (scope, label)
+   * @returns {Promise<string[]|null>} the file's lines, or null when cancelled
+   */
+  async apiFaultRead(sgbd, file, ctx) {
+    const fed = await this.runJob(sgbd, 'FS_LESEN', null, ctx);
+    if (fed == null) return null;
+    const sets = (fed.sets || []).slice(1);
+    const faults = sets.filter(
+      (s) => s && (s.F_ORT_NR != null || s.F_HEX_CODE)
+    );
+    const name = String(sgbd || this.ecu.sgbd || '').toUpperCase();
+    const lines = [name, ''];
+    if (String(fed.get('JOB_STATUS') || 'OKAY') !== 'OKAY') {
+      lines.push(`Fehlerspeicher lesen: ${fed.get('JOB_STATUS')}`);
+      return lines;
+    }
+    if (!faults.length) {
+      lines.push('Kein Fehler im Fehlerspeicher');
+      return lines;
+    }
+    lines.push(
+      `${faults.length} Fehler im Fehlerspeicher`.replace(
+        /^1 Fehler/,
+        '1 Fehler'
+      ),
+      ''
+    );
+    for (const f of faults) {
+      const nr = f.F_ORT_NR != null ? String(f.F_ORT_NR) : '';
+      let det = f;
+      if (nr) {
+        // the detail pass, as INPA's API makes it; a module without the job
+        // answers with an error and the memory's own fields stand
+        const d = await this.runJob(sgbd, 'FS_LESEN_DETAIL', nr, ctx);
+        if (d == null) return null;
+        const ds = (d.sets || []).slice(1).find((s) => s && s.F_ORT_NR != null);
+        if (ds) det = Object.assign({}, f, ds);
+      }
+      const hex =
+        typeof hexText === 'function'
+          ? hexText(det.F_HEX_CODE)
+          : String(det.F_HEX_CODE || '');
+      lines.push(
+        `${nr}${hex ? ` (${hex})` : ''}  ${det.F_ORT_TEXT || ''}`.trim()
+      );
+      const bits = [];
+      if (det.F_ART1_TEXT) bits.push(`Fehlerart: ${det.F_ART1_TEXT}`);
+      if (det.F_HFK != null) bits.push(`Häufigkeit: ${det.F_HFK}`);
+      if (det.F_LZ != null) bits.push(`Logistikzähler: ${det.F_LZ}`);
+      if (det.F_VORHANDEN_TEXT) bits.push(det.F_VORHANDEN_TEXT);
+      if (bits.length) lines.push(`    ${bits.join('  ')}`);
+      const n = Number(det.F_UW_ANZ) || 0;
+      for (let i = 1; i <= n; i++) {
+        const t = det[`F_UW${i}_TEXT`];
+        if (t == null) continue;
+        const v = det[`F_UW${i}_WERT`];
+        const u = det[`F_UW${i}_EINH`];
+        lines.push(`    ${t}: ${v != null ? v : ''}${u ? ` ${u}` : ''}`);
+      }
+      lines.push('');
+    }
+    return lines;
+  }
+
   async runJob(sgbd, job, arg, ctx) {
     const target = ipoWireTarget(this.ecu, sgbd);
     const entry = !!(ctx && (ctx.scope === 'entry' || ctx.scope === 'exit'));
@@ -548,6 +666,10 @@ class IpoProgram {
     this.menu = out.menu || null;
     this.screen = out.screen || null;
     this.frequent = !!out.screenFrequent;
+    // the script's own front: the menu and screen its entry set. Esc on
+    // that menu first returns to that screen (see back()).
+    this.rootMenu = this.menu;
+    this.rootScreen = this.screen;
     this.title = out.title || null;
     return { ok: true };
   }
@@ -652,6 +774,21 @@ class IpoProgram {
     }
     if (gen !== this.gen) return true;
     if (out.title) this.title = out.title;
+    // the address bar follows the menu, so a link copied mid-script lands
+    // where the user is, not where the module was opened (a headless UI,
+    // the tree's live scan, owns no page and leaves the address alone)
+    if (
+      typeof routeSetCar === 'function' &&
+      this.ecu &&
+      this.ecu.chassis &&
+      !(this.ui && this.ui.headless)
+    )
+      routeSetCar(
+        this.ecu.chassis,
+        this.ecu.sgbd,
+        name,
+        out.screen || opts.screen || null
+      );
     if (out.menu && out.menu !== name && this.exec.procs[out.menu]) {
       // the prologue itself switched menus
       return this.openMenu(out.menu, {
@@ -1210,6 +1347,10 @@ class IpoProgram {
         const rep = ipoProtocolReport(this.wireReads, out.view.lines);
         this.view.report = rep.modules.length ? rep : null;
       }
+    } else if (out.viewClose) {
+      // viewclose without a viewopen after it: INPA's viewer window is
+      // gone, the screen behind it shows again
+      this.view = null;
     }
     // the body painted (userbox text, a result line): show it with the screen
     this.takeCells(out);
@@ -1259,6 +1400,21 @@ class IpoProgram {
       this.queued = 'back';
       return;
     }
+    // On the root menu, a key like Ident or Code only swaps the screen
+    // (setscreen without setmenu) and the menu's own F10 is "End", which
+    // leaves the module. Esc there first returns to the screen the entry
+    // set, so one Esc undoes the screen and the next one leaves -- INPA's
+    // main menu never strands the user on a sub-screen.
+    if (
+      this.menu &&
+      this.menu === this.rootMenu &&
+      this.rootScreen &&
+      this.screen !== this.rootScreen &&
+      this.exec.procs[this.rootScreen]
+    ) {
+      await this.showScreen(this.rootScreen, false);
+      return;
+    }
     if (this.items.some((it) => it.nr === IPO_BACK_KEY))
       return this.press(IPO_BACK_KEY);
     return this.leaveModule();
@@ -1270,9 +1426,19 @@ class IpoProgram {
    * @returns {Promise<void>}
    */
   async leaveModule() {
-    if (this.closed) return;
-    this.closed = true;
+    if (this.closed || this.leaving) return;
+    // inpaexit runs BEFORE the program is marked closed: drive() answers a
+    // closed program with "cancelled" at its first step, so marking it first
+    // meant the exit proc's own job (DIAGNOSE_ENDE) never reached the wire
+    // and the module was left mid-session. `leaving` keeps a second leave,
+    // or a key pressed meanwhile, from starting anything.
+    this.leaving = true;
     this.stopCycle();
+    // the leaving menu's release (its Back job, registered on entry) goes
+    // first, while the session is still open; the bus lock keeps that
+    // order on the wire even though the release is not awaited
+    if (typeof registerMenuLeave === 'function')
+      registerMenuLeave(null, null, null, null);
     if (this.exec.procs.inpaexit) {
       try {
         this.fresh();
@@ -1286,8 +1452,7 @@ class IpoProgram {
         /* leaving anyway */
       }
     }
-    if (typeof registerMenuLeave === 'function')
-      registerMenuLeave(null, null, null, null);
+    this.closed = true;
     this.ui.left(this);
   }
 

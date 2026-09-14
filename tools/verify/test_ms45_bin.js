@@ -2,14 +2,13 @@
 // Offline MS45 firmware-image validation math: CRC-32/MPEG-2 + RSA firmware
 // signature + region/address math.
 //
-// The product code is C# (src/EdiabasMac/FlashService.cs, class Ms45Bin). This
-// environment has no dotnet, so this harness (a) reimplements the SAME algorithm
-// in JS and pins it against known-answer vectors, and (b) parses FlashService.cs
-// and asserts the load-bearing constants/offsets/opcodes there match — so the JS
-// reference cannot silently drift from the C# it stands in for.
-//
-// The offline validation covered here is the gate that MUST pass before the
-// (UNVERIFIED) write path in FlashService sends any erase/write telegram.
+// The shipped flasher (app/renderer/core/flasher.js) is READ ONLY and carries
+// none of this: it backs up an ECU and never erases or writes one. This file
+// is the repo's only copy of the write-side validation math, kept pinned
+// against known-answer vectors so that if a write path is ever built, the CRC,
+// signature and region arithmetic it must pass already exist and are proven.
+// (It used to double as a structural lock on the C# FlashService port; that
+// C# code left the repo in 2026-09 together with the .NET reference engine.)
 //
 // Cross-checked against terraphantm/MS45-Flasher (Checksums_Signatures.cs).
 const fs = require('fs');
@@ -658,56 +657,6 @@ console.log(
     validateProgram(external, mpc).ok === false
   );
   external.set(goodExt);
-}
-
-// ── structural lock: the C# product code must carry the same constants ──────
-console.log('\nstructural lock against src/EdiabasMac/FlashService.cs');
-{
-  const src = fs.readFileSync(
-    path.join(__dirname, '..', '..', 'src', 'EdiabasMac', 'FlashService.cs'),
-    'utf8'
-  );
-  const must = [
-    // RSA firmware key (facts, reverse-engineered by hassmaschine / GPL-3.0 ref)
-    [
-      'firmware modulus',
-      '8470472580328006956677424405159809178175955696534718361218518906571634405286747173565502454089691240931470915432212928785673566143706092135925769557255439',
-    ],
-    [
-      'firmware private exponent',
-      '7260405068852577391437792347279836438436533454172615738187301919918543775959908116508429649500721130520546364846625732843778800986047617824899475327781303',
-    ],
-    ['CRC-32 polynomial 0x04C11DB7', '0x04C11DB7'],
-    // param header offsets
-    ['ParamCrcStored 0x100', 'ParamCrcStored       = 0x100'],
-    ['ParamCrcSegTable 0x104', 'ParamCrcSegTable     = 0x104'],
-    ['ParamCrcInitial 0x110', 'ParamCrcInitial      = 0x110'],
-    ['ParamSigStored 0x174', 'ParamSigStored       = 0x174'],
-    // program header offsets
-    ['ProgCrcPrimaryStored 0x60000', 'ProgCrcPrimaryStored   = 0x60000'],
-    ['ProgCrcSecondaryStored 0x60340', 'ProgCrcSecondaryStored   = 0x60340'],
-    ['ProgSigStored 0x60074', 'ProgSigStored     = 0x60074'],
-    // bases / sizes
-    ['external flash base 0xFFF00000', 'ExternalFlashBase = 0xFFF00000'],
-    ['param CRC segment base 0xFFE40000', 'ParamCrcSegmentBase = 0xFFE40000'],
-    ['param sig segment base 0xFFF40000', 'ParamSigSegmentBase = 0xFFF40000'],
-    ['tune blob size 0x1D000', 'TuneBlobSize        = 0x1D000'],
-    ['external size 0x100000', 'ExternalFlashSize   = 0x100000'],
-    ['mpc size 0x70000', 'MpcFlashSize        = 0x70000'],
-    ['program blob size 0x9FF40', 'ProgramBlobSize     = 0x9FF40'],
-    // erase opcode + chunk size
-    ['erase opcode 0xFE', 'cmd[4] = 0xFE'],
-    ['flash chunk size 0xFD', 'int seg = 0xFD'],
-    // the safety gate
-    ['env gate BMACW_ALLOW_FLASH_WRITE', 'BMACW_ALLOW_FLASH_WRITE'],
-    [
-      'gate needs confirm AND env==1',
-      'confirm && Environment.GetEnvironmentVariable("BMACW_ALLOW_FLASH_WRITE") == "1"',
-    ],
-    ['write path marked UNVERIFIED', 'UNVERIFIED'],
-  ];
-  for (const [label, needle] of must)
-    check(`C# source contains ${label}`, src.includes(needle));
 }
 
 console.log(

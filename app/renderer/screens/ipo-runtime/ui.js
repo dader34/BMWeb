@@ -9,6 +9,20 @@
  * @param {() => void} fn - what Back does
  * @returns {object} an action-bar entry
  */
+/**
+ * The caption over the key bar: the running script's menu title
+ * (setmenutitle), the way INPA shows it; empty restores "Select menu".
+ * @param {string} title
+ * @returns {void}
+ */
+function ipoSetKeysCaption(title) {
+  if (typeof document === 'undefined') return;
+  const st = document.documentElement.style;
+  if (title && title.trim())
+    st.setProperty('--fkeys-caption', JSON.stringify(title));
+  else st.removeProperty('--fkeys-caption');
+}
+
 function ipoBackAction(fn) {
   return { key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn };
 }
@@ -23,7 +37,6 @@ function ipoBackAction(fn) {
 function ipoMakeUi(ecu, container, back) {
   const inpa = typeof inpaMode === 'function' && inpaMode();
   let gridEl = null,
-    titleEl = null,
     statusEl = null,
     machineEl = null;
   /** INPA's progress window while a body has one open (progressDialog) */
@@ -34,11 +47,9 @@ function ipoMakeUi(ecu, container, back) {
   const build = () => {
     container.className = inpa ? 'ipo-view ipo-inpa' : 'ipo-view results-panel';
     container.innerHTML =
-      `<div class="ipo-title"></div>` +
       `<div class="ipo-screen"></div>` +
       `<div class="ipo-machine" hidden></div>` +
       `<div class="ipo-status mono"></div>`;
-    titleEl = container.querySelector('.ipo-title');
     gridEl = container.querySelector('.ipo-screen');
     machineEl = container.querySelector('.ipo-machine');
     statusEl = container.querySelector('.ipo-status');
@@ -79,7 +90,7 @@ function ipoMakeUi(ecu, container, back) {
         keepActivationsDuring(put);
       else put();
     }
-    if (titleEl) titleEl.textContent = ipoText(p.title || '');
+    ipoSetKeysCaption(ipoText(p.title || ''));
     if (machineEl) machineEl.hidden = true;
   };
 
@@ -144,6 +155,8 @@ function ipoMakeUi(ecu, container, back) {
         danger: true,
       }),
     pickComponent: (p, step) => ipoPickComponent(p, step),
+    // BMWeb's own picker (the home script): the host's lists in a dialog
+    pickHome: (p, step) => ipoPickHome(p, step),
     // INPA's save-as dialog: the browser's own picker where it has one
     // (Chrome, Edge), else a name for a download
     saveFile: (p, step) => ipoSaveFilePick(p, step),
@@ -152,8 +165,14 @@ function ipoMakeUi(ecu, container, back) {
       ipoPickLines(names, multiple, current, hints),
     // INPA's printscreen: the module view as a clean sheet (print.js)
     printScreen: (p) => ipoPrintScreen(p, p.ecu || ecu, inpa),
+    // INPA's printfile: the protocol file the script wrote, as a sheet
+    printFile: (p, name, lines) => ipoPrintFile(p, p.ecu || ecu, name, lines),
     resolveScriptEcu: (from, script, exec) =>
-      ipoResolveScriptEcu(from, script, exec),
+      // the home script names a module by its SGBD after a chassis pick:
+      // that module is the car's own record, not a wire-resolved variant
+      from && from.sgbd === IPO_HOME_SGBD
+        ? ipoHomeEcuFor(from, script)
+        : ipoResolveScriptEcu(from, script, exec),
     machineTick: (p, step, guards) => ipoMachineTick(machineEl, step, guards),
     // INPA's progress window: a popup with the title, the line the script
     // wrote last (the module it is asking right now) and Cancel, which ends
@@ -182,7 +201,7 @@ function ipoMakeUi(ecu, container, back) {
     renderKeys,
     paint: (p) => {
       if (!gridEl) return;
-      if (titleEl) titleEl.textContent = ipoText(p.title || '');
+      ipoSetKeysCaption(ipoText(p.title || ''));
       // viewopen: INPA's viewer window with the file the script wrote. The
       // menu's screen cycle keeps painting behind it; the same file stays
       // in the DOM so the reader's scroll position survives each cycle.
@@ -190,7 +209,22 @@ function ipoMakeUi(ecu, container, back) {
         if (p.view !== paintedView) {
           paintedView = p.view;
           if (p.view.report && typeof ipoProtocolRender === 'function') {
-            ipoProtocolRender(gridEl, p);
+            const drawn = p.view;
+            // the whole-car read is finished: show what each fault captured,
+            // then offer to keep the report. Deferred until the renderer has
+            // built the rows and the bar these attach to.
+            Promise.resolve(ipoProtocolRender(gridEl, p)).then(async () => {
+              if (p.view !== drawn) return;
+              if (typeof garageAttachEnv === 'function')
+                await garageAttachEnv(gridEl, drawn.report, {
+                  screensFor:
+                    typeof garageScreensFor === 'function'
+                      ? garageScreensFor
+                      : null,
+                });
+              if (p.view === drawn && typeof garageOfferSave === 'function')
+                garageOfferSave(gridEl, drawn, p.ecu);
+            });
           } else {
             gridEl.innerHTML = `<pre class="ipo-protocol mono">${esc(
               (p.view.lines || []).join('\n')
@@ -204,6 +238,7 @@ function ipoMakeUi(ecu, container, back) {
       else ipoPaintLines(gridEl, p);
     },
     left: () => {
+      ipoSetKeysCaption('');
       ipoProgramLeft();
       if (typeof back === 'function') back();
     },

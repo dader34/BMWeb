@@ -53,8 +53,8 @@ _RESULT = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.*)$")
 def _port():
     """Base URL of the running engine, or None -- see _engine.find_base.
 
-    Discovery is shared with sgbd_diff now; this copy had
-    already drifted from theirs (BMACW_API vs BMACW_PORT, lsof-only vs
+    Discovery lives in _engine; the copy this function used to carry had
+    drifted from the other tools' (BMACW_API vs BMACW_PORT, lsof-only vs
     pgrep). Both env vars are honoured.
     """
     return _engine.find_base()

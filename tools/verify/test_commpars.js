@@ -74,4 +74,25 @@ ok('d_0012: both DS2 steps 1000 ms answer timeout, regen 200 then 100');
 // the old guess would have taken 5000 for every 0x1xx concept
 assert.notStrictEqual(by[0x10d].timeout, 5000);
 ok('the 0x78 busy timeout is no longer mistaken for the answer timeout');
+
+// ---- xreps rides on comm --------------------------------------------------
+// The init job's set_repeat_counter must reach the transport: the coding
+// SGBD for the EWS asks for 2, the diagnostic one for 4, and an xsetpar that
+// runs after the xreps (their real order) must keep it.
+{
+  const runInit = (sgbd) => {
+    const code = load(`data/ecu-src/${sgbd}.job-code.json.gz`);
+    const m = new Best2Vm(code, { tables: {}, args: '', send: () => [] });
+    m.run('INITIALISIERUNG');
+    return m.comm || {};
+  };
+  assert.strictEqual(runInit('c_ews3').repeats, 2, 'c_ews3 asks for 2 repeats');
+  assert.strictEqual(runInit('ews').repeats, 4, 'ews asks for 4');
+  assert.strictEqual(
+    runInit('c_ews3').concept,
+    6,
+    'and the xsetpar after it still sets the concept'
+  );
+  ok('xreps reaches comm and survives the xsetpar that follows it');
+}
 console.log(`\ncommpars: ${n} checks passed`);

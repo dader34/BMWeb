@@ -56,7 +56,7 @@ const BUILTINS = {
   userboxopen: bUserboxOpen,
   userboxclose: bUserboxClose,
   viewopen: bViewopen,
-  viewclose: bNoop,
+  viewclose: bViewclose,
   setstate: bSetstate,
   start: bSetstate,
   select: bSelect,
@@ -81,8 +81,8 @@ const BUILTINS = {
   fileclose: bFileclose,
   filewrite: bFilewrite,
   fileread: bFileread,
-  hexdump: bNoop,
-  printfile: bNoop,
+  hexdump: bHexdump,
+  printfile: bPrintfile,
   setstatemachine: bNoop,
   StrArrayCreate: bStrArrayCreate,
   StrArrayDestroy: bNoop,
@@ -147,15 +147,20 @@ const BUILTINS = {
   builtin_87: bUnavailable,
   builtin_93: bUnavailable,
   builtin_90: bStrArraySize, // string array length, out-param
-  builtin_1a: bNoop, // setcolor
+  builtin_1a: bSetcolor, // setcolor
+  setcolor: bSetcolor,
   builtin_51: bBlankscreen, // blankscreen
   blankscreen: bBlankscreen,
   settimer: bSettimer,
   testtimer: bTesttimer,
   builtin_09: bSettimer,
   builtin_0a: bTesttimer,
+  // BMWeb's own (home/bmweb.h): a pick from the host, a status line
+  bmweb_pick: bBmwebPick,
+  bmweb_status: bBmwebStatus,
   builtin_57: bUserboxClear, // userboxclear
-  builtin_58: bNoop, // userboxsetcolor
+  builtin_58: bUserboxSetcolor, // userboxsetcolor
+  userboxsetcolor: bUserboxSetcolor,
 };
 
 if (typeof module !== 'undefined' && module.exports) {

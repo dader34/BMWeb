@@ -18,6 +18,10 @@
   <link rel="stylesheet" href="css/lookup.css" />
   <link rel="stylesheet" href="css/tuning.css" />
   <link rel="stylesheet" href="css/themes.css" />
+  <!-- The ISTA layout's chrome. Every rule is scoped under .ista-real, which
+       the shell sets only while the INPA layout setting is on, so the Modern
+       look and the rest of the app are untouched by it. -->
+  <link rel="stylesheet" href="css/ista-real.css" />
 </head>
 <body>
   <!-- boot splash, dismissed once the sidecar answers. logo inherits theme vars -->
@@ -91,6 +95,12 @@
         <span class="led" id="led"></span>
         <span id="link-text">checking cable...</span>
       </div>
+      <!-- The Garage: the owner's saved cars and scan history, one press
+           from any screen (screens/garage/screen.js wires it). -->
+      <button class="icon-btn" id="garage-btn" title="Your saved cars and their scan history"><span class="btn-text">Garage</span><span class="btn-icon" aria-hidden="true">⌂</span></button>
+      <!-- Workshop mode: the ISTA shell, one press from any screen
+           (screens/ista/screen.js wires it, as the Garage button is wired). -->
+      <button class="icon-btn" id="ista-btn" title="ISTA: every read on one vehicle, behind one set of tabs"><span class="btn-text">ISTA</span><span class="btn-icon" aria-hidden="true">▤</span></button>
       <button class="icon-btn" id="settings-btn" title="Skins, startup vehicle, remote session"><span class="btn-text">Settings</span><span class="btn-icon" aria-hidden="true">⚙</span></button>
     </div>
   </header>
@@ -184,6 +194,7 @@
   <script src="core/webshim/exchange.js"></script>
   <script src="core/webshim/transport-base.js"></script>
   <script src="core/webshim/native-bus.js"></script>
+  <script src="core/webshim/gateway-port.js"></script>
   <script src="core/webshim/web-serial-bus.js"></script>
   <script src="core/webshim/bus.js"></script>
   <script src="core/webshim/data-fetch.js"></script>
@@ -218,6 +229,18 @@
   <script src="core/ipovm/structures.js"></script>
   <script src="core/ipovm/suspensions.js"></script>
   <script src="core/ipovm/vm.js"></script>
+  <!-- Reading an .IPO / .IPS the user supplies into the VM's own exec shape:
+       the pool before the declarations that index it, the walker before the
+       assembler over it, the compiler last (it needs the walker's tables). -->
+  <script src="core/ipofile/pool.js"></script>
+  <script src="core/ipofile/decls.js"></script>
+  <script src="core/ipofile/walk.js"></script>
+  <script src="core/ipofile/exec.js"></script>
+  <script src="core/ipofile/encode.js"></script>
+  <script src="core/ipofile/lex.js"></script>
+  <script src="core/ipofile/parse.js"></script>
+  <script src="core/ipofile/emit.js"></script>
+  <script src="core/ipofile/compile.js"></script>
   <script src="core/core/settings.js"></script>
   <script src="core/core/ui.js"></script>
   <script src="core/core/api.js"></script>
@@ -269,6 +292,7 @@
   <script src="screens/ipo-runtime/protocol.js"></script>
   <script src="screens/ipo-runtime/ui.js"></script>
   <script src="screens/ipo-runtime/open.js"></script>
+  <script src="screens/ipo-runtime/home.js"></script>
   <script src="screens/ecu.js"></script>
   <script src="screens/activations.js"></script>
   <!-- The coding codec/write stack (core/coding/). encode defines CodingEncode,
@@ -346,7 +370,45 @@
   <script src="screens/etk/attributes.js"></script>
   <script src="screens/etk/identify.js"></script>
   <script src="screens/etk/catalogue.js"></script>
+  <script src="screens/etk/callouts.js"></script>
   <script src="screens/etk/diagram.js"></script>
+  <!-- The Garage (screens/garage/): saved cars and the scans kept against
+       them. After the protocol renderer and the sweep rows it redraws stored
+       reports with, and after the ETK VIN decoder it adds cars through. -->
+  <script src="screens/garage/store.js"></script>
+  <script src="screens/garage/diff.js"></script>
+  <script src="screens/garage/warn.js"></script>
+  <script src="screens/garage/env.js"></script>
+  <script src="screens/garage/screen.js"></script>
+  <script src="screens/garage/history.js"></script>
+  <script src="screens/garage/diff-screen.js"></script>
+  <script src="screens/garage/save.js"></script>
+  <script src="screens/garage/share.js"></script>
+  <!-- Job search (screens/search/): the Apps-hub app over every INPA key and
+       screen the build ships. data.js loads the exported index, match.js
+       ranks against it, render.js draws, open.js turns a result into a
+       vehicle deep link, screen.js is the app screen -- so it loads last. -->
+  <script src="screens/search/data.js"></script>
+  <script src="screens/search/match.js"></script>
+  <script src="screens/search/open.js"></script>
+  <script src="screens/search/render.js"></script>
+  <script src="screens/search/screen.js"></script>
+  <!-- Control unit tree (screens/tree/): ISTA's per-series bus topology,
+       drawn as an SVG and coloured by the Garage's last fault scan. -->
+  <script src="screens/tree/data.js"></script>
+  <script src="screens/tree/layout.js"></script>
+  <script src="screens/tree/render.js"></script>
+  <script src="screens/tree/scan.js"></script>
+  <script src="screens/tree/treescan.js"></script>
+  <script src="screens/tree/screen.js"></script>
+  <!-- Service functions (screens/service/): the Apps-hub app that maps a
+       named service task (steering angle calibration, transmission
+       adaptation reset) to the INPA key that performs it on the chosen car.
+       data.js loads the exported mapping, open.js hands a resolved key to
+       the live runtime, screen.js is the app screen -- so it loads last. -->
+  <script src="screens/service/data.js"></script>
+  <script src="screens/service/open.js"></script>
+  <script src="screens/service/screen.js"></script>
   <script src="screens/tool32.js"></script>
   <script src="screens/flasher.js"></script>
   <script src="screens/tuning/memory-spec.js"></script>
@@ -372,6 +434,62 @@
   <script src="screens/tuning/read-ecu-dialog.js"></script>
   <script src="screens/tuning/session.js"></script>
   <script src="screens/tuning/screen.js"></script>
+  <!-- Data logging, one piece per concern. store.js first (the buffers the
+       rest read), screen.js last (the entry point the hub and router name). -->
+  <script src="screens/logging/store.js"></script>
+  <script src="screens/logging/scheduler.js"></script>
+  <script src="screens/logging/charts.js"></script>
+  <script src="screens/logging/picker.js"></script>
+  <script src="screens/logging/presets.js"></script>
+  <script src="screens/logging/screen.js"></script>
+  <!-- Script runner: the loader over core/ipofile, then the screen. -->
+  <script src="screens/script-runner/load.js"></script>
+  <script src="screens/script-runner/screen.js"></script>
+  <!-- Workshop reference documents (screens/techdata/): ISTA's technical
+       data, tightening torques, operating fluids and special tools. data.js
+       loads the extract and evaluates each document's validity rule against
+       the car, render.js draws the four body shapes, screen.js is the tab
+       the ISTA shell opens -- so it loads last, and before the shell. -->
+  <script src="screens/techdata/data.js"></script>
+  <script src="screens/techdata/render.js"></script>
+  <script src="screens/techdata/screen.js"></script>
+  <!-- Repair instructions (screens/repair/): ISTA's repair manual. data.js
+       loads the per-chassis extract (the car filter already ran, at extract
+       time -- the corpus is far too big to filter in a browser), render.js
+       draws the steps, hints, torques and pictures, browser.js is the
+       reusable tree/list/document page (ISTA draws four of its structure
+       pages this way), screen.js is the sub-tab the ISTA shell opens -- so
+       it loads last, and before the shell. -->
+  <script src="screens/repair/data.js"></script>
+  <script src="screens/repair/render.js"></script>
+  <script src="screens/repair/browser.js"></script>
+  <script src="screens/repair/screen.js"></script>
+  <!-- The ISTA shell (screens/ista/): workshop mode -- a banner and tab bar
+       that stay up while the app's OWN screens render underneath them. It
+       wraps them, it does not re-implement them, so it loads after every
+       screen it opens. model.js is the pure half (tabs, routes, favourites),
+       banner.js the chrome outside #view, details.js the two pages the app
+       had no screen for, screen.js the entry point -- so it loads last. -->
+  <script src="screens/ista/model.js"></script>
+  <script src="screens/ista/banner.js"></script>
+  <script src="screens/ista/skin.js"></script>
+  <script src="screens/ista/admin.js"></script>
+  <script src="screens/ista/tables.js"></script>
+  <script src="screens/ista/faults.js"></script>
+  <script src="screens/ista/trees.js"></script>
+  <script src="screens/ista/basic.js"></script>
+  <script src="screens/ista/slots.js"></script>
+  <script src="screens/ista/ecuwin.js"></script>
+  <script src="screens/ista/details.js"></script>
+  <script src="screens/ista/pages.js"></script>
+  <!-- The test-module step player: core/abl/engine.js is the pure walker,
+       plan.js the per-car test plan store and the module loader, ablwin.js
+       the window the frames show. screen.js calls all three, so they load
+       ahead of it. -->
+  <script src="core/abl/engine.js"></script>
+  <script src="screens/ista/plan.js"></script>
+  <script src="screens/ista/ablwin.js"></script>
+  <script src="screens/ista/screen.js"></script>
   <script src="screens/apps.js"></script>
   <script src="screens/tutorial.js"></script>
   <script src="app.js"></script>

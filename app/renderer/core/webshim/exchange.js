@@ -97,10 +97,17 @@ async function readFrame(sent, timeoutMs, pump, comm) {
     else await bmwSleep(RX_POLL_MS);
   }
   if (echoLen && at < 0) {
+    // what came back instead of the echo is the whole diagnosis (a clipped
+    // last byte, a late answer from the previous address, line noise), so it
+    // goes into the wire ring and the first bytes into the message
+    if (buf.length)
+      busTrace.add('rx', buf.slice(0, 48), "not the request's echo");
+    const got =
+      busTrace.hex(buf.slice(0, 12)) + (buf.length > 12 ? ' ...' : '');
     throw ifhError(
       'IFH-0003',
       buf.length
-        ? 'echo did not match the request (bus collision?)'
+        ? `echo did not match the request (bus collision?): got ${got}`
         : 'no echo from the cable (is it connected to the car?)'
     );
   }
@@ -239,9 +246,18 @@ async function runExchange(bus, out, comm) {
   await bus.ensureConfig(portConfig(comm));
   const framed = withChecksum(out, comm);
   const timeoutMs = (comm && comm.timeout) || DEFAULT_TIMEOUT_MS;
-  await paceBeforeWrite(bus, comm);
+  // xreps: the SGBD's own retransmit count (CommRepeats). The reference
+  // sends a telegram repeats + 1 times, on silence as well as on a garbled
+  // answer, and stops early only on a cable-level IFH-0003. A garbled
+  // answer always gets the one retransmit it had before, even for an SGBD
+  // that asked for none.
+  const repeats = Math.max(0, (comm && comm.repeats) | 0);
+  const attempts = Math.max(EXCHANGE_ATTEMPTS, repeats + 1);
   let lastErr;
-  for (let attempt = 0; attempt < EXCHANGE_ATTEMPTS; attempt++) {
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    // the retry is a pure retransmission after the regeneration wait,
+    // never a reinit
+    await paceBeforeWrite(bus, comm);
     try {
       busTrace.add(
         'tx',
@@ -269,20 +285,37 @@ async function runExchange(bus, out, comm) {
     } catch (e) {
       lastErr = e;
       busTrace.add('err', null, `${e.ifh || ''} ${e.message}`.trim());
-      // Retransmit a GARBLED answer once (a K-line glitch), never a SILENT
-      // one: EDIABAS ships CommRepeats = 0, so a telegram nobody answers is
-      // sent exactly once and the bytecode moves on to its next protocol.
-      // Sending it twice doubled every probe step (ms450ds0's KWP2000* try
-      // before the BMW-FAST one that an MS45 actually answers).
-      // The error carries its IFH code; a garbled answer is IFH-0019
-      // (checksum / incomplete) or IFH-0003 (echo), silence is IFH-0009.
-      if (!(e && (e.ifh === 'IFH-0019' || e.ifh === 'IFH-0003'))) throw e;
+      // The error carries its IFH code: a garbled answer is IFH-0019
+      // (checksum / incomplete), a cable fault IFH-0003 (echo), silence
+      // IFH-0009. A cable fault is final, as in the reference loop. A
+      // garbled answer is retransmitted once regardless (a K-line glitch),
+      // and beyond that, silence and garbling alike are retransmitted only
+      // as many times as the SGBD asked for with xreps: an SGBD that set
+      // none sends a silent telegram exactly once and its bytecode moves on
+      // to the next protocol (ms450ds0's KWP2000* try before the BMW-FAST
+      // one), which is what keeps variant probing quick.
+      if (!e || e.ifh === 'IFH-0003') throw e;
+      const garbled = e.ifh === 'IFH-0019';
+      const spent = attempt + 1;
+      if (garbled ? spent >= attempts : spent > repeats) throw e;
       // The reference retry is a PURE RETRANSMISSION: the same bytes with
       // only the ParRegenTime wait, never a reinit. Re-arming the wake here
       // made our retry a different, more disruptive operation than the one
       // EDIABAS performs -- and on DS2 there is no wake to re-arm in the
       // first place.
     }
+  }
+  // a port that is not a K+DCAN cable never echoes: name it in the error
+  // instead of asking whether the cable is plugged into the car
+  if (
+    lastErr &&
+    lastErr.ifh === 'IFH-0003' &&
+    /no echo/.test(lastErr.message) &&
+    bus &&
+    typeof bus.portHint === 'function'
+  ) {
+    const hint = bus.portHint();
+    if (hint && !lastErr.message.includes(hint)) lastErr.message += hint;
   }
   throw lastErr;
 }

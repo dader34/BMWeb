@@ -67,24 +67,10 @@ function loadFaultDb() {
   if (_faultDbPromise) return _faultDbPromise;
   const base = typeof WEB_BASE === 'string' ? WEB_BASE : '';
   const urls = [`${base}/data/faultdb.js`, FAULT_DB_HF];
-  _faultDbPromise = new Promise((resolve) => {
-    let i = 0;
-    const tryNext = () => {
-      if (i >= urls.length) {
-        _faultDbPromise = null;
-        resolve();
-        return;
-      } // fall back to phraseText
-      const s = document.createElement('script');
-      s.src = urls[i++];
-      s.onload = () => resolve();
-      s.onerror = () => {
-        s.remove();
-        tryNext();
-      };
-      document.head.appendChild(s);
-    };
-    tryNext();
+  // the local copy is probed quietly first (core/translate.js): a hosted
+  // build has none and must not log a 404 on every fault screen
+  _faultDbPromise = webInjectFirst(urls).then((loaded) => {
+    if (!loaded) _faultDbPromise = null; // fall back to phraseText
   });
   return _faultDbPromise;
 }
@@ -457,7 +443,9 @@ async function readFaultsDetailed(ecu, container) {
   try {
     // normal read -> fault numbers (via the address group so EDIABAS picks the
     // exact variant)
-    const gq = groupQuery(ecu);
+    // the group AND the argument the module declares: lsz_2 stores faults in
+    // eight blocks and answers F_ZAHL 0 (blocks 1-3) unless asked ALL_BLOCKS
+    const gq = await faultReadQuery(ecu);
     const base = await api(`/api/ecu/${ecu.sgbd}/run/FS_LESEN${gq}`, {
       method: 'POST',
     });

@@ -167,10 +167,11 @@ const Best2Codec = {
    * JS shortest-roundtrip formatting ("0.30000000000000004") never appears:
    * the rounding and the cut both bound it.
    * @param {number} value - The float to format.
+   * @param {number} [digits] - Significant digits to keep: the job's
+   *   setflt value, the engine default when it never set one.
    * @returns {string} The engine's text for it.
    */
-  fltText(value) {
-    const digits = FLOAT_PRECISION;
+  fltText(value, digits = FLOAT_PRECISION) {
     let v = Number(value);
     if (Number.isFinite(v) && v !== 0) {
       const scale = 10 ** (Math.floor(Math.log10(Math.abs(v))) + 1);
@@ -179,7 +180,12 @@ const Best2Codec = {
       if (Math.abs(x % 1) === 0.5 && r % 2 !== 0) r -= 1;
       v = scale * (r / 10 ** digits); // ...Math.Round is half to even
     }
-    let s = String(v);
+    // string.Format("{0}", double) on the engine's runtime is the "G"
+    // format, 15 significant digits, which hides the binary artifact the
+    // rounding leaves (100 * 0.123457 is 12.345699999999999 in a double);
+    // JS's shortest-roundtrip String() shows it, and the cut below would
+    // then keep "12.3456" where the engine prints "12.3457"
+    let s = Number.isFinite(v) ? String(Number(v.toPrecision(15))) : String(v);
     const em = /^(-?[\d.]+)e([+-])(\d+)$/.exec(s);
     if (em) s = `${em[1]}E${em[2]}${em[3].padStart(2, '0')}`;
     let count = 0;

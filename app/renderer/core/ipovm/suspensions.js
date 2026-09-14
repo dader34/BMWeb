@@ -12,12 +12,14 @@
  * says why; `out` is the emissions so far (a parked machine's drawn screen
  * IS the picker).
  * @typedef {object} IpoStep
- * @property {'done'|'yield'|'job'|'wait'|'input'|'message'|'toggle'|'print'|'select'|'exit'} kind -
+ * @property {'done'|'yield'|'job'|'wait'|'input'|'message'|'toggle'|'print'|'printfile'|'select'|'exit'} kind -
  *   done: the proc finished; yield: parked at a %STATE; job: a wire job to
  *   run and feed back; wait: a timed wartezeit; input: an INPA prompt;
  *   message: a blocking messagebox; toggle: the component picker; print:
- *   printscreen; select: INPA's line filter; exit: the script ended itself
+ *   printscreen; printfile: a written file to print; select: INPA's line
+ *   filter; exit: the script ended itself
  * @property {Emissions} [out] - emissions so far
+ * @property {string} [file] - printfile / fsread: the file's name
  * @property {string} [name] - yield: the state label
  * @property {string} [job] - job: the job name
  * @property {string|null} [sgbd] - job: the SGBD the script addressed
@@ -45,7 +47,10 @@ const IPO_SUSPEND_KINDS = new Set([
   'input',
   'message',
   'toggle',
+  'pick', // bmweb_pick: the host lists, the user chooses (home script)
+  'fsread', // INPAapiFsLesen: the renderer reads the fault memory and writes the file
   'print',
+  'printfile', // printfile: the renderer prints a file the body wrote
   'select',
   'exit',
 ]);
@@ -183,6 +188,15 @@ function ipoDriveBuiltin(vm, t, stack) {
   if (vm.wireJobs && name === 'printscreen') {
     return { kind: 'print', out: vm.out };
   }
+  // INPA's printfile(->rc, file, printer, port, flag): the protocol file a
+  // read wrote goes to the printer. The builtin answers rc = 0 first (the
+  // script's own error branch must not fire), then the renderer prints the
+  // file's lines from the VM's files. Offline only the rc is stored.
+  if (vm.wireJobs && name === 'printfile') {
+    vm._builtin(t, stack, null);
+    const strs = stack.filter((x) => !isRef(x)).map((x) => asStr(x));
+    return { kind: 'printfile', file: strs[0] || '', out: vm.out };
+  }
   // A LIVE togglelist is INPA's component picker: park until the renderer
   // hands back the pick ({ort, ein}); resume re-runs the builtin with it.
   // togglelist(MultipleSelectFlag, ArgNumFlag, ->ApiToggleString)
@@ -192,6 +206,36 @@ function ipoDriveBuiltin(vm, t, stack) {
       stack,
       multiple: stack.length > 0 && flagArg(stack[0]),
       argnum: stack.length > 1 && flagArg(stack[1]),
+      out: vm.out,
+    };
+  }
+  // INPAapiFsLesen(sgbd, file): INPA's API reads the module's fault memory
+  // (FS_LESEN, then the detail of every entry) and writes the protocol file
+  // the script then viewopen()s. 161 shipped scripts read faults only this
+  // way. Live, the renderer does that read and hands the file back; offline
+  // it stays a noop (nothing to lift from the API's own work).
+  if (
+    vm.wireJobs &&
+    (name === 'INPAapiFsLesen' || name === 'INPAapiFsLesen2')
+  ) {
+    const strs = stack.filter((x) => !isRef(x)).map((x) => asStr(x));
+    return {
+      kind: 'fsread',
+      sgbd: strs[0] || '',
+      file: strs[1] || 'na_fs.tmp',
+      out: vm.out,
+    };
+  }
+  // BMWeb's own picker: bmweb_pick("chassis"|"module"|"vehicle", arg,
+  // ->choice). Park like a togglelist; the renderer asks the host for the
+  // list and resumes with the choice, which the re-run builtin stores.
+  if (vm.wireJobs && name === 'bmweb_pick' && vm._pickInput == null) {
+    const strs = stack.filter((x) => !isRef(x)).map((x) => asStr(x));
+    return {
+      kind: 'pick',
+      stack,
+      what: strs[0] || '',
+      arg: strs[1] || '',
       out: vm.out,
     };
   }

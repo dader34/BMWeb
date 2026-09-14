@@ -72,8 +72,6 @@
 // other large BMW-derived fault data it isn't shipped in the repo -- try a
 // local build copy first, then fall back to the Hugging Face dataset.
 /** Hosted copy of the fault index. */
-const FAULT_INDEX_HF =
-  'https://huggingface.co/datasets/CraigFf/bmweb-etk/resolve/main/faults/faultindex.js';
 
 /**
  * Inject faultindex.js once (local build copy first, then the hosted one).
@@ -83,25 +81,11 @@ const FAULT_INDEX_HF =
 function loadFaultIndex() {
   if (window.BMW_FAULT_INDEX) return Promise.resolve();
   if (window.__faultIndexLoading) return window.__faultIndexLoading;
-  const base = typeof WEB_BASE === 'string' ? WEB_BASE : '';
-  const urls = [`${base}/data/faultindex.js`, FAULT_INDEX_HF];
-  window.__faultIndexLoading = new Promise((resolve, reject) => {
-    let i = 0;
-    const tryNext = () => {
-      if (i >= urls.length) {
-        reject(new Error('failed to load fault index'));
-        return;
-      }
-      const s = document.createElement('script');
-      s.src = urls[i++];
-      s.onload = () => resolve();
-      s.onerror = () => {
-        s.remove();
-        tryNext();
-      }; // local missing -> HF
-      document.head.appendChild(s);
-    };
-    tryNext();
+  const urls = hfUrls('faults/faultindex.js', 'data/faultindex.js');
+  // the local copy is probed quietly first (core/translate.js): a hosted
+  // build has none and must not log a 404
+  window.__faultIndexLoading = webInjectFirst(urls).then((loaded) => {
+    if (!loaded) throw new Error('failed to load fault index');
   });
   return window.__faultIndexLoading;
 }
@@ -111,8 +95,6 @@ function loadFaultIndex() {
 // hosted on the same Hugging Face dataset as the ETK data, so it loads lazily
 // the first time a fault detail is opened and never for a plain DTC search.
 /** Hosted copy of the ISTA component procedures. */
-const ISTA_TESTS_URL =
-  'https://huggingface.co/datasets/CraigFf/bmweb-etk/resolve/main/ista/faulttests.json';
 
 /** @type {Record<string, IstaTestDoc>|null} slug -> procedure, once loaded */
 let istaTestDocs = null;
@@ -132,7 +114,7 @@ function loadIstaTests() {
   const base = typeof WEB_BASE === 'string' ? WEB_BASE : '';
   window.__istaTestsLoading = (async () => {
     // local copy first (if a build ever ships one), then Hugging Face
-    for (const u of [`${base}/data/ista/faulttests.json`, ISTA_TESTS_URL]) {
+    for (const u of hfUrls('ista/faulttests.json')) {
       try {
         const r = await real(u);
         if (r && r.ok) {
@@ -161,6 +143,22 @@ const LOOKUP_SLUG_MIN = 4;
 const LOOKUP_MODULE_PREFIX_RE = /^[A-Z][A-Z0-9_ -]{1,14}:\s*/;
 
 /**
+ * A leading fault CODE in front of a fault name ("27C3 Oil level sensor").
+ *
+ * faultName returns "CODE Name", because a technician reads the code first,
+ * and the fault table and the hit list both show it that way. The procedure
+ * set is keyed by the component alone, so the code has to come off before
+ * the name is slugged -- otherwise every fault slugs to "27c3-oil-level-
+ * sensor", matches nothing, and the hit list says no procedure is linked to
+ * a fault whose procedure is right there.
+ *
+ * Two to six hex digits, or a P-code, followed by a space and a letter: a
+ * component name that happens to START with a number ("4 wheel drive") has
+ * no space-separated hex token in front of it and is left alone.
+ */
+const LOOKUP_CODE_PREFIX_RE = /^(?:[0-9A-F]{2,6}|P[0-9A-F]{4})\s+(?=[A-Za-z])/i;
+
+/**
  * Slug form of a component name, as the procedure set is keyed.
  * @param {string} s - free text
  * @returns {string}
@@ -187,6 +185,8 @@ function istaTestFor(faultText) {
   // first colon is the module ("KOMBI"), which matches no component slug and
   // loses the procedure entirely.
   t = t.replace(LOOKUP_MODULE_PREFIX_RE, '').trim() || t;
+  // and the fault code the name is prefixed with, for the same reason
+  t = t.replace(LOOKUP_CODE_PREFIX_RE, '').trim() || t;
   // the component is the phrase before the first comma or colon
   const lead = t.split(/[,:]/)[0].trim();
   const candidates = [lead, t];

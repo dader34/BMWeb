@@ -15,7 +15,7 @@
  * @property {string} [_sgbdBase] - The configured SGBD, once `sgbd` was retargeted.
  * @property {boolean} [_groupTried] - Whether group resolution ran this screen entry.
  * @property {object|null} [_ir] - The loaded script IR.
- * @property {string} [_irFrom] - The SGBD whose script `_ir` came from, when not `sgbd`.
+ * @property {string} [_irFrom] - The stem whose script `_ir` came from, when not `sgbd`: the menu row's own code, or the configured base SGBD.
  */
 
 /**
@@ -153,14 +153,15 @@ async function irResolveGroupVariant(ecu) {
 }
 
 /**
- * Open a module from a deep link (#car/<CHASSIS>/<SGBD>[/<MENU>]): find it in
- * the chassis config and open it, else fall back to the module list.
+ * Open a module from a deep link (#car/<CHASSIS>/<SGBD>[/<MENU>[/<SCREEN>]]):
+ * find it in the chassis config and open it, else fall back to the module list.
  * @param {string} chassisId - The chassis id.
  * @param {string} sgbd - The module's SGBD (case-insensitive).
  * @param {string|null} [menuName] - A submenu to descend into once the script is up.
+ * @param {string|null} [screenName] - The screen to show on that menu (a search result).
  * @returns {Promise<void>}
  */
-async function showEcuDeep(chassisId, sgbd, menuName) {
+async function showEcuDeep(chassisId, sgbd, menuName, screenName) {
   const ch = await tryApi(
     `/api/chassis/${chassisId}`,
     null,
@@ -171,12 +172,12 @@ async function showEcuDeep(chassisId, sgbd, menuName) {
   const want = String(sgbd).toLowerCase();
   // the whole-vehicle script is reached by its chassis stem (#car/E46/e46)
   if (want === String(chassisId).toLowerCase())
-    return showVehicleScript(chassisId, menuName);
+    return showVehicleScript(chassisId, menuName, screenName);
   for (const sec of ch.sections || []) {
     const hit = (sec.ecus || []).find(
       (e) => String(e.sgbd).toLowerCase() === want
     );
-    if (hit) return showEcu(chassisId, sec.name, hit, menuName);
+    if (hit) return showEcu(chassisId, sec.name, hit, menuName, screenName);
   }
   sbLeft.textContent = `${sgbd} not in ${dispChassis(chassisId)}`;
   return backToModules(chassisId);
@@ -197,10 +198,20 @@ async function showEcuDeep(chassisId, sgbd, menuName) {
  * @param {string} sectionName - The config section the module sits in.
  * @param {EcuRecord} ecu - The module (mutated: chassis, variant, IR).
  * @param {string|null} [openMenu] - A menu a deep link descends into once the script is up.
+ * @param {string|null} [openScreen] - The screen to show on that menu.
+ * @param {RegExp|string|null} [pressKey] - A read key to press on arrival, by its caption.
  * @returns {Promise<void>}
  */
-async function showEcu(chassisId, sectionName, ecu, openMenu) {
-  lastScreen = () => showEcu(chassisId, sectionName, ecu, openMenu);
+async function showEcu(
+  chassisId,
+  sectionName,
+  ecu,
+  openMenu,
+  openScreen,
+  pressKey
+) {
+  // coming back to this screen lands where it landed; it does not press again
+  lastScreen = () => showEcu(chassisId, sectionName, ecu, openMenu, openScreen);
   // the ECU object comes from the chassis config and doesn't know which chassis
   // it came from; screens that build links/reports off it need that
   ecu.chassis = chassisId;
@@ -246,8 +257,27 @@ async function showEcu(chassisId, sectionName, ecu, openMenu) {
   // the identified variant has no archive of its own, the configured base
   // SGBD's script is the one to run (irExecSgbd reads _irFrom). The archive's
   // ir carries the per-ECU caption dictionary (ir.i18n) the runtime draws with.
+  // THE ROW NAMES THE SCRIPT; THE SGBD NAMES THE MODULE. INPA's menu pairs
+  // an .IPO with an SGBD and the two need not share a name: the E46's
+  // ASC/DSC row is ASCDSC46.IPO on ascmk20. The export packs such a row's
+  // script under the row's code, so the screens come from there while the
+  // jobs still go to the SGBD (and to whatever the script names itself).
+  // Without this every E46 ran the E31's ASCMK20.IPO, whose entry talks to
+  // asc_l22, a Land Rover module on a protocol this app cannot sign.
+  const code = String(ecu.code || '').toLowerCase();
+  if (
+    code &&
+    code !== String(ecu.sgbd).toLowerCase() &&
+    !ecu._irFrom &&
+    typeof irLiveExec === 'function' &&
+    (await irLiveExec(code))
+  ) {
+    ecu._irFrom = code;
+  }
   const codeHint = ecu.code ? `?code=${encodeURIComponent(ecu.code)}` : '';
-  ecu._ir = await api(`/api/ecu/${ecu.sgbd}/ir${codeHint}`).catch(() => null);
+  ecu._ir = await api(
+    `/api/ecu/${ecu._irFrom || ecu.sgbd}/ir${codeHint}`
+  ).catch(() => null);
   if (
     (!ecu._ir || !Object.keys(ecu._ir.menus || {}).length) &&
     ecu._sgbdBase &&
@@ -265,7 +295,7 @@ async function showEcu(chassisId, sectionName, ecu, openMenu) {
   const back = () => backToModules(chassisId);
   const took =
     typeof ipoProgramOpen === 'function' &&
-    (await ipoProgramOpen(ecu, grid, back, openMenu));
+    (await ipoProgramOpen(ecu, grid, back, openMenu, openScreen, pressKey));
   if (took) return;
 
   // No runnable script. Only reachable for the handful of ECUs BMW itself

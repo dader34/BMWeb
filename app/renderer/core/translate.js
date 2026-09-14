@@ -178,9 +178,9 @@ const PCODE_MAP = {
   '27C2': 'P2562',
   '27C4': 'P2564',
 };
-// Flatten an EDIABAS result value to the same text the native bridge produces
-// (src/EdiabasMac/Diag.cs Format): byte arrays become dashed hex ("27-DA"),
-// everything else its plain string. The web VM returns live typed values --
+// Flatten an EDIABAS result value to the text EDIABAS itself would print:
+// byte arrays become dashed hex ("27-DA"), everything else its plain string.
+// The web VM returns live typed values --
 // `ergy` (binary) emits a byte Array, `ergi`/`ergb`/... emit numbers -- so
 // screens that only ever saw the native path's strings funnel through here.
 // An empty binary result ([]) is truthy but must read as "no code", which the
@@ -322,8 +322,53 @@ function loadPcodes() {
 // one (offline/desktop). Loading is a plain <script src> that sets a window
 // global; cross-origin classic scripts load fine from HF.
 /** Where the BMW-derived fault tables are hosted when a build ships none. */
-const FAULT_HF_BASE =
-  'https://huggingface.co/datasets/CraigFf/bmweb-etk/resolve/main/faults/';
+
+/**
+ * Whether a same-origin data file exists, asked without a console error: a
+ * <script src> that 404s is logged by the browser as an error ("GET
+ * .../data/faultmeta.js 404"), and on the hosted site the local copy is
+ * ABSENT BY DESIGN (the BMW-derived tables live on the dataset), so every
+ * fault screen there opened with a red line in the console that testers
+ * reported as a bug. A HEAD request that 404s is not logged.
+ * @param {string} url - a same-origin URL
+ * @returns {Promise<boolean>}
+ */
+function webDataFileExists(url) {
+  if (typeof fetch !== 'function') return Promise.resolve(true);
+  return fetch(url, { method: 'HEAD', cache: 'no-store' })
+    .then((r) => r.ok)
+    .catch(() => false);
+}
+
+/**
+ * Inject the first of `urls` that loads, as a classic <script>, and say
+ * whether any did. A same-origin candidate is probed first so a build that
+ * ships no local copy falls through to the hosted one silently; a hosted
+ * candidate that fails is left to the browser to report, since that IS a
+ * problem.
+ * @param {string[]} urls - candidates in order of preference
+ * @returns {Promise<boolean>} true once a script has loaded, false when all failed
+ */
+async function webInjectFirst(urls) {
+  for (const url of urls) {
+    const origin = typeof location !== 'undefined' ? location.origin : '';
+    const local =
+      !/^https?:\/\//i.test(url) || (origin && url.startsWith(origin));
+    if (local && !(await webDataFileExists(url))) continue;
+    const loaded = await new Promise((resolve) => {
+      const s = document.createElement('script');
+      s.src = url;
+      s.onload = () => resolve(true);
+      s.onerror = () => {
+        s.remove();
+        resolve(false);
+      };
+      document.head.appendChild(s);
+    });
+    if (loaded) return true;
+  }
+  return false;
+}
 
 /**
  * Shared state of one lazy-loaded data script.
@@ -345,27 +390,11 @@ function _lazyScript(src, ready, holder) {
     if (window[ready]) return Promise.resolve();
     if (holder.p) return holder.p;
     // basename for the HF fallback (src is like 'data/faultinfo.js')
-    const base = typeof WEB_BASE === 'string' ? WEB_BASE : '';
+    // the fault DBs sit at the dataset root under faults/, not data/
     const file = src.split('/').pop();
-    const urls = [`${base}/${src}`, `${FAULT_HF_BASE}${file}`];
-    holder.p = new Promise((resolve) => {
-      let i = 0;
-      const tryNext = () => {
-        if (i >= urls.length) {
-          holder.p = null;
-          resolve();
-          return;
-        }
-        const s = document.createElement('script');
-        s.src = urls[i++];
-        s.onload = () => resolve();
-        s.onerror = () => {
-          s.remove();
-          tryNext();
-        }; // local missing -> HF
-        document.head.appendChild(s);
-      };
-      tryNext();
+    const urls = hfUrls(`faults/${file}`, src);
+    holder.p = webInjectFirst(urls).then((loaded) => {
+      if (!loaded) holder.p = null; // every source failed: allow a retry
     });
     return holder.p;
   };

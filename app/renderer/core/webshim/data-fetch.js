@@ -6,7 +6,7 @@
  * shim -- so `data/job-code/<sgbd>.json` and friends are answered from the
  * cached ECU archives, not the network.
  */
-/* exported webFetchJson, webFetchGz, loadSharedTables */
+/* exported webFetchJson, webFetchGz, loadSharedTables, HF_MIRRORS, hfUrls, hfFetchFirst, istaBundle, istaBundleFile */
 
 /**
  * Fetch a JSON file, or null on any failure (404, bad JSON).
@@ -63,4 +63,153 @@ function loadSharedTables() {
       .catch(() => ({}));
   }
   return sharedTablesPromise;
+}
+
+/**
+ * The dataset mirrors, in the order they are tried.
+ *
+ * The same tree lives under several accounts because ONE ACCOUNT IS A SINGLE
+ * POINT OF FAILURE: a repo can be rate-limited, taken down, renamed or simply
+ * unreachable from where the user is, and the app should not lose its data
+ * because of any of those. They carry identical paths, so the same relative
+ * name resolves against any of them.
+ *
+ * Order matters only for speed, not correctness -- whichever answers first
+ * wins, and a mirror that is behind on an upload simply 404s and the next one
+ * is tried.
+ * @type {string[]}
+ */
+const HF_MIRRORS = [
+  'https://huggingface.co/datasets/CraigFf/bmweb-etk/resolve/main/',
+  'https://huggingface.co/datasets/VerilP0/bmweb-etk/resolve/main/',
+  'https://huggingface.co/datasets/HarryG8/bmweb-etk/resolve/main/',
+];
+
+/**
+ * Every place one dataset file might be: the local copy an offline build
+ * ships, then each mirror.
+ *
+ * THE LOCAL COPY IS ALWAYS FIRST. An offline build has the whole dataset
+ * under data/, and a build that still reaches the network is not offline.
+ * The 404 it costs on a hosted install is the price of that, and it is
+ * cheap -- the service worker caches only what answers.
+ * @param {string} rel - the path under the dataset root, e.g.
+ *   'ista/ecu-tree/E46.json'
+ * @param {string} [localPrefix] - where the same file sits locally, when it
+ *   is not 'data/' + rel (the ETK tree is flattened, for one)
+ * @returns {string[]} the URLs to try, in order
+ */
+function hfUrls(rel, localPrefix) {
+  const base = typeof WEB_BASE === 'string' ? WEB_BASE : '';
+  const local = localPrefix == null ? `data/${rel}` : localPrefix;
+  return [
+    `${base}/${local}`.replace(/([^:])\/\//g, '$1/'),
+    ...HF_MIRRORS.map((m) => m + rel),
+  ];
+}
+
+/**
+ * Fetch one dataset file from the first source that answers.
+ *
+ * Uses the UNSHIMMED fetch where one exists: install.js replaces the global
+ * `fetch` to answer /api/* from the cached ECU archives, and these are plain
+ * files on a CDN, not engine routes.
+ * @param {string} rel - the path under the dataset root
+ * @param {object} [opts] - `local` overrides the local path; `as` is
+ *   'json' (default), 'text', 'bytes' or 'response'
+ * @returns {Promise<any|null>} the body in the asked-for form, or null when
+ *   no source answered
+ */
+async function hfFetchFirst(rel, opts) {
+  const o = opts || {};
+  const real =
+    typeof webRealFetch === 'function'
+      ? webRealFetch
+      : typeof window !== 'undefined' && window.fetch
+        ? window.fetch.bind(window)
+        : typeof fetch === 'function'
+          ? fetch
+          : null;
+  if (!real) return null;
+  for (const u of hfUrls(rel, o.local)) {
+    try {
+      const r = await real(u);
+      if (!r || !r.ok) continue;
+      if (o.as === 'response') return r;
+      if (o.as === 'bytes') return new Uint8Array(await r.arrayBuffer());
+      if (o.as === 'text') return await r.text();
+      return await r.json();
+    } catch (e) {
+      /* try the next source */
+    }
+  }
+  return null;
+}
+
+/**
+ * One unpacked .ista bundle: the path inside it -> its bytes.
+ * @type {Map<string, Map<string, Uint8Array>>}
+ */
+const ISTA_BUNDLES = new Map();
+
+/** A bundle that failed to load, so a car without one is asked for once. */
+const ISTA_BUNDLE_MISS = new Set();
+
+/**
+ * One chassis's ISTA data, as a single archive.
+ *
+ * THE SAME BET THE .chassis ARCHIVES ALREADY TAKE. An ECU ships only inside
+ * its car's archive because loose copies duplicated all 310 for 47 MB and
+ * nothing read them; the ISTA data has exactly that shape. A car needs its
+ * 891 test modules, its schematics and its diagnosis documents, and asking
+ * for them one file at a time cost 26,037 requests for a release build and
+ * hundreds for a technician who opens a few screens -- enough to be rate
+ * limited part way through either.
+ *
+ * One download per car, unpacked once, and every ISTA screen afterwards is
+ * a map lookup. E46.ista is about 28 MB against E46.chassis at 20 MB, so
+ * this is the size of fetch the app already makes when a car is opened.
+ * @param {string} chassis - the development code
+ * @returns {Promise<Map<string, Uint8Array>|null>} null when none ships
+ */
+async function istaBundle(chassis) {
+  const id = String(chassis || '').toUpperCase();
+  if (!id) return null;
+  if (ISTA_BUNDLES.has(id)) return ISTA_BUNDLES.get(id);
+  if (ISTA_BUNDLE_MISS.has(id)) return null;
+  if (typeof fflate === 'undefined') return null;
+  const bytes = await hfFetchFirst(`ista/bundles/${id}.ista`, { as: 'bytes' });
+  if (!bytes) {
+    ISTA_BUNDLE_MISS.add(id);
+    return null;
+  }
+  let files;
+  try {
+    files = fflate.unzipSync(bytes);
+  } catch (e) {
+    ISTA_BUNDLE_MISS.add(id);
+    return null;
+  }
+  const map = new Map(Object.entries(files));
+  ISTA_BUNDLES.set(id, map);
+  return map;
+}
+
+/**
+ * One file out of a chassis's bundle, as a Response the callers already
+ * expect.
+ *
+ * Returns null when the bundle does not ship or does not hold the path, so
+ * every caller keeps its existing per-file fallback: a build carrying the
+ * old loose layout, or a chassis whose bundle has not been built yet, still
+ * works exactly as before.
+ * @param {string} chassis - the development code
+ * @param {string} rel - the path inside the bundle (abl/X.json.gz, ...)
+ * @returns {Promise<Response|null>}
+ */
+async function istaBundleFile(chassis, rel) {
+  const map = await istaBundle(chassis);
+  const body = map && map.get(String(rel || ''));
+  if (!body) return null;
+  return new Response(body, { status: 200 });
 }

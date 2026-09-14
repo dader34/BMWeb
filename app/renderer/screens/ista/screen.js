@@ -1,0 +1,3488 @@
+/**
+ * @file The ISTA shell: workshop mode. A banner and a tab bar that stay up
+ * while the app's own screens render underneath them.
+ *
+ * Nothing in here is a second copy of a screen. Every sub-tab resolves to a
+ * show*() the app already has, called with the picked car filled in; the
+ * shell's job is to be the frame around it and to know which of them exist
+ * on this car. The pages it does draw itself (details.js, pages.js) are the
+ * ones the app had no screen for.
+ *
+ * TWO FACES, ONE SHELL. With the layout setting on INPA (inpaMode, which
+ * skin.js reads through istaSkinOn) the chrome is the workshop tool's own,
+ * 1:1: toolbar row, header line, black tab bar, sub-tab strips, status line,
+ * bottom button bar. With it on Modern, none of that is drawn and the shell
+ * keeps the banner-and-pills look it had. The routing, the readiness checks
+ * and the openers below are shared -- only the paint differs, so a tab
+ * cannot work in one face and be missing in the other.
+ *
+ * HOW THE ROUTE SURVIVES. setCrumbs syncs the hash from `lastScreen` on
+ * every render, so a wrapped screen would rewrite `#ista/...` into its own
+ * route the moment it drew. istaOpen therefore sets `lastScreen` back to the
+ * shell and re-stamps the hash AFTER the screen has rendered -- the screen
+ * keeps its body, the shell keeps its URL, and Back lands in the shell.
+ */
+
+/* exported showIsta */
+
+/** Settings key holding the car the shell was last pointed at. */
+const ISTA_CAR_KEY = 'bmweb.ista.car';
+
+/** Settings key holding the chassis, for a shell with no saved car. */
+const ISTA_CHASSIS_KEY = 'bmweb.ista.chassis';
+
+/**
+ * What the shell is pointed at now.
+ * @type {{car: object|null, chassis: string, tab: string, sub: string|null,
+ *   sub3: string|null, etk: object|null, tested: boolean}}
+ */
+const istaState = {
+  car: null,
+  chassis: '',
+  tab: ISTA_HOME_TAB,
+  sub: null,
+  sub3: null,
+  etk: null,
+  tested: false,
+};
+
+/**
+ * The chassis the shell works on: the picked car's, else the remembered one.
+ * @returns {string} upper-case chassis id, or ''
+ */
+function istaChassis() {
+  if (istaState.car && istaState.car.chassis)
+    return String(istaState.car.chassis).toUpperCase();
+  return String(istaState.chassis || '').toUpperCase();
+}
+
+/**
+ * Point the shell at a car (or, with null, at a bare chassis) and remember
+ * it for next time.
+ * @param {object|null} car - a GarageCar, or null
+ * @param {string} [chassis] - the chassis, when there is no car
+ * @returns {void}
+ */
+function istaSetCar(car, chassis) {
+  istaState.car = car || null;
+  istaState.chassis = String(
+    (car && car.chassis) || chassis || ''
+  ).toUpperCase();
+  // the VIN decode behind the header line and the details grid; it is a
+  // catalogue lookup, not a read, so it costs the car nothing
+  istaState.etk = null;
+  if (car && car.vin && typeof viEtkDecode === 'function')
+    viEtkDecode(car.vin)
+      .then((e) => {
+        if (istaState.car === car) {
+          istaState.etk = e;
+          if (istaChromeActive()) istaPaintChrome();
+        }
+      })
+      .catch(() => {
+        /* the parts index is optional */
+      });
+  if (typeof Settings === 'object' && Settings && Settings.set) {
+    Settings.set(ISTA_CAR_KEY, car ? car.id : '');
+    Settings.set(ISTA_CHASSIS_KEY, istaState.chassis);
+  }
+}
+
+/**
+ * Restore the remembered car, or fall back to the newest saved one. A
+ * remembered car that has since been deleted falls back rather than leaving
+ * the shell pointed at nothing.
+ * @param {string|null} [carId] - a car id from the route, which wins
+ * @returns {void}
+ */
+function istaRestoreCar(carId) {
+  const cars = typeof garageCars === 'function' ? garageCars() : [];
+  const want =
+    carId ||
+    (typeof Settings === 'object' && Settings && Settings.get
+      ? Settings.get(ISTA_CAR_KEY, '')
+      : '');
+  const found = want ? cars.find((c) => c.id === want) : null;
+  if (found) return istaSetCar(found);
+  const chassis =
+    typeof Settings === 'object' && Settings && Settings.get
+      ? Settings.get(ISTA_CHASSIS_KEY, '')
+      : '';
+  if (cars.length) return istaSetCar(cars[0]);
+  istaSetCar(null, chassis);
+}
+
+// ---- the openers -----------------------------------------------------------
+// Each one is named in ISTA_TABS by string, and each is a thin call into a
+// screen the app already ships. They exist so the tab table stays a table:
+// the argument shuffling (which car, which menu key, which caption) lives
+// here, once per tab, instead of in the model.
+
+/**
+ * The whole-car fault menu, filed against the picked car. Nothing is pressed
+ * on arrival: the scan is the user's key, the tab only takes them to it.
+ * @returns {void}
+ */
+function istaOpenFaultMemory() {
+  const car = istaState.car;
+  if (car && typeof garageRunScan === 'function')
+    return garageRunScan(car, IPO_VEHICLE_FAULT_MENU, null);
+  showVehicleScript(istaChassis(), IPO_VEHICLE_FAULT_MENU, null, null);
+}
+
+/**
+ * The vehicle test: the bus map, with its Fault scan key. Nothing runs on
+ * arrival; the read is the user's key.
+ * @returns {Promise<void>}
+ */
+/** The vehicle test that is on the bus right now, so a second cannot start. */
+let istaTestRun = null;
+
+/**
+ * What the last finished test heard, so its colours stay on the screen.
+ *
+ * DECLARED HERE, WITH THE OTHER TEST STATE, BECAUSE `let` IS NOT HOISTED.
+ * These were originally declared below istaOpenVehicleTest, which assigns
+ * them: the assignment threw "Cannot access before initialization" inside
+ * the finally block, so the result was dropped and the tree fell back to the
+ * stored scan the moment a test finished.
+ * @type {{ident: object|null, faults: object|null}|null}
+ */
+let istaTestDone = null;
+
+/** @type {object|null} the pass on the bus, so Cancel can end it */
+let istaTestHandle = null;
+
+/** @type {string} why the last test could not finish, if it could not */
+let istaTestError = '';
+
+/**
+ * Run the tool's vehicle test, in the tool's own window.
+ *
+ * THE TEST RUNS HERE. Every "Start vehicle test" button used to navigate to
+ * the app's Control unit tree and read nothing, which is not a test: the
+ * technician pressed a button and landed on another screen. This drives
+ * INPA's whole-car fault read headless -- the same engine the tree screen
+ * uses, which declines every write -- draws the modules as they answer,
+ * keeps the result against the car in the Garage, and ends on the Control
+ * unit list, which is where the tool leaves you.
+ * @returns {Promise<void>}
+ */
+async function istaOpenVehicleTest() {
+  if (istaTestRun) return;
+  if (typeof ecuTreeScanStart !== 'function') return;
+  const chassis = istaChassis();
+  const car = istaState.car || null;
+
+  // THE TEST RUNS ON THE SCREEN YOU PRESSED IT FROM. The tool does not
+  // leave for a progress page: the control units colour in where they are
+  // already listed, exactly as the tree app's own Fault scan paints its
+  // boxes. So this repaints the current ISTA page after every answer and
+  // never navigates -- the earlier version opened a page of its own, which
+  // is the thing to avoid.
+  /**
+   * Paint what has answered so far onto the screen already showing.
+   * @param {boolean} [full] - rebuild the page (start and finish only)
+   * @returns {Promise<void>|null}
+   */
+  const redraw = async (full) => {
+    if (full) return istaRedraw();
+    const slots = await istaLoadSlots(chassis, car);
+    istaPaintStates(slots);
+    istaTestStatus(slots);
+    return null;
+  };
+
+  const token = {};
+  /** true while a repaint is in flight, so ticks do not pile up */
+  let painting = false;
+  istaTestRun = token;
+  istaTestError = '';
+  istaTestDone = null;
+  istaTestLiveState = { ident: null, faults: null, phase: 'ident' };
+
+  /**
+   * Run one pass of the whole-car script, painting as it answers.
+   * @param {object|null} menu - the menu to open, null for the main one
+   * @param {RegExp} key - the key to press, by caption
+   * @param {'ident'|'faults'} slot - which half of the read this is
+   * @returns {Promise<object>} {report, lines, cancelled}
+   */
+  const pass = (menu, key, slot) => {
+    if (istaTestLiveState) istaTestLiveState.phase = slot;
+    const handle = ecuTreeScanStart(
+      chassis,
+      {
+        onProgress: (report) => {
+          if (istaTestRun !== token || !report) return;
+          istaTestLiveState[slot] = report;
+          // the tick fires every 250 ms; a repaint that is still loading
+          // its slots must not stack up behind the next one
+          if (!painting) {
+            painting = true;
+            Promise.resolve(redraw())
+              .catch(() => {})
+              .then(() => {
+                painting = false;
+              });
+          }
+        },
+      },
+      { faultMenu: menu, faultKey: key }
+    );
+    istaTestRun = token;
+    istaTestHandle = handle;
+    return handle.done;
+  };
+
+  const identKey =
+    typeof GARAGE_IDENT_KEY !== 'undefined'
+      ? GARAGE_IDENT_KEY
+      : /^(Ident|Identifikation|Identification)$/i;
+  const faultKey =
+    typeof GARAGE_FAULT_KEY !== 'undefined'
+      ? GARAGE_FAULT_KEY
+      : /^(FS lesen|Fehlerspeicher lesen|Read fault memory)$/i;
+  const faultMenu =
+    typeof IPO_VEHICLE_FAULT_MENU !== 'undefined'
+      ? IPO_VEHICLE_FAULT_MENU
+      : 'm_fs';
+
+  const keep = (report, lines) => {
+    if (!car || typeof garageAddScan !== 'function') return;
+    if (!report || !(report.modules || []).length) return;
+    garageAddScan(car.id, { report, lines }, { chassis });
+  };
+
+  redraw(true);
+  try {
+    // identification names the variant in each slot, the fault read says
+    // what each one has stored; the tool's test does both
+    try {
+      const r = await pass(null, identKey, 'ident');
+      if (istaTestRun !== token) return;
+      istaTestLiveState.ident = r.report;
+      keep(r.report, r.lines);
+    } catch (e) {
+      // a script with no Ident key still has fault memories worth reading,
+      // but the reason must not vanish: a test that identified nothing
+      // looked exactly like one that worked
+      istaTestError = String((e && e.message) || e);
+      console.warn('[ista] identification pass:', istaTestError);
+    }
+    if (istaTestRun !== token) return;
+    const r2 = await pass(faultMenu, faultKey, 'faults');
+    if (istaTestRun !== token) return;
+    istaTestLiveState.faults = r2.report;
+    keep(r2.report, r2.lines);
+    istaState.tested = true;
+  } catch (e) {
+    istaTestError = String((e && e.message) || e);
+    console.warn('[ista] vehicle test:', istaTestError);
+  } finally {
+    if (istaTestRun === token) {
+      istaTestRun = null;
+      istaTestHandle = null;
+      // THE RESULT STAYS ON SCREEN. Clearing the live state and redrawing
+      // hands the page back to the STORED scan, and everything the test just
+      // found drops off the tree the moment it finishes -- which is what it
+      // did. What this run heard is kept as the last result and goes on
+      // being drawn; only starting another test replaces it.
+      istaTestDone = istaTestLiveState;
+      istaTestLiveState = null;
+      // REBUILDING THE PAGE REDRAWS THE TREE FROM ITS OWN PATH, which knows
+      // nothing about this run, so the colours went grey again the moment
+      // the test ended even though the result was kept. Rebuild for the
+      // buttons and the status line, then paint the states back on.
+      Promise.resolve(redraw(true))
+        .then(() => redraw())
+        .catch(() => {});
+    }
+  }
+}
+
+/**
+ * The status line while the test runs: the count and what it is doing.
+ * @param {object[]} slots - the slots as they stand now
+ * @returns {void}
+ */
+function istaTestStatus(slots) {
+  if (typeof istaRealStatus !== 'function') return;
+  const faults = (slots || []).reduce((a, x) => a + x.faults, 0);
+  const read = (slots || []).some((x) => x.state !== 'unread');
+  istaRealStatus({
+    items: [
+      { k: 'Fault memory', v: read ? String(faults) : 'Unknown' },
+      { k: 'Vehicle test', v: istaTestPhase() },
+    ],
+    legend: [
+      { cls: 'ok', label: 'ECU without fault memory' },
+      { cls: 'warn', label: 'ECU with fault memory' },
+      { cls: 'bad', label: 'ECU not responding' },
+      { cls: 'blue', label: 'ECU with programming abort' },
+    ],
+  });
+}
+
+/**
+ * What the running test is doing, for the status line.
+ * @returns {string}
+ */
+function istaTestPhase() {
+  const live = istaTestLiveState;
+  if (!live) return 'starting...';
+  // WHICH PASS IS ON THE BUS IS SAID, NOT INFERRED. Reading it off
+  // `live.ident` was wrong: that report fills in as the identification
+  // PROGRESSES, so the line flipped to "reading fault memories" the moment
+  // the first module identified -- for the whole of the pass that was
+  // actually running.
+  const r = live.phase === 'faults' ? live.faults : live.ident;
+  const n = ((r && r.modules) || []).length + ((r && r.silent) || []).length;
+  return live.phase === 'faults'
+    ? `reading fault memories (${n} answered)`
+    : `identifying control units (${n} answered)`;
+}
+
+/**
+ * End the vehicle test between two jobs.
+ *
+ * The handle's own cancel stops the script after the job on the bus
+ * finishes, rather than abandoning a read mid-telegram.
+ * @returns {void}
+ */
+function istaTestCancel() {
+  if (istaTestHandle && typeof istaTestHandle.cancel === 'function')
+    istaTestHandle.cancel();
+}
+
+/**
+ * The whole-car script's main menu, filed against the picked car. Its Ident
+ * key is the read; nothing is pressed on arrival.
+ * @returns {void}
+ */
+function istaOpenIdentScan() {
+  const car = istaState.car;
+  if (car && typeof garageRunScan === 'function')
+    return garageRunScan(car, null, null);
+  showVehicleScript(istaChassis(), null, null, null);
+}
+
+/**
+ * The service functions for this car.
+ * @returns {Promise<void>}
+ */
+function istaOpenService() {
+  return showService(istaChassis(), null, '');
+}
+
+/**
+ * The service-reset routines. Same screen as Service functions -- the shell
+ * lists it under the service plan too because that is where a workshop
+ * looks for it, not because it is a second app.
+ * @returns {Promise<void>}
+ */
+function istaOpenServiceResets() {
+  return showService(istaChassis(), null, 'Service reset');
+}
+
+/**
+ * The bus map.
+ * @returns {Promise<void>}
+ */
+function istaOpenTree() {
+  return showEcuTreeChassis(
+    istaChassis(),
+    istaState.car ? istaState.car.id : null
+  );
+}
+
+/**
+ * Every scan kept against this car.
+ * @returns {Promise<void>}
+ */
+function istaOpenHistory() {
+  return showGarageCar(istaState.car.id);
+}
+
+/**
+ * The newest stored read, as its report. Routed through showGarageScan
+ * rather than rendered here: that screen disarms the stored report's Clear
+ * buttons, which would otherwise erase faults on whatever car is on the
+ * cable right now.
+ * @returns {Promise<void>}
+ */
+function istaOpenLatestReport() {
+  const scans =
+    typeof garageScans === 'function' ? garageScans(istaState.car.id) : [];
+  return showGarageScan(istaState.car.id, scans[0].id);
+}
+
+/**
+ * What the car reports about its own build.
+ * @returns {Promise<void>}
+ */
+function istaOpenIdentity() {
+  // the tab lands on the screen; the read is the user's key
+  return showVehicleIdentity(istaChassis(), { idle: true });
+}
+
+/**
+ * The chassis's module list, in whichever layout the user chose.
+ *
+ * NOT backToModules: that picks the right screen for the layout but returns
+ * nothing, so awaiting it resolves before either async screen has painted --
+ * and the shell would then re-stamp its F-keys over a pane still showing the
+ * previous tab. Making the same choice here lets the promise come back.
+ * @returns {Promise<void>}
+ */
+function istaOpenModules() {
+  const id = istaChassis();
+  if (typeof inpaMode === 'function' && inpaMode())
+    // aborting INPA's picker leaves the popup, not the shell
+    return showScriptSelection(id, () => showIsta(istaState.tab, null));
+  return showSections(id);
+}
+
+/**
+ * Coding: the chassis's coding hub (dev hosts only, see the model).
+ * @returns {Promise<void>}
+ */
+function istaOpenCoding() {
+  return showCodingHub(istaChassis());
+}
+
+/**
+ * Await a probe, treating a throw as "no".
+ *
+ * Every readiness check below asks something optional -- does a tree ship for
+ * this chassis, does any module hold the build record -- and each of those
+ * can throw on a build without the data behind it. A throw means the same
+ * thing as a false here: the tab greys with its reason rather than the shell
+ * failing to draw.
+ * @param {() => Promise<*>} probe - the check
+ * @returns {Promise<*>} what it answered, or null when it threw
+ */
+async function istaProbe(probe) {
+  try {
+    return await probe();
+  } catch (e) {
+    return null;
+  }
+}
+
+/**
+ * Is a leaf openable on the car the shell is pointed at?
+ *
+ * This is where a grey row stops being a guess. A leaf can be dark for
+ * three different reasons and the shell says which: the model marked it
+ * `why` (nothing to open, ever, or not yet); the screen it names did not
+ * ship in this build; or it needs something this particular car has not got
+ * -- a whole-car script (only 10 of 27 chassis ship one), a saved car, a
+ * stored scan.
+ * @param {IstaSub|IstaSub3} sub - the leaf
+ * @returns {Promise<{ok: boolean, why: string}>}
+ */
+async function istaSubReady(sub) {
+  if (!sub) return { ok: false, why: 'no such tab' };
+  if (sub.why) return { ok: false, why: sub.why };
+  if (sub.needsCar && !istaChassis())
+    return { ok: false, why: 'no vehicle picked' };
+  if (sub.page) {
+    // the workshop browser is nothing without its extract, so it says so;
+    // every other page the shell draws always has something to draw
+    if (sub.page === 'techdata') {
+      if (typeof showTechData !== 'function')
+        return { ok: false, why: 'not in this build' };
+      const has = await istaProbe(() =>
+        typeof techDataIndexPresent === 'function'
+          ? techDataIndexPresent()
+          : false
+      );
+      if (!has)
+        return { ok: false, why: 'no workshop reference data in this build' };
+    }
+    // the vehicle test needs the scan engine; without it the button would
+    // open a page that can never read anything
+    if (sub.page === 'vehicle-test' && typeof ecuTreeScanStart !== 'function')
+      return { ok: false, why: 'not in this build' };
+    // the repair manual ships per chassis, so "is it here" is asked of THIS
+    // car's chassis, not of the extract as a whole: a build can carry E46's
+    // manual and not F30's, and saying so is more use than a blank pane
+    if (sub.page === 'repair') {
+      if (typeof showRepair !== 'function')
+        return { ok: false, why: 'not in this build' };
+      const chassis = istaChassis();
+      const has = await istaProbe(() =>
+        typeof repairIndexPresent === 'function'
+          ? repairIndexPresent(chassis)
+          : false
+      );
+      if (!has)
+        return {
+          ok: false,
+          why: `no repair data in this build for ${chassis}`,
+        };
+    }
+    return { ok: true, why: '' };
+  }
+  const fn = sub.open ? window[sub.open] : null;
+  if (typeof fn !== 'function') return { ok: false, why: 'not in this build' };
+
+  // the per-car checks, by leaf id
+  const chassis = istaChassis();
+  if (sub.id === 'conversion-coding' || sub.id === 'remove-coding') {
+    const has =
+      typeof chassisHasCoding === 'function' &&
+      (await istaProbe(chassisHasCoding(chassis)));
+    if (!has) return { ok: false, why: 'no codeable modules for this chassis' };
+  }
+  if (sub.id === 'fault-memory' || sub.id === 'unit-list') {
+    if (typeof vehicleScriptShipped === 'function') {
+      const has = await vehicleScriptShipped(chassis);
+      if (!has)
+        return {
+          ok: false,
+          why: `no whole-car script ships for ${chassis}`,
+        };
+    }
+  }
+  if (sub.id === 'tree') {
+    if (typeof ecuTreeNameFor === 'function') {
+      const name = await istaProbe(() => ecuTreeNameFor(chassis));
+      if (!name) return { ok: false, why: `no bus map ships for ${chassis}` };
+    }
+  }
+  if ((sub.id === 'history' || sub.id === 'finished') && !istaState.car)
+    return { ok: false, why: 'no saved car: add one in the Garage first' };
+  if (sub.id === 'report') {
+    if (!istaState.car)
+      return { ok: false, why: 'no saved car: add one in the Garage first' };
+    const scans =
+      typeof garageScans === 'function' ? garageScans(istaState.car.id) : [];
+    if (!scans.length) return { ok: false, why: 'no scan stored yet' };
+  }
+  if (
+    sub.id === 'service-functions' &&
+    typeof serviceIndexPresent === 'function'
+  ) {
+    const has = await istaProbe(() => serviceIndexPresent());
+    if (!has) return { ok: false, why: 'no service mapping in this build' };
+  }
+  if (sub.id === 'text-search' && typeof searchIndexPresent === 'function') {
+    const has = await istaProbe(() => searchIndexPresent());
+    if (!has) return { ok: false, why: 'no job index in this build' };
+  }
+  return { ok: true, why: '' };
+}
+
+// ---- the chrome ------------------------------------------------------------
+
+/**
+ * Draw the chrome, in whichever face the layout setting asks for.
+ *
+ * The setting is re-read HERE, on every paint, rather than cached: Settings
+ * fires no change event, and the Settings screen simply re-renders itself,
+ * so the shell's next paint is the first moment it can notice. Coming back
+ * to the shell after flipping the switch therefore lands on the right face.
+ * @returns {void}
+ */
+function istaPaintChrome() {
+  const el = istaChromeEnsure();
+  if (!el) return;
+  const real = istaSkinOn();
+  el.classList.toggle('ista-real', real);
+  if (typeof document !== 'undefined')
+    document.body.classList.toggle('ista-real-body', real);
+  if (real) return istaPaintRealChrome(el);
+  istaRealStatus(null);
+  istaRealBottom(null);
+  istaPaintModernChrome(el);
+}
+
+/**
+ * Paint the workshop tool's own chrome.
+ * @param {HTMLElement} el - the chrome container
+ * @returns {void}
+ */
+function istaPaintRealChrome(el) {
+  istaPaintReal(el, {
+    car: istaState.car,
+    etk: istaState.etk,
+    tested: istaState.tested,
+    tab: istaState.tab,
+    sub: istaState.sub,
+    sub3: istaState.sub3,
+    go: (kind, ids) => {
+      if (kind === 'tab') return istaGo(ids.tab, null, null);
+      if (kind === 'sub') return istaGo(ids.tab, ids.sub, null);
+      return istaGo(istaState.tab, istaState.sub, ids.sub3);
+    },
+    act: (a) => istaToolbarAct(a),
+    pin: (ids) => {
+      istaFavouriteToggle(ids.tab, ids.sub, ids.sub3);
+      istaPaintChrome();
+    },
+  });
+  istaBannerSync();
+  if (typeof tipify === 'function') tipify(el);
+}
+
+/**
+ * A toolbar icon was pressed.
+ * @param {string} act - which one
+ * @returns {void}
+ */
+function istaToolbarAct(act) {
+  if (act === 'home' || act === 'close') {
+    istaChromeHide();
+    return act === 'home' && typeof showApps === 'function'
+      ? showApps()
+      : showChassis();
+  }
+  if (act === 'print') return window.print();
+  if (act === 'settings')
+    // a WINDOW over the page, not a navigation: the real tool never leaves
+    // the vehicle to change a setting, and neither does this
+    return typeof istaAdminOpen === 'function'
+      ? istaAdminOpen(() =>
+          showIsta(istaState.tab, istaState.sub, istaState.sub3)
+        )
+      : undefined;
+  if (act === 'help')
+    return typeof showDocs === 'function'
+      ? showDocs()
+      : window.open('README.md', '_blank');
+  // NO CAR PICKER. ISTA opens a vehicle in exactly one place, Operations /
+  // New, and a second way in is a second answer to "which car is this" --
+  // the one question a workshop tool must never have two of.
+  if (act === 'sessions') return istaGo('operations', 'new', 'vin');
+  // tile and restore are window-manager buttons of the real tool's own
+  // desktop shell: drawn so the row is the row, inert because a browser tab
+  // has no windows to tile
+}
+
+/**
+ * Draw the modern chrome: the banner and the pill tabs the shell had before
+ * the workshop layout existed.
+ * @param {HTMLElement} el - the chrome container
+ * @returns {void}
+ */
+function istaPaintModernChrome(el) {
+  // the same rule the workshop chrome follows: no vehicle, no tabs
+  const locked = !istaState.car;
+  const tabs = ISTA_TABS.map((t) => {
+    const on = t.id === istaState.tab;
+    const off = locked && !t.entry;
+    return (
+      `<button type="button" class="ista-tab${on ? ' on' : ''}` +
+      `${off ? ' off' : ''}" data-tab="${esc(t.id)}"` +
+      `${off ? ' disabled title="Start an operation first"' : ''}` +
+      `${on ? ' aria-current="page"' : ''}>` +
+      `${esc(String(t.label).replace(/\n/g, ' '))}</button>`
+    );
+  }).join('');
+  const subs = istaSubsOf(istaState.tab);
+  const subs3 = istaState.sub ? istaSubs3Of(istaState.tab, istaState.sub) : [];
+  const stripOf = (rows, level) =>
+    rows.length
+      ? `<div class="ista-subs">` +
+        rows
+          .map((s) => {
+            const owner = level === 2 ? s._tab || istaState.tab : istaState.tab;
+            const on =
+              level === 2
+                ? s.id === istaState.sub && owner === istaState.tab
+                : s.id === istaState.sub3;
+            const pinned =
+              level === 2
+                ? istaIsFavourite(owner, s.id)
+                : istaIsFavourite(istaState.tab, istaState.sub, s.id);
+            const attr =
+              level === 2
+                ? `data-sub="${esc(s.id)}" data-owner="${esc(owner)}"`
+                : `data-sub3="${esc(s.id)}"`;
+            const star =
+              level === 2
+                ? `data-star="${esc(s.id)}" data-owner="${esc(owner)}"`
+                : `data-star3="${esc(s.id)}"`;
+            return (
+              `<span class="ista-sub-wrap">` +
+              `<button type="button" class="ista-sub${on ? ' on' : ''}" ` +
+              `${attr}>${esc(s.label)}</button>` +
+              `<button type="button" class="ista-star${pinned ? ' on' : ''}" ` +
+              `${star} ` +
+              `title="${pinned ? 'Unpin from Favourites' : 'Pin to Favourites'}" ` +
+              `aria-label="${pinned ? 'Unpin' : 'Pin'} ${esc(s.label)}">` +
+              `★</button></span>`
+            );
+          })
+          .join('') +
+        `</div>`
+      : '';
+
+  el.innerHTML =
+    istaBannerHtml(istaState.car, istaState.chassis) +
+    `<div class="ista-tabs" role="tablist">${tabs}</div>` +
+    stripOf(subs, 2) +
+    stripOf(subs3, 3);
+
+  el.querySelectorAll('.ista-tab[data-tab]').forEach((b) => {
+    if (b.disabled) return;
+    b.onclick = () => istaGo(b.dataset.tab, null, null);
+  });
+  el.querySelectorAll('.ista-sub[data-sub]').forEach((b) => {
+    b.onclick = () => istaGo(b.dataset.owner, b.dataset.sub, null);
+  });
+  el.querySelectorAll('.ista-sub[data-sub3]').forEach((b) => {
+    b.onclick = () => istaGo(istaState.tab, istaState.sub, b.dataset.sub3);
+  });
+  el.querySelectorAll('.ista-star[data-star]').forEach((b) => {
+    b.onclick = (e) => {
+      e.stopPropagation();
+      istaFavouriteToggle(b.dataset.owner, b.dataset.star);
+      istaPaintChrome();
+    };
+  });
+  el.querySelectorAll('.ista-star[data-star3]').forEach((b) => {
+    b.onclick = (e) => {
+      e.stopPropagation();
+      istaFavouriteToggle(istaState.tab, istaState.sub, b.dataset.star3);
+      istaPaintChrome();
+    };
+  });
+  const pick = el.querySelector('#ista-car-pick');
+  if (pick) pick.onclick = () => istaPickCar();
+  istaBannerSync();
+  if (typeof tipify === 'function') tipify(el);
+}
+
+/**
+ * The car picker: every saved car, plus every chassis the build ships so a
+ * car nobody saved still works.
+ * @returns {Promise<void>}
+ */
+async function istaPickCar() {
+  const cars = typeof garageCars === 'function' ? garageCars() : [];
+  // every chassis the build ships, so a car nobody saved still works
+  const ids = (await istaProbe(() => api('/api/chassis'))) || [];
+  const rows =
+    cars
+      .map(
+        (c) =>
+          `<button type="button" class="ista-pick-row" data-car="${esc(c.id)}">` +
+          `<span class="ista-pick-name">${esc(garageCarLabel(c))}</span>` +
+          `<span class="ista-pick-bits">${esc(
+            [
+              typeof dispChassis === 'function'
+                ? dispChassis(c.chassis)
+                : c.chassis,
+              istaCarBits(c),
+              c.vin,
+            ]
+              .filter(Boolean)
+              .join(' · ')
+          )}</span></button>`
+      )
+      .join('') +
+    ids
+      .map(
+        (id) =>
+          `<button type="button" class="ista-pick-row ista-pick-bare" ` +
+          `data-chassis="${esc(id)}">` +
+          `<span class="ista-pick-name">${esc(
+            typeof dispChassis === 'function' ? dispChassis(id) : id
+          )}</span>` +
+          `<span class="ista-pick-bits">chassis only, no saved car</span>` +
+          `</button>`
+      )
+      .join('');
+
+  const html =
+    `<div class="modal ista-pick-modal" role="dialog" aria-modal="true">` +
+    `<div class="modal-title">Which vehicle?</div>` +
+    `<div class="modal-body ista-pick">` +
+    (cars.length
+      ? ''
+      : `<p class="ista-pick-note">No saved cars yet. Pick a chassis to ` +
+        `work on, or add a car in the Garage to keep its scans.</p>`) +
+    rows +
+    `</div>` +
+    `<div class="modal-actions">` +
+    `<button type="button" class="btn ista-pick-cancel">Cancel</button>` +
+    `</div></div>`;
+  const { overlay, close } = openModal(html);
+  overlay.querySelectorAll('.ista-pick-row').forEach((b) => {
+    b.onclick = () => {
+      if (b.dataset.car) {
+        const c = cars.find((x) => x.id === b.dataset.car);
+        if (c) istaSetCar(c);
+      } else if (b.dataset.chassis) {
+        istaSetCar(null, b.dataset.chassis);
+      }
+      close();
+      // the picked car changes what every tab can do, so redraw from the top
+      showIsta(istaState.tab, istaState.sub, istaState.sub3);
+    };
+  });
+  const cancel = overlay.querySelector('.ista-pick-cancel');
+  if (cancel) cancel.onclick = () => close();
+}
+
+/**
+ * Navigate inside the shell.
+ * @param {string} tab - the tab id
+ * @param {string|null} sub - the sub-tab id, or null for the tab's first
+ * @param {string|null} [sub3] - the level-3 tab id, or null for the first
+ * @returns {Promise<void>}
+ */
+async function istaGo(tab, sub, sub3) {
+  let t = istaTab(tab) ? tab : ISTA_HOME_TAB;
+  // A ROUTE CANNOT WALK PAST THE GATE EITHER. The tabs are greyed with no
+  // car, but a bookmarked or reloaded URL addresses one directly -- so a
+  // tab that needs a vehicle lands on Operations instead, which is where
+  // the vehicle is identified.
+  const entry = (istaTab(t) || {}).entry;
+  if (!istaState.car && !entry) {
+    const home = ISTA_TABS.find((x) => x.entry);
+    if (home) {
+      t = home.id;
+      sub = null;
+      sub3 = null;
+    }
+  }
+  const s = sub || (istaFirstSub(t) || {}).id || null;
+  const s3 = sub3 || (s ? (istaFirstSub3(t, s) || {}).id || null : null);
+  return showIsta(t, s, s3);
+}
+
+// ---- the entry point -------------------------------------------------------
+
+/**
+ * Stamp the shell's route into the URL. Done by hand rather than through
+ * ROUTE_FOR_SCREEN because the route carries the tab, the sub-tab, the
+ * level-3 tab and the car, none of which a function name can express.
+ *
+ * THE LAST TWO SLOTS ARE NOT THE SHELL'S. A sub-tab with pages of its own
+ * (Repair/maintenance, the diagnosis structures, Workshop) writes them, and
+ * this runs BEFORE that sub-tab has drawn -- so stamping only the first four
+ * would erase the view and the document a deep link named, a moment before
+ * the sub-tab tried to read them. They are therefore carried through from
+ * whatever is in the URL, but only while the tab, sub-tab and level-3 still
+ * match: a stale view from the tab the reader just left would otherwise
+ * follow them to the next one.
+ * @returns {void}
+ */
+function istaRouteStamp() {
+  if (typeof history === 'undefined' || !history.replaceState) return;
+  const now =
+    typeof location !== 'undefined'
+      ? istaRouteParse(String(location.hash || '').replace(/^#/, ''))
+      : null;
+  const same =
+    now &&
+    now.tab === istaState.tab &&
+    now.sub === istaState.sub &&
+    now.sub3 === istaState.sub3;
+  const route = istaRouteBuild(
+    istaState.tab,
+    istaState.sub,
+    istaState.sub3,
+    istaState.car ? istaState.car.id : null,
+    same ? now.view : null,
+    same ? now.item : null
+  );
+  history.replaceState(null, '', '#' + route);
+}
+
+/**
+ * Open a wrapped screen and keep the shell around it.
+ *
+ * The screen renders into `#view` as it always does. What this adds is the
+ * two lines that stop it taking the shell's identity with it: `lastScreen`
+ * goes back to the shell (so the next setCrumbs, wherever it comes from,
+ * syncs to the shell rather than the wrapped screen), and the hash is
+ * re-stamped after the render (so the wrapped screen's own routeSetX call
+ * does not win). Esc is re-pointed at the shell's home for the same reason.
+ * @param {IstaSub|IstaSub3} sub - the leaf being opened
+ * @returns {Promise<void>}
+ */
+async function istaOpen(sub) {
+  // a synthetic row (a stored scan, one module's script) carries its own
+  // call rather than a global name: the tab table names functions, but these
+  // are built from a row the reader just picked
+  const fn = sub._call || window[sub.open];
+  istaOpeningSet(true); // the router must not read this render as "left"
+  try {
+    await fn();
+  } catch (e) {
+    // a wrapped screen that throws must not take the shell down with it
+    const host = document.getElementById('view');
+    if (host && typeof errorBlock === 'function')
+      host.innerHTML = errorBlock(
+        `${esc(sub.label)} could not open: ${esc(e && e.message ? e.message : e)}`
+      );
+  } finally {
+    istaOpeningSet(false);
+  }
+  lastScreen = () => showIsta(istaState.tab, istaState.sub, istaState.sub3);
+  istaRouteStamp();
+  istaBackAction();
+  // the wrapped screen owns #view; the shell still owns the bars around it
+  if (istaSkinOn()) istaRealChromeBars(sub);
+}
+
+/**
+ * Put the shell's Back on Esc, keeping whatever else the wrapped screen
+ * installed. A wrapped screen owns its F-keys; the shell only claims the
+ * back slot, so Esc leaves the sub-tab rather than the app.
+ *
+ * kind:'print' is carried through whatever the screen had, and the shell's
+ * own rows always ship one, so Cmd/Ctrl+P keeps working on every screen in
+ * the shell (core/print.js searches only the row painted right now).
+ * @returns {void}
+ */
+function istaBackAction() {
+  const keep = (
+    (typeof actionBar !== 'undefined' && actionBar.current) ||
+    []
+  ).filter((a) => a && a.kind !== 'back');
+  setActions([
+    ...keep,
+    {
+      key: 'Escape',
+      keyLabel: 'Esc',
+      label: 'ISTA',
+      kind: 'back',
+      fn: () => showIsta(ISTA_HOME_TAB, null, null),
+    },
+  ]);
+}
+
+/**
+ * Draw the bottom bar a page offers, binding each button id to what it does.
+ *
+ * The WHAT and the ORDER live in the model's ISTA_BOTTOM table; this is the
+ * only place that knows what any of them does. So a page's row of buttons is
+ * a fact about that page rather than a template every page inherits -- which
+ * is what used to put the pair of nav arrows on pages the frames show
+ * without them.
+ *
+ * A button whose id has no action here draws greyed rather than dead: the
+ * tool shows the control and refuses it, which is the honest shape.
+ * @param {string} pageId - the key into ISTA_BOTTOM
+ * @param {Object<string, Function|null>} [actions] - id to what it does
+ * @returns {void}
+ */
+function istaBottomBar(pageId, actions) {
+  const act = actions || {};
+  const rows = istaBottomFor(pageId).map((b) => {
+    if (b.nav)
+      return { nav: true, back: act._back || null, fwd: act._fwd || null };
+    if (b.spacer) return { spacer: true };
+    const fn = act[b.id];
+    // A button is off when the page gave it nothing to do. The model's
+    // `off` only says what the button looks like before a page binds it
+    // (Show fault code with no fault picked); it must not pin a button
+    // shut once the page hands it a handler, which it did.
+    return {
+      label: b.label,
+      fn: fn || null,
+      off: !fn,
+      title: b.title || '',
+    };
+  });
+  istaRealBottom(rows.length ? rows : null);
+}
+
+/**
+ * The status line and bottom bar for a wrapped screen.
+ *
+ * A wrapped screen keeps its own F-key row (which the skin hides) and its
+ * own buttons inside #view. What the skin adds around it is the status line;
+ * the buttons are whatever the model says that page offers, which for a
+ * screen the shell merely wraps is nothing of its own.
+ * @param {IstaSub|IstaSub3} sub - the leaf that was opened
+ * @returns {void}
+ */
+function istaRealChromeBars(sub) {
+  istaRealStatus({ items: [{ k: 'Filter:', v: 'Default' }] });
+  istaBottomBar(sub.id, {
+    'delete-faults': null,
+    'filter-faults': null,
+    'show-all': null,
+    filters: null,
+    display: null,
+    back: () => showIsta(istaState.tab, istaState.sub, istaState.sub3),
+  });
+}
+
+/**
+ * Give the drawn bus map ISTA's own behaviour: hover shows the unit's
+ * details, a click SELECTS it and nothing else.
+ *
+ * The app's own tree opens a module when a box is clicked, which is one
+ * click too few for this tool: ISTA selects, and the window is a separate,
+ * deliberate press of Call up ECU functions. So the box's own handler is
+ * replaced rather than wrapped.
+ * @param {IstaSlot[]} slots - the car's slots
+ * @param {string} chassis - the chassis id
+ * @param {(p: {slot: object, box: object}|null) => void} onPick - selection
+ * @returns {void}
+ */
+function istaTreeBind(slots, chassis, onPick) {
+  if (typeof document === 'undefined') return;
+  const host = document.getElementById('view');
+  if (!host) return;
+  let tip = null;
+  const drop = () => {
+    if (tip && tip.parentNode) tip.parentNode.removeChild(tip);
+    tip = null;
+  };
+  host.querySelectorAll('.tree-box').forEach((el) => {
+    // the tree stamps data-key as "<name>@<addr>", which is the box's own
+    // identity; its text is a caption that may have been shortened
+    const key = String(el.getAttribute('data-key') || '');
+    const at = key.lastIndexOf('@');
+    const name = at > 0 ? key.slice(0, at) : key;
+    const addr = at > 0 ? key.slice(at + 1) : '';
+    // the slot carries the box it was keyed on, so a box matches its own
+    // slot by identity rather than by a name that may have been replaced
+    // with the identified variant's
+    const slot =
+      (slots || []).find(
+        (x) =>
+          (x.box && x.box.name === name && String(x.box.addr) === addr) ||
+          (x.box && x.box.name === name)
+      ) || null;
+    const box = {
+      name,
+      addr: slot && slot.box ? slot.box.addr : addr,
+      bus: slot && slot.box ? slot.box.bus : '',
+      col: slot && slot.box ? slot.box.col : null,
+      row: slot && slot.box ? slot.box.row : null,
+    };
+    el.onmouseenter = () => {
+      if (typeof istaEcuTip !== 'function') return;
+      drop();
+      const d = document.createElement('div');
+      d.className = 'irtip-wrap';
+      d.innerHTML = istaEcuTip(box, slot);
+      document.body.appendChild(d);
+      // anchored below the box, and pulled back inside the window when the
+      // box sits near its right or bottom edge
+      const r = el.getBoundingClientRect();
+      const t = d.getBoundingClientRect();
+      const x = Math.min(r.left, window.innerWidth - t.width - 8);
+      const y =
+        r.bottom + t.height + 8 > window.innerHeight
+          ? Math.max(4, r.top - t.height - 4)
+          : r.bottom + 4;
+      d.style.left = `${Math.round(Math.max(4, x))}px`;
+      d.style.top = `${Math.round(y)}px`;
+      tip = d;
+    };
+    el.onmouseleave = drop;
+    el.onclick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      host.querySelectorAll('.tree-box.ista-sel').forEach((x) => {
+        x.classList.remove('ista-sel');
+      });
+      el.classList.add('ista-sel');
+      if (onPick) onPick(slot ? { slot, box } : null);
+    };
+  });
+}
+
+/**
+ * The car's control unit slots, with what the newest scans found in each.
+ *
+ * Both scans are asked for: the fault scan says which slots hold faults, the
+ * identification scan says WHICH VARIANT is in a slot. They are different
+ * reads and a car may have had only one of them.
+ * @param {string} chassis - the chassis id
+ * @param {object|null} car - the picked GarageCar
+ * @returns {Promise<IstaSlot[]>}
+ */
+async function istaLoadSlots(chassis, car) {
+  // the bus map comes along because it is the authority on what counts as
+  // ONE control unit: an E46's DME is filed under two group files, and only
+  // the map's box says they are the same unit
+  const [cfg, tree] = await Promise.all([
+    istaProbe(() => api(`/api/chassis/${chassis}`)),
+    istaProbe(() =>
+      typeof ecuTreeForChassis === 'function'
+        ? ecuTreeForChassis(chassis)
+        : null
+    ),
+  ]);
+  const scans =
+    car && typeof garageScans === 'function' ? garageScans(car.id) : [];
+  let faults = (scans.find((x) => x.kind === 'faults') || {}).report || null;
+  let ident = (scans.find((x) => x.kind === 'ident') || {}).report || null;
+  // A READ IN PROGRESS REPLACES THE STORED ONE ENTIRELY. The test paints the
+  // screen it is already on as each module answers, the way the tree app's
+  // own Fault scan does. Falling back to the LAST scan for the half that has
+  // not answered yet would paint the previous run's colours as though they
+  // were this one's -- a module cleared since then would still show amber,
+  // and the whole tree came up coloured before a single module had replied.
+  // While a test runs, only what this test has heard is drawn.
+  const now = istaTestLive() || istaTestDone;
+  if (now) {
+    ident = now.ident || ident;
+    faults = now.faults || faults;
+  }
+  // while a test is RUNNING, only what it has heard is drawn: falling back
+  // to the last scan would paint the previous run's colours as this one's
+  if (istaTestLive()) {
+    ident = istaTestLive().ident || null;
+    faults = istaTestLive().faults || null;
+  }
+  return typeof istaSlots === 'function'
+    ? istaSlots(cfg, faults, ident, tree)
+    : [];
+}
+
+/** @type {{ident: object|null, faults: object|null}|null} the live read */
+let istaTestLiveState = null;
+
+/**
+ * The vehicle test's reads so far, while one is running.
+ * @returns {{ident: object|null, faults: object|null}|null}
+ */
+function istaTestLive() {
+  return istaTestLiveState;
+}
+
+/**
+ * Open the control unit window for a slot.
+ *
+ * The module's decoded script comes with it, because the window's two live
+ * tabs list the screens that script offers. A slot nothing has identified
+ * has no script to list, and the window says so on its Identification tab
+ * rather than guessing which of eight candidates to load.
+ * @param {object} slot - the slot, from istaSlots
+ * @param {object|null} box - its tree box, when opened from the map
+ * @param {string} chassis - the chassis id
+ * @returns {Promise<void>}
+ */
+async function istaOpenEcuWindow(slot, box, chassis) {
+  if (!slot || typeof istaEcuWindow !== 'function') return;
+  // the same endpoint the module view reads its script from, so the window
+  // lists exactly the screens that view would offer
+  const code =
+    slot.ecu && slot.ecu.code
+      ? `?code=${encodeURIComponent(slot.ecu.code)}`
+      : '';
+  // An unidentified slot has no sgbd of its own yet, only its candidates:
+  // one for most slots (the KOMBI is kombi46 and nothing else), several for
+  // the engine. The tool's lists are per variant, so the first candidate
+  // the extract carries stands for the slot until a scan identifies it.
+  const names = [slot.sgbd]
+    .concat((slot.candidates || []).map((c) => c && c.sgbd))
+    .filter((n, i, a) => n && a.indexOf(n) === i);
+  let variant = slot.sgbd || '';
+  let fn = null;
+  for (const n of names) {
+    fn = await istaEcuFnLoad(n);
+    if (fn) {
+      variant = n;
+      break;
+    }
+  }
+  if (!variant && names.length) variant = names[0];
+  const ir = variant
+    ? await istaProbe(() => api(`/api/ecu/${variant}/ir${code}`))
+    : null;
+  istaEcuWindow({
+    slot,
+    box,
+    ir,
+    fn,
+    runJob: async (job, args, write) => {
+      // the same rule the raw job runner follows: a job that commands the
+      // ECU asks first unless the user turned actuator confirmations off
+      if (
+        write &&
+        (typeof confirmActuators !== 'function' || confirmActuators())
+      ) {
+        const okGo =
+          typeof confirmDialog === 'function'
+            ? await confirmDialog({
+                title: `${job} commands ${slot.abbr || variant}`,
+                body:
+                  'This function drives a component rather than reading ' +
+                  'it. Make sure the module and anything it moves are safe.',
+                confirmLabel: 'Trigger',
+                danger: true,
+              })
+            : true;
+        if (!okGo) return null;
+      }
+      const q = args ? `?arg=${encodeURIComponent(args)}` : '';
+      return api(`/api/ecu/${variant}/run/${encodeURIComponent(job)}${q}`, {
+        method: 'POST',
+      });
+    },
+    run: async (screen) => {
+      // RUNNING A SCREEN IS LEAVING THIS WINDOW. The app already has one
+      // path that opens a module at a named screen, with the confirm on
+      // anything that writes and the release-on-leave that a live actuator
+      // needs; re-implementing a second runner inside a dialog would be a
+      // second place for those promises to be got wrong. So the window
+      // closes and the module view opens where it was pointed.
+      if (typeof showEcu !== 'function' || !slot.ecu) return [];
+      await istaOpen({
+        label: slot.name || slot.abbr,
+        _call: () =>
+          showEcu(chassis, slot.section, slot.ecu, null, screen.name),
+      });
+      return [];
+    },
+  });
+}
+
+/**
+ * The Service plan's Test plan, for the car in front of the shell.
+ *
+ * It used to be a bare array in this scope, deliberately not persisted, on
+ * the grounds that a plan outliving the car on the ramp is worse than no
+ * plan. That is right about a plan following the WRONG car and wrong about
+ * the same car tomorrow, so the store in plan.js keys the plan by the
+ * Garage car id the way the scans are keyed, and a plan belongs to exactly
+ * one car forever. This stays as the shell's reader of it.
+ * @param {object|null} [car] - the picked GarageCar; the shell's by default
+ * @returns {object[]} the rows, in the tool's Priority order
+ */
+function istaTestPlan(car) {
+  const c = car === undefined ? istaState.car : car;
+  if (typeof istaPlanRows !== 'function') return [];
+  return typeof istaPlanSort === 'function'
+    ? istaPlanSort(istaPlanRows(c), istaState.planDesc)
+    : istaPlanRows(c);
+}
+
+/** Hosted copy of the tool's control-unit function lists. */
+
+/**
+ * The tool's function lists for one ECU variant, local first then the
+ * dataset; null when neither ships it (36 configured modules have none).
+ * @param {string} variant - the SGBD name
+ * @returns {Promise<object|null>}
+ */
+async function istaEcuFnLoad(variant) {
+  const v = String(variant || '').toLowerCase();
+  if (!v || typeof fflate === 'undefined') return null;
+  const base = typeof WEB_BASE === 'string' && WEB_BASE ? WEB_BASE : '.';
+  const real =
+    typeof webRealFetch === 'function'
+      ? webRealFetch
+      : window.fetch.bind(window);
+  for (const u of [
+    `${base}/data/ista/ecufn/${v}.json.gz`,
+    ...hfUrls(`ista/ecufn/${v}.json.gz`).slice(1),
+  ]) {
+    try {
+      const r = await real(u);
+      if (!r || !r.ok) continue;
+      const bytes = new Uint8Array(await r.arrayBuffer());
+      return JSON.parse(
+        new TextDecoder('utf-8').decode(fflate.gunzipSync(bytes))
+      );
+    } catch (e) {
+      /* try the next source */
+    }
+  }
+  return null;
+}
+
+/** Hosted copy of the diagnosis structures, beside the repair extract. */
+
+/**
+ * Fetch one diagnosis-structure file, local first then the dataset.
+ *
+ * The same rule as repairUrls: a build with a local extract never reaches
+ * the network, and the hosted site, which ships no data/ista/diag, still
+ * finds the file. Null when neither answers.
+ * @param {string} rel - the path under data/ista/diag/
+ * @returns {Promise<Response|null>}
+ */
+async function istaDiagFetch(rel) {
+  const cut = String(rel || '').indexOf('/');
+  if (cut > 0 && typeof istaBundleFile === 'function') {
+    const hit = await istaBundleFile(
+      rel.slice(0, cut),
+      `diag/${rel.slice(cut + 1)}`
+    );
+    if (hit) return hit;
+  }
+  const base = typeof WEB_BASE === 'string' && WEB_BASE ? WEB_BASE : '.';
+  const real =
+    typeof webRealFetch === 'function'
+      ? webRealFetch
+      : window.fetch.bind(window);
+  for (const u of hfUrls(`ista/diag/${rel}`)) {
+    try {
+      const r = await real(u);
+      if (r && r.ok) return r;
+    } catch (e) {
+      /* try the next source */
+    }
+  }
+  return null;
+}
+
+/**
+ * The body text of every diagnosis document for a chassis, by id.
+ *
+ * The extract ships one lowercased blob so the page can offer a full-text
+ * search without fetching thousands of per-document files. A build without
+ * it gets an empty map, and the scope says it has no index rather than
+ * silently matching nothing.
+ * @param {string} chassis - the chassis id
+ * @returns {Promise<Map<string, string>>}
+ */
+async function istaDiagBodies(chassis) {
+  const code = String(chassis || '').toUpperCase();
+  const out = new Map();
+  if (!code) return out;
+  const raw = await istaProbe(async () => {
+    const r = await istaDiagFetch(`${code}/search-index.json.gz`);
+    if (!r || typeof fflate === 'undefined') return null;
+    const bytes = new Uint8Array(await r.arrayBuffer());
+    return JSON.parse(
+      new TextDecoder('utf-8').decode(fflate.gunzipSync(bytes))
+    );
+  });
+  for (const [id, text] of Object.entries(raw || {}))
+    out.set(String(id), String(text || ''));
+  return out;
+}
+
+/**
+ * Open one diagnosis document in the viewer.
+ * @param {string} chassis - the chassis id
+ * @param {object} doc - the document row
+ * @returns {Promise<void>}
+ */
+async function istaOpenDiagDoc(chassis, doc) {
+  if (!doc || typeof openModal !== 'function') return;
+  const body = await istaDiagBody(chassis, doc);
+  const { overlay, close } = openModal(
+    `<div class="modal irdoc" role="dialog" aria-modal="true">` +
+      `<div class="irdoc-title">${esc(
+        `${doc.type || ''} ${doc.title || ''}`.trim()
+      )}</div>` +
+      `<div class="irdoc-body ista-repair">${body}</div>` +
+      `<div class="modal-actions">` +
+      `<button type="button" class="btn irdoc-close">Close</button>` +
+      `</div></div>`
+  );
+  overlay.querySelector('.irdoc-close').onclick = () => close();
+}
+
+/**
+ * The Workshop page's Filter dialog.
+ *
+ * One checkbox, because the app's page has one filter worth exposing: by
+ * default it shows the documents that apply to THIS car, and Show all drops
+ * that scoping. The checkbox it drives is the page's own, so the two cannot
+ * disagree about what is on screen.
+ * @param {HTMLElement} host - the page
+ * @returns {void}
+ */
+function istaTechDataFilter(host) {
+  const box = host.querySelector('#td-all');
+  if (!box || typeof openModal !== 'function') return;
+  const { overlay, close } = openModal(
+    `<div class="modal iradmin" role="dialog" aria-modal="true">` +
+      `<div class="modal-title iradmin-title">Filter</div>` +
+      `<div class="iradmin-host"><div class="iradmin-row">` +
+      `<label class="iradmin-opt"><input type="checkbox" id="ista-td-only"` +
+      `${box.checked ? '' : ' checked'} /> ` +
+      `<span>Only this vehicle</span></label></div></div>` +
+      `<div class="modal-actions iradmin-actions">` +
+      `<button type="button" class="btn iradmin-cancel">Cancel</button>` +
+      `<button type="button" class="btn iradmin-ok">OK</button>` +
+      `</div></div>`
+  );
+  overlay.querySelector('.iradmin-cancel').onclick = () => close();
+  overlay.querySelector('.iradmin-ok').onclick = () => {
+    const only = overlay.querySelector('#ista-td-only').checked;
+    // "Only this vehicle" is the inverse of the page's "Show all"
+    if (box.checked === only) box.click();
+    close();
+  };
+}
+
+/**
+ * Open the vehicle a set of basic features narrowed to.
+ *
+ * There is no VIN here, so the car is filed by what the catalogue says it
+ * is. The Garage keeps it like any other, which is what lets its scans be
+ * stored against it afterwards.
+ * @param {object} row - the single matching catalogue row
+ * @returns {Promise<void>}
+ */
+async function istaOpenBasic(row) {
+  if (!row) return;
+  let car = null;
+  if (typeof garageAddCar === 'function')
+    car = garageAddCar({
+      chassis: row.chassis,
+      model: row.model,
+      body: row.body,
+      motor: row.motor,
+      prod: `${row._year || ''}${row._month || ''}`,
+    });
+  if (car) istaSetCar(car);
+  else istaSetCar(null, row.chassis);
+  return istaGo('information', 'details', null);
+}
+
+/**
+ * Open a stored scan's report inside the shell.
+ * @param {object} scan - a GarageScan
+ * @returns {Promise<void>}
+ */
+function istaOpenStoredScan(scan) {
+  if (!scan) return Promise.resolve();
+  // inside the shell the scan is redrawn in the tool's own language rather
+  // than opening the Garage's INPA-faithful sheet; outside it, that sheet is
+  // still the right thing and nothing here changes it
+  if (!istaSkinOn()) {
+    if (typeof showGarageScan !== 'function' || !istaState.car)
+      return Promise.resolve();
+    return istaOpen({
+      label: 'Operations report',
+      _call: () => showGarageScan(istaState.car.id, scan.id),
+    });
+  }
+  view.innerHTML = '';
+  const host = document.createElement('div');
+  view.appendChild(host);
+  istaPageReport(host, scan);
+  const sum = scan.summary || {};
+  istaRealStatus({
+    items: [
+      { k: 'Modules:', v: String(sum.modules || 0) },
+      { k: 'Faults:', v: String(sum.faults || 0) },
+    ],
+  });
+  istaBottomBar('report', {
+    close: () => showIsta(istaState.tab, istaState.sub, istaState.sub3),
+  });
+  return Promise.resolve();
+}
+
+/**
+ * Clear the fault memory of the module a picked fault came from.
+ *
+ * Routed through the app's own per-module clear, which asks first and then
+ * RE-READS to prove the memory is empty. A clear that reports success
+ * without re-reading hides a live fault that re-enters the moment the ECU
+ * sees it again, so this must not grow a shortcut.
+ * @param {object} row - the picked fault row
+ * @param {() => void} after - redraw the table
+ * @returns {Promise<void>}
+ */
+async function istaClearPicked(row, after) {
+  if (!row || !row.sgbd) return;
+  if (typeof clearModule !== 'function') return;
+  await istaProbe(() =>
+    clearModule({
+      ecu: { sgbd: row.sgbd },
+      label: row.module || row.sgbd,
+      codes: [],
+    })
+  );
+  if (typeof after === 'function') after();
+}
+
+/**
+ * Draw a browser page (tree, list, document) into the content area.
+ *
+ * One call site for every structure page, so the deep-link slots and the
+ * selection state are handled the same way whichever tree is showing.
+ * @param {HTMLElement} host - where to draw
+ * @param {object} src - a BrowserSource
+ * @param {string} key - which browser's state this is
+ * @param {object} [opts] - passed through to browserPaint
+ * @returns {void}
+ */
+function istaBrowse(host, src, key, opts) {
+  if (typeof browserPaint !== 'function') {
+    host.innerHTML =
+      `<div class="irgrey-w">The structure browser did not ship in this ` +
+      `build.</div>`;
+    return;
+  }
+  // THE BROWSER'S OWN STYLES ARE SCOPED under .ista-repair, because the
+  // repair manual is where it was written. Every page that reuses it needs
+  // that class on an ancestor or the two panes collapse into unstyled boxes
+  // -- it names the widget's vocabulary, not the repair manual.
+  host.classList.add('ista-repair');
+  if (!istaState.browse) istaState.browse = {};
+  if (!istaState.browse[key])
+    istaState.browse[key] = {
+      path: null,
+      open: new Set(),
+      hits: [],
+      doc: null,
+    };
+  browserPaint(host, src, istaState.browse[key], opts || {});
+}
+
+/**
+ * Load a diagnosis structure for a chassis.
+ * @param {string} chassis - the chassis id
+ * @param {string} which - fault-pattern, function-structure, component-structure
+ * @returns {Promise<object|null>}
+ */
+async function istaDiagLoad(chassis, which, car) {
+  const code = String(chassis || '').toUpperCase();
+  if (!code) return null;
+  const res = await istaDiagFetch(`${code}/${which}.json.gz`);
+  if (!res) return null;
+  // the structures ship gzipped, and a plain file server serves them as
+  // bytes rather than as content-encoding: gzip, so they are unpacked here
+  // with the same library the chassis archives use
+  const buf = new Uint8Array(await res.arrayBuffer());
+  if (typeof fflate === 'undefined') return null;
+  const tree = JSON.parse(
+    new TextDecoder('utf-8').decode(fflate.gunzipSync(buf))
+  );
+  // THE EXTRACT IS CHASSIS-WIDE; this car is one of the chassis's builds.
+  // Narrowing here rather than at each page means the tree, the hits line
+  // and Text Search all count the same documents -- a search that found a
+  // document the tree does not list would be the worst of both.
+  if (!car || typeof istaDiagGate !== 'function') return tree;
+  const keys = await istaProbe(() =>
+    typeof techDataCarKeys === 'function' ? techDataCarKeys(car, chassis) : null
+  );
+  if (!keys || !keys.ids || !keys.ids.size) return tree;
+  return istaDiagGate(tree, keys.ids, istaDiagFacts(car)) || tree;
+}
+
+/**
+ * The dated facts a validity rule can test, for one car.
+ *
+ * A rule may ask when the car was built as well as what it is, so the
+ * production date travels with the characteristic ids. A car whose date
+ * nobody knows simply leaves those clauses undecided, which the gate keeps.
+ * @param {object|null} car - the picked GarageCar
+ * @returns {object} the facts
+ */
+function istaDiagFacts(car) {
+  const prod = String((car && car.prod) || '');
+  if (prod.length < 6) return {};
+  return { ym: `${prod.slice(0, 4)}-${prod.slice(4, 6)}` };
+}
+
+/**
+ * A diagnosis document's body, rendered.
+ * @param {string} chassis - the chassis id
+ * @param {object} doc - the document row
+ * @returns {Promise<string>} HTML
+ */
+async function istaDiagBody(chassis, doc) {
+  const code = String(chassis || '').toUpperCase();
+  // an ABL test module is a compiled procedure: its halves are documents but
+  // the procedure itself cannot run here, and the page says so rather than
+  // pretending a button will start it
+  if (doc && doc.type === 'ABL')
+    return (
+      `<div class="irabl"><div class="irabl-pane">` +
+      `<div class="irpane-head">Procedure</div>` +
+      `<div class="irgrey-w">This test module is a compiled procedure and ` +
+      `cannot run in this build. Its linked documents are on the right.` +
+      `</div></div></div>`
+    );
+  const body = await istaProbe(async () => {
+    const r = await istaDiagFetch(`${code}/docs/${doc.id}.json.gz`);
+    if (!r || typeof fflate === 'undefined') return null;
+    const bytes = new Uint8Array(await r.arrayBuffer());
+    return JSON.parse(
+      new TextDecoder('utf-8').decode(fflate.gunzipSync(bytes))
+    );
+  });
+  // istaDiagBodyHtml handles a missing body itself, and it is the ONLY path
+  // from here: the old fallback tested for a repairBodyHtml that does not
+  // exist anywhere in the app, so every document fell through to a raw
+  // JSON dump.
+  return istaDiagBodyHtml(body);
+}
+
+/**
+ * The Service plan's groups, per list.
+ *
+ * The hit list groups the linked procedures UNDER THE FAULT that points at
+ * them, because that is the question a technician is asking: this fault is
+ * stored, what does BMW say to do about it. A fault with no linked procedure
+ * keeps its heading and says so.
+ * @param {string} which - hit-list, test-plan or programming-plan
+ * @param {object|null} car - the picked GarageCar
+ * @returns {Promise<object[]>} the groups
+ */
+async function istaPlanGroups(which, car) {
+  if (which === 'programming-plan') return [];
+  if (which === 'test-plan') {
+    // the plan groups UNDER THE COMPONENT, which is what the frames show: a
+    // grey heading row carrying the group's priority, its ABL rows beneath
+    const rows = istaTestPlan(car);
+    return rows.length && typeof istaPlanGroupRows === 'function'
+      ? istaPlanGroupRows(rows)
+      : rows.length
+        ? [{ title: 'Test plan', rows }]
+        : [];
+  }
+  const scan =
+    typeof istaNewestScan === 'function' ? istaNewestScan(car) : null;
+  const rows =
+    typeof istaFaultRows === 'function'
+      ? istaFaultRows(scan && scan.report)
+      : [];
+  if (!rows.length) return [];
+  await istaProbe(() =>
+    typeof loadIstaTests === 'function' ? loadIstaTests() : null
+  );
+  return rows.map((r) => {
+    const doc = typeof istaTestFor === 'function' ? istaTestFor(r.desc) : null;
+    return {
+      title: `${r.code}  ${r.desc}`,
+      none: 'no procedure is linked to this fault in this build',
+      rows: doc
+        ? [{ type: 'ABL', title: doc.title || r.desc, state: '', _doc: doc }]
+        : [],
+    };
+  });
+}
+
+/**
+ * Open a Service plan row's document in the viewer.
+ * @param {object} row - the picked row
+ * @returns {void}
+ */
+function istaOpenPlanDoc(row) {
+  if (!row || !row._doc || typeof openModal !== 'function') return;
+  const doc = row._doc;
+  const chapters = (doc.chapters || [])
+    .map(
+      (ch) =>
+        `<h3>${esc(ch.heading || '')}</h3>` +
+        (ch.paras || []).map((p) => `<p>${esc(p)}</p>`).join('')
+    )
+    .join('');
+  const { overlay, close } = openModal(
+    `<div class="modal irdoc" role="dialog" aria-modal="true">` +
+      `<div class="irdoc-title">${esc(doc.title || row.title)}</div>` +
+      `<div class="irdoc-body">${chapters}</div>` +
+      `<div class="modal-actions">` +
+      `<button type="button" class="btn irdoc-close">Close</button>` +
+      `</div></div>`
+  );
+  overlay.querySelector('.irdoc-close').onclick = () => close();
+}
+
+/**
+ * Calculate the test plan for one stored fault.
+ *
+ * TWO SOURCES, AND THE BETTER ONE WINS PER FAULT. The fault-to-procedure
+ * links the Hit list already uses name the procedure in words; the
+ * recovered modules' per-chassis index names it by identifier, which is
+ * what the module window needs to open anything. So a fault the index
+ * covers contributes a runnable row, a fault only the links cover
+ * contributes a readable one, and a fault neither covers contributes
+ * nothing rather than a row that dead-ends.
+ * @param {object} fault - the picked fault row, from istaFaultRows
+ * @param {object|null} car - the picked GarageCar
+ * @param {string} chassis - the development code
+ * @returns {Promise<object[]>} the rows to push into the plan
+ */
+async function istaCalcPlan(fault, car, chassis) {
+  if (!fault) return [];
+  /** @type {object[]} */
+  const out = [];
+  const code = String(fault.code || '').toUpperCase();
+  const idx = await istaProbe(() =>
+    typeof istaAblIndex === 'function' ? istaAblIndex(chassis) : null
+  );
+  // the index's fault links: {faults: {"0041AA": ["ABL-DIT-B1362_D6LDF"]}}
+  // and a per-module row of what to call it and where it belongs
+  const byFault = (idx && idx.faults) || {};
+  const modules = (idx && idx.modules) || {};
+  // THE INDEX KEYS FAULTS IN DECIMAL, AND THE SCREEN SHOWS HEX. ISTA's own
+  // database stores XEP_FAULTCODES.CODE as a decimal string -- the fault a
+  // workshop writes 0B32 is keyed "2866" -- so a hex code looked up as-is
+  // either misses or, far worse, hits a different fault that happens to
+  // share the digits. "0B" found decimal key 11 and returned its 46 modules:
+  // brake light switch, coolant temperature, oil level, heating flaps. A
+  // steering-angle fault produced a plan about the heater.
+  //
+  // THE TABLE ALSO SHOWS THE LOCATION BYTE, NOT THE WHOLE WORD. faultFields
+  // prefers the short form a workshop reads (0B), while the links are keyed
+  // on the full fault word (0B32). The raw answer is still on the row, so
+  // the full word is recovered from it and tried first -- it identifies one
+  // procedure where the location byte alone identifies dozens.
+  const raw = fault.raw || {};
+  const sgbd = String(fault.sgbd || '').toLowerCase();
+  const full =
+    typeof hexText === 'function'
+      ? String(hexText(raw.F_HEX_CODE) || '').replace(/[^0-9a-fA-F]/g, '')
+      : '';
+
+  // THE INDEX IS KEYED TWO WAYS, AND ONLY ONE OF THEM IS SAFE ALONE.
+  // BMW's links are written both bare ("B7") and scoped to the module that
+  // reports them ("dsc_e46:B7"). The bare key is a LOCATION BYTE shared
+  // across the whole car: "B" links 48 procedures spanning mirrors, seats,
+  // headlights and the K-bus, because dozens of modules number a fault at
+  // that location. Handing those to a technician who picked one row is
+  // worse than handing them nothing -- it buries the answer in noise and
+  // implies BMW linked them.
+  //
+  // So the scoped key is tried first, then the full fault word, and the
+  // bare location byte only when it is specific enough to mean something.
+  const spell = (h) => {
+    const out = [];
+    for (const k of [h, h.replace(/^0+/, ''), h.padStart(4, '0')])
+      if (k && !out.includes(k)) out.push(k);
+    return out;
+  };
+  const tiers = [];
+  // 1. this module's own link for this code
+  if (sgbd)
+    tiers.push(
+      [...(full ? spell(full) : []), ...spell(code)].map((k) => `${sgbd}:${k}`)
+    );
+  // 2. the full fault word, which identifies one fault rather than a family
+  if (full && full !== code) tiers.push(spell(full));
+  // 3. the bare code, but only when it is a whole word rather than the
+  //    location byte a hundred modules share
+  if (code.replace(/^0+/, '').length > 2) tiers.push(spell(code));
+
+  const collect = (list) => {
+    const got = [];
+    for (const k of list)
+      for (const one of byFault[k] || []) if (!got.includes(one)) got.push(one);
+    return got;
+  };
+  let ids = [];
+  for (const tier of tiers) {
+    ids = collect(tier);
+    if (ids.length) break;
+  }
+  for (const id of ids) {
+    const m = modules[id] || {};
+    out.push({
+      id,
+      type: 'ABL',
+      title: m.title || id,
+      component: m.component || m.title || fault.desc || id,
+      priority: m.priority == null ? 0 : Number(m.priority),
+      state: 'none',
+      fault: code,
+    });
+  }
+  if (out.length) return out;
+  // no index, or no link for this fault: the linked document still tells a
+  // technician what BMW says to do, so the row is worth having
+  await istaProbe(() =>
+    typeof loadIstaTests === 'function' ? loadIstaTests() : null
+  );
+  const doc =
+    typeof istaTestFor === 'function' ? istaTestFor(fault.desc) : null;
+  if (doc)
+    out.push({
+      id: `DOC ${doc.slug || doc.title || fault.desc}`,
+      type: 'ABL',
+      title: doc.title || fault.desc,
+      component: fault.desc || doc.title,
+      priority: 0,
+      state: 'none',
+      fault: code,
+      doc,
+    });
+  return out;
+}
+
+/**
+ * Open a test plan row: the module window when the module ships, the
+ * document when only the link does, and a grey note when neither.
+ * @param {object} row - the picked plan row
+ * @param {object|null} car - the picked GarageCar
+ * @param {string} chassis - the development code
+ * @param {Function} [after] - called when the window closes, to redraw
+ * @returns {Promise<void>}
+ */
+async function istaOpenPlanRow(row, car, chassis, after) {
+  if (!row) return;
+  const graph =
+    row.id && typeof istaAblLoad === 'function'
+      ? await istaProbe(() => istaAblLoad(row.id, chassis))
+      : null;
+  if (!graph) {
+    // a row whose module this build does not ship still has its document
+    if (row.doc) return istaOpenPlanDoc(row);
+    if (typeof istaPageGrey === 'function' && typeof showIsta === 'function')
+      return istaOpenPlanNote(row);
+    return;
+  }
+  await istaOpen({
+    label: row.title || row.id,
+    _call: () => istaRunAblModule(graph, row, car, chassis, after),
+  });
+}
+
+/**
+ * Run a recovered test module in the shell's content area.
+ *
+ * This is the seam between the step player and the app: the engine asks for
+ * a job, a library module, a fault list or a document, and each of those is
+ * something the app already does. Nothing here re-implements any of them.
+ * @param {object} graph - the recovered module
+ * @param {object} row - the plan row it came from
+ * @param {object|null} car - the picked GarageCar
+ * @param {string} chassis - the development code
+ * @param {Function} [after] - called when the window closes
+ * @returns {Promise<void>} resolves when the window is closed
+ */
+async function istaRunAblModule(graph, row, car, chassis, after) {
+  const view = document.getElementById('view');
+  if (!view || typeof istaAblWindow !== 'function') return Promise.resolve();
+  view.innerHTML = '';
+  const host = document.createElement('div');
+  host.className = 'irablhost';
+  view.appendChild(host);
+  if (typeof setActions === 'function') setActions([]);
+
+  // A TEST HOOK, AND ONLY BEHIND A QUERY FLAG. Driving the window headless
+  // needs a car that answers; wiring one in without the flag would mean a
+  // build that can be fed fake readings from a link.
+  const fake =
+    typeof location !== 'undefined' &&
+    /[?&]abltest=1\b/.test(location.search) &&
+    typeof window !== 'undefined' &&
+    typeof window.__ablRunner === 'object'
+      ? window.__ablRunner
+      : null;
+
+  // the documents the module's diagnosis object links to, by identifier
+  const idx = await istaProbe(() =>
+    typeof istaAblIndex === 'function' ? istaAblIndex(chassis) : null
+  );
+  const linked =
+    (idx &&
+      idx.modules &&
+      idx.modules[(row && row.id) || (graph && graph.identifier)] &&
+      idx.modules[(row && row.id) || (graph && graph.identifier)].documents) ||
+    [];
+
+  // the names a vehicle_state step shows ("Ignition", "Switch on terminal
+  // R."), one small table for every module rather than a copy in each graph
+  const vehicleText = await istaProbe(() =>
+    typeof istaAblFetch === 'function'
+      ? istaAblFetch('vehicle-states.json')
+      : null
+  );
+
+  return new Promise((resolve) => {
+    istaAblWindow(host, {
+      graph,
+      // A PLAN ROW IS A POINTER, NOT A COPY (see plan.js), so the row
+      // carries no documents to hand on: the module's own linked documents
+      // are read from the index when the window opens, the same place the
+      // graph itself comes from.
+      docs: (doc, label) => istaAblDocHtml(doc, label, chassis, linked),
+      // clicking a component on a schematic is how the tool moves from
+      // "which wire" to "where is it": the anchor carries the designator,
+      // and these two hand the window the lookup without teaching it the
+      // shape of the wiring index
+      bindDesignators: (box, open) =>
+        istaWiringBindDesignators(box, chassis, open),
+      designatorDocs: (key) => istaWiringForDesignator(chassis, key),
+      designatorHtml: (id) => istaWiringDocHtml(chassis, id),
+      runner: fake || {
+        // the module addresses a GROUP; the app resolves it to the variant
+        // that answers on this car, exactly as every other screen does
+        job: async (spec) => {
+          let sgbd = spec.sgbd;
+          if (!sgbd && spec.group && typeof webResolveVariant === 'function')
+            sgbd = await istaProbe(() => webResolveVariant(spec.group));
+          if (!sgbd) return null;
+          const q = spec.argText
+            ? `?arg=${encodeURIComponent(spec.argText)}`
+            : '';
+          // AN ACTIVATION ASKS FIRST. A module's STEUERN_* job drives a
+          // component (the cluster self-test sweeps every gauge and lamp),
+          // and the app's contract is that a write is confirmed unless the
+          // user turned actuator confirmations off -- the same rule the ECU
+          // window and the raw job runner follow. The module's own words are
+          // the warning; this is the consent.
+          // DIAGNOSE_ENDE is classed a write (no read token, default-deny)
+          // but it ends the diagnostic session and drives nothing, and the
+          // library modules send it after every activation: a confirm for
+          // it would be noise on every run, teaching the hand to click
+          // through the confirm that matters.
+          const write =
+            typeof isWriteJob === 'function' &&
+            isWriteJob(spec.job) &&
+            !/^DIAGNOSE_ENDE$/i.test(String(spec.job || ''));
+          if (
+            write &&
+            (typeof confirmActuators !== 'function' || confirmActuators()) &&
+            typeof confirmDialog === 'function'
+          ) {
+            const okGo = await confirmDialog({
+              title: `${spec.job} commands ${sgbd}`,
+              body:
+                'The test module is about to drive a component rather than ' +
+                'read it. Make sure the module and anything it moves are safe.',
+              confirmLabel: 'Trigger',
+              danger: true,
+            });
+            if (!okGo) return { refused: true, job: spec.job, sgbd };
+          }
+          // A FAILED JOB IS REPORTED, NOT SWALLOWED. api() throws the
+          // router's real reason -- "no module answered on the wire", an
+          // IFH code, "no job code shipped" -- and turning that into null
+          // told the engine "no communication" and told the technician
+          // nothing: an activation they had just been warned about could
+          // simply not happen, silently. The reason travels back; an
+          // activation's failure is shown, a read's is the flow's own
+          // no-communication path.
+          try {
+            return await api(
+              `/api/ecu/${sgbd}/run/${encodeURIComponent(spec.job)}${q}`,
+              { method: 'POST' }
+            );
+          } catch (e) {
+            return {
+              error: String((e && e.message) || e),
+              notify: write,
+              job: spec.job,
+              sgbd,
+            };
+          }
+        },
+        module: ({ identifier }) =>
+          typeof istaAblLoad === 'function'
+            ? istaAblLoad(identifier, chassis)
+            : null,
+        vehicleText: vehicleText || null,
+        native: {
+          // THE FAULT LIST IS ALREADY READ. The library module the engine
+          // would otherwise run asks the car for the fault memory of a
+          // group; the Garage scan holds that answer, so the stand-in
+          // filters the stored faults by the module's own fault locations
+          // rather than putting the car back on the bus for them.
+          submodule: async ({ seed }) => istaAblFaultList(seed, car),
+          faultList: async ({ vars }) => istaAblFaultList(vars, car),
+        },
+      },
+      // THE RUN IS WRITTEN BACK. A module that ends leaves its result on
+      // the plan row, so the State column's square carries the legend's
+      // colour and the technician can see at a glance what has been done
+      // and what is still open. The mapping from the six CollectiveResult
+      // values to the plan's five states lives in plan.js.
+      onDone: (verdict) => {
+        if (!row || !row.id || typeof istaPlanSetState !== 'function') return;
+        const state =
+          typeof istaPlanStateFor === 'function'
+            ? istaPlanStateFor(verdict)
+            : verdict === 'canceled'
+              ? 'canceled'
+              : 'performed';
+        istaPlanSetState(car, row.id, state);
+      },
+      onClose: () => {
+        if (typeof after === 'function') after();
+        resolve();
+      },
+    });
+  });
+}
+
+/**
+ * The fault-memory library module's contract, off the stored scan.
+ *
+ * The recovered library returns a wall of parallel arrays; what its callers
+ * actually read out of them is the count of matching faults, the resolved
+ * SGBD and the identification status. Those three come straight from the
+ * scan the Garage already holds, filtered to the fault locations the
+ * calling module named.
+ * @param {object} vars - the caller's variables (SG_gruppe_v, Fehlerorte_v)
+ * @param {object|null} car - the picked GarageCar
+ * @returns {object} the variables the caller reads back
+ */
+function istaAblFaultList(vars, car) {
+  const v = vars || {};
+  const first = (x) => (Array.isArray(x) ? x[0] : x);
+  const group = String(first(v.SG_gruppe_v) || '').toUpperCase();
+  const places = (Array.isArray(v.Fehlerorte_v) ? v.Fehlerorte_v : [])
+    .filter(Boolean)
+    .map((x) => String(x).toUpperCase().replace(/^0X/, ''));
+  const scan =
+    typeof istaNewestScan === 'function' ? istaNewestScan(car) : null;
+  const rows =
+    typeof istaFaultRows === 'function'
+      ? istaFaultRows(scan && scan.report)
+      : [];
+  // the module names an ECU GROUP; the scan names the variant that answered
+  // for it, so the match is on the module the fault came from rather than
+  // on a group name the scan never carried
+  const mine = rows.filter((r) => {
+    if (!places.length) return true;
+    const code = String(r.code || '')
+      .toUpperCase()
+      .replace(/^0X/, '');
+    return places.some((p) => code.endsWith(p));
+  });
+  const sgbd = (mine[0] && mine[0].sgbd) || (rows[0] && rows[0].sgbd) || '';
+  return {
+    Status_Fehlerspeicher_v: mine.length,
+    Anzahl_Fehlerspeicher_v: mine.length,
+    Sgbd_v: [sgbd],
+    gSgbd_v: sgbd,
+    Status_Ident_v: [scan ? 'OKAY' : ''],
+    gJobstat1_v: scan ? 'OKAY' : '',
+    Fkode_hex_v: mine.map((r) => String(r.code || '')),
+    Fkode_Text_v: mine.map((r) => String(r.desc || '')),
+    Fkode_Anzahl_ges_v: mine.length,
+    Status_Ident_ges_v: scan ? 'OKAY' : '',
+    SG_gruppe_v: [group],
+  };
+}
+
+/** Hosted copy of the tool's own wiring documents. */
+
+/** @type {Map<string, object|null>} chassis -> its wiring index, once. */
+const istaWiringIndexes = new Map();
+
+/** @type {Map<string, object|null>} chassis + shard -> its bodies, once. */
+const istaWiringBodies = new Map();
+
+/**
+ * Fetch one wiring file, local first then the dataset.
+ * @param {string} rel - the path under data/ista/wiring/
+ * @returns {Promise<Response|null>}
+ */
+async function istaWiringFetch(rel) {
+  // the car's bundle first: one archive holds every schematic and document
+  // for this chassis, so a technician pays one download instead of one
+  // request per drawing (see istaBundle)
+  const cut = String(rel || '').indexOf('/');
+  if (cut > 0 && typeof istaBundleFile === 'function') {
+    const hit = await istaBundleFile(
+      rel.slice(0, cut),
+      `wiring/${rel.slice(cut + 1)}`
+    );
+    if (hit) return hit;
+  }
+  const base = typeof WEB_BASE === 'string' && WEB_BASE ? WEB_BASE : '.';
+  const real =
+    typeof webRealFetch === 'function'
+      ? webRealFetch
+      : window.fetch.bind(window);
+  for (const u of [
+    `${base}/data/ista/wiring/${rel}`,
+    ...hfUrls(`ista/wiring/${rel}`).slice(1),
+  ]) {
+    try {
+      const r = await real(u);
+      if (r && r.ok) return r;
+    } catch (e) {
+      /* try the next source */
+    }
+  }
+  return null;
+}
+
+/**
+ * The tool's own wiring documents for a chassis, once per session.
+ * @param {string} chassis - the development code
+ * @returns {Promise<object|null>}
+ */
+async function istaWiringIndex(chassis) {
+  const code = String(chassis || '').toUpperCase();
+  if (!code) return null;
+  if (istaWiringIndexes.has(code)) return istaWiringIndexes.get(code);
+  const out = await istaProbe(async () => {
+    const r = await istaWiringFetch(`${code}/index.json`);
+    return r ? r.json() : null;
+  });
+  istaWiringIndexes.set(code, out || null);
+  return out || null;
+}
+
+/**
+ * The document a module's request resolves to, or null.
+ *
+ * A module never names a document and nothing here matches on a name: the
+ * diagnosis object the module belongs to carries its documents, and the
+ * extract keeps that link on the module's index entry. So the request's
+ * CLASS picks among the documents that link already named. When a module
+ * has several diagrams the request's format preference is the tie-break,
+ * and failing that the first the link listed, which is the order the tool
+ * itself stores them in.
+ * @param {object[]} documents - the module's linked documents
+ * @param {string} label - which pane is asking
+ * @returns {object|null}
+ */
+function istaWiringPick(documents, label) {
+  // a caller that hands this anything but the row's list is a wiring bug,
+  // and a pane stuck on "Loading..." is how it showed: say so in the log
+  // rather than throwing inside a promise the pane never awaits
+  if (documents && !Array.isArray(documents)) {
+    console.warn('istaWiringPick: expected the row documents, got', documents);
+    return null;
+  }
+  const docs = documents || [];
+  if (!docs.length) return null;
+  const want = /Wiring/i.test(label) ? 'diagram' : 'function';
+  return docs.find((d) => d && d.type === want) || null;
+}
+
+/**
+ * Every document of the pane's kind the module links, in the order it links
+ * them.
+ *
+ * THE FIRST LINK IS NOT ALWAYS THE ONE THAT RESOLVES. A module links the
+ * documents ISTA associates with it, and this build ships the tool's own
+ * wiring set -- which does not carry every id those links name. The AUC
+ * module links three diagrams: the first two are absent from the wiring
+ * index, the third ("AUC sensor") is there with its drawing. Taking only the
+ * first meant a pane that said nothing matched while the drawing sat on
+ * disk.
+ * @param {object[]} documents - the row's linked documents
+ * @param {string} label - the pane's label
+ * @returns {object[]} the candidates, best-effort order
+ */
+function istaWiringPicks(documents, label) {
+  if (documents && !Array.isArray(documents)) return [];
+  const want = /Wiring/i.test(label) ? 'diagram' : 'function';
+  return (documents || []).filter((d) => d && d.type === want);
+}
+
+/**
+ * A document pane's HTML, from the document the module's own link names.
+ *
+ * The lookup is by identifier end to end: the module's index entry lists
+ * the documents its diagnosis object links to, and the wiring extract
+ * stores those under the tool's own ids. Nothing is matched by title, so a
+ * pane is either the document the step means or it is empty.
+ * @param {object} doc - the document request the module made
+ * @param {string} label - which pane it is filling
+ * @param {string} chassis - the development code
+ * @param {object[]} documents - the module's linked documents
+ * @returns {Promise<string|null>}
+ */
+async function istaAblDocHtml(doc, label, chassis, documents) {
+  if (!doc) return null;
+  // the first link that this build can actually draw, not just the first
+  for (const hit of istaWiringPicks(documents, label)) {
+    const html = await istaWiringDocHtml(chassis, hit.id);
+    if (html) return html;
+  }
+  return null;
+}
+
+/**
+ * One wiring document's HTML, by the tool's own document id.
+ *
+ * Split out of the pane so a designator clicked on a diagram can draw its
+ * installation location beside that diagram through the same path.
+ * @param {string} chassis - the development code
+ * @param {number|string} id - the document id
+ * @returns {Promise<string|null>}
+ */
+async function istaWiringDocHtml(chassis, id) {
+  const code = String(chassis || '').toUpperCase();
+  const index = await istaWiringIndex(code);
+  const row = ((index && index.documents) || []).find(
+    (d) => String(d.id) === String(id)
+  );
+  if (!row) return null;
+  if (row.type === 'diagram') {
+    const svg = await istaProbe(async () => {
+      const r = await istaWiringFetch(`${code}/svg/${row.id}.svgz`);
+      if (!r || typeof fflate === 'undefined') return null;
+      const bytes = new Uint8Array(await r.arrayBuffer());
+      return new TextDecoder('utf-8').decode(fflate.gunzipSync(bytes));
+    });
+    if (!svg) return null;
+    return (
+      `<div class="irabl-doct">${esc(row.title || row.identifier)}</div>` +
+      `<div class="irabl-svg">${svg}</div>`
+    );
+  }
+  const key = `${code}/${row.shard}`;
+  if (!istaWiringBodies.has(key)) {
+    const body = await istaProbe(async () => {
+      const r = await istaWiringFetch(`${code}/body/${row.shard}.json`);
+      return r ? r.json() : null;
+    });
+    istaWiringBodies.set(key, body || null);
+  }
+  const shard = istaWiringBodies.get(key);
+  const blocks = shard && shard[String(row.id)];
+  if (!blocks || !blocks.length) return null;
+  return (
+    `<div class="irabl-doct">${esc(row.title || row.identifier)}</div>` +
+    `<div class="irabl-doc">${istaWiringBlocks(blocks)}</div>`
+  );
+}
+
+/** Roughly how long a joined run may grow before it is split at a sentence. */
+const ISTA_DOC_PARA = 400;
+
+/**
+ * Consecutive text blocks joined back into paragraphs.
+ *
+ * A SENTENCE IS NOT ONE BLOCK. ISTA marks emphasis inline and the extract
+ * keeps every run as its own node, so "The air quality is sensed by the AUC
+ * sensor in the engine compartment." arrives as seven text blocks. Drawn one
+ * <p> each, a paragraph became a column of fragments one or two words wide.
+ *
+ * Runs are joined until something that is genuinely its own block -- a
+ * heading, a picture, a table -- interrupts them. Spacing follows the text:
+ * a fragment opening with punctuation closes up against the one before it,
+ * the way it reads in the tool.
+ * @param {object[]} blocks - the stored body
+ * @returns {object[]} the same blocks with text runs merged
+ */
+function istaWiringRuns(blocks) {
+  const out = [];
+  let run = null;
+  for (const b of blocks || []) {
+    if (!b) continue;
+    if (b.kind && b.kind !== 'text') {
+      run = null;
+      out.push(b);
+      continue;
+    }
+    const t = String(b.text || '').trim();
+    if (!t) continue;
+    if (!run) {
+      run = { kind: 'text', text: t };
+      out.push(run);
+      continue;
+    }
+    // no space before punctuation that closes the previous fragment, and
+    // none after an opening bracket -- otherwise the join reads as typed
+    const tight = /^[.,;:!?)\]]/.test(t) || /[([]$/.test(run.text);
+    run.text += (tight ? '' : ' ') + t;
+    // the extract keeps no paragraph marks, so a run that has grown past a
+    // readable length is closed at its last sentence end rather than left to
+    // run on; the remainder starts the next one
+    if (run.text.length > ISTA_DOC_PARA) {
+      const cut = run.text.lastIndexOf('. ');
+      if (cut > 40) {
+        const rest = run.text.slice(cut + 2).trim();
+        run.text = run.text.slice(0, cut + 1);
+        run = rest ? { kind: 'text', text: rest } : null;
+        if (run) out.push(run);
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * A document's blocks as the tool draws them.
+ *
+ * THE STRUCTURE IS THE DOCUMENT. An installation location is a PICTURE of
+ * the part in the car with a legend naming what the arrows point at, and a
+ * pin assignment is a real table of pins; both used to come out as a column
+ * of undifferentiated lines. A picture whose file this build does not have
+ * is skipped rather than drawn as a broken image.
+ * @param {object[]} blocks - the stored body
+ * @returns {string} HTML
+ */
+function istaWiringBlocks(blocks) {
+  const cell = (c) => `<td>${esc(c || '')}</td>`;
+  return istaWiringRuns(blocks)
+    .map((b) => {
+      if (!b) return '';
+      if (b.kind === 'heading') return `<h4>${esc(b.text)}</h4>`;
+      if (b.kind === 'pic') {
+        const src =
+          typeof repairPicUrl === 'function' ? repairPicUrl(b.id) : null;
+        if (!src) return '';
+        return (
+          `<figure class="irabl-fig">` +
+          `<img src="${esc(src)}" alt="${esc(b.caption || '')}" ` +
+          `loading="lazy" onerror="this.closest('figure').remove()">` +
+          (b.caption ? `<figcaption>${esc(b.caption)}</figcaption>` : '') +
+          `</figure>`
+        );
+      }
+      if (b.kind === 'table') {
+        const head = (b.head || []).length
+          ? `<thead><tr>${(b.head || [])
+              .map((c) => `<th>${esc(c || '')}</th>`)
+              .join('')}</tr></thead>`
+          : '';
+        const body = (b.rows || [])
+          .map((r) => `<tr>${(r || []).map(cell).join('')}</tr>`)
+          .join('');
+        return `<table class="irabl-tbl">${head}<tbody>${body}</tbody></table>`;
+      }
+      return `<p>${esc(b.text || '')}</p>`;
+    })
+    .join('');
+}
+
+/**
+ * The documents a component designator on a diagram opens.
+ *
+ * A designator is a structured field, not a name: the extract indexes each
+ * location, connector and pin-assignment document under the designator its
+ * own identifier declares (EBO-EBO-E46_EB6217B is designator B6217) and the
+ * ones its title lists, which for an installation location IS its designator
+ * list. So this is a lookup in the tool's own index, never a word match.
+ * Several revisions of the same document can carry one designator; they are
+ * offered in the order the extract stored them, newest identifier last, and
+ * the first is what a click opens.
+ * @param {string} chassis - the development code
+ * @param {string} designator - what the clicked anchor carried
+ * @returns {Promise<object[]>} the documents, installation location first
+ */
+async function istaWiringForDesignator(chassis, designator) {
+  const key = String(designator || '')
+    .trim()
+    .toUpperCase();
+  if (!key) return [];
+  const index = await istaWiringIndex(chassis);
+  const hits = (index && index.designators && index.designators[key]) || [];
+  const order = ['location', 'connector', 'pinout'];
+  const kept = await istaWiringValid(chassis, hits);
+  return kept
+    .slice()
+    .sort((a, b) => order.indexOf(a.type) - order.indexOf(b.type));
+}
+
+/** The ECU clique name -> id map, once. */
+let istaWiringCliques = null;
+
+/**
+ * The car's facts, in the shape the rule evaluator wants.
+ *
+ * Two are enough for the component documents: the build date, and which
+ * cliques the car's modules answered as. A fact that cannot be established
+ * is left out rather than guessed -- the evaluator is three-valued, so a
+ * missing fact makes a leaf undecidable and the document is KEPT. Narrowing
+ * on a guess would hide the right document; keeping one document too many
+ * only shows an extra tab.
+ * @param {string} chassis - the development code
+ * @returns {Promise<object>} facts for techDataRuleApplies
+ */
+async function istaWiringFacts(chassis) {
+  const facts = {};
+  const car = istaState.car || null;
+  // the build date the identification read, as year*100 + month
+  const built = car && (car.built || car.buildDate || car.date);
+  const m = /^(\d{4})[-/.]?(\d{2})/.exec(String(built || ''));
+  if (m) facts.ym = Number(m[1]) * 100 + Number(m[2]);
+  // the cliques of every variant this car has answered as
+  if (istaWiringCliques === null)
+    istaWiringCliques =
+      (await istaProbe(() => istaWiringFetchJson('cliques.json'))) || {};
+  const names = new Set();
+  for (const slot of istaSlotsFor(chassis) || [])
+    if (slot && slot.sgbd) names.add(String(slot.sgbd).toLowerCase());
+  if (names.size) {
+    const ids = new Set();
+    for (const n of names) {
+      const id = istaWiringCliques[n];
+      if (id != null) ids.add(id);
+    }
+    if (ids.size) facts.ecuclique = ids;
+  }
+  return facts;
+}
+
+/**
+ * The documents whose validity rule holds for this car.
+ *
+ * THE CHASSIS TEST IS NOT THE WHOLE RULE, and this is where that shows. The
+ * extract already dropped documents that belong to another series, but a
+ * component that changed across the model run keeps one document per
+ * variant: A11's pin assignment has three, split by build date and by
+ * whether the car carries automatic climate control (ihka46*) or the basic
+ * heating control (ihkr46). All three are valid E46 documents, so all three
+ * arrived, and the user saw three identically-titled tabs with no way to
+ * tell which described the car in front of them.
+ * @param {string} chassis - the development code
+ * @param {object[]} docs - candidates from the designator index
+ * @returns {Promise<object[]>} those that apply, or all of them when the
+ *   facts cannot decide
+ */
+async function istaWiringValid(chassis, docs) {
+  const list = docs || [];
+  if (list.length < 2 || !list.some((d) => d && d.rule)) return list;
+  if (
+    typeof techDataRuleApplies !== 'function' ||
+    typeof techDataCarKeys !== 'function'
+  )
+    return list;
+  const facts = await istaWiringFacts(chassis);
+  // the chassis characteristics the rule's `eq` leaves test. techdata builds
+  // these from the VIN's type key, and without them every rule is false --
+  // an empty set is not "unknown", it is "the car has no characteristics"
+  const keys = await istaProbe(() => techDataCarKeys(istaState.car, chassis));
+  const ids = (keys && keys.ids) || null;
+  if (!ids || !ids.size) return list;
+  const kept = list.filter((d) => techDataRuleApplies(d && d.rule, ids, facts));
+  // never narrow to nothing: a car whose facts contradict every revision is
+  // better served by the whole set than by an empty pane
+  return kept.length ? kept : list;
+}
+
+/**
+ * Bind the designator anchors a diagram carries.
+ *
+ * The tool's own schematics name the component in the anchor itself
+ * (href="X6254"), so the designator is read off the link rather than parsed
+ * out of prose. An anchor whose designator has no document in this chassis
+ * is left inert instead of being drawn as a dead link.
+ * @param {HTMLElement} box - the pane holding the drawing
+ * @param {string} chassis - the development code
+ * @param {Function} open - (designator, docs) => void, on a click
+ * @returns {Promise<number>} how many anchors were bound
+ */
+async function istaWiringBindDesignators(box, chassis, open) {
+  const svg = box && box.querySelector('.irabl-svg svg');
+  if (!svg) return 0;
+  const index = await istaWiringIndex(chassis);
+  const table = (index && index.designators) || {};
+  let bound = 0;
+  svg.querySelectorAll('a').forEach((a) => {
+    const raw =
+      a.getAttribute('href') ||
+      a.getAttribute('xlink:href') ||
+      a.getAttribute('target') ||
+      '';
+    const key = String(raw).trim().toUpperCase();
+    if (!key || !table[key]) return;
+    bound += 1;
+    a.classList.add('irabl-desig');
+    a.dataset.desig = key;
+    a.setAttribute('href', '#');
+    a.addEventListener('click', (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      open(key);
+    });
+  });
+  return bound;
+}
+
+/**
+ * Say, in the tool's own page, that a plan row's module does not ship.
+ * @param {object} row - the picked plan row
+ * @returns {void}
+ */
+function istaOpenPlanNote(row) {
+  if (typeof openModal !== 'function') return;
+  const { overlay, close } = openModal(
+    `<div class="modal irdoc" role="dialog" aria-modal="true">` +
+      `<div class="irdoc-title">${esc(row.title || row.id)}</div>` +
+      `<div class="irdoc-body"><p>This test module is not in this build. ` +
+      `Its recovered procedure ships under data/ista/abl/ ` +
+      `(${esc(row.id || 'no identifier')}).</p></div>` +
+      `<div class="modal-actions">` +
+      `<button type="button" class="btn irdoc-close">Close</button>` +
+      `</div></div>`
+  );
+  overlay.querySelector('.irdoc-close').onclick = () => close();
+}
+
+/**
+ * Draw one of the shell's own pages, in the face the setting asks for.
+ * @param {IstaSub|IstaSub3} s - the leaf
+ * @param {HTMLElement} host - where to draw
+ * @returns {Promise<void>}
+ */
+async function istaDrawPage(s, host) {
+  const real = istaSkinOn();
+  const car = istaState.car;
+  const chassis = istaChassis();
+
+  if (s.page === 'vin') {
+    if (!real) return istaPageVinModern(host);
+    let valid = false;
+    const bar = (ok) => {
+      valid = ok;
+      istaBottomBar('vin', {
+        'open-operation': ok
+          ? () => {
+              const p = host._istaPick ? host._istaPick() : null;
+              if (p) istaOpenOperation(p.car, p.vin);
+            }
+          : null,
+      });
+    };
+    istaRealStatus({ items: [] });
+    istaPageVin(host, {
+      open: (c, vin) => istaOpenOperation(c, vin),
+      onValid: bar,
+    });
+    bar(valid);
+    return;
+  }
+
+  // ---- Operations / Finished ------------------------------------------------
+  if (s.page === 'finished') {
+    let picked = null;
+    const bar = () =>
+      istaBottomBar('finished', {
+        'open-operation': picked ? () => istaOpenStoredScan(picked) : null,
+      });
+    const scans = istaPageFinished(host, {
+      car,
+      onPick: (sc) => {
+        picked = sc;
+        bar();
+      },
+    });
+    istaRealStatus({
+      items: [{ k: 'Operations:', v: `${scans.length} / ${scans.length}` }],
+    });
+    bar();
+    return;
+  }
+
+  // ---- Vehicle information / Repair history ---------------------------------
+  if (s.page === 'history') {
+    let picked = null;
+    const bar = () =>
+      istaBottomBar('history', {
+        display: picked ? () => istaOpenStoredScan(picked) : null,
+      });
+    const scans = istaPageHistory(host, {
+      car,
+      onPick: (sc) => {
+        picked = sc;
+        bar();
+      },
+    });
+    istaRealStatus({
+      items: [{ k: 'Entries:', v: `${scans.length} / ${scans.length}` }],
+    });
+    bar();
+    return;
+  }
+
+  // ---- Troubleshooting / Fault memory ---------------------------------------
+  if (s.page === 'fault-memory') {
+    let picked = null;
+    // the rows name faults through the English fault texts, which load
+    // lazily: the report views wait for them, and so must this table, or
+    // it draws the raw German F_ORT_TEXT until something else loads them
+    if (typeof loadFaultDb === 'function') {
+      try {
+        await loadFaultDb();
+      } catch (e) {
+        /* the texts are optional: the raw name still shows */
+      }
+    }
+    const draw = () => {
+      const rows = istaPageFaultMemory(host, {
+        car,
+        filter: istaState.faultFilter || '',
+        onPick: (r) => {
+          picked = r;
+          bar(rows);
+        },
+      });
+      istaRealStatus({
+        items: [
+          {
+            k: 'Number of fault memories:',
+            v: `${rows.length} / ${rows.length}`,
+          },
+          { k: 'No. fault patterns:', v: '0' },
+          { k: 'Filter:', v: istaState.faultFilter ? 'Module' : 'Default' },
+        ],
+      });
+      bar(rows);
+      return rows;
+    };
+    const bar = (rows) =>
+      istaBottomBar('fault-memory', {
+        'show-code': picked ? () => istaFaultDialog(picked) : null,
+        // the clear is the app's own per-module one, behind its own confirm:
+        // ISTA deletes the memory of the module the picked fault came from
+        'delete-faults': picked ? () => istaClearPicked(picked, draw) : null,
+        'filter-faults':
+          picked && rows.length
+            ? () => {
+                istaState.faultFilter = picked.sgbd;
+                draw();
+              }
+            : null,
+        'delete-filter': istaState.faultFilter
+          ? () => {
+              istaState.faultFilter = '';
+              draw();
+            }
+          : null,
+        'show-all': istaState.faultFilter
+          ? () => {
+              istaState.faultFilter = '';
+              draw();
+            }
+          : null,
+        // CALCULATE TEST PLAN, on the fault the technician picked. The tool
+        // resolves the procedures BMW links to that fault, puts them in the
+        // plan, and lands on the plan so the next press is Display.
+        //
+        // IT REPLACES THE PLAN, it does not add to it. The button calculates
+        // the plan for ONE picked fault, and the tool's frames show the Test
+        // plan counting up from 0/0 as that calculation's rows arrive. When
+        // this appended instead, rows from every fault ever calculated piled
+        // up behind the one asked for -- a single code landed on 59 rows.
+        'calc-plan': picked
+          ? async () => {
+              const rows = await istaCalcPlan(picked, car, chassis);
+              if (typeof istaPlanSet === 'function') istaPlanSet(car, rows);
+              if (!rows.length && typeof toast === 'function')
+                toast(
+                  `No procedure is linked to ${picked.code} in this build.`
+                );
+              return istaGo('service-plan', 'test-plan', null);
+            }
+          : null,
+      });
+    draw();
+    return;
+  }
+
+  // ---- Troubleshooting / SAE fault code input -------------------------------
+  if (s.page === 'sae') {
+    let rows = [];
+    const bar = () =>
+      istaBottomBar('sae', {
+        'show-code': rows.length
+          ? () =>
+              istaFaultDialog({
+                code: rows[0][1],
+                desc: rows[0][2],
+                module: '',
+                sgbd: '',
+                raw: {},
+              })
+          : null,
+      });
+    // the car's own modules, so a code is read against the tables that can
+    // actually tell its families apart
+    const saeSlots = await istaLoadSlots(chassis, car);
+    if (!host.isConnected) return;
+    istaPageSae(host, {
+      sgbds: saeSlots.map((x) => x.sgbd).filter(Boolean),
+      onRows: (r) => {
+        rows = r;
+        istaRealStatus({
+          items: [
+            { k: 'No. fault patterns:', v: '0' },
+            { k: 'SAE fault code number:', v: String(r.length) },
+          ],
+        });
+        bar();
+      },
+    });
+    istaRealStatus({
+      items: [
+        { k: 'No. fault patterns:', v: '0' },
+        { k: 'SAE fault code number:', v: '0' },
+      ],
+    });
+    bar();
+    return;
+  }
+
+  // ---- Vehicle management / Service functions -------------------------------
+  if (s.page === 'service-tree') {
+    istaRealStatus({ items: [{ k: 'Hits:', v: '0 / 0' }] });
+    istaBottomBar('service-functions', {});
+    const cfg = await istaProbe(() => api(`/api/chassis/${chassis}`));
+    const index = await istaProbe(() =>
+      typeof serviceIndexLoad === 'function' ? serviceIndexLoad() : null
+    );
+    if (!host.isConnected) return;
+    const src = istaServiceSource(cfg, index, chassis, (hit) => {
+      if (typeof serviceRunHit === 'function') serviceRunHit(hit, chassis);
+    });
+    istaBrowse(host, src, 'service', { emptyTitle: 'Service Functions' });
+    return;
+  }
+
+  // ---- Troubleshooting / the diagnosis structures ---------------------------
+  if (s.page === 'diag') {
+    istaRealStatus({ items: [{ k: 'Hits:', v: '0 / 0' }] });
+    istaBottomBar(
+      s.id === 'fault-pattern' ? 'fault-pattern' : 'service-functions',
+      {}
+    );
+    const data = await istaProbe(() => istaDiagLoad(chassis, s.id, car));
+    if (!host.isConnected) return;
+    if (!data)
+      return istaPageGrey(
+        host,
+        s.label,
+        `no ${s.label.toLowerCase()} data ships for ${chassis || 'this vehicle'} ` +
+          `in this build: run tools/ista/diag_structure_extract.py to add it`
+      );
+    const src = istaDiagSource(data, (d) => istaDiagBody(chassis, d));
+    istaBrowse(host, src, `diag-${s.id}`, { emptyTitle: s.label });
+    return;
+  }
+
+  // ---- Troubleshooting / Text Search ----------------------------------------
+  if (s.page === 'diag-search') {
+    istaRealStatus({ items: [{ k: 'Hits:', v: '0 / 0' }] });
+    istaBottomBar('diag-search', {});
+    const [fp, fn, cp] = await Promise.all([
+      istaProbe(() => istaDiagLoad(chassis, 'fault-pattern', car)),
+      istaProbe(() => istaDiagLoad(chassis, 'function-structure', car)),
+      istaProbe(() => istaDiagLoad(chassis, 'component-structure', car)),
+    ]);
+    if (!host.isConnected) return;
+    if (!fp && !fn && !cp)
+      return istaPageGrey(
+        host,
+        s.label,
+        `no diagnosis structures ship for ${chassis || 'this vehicle'} in ` +
+          `this build: run tools/ista/diag_structure_extract.py to add them`
+      );
+    istaDiagSearch(host, {
+      data: {
+        'fault-pattern': fp,
+        'function-structure': fn,
+        'component-structure': cp,
+      },
+      onCount: (n) => {
+        istaRealStatus({ items: [{ k: 'Hits:', v: `${n} / ${n}` }] });
+        istaBottomBar('diag-search', {
+          search: () => host._istaSearch && host._istaSearch.run(),
+        });
+      },
+      onOpen: (hit) => istaOpenDiagDoc(chassis, hit.doc),
+      // fetched once, on the first tick of "Search in document": searching
+      // the bodies themselves would cost megabytes a keystroke
+      loadBodies: () => istaDiagBodies(chassis),
+    });
+    istaBottomBar('diag-search', {
+      search: () => host._istaSearch && host._istaSearch.run(),
+    });
+    return;
+  }
+
+  // ---- Service plan ---------------------------------------------------------
+  if (s.page === 'plan') {
+    let picked = null;
+    const plan = s.id === 'test-plan';
+    const draw = async () => {
+      const groups = await istaPlanGroups(s.id, car);
+      if (!host.isConnected) return;
+      const flat = istaPageServicePlan(host, {
+        groups,
+        // the plan's own columns: the State glyph and the sortable Priority
+        // the frames carry, which the hit list has nothing to put in
+        state: plan,
+        sortable: plan,
+        desc: !!istaState.planDesc,
+        onSort: plan
+          ? () => {
+              istaState.planDesc = !istaState.planDesc;
+              draw();
+            }
+          : null,
+        empty:
+          s.id === 'hit-list'
+            ? 'No fault has been read on this vehicle yet, so nothing points ' +
+              'at a procedure.'
+            : plan
+              ? 'Nothing has been calculated into the test plan for this ' +
+                'vehicle yet. Pick a fault on Fault memory and press ' +
+                'Calculate test plan.'
+              : 'Programming is not offered by this build.',
+        onPick: (r) => {
+          picked = r;
+          bar();
+        },
+        onOpen: (r) => open(r),
+      });
+      istaRealStatus({
+        items: [{ k: 'Hits:', v: `${flat.length} / ${flat.length}` }],
+        legend: plan
+          ? [
+              { cls: 'none', label: 'not called' },
+              { cls: 'ok', label: 'performed' },
+              { cls: 'warn', label: 'minimized' },
+              { cls: 'bad', label: 'canceled' },
+              { cls: 'blue', label: 'suspected' },
+            ]
+          : null,
+      });
+      bar();
+    };
+    // a plan row opens the MODULE; a hit-list row has only its document
+    const open = (r) =>
+      plan ? istaOpenPlanRow(r, car, chassis, draw) : istaOpenPlanDoc(r);
+    const bar = () =>
+      istaBottomBar('hit-list', {
+        back: () => showIsta('information', 'details', null),
+        display: picked ? () => open(picked) : null,
+      });
+    await draw();
+    return;
+  }
+
+  // ---- Vehicle information / Control unit tree ------------------------------
+  if (s.page === 'tree') {
+    // THE BUS MAP IS THE APP'S OWN DRAWING and it is the right one; what
+    // does not belong inside the workshop chrome is the screen's heading,
+    // its car picker and its Fault scan button, which the skin hides. It is
+    // opened through istaOpen like any other wrapped screen, because that is
+    // the path that holds the router's teardown off while it renders and
+    // puts the shell's identity back afterwards.
+    await istaOpen({
+      label: s.label,
+      _call: () => showEcuTreeChassis(chassis, car ? car.id : null),
+    });
+    if (!real) return;
+    const slots = await istaLoadSlots(chassis, car);
+    const faults = slots.reduce((a, x) => a + x.faults, 0);
+    const read = slots.some((x) => x.state !== 'unread');
+    let picked = null;
+    const bar = () =>
+      istaTestRun
+        ? istaBottomBar('unit-list-busy', {
+            cancel: () => istaTestCancel(),
+          })
+        : istaBottomBar('unit-list', {
+            'vehicle-test': () => istaOpenVehicleTest(),
+            'ecu-functions': picked
+              ? () => istaOpenEcuWindow(picked.slot, picked.box, chassis)
+              : null,
+            'display-faults': () =>
+              istaGo('management', 'troubleshooting', 'fault-memory'),
+          });
+    istaRealStatus({
+      items: [
+        { k: 'Fault memory', v: read ? String(faults) : 'Unknown' },
+        ...(istaTestRun
+          ? [{ k: 'Vehicle test', v: istaTestPhase() }]
+          : istaTestError
+            ? [{ k: 'Vehicle test', v: istaTestError }]
+            : []),
+      ],
+      legend: [
+        { cls: 'ok', label: 'ECU without fault memory' },
+        { cls: 'warn', label: 'ECU with fault memory' },
+        { cls: 'bad', label: 'ECU not responding' },
+        { cls: 'blue', label: 'ECU with programming abort' },
+      ],
+    });
+    bar();
+    istaTreeBind(slots, chassis, (p) => {
+      picked = p;
+      bar();
+    });
+    return;
+  }
+
+  // ---- Vehicle information / Control unit list ------------------------------
+  if (s.page === 'unit-list') {
+    let picked = null;
+    const slots = await istaLoadSlots(chassis, car);
+    if (!host.isConnected) return;
+    const faults = slots.reduce((a, x) => a + x.faults, 0);
+    const read = slots.some((x) => x.state !== 'unread');
+    const bar = () =>
+      istaTestRun
+        ? istaBottomBar('unit-list-busy', {
+            cancel: () => istaTestCancel(),
+          })
+        : istaBottomBar('unit-list', {
+            'vehicle-test': () => istaOpenVehicleTest(),
+            // the window is about ONE control unit, so it needs one picked
+            'ecu-functions': picked
+              ? () => istaOpenEcuWindow(picked, null, chassis)
+              : null,
+            'display-faults': () =>
+              istaGo('management', 'troubleshooting', 'fault-memory'),
+          });
+    istaPageUnitList(host, {
+      slots,
+      onPick: (x) => {
+        picked = x;
+        bar();
+      },
+    });
+    istaRealStatus({
+      items: [
+        { k: 'Fault memory:', v: read ? String(faults) : 'Unknown' },
+        ...(istaTestRun
+          ? [{ k: 'Vehicle test:', v: istaTestPhase() }]
+          : istaTestError
+            ? [{ k: 'Vehicle test:', v: istaTestError }]
+            : []),
+      ],
+      legend: [
+        { cls: 'ok', label: 'ECU without fault memory' },
+        { cls: 'warn', label: 'ECU with fault memory' },
+        { cls: 'bad', label: 'ECU not responding' },
+        { cls: 'dim', label: 'ECU not read' },
+      ],
+    });
+    bar();
+    return;
+  }
+
+  // ---- Operations / New / Basic Features ------------------------------------
+  if (s.page === 'basic') {
+    istaRealStatus({ items: [] });
+    istaBottomBar('basic', {});
+    // the gate is the CHARACTERISTIC TREE, not the parts catalogue: this
+    // page is built from ISTA's own basic features and never touches a VIN
+    const ok = await istaProbe(() =>
+      typeof istaBasicPresent === 'function' ? istaBasicPresent() : false
+    );
+    if (!host.isConnected) return;
+    if (!ok)
+      return istaPageGrey(
+        host,
+        s.label,
+        "BMW's characteristic tree is not in this build, so a vehicle " +
+          'cannot be described feature by feature here'
+      );
+    istaPageBasic(host, {
+      onChange: (n, row) => {
+        istaRealStatus({ items: [{ k: 'Hits:', v: `${n} / ${n}` }] });
+        istaBottomBar('basic', {
+          // exactly ONE vehicle is the bar for opening: a set of choices
+          // that still describes six cars has not identified one
+          'open-operation': n === 1 && row ? () => istaOpenBasic(row) : null,
+        });
+      },
+    });
+    return;
+  }
+
+  if (s.page === 'readout') {
+    istaRealStatus(real ? { items: [] } : null);
+    // BOTH IDENTIFICATION BUTTONS READ THE CAR, so both need a cable. With
+    // none connected they grey rather than offering a read that can only
+    // fail: the page above already says to connect the interface, and a live
+    // button beside that instruction contradicts it.
+    const armReadout = (cable) =>
+      istaBottomBar('readout', {
+        cancel: () => istaGo('operations', 'new', 'vin'),
+        'ident-only': cable
+          ? () => istaGo('information', 'details', null)
+          : null,
+        // Complete identification IS the vehicle test: it reads the car
+        'ident-full': cable ? () => istaOpenVehicleTest() : null,
+      });
+    if (real) armReadout(false);
+    await istaPageReadout(host, { onCable: real ? armReadout : null });
+    return;
+  }
+
+  if (s.page === 'active') {
+    if (real) {
+      istaRealStatus({ items: [] });
+      istaBottomBar('none');
+    }
+    return istaPageActive(host, car, chassis);
+  }
+
+  if (s.page === 'repair') {
+    // The repair manual draws its own page; what the shell owns is the
+    // frame around it and WHICH VIEW it is on, which is the level-3 tab the
+    // reader pressed. Its two views are keyed by those same tab ids, so
+    // nothing has to be translated across the seam.
+    if (real) {
+      istaRealStatus({ items: [{ k: 'Hits:', v: '0 / 0' }] });
+      istaBottomBar('product-structure', {});
+    }
+    if (typeof showRepair !== 'function') {
+      const why = 'the repair document browser did not ship in this build';
+      if (real) return istaPageGrey(host, s.label, why);
+      host.innerHTML =
+        `<div class="ista-page"><h2 class="ista-page-title">${esc(s.label)}` +
+        `</h2><div class="ista-none-box">${esc(why)}</div></div>`;
+      return;
+    }
+    return showRepair(host, car, chassis, s.id);
+  }
+
+  if (s.page === 'details') {
+    if (!real) return istaShowDetails(host, car, chassis);
+    istaRealStatus({ items: [] });
+    istaBottomBar('details', {
+      'vehicle-test': () => istaOpenVehicleTest(),
+      'info-search': () =>
+        istaGo('management', 'troubleshooting', 'text-search'),
+    });
+    // the grid draws from the catalogue decode at once, then fills in what a
+    // read finds; nothing is read unless the user asked for it elsewhere
+    istaRealDetails(host, car, istaState.etk, {});
+    return;
+  }
+
+  if (s.page === 'equipment') {
+    if (!real) return istaShowEquipment(host, car, chassis);
+    istaRealStatus({ items: [] });
+    istaBottomBar('equipment', {
+      'show-test': () => istaGo('information', 'tree', null),
+      'info-search': () =>
+        istaGo('management', 'troubleshooting', 'text-search'),
+    });
+    istaRealEquipment(host, [], null);
+    const got = await istaProbe(async () => {
+      if (typeof readIdentityCodes !== 'function') return null;
+      if (typeof loadTables === 'function') await loadTables();
+      if (typeof loadSaNames === 'function') await loadSaNames();
+      return readIdentityCodes(chassis);
+    });
+    if (!host.isConnected) return;
+    const codes = (got && got.codes) || [];
+    const date = car && car.prod ? Number(String(car.prod).padEnd(8, '0')) : 0;
+    // THE NAME LIVES ON VehicleIdentity, NOT AS A BARE GLOBAL. sa-names.js
+    // assigns saName onto the VehicleIdentity namespace only, so a guard of
+    // `typeof saName === 'function'` was ALWAYS false and returned '' --
+    // every SA came out as a bare number, and the earlier fix to the
+    // argument order (saName(code, date), not (chassis, code, date)) never
+    // ran at all. The identity screen calls it the same way this does now.
+    const names =
+      typeof VehicleIdentity === 'object' &&
+      VehicleIdentity &&
+      typeof VehicleIdentity.saName === 'function'
+        ? VehicleIdentity.saName
+        : null;
+    istaRealEquipment(host, codes, (c) => (names ? names(c, date) || '' : ''));
+    return;
+  }
+
+  if (s.page === 'techdata') {
+    if (!real) return showTechData(host, car, chassis);
+    istaRealStatus({ items: [{ k: 'Filter:', v: 'Default' }] });
+    await showTechData(host, car, chassis);
+    if (!host.isConnected) return;
+    // the app's page draws its own section tabs and a Show all checkbox; the
+    // skin hides those (the level-3 strip is the sections, and Show all is a
+    // filter) and this is the button that still reaches the checkbox
+    istaBottomBar('techdata', {
+      filters: () => istaTechDataFilter(host),
+    });
+    return;
+  }
+}
+
+/**
+ * The modern face's VIN page: the Garage picker as a plain list.
+ * @param {HTMLElement} host - where to draw
+ * @returns {void}
+ */
+function istaPageVinModern(host) {
+  host.innerHTML =
+    `<div class="ista-page"><h2 class="ista-page-title">New operation</h2>` +
+    `<p class="ista-page-note">Pick the vehicle to work on.</p>` +
+    `<div class="ista-none-box">Use the vehicle picker in the banner ` +
+    `above, or switch Settings to the INPA layout for the full start ` +
+    `page.</div></div>`;
+}
+
+/**
+ * Open a vehicle and go to its details: the VIN page's Open operation.
+ *
+ * A row that was picked is already a saved car. A VIN that was typed is
+ * looked up in the Garage first (so the same car is not saved twice) and
+ * only then decoded and added -- the decode is a catalogue lookup, so this
+ * costs the car nothing and works with no cable at all.
+ * @param {object|null} car - the picked GarageCar, or null
+ * @param {string} vin - what was in the box
+ * @returns {Promise<void>}
+ */
+async function istaOpenOperation(car, vin) {
+  let use = car;
+  const v = String(vin || '')
+    .trim()
+    .toUpperCase();
+  if (!use && v) {
+    if (typeof garageFindByVin === 'function') use = garageFindByVin(v) || null;
+    if (!use) {
+      const etk = await istaProbe(() =>
+        typeof viEtkDecode === 'function' ? viEtkDecode(v) : null
+      );
+      if (!etk) {
+        if (typeof toast === 'function')
+          toast(`No vehicle in the parts index matches ${v}`);
+        return;
+      }
+      if (typeof garageAddCar === 'function')
+        use = garageAddCar({
+          vin: v,
+          chassis: etk.chassis,
+          model: etk.model,
+          body: etk.body,
+          motor: etk.motor,
+          prod: String(etk.prod || ''),
+        });
+    }
+  }
+  if (!use) return;
+  istaSetCar(use);
+  return istaGo('information', 'details', null);
+}
+
+/**
+ * The ISTA shell.
+ * @param {string} [tab] - the tab to open
+ * @param {string|null} [sub] - the sub-tab on it
+ * @param {string|null} [sub3] - the level-3 tab on that
+ * @param {string|null} [carId] - a car id from the route
+ * @returns {Promise<void>}
+ */
+/**
+ * Draw the page the shell is already on again.
+ *
+ * The vehicle test uses this to colour the control units in as they answer,
+ * so the read happens on the screen it was started from instead of a page
+ * of its own. It is deliberately a re-render of the CURRENT route, not a
+ * navigation: nothing about where the technician is changes.
+ * @returns {Promise<void>}
+ */
+function istaRedraw() {
+  return showIsta(istaState.tab, istaState.sub, istaState.sub3);
+}
+
+/**
+ * Recolour the control units in place, without rebuilding the page.
+ *
+ * REDRAWING THE WHOLE SHELL ON EVERY ANSWER IS A FLASHING SCREEN. showIsta
+ * rebuilds the chrome, the crumbs, the tab strips and the tree's canvas, so
+ * calling it per module made the page blink about once a second and threw
+ * away the drawing each time. The read only ever changes two things -- each
+ * box's state class and the status line -- so those are all that is touched.
+ * @param {object[]} slots - the slots as they stand now
+ * @returns {void}
+ */
+function istaPaintStates(slots) {
+  if (typeof document === 'undefined') return;
+  const host = document.getElementById('view');
+  if (!host) return;
+  const find = (key) => {
+    const at = String(key).lastIndexOf('@');
+    const name = at > 0 ? String(key).slice(0, at) : String(key);
+    const addr = at > 0 ? String(key).slice(at + 1) : '';
+    return (
+      (slots || []).find(
+        (x) =>
+          (x.box && x.box.name === name && String(x.box.addr) === addr) ||
+          (x.box && x.box.name === name)
+      ) || null
+    );
+  };
+  // the bus map's boxes
+  host.querySelectorAll('.tree-box').forEach((el) => {
+    const slot = find(el.getAttribute('data-key') || '');
+    const state = (slot && slot.state) || 'unread';
+    for (const c of ['ok', 'faults', 'silent', 'unread'])
+      el.classList.toggle(`tree-${c}`, c === state);
+  });
+  // the bus map's own progress bar, which the screen already ships: how far
+  // the read has got, against the addresses this chassis's tree lists
+  const bar = host.querySelector('.tree-progress');
+  if (bar) {
+    const live = istaTestLive();
+    bar.hidden = !live;
+    if (live) {
+      // COUNT WHAT THE RUNNING PASS HAS HEARD. Counting slots that have left
+      // 'unread' leaves the bar frozen for the whole identification pass,
+      // because identification deliberately leaves them unread: it proves a
+      // module is there without asking its fault memory.
+      const r = live.phase === 'faults' ? live.faults : live.ident;
+      const done =
+        ((r && r.modules) || []).length + ((r && r.silent) || []).length;
+      const total = (slots || []).length;
+      const pct = total ? Math.min(100, Math.round((100 * done) / total)) : 0;
+      if (bar.firstElementChild) bar.firstElementChild.style.width = `${pct}%`;
+      bar.title =
+        `${done} of about ${total} control units, ` +
+        (live.phase === 'faults' ? 'fault memories' : 'identification');
+    }
+  }
+  // the control unit list's state dots
+  const rows = host.querySelectorAll('.irunits tbody tr');
+  if (rows.length && typeof istaUnitListOrder === 'function') {
+    const order = istaUnitListOrder(slots || []);
+    rows.forEach((tr, i) => {
+      const dot = tr.querySelector('.irstate i');
+      const slot = order[i];
+      if (dot && slot)
+        dot.className =
+          (typeof ISTA_STATE_CLASS !== 'undefined' &&
+            ISTA_STATE_CLASS[slot.state]) ||
+          'dim';
+    });
+  }
+}
+
+async function showIsta(tab, sub, sub3, carId) {
+  if (typeof cancelSweep === 'function') cancelSweep();
+  if (!istaState.car && !istaState.chassis) istaRestoreCar(carId);
+  else if (carId) istaRestoreCar(carId);
+  istaState.tab = istaTab(tab) ? tab : ISTA_HOME_TAB;
+  const firstSub = (istaFirstSub(istaState.tab) || {}).id || null;
+  istaState.sub = istaSub(istaState.tab, sub) ? sub : firstSub;
+  const first3 = istaState.sub
+    ? (istaFirstSub3(istaState.tab, istaState.sub) || {}).id || null
+    : null;
+  istaState.sub3 =
+    istaState.sub && istaSub3(istaState.tab, istaState.sub, sub3)
+      ? sub3
+      : first3;
+
+  lastScreen = () => showIsta(istaState.tab, istaState.sub, istaState.sub3);
+  // the shell drawing itself is not the user leaving it: hold the flag over
+  // setCrumbs so the router's teardown check sees the shell's own render
+  istaOpeningSet(true);
+  try {
+    setCrumbs([
+      { label: 'Vehicles', fn: showChassis },
+      { label: 'ISTA', fn: () => showIsta(ISTA_HOME_TAB, null, null) },
+      { label: (istaTab(istaState.tab) || {}).label || istaState.tab },
+    ]);
+  } finally {
+    istaOpeningSet(false);
+  }
+  istaChromeShow(); // after setCrumbs: it clears the body classes
+  istaPaintChrome();
+  istaRouteStamp();
+  sbLeft.textContent = 'workshop';
+  sbRight.textContent = istaChassis() || 'no vehicle';
+
+  const real = istaSkinOn();
+  const printAction = {
+    key: 'p',
+    label: 'Print',
+    kind: 'print',
+    fn: () => window.print(),
+  };
+  const homeAction = {
+    key: 'Escape',
+    keyLabel: 'Esc',
+    label: 'Back',
+    kind: 'back',
+    fn: () => {
+      istaChromeHide();
+      showChassis();
+    },
+  };
+
+  const s = istaLeaf(istaState.tab, istaState.sub, istaState.sub3);
+  if (!s) {
+    // an empty tab (Favourites before anything is pinned) is not a broken
+    // sub-tab: it says what to do rather than erroring about a missing row
+    view.innerHTML = '';
+    setActions([printAction, homeAction]);
+    if (real) {
+      istaRealStatus({ items: [] });
+      istaBottomBar('none');
+      istaPageGrey(
+        view,
+        (istaTab(istaState.tab) || {}).label || istaState.tab,
+        istaState.tab === 'favourites'
+          ? 'Nothing pinned yet. The star on a sub-tab pins it here.'
+          : 'Nothing here yet.'
+      );
+    } else {
+      await istaHome(view, istaState.tab);
+    }
+    return;
+  }
+
+  const state = await istaSubReady(s);
+
+  if (!state.ok) {
+    view.innerHTML = '';
+    setActions([printAction, homeAction]);
+    if (real) {
+      istaRealStatus({ items: [] });
+      // a greyed tab still shows the row of buttons its page would carry,
+      // all refused: the control is visible and does nothing, which says
+      // more than an empty bar
+      istaBottomBar(s.id);
+      // the greyed tabs that have a layout of their own get it drawn
+      const shape = ISTA_GREY_SHAPES[s.id] || null;
+      istaPageGrey(view, s.label, state.why, shape);
+    } else {
+      view.innerHTML =
+        `<div class="ista-page"><h2 class="ista-page-title">${esc(
+          s.label
+        )}</h2>` + `<div class="ista-none-box">${esc(state.why)}</div></div>`;
+    }
+    return;
+  }
+
+  // a page the shell draws itself
+  if (s.page) {
+    view.innerHTML = '';
+    setActions([printAction, homeAction]);
+    const host = document.createElement('div');
+    view.appendChild(host);
+    await istaDrawPage(s, host);
+    return;
+  }
+
+  // a screen the app already has
+  await istaOpen(s);
+}
+
+/**
+ * The layouts the greyed tabs draw under their reason.
+ *
+ * Each one is the real tool's own layout for that page, so the tab reads as
+ * the tab it is rather than as an error. The reason itself comes from the
+ * model, not from here.
+ * @type {Object<string, object>}
+ */
+const ISTA_GREY_SHAPES = {
+  before: { cols: ['Abbreviation', 'Control unit name', 'Replaced'] },
+  after: { cols: ['Abbreviation', 'Control unit name', 'Replaced'] },
+  retrofit: {
+    cols: ['Description', 'Selection'],
+    attention:
+      'For a change of control unit (installation or exchange), also ' +
+      "select the relevant control unit via the 'After Replacement' button.",
+  },
+  conversion: { cols: ['Description', 'Selection'] },
+  removal: { cols: ['Description', 'Selection'] },
+  immediate: { cols: ['Description', 'Selection'] },
+  comfort: {
+    attention:
+      'Programming is not offered by this build: flashing a module can ' +
+      'brick it.',
+  },
+  advanced: {
+    attention:
+      'Programming is not offered by this build: flashing a module can ' +
+      'brick it.',
+  },
+  additional: {
+    attention:
+      'Programming is not offered by this build: flashing a module can ' +
+      'brick it.',
+  },
+  'test-plan': { cols: ['Type', 'Title', 'State', 'Priority'] },
+  'programming-plan': { cols: ['Type', 'Title', 'State', 'Priority'] },
+  'fault-pattern': { cols: ['Hits', 'Search terms'] },
+};
+
+// ---- the shell's own home (modern face only) -------------------------------
+
+/**
+ * The modern face's home: every tab as a card, and every sub-tab under it.
+ * @param {HTMLElement} host - where to draw
+ * @param {string} [onlyTab] - draw just this tab's card
+ * @returns {Promise<void>}
+ */
+async function istaHome(host, onlyTab) {
+  const chassis = istaChassis();
+  const show = onlyTab ? ISTA_TABS.filter((t) => t.id === onlyTab) : ISTA_TABS;
+  host.innerHTML =
+    `<div class="ista-home">` +
+    (onlyTab
+      ? ''
+      : `<p class="ista-home-note">${
+          chassis
+            ? `ISTA on ${esc(
+                typeof dispChassis === 'function'
+                  ? dispChassis(chassis)
+                  : chassis
+              )}.`
+            : `Pick a vehicle in the banner above to begin.`
+        }</p>`) +
+    `<div class="ista-home-grid"></div></div>`;
+  const grid = host.querySelector('.ista-home-grid');
+
+  for (const t of show) {
+    const subs = istaSubsOf(t.id);
+    const card = document.createElement('section');
+    card.className = 'ista-card';
+    card.innerHTML =
+      `<h2 class="ista-card-title">${esc(
+        String(t.label).replace(/\n/g, ' ')
+      )}</h2>` +
+      (t.desc ? `<p class="ista-card-desc">${esc(t.desc)}</p>` : '') +
+      `<div class="ista-card-rows"></div>`;
+    const rows = card.querySelector('.ista-card-rows');
+    if (!subs.length) {
+      rows.innerHTML = `<div class="ista-row-none">${
+        t.id === 'favourites'
+          ? 'Nothing pinned yet. The star beside a sub-tab pins it here.'
+          : 'Nothing here yet.'
+      }</div>`;
+    }
+    for (const s of subs) {
+      const owner = s._tab || t.id;
+      // a sub-tab with a strip under it is a group: its first leaf is what
+      // the row would open, so that is what it reports on
+      const leaf = s.subs3 ? istaFirstSub3(owner, s.id) || s : s;
+      const state = await istaSubReady(leaf);
+      const row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'ista-row' + (state.ok ? '' : ' ista-row-off');
+      row.innerHTML =
+        `<span class="ista-row-label">${esc(s.label)}</span>` +
+        `<span class="ista-row-desc">${esc(
+          state.ok ? s.desc || leaf.desc || '' : state.why
+        )}</span>` +
+        `<span class="ista-row-arrow">${state.ok ? '→' : ''}</span>`;
+      if (state.ok) row.onclick = () => istaGo(owner, s.id, null);
+      else row.disabled = true;
+      rows.appendChild(row);
+    }
+    grid.appendChild(card);
+  }
+}
+
+if (typeof document !== 'undefined' && document.getElementById) {
+  const btn = document.getElementById('ista-btn');
+  if (btn) btn.onclick = () => showIsta();
+}
+
+if (typeof window !== 'undefined') {
+  window.showIsta = showIsta;
+  window.istaOpenFaultMemory = istaOpenFaultMemory;
+  window.istaOpenVehicleTest = istaOpenVehicleTest;
+  window.istaOpenIdentScan = istaOpenIdentScan;
+  window.istaOpenService = istaOpenService;
+  window.istaOpenServiceResets = istaOpenServiceResets;
+  window.istaOpenTree = istaOpenTree;
+  window.istaOpenHistory = istaOpenHistory;
+  window.istaOpenLatestReport = istaOpenLatestReport;
+  window.istaOpenIdentity = istaOpenIdentity;
+  window.istaOpenCoding = istaOpenCoding;
+  window.istaOpenModules = istaOpenModules;
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    ISTA_CAR_KEY,
+    ISTA_CHASSIS_KEY,
+    ISTA_GREY_SHAPES,
+    istaState,
+    istaChassis,
+    istaSetCar,
+    istaRestoreCar,
+    istaSubReady,
+    istaRouteStamp,
+    istaOpenOperation,
+    showIsta,
+  };
+}

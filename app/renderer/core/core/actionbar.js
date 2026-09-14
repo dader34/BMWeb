@@ -226,6 +226,9 @@ class ActionBar {
   set(actions, shifted) {
     stopLive();
     stopLogging();
+    // a data-logging run polls until told otherwise; leaving the screen is
+    // the telling, so the bus is free for whatever the next screen does
+    if (typeof stopDataLogging === 'function') stopDataLogging();
     if (typeof dismissAttention === 'function') dismissAttention();
     if (!activationsHeld() && typeof runMenuLeave === 'function') {
       runMenuLeave();
@@ -235,6 +238,10 @@ class ActionBar {
     // session end having driven nothing. Held by the same repaint guard.
     if (!activationsHeld() && typeof endActivationSession === 'function')
       endActivationSession();
+    // a new set of keys is a new screen: the caption over the bar goes back
+    // to "Select menu" unless the running script names its menu again
+    if (typeof document !== 'undefined')
+      document.documentElement.style.removeProperty('--fkeys-caption');
     this.base = actions;
     this.shift = shifted && shifted.length ? shifted : null;
     this.shiftHeld = false;

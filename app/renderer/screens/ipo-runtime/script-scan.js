@@ -97,6 +97,25 @@ function ipoSetscreenArgs(toks, j, byid) {
 }
 
 /**
+ * The menu whose prologue shows a screen: the inverse of ipoScreenForMenu,
+ * for a link that names a screen but no menu (a search result for the
+ * screen itself). The screen's keys are the owning menu's, so landing on the
+ * screen under any other menu puts the wrong jobs on the F-keys.
+ * @param {object} exec - the decoded script
+ * @param {string} screen - the screen proc name
+ * @returns {string|null} the menu name, or null when no menu shows it
+ */
+function ipoMenuForScreen(exec, screen) {
+  const byid = (exec && exec.byid) || {};
+  for (const [k, name] of Object.entries(byid)) {
+    if (!k.startsWith('menu:')) continue;
+    const shown = ipoScreenForMenu(exec, name); // {screen, frequent} or null
+    if (shown && shown.screen === screen) return name;
+  }
+  return null;
+}
+
+/**
  * The backdrop a menu is normally shown with: the setscreen the key that
  * opens it performs right before its setmenu. A deep link (the URL route)
  * lands on the menu without pressing that key, so its screen is looked up

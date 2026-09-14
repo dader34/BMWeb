@@ -280,6 +280,11 @@ function fakeUi(opts = {}) {
     printScreen: () => {
       ui.prints += 1;
     },
+    // INPA's printfile: the file the script named, as its lines
+    printedFiles: [],
+    printFile: (p, name, lines) => {
+      ui.printedFiles.push({ name, lines });
+    },
     linesPick: null, // what the next Select picks (array), null = cancel
     pickLines: async () => ui.linesPick,
     // a %STATE park: the real UI auto-ticks after IPO_TICK_MS unless the
@@ -496,10 +501,19 @@ const sysSet = (sgbd) => ({
   );
   ok('IHKA46: digital key toggles ON/OFF across presses (state persists)');
 
-  // leaving the module runs inpaexit (INPAapiEnd + its own job) and reports
+  // leaving the module runs inpaexit (INPAapiEnd + its own job) and reports.
+  // The job has to REACH THE WIRE: marking the program closed before the
+  // exit proc ran let drive() cancel it at its first step, and the module
+  // was left mid-session with DIAGNOSE_ENDE never sent.
+  const bLeave = sent.length;
   await p.leaveModule();
   assert.strictEqual(ui.lefts, 1, 'left once');
-  ok('IHKA46: leaveModule runs inpaexit and hands back');
+  assert.ok(
+    sent.slice(bLeave).some((s) => s.job === 'DIAGNOSE_ENDE'),
+    `inpaexit's DIAGNOSE_ENDE on the wire: ${sent.slice(bLeave).map((s) => s.job)}`
+  );
+  assert.ok(p.closed, 'closed once inpaexit has run');
+  ok('IHKA46: leaveModule runs inpaexit (DIAGNOSE_ENDE sent) and hands back');
   assert.ok(
     leaveReg === null || leaveReg.key === null || leaveReg.job === null || true
   );
@@ -2082,6 +2096,7 @@ const sysSet = (sgbd) => ({
       'pickComponent',
       'pickLines',
       'printScreen',
+      'printFile',
       'resolveScriptEcu',
       'machineTick',
       'renderKeys',
@@ -2173,6 +2188,579 @@ const sysSet = (sgbd) => ({
   if (qp) qp.close();
   if (mp) mp.close();
   if (sp) sp.close();
+  // ===========================================================================
+  // 6. The BMWeb home as an INPA script: compiled from the checked-in source,
+  //    started with no car, its picks answered by the host, and scriptchange
+  //    landing in the module's own script
+  // ===========================================================================
+  {
+    loadClassic('core/ipofile/');
+    const src = RT.ipoHomeSource();
+    assert.strictEqual(
+      fs.readFileSync(R('home/bmweb-home.ips'), 'utf8'),
+      src.ips,
+      'home.js carries home/bmweb-home.ips verbatim'
+    );
+    assert.strictEqual(
+      fs.readFileSync(R('home/bmweb.h'), 'utf8'),
+      src.h,
+      'home.js carries home/bmweb.h verbatim'
+    );
+    const home = RT.ipoHomeExec();
+    assert.ok(home.procs.inpainit && home.procs.m_main && home.procs.s_main);
+    ok('the home script compiles from its own source and include');
+
+    const ihka = loadExec('E46', 'ihka46');
+    fakeApi((job) => {
+      if (job === 'INITIALISIERUNG')
+        return { system: sysSet('ihka46_3'), sets: [{ DONE: '1' }] };
+      if (job === 'INFO')
+        return {
+          system: sysSet('ihka46_3'),
+          sets: [{ SPRACHE: 'englisch', REVISION: '1.04', ECU: 'IHKA46' }],
+        };
+      return { system: sysSet('ihka46_3'), sets: [{ JOB_STATUS: 'OKAY' }] };
+    });
+    const picks = [];
+    const ui = fakeUi();
+    ui.pickHome = async (p, step) => {
+      picks.push(step.what + ':' + step.arg);
+      if (step.what === 'chassis') return 'E46';
+      if (step.what === 'module') return 'ihka46';
+      return '';
+    };
+    ui.loadExec = async (name) => (name === 'ihka46' ? ihka : null);
+    ui.resolveScriptEcu = async (from, script) => ({
+      sgbd: 'ihka46_3',
+      label: 'IHKA',
+      _variant: 'IHKA46_3',
+      chassis: from.chassis,
+      picked: script,
+    });
+    // a fresh record per program: the chassis pick is written onto it
+    const homeEcu = () => ({
+      sgbd: 'bmweb_home',
+      label: 'BMWeb',
+      _variant: 'BMWEB_HOME',
+    });
+    const p = new IpoProgram(homeEcu(), home, ui);
+    const r = await p.start();
+    assert.strictEqual(r.ok, true, `home start failed: ${r.reason}`);
+    assert.strictEqual(p.menu, 'm_main');
+    assert.strictEqual(p.screen, 's_main');
+    assert.deepStrictEqual(
+      p.items.filter((i) => i.label).map((i) => `${i.nr}:${i.label}`),
+      ['1:Vehicle', '2:Error scan', '9:Print', '20:Exit']
+    );
+    ok('the home starts with no car: its menu and screen, no job sent');
+
+    await p.press(1);
+    assert.deepStrictEqual(
+      picks,
+      ['chassis:', 'module:E46'],
+      'two picks, the second scoped to the chassis'
+    );
+    assert.strictEqual(
+      p.ecu.chassis,
+      'E46',
+      'the chassis pick is the car from then on'
+    );
+    assert.strictEqual(
+      p.script,
+      'ihka46',
+      'scriptchange handed the screen to the module'
+    );
+    assert.strictEqual(p.menu, 'm_main', "on the module's own root menu");
+    ok('F1: chassis, module, and the module script is running');
+
+    const ui2 = fakeUi();
+    ui2.pickHome = async (p2, step) => (step.what === 'chassis' ? 'E39' : '');
+    const q = new IpoProgram(homeEcu(), home, ui2);
+    await q.start();
+    await q.press(2);
+    assert.ok(
+      ui2.messages.some((m) => /Error scan/.test(m.title)),
+      'no whole-vehicle script: the script says so in a messagebox'
+    );
+    ok('F2 on a chassis without a whole-car script explains itself');
+
+    const ui3 = fakeUi();
+    ui3.pickHome = async () => null; // cancel
+    const c = new IpoProgram(homeEcu(), home, ui3);
+    await c.start();
+    await c.press(1);
+    assert.strictEqual(c.menu, 'm_main');
+    assert.strictEqual(c.ecu.chassis, undefined);
+    ok('a cancelled pick leaves the home where it was');
+  }
+
+  // ===========================================================================
+  // 7. INPA's API fault read: the E46 airbag script reads fault memory only
+  //    through INPAapiFsLesen, which INPA's own API turns into FS_LESEN plus
+  //    the detail of every entry and a protocol file the script viewopen()s
+  // ===========================================================================
+  {
+    const aexec = loadExec('E46', 'airbag');
+    assert.ok(aexec && aexec.procs.inpainit, 'airbag exec missing');
+    const afault = {
+      F_ORT_NR: 5,
+      F_ORT_TEXT: 'Firing loop ZK0 / driver airbag stage 1',
+      F_HEX_CODE: [0x01, 0x42],
+      F_ART1_TEXT: 'sporadisch',
+      F_HFK: 2,
+      F_LZ: 40,
+      F_UW_ANZ: 1,
+      F_UW_SATZ: 1,
+      F_UW1_TEXT: 'Kilometerstand',
+      F_UW1_WERT: 123456,
+      F_UW1_EINH: 'km',
+    };
+    const asent = fakeApi((job, arg) => {
+      const sys = sysSet('mrs4');
+      if (job === 'INITIALISIERUNG')
+        return { system: sys, sets: [{ DONE: '1' }] };
+      if (job === 'INFO')
+        return {
+          system: sys,
+          sets: [{ SPRACHE: 'englisch', REVISION: '1.00', ECU: 'MRS4' }],
+        };
+      if (job === 'FS_LESEN')
+        return { system: sys, sets: [afault, { JOB_STATUS: 'OKAY' }] };
+      if (job === 'FS_LESEN_DETAIL')
+        return {
+          system: sys,
+          sets: [
+            { ...afault, F_PCODE_STRING: '', detailFor: String(arg) },
+            { JOB_STATUS: 'OKAY' },
+          ],
+        };
+      // a memory read: twenty bytes, four more than the screen asks for
+      if (job === 'SPEICHER_LESEN')
+        return {
+          system: sys,
+          sets: [
+            { DATEN: Array.from({ length: 20 }, (_, i) => i) },
+            { JOB_STATUS: 'OKAY' },
+          ],
+        };
+      return { system: sys, sets: [{ JOB_STATUS: 'OKAY' }] };
+    });
+    const aui = fakeUi();
+    const ap = new IpoProgram(
+      { sgbd: 'mrs4', label: 'Airbag', _variant: 'MRS4', chassis: 'E46' },
+      aexec,
+      aui
+    );
+    const ar = await ap.start();
+    assert.strictEqual(ar.ok, true, `airbag start failed: ${ar.reason}`);
+    await ap.openMenu('m_fehler');
+    assert.ok(
+      ap.items.some((i) => i.nr === 1 && /Read/.test(i.label)),
+      'the Read key'
+    );
+    await ap.press(1);
+    for (let i = 0; i < 200 && (ap.busy || !ap.view); i++)
+      await new Promise((r) => setTimeout(r, 5));
+    const ajobs = asent.map(
+      (s) =>
+        `${s.target}/${s.job}${s.arg != null && s.arg !== '' ? ' ' + s.arg : ''}`
+    );
+    assert.ok(
+      ajobs.includes('mrs4/FS_LESEN'),
+      `FS_LESEN went to the module: ${ajobs.join(', ')}`
+    );
+    assert.ok(
+      ajobs.includes('mrs4/FS_LESEN_DETAIL 5'),
+      `the detail pass by location number: ${ajobs.join(', ')}`
+    );
+    assert.ok(
+      ap.view && ap.view.lines.some((l) => /Firing loop ZK0/.test(l)),
+      `the protocol file names the fault: ${JSON.stringify(ap.view && ap.view.lines)}`
+    );
+    assert.ok(ap.view.lines.some((l) => /1 Fehler im Fehlerspeicher/.test(l)));
+    assert.ok(
+      ap.view.lines.some((l) => /Kilometerstand: 123456 km/.test(l)),
+      'the environment line'
+    );
+    const rep = ap.view.report;
+    assert.ok(
+      rep && rep.kind === 'faults' && rep.modules.length === 1,
+      `the view carries the report: ${JSON.stringify(rep && rep.modules.map((m) => m.sgbd))}`
+    );
+    assert.strictEqual(rep.modules[0].codes.length, 1);
+    assert.strictEqual(Number(rep.modules[0].codes[0].F_ORT_NR), 5);
+    ok(
+      'INPAapiFsLesen: FS_LESEN + detail on the wire, protocol file written, report built'
+    );
+
+    // the Print key after the read: printfile(ErrorCode, "na_fs.tmp", ...)
+    // prints the protocol file the API read wrote, answers rc 0, and leaves
+    // the viewer up
+    const awaitIdle = async () => {
+      for (let i = 0; i < 200 && ap.busy; i++)
+        await new Promise((r) => setTimeout(r, 5));
+    };
+    const printKey = ap.items.find((i) => i.nr === 9);
+    assert.ok(printKey && !printKey.hidden, 'the Print key is offered');
+    const mf = aexec.procs.m_fehler;
+    let rcSlot = null;
+    for (let i = 0; i < mf.length; i++) {
+      if (mf[i].op !== 'call' || mf[i].name !== 'printfile') continue;
+      for (let j = i - 1; j >= 0 && mf[j].op !== 'frame'; j--)
+        if (mf[j].op === 'procref') rcSlot = mf[j].n;
+    }
+    assert.ok(rcSlot != null, "printfile's ErrorCode slot found");
+    ap.vm.globals.set(rcSlot, 99);
+    await ap.press(9);
+    await awaitIdle();
+    assert.strictEqual(aui.prints, 0, 'not a printscreen');
+    assert.strictEqual(
+      aui.printedFiles.length,
+      1,
+      `one file printed: ${JSON.stringify(aui.printedFiles.map((f) => f.name))}`
+    );
+    assert.strictEqual(aui.printedFiles[0].name, 'na_fs.tmp');
+    assert.ok(
+      aui.printedFiles[0].lines.some((l) => /Firing loop ZK0/.test(l)),
+      'the protocol lines went to the printer'
+    );
+    assert.strictEqual(ap.vm.globals.get(rcSlot), 0, 'ErrorCode is 0');
+    assert.ok(ap.view && ap.view.report, 'printing keeps the viewer up');
+    // the sheet: the same report sections printscreen prints over the view
+    // (without the key bar), a plain file as a monospace block
+    const { ipoPrintFileDocument, ipoPrintDocument } = RT;
+    const fileDoc = ipoPrintFileDocument(
+      ap,
+      ap.ecu,
+      'na_fs.tmp',
+      aui.printedFiles[0].lines
+    );
+    const viewDoc = ipoPrintDocument(ap, ap.ecu, true);
+    assert.deepStrictEqual(
+      fileDoc.sections,
+      viewDoc.sections.filter((s) => !/pr-keys/.test(s.html)),
+      "the viewer's file prints as the report"
+    );
+    assert.ok(
+      fileDoc.meta.some(([k, v]) => k === 'File' && v === 'na_fs.tmp'),
+      'the file is named on the sheet'
+    );
+    const plainDoc = ipoPrintFileDocument(ap, ap.ecu, 'notes.txt', [
+      'one',
+      'two',
+    ]);
+    assert.strictEqual(plainDoc.sections.length, 1);
+    assert.ok(
+      /<pre class="pr-screen">one\ntwo<\/pre>/.test(plainDoc.sections[0].html),
+      `a plain file is a monospace block: ${plainDoc.sections[0].html}`
+    );
+    ok('printfile: the Print key prints the protocol file, rc 0, viewer kept');
+
+    // Clear opens with viewclose() and never viewopens: the viewer goes;
+    // Read opens with viewclose() too, but its viewopen wins
+    await ap.press(2);
+    await awaitIdle();
+    assert.ok(
+      asent.some((s) => s.job === 'FS_LOESCHEN'),
+      `the clear went out: ${asent.map((s) => s.job).join(', ')}`
+    );
+    assert.strictEqual(ap.view, null, 'viewclose dropped the protocol view');
+    await ap.press(1);
+    for (let i = 0; i < 200 && (ap.busy || !ap.view); i++)
+      await new Promise((r) => setTimeout(r, 5));
+    assert.ok(
+      ap.view && ap.view.lines.some((l) => /Firing loop ZK0/.test(l)),
+      'viewopen after viewclose in the same body keeps the new view'
+    );
+    ok('viewclose: Clear closes the viewer, Read reopens it');
+
+    // F7 Memory on the main menu: input2hexnum asks the address and the
+    // count, the screen sends SPEICHER_LESEN and hexdump paints the bytes
+    // of the DATEN binary result as a hex table at (5, 20)
+    await ap.openMenu('m_main');
+    const memKey = ap.items.find((i) => i.nr === 7);
+    assert.ok(memKey && /Memory/.test(memKey.label), 'the Memory key');
+    aui.askInput = async (step) =>
+      step.name === 'input2hexnum' ? ['1000', 16] : 0;
+    asent.length = 0;
+    await ap.press(7);
+    const dumpCell = () =>
+      [...ap.cells.values()].find((c) => /^1000 {2}00 01 02/.test(c.text));
+    for (let i = 0; i < 200 && (ap.busy || !dumpCell()); i++)
+      await new Promise((r) => setTimeout(r, 5));
+    assert.ok(
+      asent.some((s) => s.job === 'SPEICHER_LESEN'),
+      `SPEICHER_LESEN went out: ${asent.map((s) => s.job).join(', ')}`
+    );
+    const dc = dumpCell();
+    assert.ok(
+      dc,
+      `the hex table: ${JSON.stringify([...ap.cells.values()].map((c) => c.text))}`
+    );
+    assert.strictEqual(dc.col, 20, 'at the column the script named');
+    assert.strictEqual(
+      dc.text,
+      '1000  00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F',
+      'sixteen bytes on the line, the four beyond the count dropped'
+    );
+    assert.ok(
+      ![...ap.cells.values()].some((c) => /^1010/.test(c.text)),
+      'no second line past numbytes'
+    );
+    ok('hexdump: the Memory screen paints the DATEN bytes as a hex table');
+    ap.close();
+  }
+
+  // ===========================================================================
+  // 8. Esc on the root menu: a screen-only key (Ident) is undone first, the
+  //    module is left on the next Esc
+  // ===========================================================================
+  {
+    const iexec = loadExec('E46', 'ihka46');
+    fakeApi((job) => {
+      if (job === 'INITIALISIERUNG')
+        return { system: sysSet('ihka46_3'), sets: [{ DONE: '1' }] };
+      if (job === 'INFO')
+        return {
+          system: sysSet('ihka46_3'),
+          sets: [{ SPRACHE: 'englisch', REVISION: '1.04', ECU: 'IHKA46' }],
+        };
+      return { system: sysSet('ihka46_3'), sets: [{ JOB_STATUS: 'OKAY' }] };
+    });
+    const eui = fakeUi();
+    const ep = new IpoProgram(
+      { sgbd: 'ihka46_3', label: 'IHKA', _variant: 'IHKA46_3', chassis: 'E46' },
+      iexec,
+      eui
+    );
+    const er = await ep.start();
+    assert.strictEqual(er.ok, true, `start failed: ${er.reason}`);
+    assert.strictEqual(ep.rootMenu, 'm_main');
+    assert.strictEqual(ep.rootScreen, 's_main');
+    const ident = ep.items.find((i) => /^Ident/i.test(i.label));
+    assert.ok(ident, 'the Ident key on the root menu');
+    await ep.press(ident.nr);
+    for (let i = 0; i < 200 && ep.busy; i++)
+      await new Promise((r) => setTimeout(r, 5));
+    assert.strictEqual(ep.menu, 'm_main', 'Ident keeps the root menu');
+    assert.notStrictEqual(ep.screen, 's_main', 'Ident swapped the screen');
+    await ep.back();
+    assert.strictEqual(ep.screen, 's_main', 'Esc returns to the entry screen');
+    assert.strictEqual(ep.menu, 'm_main');
+    assert.strictEqual(ep.closed, false, 'and the module is still open');
+    await ep.back();
+    for (let i = 0; i < 200 && !ep.closed; i++)
+      await new Promise((r) => setTimeout(r, 5));
+    assert.strictEqual(ep.closed, true, 'the next Esc leaves the module');
+    ok('Esc on the root menu: back to the entry screen first, then out');
+  }
+
+  // ===========================================================================
+  // 9. The model behind hexdump, viewclose and the colours: a synthetic body
+  //    driven live against a fed binary result, and the same body offline
+  //    (the lift's emissions must not change)
+  // ===========================================================================
+  {
+    const S = (v) => ({ op: 'const', t: 's', v });
+    const I = (v) => ({ op: 'const', t: 'i', v });
+    const F = { op: 'frame' };
+    const G = (n) => ({ op: 'procref', kind: 0, n });
+    const call = (name) => ({ op: 'call', name });
+    const callN = (n) => ({ op: 'call', n });
+    const block = { op: 'block', dwords: 0 };
+    const ret = { op: 'ret' };
+    // the Speicher-lesen screen's tail: the job, the binary result, the dump
+    const dumpToks = [
+      block,
+      F,
+      S('mrs4'),
+      S('SPEICHER_LESEN'),
+      S('LAR;0x1000;36'),
+      S(''),
+      call('INPAapiJob'),
+      F,
+      G(5),
+      S('DATEN'),
+      I(1),
+      call('INPAapiResultBinary'),
+      F,
+      S('0x1000'),
+      I(36),
+      I(5),
+      I(20),
+      call('hexdump'),
+      ret,
+    ];
+    const daten = Array.from({ length: 36 }, (_, i) => i + 0x10);
+    const feed = () => {
+      const fed = new Map([['JOB_STATUS', 'OKAY']]);
+      fed.sets = [sysSet('mrs4'), { DATEN: daten }, { JOB_STATUS: 'OKAY' }];
+      return fed;
+    };
+    const runLive = (toks) => {
+      const vm = new IpoVm(
+        { procs: { p: toks }, byid: {} },
+        { budget: 1000, wireJobs: true, host: new FeedHost() }
+      );
+      let st = vm.stepStart('p');
+      for (let n = 0; n < 20 && st && st.kind !== 'done'; n++)
+        st = vm.resume(st.kind === 'job' ? feed() : undefined);
+      return vm;
+    };
+    const texts = (vm) =>
+      vm.out.lines.flatMap((l) =>
+        (l.elements || []).map((e) => [e.row, e.col, e.s])
+      );
+    const live = runLive(dumpToks);
+    assert.deepStrictEqual(
+      texts(live),
+      [
+        [5, 20, '1000  10 11 12 13 14 15 16 17 18 19 1A 1B 1C 1D 1E 1F'],
+        [6, 20, '1010  20 21 22 23 24 25 26 27 28 29 2A 2B 2C 2D 2E 2F'],
+        [7, 20, '1020  30 31 32 33'],
+      ],
+      `hexdump cells: ${JSON.stringify(texts(live))}`
+    );
+    // the cells land on the program's grid as text
+    const hp = new IpoProgram(
+      { sgbd: 'mrs4' },
+      { procs: {}, byid: {} },
+      fakeUi()
+    );
+    hp.takeCells(live.out);
+    assert.strictEqual(hp.cells.get('6:20').kind, 'text');
+    assert.ok(/^1010/.test(hp.cells.get('6:20').text));
+    assert.deepStrictEqual(ipoHexdumpLines('FFF8', [1, 2]), ['FFF8  01 02']);
+    assert.deepStrictEqual(
+      ipoHexdumpLines(
+        '',
+        Array.from({ length: 17 }, () => 0xab)
+      ),
+      ['0000  AB AB AB AB AB AB AB AB AB AB AB AB AB AB AB AB', '0010  AB'],
+      'no address counts from 0, four digits wide'
+    );
+    // offline the lift sees the call and nothing drawn (the bytes are the
+    // wire's)
+    const off = new IpoVm(
+      { procs: { p: dumpToks }, byid: {} },
+      { budget: 1000 }
+    );
+    const offOut = off.run('p');
+    assert.ok(offOut.calls.includes('hexdump'), 'the call is recorded');
+    assert.deepStrictEqual(texts(off), [], 'nothing drawn offline');
+    ok(
+      'hexdump: sixteen bytes a line from the fed binary result, none offline'
+    );
+
+    // viewclose then viewopen keeps the new view; viewopen then viewclose
+    // leaves none, and says so
+    const fileToks = [
+      F,
+      S('x.txt'),
+      S('w'),
+      call('fileopen'),
+      F,
+      S('line one'),
+      call('filewrite'),
+      F,
+      call('fileclose'),
+    ];
+    const openToks = [F, S('x.txt'), S('Title'), call('viewopen')];
+    const closeToks = [F, call('viewclose')];
+    const closeThenOpen = runLive([
+      block,
+      ...fileToks,
+      ...closeToks,
+      ...openToks,
+      ret,
+    ]);
+    assert.ok(
+      closeThenOpen.out.view && closeThenOpen.out.view.lines[0] === 'line one',
+      'viewopen after viewclose: the view stands'
+    );
+    const openThenClose = runLive([
+      block,
+      ...fileToks,
+      ...openToks,
+      ...closeToks,
+      ret,
+    ]);
+    assert.strictEqual(openThenClose.out.view, null, 'viewclose drops it');
+    assert.strictEqual(openThenClose.out.viewClose, true);
+    const noView = runLive([block, ...closeToks, ret]);
+    assert.strictEqual(noView.out.viewClose, true);
+    const offClose = new IpoVm(
+      {
+        procs: { p: [block, ...fileToks, ...openToks, ...closeToks, ret] },
+        byid: {},
+      },
+      { budget: 1000 }
+    );
+    const offCloseOut = offClose.run('p');
+    assert.ok(offCloseOut.view, 'offline viewclose is still a noop');
+    assert.strictEqual(offCloseOut.viewClose, false);
+    ok('viewclose: order within the body decides, offline unchanged');
+
+    // setcolor(fg, bk) rides on the run and on every live cell after it;
+    // userboxsetcolor(box, fg, bk) on the open progress window
+    const colorToks = [
+      block,
+      F,
+      S('Before'),
+      I(1),
+      I(0),
+      I(0),
+      I(0),
+      call('ftextout'),
+      F,
+      I(1),
+      I(8),
+      callN(0x1a),
+      F,
+      S('After'),
+      I(2),
+      I(0),
+      I(0),
+      I(0),
+      call('ftextout'),
+      F,
+      I(0),
+      I(8),
+      I(35),
+      I(5),
+      I(50),
+      S('Box'),
+      S(''),
+      call('userboxopen'),
+      F,
+      I(0),
+      I(1),
+      I(4),
+      callN(0x58),
+      ret,
+    ];
+    const colored = runLive(colorToks);
+    assert.deepStrictEqual(colored.out.color, { fg: 1, bk: 8 });
+    const els = colored.out.lines.flatMap((l) => l.elements || []);
+    assert.strictEqual(els.find((e) => e.s === 'Before').color, undefined);
+    assert.deepStrictEqual(els.find((e) => e.s === 'After').color, {
+      fg: 1,
+      bk: 8,
+    });
+    assert.deepStrictEqual(colored.userbox.color, { fg: 1, bk: 4 });
+    const offColor = new IpoVm(
+      { procs: { p: colorToks }, byid: {} },
+      { budget: 1000 }
+    );
+    const offColorOut = offColor.run('p');
+    const offEls = offColorOut.lines.flatMap((l) => l.elements || []);
+    assert.ok(
+      offEls.every((e) => !('color' in e)),
+      'offline elements carry no colour (parity with the Python twin)'
+    );
+    ok('setcolor / userboxsetcolor: the model carries the colours');
+  }
+
   console.log(`ipo-runtime: ${passed} checks passed`);
 })().catch((e) => {
   console.error(e && e.stack ? e.stack : e);

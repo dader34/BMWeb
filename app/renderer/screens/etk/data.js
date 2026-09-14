@@ -15,7 +15,7 @@
  * present (dev + the offline single-file export), else fall back to HF.
  */
 
-/* exported ETK_HF_BASE, etkFetch, etkDataUrl, etkFetchFirst, loadEtk, readWithProgress, etkChassisList, loadVehicles, loadEtkThumbs, etkThumbUrl, etkImageUrl */
+/* exported ETK_HF_BASE, etkFetch, etkDataUrl, etkFetchFirst, loadEtk, readWithProgress, etkChassisList, loadVehicles, loadEtkThumbs, etkThumbUrl, etkImageUrl, loadEtkHotspots */
 
 /**
  * One part row on a diagram.
@@ -76,6 +76,19 @@
  * @typedef {object} EtkBundle
  * @property {EtkTree} tree - the parsed catalogue tree
  * @property {Map<string, Uint8Array>} files - archive entries by path ("img/319345.jpg")
+ */
+
+/**
+ * One clickable callout rectangle on an exploded view: the callout number,
+ * then its box in the diagram image's OWN pixel space (top-left origin).
+ * @typedef {[string, number, number, number, number]} EtkHotspot
+ */
+
+/**
+ * The parsed <CHASSIS>.hs.json.gz: which rectangles each diagram carries.
+ * @typedef {object} EtkHotspotFile
+ * @property {number} v - format version (1)
+ * @property {Record<string, EtkHotspot[]>} bt - btnr -> its rectangles
  */
 
 /**
@@ -177,6 +190,43 @@ async function loadEtk(chassisId, onProgress) {
   const data = { tree, files };
   ETK_CACHE.set(id, data);
   return data;
+}
+
+/** @type {Map<string, Promise<EtkHotspotFile|null>>} chassis id -> its hotspot file, in flight or settled */
+const ETK_HS_CACHE = new Map();
+
+/**
+ * Load (and cache) one chassis's callout rectangles. This rides BESIDE the
+ * bundle rather than inside it: the .etk archives are already published and
+ * re-uploading all of them to add a few KB of rectangles is not worth it.
+ *
+ * Never throws and never blocks the diagram: a chassis whose file has not
+ * been generated (or that cannot be reached) resolves to null, and the viewer
+ * simply draws the plain, non-interactive exploded view.
+ * @param {string} chassisId - chassis code, any case
+ * @returns {Promise<EtkHotspotFile|null>} the parsed file, or null when there is none
+ */
+function loadEtkHotspots(chassisId) {
+  const id = String(chassisId || '').toUpperCase();
+  if (ETK_HS_CACHE.has(id)) return ETK_HS_CACHE.get(id);
+  const p = (async () => {
+    const hit = await etkFetchFirst(`${id}.hs.json.gz`);
+    if (!hit) return null;
+    try {
+      const bytes = new Uint8Array(await hit.resp.arrayBuffer());
+      // same gunzip path as the VIN index -- fflate, already loaded for the
+      // bundles, so no new dependency and it works in the offline export too
+      const json = fflate.strFromU8(fflate.gunzipSync(bytes));
+      const data = JSON.parse(json);
+      return data && data.bt ? data : null;
+    } catch (e) {
+      // a truncated or half-written file must not take the diagram down with
+      // it: the callouts are an enhancement, the drawing is the feature
+      return null;
+    }
+  })();
+  ETK_HS_CACHE.set(id, p);
+  return p;
 }
 
 /**

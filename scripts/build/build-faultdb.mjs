@@ -27,7 +27,8 @@ const faultsDir = path.join(root, 'data', 'faults');
 
 // ORT fault-code map for text-scheme ECUs (whose faults key on German text, not a
 // code). data/ort-codes.json is { sgbd: { variant: { "German text": "0xNN" } } },
-// dumped offline from every VARIANT of each SGBD's FORTTEXTE table (inpamac dumptable).
+// dumped offline from every VARIANT of each SGBD's FORTTEXTE table (by the retired
+// .NET reference CLI; the file is committed).
 // The same location can have a different code in different variants (ihka46 Drucksensor
 // is 0x1D but ihka46_3 is 0x1F), so the code map is kept PER VARIANT and the Lookup
 // screen splits a module into one entry per variant (labelled by the variant SGBD).

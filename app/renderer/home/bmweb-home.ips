@@ -1,0 +1,76 @@
+//**********************************************************************
+//*
+//* BMWeb home: the app's front door as an INPA script, so a terminal (or
+//* any host that runs .IPO) starts where the app starts. Pick a chassis,
+//* pick a module, and scriptchange hands the screen to that module's own
+//* INPA script, exactly as INPA's vehicle selection does.
+//*
+//* Written by the BMWeb project.
+//*
+//**********************************************************************
+#include "bmweb.h"
+
+string chassis = "";
+string module  = "";
+string status  = "";
+
+inpainit()
+{
+  settitle("BMWeb");
+  setscreen(s_main, TRUE);
+  setmenu(m_main);
+}
+
+MENU m_main()
+{
+  INIT {
+    setmenutitle("BMWeb");
+  }
+  ITEM( 1 ,"Vehicle")  {
+    bmweb_pick("chassis", "", chassis);
+    if (chassis != "")
+    {
+      bmweb_pick("module", chassis, module);
+      if (module != "")
+      {
+        scriptchange(module);
+      }
+    }
+  }
+  ITEM( 2 ,"Error scan")  {
+    bmweb_pick("chassis", "", chassis);
+    if (chassis != "")
+    {
+      bmweb_pick("vehicle", chassis, module);
+      if (module != "")
+      {
+        scriptchange(module);
+      }
+      else
+      {
+        messagebox("Error scan", "INPA ships no whole-vehicle script for this chassis.");
+      }
+    }
+  }
+  ITEM( 9 ,"Print")  {
+    printscreen();
+  }
+  ITEM( 20 ,"Exit")  {
+    exit();
+  }
+}
+
+SCREEN s_main()
+{
+  bmweb_status(status);
+  ftextout("BMWeb", 1, 0, 1, 0);
+  ftextout("", 3, 0, 0, 0);
+  LINE("","")
+  {
+    ftextout("< F1 >  Vehicle: pick a chassis, then a module", 4, 5, 0, 1);
+    ftextout("< F2 >  Error scan: INPA's whole-vehicle script", 6, 5, 0, 1);
+    ftextout("< F9 >  Print", 20, 5, 0, 1);
+    ftextout("<Shift> + < F10>  Exit", 22, 45, 0, 1);
+    ftextout(status, 12, 5, 0, 1);
+  }
+}

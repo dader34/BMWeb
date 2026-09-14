@@ -1009,23 +1009,55 @@ html.no-chrome body.apps-section .topbar {
   transform: none;
 }
 
-/* Apps hub: the ported-app cards reuse .lookup-entry; these add the version/
-   source tag and the greyed-out state for an app whose data isn't in the build */
+/* Apps hub: the ported-app cards reuse .lookup-entry, re-stacked into
+   tiles -- icon, then title and tag, the description, the arrow at the foot --
+   on a grid that fills the row; the greyed-out state for an app whose data
+   isn't in the build is the hub's own */
 .apps-list {
   display: grid;
   gap: 12px;
 }
-.app-tag {
-  font-family: var(--mono);
-  font-size: 10px;
-  letter-spacing: 0.12em;
-  color: var(--ink-faint);
-  text-transform: uppercase;
-  margin-left: 8px;
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  padding: 1px 5px;
-  vertical-align: middle;
+/* the tiles are a desktop shape; the mobile breakpoint keeps its grouped list */
+@media (min-width: 761px) {
+  .apps-list {
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 14px;
+  }
+  .apps-list .lookup-entry {
+    margin-top: 0;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 16px 16px 14px;
+    min-width: 0;
+  }
+  .apps-list .lookup-entry-icon {
+    width: 40px;
+    height: 40px;
+    font-size: 22px;
+  }
+  .apps-list .lookup-entry-text {
+    gap: 6px;
+    min-width: 0;
+  }
+  .apps-list .lookup-entry-title {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    font-size: 15px;
+    line-height: 1.25;
+  }
+  .apps-list .lookup-entry-desc {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .apps-list .lookup-entry-arrow {
+    margin-top: 2px;
+    align-self: flex-end;
+  }
 }
 .app-entry.app-absent {
   opacity: 0.5;
@@ -1059,6 +1091,28 @@ html.no-chrome body.apps-section .topbar {
   border-radius: 10px;
   overflow: hidden;
   background: var(--panel);
+}
+/* the variant header over the tree, with the wiring viewer's toggle */
+.etk-vinbanner {
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel-2);
+}
+.etk-vinbanner-veh {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--amber);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* "my car": diagrams with nothing for the variant, and groups with none
+   left, are hidden */
+.etk-tree.etk-fit-only .etk-tleaf[data-off],
+.etk-tree.etk-fit-only .etk-tgroup[data-off] {
+  display: none;
 }
 .etk-tree {
   overflow-y: auto;
@@ -1189,10 +1243,192 @@ html.no-chrome body.apps-section .topbar {
   width: fit-content;
   max-width: calc(100% - 32px);
 }
+.etk-figure {
+  position: relative;
+  cursor: zoom-in;
+}
 .etk-figure img {
   max-width: 100%;
+  /* a first look, not the whole pane: the parts list stays in reach, and a
+     click opens the drawing at full size with the loupe */
+  max-height: min(46vh, 480px);
+  width: auto;
   height: auto;
   image-rendering: -webkit-optimize-contrast;
+}
+.etk-figure-hint {
+  position: absolute;
+  right: 10px;
+  bottom: 8px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: #666;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 2px 6px;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.etk-figure:hover .etk-figure-hint {
+  opacity: 1;
+}
+
+/* the callout hotspots: one focusable box per numbered callout, laid over the
+   drawing in the image's own pixel space and scaled with it (see
+   screens/etk/callouts.js). The layer itself is inert so the figure's own
+   click still opens the lightbox everywhere between the numbers -- only the
+   boxes take the pointer. */
+.etk-hotspots {
+  position: absolute;
+  pointer-events: none;
+  z-index: 1;
+}
+.etk-hotspot {
+  position: absolute;
+  pointer-events: auto;
+  padding: 0;
+  margin: 0;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: transparent;
+  cursor: pointer;
+  /* a resting callout must not obscure the line art it sits on: the box is
+     invisible until it is pointed at, focused or picked */
+  transition:
+    background-color 0.1s,
+    border-color 0.1s;
+}
+.etk-hotspot:hover,
+.etk-hotspot.on {
+  border-color: var(--amber);
+  background: var(--amber-glow);
+}
+.etk-hotspot:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 1px;
+}
+.etk-hotspot.pinned {
+  /* the pinned box has to read at a glance against black line art, but the
+     callout number underneath must stay legible, so the FILL is tinted and
+     the border left fully opaque. Dimming the whole element with `opacity`
+     would take the border with it and leave the box edgeless. */
+  border-color: var(--amber);
+  background: color-mix(in srgb, var(--amber) 45%, transparent);
+}
+
+/* the parts rows answering back. A linked row is one whose callout is drawn
+   on this diagram; rows the variant filter removed are not in the table at
+   all, so they can never light up. */
+.etk-parts tr.etk-row-linked {
+  cursor: pointer;
+}
+.etk-parts tr.etk-row-on {
+  background: var(--amber-glow);
+}
+.etk-parts tr.etk-row-on .etk-pos {
+  font-weight: 700;
+}
+.etk-parts tr.etk-row-pinned {
+  box-shadow: inset 2px 0 0 var(--amber);
+}
+
+/* the enlarged drawing: as big as the window allows, on a white plate, with
+   a round loupe following the pointer */
+.etk-lightbox {
+  display: flex;
+  flex-direction: column;
+  max-width: 94vw;
+  max-height: 92vh;
+  border: 1px solid var(--line-bright);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.etk-lightbox-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px 10px 16px;
+  border-bottom: 1px solid var(--line);
+}
+.etk-lightbox-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.etk-lightbox-hint {
+  font-size: 12px;
+  color: var(--ink-faint);
+  flex: none;
+}
+.etk-lightbox-close {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: none;
+  color: var(--ink-dim);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+.etk-lightbox-close:hover {
+  color: var(--ink);
+  border-color: var(--line-bright);
+}
+.etk-lightbox-plate {
+  position: relative;
+  background: #fff;
+  padding: 16px;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+}
+.etk-lightbox-img {
+  display: block;
+  max-width: calc(94vw - 34px);
+  max-height: calc(92vh - 82px);
+  width: auto;
+  height: auto;
+  cursor: crosshair;
+  image-rendering: -webkit-optimize-contrast;
+}
+.etk-loupe {
+  position: absolute;
+  pointer-events: none;
+  /* above the callout overlay: a lit box must not show through the glass at
+     its unmagnified place; it is redrawn inside, magnified (etkLoupeMarks) */
+  z-index: 2;
+  overflow: hidden;
+  border-radius: 50%;
+  border: 2px solid var(--amber);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.25),
+    0 6px 20px rgba(0, 0, 0, 0.35);
+  background-color: #fff;
+  background-repeat: no-repeat;
+}
+.etk-loupe-marks {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.etk-loupe-mark {
+  position: absolute;
+  border: 2px solid var(--amber);
+  border-radius: 4px;
+  background: var(--amber-glow);
+}
+.etk-loupe-mark.pinned {
+  background: color-mix(in srgb, var(--amber) 45%, transparent);
 }
 .etk-parts {
   width: 100%;
@@ -1440,21 +1676,6 @@ html.no-chrome body.apps-section .topbar {
 }
 
 /* Save button, right of the decode arrow: same shape as the arrow but ghosted */
-.etk-vin-save {
-  flex: none;
-  font-size: 13px;
-  font-weight: 700;
-  line-height: 1;
-  cursor: pointer;
-  color: var(--amber);
-  background: var(--amber-glow);
-  border: 1px solid var(--amber);
-  border-radius: 8px;
-  padding: 10px 16px;
-}
-.etk-vin-save:hover {
-  background: rgba(255, 158, 44, 0.28);
-}
 
 /* ---- two columns: VIN box + attributes left, saved-vehicles column right -- */
 .etk-vin-layout {
@@ -1546,19 +1767,9 @@ html.no-chrome body.apps-section .topbar {
   letter-spacing: 0.04em;
   color: var(--ink-dim);
 }
-.etk-saved-del {
-  flex: none;
-  width: 40px;
-  background: none;
-  border: none;
-  border-left: 1px solid var(--line);
-  color: var(--ink-faint);
-  cursor: pointer;
-  font-size: 12px;
-}
-.etk-saved-del:hover {
-  color: var(--red, #ff6b6b);
-  background: rgba(127, 127, 127, 0.1);
+.etk-saved-go {
+  margin: 0 14px 14px;
+  align-self: flex-start;
 }
 
 /* ETK-style "identify by attributes" group box */
@@ -2366,18 +2577,16 @@ html[data-theme='inpa'] .t32-lb {
   flex: none;
 }
 
-/* custom searchable variant dropdown (replaces the unstyleable native select) */
+/* the variant picker: the fault lookup's dropdown skin (css/lookup.css),
+   stretched to the bar; amber when a variant is filtering */
 .etk-vdd {
-  position: relative;
   flex: 1;
   max-width: 520px;
 }
-.etk-vdd-cur {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.etk-vdd .lkd-btn {
+  width: 100%;
 }
-.etk-vdd-cur.etk-vdd-filtered {
+.etk-vdd .lkd-val.etk-vdd-filtered {
   color: var(--amber);
 }
 
@@ -4705,7 +4914,9 @@ select.modal-input {
   padding-top: 15px;
 }
 .fkeys::before {
-  content: 'Select menu';
+  /* the running script's menu title (setmenutitle) sits over the keys,
+     where INPA shows it; "Select menu" when no script is up */
+  content: var(--fkeys-caption, 'Select menu');
   position: absolute;
   top: 0;
   left: 0;
@@ -5328,6 +5539,19 @@ select.modal-input {
   display: block;
   pointer-events: none;
   touch-action: none;
+}
+/* the bound component labels take the pointer back: the drawing as a
+   whole stays deaf so the stage under it can pan, but a label that opens a
+   document must hover and click like a link */
+.wiring-stage svg a.wiring-svg-link,
+.wiring-stage svg a.wiring-svg-link * {
+  pointer-events: all;
+  cursor: pointer;
+}
+.wiring-stage svg a.wiring-svg-link:hover,
+.wiring-stage svg a.wiring-svg-link:hover * {
+  fill: var(--amber);
+  text-decoration: underline;
 }
 .wiring-doc {
   flex: 1;
@@ -8188,14 +8412,6 @@ body.remote-helper::after {
   flex-direction: column;
   gap: 10px;
 }
-.ipo-title {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--ink);
-}
-.ipo-title:empty {
-  display: none;
-}
 .ipo-screen {
   overflow-x: hidden;
   max-width: 100%;
@@ -8518,6 +8734,318 @@ body.remote-helper::after {
   padding: 0;
 }
 
+/* ---- Data logging (screens/logging/) --------------------------------------
+   A selection panel beside a grid of charts. Every colour is a token, so the
+   screen follows the skin; the canvases read the same tokens at draw time
+   (logChartColors) because a canvas cannot inherit a custom property. */
+.log-wrap {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  min-height: 0;
+}
+.log-side {
+  flex: 0 0 300px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 70vh;
+  min-height: 0;
+}
+.log-side-head {
+  flex: 0 0 auto;
+}
+.log-search {
+  width: 100%;
+}
+.log-tree {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  padding: 4px;
+  /* the same thin themed scrollbar the ETK and wiring trees draw */
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-hover) transparent;
+}
+.log-tree::-webkit-scrollbar {
+  width: 8px;
+}
+.log-tree::-webkit-scrollbar-track {
+  background: transparent;
+}
+.log-tree::-webkit-scrollbar-thumb {
+  background: var(--line-hover);
+  border-radius: 4px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+.log-tree::-webkit-scrollbar-thumb:hover {
+  background: var(--dim);
+  background-clip: content-box;
+}
+.log-mod > summary,
+.log-job > summary {
+  cursor: pointer;
+  padding: 5px 8px;
+  border-radius: 6px;
+  list-style: none;
+  color: var(--ink);
+}
+.log-mod > summary::-webkit-details-marker,
+.log-job > summary::-webkit-details-marker {
+  display: none;
+}
+.log-mod > summary:hover,
+.log-job > summary:hover {
+  background: var(--panel-2);
+}
+.log-mod-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: baseline;
+}
+.log-mod-sgbd {
+  font:
+    11px/1.2 ui-monospace,
+    monospace;
+  color: var(--ink-faint);
+}
+.log-mod-body {
+  padding-left: 10px;
+  border-left: 1px solid var(--line);
+  margin-left: 8px;
+}
+.log-job-head {
+  font:
+    11px/1.4 ui-monospace,
+    monospace;
+  color: var(--ink-dim);
+}
+.log-keys {
+  padding-left: 8px;
+}
+.log-key {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  padding: 3px 4px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+.log-key:hover {
+  background: var(--panel-2);
+}
+.log-key-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.log-key-name {
+  font:
+    11px/1.3 ui-monospace,
+    monospace;
+  color: var(--ink);
+}
+.log-key-unit {
+  font-size: 10px;
+  color: var(--amber);
+}
+.log-key-note {
+  font-size: 10px;
+  color: var(--ink-faint);
+  overflow-wrap: anywhere;
+}
+.log-load {
+  padding: 8px;
+}
+.log-summary {
+  flex: 0 0 auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  padding: 8px;
+  max-height: 26vh;
+  overflow-y: auto;
+}
+.log-sum-head {
+  font-size: 11px;
+  color: var(--ink-dim);
+  margin-bottom: 4px;
+}
+.log-sum-empty {
+  font-size: 11px;
+  color: var(--ink-faint);
+  padding: 8px;
+}
+.log-sum-row {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  font:
+    11px/1.5 ui-monospace,
+    monospace;
+}
+.log-sum-note {
+  font:
+    11px/1.4 ui-monospace,
+    monospace;
+  color: var(--ink-faint);
+  padding: 0 0 4px 8px;
+  overflow-wrap: anywhere;
+}
+.log-sum-note-empty {
+  color: var(--amber);
+}
+.log-sum-note-error {
+  color: var(--red);
+}
+.log-sum-job {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* the count never wraps: the job name is what gives way */
+.log-sum-n {
+  flex: none;
+  white-space: nowrap;
+  color: var(--ink-faint);
+}
+.log-sum-rate {
+  color: var(--amber);
+  min-width: 42px;
+  text-align: right;
+}
+.log-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.log-bar {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+/* the preset loader: the lookup dropdown at the bar's button height */
+.log-bar .log-preset-load .lkd-btn {
+  min-width: 180px;
+  padding: 8px 12px;
+}
+.log-spacer {
+  flex: 1 1 auto;
+}
+.log-win {
+  display: inline-flex;
+  gap: 2px;
+}
+.log-win-btn.on {
+  background: var(--amber);
+  color: var(--amber-ink);
+  border-color: var(--amber);
+}
+/* the charts: as many across as fit, each wide enough to read a trace on */
+.log-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 10px;
+}
+.log-chart {
+  position: relative;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+/* the card's own way out of the rotation, so the tree need not be reopened */
+.log-chart-del {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: none;
+  color: var(--ink-faint);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+.log-chart-del:hover {
+  color: var(--red);
+  border-color: var(--line);
+}
+.log-chart-head {
+  padding-right: 26px;
+}
+.log-chart-head {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.log-chart-title {
+  font-size: 12px;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.log-chart-sub {
+  font:
+    10px/1.3 ui-monospace,
+    monospace;
+  color: var(--ink-faint);
+}
+.log-chart-read {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+.log-now {
+  font:
+    16px/1.1 ui-monospace,
+    monospace;
+  color: var(--amber);
+}
+.log-range {
+  font:
+    10px/1.2 ui-monospace,
+    monospace;
+  color: var(--ink-faint);
+}
+.log-canvas {
+  width: 100%;
+  height: 110px;
+  display: block;
+  cursor: crosshair;
+}
+/* one column on a phone: two charts side by side are unreadable at that width */
+@media (max-width: 760px) {
+  .log-wrap {
+    flex-direction: column;
+  }
+  .log-side {
+    flex: 1 1 auto;
+    width: 100%;
+    max-height: 44vh;
+  }
+  .log-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* PRINTING A SCREEN THAT BUILT NO SHEET. Screens with a Print action hand
    core/print.js a document (body.pr-active) and the rules there take the
    page over. Everything else -- a bare Cmd+P on the vehicle list, an app hub
@@ -8573,4 +9101,2487 @@ body.remote-helper::after {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
+}
+
+/* ---- Garage: saved vehicles and their scan history ------------------------ */
+.garage-list {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+.garage-empty {
+  padding: 18px 16px;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--ink-dim);
+  font-size: 13px;
+}
+/* the Share button on a stored scan, flashing like the wiring app's */
+.garage-share {
+  white-space: nowrap;
+}
+/* the row's controls: kind label, Open, Share, delete, all one height */
+.garage-scan-row .quick-status {
+  display: inline-flex;
+  align-items: stretch;
+  gap: 8px;
+}
+.garage-scan-row .garage-scan-kind {
+  align-self: center;
+  margin-right: 4px;
+}
+.garage-scan-share {
+  display: inline-flex;
+}
+.garage-share.copied {
+  color: var(--green, #4caf50);
+  border-color: var(--green, #4caf50);
+}
+/* the "run a scan" row on a car's page */
+.garage-run {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+}
+.garage-run-text {
+  flex: 1 1 auto;
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.garage-run-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.garage-run-note {
+  font-size: 12px;
+  color: var(--ink-dim);
+}
+@media (max-width: 640px) {
+  .garage-run {
+    flex-wrap: wrap;
+  }
+  .garage-run-text {
+    flex-basis: 100%;
+  }
+}
+.garage-car {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+}
+.garage-car:hover {
+  border-color: var(--line-bright);
+}
+.garage-car-open {
+  display: grid;
+  gap: 3px;
+  padding: 12px 14px;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+}
+.garage-car-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.garage-car-bits,
+.garage-car-state {
+  font-size: 12px;
+  color: var(--ink-dim);
+}
+.garage-car-vin {
+  font-size: 11px;
+  color: var(--ink-faint);
+  letter-spacing: 0.04em;
+}
+.garage-bad {
+  color: var(--red);
+}
+.garage-good {
+  color: var(--green);
+}
+.garage-car-del {
+  margin-right: 12px;
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: none;
+  color: var(--ink-faint);
+  cursor: pointer;
+  font-size: 12px;
+}
+.garage-car-del:hover {
+  border-color: var(--red);
+  color: var(--red);
+}
+
+/* the per-car history list */
+.garage-scan-row .quick-ecu {
+  display: grid;
+  gap: 2px;
+}
+.garage-scan-when {
+  font-size: 13px;
+  color: var(--ink);
+}
+.garage-scan-counts {
+  font-size: 11.5px;
+  color: var(--ink-dim);
+}
+.garage-scan-kind {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.garage-scan-del {
+  padding: 0 12px;
+  align-self: stretch;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: none;
+  color: var(--ink-faint);
+  cursor: pointer;
+}
+.garage-scan-del:hover {
+  border-color: var(--red);
+  color: var(--red);
+}
+.garage-notes {
+  display: grid;
+  gap: 5px;
+  margin-bottom: 16px;
+}
+.garage-notes-label {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.garage-notes-input {
+  width: 100%;
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  resize: vertical;
+}
+.garage-notes-input:focus {
+  outline: none;
+  border-color: var(--amber);
+}
+
+/* comparing two scans */
+.garage-diff-pick {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.garage-diff-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: var(--ink-dim);
+}
+.garage-diff-label select {
+  padding: 5px 8px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--panel);
+  color: var(--ink);
+  font: inherit;
+  font-size: 12px;
+}
+.garage-diff-arrow {
+  color: var(--ink-faint);
+}
+/* the badge carries the meaning, so it is the coloured part of the row */
+.garage-diff-badge {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.garage-diff-new .quick-detail-code,
+.garage-diff-new .garage-diff-badge {
+  color: var(--red);
+}
+.garage-diff-cleared .quick-detail-code,
+.garage-diff-cleared .garage-diff-badge {
+  color: var(--green);
+}
+.garage-diff-changed .quick-detail-code,
+.garage-diff-changed .garage-diff-badge {
+  color: var(--amber);
+}
+.garage-diff-unchanged {
+  opacity: 0.62;
+}
+
+/* the "which vehicle is this?" picker, inside the app's modal */
+.garage-pick {
+  display: grid;
+  gap: 6px;
+  margin: 4px 0 14px;
+  max-height: 46vh;
+  overflow-y: auto;
+}
+.garage-pick-row {
+  display: grid;
+  gap: 2px;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.garage-pick-row:hover {
+  border-color: var(--amber);
+}
+.garage-pick-name {
+  font-size: 13px;
+  color: var(--ink);
+}
+.garage-pick-note {
+  font-size: 11px;
+  color: var(--ink-faint);
+}
+
+/* Job search (screens/search/): the Apps-hub app over every INPA key and
+   screen in the corpus. The search box, count line and screen head are the
+   fault lookup's own (css/lookup.css) so the two reference apps read alike;
+   only the result rows below are this app's, because what they show -- a key
+   number, the jobs it sends -- has no counterpart there. */
+.job-search-results {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.job-search-hints {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+  margin-top: 12px;
+}
+.job-search-hints code {
+  padding: 3px 8px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--panel);
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-dim);
+}
+.search-msg {
+  padding: 14px 12px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--panel);
+  color: var(--ink-dim);
+  font-size: 13px;
+}
+.search-group {
+  display: grid;
+  gap: 8px;
+}
+.search-group-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--line);
+}
+.search-group-name {
+  font-family: var(--display);
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--amber);
+}
+.search-group-count {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-faint);
+}
+.search-module {
+  display: grid;
+  gap: 2px;
+}
+.search-module-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 4px 2px;
+  font-size: 12px;
+  color: var(--ink-dim);
+}
+.search-module-sgbd {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ink-faint);
+}
+.search-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--panel);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.search-row:hover {
+  border-color: var(--amber);
+  background: var(--panel-2);
+}
+/* Fixed width so the labels line up down the list whether the row is a key
+   (F4, Shift+F4) or a screen (no key of its own). */
+.search-row-key {
+  flex: 0 0 44px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-faint);
+}
+.search-row-text {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+.search-row-label {
+  font-size: 13px;
+  color: var(--ink);
+}
+.search-row-sub {
+  font-size: 11px;
+  color: var(--ink-dim);
+}
+.search-row-jobs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.search-row-jobs code {
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: var(--raised);
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--cyan);
+}
+.search-row-more {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ink-faint);
+}
+/* A key that writes to the module. The row still opens -- it lands on the
+   screen with the key unpressed -- so the tag is a warning, not a block. */
+.search-tag {
+  margin-left: 8px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.search-tag-write {
+  background: var(--amber);
+  color: var(--amber-ink);
+}
+.search-row-arrow {
+  color: var(--ink-faint);
+}
+
+/* the freeze frame under a fault row, and the range flags on its values */
+.garage-envrow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  padding: 5px 14px 7px 14px;
+  background: var(--panel-2);
+  border-top: 1px dotted var(--line);
+  font-size: 11.5px;
+}
+.garage-env {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+}
+.garage-env-k {
+  color: var(--ink-faint);
+}
+.garage-env-v {
+  font-family: var(--mono);
+  color: var(--ink-dim);
+}
+/* a flagged reading: the value carries the colour, the tag names the source */
+.garage-env-warn .garage-env-v {
+  color: var(--red);
+  font-weight: 700;
+}
+.garage-env-note .garage-env-v {
+  color: var(--amber);
+}
+.garage-env-flag {
+  padding: 0 4px;
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  font-size: 9.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.garage-env-warn .garage-env-flag {
+  color: var(--red);
+}
+.garage-env-note .garage-env-flag {
+  color: var(--amber);
+}
+/* why it was flagged, spelled out under the values */
+.garage-env-why {
+  flex-basis: 100%;
+  font-size: 10.5px;
+  line-height: 1.45;
+  color: var(--ink-faint);
+}
+.garage-env-why-warn {
+  color: var(--red);
+}
+.garage-diff-recurred .quick-detail-code,
+.garage-diff-recurred .garage-diff-badge {
+  color: var(--amber);
+}
+
+/* ---- Script runner ------------------------------------------------------ */
+/* The drop zone is .empty's dashed box, which already reads as "put something
+   here"; only the drag state and the pointer are new. */
+.sr-card {
+  max-width: 1040px;
+}
+.sr-drop {
+  cursor: pointer;
+  transition:
+    border-color 0.12s ease,
+    background 0.12s ease;
+}
+.sr-drop:hover,
+.sr-drop:focus-visible {
+  border-color: var(--line-bright);
+  outline: none;
+}
+.sr-drop.is-over {
+  border-color: var(--amber);
+  background: var(--amber-glow);
+  color: var(--ink);
+}
+.sr-drop code {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--ink);
+}
+.sr-drop .btn {
+  margin-top: 4px;
+}
+/* once a script is in, the zone is a one-line bar: the name, the hint, and
+   the Choose button; the big invitation is gone */
+.sr-drop.sr-loaded {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  min-height: 0;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  text-align: left;
+}
+.sr-drop.sr-loaded .empty-big,
+.sr-drop.sr-loaded > div:not(.sr-loaded-line) {
+  display: none;
+}
+.sr-drop.sr-loaded .sr-loaded-line {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+  order: -1;
+}
+.sr-loaded-name {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--ink);
+}
+.sr-loaded-hint {
+  font-size: 12px;
+  color: var(--ink-faint);
+}
+.sr-drop.sr-loaded .btn {
+  margin-top: 0;
+  flex: none;
+}
+/* the Run card: where the jobs go on the left, the button on the right */
+.sr-run-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.sr-run-row .kv-v {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.sr-run-row .btn {
+  flex: none;
+}
+/* a compile failure is the one card the eye should land on first */
+.result-card.sr-bad {
+  border-left-color: var(--red);
+}
+
+/* ---- Control unit tree (screens/tree/) ---- */
+.tree-wrap {
+  display: grid;
+  gap: 12px;
+}
+.tree-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+}
+.tree-bar-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink-dim);
+  font-size: 13px;
+}
+.tree-bar-lbl {
+  white-space: nowrap;
+}
+.tree-car-slot {
+  display: inline-flex;
+  min-width: 220px;
+}
+.tree-car-slot.tree-busy {
+  pointer-events: none;
+  opacity: 0.6;
+}
+.tree-bar-note {
+  color: var(--ink-dim);
+  font-size: 13px;
+}
+.tree-bar-spacer {
+  flex: 1 1 auto;
+}
+.tree-canvas {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  min-height: 160px;
+}
+.tree-scroll {
+  overflow: auto;
+  padding: 8px;
+}
+.tree-svg {
+  display: block;
+  max-width: none;
+  font:
+    12px/1 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Consolas,
+    monospace;
+}
+.tree-bus {
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+.tree-stub {
+  stroke-width: 2;
+}
+.tree-box {
+  cursor: pointer;
+  outline: none;
+}
+.tree-box rect {
+  fill: var(--panel-2);
+  stroke: var(--ink-faint);
+  stroke-width: 1.5;
+}
+.tree-box text {
+  fill: var(--ink);
+  pointer-events: none;
+}
+.tree-box:hover rect,
+.tree-box:focus-visible rect {
+  fill: var(--raised);
+  stroke: var(--ink);
+}
+.tree-box.tree-root rect {
+  stroke: var(--ink-dim);
+  stroke-width: 2;
+}
+.tree-box.tree-ok rect {
+  stroke: var(--green);
+  stroke-width: 2;
+}
+.tree-box.tree-faults rect {
+  stroke: var(--amber);
+  stroke-width: 2;
+}
+.tree-box.tree-silent rect {
+  stroke: var(--red);
+  stroke-width: 2;
+  stroke-dasharray: 4 3;
+}
+.tree-box.tree-unread text {
+  fill: var(--ink-dim);
+}
+.tree-badge {
+  fill: var(--amber);
+}
+.tree-badge-n {
+  fill: var(--amber-ink) !important;
+  font-size: 9px;
+  font-weight: 700;
+}
+.tree-legend {
+  display: grid;
+  gap: 6px;
+  padding: 8px 14px;
+  color: var(--ink-dim);
+  font-size: 12px;
+}
+.tree-leg-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+.tree-leg-bus,
+.tree-leg-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.tree-leg-bus i {
+  display: inline-block;
+  width: 22px;
+  height: 3px;
+  border-radius: 2px;
+}
+.tree-leg-state b {
+  display: inline-block;
+  width: 14px;
+  height: 10px;
+  border-radius: 2px;
+  border: 2px solid var(--ink-faint);
+  background: var(--panel-2);
+}
+.tree-leg-state b.tree-ok {
+  border-color: var(--green);
+}
+.tree-leg-state b.tree-faults {
+  border-color: var(--amber);
+}
+.tree-leg-state b.tree-silent {
+  border-color: var(--red);
+  border-style: dashed;
+}
+@media print {
+  .tree-bar,
+  .tree-scroll {
+    overflow: visible;
+  }
+}
+/* ---- Service functions (screens/service/) --------------------------------
+   The task catalogue: each row is a named service function, what it does to
+   the car, what to check first, and where INPA keeps it on the chosen
+   vehicle. Rows are cards rather than list lines because a task carries
+   several lines of prose that a one-line row cannot hold, and the
+   preconditions are the part a workshop actually reads. */
+.service-body {
+  display: grid;
+  gap: 14px;
+}
+.service-group {
+  display: grid;
+  gap: 8px;
+}
+.service-group-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--line);
+}
+.service-group-name {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+.service-group-count {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ink-faint);
+}
+.service-list {
+  display: grid;
+  gap: 8px;
+}
+.service-row {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--panel);
+}
+/* a task this car does not carry: still listed, so "it is not here" is an
+   answer the screen gives rather than a gap the reader has to notice */
+.service-row-absent {
+  opacity: 0.55;
+  background: transparent;
+  border-style: dashed;
+}
+/* the row a deep link named, so a sent procedure is findable on arrival */
+.service-row-target {
+  border-color: var(--amber);
+}
+.service-row-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.service-row-name {
+  font-size: 13.5px;
+  color: var(--ink);
+}
+.service-tag-read {
+  background: var(--raised);
+  color: var(--ink-dim);
+}
+.service-row-what {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink-dim);
+}
+.service-row-before,
+.service-row-after {
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--ink-dim);
+}
+.service-row-before ul {
+  margin: 2px 0 0 0;
+  padding-left: 18px;
+}
+.service-row-lbl {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+/* where the function lives: the module, its script, the key, and the button
+   that opens it there */
+.service-row-where {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 2px;
+  padding-top: 8px;
+  border-top: 1px dotted var(--line);
+}
+.service-row-hit {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.service-row-mod {
+  font-size: 12px;
+  color: var(--ink);
+}
+.service-row-sgbd,
+.service-row-job {
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: var(--raised);
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--cyan);
+}
+.service-row-key {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--ink-faint);
+}
+.service-row-caption {
+  font-size: 11.5px;
+  color: var(--ink-dim);
+}
+.service-row-none {
+  font-size: 11.5px;
+  color: var(--ink-faint);
+}
+.service-run {
+  flex: none;
+}
+/* the other modules that answer the same task on this car (several engines
+   on one chassis, say) */
+.service-row-alts {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex: 1 1 100%;
+}
+.service-alt {
+  padding: 2px 7px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: var(--panel-2);
+  color: var(--ink-dim);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+.service-alt:hover {
+  border-color: var(--amber);
+  color: var(--ink);
+}
+/* Mobile: the key facts stack rather than wrap into ragged columns, and the
+   open button spans so it is a comfortable touch target. */
+@media (max-width: 640px) {
+  .service-row-where {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .service-run {
+    width: 100%;
+  }
+}
+.tree-live .tree-bar-note {
+  color: var(--amber);
+}
+.tree-live .tree-bar-note::before {
+  content: '';
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 8px;
+  border-radius: 50%;
+  background: var(--amber);
+  animation: tree-pulse 1s ease-in-out infinite;
+}
+@keyframes tree-pulse {
+  0%,
+  100% {
+    opacity: 0.25;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+.tree-progress {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--line);
+  overflow: hidden;
+}
+.tree-progress > i {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--amber);
+  transition: width 0.3s ease;
+}
+.tree-bar .btn[hidden] {
+  display: none;
+}
+
+/* ===========================================================================
+   ISTA SHELL (workshop mode). Chrome that stays up while the app's own
+   screens render underneath it: a banner naming the car, a tab bar, and a
+   strip of sub-tabs. Everything below the strip is an ordinary screen and is
+   NOT restyled from here -- the shell frames the app, it does not repaint it.
+
+   Every colour is a theme token, so the chrome follows the skin rather than
+   fighting it. ISTA's own look (a light banner over dark tabs) survives as
+   PROPORTION and SHAPE -- a wide quiet header, pill sub-tabs, a rule under
+   the bar -- which read the same on the instrument, INPA and brackets skins.
+   =========================================================================== */
+
+/* The chrome is a sibling of .view, and .view is absolutely positioned, so
+   the chrome is too: it owns the top strip and hands the rest to the screen.
+   --ista-h is what the two agree on; the media queries below re-declare it
+   and .view follows automatically. */
+body.ista-mode {
+  --ista-h: 104px;
+}
+.ista-chrome {
+  position: absolute;
+  inset: 56px 0 auto 0;
+  height: var(--ista-h);
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+  box-sizing: border-box;
+}
+.ista-chrome[hidden] {
+  display: none;
+}
+/* the screen starts under the chrome. The F-key bar stays: unlike the Apps
+   hub, a workshop screen's keys are the real controls of whatever is open. */
+body.ista-mode .view {
+  inset: calc(56px + var(--ista-h)) 0 52px 0;
+  padding-top: 22px;
+}
+
+/* ---- the banner ---------------------------------------------------------- */
+.ista-banner {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 20px;
+  min-height: 44px;
+  background: var(--panel-2);
+  border-bottom: 1px solid var(--line);
+  box-sizing: border-box;
+}
+.ista-banner-id {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex: none;
+  min-width: 0;
+}
+.ista-car-pick {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 3px 8px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--raised);
+  color: var(--ink);
+  font-family: var(--display);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  max-width: 320px;
+}
+.ista-car-pick:hover {
+  border-color: var(--amber);
+  color: var(--amber);
+}
+.ista-car-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ista-car-caret {
+  font-size: 10px;
+  color: var(--ink-faint);
+  flex: none;
+}
+.ista-chassis {
+  font-family: var(--display);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--amber);
+  text-transform: uppercase;
+  flex: none;
+}
+/* the VIN in full, as the Garage shows it: this is the owner's own car on
+   the owner's own machine, and a banner whose VIN is starred out cannot be
+   checked against the plate. (Shared links and beta reports DO mask it.) */
+.ista-vin {
+  font-size: 12px;
+  color: var(--ink-dim);
+  letter-spacing: 0.04em;
+  flex: none;
+}
+.ista-banner-desc {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--ink-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ista-banner-state {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex: none;
+  margin-left: auto;
+}
+.ista-kl {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+}
+.ista-kl-name {
+  font-family: var(--display);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--ink-faint);
+}
+.ista-kl-led {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--line-bright);
+  border: 1px solid var(--line);
+  flex: none;
+}
+.ista-kl-led.on {
+  background: var(--green);
+  border-color: var(--green);
+  box-shadow: 0 0 6px var(--green);
+}
+.ista-kl-val {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-dim);
+  min-width: 42px;
+}
+
+/* ---- the tab bar --------------------------------------------------------- */
+.ista-tabs {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  flex: none;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  background: var(--bg);
+}
+.ista-tabs::-webkit-scrollbar {
+  display: none;
+}
+.ista-tab {
+  flex: none;
+  padding: 0 16px;
+  height: 30px;
+  border: 0;
+  border-right: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink-dim);
+  font-family: var(--display);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  white-space: nowrap;
+}
+/* greyed until an operation is started: every tab but Operations is about a
+   car, and the tool asks which car before it offers to do anything to one */
+.ista-tab.off,
+.ista-tab:disabled {
+  opacity: 0.42;
+  cursor: default;
+}
+.ista-tab.off:hover,
+.ista-tab:disabled:hover {
+  background: none;
+}
+.ista-tab:hover {
+  color: var(--ink);
+  background: var(--panel);
+}
+.ista-tab.on {
+  color: var(--amber-ink);
+  background: var(--amber);
+}
+.ista-tab-home {
+  font-size: 15px;
+  padding: 0 12px;
+}
+
+/* ---- the sub-tab strip --------------------------------------------------- */
+.ista-subs {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex: none;
+  padding: 6px 14px;
+  /* no clipping here: the star's tooltip must be free to hang below the
+     row; the bar only scrolls (and so clips) on a narrow screen */
+  overflow: visible;
+}
+@media (max-width: 720px) {
+  .ista-subs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+  }
+  .ista-subs::-webkit-scrollbar {
+    display: none;
+  }
+}
+.ista-sub-wrap {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+}
+.ista-sub {
+  padding: 4px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px 0 0 999px;
+  border-right: 0;
+  background: var(--panel-2);
+  color: var(--ink-dim);
+  font-family: var(--display);
+  font-size: 11.5px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.ista-sub:hover {
+  color: var(--ink);
+  border-color: var(--line-bright);
+}
+.ista-sub.on {
+  background: var(--amber-glow);
+  border-color: var(--amber);
+  color: var(--ink);
+  font-weight: 600;
+}
+.ista-star {
+  /* one glyph, one box, whatever its state: pinned is a colour, not a
+     different character, so every star on the row is the same size */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  align-self: stretch;
+  padding: 0 6px 0 4px;
+  border: 1px solid var(--line);
+  border-radius: 0 999px 999px 0;
+  border-left: 0;
+  background: var(--panel-2);
+  color: var(--ink-faint);
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+}
+.ista-star:not(.on) {
+  opacity: 0.55;
+}
+.ista-star:not(.on):hover {
+  opacity: 1;
+}
+.ista-star:hover {
+  color: var(--amber);
+}
+.ista-star.on {
+  color: var(--amber);
+}
+.ista-sub.on + .ista-star {
+  background: var(--amber-glow);
+  border-color: var(--amber);
+}
+
+/* ---- the shell's home: the tabs as cards, for the keyboard --------------- */
+.ista-home-note {
+  margin: 0 0 22px;
+  font-size: 13px;
+  color: var(--ink-dim);
+  max-width: 70ch;
+}
+.ista-home-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 18px;
+}
+.ista-card {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  padding: 14px 16px 8px;
+}
+.ista-card-title {
+  margin: 0 0 3px;
+  font-family: var(--display);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--amber);
+}
+.ista-card-desc {
+  margin: 0 0 10px;
+  font-size: 12px;
+  color: var(--ink-faint);
+}
+.ista-card-rows {
+  display: flex;
+  flex-direction: column;
+}
+.ista-row {
+  display: grid;
+  grid-template-columns: minmax(0, auto) 1fr auto;
+  align-items: baseline;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 6px;
+  border: 0;
+  border-top: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--display);
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+}
+.ista-row:hover {
+  background: var(--amber-glow);
+}
+.ista-row-label {
+  font-weight: 600;
+  white-space: nowrap;
+}
+.ista-row-desc {
+  font-size: 11.5px;
+  color: var(--ink-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ista-row-arrow {
+  color: var(--amber);
+  font-size: 12px;
+}
+/* a greyed row still says WHY, in the slot the description would have used */
+.ista-row-off {
+  cursor: default;
+  opacity: 0.55;
+}
+.ista-row-off:hover {
+  background: transparent;
+}
+.ista-row-off .ista-row-desc {
+  font-style: italic;
+}
+.ista-row-none {
+  padding: 8px 6px;
+  border-top: 1px solid var(--line);
+  font-size: 11.5px;
+  color: var(--ink-faint);
+  font-style: italic;
+}
+
+/* ---- the two pages the shell draws itself -------------------------------- */
+.ista-page-title {
+  margin: 0 0 4px;
+  font-family: var(--display);
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--ink);
+}
+.ista-page-note {
+  margin: 0 0 18px;
+  font-size: 12.5px;
+  color: var(--ink-dim);
+  max-width: 74ch;
+}
+.ista-page-foot {
+  margin: 14px 0 0;
+  font-size: 11.5px;
+  color: var(--ink-faint);
+}
+.ista-wait {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 18px 0;
+  font-size: 12.5px;
+  color: var(--ink-dim);
+}
+.ista-none-box {
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  font-size: 12.5px;
+  color: var(--ink-dim);
+  max-width: 74ch;
+}
+.ista-details {
+  border-collapse: collapse;
+  width: 100%;
+  max-width: 780px;
+  font-size: 12.5px;
+}
+.ista-details th,
+.ista-details td {
+  padding: 7px 12px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: baseline;
+}
+.ista-details thead th {
+  font-family: var(--display);
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  border-bottom: 1px solid var(--line-bright);
+}
+.ista-details tbody th {
+  font-weight: 600;
+  color: var(--ink-dim);
+  width: 150px;
+}
+.ista-details tbody td {
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 12px;
+}
+.ista-none {
+  color: var(--ink-faint);
+}
+.ista-match {
+  color: var(--green);
+}
+/* the saved and the read columns disagreeing is a FINDING (a cluster swap, a
+   mis-typed VIN, the wrong car picked), so the row says so rather than
+   quietly picking one */
+.ista-differs td {
+  background: var(--amber-glow);
+}
+.ista-equip {
+  columns: 2;
+  column-gap: 32px;
+  max-width: 880px;
+}
+.ista-equip > li {
+  break-inside: avoid;
+}
+
+/* ---- the car picker ------------------------------------------------------ */
+.ista-pick-modal {
+  width: min(560px, 92vw);
+}
+.ista-pick {
+  max-height: 52vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+.ista-pick-note {
+  margin: 0 0 10px;
+  font-size: 12px;
+  color: var(--ink-faint);
+}
+.ista-pick-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+.ista-pick-row:hover {
+  background: var(--amber-glow);
+}
+.ista-pick-name {
+  font-family: var(--display);
+  font-size: 13px;
+  font-weight: 600;
+}
+.ista-pick-bits {
+  font-size: 11px;
+  color: var(--ink-faint);
+}
+.ista-pick-bare .ista-pick-name {
+  font-weight: 500;
+  color: var(--ink-dim);
+}
+
+/* ---- narrow windows and phones ------------------------------------------- */
+/* the banner stacks and the two strips keep scrolling sideways, so no tab is
+   ever unreachable -- just further along */
+@media (max-width: 760px) {
+  body.ista-mode {
+    --ista-h: 132px;
+  }
+  .ista-banner {
+    flex-wrap: wrap;
+    gap: 6px 12px;
+    padding: 6px 12px;
+  }
+  .ista-banner-desc {
+    flex-basis: 100%;
+    order: 3;
+  }
+  .ista-banner-state {
+    margin-left: 0;
+  }
+  .ista-car-pick {
+    max-width: 190px;
+  }
+  .ista-home-grid {
+    grid-template-columns: 1fr;
+  }
+  .ista-equip {
+    columns: 1;
+  }
+  .ista-details tbody th {
+    width: auto;
+  }
+}
+@media (max-width: 520px) {
+  .ista-vin {
+    display: none;
+  }
+  /* the details table is three columns of real content; let it scroll in its
+     own box rather than squeezing the page sideways */
+  .ista-details {
+    min-width: 460px;
+  }
+  .ista-page-body {
+    overflow-x: auto;
+  }
+}
+
+/* ===========================================================================
+   WORKSHOP REFERENCE DOCUMENTS (screens/techdata/), inside the ISTA shell's
+   Workshop tab: a category tree beside a Type / Title table, a search, and
+   the hit list.
+
+   Token-driven like the shell around it. The tables are the point of the
+   screen -- a torque figure has to be findable and readable at a glance --
+   so they get the contrast and the monospace, and everything else stays out
+   of the way.
+   =========================================================================== */
+
+.td-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.td-loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 20px 0;
+  font-size: 12.5px;
+  color: var(--ink-dim);
+}
+
+/* ---- the sub-section bar ------------------------------------------------- */
+.td-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+}
+.td-sec {
+  padding: 5px 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--ink-dim);
+  font-family: var(--display);
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.td-sec:hover {
+  color: var(--ink);
+  border-color: var(--line-bright);
+}
+.td-sec.on {
+  background: var(--amber);
+  border-color: var(--amber);
+  color: var(--amber-ink);
+  font-weight: 600;
+}
+.td-bar-spacer {
+  flex: 1;
+}
+.td-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--ink-dim);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.td-scope {
+  font-size: 11.5px;
+  color: var(--ink-faint);
+  white-space: nowrap;
+}
+
+/* ---- the two-pane browser ------------------------------------------------ */
+.td-split {
+  display: grid;
+  grid-template-columns: minmax(220px, 300px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+.td-tree {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  overflow: hidden;
+}
+.td-tree-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel-2);
+}
+.td-tree-title {
+  font-family: var(--display);
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.td-collapse {
+  font-size: 11px;
+  padding: 3px 8px;
+}
+.td-tree-body {
+  max-height: 60vh;
+  overflow-y: auto;
+}
+.td-node {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  width: 100%;
+  padding: 5px 10px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--display);
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+.td-node:hover {
+  background: var(--amber-glow);
+}
+.td-node.on {
+  background: var(--amber-glow);
+  font-weight: 600;
+}
+.td-twist {
+  width: 10px;
+  flex: none;
+  color: var(--ink-faint);
+  font-size: 9px;
+}
+.td-node-num {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--amber);
+  min-width: 18px;
+  flex: none;
+}
+.td-node-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.td-node-n {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--ink-faint);
+  flex: none;
+}
+/* a class under a group: indented under its parent's twist */
+.td-node-cls {
+  padding-left: 34px;
+  font-size: 11.5px;
+  color: var(--ink-dim);
+}
+
+/* ---- the tables ---------------------------------------------------------- */
+/* wide content scrolls inside its own box, never the page */
+.td-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.td-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 12.5px;
+}
+.td-table th,
+.td-table td {
+  padding: 7px 11px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+.td-table thead th {
+  position: sticky;
+  top: 0;
+  background: var(--panel-2);
+  font-family: var(--display);
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  border-bottom: 1px solid var(--line-bright);
+}
+.td-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+.td-hits tbody tr {
+  cursor: pointer;
+}
+.td-hits tbody tr:hover {
+  background: var(--amber-glow);
+}
+.td-type {
+  white-space: nowrap;
+  color: var(--ink-dim);
+  font-size: 11.5px;
+  width: 1%;
+}
+.td-title {
+  color: var(--ink);
+}
+.td-sub {
+  display: block;
+  font-size: 11px;
+  color: var(--ink-faint);
+}
+/* the torque figure is what the page exists for: give it the weight */
+.td-torque {
+  white-space: nowrap;
+  font-weight: 600;
+  color: var(--amber);
+}
+.td-tool th {
+  width: 150px;
+  color: var(--ink-dim);
+  font-weight: 600;
+}
+
+/* ---- the opened document ------------------------------------------------- */
+.td-doc {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: flex-start;
+}
+.td-doc-body {
+  width: 100%;
+}
+.td-doc-crumb {
+  font-family: var(--display);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.td-doc-title {
+  margin: 2px 0 10px;
+  font-family: var(--display);
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--ink);
+}
+.td-headline {
+  font-size: 11.5px;
+  color: var(--ink-faint);
+  margin-bottom: 8px;
+}
+.td-p {
+  margin: 0 0 9px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--ink);
+  max-width: 78ch;
+}
+.td-list {
+  margin: 0 0 10px;
+  padding-left: 20px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  max-width: 78ch;
+}
+.td-list > li {
+  margin-bottom: 4px;
+}
+.td-validity,
+.td-hint {
+  margin-bottom: 10px;
+  font-size: 11.5px;
+  color: var(--ink-dim);
+}
+.td-hint {
+  padding: 8px 11px;
+  border-left: 2px solid var(--amber);
+  background: var(--amber-glow);
+}
+.td-tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border: 1px solid var(--line-bright);
+  border-radius: 999px;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ink-dim);
+  vertical-align: 1px;
+}
+/* a document whose validity could not be read is SHOWN, and says so: losing
+   a torque figure is worse than showing one that needs checking */
+.td-unsure {
+  padding: 8px 11px;
+  border-left: 2px solid var(--amber-soft);
+  background: var(--amber-glow);
+  font-size: 11.5px;
+  color: var(--ink-dim);
+  margin-bottom: 10px;
+  max-width: 78ch;
+}
+.td-flag {
+  display: inline-block;
+  margin-left: 5px;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--amber-glow);
+  border: 1px solid var(--amber-soft);
+  color: var(--amber);
+  font-size: 9px;
+  line-height: 12px;
+  text-align: center;
+}
+
+/* ---- search and empties -------------------------------------------------- */
+.td-q {
+  width: min(460px, 100%);
+  padding: 7px 11px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--ink);
+  font-family: var(--display);
+  font-size: 13px;
+}
+.td-q:focus {
+  outline: none;
+  border-color: var(--amber);
+}
+.td-search {
+  margin-bottom: 12px;
+}
+.td-none {
+  padding: 14px 4px;
+  font-size: 12.5px;
+  color: var(--ink-faint);
+}
+.td-more {
+  margin: 8px 0 0;
+  font-size: 11.5px;
+  color: var(--ink-faint);
+}
+
+@media (max-width: 760px) {
+  /* the tree stops being a sidebar and becomes the row above the table */
+  .td-split {
+    grid-template-columns: 1fr;
+  }
+  .td-tree-body {
+    max-height: 34vh;
+  }
+  .td-tool th {
+    width: auto;
+  }
+}
+.service-filter-chip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  color: var(--ink-dim);
+  font-size: 13px;
+}
+
+/* identity screen before its first read (the ISTA row lands here) */
+.vi-idle {
+  padding: 18px 16px;
+  color: var(--muted, #8a8f98);
+  line-height: 1.5;
+}
+
+/* a tree box's sheet: the read's findings, then the way into the module */
+.modal.tree-sheet {
+  width: min(720px, 94vw);
+}
+.tree-sheet .modal-body {
+  overflow: auto;
+}
+.tree-sheet-sub {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--ink-dim);
+  margin-top: 2px;
+}
+.tree-sheet-state {
+  margin-bottom: 8px;
+}
+.tree-sheet .modal-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+/* ---- Repair/maintenance (screens/repair/) --------------------------------
+   ISTA's own visual language, and deliberately not the app's. A mechanic
+   reading a repair instruction is cross-checking it against a printed
+   manual or a colleague's screen, so the layout has to be recognisable:
+   white content, grey banded rows, dark grey header bars, teal for what is
+   selected, square corners, thin borders, no shadows.
+
+   Every rule is scoped under .ista-repair so that vocabulary stays inside
+   this section and never leaks into screens that use the app's own. The
+   colours are literals rather than theme tokens for the same reason: this
+   section must look like ISTA in every skin, not like the skin. */
+.ista-repair {
+  --rp-head: #4d4d4d; /* the dark grey header bars */
+  --rp-sel: #4f8f8f; /* the teal of the selected row */
+  --rp-band: #e6e6e6; /* the alternating row grey */
+  --rp-line: #c4c4c4;
+  --rp-ink: #111;
+  background: #fff;
+  color: var(--rp-ink);
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  font-size: 13px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+
+/* the third tab strip: cut-corner tabs, the way ISTA draws them */
+.ista-repair .rp-views {
+  display: flex;
+  gap: 2px;
+  flex: 0 0 auto;
+  border-bottom: 1px solid var(--rp-sel);
+}
+.ista-repair .rp-view {
+  appearance: none;
+  border: 0;
+  cursor: pointer;
+  padding: 8px 26px 8px 12px;
+  min-width: 120px;
+  text-align: left;
+  font: inherit;
+  line-height: 1.2;
+  color: var(--rp-ink);
+  background: var(--rp-band);
+  /* the clipped top-right corner is the tab shape, not decoration: it is
+     what makes the strip read as ISTA's rather than as generic tabs */
+  clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 100%, 0 100%);
+}
+.ista-repair .rp-view:hover {
+  filter: brightness(0.96);
+}
+.ista-repair .rp-view.on {
+  background: var(--rp-sel);
+  color: #fff;
+}
+
+.ista-repair .rp-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---- the two panes ---- */
+.ista-repair .rp-split {
+  display: flex;
+  gap: 8px;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 8px 0 0;
+}
+.ista-repair .rp-pane {
+  flex: 1 1 55%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--rp-line);
+  background: #fff;
+}
+.ista-repair .rp-pane-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--rp-head);
+  color: #fff;
+  font-weight: 700;
+  padding: 6px 8px;
+  flex: 0 0 auto;
+}
+.ista-repair .rp-collapse {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: #fff;
+  font: inherit;
+  font-weight: 400;
+  cursor: pointer;
+  padding: 2px 6px;
+}
+.ista-repair .rp-collapse:hover {
+  filter: brightness(1.3);
+}
+.ista-repair .rp-tree {
+  flex: 1 1 auto;
+  overflow: auto;
+  min-height: 0;
+}
+
+.ista-repair .rp-node {
+  appearance: none;
+  border: 0;
+  border-bottom: 1px solid #f0f0f0;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  padding: 7px 8px;
+  background: #fff;
+  color: var(--rp-ink);
+}
+/* depth is drawn by fill as well as indent: top level white, anything
+   nested grey, which is how ISTA's tree reads at a glance without counting
+   pixels of indent */
+.ista-repair .rp-node-deep {
+  background: var(--rp-band);
+}
+.ista-repair .rp-node:hover {
+  filter: brightness(0.95);
+}
+.ista-repair .rp-node.on {
+  background: var(--rp-sel);
+  color: #fff;
+}
+.ista-repair .rp-twist {
+  font-weight: 700;
+  width: 14px;
+  flex: 0 0 14px;
+  text-align: center;
+  font-size: 15px;
+}
+.ista-repair .rp-node-num {
+  font-variant-numeric: tabular-nums;
+  flex: 0 0 auto;
+}
+.ista-repair .rp-node-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ista-repair .rp-node-n {
+  flex: 0 0 auto;
+  opacity: 0.65;
+  font-variant-numeric: tabular-nums;
+}
+.ista-repair .rp-node.on .rp-node-n {
+  opacity: 0.85;
+}
+
+/* ---- the Type / Title table ---- */
+.ista-repair .rp-results {
+  flex: 1 1 45%;
+  min-width: 0;
+  overflow: auto;
+  border: 1px solid var(--rp-line);
+  background: #fff;
+}
+.ista-repair .rp-search .rp-results {
+  flex: 1 1 auto;
+  margin-top: 12px;
+}
+.ista-repair .rp-rows {
+  width: 100%;
+  border-collapse: collapse;
+}
+.ista-repair .rp-rows th {
+  background: var(--rp-head);
+  color: #fff;
+  font-weight: 700;
+  text-align: left;
+  padding: 6px 8px;
+  position: sticky;
+  top: 0;
+}
+.ista-repair .rp-col-type {
+  width: 68px;
+  white-space: nowrap;
+}
+.ista-repair .rp-rows td {
+  padding: 6px 8px;
+  border-bottom: 1px solid #f0f0f0;
+  vertical-align: top;
+}
+.ista-repair .rp-row {
+  cursor: pointer;
+}
+.ista-repair .rp-row:nth-child(even) td {
+  background: var(--rp-band);
+}
+.ista-repair .rp-row:hover td {
+  filter: brightness(0.95);
+}
+.ista-repair .rp-row.on td {
+  background: var(--rp-sel);
+  color: #fff;
+}
+.ista-repair .rp-num {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.7;
+  margin-right: 8px;
+}
+.ista-repair .rp-flag {
+  margin-left: 5px;
+  font-weight: 700;
+  opacity: 0.7;
+}
+.ista-repair .rp-more,
+.ista-repair .rp-none {
+  padding: 12px;
+  opacity: 0.7;
+}
+
+/* ---- Text Search ---- */
+.ista-repair .rp-search {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 8px 0 0;
+}
+.ista-repair .rp-search-form {
+  /* centred on the page, the way the original puts it: the form is the
+     whole content of this view until there are results */
+  margin: 28px auto 0;
+  width: min(420px, 92%);
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  flex: 0 0 auto;
+}
+.ista-repair .rp-search-label {
+  font-weight: 700;
+}
+.ista-repair .rp-search-input {
+  font: inherit;
+  padding: 5px 7px;
+  border: 1px solid #7a7a7a;
+  background: #fff;
+  color: var(--rp-ink);
+  width: 100%;
+}
+.ista-repair .rp-check {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.ista-repair .rp-check-off {
+  cursor: default;
+  opacity: 0.55;
+}
+.ista-repair .rp-check-note {
+  font-weight: 400;
+  opacity: 0.8;
+}
+
+/* ---- an open document ---- */
+.ista-repair .rp-doc {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  margin-top: 8px;
+  border: 1px solid var(--rp-sel);
+}
+.ista-repair .rp-doc-bar {
+  background: var(--rp-sel);
+  color: #fff;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 8px;
+  flex: 0 0 auto;
+}
+.ista-repair .rp-doc-bar-t {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ista-repair .rp-doc-nav {
+  display: flex;
+  gap: 2px;
+  flex: 0 0 auto;
+}
+.ista-repair .rp-doc-nav button {
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  background: transparent;
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+  padding: 1px 8px;
+  line-height: 1.4;
+}
+.ista-repair .rp-doc-nav button:hover:not(:disabled) {
+  filter: brightness(1.25);
+}
+.ista-repair .rp-doc-nav button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.ista-repair .rp-doc-body {
+  flex: 1 1 auto;
+  overflow: auto;
+  min-height: 0;
+  background: #fff;
+  padding: 12px 14px 24px;
+}
+.ista-repair .rp-doc-h {
+  font-size: 19px;
+  margin: 0 0 10px;
+}
+.ista-repair .rp-unsure {
+  background: #fff6d6;
+  border: 1px solid #e0c26a;
+  padding: 7px 9px;
+  margin-bottom: 10px;
+}
+
+.ista-repair .rp-sec {
+  margin: 0 0 14px;
+}
+.ista-repair .rp-sec-h {
+  background: var(--rp-head);
+  color: #fff;
+  font-weight: 700;
+  padding: 5px 8px;
+}
+.ista-repair .rp-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.ista-repair .rp-step {
+  display: flex;
+  gap: 10px;
+  padding: 9px 4px;
+  border-bottom: 1px solid #eee;
+}
+/* the step number is the reader's place in the job, so it stays put at the
+   left edge while the body scrolls past it */
+.ista-repair .rp-step-n {
+  flex: 0 0 26px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  opacity: 0.65;
+}
+.ista-repair .rp-step-body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.ista-repair .rp-step-p {
+  margin: 0 0 5px;
+}
+.ista-repair .rp-pics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 8px;
+}
+.ista-repair .rp-pic {
+  max-width: 100%;
+  width: 320px;
+  height: auto;
+  border: 1px solid var(--rp-line);
+  background: #fafafa;
+}
+
+/* ---- hints ---- */
+.ista-repair .rp-hint {
+  border-left: 4px solid #999;
+  background: #f4f4f4;
+  padding: 7px 9px;
+  margin: 7px 0;
+}
+.ista-repair .rp-hint-title {
+  font-weight: 700;
+  margin-bottom: 3px;
+}
+.ista-repair .rp-hint-p {
+  margin: 0 0 4px;
+}
+.ista-repair .rp-hint-p:last-child {
+  margin-bottom: 0;
+}
+/* the severities read as a ramp, so a glance down a page sorts them without
+   reading the labels */
+.ista-repair .rp-hint-note {
+  border-left-color: #6b8fb5;
+  background: #eef3f9;
+}
+.ista-repair .rp-hint-install,
+.ista-repair .rp-hint-before {
+  border-left-color: #4f8f8f;
+  background: #eef6f6;
+}
+.ista-repair .rp-hint-disposal {
+  border-left-color: #5f9e5f;
+  background: #eef6ee;
+}
+.ista-repair .rp-hint-caution {
+  border-left-color: #d79a1e;
+  background: #fdf5e3;
+}
+.ista-repair .rp-hint-warning {
+  border-left-color: #d2691e;
+  background: #fdf0e6;
+}
+.ista-repair .rp-hint-danger {
+  border-left-color: #b32222;
+  background: #fbecec;
+}
+
+/* ---- torque tables ----
+   A tightening figure is the one thing here that injures someone when it is
+   read wrong, so it gets its own framed table and the unit sits in the same
+   cell as the number. */
+.ista-repair .rp-tq {
+  border: 1px solid var(--rp-line);
+  margin: 8px 0;
+}
+.ista-repair .rp-tq-head {
+  background: var(--rp-band);
+  font-weight: 700;
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--rp-line);
+}
+.ista-repair .rp-tq-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.ista-repair .rp-tq-table td {
+  padding: 5px 8px;
+  border-bottom: 1px solid #f0f0f0;
+  vertical-align: top;
+}
+.ista-repair .rp-tq-table tr:nth-child(even) td {
+  background: #fafafa;
+}
+.ista-repair .rp-tq-thread {
+  width: 22%;
+  font-variant-numeric: tabular-nums;
+}
+.ista-repair .rp-tq-note {
+  width: 34%;
+}
+.ista-repair .rp-tq-kind {
+  width: 26%;
+  opacity: 0.85;
+}
+.ista-repair .rp-tq-val {
+  text-align: right;
+  font-weight: 700;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.ista-repair .rp-loading {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 18px;
+}
+
+/* narrow screens stack the panes: a tree beside a table needs width the
+   phone has not got, and a half-width tree is worse than a full-width one */
+@media (max-width: 820px) {
+  .ista-repair .rp-split {
+    flex-direction: column;
+  }
+  .ista-repair .rp-pane,
+  .ista-repair .rp-results {
+    flex: 0 0 auto;
+    max-height: 46vh;
+  }
+}
+
+/* the hits line and the bottom button bar, under the content */
+.ista-repair .rp-status {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 5px 4px;
+  font-size: 12px;
+}
+.ista-repair .rp-hits {
+  font-variant-numeric: tabular-nums;
+}
+.ista-repair .rp-bottom {
+  display: flex;
+  gap: 6px;
+}
+.ista-repair .rp-btn {
+  appearance: none;
+  border: 1px solid #999;
+  background: #d9d9d9;
+  color: #000;
+  font: inherit;
+  cursor: pointer;
+  padding: 4px 14px;
+  min-width: 110px;
+}
+.ista-repair .rp-btn:hover:not(:disabled) {
+  filter: brightness(0.95);
+}
+.ista-repair .rp-btn:disabled {
+  background: #ececec;
+  color: #a0a0a0;
+  cursor: default;
+}
+
+/* while a node's documents load, the right pane says so and offers to stop.
+   Cancelling leaves the previous list standing: the reader asked to stop,
+   not to lose what they were looking at. */
+.ista-repair .rp-searching {
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
+.ista-repair .rp-searching-t {
+  font-weight: 700;
+}
+.ista-repair .rp-bar {
+  width: min(360px, 90%);
+  height: 14px;
+  border: 1px solid #999;
+  background: #fff;
+  overflow: hidden;
+}
+.ista-repair .rp-bar-fill {
+  display: block;
+  height: 100%;
+  width: 35%;
+  background: var(--rp-sel);
+  animation: rp-bar 1.1s linear infinite;
+}
+@keyframes rp-bar {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(300%);
+  }
+}
+.ista-repair .rp-cancel {
+  appearance: none;
+  border: 1px solid #999;
+  background: #d9d9d9;
+  color: #000;
+  font: inherit;
+  cursor: pointer;
+  padding: 4px 18px;
+}
+.ista-repair .rp-cancel:hover {
+  filter: brightness(0.95);
 }

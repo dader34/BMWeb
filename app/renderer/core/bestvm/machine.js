@@ -6,8 +6,9 @@
  * strings); executing the program handles all of it, which is why EDIABAS is
  * flawless. Input is tools/sgbd_code.py output (ops array, jumps as indices);
  * telegram I/O is a callback, so one VM runs live cable / .sim / fixture.
- * Semantics ported from vendored EdiabasLib (EdOperations.cs, EdiabasNet.cs),
- * the engine tools/sgbd_bulk_verify.py diffs against and test_bestvm.js checks.
+ * Semantics ported from EdiabasLib (EdOperations.cs, EdiabasNet.cs); the
+ * engine's own result sets for 460 E46 jobs are the committed fixture
+ * data/sim-captures/vmfix.json that test_bestvm.js replays.
  *
  * THE REGISTER MODEL, which nothing else here makes sense without:
  * B/I/L/A are VIEWS over one 32-byte array, LITTLE-endian within a view, so
@@ -202,6 +203,13 @@ class Best2Vm {
     // transmitted with comm=null, i.e. BMW-FAST 115200 8N1, and every
     // K-line module got line noise.
     this.comm = opts.comm || null;
+    /**
+     * Significant digits flt2a keeps (setflt / _floatPrecision). Held on
+     * the machine, not reset per job, as the engine holds it: a job that
+     * never sets one formats with whatever the last one set, default 4.
+     * @type {number}
+     */
+    this.floatPrecision = FLOAT_PRECISION;
     // A fixed clock for date/time, when the caller needs determinism.
     // webshim re-runs a job's bytecode once per telegram fetched, and the
     // answer memo is keyed on request bytes -- a timestamp that ticks
@@ -460,8 +468,8 @@ class Best2Vm {
    * @param {number} value - The float.
    * @returns {string} Its text.
    */
-  static fltText(value) {
-    return Best2Codec.fltText(value);
+  static fltText(value, digits) {
+    return Best2Codec.fltText(value, digits);
   }
 
   /**

@@ -115,6 +115,20 @@ module.exports = [
     languageOptions: { sourceType: 'module' },
   },
 
+  // bmweb-cli's build scripts: Node ES modules. Its TypeScript is gated by
+  // tsc (cli/tsconfig.json), which this config has no parser for.
+  {
+    files: ['cli/scripts/**/*.mjs'],
+    languageOptions: { sourceType: 'module', globals: { ...globals.node } },
+    rules: {
+      ...js.configs.recommended.rules,
+      'no-unused-vars': [
+        'warn',
+        { args: 'none', varsIgnorePattern: '^_', caughtErrors: 'none' },
+      ],
+    },
+  },
+
   // thor_bridge.js lives under app/renderer/ but is a Node relay, not renderer
   // code -- lint it as CommonJS/Node so `require('crypto')` isn't a redeclare.
   {

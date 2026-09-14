@@ -113,6 +113,27 @@ async function showChassis() {
   appsCard.onclick = () => showApps();
   view.appendChild(appsCard);
 
+  // Garage: the cars this user keeps, and the scan history read from each.
+  // Above the chassis grid because a returning owner wants their own car, not
+  // the list of every chassis the app supports.
+  if (typeof showGarage === 'function') {
+    const garageCard = document.createElement('button');
+    garageCard.className = 'lookup-entry etk-vin-entry';
+    const n = typeof garageCars === 'function' ? garageCars().length : 0;
+    garageCard.innerHTML = `
+      <span class="lookup-entry-icon">⌂</span>
+      <span class="lookup-entry-text">
+        <span class="lookup-entry-title">Garage</span>
+        <span class="lookup-entry-desc">${esc(
+          n
+            ? `${n} saved vehicle${n === 1 ? '' : 's'} and their scan history`
+            : 'Save your car and keep the scans read from it'
+        )}</span>
+      </span>
+      <span class="lookup-entry-arrow">→</span>`;
+    garageCard.onclick = () => showGarage();
+    view.appendChild(garageCard);
+  }
   const filterRow = document.createElement('div');
   filterRow.className = 'chassis-filter-row';
   // CHASSIS_TAG is lower-case, so match case-insensitively: an earlier .includes('3-SERIES') never matched and left the tag clause dead
@@ -219,9 +240,11 @@ async function showChassis() {
  * The INPA script-selection popup for a chassis (falls back to the sections
  * screen when the config cannot load).
  * @param {string} chassisId - Chassis id (E46, ...).
+ * @param {(() => void)|null} [onAbort] - where Esc or a click outside goes
+ *   (INPA's vehicle-select screen unless the caller, the ISTA shell, says)
  * @returns {Promise<void>}
  */
-async function showScriptSelection(chassisId) {
+async function showScriptSelection(chassisId, onAbort) {
   setStateSgbd(null); // reset the battery/ignition poll target now, re-aim below (screens/sweep/autoscan.js)
   let ch;
   try {
@@ -243,7 +266,8 @@ async function showScriptSelection(chassisId) {
       }
     },
     onClose: (val) => {
-      if (val === 'abort') showChassis();
+      if (val === 'abort')
+        (typeof onAbort === 'function' ? onAbort : showChassis)();
     },
     backdropValue: 'abort',
   };
@@ -434,9 +458,11 @@ async function vehicleScriptShipped(chassisId) {
  * each group to the module on the wire.
  * @param {string} chassisId - Chassis id.
  * @param {string|null} [openMenu] - a menu to open (a deep link)
+ * @param {string|null} [openScreen] - the screen to show on it
+ * @param {RegExp|string|null} [pressKey] - a read key to press on arrival, by caption
  * @returns {Promise<void>}
  */
-function showVehicleScript(chassisId, openMenu) {
+function showVehicleScript(chassisId, openMenu, openScreen, pressKey) {
   const id = String(chassisId);
   return showEcu(
     id,
@@ -448,7 +474,9 @@ function showVehicleScript(chassisId, openMenu) {
       group: null,
       kind: 'vehicle',
     },
-    openMenu || null
+    openMenu || null,
+    openScreen || null,
+    pressKey || null
   );
 }
 

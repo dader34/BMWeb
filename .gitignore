@@ -12,6 +12,7 @@ obj/
 *.user
 # Node / Electron
 node_modules/
+node_modules
 app/server-dist/
 
 # Mac
@@ -57,8 +58,15 @@ data/faults/*
 !data/inpa-i18n/
 !data/inpa-i18n/*.json
 # ORT fault-code map (build input for faultindex.js: text-scheme German -> ORT
-# hex per SGBD variant, dumped offline via `inpamac dumptable`). Small, shipped.
+# hex per SGBD variant, dumped offline by the retired reference CLI). Small, shipped.
 !data/ort-codes.json
+# Service-function catalogue: OUR OWN curated list of the service tasks a
+# workshop asks for, and how to recognise the INPA key that performs each one.
+# Hand-maintained source, so it is committed. The per-chassis resolution beside
+# it (service-functions.chassis.json) is DERIVED from this plus data/chassis by
+# tools/export/service_functions.py, so it stays ignored like the rest of the
+# generated tree.
+!data/service-functions.json
 # VM regression fixture: the replay corpus test_bestvm.js and test_vmbridge.js
 # run against (449 KB). Committed so CI and a fresh clone can run the VM tests;
 # the raw .sim captures and traces beside it stay local.
@@ -177,3 +185,9 @@ E46/
 # wrangler local state for the beta collector (tools/beta)
 .wrangler/
 app/renderer/bundle.js
+
+# Local test-harness only: a static file server needs the chassis archives and
+# the extracted ISTA data where the app looks for them. Both are built from
+# data/ by the packaging step in a real build, so neither belongs in the tree.
+app/renderer/api/
+app/renderer/data/ista

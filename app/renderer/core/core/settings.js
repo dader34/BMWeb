@@ -24,6 +24,9 @@ const API =
  * @property {'on'|'off'} [confirmActuators] - Ask before firing an actuator test.
  * @property {boolean} [betaReports] - Show the Report button and auto-file wire errors.
  * @property {string} [betaEndpoint] - Collector / signaling worker URL.
+ * @property {string} [gatewayUrl] - A cable another machine is serving
+ *   (`bmweb gateway`), as a ws:// or wss:// URL. Empty means this
+ *   machine's own cable over Web Serial.
  * @property {{urls: string, username?: string, credential?: string}} [turn] - TURN server for remote sessions.
  * @property {string} [startChassis] - Chassis to open at boot.
  * @property {string} [startEcu] - "sgbd|code|label" of a module to open at boot.

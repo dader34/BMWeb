@@ -9,15 +9,14 @@ actually produces what the web app downloads. Three commands:
     python3 tools/sgbd_export.py --coverage   # what the IR SCREENS can show
 
 --specs writes one JSON per E46 SGBD: every job the compiled INPA UI
-references, each with its lifted spec, plus a "connection" block (protocol
-framing and the init exchange the ECU demands, derived by running the real
-engine against a stub simulator -- the same ground truth the value harness
-uses). A job the spec format cannot express keeps its gaps; nothing is
-guessed.
+references, each with its lifted spec. A job the spec format cannot express
+keeps its gaps; nothing is guessed. (The "connection" block these specs once
+carried came from probing the retired .NET reference engine; the runtime
+takes framing and init from the SGBD bytecode itself, so it is gone.)
 
---tables exports every SGBD table the specs reference (status tables,
-FUmweltTexte lookups) via the engine's table API, so the browser walker can
-resolve runtime-keyed scales without the engine.
+--tables exports every table the .prg carries (status tables, FUmweltTexte
+lookups), read offline from the container, so the browser walker can
+resolve runtime-keyed scales.
 
 --coverage answers the question that matters for shipping: of the result
 KEYS the IR screens actually display, how many does some job spec on that
@@ -43,8 +42,6 @@ sys.path[:0] = [os.path.join(os.path.dirname(HERE), d)
 import sgbd_survey as S                                       # noqa: E402
 import sgbd_spec as SP
 import ecu_tree as ET                                        # noqa: E402
-import sgbd_value_diff as V                                   # noqa: E402
-import sgbd_bulk_verify as B                                  # noqa: E402
 from _cli import parse_args                                   # noqa: E402
 
 ROOT = os.path.join(HERE, "..", "..")
@@ -60,24 +57,20 @@ def _decodable(r):
 
 
 def _export_one(sgbd):
-    """Extract + probe one SGBD, write its spec file; returns a summary.
+    """Extract one SGBD's job specs and write its spec file; returns a summary.
 
-    Top-level so ProcessPoolExecutor can pickle it. Each worker spawns its
-    own dotnet probes into per-SGBD scratch dirs (see sgbd_bulk_verify), so
-    workers cannot trample each other.
+    Top-level so ProcessPoolExecutor can pickle it.
     """
     try:
         data, jobs = SP.load(sgbd)
     except SystemExit:
-        return (sgbd, None, 0, 0, False)
+        return (sgbd, None, 0, 0)
     ir = S.ir_jobs_for(sgbd)
     out = {"format": 1, "sgbd": sgbd, "jobs": {}}
-    first_job = None
     n_res = n_dec = 0
     for name, addr in jobs:
         if name.startswith("_") or name.upper() not in ir:
             continue
-        first_job = first_job or name
         try:
             spec = SP.extract(data, addr, sgbd, name)
         except Exception as e:                              # noqa: BLE001
@@ -88,53 +81,20 @@ def _export_one(sgbd):
                if not r.get("name", "").startswith("_")]
         n_res += len(res)
         n_dec += sum(1 for r in res if _decodable(r))
-    # The init exchange and framing, derived by running the REAL engine
-    # against a stub sim -- what it sends first is what the ECU needs.
-    conn_err = None
-    if first_job:
-        try:
-            init = B.discover_init(sgbd, first_job)
-            reqs = B.discover(sgbd, [first_job], init)
-            probe = reqs.get(first_job)
-            conn = {}
-            if probe:
-                conn["protocol"] = "ds2" if B.is_ds2(probe) else "fast"
-                conn["address"] = probe[1] if conn["protocol"] == "fast" \
-                    else probe[0]
-            if init:
-                conn["init"] = [{"send": list(init[0]),
-                                 "expect": list(init[1] or [])}]
-            if conn:
-                out["connection"] = conn
-        except Exception as e:                              # noqa: BLE001
-            # a crashed probe is NOT "this ECU needs no init" -- say which,
-            # or conn=no hides a broken discovery behind a plausible answer
-            conn_err = f"{type(e).__name__}: {e}"
     path = os.path.join(SPEC_DIR, f"{sgbd}.json")
     with open(path, "w") as f:
         json.dump(out, f, ensure_ascii=False, separators=(",", ":"))
-    return (sgbd, len(out["jobs"]), n_res, n_dec,
-            conn_err or bool(out.get("connection")))
+    return (sgbd, len(out["jobs"]), n_res, n_dec)
 
 
 def export_specs(targets):
-    """Extract every target's job specs to data/job-specs, in a process pool.
-
-    Returns:
-        The SGBDs whose connection-discovery probe itself failed.
-    """
+    """Extract every target's job specs to data/job-specs, in a process pool."""
     os.makedirs(SPEC_DIR, exist_ok=True)
-    # Extraction is pure Python and the probes are dotnet subprocesses, so
-    # a PROCESS pool parallelises both; the serial run spent most of its
-    # wall clock waiting on one dotnet at a time.
     from concurrent.futures import ProcessPoolExecutor
     workers = min(6, os.cpu_count() or 4)
     grand_jobs = grand_res = grand_dec = 0
-    conn_failed = []
-    # warm the CLI binary once, before workers race to build it
-    B.cli_cmd("--version")
     with ProcessPoolExecutor(max_workers=workers) as ex:
-        for sgbd, nj, nr, nd, conn in ex.map(_export_one, targets):
+        for sgbd, nj, nr, nd in ex.map(_export_one, targets):
             if nj is None:
                 print(f"  {sgbd:12} -- no .prg, skipped")
                 continue
@@ -142,25 +102,10 @@ def export_specs(targets):
             grand_res += nr
             grand_dec += nd
             path = os.path.join(SPEC_DIR, f"{sgbd}.json")
-            # conn is True/False from discovery, or an error string when the
-            # probe itself failed -- keep the two visibly different
-            if isinstance(conn, str):
-                conn_failed.append(sgbd)
-                conn_s = f"FAILED ({conn})"
-            else:
-                conn_s = "yes" if conn else "no"
             print(f"  {sgbd:12} {nj:3} jobs "
-                  f"{os.path.getsize(path)//1024:5} KB "
-                  f"conn={conn_s}")
+                  f"{os.path.getsize(path)//1024:5} KB")
     print(f"specs: {grand_jobs} jobs, {grand_res} results, "
           f"{grand_dec} decodable ({100*grand_dec/max(grand_res,1):.1f}%)")
-    if conn_failed:
-        print(f"WARNING: connection discovery FAILED (not merely absent) for "
-              f"{len(conn_failed)} SGBDs: {', '.join(conn_failed[:10])}"
-              + (" ..." if len(conn_failed) > 10 else ""))
-    # main() turns these into a nonzero exit: a WARNING that scrolls past
-    # and an exit 0 is how partial spec sets shipped before
-    return conn_failed
 
 
 def export_tables(targets):
@@ -227,38 +172,6 @@ def _export_tables_one(sgbd):
         f.write(_gz.compress(blob, 6))
     print(f"  {sgbd:12} {len(tables):3} tables {len(blob)//1024:5} KB")
     return (sgbd, False, 0)
-
-def _cli_dumptable(table, sgbd):
-    """Table rows via the prebuilt CLI: the embedded engine, offline.
-
-    The engine's HTTP API died with the server era, but the checked-in
-    InpaMac.Cli binary still carries the real EdiabasLib and answers _TABLE
-    without any app running. Its output is two columns per row -- complete
-    for the assignment table (ADR_VAR_DIAG -> SGBD IS its schema), lossy
-    for anything wider.
-    """
-    import subprocess
-    cli_dir = os.path.join(ROOT, "src", "InpaMac.Cli")
-    cli = os.path.join(cli_dir, "bin", "Debug", "net9.0", "InpaMac.Cli")
-    if not os.path.exists(cli):
-        return None
-    try:
-        out = subprocess.run([cli, "dumptable", table.upper(), sgbd],
-                             capture_output=True, text=True, timeout=300,
-                             cwd=cli_dir)
-    except Exception:                                       # noqa: BLE001
-        return None
-    rows = []
-    for line in (out.stdout or "").splitlines():
-        parts = line.split("\t")
-        if len(parts) != 3:
-            continue
-        _, key, val = parts
-        if key.upper() == "ADR_VAR_DIAG":                   # header row
-            continue
-        rows.append((key, val))
-    return rows or None
-
 
 def _txt(raw):
     """Table cell bytes -> text, the way the engine renders them.
@@ -371,19 +284,13 @@ def export_groups(chassis=None):
             grtb_tables = _prg_tables(grtb_path)
         except (ValueError, struct.error) as e:
             print(f"  t_grtb tables offline parse FAILED: {e}")
-    try:
-        rows = V.sgbd_table("t_grtb", "ZuordnungsTabelle")
-    except Exception:                                       # noqa: BLE001
-        rows = None
-    if not rows and grtb_tables:
+    rows = None
+    if grtb_tables:
         # keep the historical two-column row shape; the full five-column
         # rows (GRUPPE, BAUREIHE, STEUERGERAET) ship under "tables" below
         rows = [{"ADR_VAR_DIAG": r.get("ADR_VAR_DIAG", ""),
                  "SGBD": r.get("SGBD", "")}
                 for r in grtb_tables.get("ZUORDNUNGSTABELLE", [])]
-    if not rows:
-        pairs = _cli_dumptable("ZUORDNUNGSTABELLE", "t_grtb")
-        rows = [{"ADR_VAR_DIAG": k, "SGBD": v} for k, v in pairs or []]
     if rows:
         out = {"table": "ZuordnungsTabelle",
                "keyColumn": "ADR_VAR_DIAG", "sgbdColumn": "SGBD",
@@ -491,6 +398,18 @@ def export_groups(chassis=None):
     return made, failed
 
 
+def _api_table(port, sgbd, table):
+    """Rows of an SGBD table from the app's table endpoint ([] on any failure)."""
+    import urllib.request
+    try:
+        with urllib.request.urlopen(
+                f"http://127.0.0.1:{port}/api/ecu/{sgbd}/table/{table}",
+                timeout=30) as r:
+            return json.load(r)
+    except Exception:                                       # noqa: BLE001
+        return []
+
+
 def audit_tables(targets):
     """Fail loudly when a shipped table set is missing declared tables.
 
@@ -534,7 +453,7 @@ def audit_tables(targets):
             # ship, so that is complete, not missing -- but prove it by
             # reading rather than assuming.
             try:
-                if not V.sgbd_table(sgbd, d):
+                if not _api_table(port, sgbd, d):
                     continue
             except Exception:                               # noqa: BLE001
                 pass
@@ -801,12 +720,7 @@ def main():
     # printed WARNING and exited 0 -- this list is what ends that.)
     failures = []
     if ns.specs:
-        conn_failed = export_specs(targets)
-        if conn_failed:
-            failures.append("specs: connection discovery FAILED for "
-                            f"{len(conn_failed)} SGBDs "
-                            f"({', '.join(conn_failed[:10])}"
-                            + (" ...)" if len(conn_failed) > 10 else ")"))
+        export_specs(targets)
     if ns.tables:
         no_listing, dropped = export_tables(targets)
         if no_listing:

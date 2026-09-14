@@ -12,20 +12,14 @@
 // It asserts, against the ACTUAL source (not a copy):
 //   1. isWriteJob() classifies every known write/actuate/clear job name as write.
 //   2. The VM refuses to run a write job when allowWrites is false (both gates).
-//   3. The VM's classifier tokens (READ_TOKEN / WRITE_TOKEN / INFO_READ_TOKEN)
-//      are byte-identical to the Python ones in tools/verify/
-//      sgbd_bulk_verify.py, and the Python _WriteJob shim keeps the same tier
-//      order (the documented cross-language twin).
-//   4. isWriteJob is a SUPERSET of every pattern the per-screen "dangerous job"
+//   3. isWriteJob is a SUPERSET of every pattern the per-screen "dangerous job"
 //      regexes flag as a write/clear -- so nothing a screen calls dangerous can
 //      slip past the VM gate.
-//   5. webshim builds the VM with allowWrites:false and keeps the 501 write route.
+//   4. webshim builds the VM with allowWrites:false and keeps the 501 write route.
 
-const fs = require('fs');
 const path = require('path');
 
 const ROOT = path.join(__dirname, '..', '..');
-const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
 
 let failures = 0;
 const ok = (cond, msg) => {
@@ -37,14 +31,9 @@ const ok = (cond, msg) => {
   }
 };
 
-const {
-  Best2Vm,
-  VmError,
-  isWriteJob,
-  READ_TOKEN,
-  WRITE_TOKEN,
-  INFO_READ_TOKEN,
-} = require(path.join(ROOT, 'app/renderer/core/bestvm/index.js'));
+const { Best2Vm, VmError, isWriteJob } = require(
+  path.join(ROOT, 'app/renderer/core/bestvm/index.js')
+);
 
 // ---------------------------------------------------------------------------
 console.log('1. isWriteJob classifies writes as writes');
@@ -145,74 +134,7 @@ function refuses(job, allowWrites) {
 }
 
 // ---------------------------------------------------------------------------
-console.log('3. JS and Python classifier twins are identical');
-// The classifier is three token regexes plus a tier order (strong read ->
-// write -> weak INFO read -> default-deny). Commit d789117c replaced the old
-// single WRITE_JOB regex with this shape on the Python side, which this check
-// used to extract by name -- so the twin check went stale and check.sh was
-// red on every run. It now compares each token pattern byte-for-byte AND
-// pins the Python _WriteJob tier order, so drift on either side or in either
-// dimension fails loudly again.
-const pySrc = read('tools/verify/sgbd_bulk_verify.py');
-// pull the r"..." r"..." concatenation after `<NAME> = re.compile(`
-function pyPattern(name) {
-  const m = pySrc.match(
-    new RegExp(name + ' = re\\.compile\\(\\s*((?:r"[^"]*"\\s*)+)')
-  );
-  if (!m) return null;
-  return (m[1].match(/r"([^"]*)"/g) || []).map((s) => s.slice(2, -1)).join('');
-}
-for (const [name, jsRe] of [
-  ['READ_TOKEN', READ_TOKEN],
-  ['WRITE_TOKEN', WRITE_TOKEN],
-  ['INFO_READ_TOKEN', INFO_READ_TOKEN],
-]) {
-  const py = pyPattern(name);
-  ok(py !== null, `found Python ${name} regex`);
-  ok(
-    py === jsRe.source,
-    `JS ${name} === Python ${name}\n       js: ${jsRe.source}\n       py: ${py}`
-  );
-}
-// The patterns matching is necessary but not sufficient: the SHIM must also
-// consult them in the same order. Pin the exact three-tier body of
-// _WriteJob.match -- a reordering (e.g. INFO before WRITE) would reclassify
-// write jobs as reads on one side only.
-ok(
-  /if READ_TOKEN\.search\(n\):\s*\n\s*return None[\s\S]*?if WRITE_TOKEN\.search\(n\):\s*\n\s*return True[\s\S]*?if INFO_READ_TOKEN\.search\(n\):\s*\n\s*return None[\s\S]*?return True/.test(
-    pySrc
-  ),
-  'Python _WriteJob keeps the tier order: read -> write -> INFO -> deny'
-);
-// And a behavioural cross-check: run the extracted Python patterns through
-// the same tier order and diff against isWriteJob over every name this file
-// exercises. Catches semantic drift the source-shape checks above miss.
-{
-  const pr = new RegExp(pyPattern('READ_TOKEN') || '$^', 'i');
-  const pw = new RegExp(pyPattern('WRITE_TOKEN') || '$^', 'i');
-  const pi = new RegExp(pyPattern('INFO_READ_TOKEN') || '$^', 'i');
-  const pyIsWrite = (n) =>
-    pr.test(n) ? false : pw.test(n) ? true : pi.test(n) ? false : true;
-  const probes = [
-    ...WRITES,
-    ...READS,
-    'AUTHENTISIERUNG',
-    'BAUDRATE',
-    'LOESCHEN',
-    'UNBEKANNTER_JOB',
-    'STATUS_LDP_START',
-    'STEUERN_ROE_STOP',
-    'ABGLEICH_LESEN_HFM',
-  ];
-  const drift = probes.filter((n) => pyIsWrite(n) !== isWriteJob(n));
-  ok(
-    drift.length === 0,
-    `twins agree on every probe${drift.length ? ` (drift: ${drift.join(', ')})` : ''}`
-  );
-}
-
-// ---------------------------------------------------------------------------
-console.log('4. isWriteJob is a superset of the per-screen dangerous regexes');
+console.log('3. isWriteJob is a superset of the per-screen dangerous regexes');
 // The per-screen regexes (ecu.js, live.js) drive UI warnings. Any job a screen
 // flags as write/clear MUST also be caught by the VM's isWriteJob, or the VM
 // could transmit something a screen thought was dangerous. We probe with the
@@ -263,7 +185,7 @@ for (const tok of CLOSED_GAPS) {
 //
 // These assertions now guard the parts that MUST stay narrow, so the change
 // cannot quietly widen further.
-console.log('5. writes are enabled, and the read-only paths stay read-only');
+console.log('4. writes are enabled, and the read-only paths stay read-only');
 // the shim's pieces (core/webshim/) joined in load order
 const shim = require('./webshim_src').readWebshimSource();
 ok(

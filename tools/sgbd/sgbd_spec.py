@@ -24,8 +24,8 @@ SPEC (spec = 1)
 
 WHAT THIS DOES NOT DO, deliberately: it does not guess. Every field it cannot
 read out of the bytecode is omitted and the spec is marked partial. A spec is
-only trustworthy once tools/sgbd_diff.py has run it against the real engine and
-found the result sets identical -- that is what promotes it to "verified".
+only trustworthy once it has been diffed against the real engine's result sets
+(data/sim-captures/vmfix.json) -- that is what promotes it to "verified".
 
     python3 tools/sgbd_spec.py ms450ds0 STATUS_UBATT       # one job
     python3 tools/sgbd_spec.py ms450ds0 --all              # every job
@@ -61,8 +61,8 @@ ERG_TYPE = {"ergb": "byte", "ergw": "word", "ergd": "dword", "ergi": "int",
             "ergc": "char"}
 
 # Results that are protocol bookkeeping rather than ECU data. Defined once
-# in sgbd_survey (see the comment there) and shared with sgbd_diff, so the
-# producer and the checker can never disagree about what counts as internal.
+# in sgbd_survey (see the comment there) so every consumer agrees about what
+# counts as internal.
 INTERNAL = S.INTERNAL
 
 

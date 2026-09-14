@@ -618,7 +618,41 @@ Object.assign(Best2Vm.prototype, {
         return;
       }
       case 'flt2a': {
-        this.storeText(A, Best2Codec.fltText(this.getReg(B[1])));
+        this.storeText(
+          A,
+          Best2Codec.fltText(this.getReg(B[1]), this.floatPrecision)
+        );
+        return;
+      }
+      case 'setflt': {
+        // set_float_precision (OpSetflt): significant digits for every
+        // flt2a from here on. 1,333 uses in 102 modules: ms450ds0's
+        // MESSWERTBLOCK_LESEN sets 9 right before formatting its values,
+        // 947 uses set 6. A no-op here left every one at the default 4, so
+        // 12.3456 read as 12.35 on the measurement blocks.
+        this.floatPrecision = Math.max(1, this.val(A) >>> 0);
+        return;
+      }
+      case 'cfgig':
+      case 'cfgsg': {
+        // get config integer / string (OpCfgig / OpCfgsg): the engine's
+        // configuration, read by the SGBD. Only the keys the corpus asks
+        // for are answered, the way the engine answers them, and any other
+        // key leaves the register untouched (GetConfigProperty null):
+        //   SIMULATION  "0"  (434 uses: "are we replaying a trace?")
+        //   BipEcuFile  the SGBD file's stem (247 FS_LESEN templates)
+        //   RetryComm   "1"
+        // UserErrorHandling has no default in the engine and stays unset.
+        const key = String(this.textOf(B) || '').toUpperCase();
+        if (name === 'cfgig') {
+          if (key === 'SIMULATION') this.store(A, 0);
+          else if (key === 'RETRYCOMM') this.store(A, 1);
+          return;
+        }
+        if (key === 'BIPECUFILE') {
+          this.storeText(A, String((this.code && this.code.sgbd) || ''));
+        } else if (key === 'SIMULATION') this.storeText(A, '0');
+        else if (key === 'RETRYCOMM') this.storeText(A, '1');
         return;
       }
       case 'fix2a':
@@ -1098,9 +1132,14 @@ Object.assign(Best2Vm.prototype, {
         return;
       }
       case 'tabline': {
+        // ONE operand, the row index (OpTabline reads arg0; the opcode has
+        // no second operand anywhere in the corpus). Reading B here made
+        // every tabline throw on an undefined operand, which surfaced as
+        // "op is not iterable" on the DSC MK60's FS_LESEN_DETAIL and would
+        // have on the 501 other modules whose jobs use it.
         // 0-based over DATA rows; an out-of-range index clamps to the last
         // row and reports Zero=true (GetTableLine), it does not fail
-        const i = this.val(B);
+        const i = this.val(A);
         if (!this.table) {
           f.zero = true;
           return;
@@ -1268,6 +1307,7 @@ Object.assign(Best2Vm.prototype, {
         if (words.length >= 2 && words[0] > 0 && words[0] <= COMM_CONCEPT_MAX) {
           this.comm = Best2Codec.decodeCommParams(words);
           if (this.answerLen) this.comm.answerLen = this.answerLen;
+          if (this.repeats !== undefined) this.comm.repeats = this.repeats;
         }
         return;
       }
@@ -1424,18 +1464,31 @@ Object.assign(Best2Vm.prototype, {
         this.comm = Object.assign({}, this.comm || {}, { answerLen: al });
         return;
       }
+      case 'xreps': {
+        // set_repeat_counter (EdOperations.OpXreps): how many times the
+        // interface RESENDS a telegram that got no usable answer before it
+        // reports the error -- CommRepeats, read by the reference's send
+        // loop (EdInterfaceObd.ObdTrans: repeats + 1 attempts, stopping
+        // early only on a cable-level IFH-0003). Every init job sets it
+        // (775 of 1,006 modules say 2, the EWS says 4); the default of 0
+        // holds only until INITIALISIERUNG runs. Ignoring it sent every
+        // telegram once, so a K-line module that sleeps through its first
+        // wake-up (the EWS, on three testers' cars) failed with IFH-0009
+        // where the tool's second attempt is answered. Carried on comm so
+        // runExchange reads the SGBD's own count.
+        const n = this.val(A) >>> 0;
+        this.repeats = n;
+        this.comm = Object.assign({}, this.comm || {}, { repeats: n });
+        return;
+      }
       case 'xconnect':
       case 'xhangup':
       case 'xstopf':
-      case 'xreps':
       case 'xkeyb':
       case 'xkeybytes':
       case 'xprog':
       case 'xreset':
-      case 'setflt':
       case 'clrflt':
-      case 'cfgig':
-      case 'cfgsg':
       case 'cfgss':
       case 'trap':
       case 'plink':

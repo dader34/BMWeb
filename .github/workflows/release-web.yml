@@ -7,6 +7,10 @@ name: Release offline web builds
 # at runtime, because a build that still fetches them is not offline:
 #
 #   faults/*.js + ista/faulttests.json   fault lookup, ~100 MB   -> every zip
+#   ista/{ecu-tree,abl,diag,ecufn,       the ISTA app, ~355 MB   -> every zip
+#         techdata,wiring}
+#   tuning/xdf, ~29 MB                   XDF definitions         -> every zip
+#   ista/repair, ~675 MB                 repair manual           -> "complete" only
 #   the ETK parts tree, ~5.8 GB          parts catalogue         -> "complete" only
 #
 # Two jobs:
@@ -62,6 +66,24 @@ jobs:
       - name: Fault lookup data (every variant)
         run: scripts/build/ci-fetch-hf-data.sh faults
 
+      # the ISTA app's own data. Without it every ISTA screen -- the control
+      # unit tree, the whole-car scan, the test plan, wiring, technical data --
+      # falls back to fetching from Hugging Face, so an "offline" zip does not
+      # actually work offline. The repair manual (675 MB) rides with the
+      # complete build only.
+      - name: ISTA data (every variant)
+        run: scripts/build/ci-fetch-hf-data.sh ista
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+
+      # the XDF definition library (29 MB, a different dataset). Without it
+      # the Tuning screen's definition list is empty offline: xdf-library.js
+      # went straight to its mirrors before this.
+      - name: XDF definition library (every variant)
+        run: scripts/build/ci-fetch-hf-data.sh tuning
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+
       - name: Wiring diagrams
         run: |
           set -euo pipefail
@@ -94,7 +116,8 @@ jobs:
         run: |
           set -euo pipefail
           gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1 \
-            || gh release create "${GITHUB_REF_NAME}" --title "${GITHUB_REF_NAME}" --generate-notes
+            || gh release create "${GITHUB_REF_NAME}" --title "${GITHUB_REF_NAME}" --generate-notes \
+                 $([[ "${GITHUB_REF_NAME}" == *-* ]] && echo --prerelease)
           gh release upload "${GITHUB_REF_NAME}" release-builds/*.zip --clobber
         env:
           GH_TOKEN: ${{ github.token }}
@@ -138,6 +161,8 @@ jobs:
         if: steps.hf.outputs.ok == 'true'
         run: |
           scripts/build/ci-fetch-hf-data.sh faults
+          scripts/build/ci-fetch-hf-data.sh ista-all
+          scripts/build/ci-fetch-hf-data.sh tuning
           scripts/build/ci-fetch-hf-data.sh etk
           df -h /
 
@@ -183,9 +208,10 @@ jobs:
           url="https://huggingface.co/datasets/${{ env.HF_RELEASES }}/resolve/main/$ver/$name"
           size=$(du -h "$zip" | cut -f1)
           gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1 \
-            || gh release create "${GITHUB_REF_NAME}" --title "${GITHUB_REF_NAME}" --generate-notes
+            || gh release create "${GITHUB_REF_NAME}" --title "${GITHUB_REF_NAME}" --generate-notes \
+                 $([[ "${GITHUB_REF_NAME}" == *-* ]] && echo --prerelease)
           gh release view "${GITHUB_REF_NAME}" --json body -q .body > notes.md
-          printf '\n\n## Complete offline build (%s)\n\nEverything above plus the ETK parts catalogue for every chassis, too large for a GitHub release asset:\n\n**[%s](%s)**\n' \
+          printf '\n\n## Complete offline build (%s)\n\nEverything above plus the ETK parts catalogue and the ISTA repair manual for every chassis, too large for a GitHub release asset:\n\n**[%s](%s)**\n' \
             "$size" "$name" "$url" >> notes.md
           gh release edit "${GITHUB_REF_NAME}" --notes-file notes.md
           echo "linked $url"

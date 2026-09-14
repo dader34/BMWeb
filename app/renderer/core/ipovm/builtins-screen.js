@@ -13,6 +13,12 @@ const IPO_ANALOG_FMT_RE = /^(\d+)\.(\d+)$/;
 /** toFixed()'s upper bound on decimals; a stray format never asks for more. */
 const IPO_MAX_DECIMALS = 20;
 
+/** Bytes per line of INPA's hexdump. */
+const IPO_HEXDUMP_LINE = 16;
+
+/** The fewest hex digits a hexdump address column shows. */
+const IPO_HEXDUMP_ADDR_MIN = 4;
+
 /**
  * settitle / setmenutitle: the first argument is the title.
  * @type {IpoBuiltin}
@@ -111,6 +117,38 @@ function bUserboxClear(vm) {
   if (!vm.userbox) return;
   vm.userbox.lines = [];
   if (vm.onUserbox) vm.onUserbox(vm.userbox);
+}
+
+/**
+ * The foreground / background pair a colour builtin was handed: its last
+ * two integer arguments (userboxsetcolor leads with the box number).
+ * @param {IpoValue[]} stack - the call's arguments
+ * @returns {{fg: number, bk: number}|null} null when the call named no pair
+ */
+function ipoColorArgs(stack) {
+  const n = allInts(stack);
+  if (n.length < 2) return null;
+  return { fg: n[n.length - 2], bk: n[n.length - 1] };
+}
+
+/**
+ * setcolor(FgColor, BkColor): the colour every text printed after it takes.
+ * Recorded on the run so a host that draws colour can honour it; the
+ * browser's skins keep their own palette.
+ * @type {IpoBuiltin}
+ */
+function bSetcolor(vm, stack) {
+  const c = ipoColorArgs(stack);
+  if (c) vm.out.color = c;
+}
+
+/**
+ * userboxsetcolor(BoxNum, FgColor, BkColor): the progress window's colours.
+ * @type {IpoBuiltin}
+ */
+function bUserboxSetcolor(vm, stack) {
+  const c = ipoColorArgs(stack);
+  if (c && vm.userbox) vm.userbox.color = c;
 }
 
 /**
@@ -234,7 +272,67 @@ function bTextout(vm, stack) {
     el.row = ints[0];
     el.col = ints[1];
   }
+  // the colour setcolor chose for what follows rides on the live cell so a
+  // host that draws colour (the terminal UI) can; offline the element stays
+  // byte-identical to the Python twin's
+  if (vm.wireJobs && vm.out.color) el.color = vm.out.color;
   line.elements.push(el);
+}
+
+/**
+ * The lines of INPA's hexdump: one per 16 bytes, the address (the start
+ * address plus the line's offset, in hex, at least as wide as the start
+ * address was written) then the bytes as two hex digits each. A start
+ * address that is not hex counts from 0.
+ * @param {string} startAdr - the address the bytes were read from ("0x1000")
+ * @param {number[]} bytes - the bytes to show
+ * @returns {string[]}
+ */
+function ipoHexdumpLines(startAdr, bytes) {
+  const digits = String(startAdr || '')
+    .trim()
+    .replace(/^0x/i, '');
+  const base = /^[0-9a-f]+$/i.test(digits) ? parseInt(digits, 16) : 0;
+  const width = Math.max(IPO_HEXDUMP_ADDR_MIN, digits.length);
+  const out = [];
+  for (let i = 0; i < bytes.length; i += IPO_HEXDUMP_LINE) {
+    const addr = (base + i).toString(16).toUpperCase().padStart(width, '0');
+    const hex = bytes
+      .slice(i, i + IPO_HEXDUMP_LINE)
+      .map((b) => (b & 0xff).toString(16).toUpperCase().padStart(2, '0'));
+    out.push(`${addr}  ${hex.join(' ')}`);
+  }
+  return out;
+}
+
+/**
+ * hexdump(StartAdr, numbytes, row, col): the bytes of the last
+ * INPAapiResultBinary painted as a hex table at (row, col), the way the
+ * Speicher-lesen screens show memory. The bytes come from the wire, so
+ * offline there is nothing to paint (the lift sees the call, not a table).
+ * Each line is printed as ftextout would print it, one row down from the
+ * last, so the grid, the sheet and Select treat it as text.
+ * @type {IpoBuiltin}
+ */
+function bHexdump(vm, stack) {
+  if (!vm.wireJobs) return;
+  const key = vm.globals.get('__pending_binary__');
+  if (!key || !vm.host || typeof vm.host.raw !== 'function') return;
+  const set = vm.globals.get('__pending_binary_set__');
+  const hex = ipoBinaryHex(
+    vm.host.raw(key, { set: set == null ? undefined : set })
+  );
+  if (!hex) return;
+  let bytes = (hex.match(/[0-9A-F]{2}/g) || []).map((h) => parseInt(h, 16));
+  const args = stack.filter((x) => !isRef(x));
+  const count = args.length > 1 ? Math.trunc(num(args[1])) : bytes.length;
+  if (count > 0) bytes = bytes.slice(0, count);
+  const row = args.length > 2 ? Math.trunc(num(args[2])) : 0;
+  const col = args.length > 3 ? Math.trunc(num(args[3])) : 0;
+  const startAdr = args.length ? asStr(args[0]) : '';
+  ipoHexdumpLines(startAdr, bytes).forEach((text, i) =>
+    bTextout(vm, [text, row + i, col])
+  );
 }
 
 /**
@@ -464,7 +562,20 @@ function bCallwin(vm, stack, item) {
 }
 
 /**
- * A builtin with no effect on the model (window chrome, colours, stop).
+ * viewclose(): INPA closes its viewer window. Live, the run says so and
+ * drops a view it opened earlier in the same body; a viewopen after it
+ * sets a new one, which wins (the runtime reads the view first, the close
+ * only when there is none). Offline nothing is lifted from a window.
+ * @type {IpoBuiltin}
+ */
+function bViewclose(vm) {
+  if (!vm.wireJobs) return;
+  vm.out.view = null;
+  vm.out.viewClose = true;
+}
+
+/**
+ * A builtin with no effect on the model (window chrome, stop).
  * @type {IpoBuiltin}
  */
 function bNoop() {}
@@ -476,6 +587,11 @@ if (typeof module !== 'undefined' && module.exports) {
     bSetmenu,
     bSetscreen,
     bTextout,
+    ipoHexdumpLines,
+    bHexdump,
+    bSetcolor,
+    bUserboxSetcolor,
+    bViewclose,
     drawField,
     bAnalogout,
     bMultiAnalogout,
