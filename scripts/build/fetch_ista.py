@@ -15,6 +15,8 @@ name.
 """
 import os
 import sys
+import shutil
+import zipfile
 
 from huggingface_hub import snapshot_download
 
@@ -47,6 +49,26 @@ def main():
         token=os.environ.get("HF_TOKEN") or None,
         max_workers=8,
     )
+    # THE REPAIR MANUAL TRAVELS AS ARCHIVES AND LANDS AS FILES. Its 54,655
+    # pictures are handed to <img src>, which cannot read from a zip, so a
+    # packaged build needs them loose on disk -- but fetching them one at a
+    # time is what made this step take fifty minutes. They ship as ~101
+    # transport archives and are unpacked here into the layout the app
+    # expects. The archives themselves are not part of the build.
+    bundles = os.path.join(out, "ista", "repair-bundles")
+    if os.path.isdir(bundles):
+        dest = os.path.join(out, "ista", "repair")
+        os.makedirs(dest, exist_ok=True)
+        n = 0
+        for name in sorted(os.listdir(bundles)):
+            if not name.endswith(".zip"):
+                continue
+            with zipfile.ZipFile(os.path.join(bundles, name)) as zf:
+                zf.extractall(dest)
+                n += len(zf.namelist())
+        print(f"  repair    {n} files unpacked from archives")
+        shutil.rmtree(bundles, ignore_errors=True)
+
     ista = os.path.join(out, "ista")
     for sub, floor in FLOORS.items():
         d = os.path.join(ista, sub)
