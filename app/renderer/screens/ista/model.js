@@ -325,12 +325,6 @@ const ISTA_TABS = [
         desc: 'What this session added from the fault patterns',
         page: 'plan',
       },
-      {
-        id: 'programming-plan',
-        label: 'Programming plan',
-        desc: 'Programming is deliberately not offered',
-        page: 'plan',
-      },
     ],
   },
   {

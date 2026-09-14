@@ -310,6 +310,12 @@ def designator_index(index, bodies=None):
                 "identifier": entry["identifier"],
                 "_body": body,
             }
+            # the validity rule rides along so the app can narrow these to
+            # the car in front of it: A11's three pin assignments differ by
+            # build date and by which climate module is fitted, and without
+            # the rule they are three identical tabs
+            if entry.get("rule"):
+                doc["rule"] = entry["rule"]
             # WHAT MAKES THIS ONE DIFFERENT. A big component can carry a
             # dozen installation locations that apply to different builds of
             # the car, and a row of tabs all reading "Installation Location"
@@ -326,6 +332,32 @@ def designator_index(index, bodies=None):
         for doc in row:
             del doc["_body"]
     return out
+
+
+def write_cliques(diag, folder):
+    """The ECU clique name -> id map, beside the chassis folders.
+
+    A validity rule names a clique by NUMBER (`ecuclique 1039197067`), and the
+    only thing the app has is the name the module answered with (ihka46_3).
+    Without this map the clique leaves of every rule are undecidable, which
+    the three-valued evaluator treats as "applies" -- so A11's three pin
+    assignments all stand and the user picks between them blind. 1,085 rows,
+    one small file, shared by every chassis.
+
+    @param diag: the DiagDocDb connection
+    @param folder: data/ista/wiring
+    """
+    out = {}
+    for cid, short in diag.execute(
+        "SELECT ID, CLIQUENKURZBEZEICHNUNG FROM XEP_ECUCLIQUES"
+    ):
+        name = (short or "").strip().lower()
+        if name:
+            out[name] = cid
+    path = os.path.join(folder, "cliques.json")
+    with open(path, "w", encoding="utf-8") as fh:
+        json.dump(out, fh, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return len(out)
 
 
 def write_chassis(rows, rules, classes, ids, content, folder, segments=None, verbose=False):
@@ -364,6 +396,15 @@ def write_chassis(rows, rules, classes, ids, content, folder, segments=None, ver
         if unsure:
             entry["unsure"] = True
             stats["unsure"] += 1
+        # THE CHASSIS TEST IS NOT THE WHOLE RULE. rule_applies above answers
+        # "could this document belong to an E46 at all", and for a component
+        # that changed across the run it says yes to every revision: A11's
+        # pin assignment has three, split by build date and by which climate
+        # module the car carries (ihka46* against ihkr46). Deciding between
+        # them needs facts only the car in front of the user supplies, so the
+        # decoded rule travels with the document and the app finishes the job.
+        if tree:
+            entry["rule"] = tree
         if kind == "diagram":
             svg = svg_bytes(raw)
             if svg is None:
@@ -435,6 +476,11 @@ def main():
     char_names = read_char_names(diag)
     if args.verbose:
         print(f"{len(rows)} documents across {len(classes)} classes", file=sys.stderr)
+
+    os.makedirs(args.out, exist_ok=True)
+    n_cliques = write_cliques(diag, args.out)
+    if args.verbose:
+        print(f"{n_cliques} ECU cliques -> cliques.json", file=sys.stderr)
 
     out = {}
     for chassis in [c.strip().upper() for c in args.chassis.split(",") if c.strip()]:

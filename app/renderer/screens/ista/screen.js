@@ -2264,9 +2264,87 @@ async function istaWiringForDesignator(chassis, designator) {
   const index = await istaWiringIndex(chassis);
   const hits = (index && index.designators && index.designators[key]) || [];
   const order = ['location', 'connector', 'pinout'];
-  return hits
+  const kept = await istaWiringValid(chassis, hits);
+  return kept
     .slice()
     .sort((a, b) => order.indexOf(a.type) - order.indexOf(b.type));
+}
+
+/** The ECU clique name -> id map, once. */
+let istaWiringCliques = null;
+
+/**
+ * The car's facts, in the shape the rule evaluator wants.
+ *
+ * Two are enough for the component documents: the build date, and which
+ * cliques the car's modules answered as. A fact that cannot be established
+ * is left out rather than guessed -- the evaluator is three-valued, so a
+ * missing fact makes a leaf undecidable and the document is KEPT. Narrowing
+ * on a guess would hide the right document; keeping one document too many
+ * only shows an extra tab.
+ * @param {string} chassis - the development code
+ * @returns {Promise<object>} facts for techDataRuleApplies
+ */
+async function istaWiringFacts(chassis) {
+  const facts = {};
+  const car = istaState.car || null;
+  // the build date the identification read, as year*100 + month
+  const built = car && (car.built || car.buildDate || car.date);
+  const m = /^(\d{4})[-/.]?(\d{2})/.exec(String(built || ''));
+  if (m) facts.ym = Number(m[1]) * 100 + Number(m[2]);
+  // the cliques of every variant this car has answered as
+  if (istaWiringCliques === null)
+    istaWiringCliques =
+      (await istaProbe(() => istaWiringFetchJson('cliques.json'))) || {};
+  const names = new Set();
+  for (const slot of istaSlotsFor(chassis) || [])
+    if (slot && slot.sgbd) names.add(String(slot.sgbd).toLowerCase());
+  if (names.size) {
+    const ids = new Set();
+    for (const n of names) {
+      const id = istaWiringCliques[n];
+      if (id != null) ids.add(id);
+    }
+    if (ids.size) facts.ecuclique = ids;
+  }
+  return facts;
+}
+
+/**
+ * The documents whose validity rule holds for this car.
+ *
+ * THE CHASSIS TEST IS NOT THE WHOLE RULE, and this is where that shows. The
+ * extract already dropped documents that belong to another series, but a
+ * component that changed across the model run keeps one document per
+ * variant: A11's pin assignment has three, split by build date and by
+ * whether the car carries automatic climate control (ihka46*) or the basic
+ * heating control (ihkr46). All three are valid E46 documents, so all three
+ * arrived, and the user saw three identically-titled tabs with no way to
+ * tell which described the car in front of them.
+ * @param {string} chassis - the development code
+ * @param {object[]} docs - candidates from the designator index
+ * @returns {Promise<object[]>} those that apply, or all of them when the
+ *   facts cannot decide
+ */
+async function istaWiringValid(chassis, docs) {
+  const list = docs || [];
+  if (list.length < 2 || !list.some((d) => d && d.rule)) return list;
+  if (
+    typeof techDataRuleApplies !== 'function' ||
+    typeof techDataCarKeys !== 'function'
+  )
+    return list;
+  const facts = await istaWiringFacts(chassis);
+  // the chassis characteristics the rule's `eq` leaves test. techdata builds
+  // these from the VIN's type key, and without them every rule is false --
+  // an empty set is not "unknown", it is "the car has no characteristics"
+  const keys = await istaProbe(() => techDataCarKeys(istaState.car, chassis));
+  const ids = (keys && keys.ids) || null;
+  if (!ids || !ids.size) return list;
+  const kept = list.filter((d) => techDataRuleApplies(d && d.rule, ids, facts));
+  // never narrow to nothing: a car whose facts contradict every revision is
+  // better served by the whole set than by an empty pane
+  return kept.length ? kept : list;
 }
 
 /**
