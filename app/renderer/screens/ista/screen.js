@@ -533,7 +533,7 @@ async function istaSubReady(sub) {
   if (sub.id === 'conversion-coding' || sub.id === 'remove-coding') {
     const has =
       typeof chassisHasCoding === 'function' &&
-      (await istaProbe(chassisHasCoding(chassis)));
+      (await istaProbe(() => chassisHasCoding(chassis)));
     if (!has) return { ok: false, why: 'no codeable modules for this chassis' };
   }
   if (sub.id === 'fault-memory' || sub.id === 'unit-list') {
@@ -1427,13 +1427,17 @@ function istaTechDataFilter(host) {
 async function istaOpenBasic(row) {
   if (!row) return;
   let car = null;
+  // a build date the characteristic tree does not carry is LEFT OUT, not
+  // stored as an empty string: a car saved with prod '' reads as dateless
+  // forever, and every dated validity rule stays undecided for it
+  const prod = `${row._year || ''}${row._month || ''}`;
   if (typeof garageAddCar === 'function')
     car = garageAddCar({
       chassis: row.chassis,
       model: row.model,
       body: row.body,
       motor: row.motor,
-      prod: `${row._year || ''}${row._month || ''}`,
+      ...(prod ? { prod } : {}),
     });
   if (car) istaSetCar(car);
   else istaSetCar(null, row.chassis);
@@ -1574,9 +1578,11 @@ async function istaDiagLoad(chassis, which, car) {
  * @returns {object} the facts
  */
 function istaDiagFacts(car) {
-  const prod = String((car && car.prod) || '');
-  if (prod.length < 6) return {};
-  return { ym: `${prod.slice(0, 4)}-${prod.slice(4, 6)}` };
+  // the same builder every gate uses: the evaluator compares a DATE leaf as
+  // year*100+month, and a "YYYY-MM" string here once made every dated clause
+  // a decided false, which pruned the branches it guarded instead of keeping
+  // them
+  return typeof techDataCarFacts === 'function' ? techDataCarFacts(car) : {};
 }
 
 /**
@@ -2377,18 +2383,17 @@ let istaWiringCliques = null;
  * @returns {Promise<object>} facts for techDataRuleApplies
  */
 async function istaWiringFacts(chassis) {
-  const facts = {};
   const car = istaState.car || null;
-  // the build date the identification read, as year*100 + month
-  const built = car && (car.built || car.buildDate || car.date);
-  const m = /^(\d{4})[-/.]?(\d{2})/.exec(String(built || ''));
-  if (m) facts.ym = Number(m[1]) * 100 + Number(m[2]);
+  // the build date the Garage stores as `prod`, in the evaluator's shape
+  const facts =
+    typeof techDataCarFacts === 'function' ? techDataCarFacts(car) : {};
   // the cliques of every variant this car has answered as
   if (istaWiringCliques === null)
     istaWiringCliques =
       (await istaProbe(() => istaWiringFetchJson('cliques.json'))) || {};
   const names = new Set();
-  for (const slot of istaSlotsFor(chassis) || [])
+  const slots = (await istaProbe(() => istaLoadSlots(chassis, car))) || [];
+  for (const slot of slots)
     if (slot && slot.sgbd) names.add(String(slot.sgbd).toLowerCase());
   if (names.size) {
     const ids = new Set();
@@ -3217,12 +3222,15 @@ function istaPaintStates(slots) {
     }
   }
   // the control unit list's state dots
+  // EACH ROW NAMES ITS SLOT. The list is drawn sorted by state, and a read
+  // changes states, so re-sorting here and zipping by index painted the
+  // first answer's dot onto whichever row now sat at its old position
   const rows = host.querySelectorAll('.irunits tbody tr');
-  if (rows.length && typeof istaUnitListOrder === 'function') {
-    const order = istaUnitListOrder(slots || []);
-    rows.forEach((tr, i) => {
+  if (rows.length) {
+    const byId = new Map((slots || []).map((s) => [String(s.id || ''), s]));
+    rows.forEach((tr) => {
       const dot = tr.querySelector('.irstate i');
-      const slot = order[i];
+      const slot = byId.get(String(tr.getAttribute('data-slot') || ''));
       if (dot && slot)
         dot.className =
           (typeof ISTA_STATE_CLASS !== 'undefined' &&
@@ -3483,6 +3491,7 @@ if (typeof module !== 'undefined' && module.exports) {
     istaSubReady,
     istaRouteStamp,
     istaOpenOperation,
+    istaDiagFacts,
     showIsta,
   };
 }

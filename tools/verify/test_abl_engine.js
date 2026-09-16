@@ -1024,6 +1024,164 @@ async function main() {
       );
     ok('every plan state has its legend colour');
   }
+
+  // ---- a switch on a string, and a word against a number ------------------
+  {
+    // THE EXTRACT KEEPS THE COMPILER'S LABELS, QUOTES AND ALL. A module that
+    // dispatches on the selected fault location switches on a string, and
+    // its arms are labelled "4550", "30D8F". The engine's key was numeric
+    // first -- "4550" became 4550, "30D8F" became 30 -- so no quoted label
+    // ever matched and every fault-location dispatch took `default`.
+    const said = [];
+    const graph = (value) => ({
+      entry: 'Start',
+      steps: {
+        Start: {
+          entry: 1,
+          nodes: [
+            { type: 'startstep', id: 1, next: 2 },
+            {
+              type: 'assign',
+              id: 2,
+              lhs: 'f_SELEKT_ORT_NR_HEX',
+              rhs: `"${value}"`,
+              next: 3,
+            },
+            {
+              type: 'switch',
+              id: 3,
+              expr: 'f_SELEKT_ORT_NR_HEX',
+              cases: { '"4550"': 4, '"30D8F"': 5, default: 6 },
+            },
+            {
+              type: 'message',
+              id: 4,
+              params: {
+                txtParam: { en: 'arm 4550' },
+                Quittierung: true,
+                TIMEOUT: 0,
+              },
+              next: 7,
+            },
+            {
+              type: 'message',
+              id: 5,
+              params: {
+                txtParam: { en: 'arm 30D8F' },
+                Quittierung: true,
+                TIMEOUT: 0,
+              },
+              next: 7,
+            },
+            {
+              type: 'message',
+              id: 6,
+              params: {
+                txtParam: { en: 'default' },
+                Quittierung: true,
+                TIMEOUT: 0,
+              },
+              next: 7,
+            },
+            { type: 'end', id: 7 },
+          ],
+        },
+      },
+    });
+    const ui = {
+      message: async (m) => {
+        said.push(m.text);
+        return { quit: true };
+      },
+      hide: async () => {},
+    };
+    for (const [value, arm] of [
+      ['4550', 'arm 4550'],
+      ['30D8F', 'arm 30D8F'],
+      ['3F00', 'default'],
+    ]) {
+      said.length = 0;
+      await new AblEngine(graph(value), { ui }).run();
+      assert.deepStrictEqual(said, [arm], `switch on "${value}"`);
+    }
+    ok('a switch on a string reaches its quoted arm');
+
+    // a numeric switch and the result register still match bare labels
+    const num = {
+      entry: 'Start',
+      steps: {
+        Start: {
+          entry: 1,
+          nodes: [
+            { type: 'startstep', id: 1, next: 2 },
+            { type: 'assign', id: 2, lhs: 'SELEKT', rhs: '2', next: 3 },
+            {
+              type: 'switch',
+              id: 3,
+              expr: 'SELEKT',
+              cases: { 1: 4, 2: 5, default: 6 },
+            },
+            {
+              type: 'message',
+              id: 4,
+              params: {
+                txtParam: { en: 'one' },
+                Quittierung: true,
+                TIMEOUT: 0,
+              },
+              next: 7,
+            },
+            {
+              type: 'message',
+              id: 5,
+              params: {
+                txtParam: { en: 'two' },
+                Quittierung: true,
+                TIMEOUT: 0,
+              },
+              next: 7,
+            },
+            {
+              type: 'message',
+              id: 6,
+              params: {
+                txtParam: { en: 'default' },
+                Quittierung: true,
+                TIMEOUT: 0,
+              },
+              next: 7,
+            },
+            { type: 'end', id: 7 },
+          ],
+        },
+      },
+    };
+    said.length = 0;
+    await new AblEngine(num, { ui }).run();
+    assert.deepStrictEqual(said, ['two']);
+    ok('a numeric switch still matches its bare label');
+
+    // A STRING WITH NO NUMBER IN IT EQUALS NO NUMBER. "OKAY" read as
+    // null-or-0, so a status word compared against a register took the
+    // equal arm whatever the ECU had said.
+    const ctx = {
+      vars: { st: 'OKAY', n: 0, hex: '3F00' },
+      out: {},
+      answer: null,
+    };
+    assert.strictEqual(ablEval('st == 0', ctx), false);
+    assert.strictEqual(ablEval('st != 0', ctx), true);
+    assert.strictEqual(ablEval('st == "OKAY"', ctx), true);
+    assert.strictEqual(ablEval('n == 0', ctx), true);
+    assert.strictEqual(
+      ablEval('unset == 0', ctx),
+      true,
+      'an unset register is still 0'
+    );
+    assert.strictEqual(ablEval('hex == "3F00"', ctx), true);
+    assert.strictEqual(ablEval('hex == "3F01"', ctx), false);
+    ok('a status word is not equal to zero');
+  }
 }
 
 main().then(

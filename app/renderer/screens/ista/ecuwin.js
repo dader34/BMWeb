@@ -83,9 +83,12 @@ function istaIdentValue(ident, keys) {
   // never as one field, so it is put back together rather than left blank
   if (keys[0] === 'DATUM' && ident.ID_DATUM_KW != null) {
     const kw = String(ident.ID_DATUM_KW).trim();
-    const yr = String(ident.ID_DATUM_JAHR == null ? '' : ident.ID_DATUM_JAHR)
-      .trim()
-      .padStart(2, '0');
+    // a year the module did not report stays absent: padding '' to '00'
+    // once printed "KW 12/00", a year the ECU never said
+    const raw = String(
+      ident.ID_DATUM_JAHR == null ? '' : ident.ID_DATUM_JAHR
+    ).trim();
+    const yr = raw ? raw.padStart(2, '0') : '';
     if (kw) return yr ? `KW ${kw}/${yr}` : `KW ${kw}`;
   }
   for (const k of keys) {

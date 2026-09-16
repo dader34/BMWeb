@@ -150,6 +150,29 @@ function techDataCompare(left, cmp, right) {
 }
 
 /**
+ * The dated facts a validity rule can test, for one car.
+ *
+ * ONE BUILDER, ONE SHAPE. A rule's DATE leaf carries year*100+month as a
+ * number (see techDataRuleEval), so the car's build date is handed over in
+ * exactly that shape; the Garage stores it as `prod`, "YYYYMM" or
+ * "YYYYMMDD". Two earlier builders disagreed with each other and with the
+ * evaluator: one passed "YYYY-MM" (a string, so every DATE comparison was a
+ * decided false and the documents it guarded vanished), the other read
+ * fields the record never carries (so no date was ever known). A car whose
+ * date nobody knows gets no `ym`, and the evaluator keeps the document.
+ * @param {object|null|undefined} car - a GarageCar
+ * @returns {{ym?: number}} facts for techDataRuleApplies
+ */
+function techDataCarFacts(car) {
+  const prod = String((car && car.prod) || '').trim();
+  if (!/^\d{6}/.test(prod)) return {};
+  const year = Number(prod.slice(0, 4));
+  const month = Number(prod.slice(4, 6));
+  if (month < 1 || month > 12) return {};
+  return { ym: year * 100 + month };
+}
+
+/**
  * The .NET tick count ISTA stores dates in, for a calendar date.
  * @param {number} year - four-digit year
  * @param {number} month - 1 to 12
@@ -251,11 +274,13 @@ function techDataRuleApplies(rule, ids, facts) {
  * The documents that apply to a car.
  * @param {object[]} docs - index entries
  * @param {Set<number>|null} ids - the car's characteristic ids, null for all
+ * @param {object} [facts] - the car's dated facts (techDataCarFacts); a
+ *   rule's date clause is undecided without them and the document is kept
  * @returns {object[]}
  */
-function techDataFilter(docs, ids) {
+function techDataFilter(docs, ids, facts) {
   if (!ids || !ids.size) return docs.slice();
-  return docs.filter((d) => techDataRuleApplies(d.rule, ids));
+  return docs.filter((d) => techDataRuleApplies(d.rule, ids, facts || {}));
 }
 
 /**
@@ -324,6 +349,7 @@ if (typeof module !== 'undefined' && module.exports) {
     techDataIndexPresent,
     techDataBody,
     techDataCarKeys,
+    techDataCarFacts,
     techDataRuleApplies,
     techDataRuleEval,
     techDataCompare,

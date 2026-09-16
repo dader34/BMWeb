@@ -50,6 +50,8 @@ global.Settings = {
   },
 };
 
+// the dataset mirror walker the screens fetch through (hfUrls, hfFetchFirst)
+loadClassic('core/webshim/data-fetch.js');
 const I = loadClassic('screens/ista/');
 
 // ---- the tab model ---------------------------------------------------------
@@ -154,8 +156,8 @@ const I = loadClassic('screens/ista/');
   );
   assert.deepStrictEqual(
     ISTA_TABS.find((t) => t.id === 'service-plan').subs.map((s) => s.label),
-    ['Hit list', 'Test plan', 'Programming plan'],
-    'Service plan has its three sub-tabs'
+    ['Hit list', 'Test plan'],
+    'Service plan has its two sub-tabs'
   );
   ok("the labels are the real tool's");
 
@@ -254,7 +256,6 @@ const I = loadClassic('screens/ista/');
     ['information', 'unit-list'],
     ['service-plan', 'hit-list'],
     ['service-plan', 'test-plan'],
-    ['service-plan', 'programming-plan'],
   ]) {
     const leaf = istaSub(tab, sub);
     assert.ok(leaf && leaf.page, `${tab}/${sub} is a page`);
@@ -2232,6 +2233,99 @@ const I = loadClassic('screens/ista/');
   )[0];
   assert.strictEqual(none.state, 'unread');
   ok('a slot matches any group name its bus-map box carries');
+}
+
+// ---- the facts a validity rule tests --------------------------------------
+{
+  // THE DIAGNOSIS GATE HANDS THE EVALUATOR A NUMBER. It once built
+  // "2002-03", a string techDataCompare read as NaN, so every dated clause
+  // was a decided false and the branches it guarded were pruned from the
+  // tree -- the opposite of the keep-on-unknown policy the gate promises.
+  global.techDataCarFacts = require(
+    path.join(ROOT, 'app', 'renderer', 'screens', 'techdata', 'data.js')
+  ).techDataCarFacts;
+  assert.deepStrictEqual(I.istaDiagFacts({ prod: '200203' }), { ym: 200203 });
+  assert.deepStrictEqual(I.istaDiagFacts({ prod: '20020315' }), {
+    ym: 200203,
+  });
+  assert.deepStrictEqual(I.istaDiagFacts({}), {});
+  assert.deepStrictEqual(I.istaDiagFacts(null), {});
+  ok("the diagnosis gate reads the build date in the evaluator's shape");
+
+  // the wiring gate reads the SAME field and the SAME shape, and loads the
+  // slots through the loader that exists
+  const screen = fs.readFileSync(
+    path.join(ROOT, 'app', 'renderer', 'screens', 'ista', 'screen.js'),
+    'utf8'
+  );
+  const wiring = screen.slice(
+    screen.indexOf('async function istaWiringFacts'),
+    screen.indexOf('async function istaWiringValid')
+  );
+  assert.ok(wiring.includes('techDataCarFacts(car)'), 'one facts builder');
+  assert.ok(
+    !/car\.(built|buildDate|date)\b/.test(wiring),
+    'no field the Garage never stores'
+  );
+  assert.ok(wiring.includes('istaLoadSlots(chassis, car)'));
+  assert.ok(!/istaSlotsFor/.test(screen), 'no call to an undefined loader');
+  ok('the wiring gate builds its facts the same way');
+
+  // the coding tabs gate on a probe that can run: istaProbe wants a
+  // function, and a bare Promise threw inside it and read as "no coding"
+  assert.ok(
+    screen.includes('istaProbe(() => chassisHasCoding(chassis))'),
+    'the coding probe is a thunk'
+  );
+  assert.ok(!screen.includes('istaProbe(chassisHasCoding('));
+  ok('Conversion/Remove coding gate on a real probe');
+
+  // a car opened from Basic Features stores no build date rather than ''
+  assert.ok(
+    !screen.includes("prod: `${row._year || ''}${row._month || ''}`"),
+    'an unknown build date is left out of the Garage record'
+  );
+  ok('Basic Features does not save a dateless car as dated');
+}
+
+// ---- the ECU window's identification values -------------------------------
+{
+  // A YEAR THE MODULE DID NOT REPORT IS NOT PRINTED. Padding '' to '00'
+  // once rendered "KW 12/00" for a module that answered only the week.
+  const v = (ident) => I.istaIdentValue(ident, ['DATUM']);
+  assert.strictEqual(v({ ID_DATUM_KW: '12', ID_DATUM_JAHR: '1' }), 'KW 12/01');
+  assert.strictEqual(
+    v({ ID_DATUM_KW: '12', ID_DATUM_JAHR: 2001 }),
+    'KW 12/2001'
+  );
+  assert.strictEqual(v({ ID_DATUM_KW: '12' }), 'KW 12');
+  assert.strictEqual(v({ ID_DATUM_KW: '12', ID_DATUM_JAHR: '' }), 'KW 12');
+  assert.strictEqual(v({ DATUM: '25.09.2001' }), '25.09.2001');
+  ok('a calendar-week build date never invents a year');
+}
+
+// ---- the control unit list repaints by slot -------------------------------
+{
+  // THE ROWS ARE DRAWN SORTED BY STATE, AND A READ CHANGES STATES. A repaint
+  // that re-sorted and zipped by index painted the first module's dot onto
+  // whichever row now sat at its old position. Each row names its slot and
+  // the repaint finds the row by that name.
+  const tables = fs.readFileSync(
+    path.join(ROOT, 'app', 'renderer', 'screens', 'ista', 'tables.js'),
+    'utf8'
+  );
+  assert.ok(tables.includes('data-slot="${esc(s.id'), 'rows carry the id');
+  const screen = fs.readFileSync(
+    path.join(ROOT, 'app', 'renderer', 'screens', 'ista', 'screen.js'),
+    'utf8'
+  );
+  const paint = screen.slice(
+    screen.indexOf('function istaPaintStates'),
+    screen.indexOf('async function showIsta')
+  );
+  assert.ok(paint.includes("getAttribute('data-slot')"));
+  assert.ok(!paint.includes('istaUnitListOrder'), 'no re-sort on repaint');
+  ok('the unit list repaints each row from its own slot');
 }
 
 console.log(`test_ista: ${passed} checks passed`);

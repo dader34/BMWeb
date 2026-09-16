@@ -259,6 +259,13 @@ const T = loadClassic('screens/techdata/');
           : null,
   });
   global.WEB_BASE = '';
+  // the page fetches through the mirror walker; the test answers it directly
+  global.hfFetchFirst = async (rel) =>
+    rel.includes('typekeys')
+      ? typekeys
+      : rel.includes('characteristics')
+        ? chars
+        : null;
 
   (async () => {
     // a full VIN names the exact build: chars 4-7 are the type key
@@ -297,6 +304,57 @@ const T = loadClassic('screens/techdata/');
     const unknown = await T.techDataCarKeys({ chassis: 'X99' });
     assert.strictEqual(unknown.ids.size, 0, 'an unknown chassis matches none');
     ok('an unknown car resolves to nothing');
+
+    // ---- the dated facts -----------------------------------------------
+    // ONE SHAPE FOR EVERY GATE: the evaluator compares a DATE leaf as
+    // year*100+month, so that is what the builder hands over. The Garage
+    // stores the build date as `prod`, YYYYMM or YYYYMMDD.
+    const { techDataCarFacts, techDataFilter } = T;
+    assert.deepStrictEqual(techDataCarFacts({ prod: '200203' }), {
+      ym: 200203,
+    });
+    assert.deepStrictEqual(techDataCarFacts({ prod: '20020315' }), {
+      ym: 200203,
+    });
+    assert.deepStrictEqual(techDataCarFacts({ prod: 20020315 }), {
+      ym: 200203,
+    });
+    assert.deepStrictEqual(techDataCarFacts({ prod: '' }), {});
+    assert.deepStrictEqual(techDataCarFacts({}), {});
+    assert.deepStrictEqual(techDataCarFacts(null), {});
+    assert.deepStrictEqual(techDataCarFacts({ prod: '200213' }), {});
+    ok('the build date travels as year*100+month, or not at all');
+
+    // a document valid from 09/2001: kept for a 2002 car, dropped for a
+    // 1999 car, kept for a car whose date nobody knows
+    const from0901 = {
+      op: 'and',
+      kids: [
+        { op: 'eq', root: 1, val: 900 },
+        { op: 'date', cmp: 'ge', ym: 200109 },
+      ],
+    };
+    const docs = [{ id: 'a', rule: from0901 }];
+    const ids = new Set([900]);
+    assert.strictEqual(
+      techDataFilter(docs, ids, techDataCarFacts({ prod: '200203' })).length,
+      1
+    );
+    assert.strictEqual(
+      techDataFilter(docs, ids, techDataCarFacts({ prod: '199905' })).length,
+      0
+    );
+    assert.strictEqual(
+      techDataFilter(docs, ids, techDataCarFacts(null)).length,
+      1,
+      'an unknown date keeps the document'
+    );
+    assert.strictEqual(
+      techDataFilter(docs, ids).length,
+      1,
+      'no facts at all keeps it too'
+    );
+    ok('the technical data narrows by build date');
 
     renderChecks();
   })().catch((e) => {
