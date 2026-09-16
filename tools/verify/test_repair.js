@@ -57,6 +57,8 @@ const ctx = {
 ctx.globalThis = ctx;
 vm.createContext(ctx);
 for (const f of [
+  // the dataset mirror walker the screens fetch through (hfUrls)
+  'core/webshim/data-fetch.js',
   'screens/repair/data.js',
   'screens/repair/render.js',
   'screens/repair/browser.js',
