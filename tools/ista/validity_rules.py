@@ -233,7 +233,19 @@ def rule_eval(rule, ids, facts=None):
         roots = facts.get("roots")
         if roots is not None and rule.get("root") not in roots:
             return None
-        return rule["val"] in ids
+        if rule["val"] in ids:
+            return True
+        # A FOLD OF MANY BUILDS IS NOT ONE CAR. When `ids` stands for every
+        # build of a chassis, a characteristic only some of them carry is
+        # neither theirs nor not theirs: it is undecided, and NOT over it
+        # stays undecided. Deciding it true dropped "not M54" documents from
+        # every E46 at build time, because the union carried M54.
+        may = facts.get("may")
+        if may is None:
+            may = getattr(ids, "may", None)
+        if may is not None and rule["val"] in may:
+            return None
+        return False
     if op == "and":
         out = True
         for k in rule.get("kids", ()):
@@ -400,12 +412,29 @@ def read_roots(con):
     }
 
 
+class ChassisFold(set):
+    """The characteristic ids of a whole chassis, as one evaluable set.
+
+    Its members are the ids EVERY build of the chassis carries (the chassis
+    code itself, mostly), and `may` holds the ids ANY build carries. rule_eval
+    reads both: a leaf in the members is true, one outside `may` is false,
+    and one in between is undecided -- the only sound answer for a set of
+    cars, and what keeps a "not M54" document in the E46 bundle for the
+    E46s that are not M54.
+    """
+
+    def __init__(self, must=(), may=()):
+        super().__init__(must)
+        self.may = set(may)
+
+
 def chassis_char_ids(typekeys, char_names, chassis):
-    """Every characteristic id any type key of one chassis carries.
+    """The characteristic ids of one chassis, as a ChassisFold.
 
     Broader than a real car, but broad in the honest direction: a chassis
-    with no VIN still sees its own documents rather than none. The app's
-    repairCarKeys does the same fold for a car the Garage has no VIN for.
+    with no VIN still sees its own documents rather than none, and a
+    document that only some of its builds carry is kept (undecided), never
+    dropped. Empty when the chassis has no type key.
 
     @param typekeys: read_typekeys output
     @param char_names: read_char_names output
@@ -416,13 +445,14 @@ def chassis_char_ids(typekeys, char_names, chassis):
         int(cid) for cid, name in char_names.items() if str(name).upper() == want
     }
     if not wanted_ids:
-        return set()
-    out = set()
+        return ChassisFold()
     root = str(CHASSIS_ROOT)
+    builds = []
     for by_root in typekeys.values():
         codes = by_root.get(root) or []
         if not any(int(c) in wanted_ids for c in codes):
             continue
-        for vals in by_root.values():
-            out.update(int(v) for v in vals)
-    return out
+        builds.append({int(v) for vals in by_root.values() for v in vals})
+    if not builds:
+        return ChassisFold()
+    return ChassisFold(set.intersection(*builds), set.union(*builds))

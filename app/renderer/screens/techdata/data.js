@@ -125,11 +125,24 @@ async function techDataCarKeys(car, chassis) {
     )
   );
   if (!chassisIds.size) return out;
+  // THE FOLD IS TWO SETS: what every build of the chassis carries (the ids
+  // a rule may decide true) and what any build carries (`may`, which a rule
+  // must leave undecided). The union alone decided "engine is M54" true for
+  // every E46 and so "not M54" false for every E46.
+  let must = null;
+  const may = new Set();
   for (const tk of Object.values(techDataTypeKeys)) {
     const codes = tk[TECHDATA_CHASSIS_ROOT] || [];
     if (!codes.some((c) => chassisIds.has(String(c)))) continue;
-    for (const vals of Object.values(tk)) for (const v of vals) out.ids.add(v);
+    const build = new Set();
+    for (const vals of Object.values(tk)) for (const v of vals) build.add(v);
+    for (const v of build) may.add(v);
+    must = must ? new Set([...must].filter((v) => build.has(v))) : build;
   }
+  if (!must) return out;
+  out.ids = must;
+  out.ids.may = may;
+  out.may = may;
   return out;
 }
 
@@ -303,7 +316,14 @@ function techDataRuleEval(rule, ids, facts) {
       // that never held that root. Without `roots`, the ids are the whole
       // build (a type key's) and every leaf is decided.
       if (f.roots && !f.roots.has(rule.root)) return null;
-      return ids.has(rule.val);
+      if (ids.has(rule.val)) return true;
+      // A FOLD OF MANY BUILDS IS NOT ONE CAR. When the ids stand for every
+      // build of a chassis (a Garage car without a VIN), `may` carries what
+      // any build has: a leaf in it is undecided, not false, so NOT over it
+      // cannot hide a document from the builds it is for.
+      const may = f.may || ids.may;
+      if (may && may.has(rule.val)) return null;
+      return false;
     case 'and': {
       let out = true;
       for (const k of rule.kids || []) {

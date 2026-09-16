@@ -284,11 +284,47 @@ const T = loadClassic('screens/techdata/');
     const byChassis = await T.techDataCarKeys({ chassis: 'E46' });
     assert.strictEqual(byChassis.exact, false);
     assert.deepStrictEqual(
-      [...byChassis.ids].sort((a, b) => a - b),
+      [...byChassis.may].sort((a, b) => a - b),
       [900, 901, 902],
       'both E46 type keys fold in'
     );
     ok('no VIN falls back to the chassis');
+
+    // THE FOLD IS TWO SETS. Every E46 build carries the chassis id, only
+    // some carry M54 or M52: a leaf on the shared id decides, a leaf on an
+    // engine is undecided, and NOT over it stays undecided -- the union
+    // alone made "not M54" false for every E46 and hid the document
+    assert.deepStrictEqual(
+      [...byChassis.ids].sort((a, b) => a - b),
+      [900]
+    );
+    assert.deepStrictEqual(
+      [...byChassis.may].sort((a, b) => a - b),
+      [900, 901, 902]
+    );
+    const m54 = { op: 'eq', root: 2, val: 901 };
+    assert.strictEqual(
+      T.techDataRuleEval({ op: 'eq', root: 1, val: 900 }, byChassis.ids, {}),
+      true
+    );
+    assert.strictEqual(T.techDataRuleEval(m54, byChassis.ids, {}), null);
+    assert.strictEqual(
+      T.techDataRuleEval({ op: 'not', kids: [m54] }, byChassis.ids, {}),
+      null
+    );
+    assert.strictEqual(
+      T.techDataRuleEval({ op: 'eq', root: 2, val: 999 }, byChassis.ids, {}),
+      false
+    );
+    assert.strictEqual(
+      T.techDataFilter(
+        [{ id: 'x', rule: { op: 'not', kids: [m54] } }],
+        byChassis.ids
+      ).length,
+      1,
+      'a document for the non-M54 builds stays in the chassis view'
+    );
+    ok('a chassis fold decides only what every build shares');
 
     // a 7-character production number is not a type key and must not be read
     // as one: VIN[3..7] of "JT12345" is meaningless

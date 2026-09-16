@@ -19,7 +19,13 @@ sys.path.insert(
 )
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from validity_rules import compose_rule, read_salapas, rule_eval  # noqa: E402
+from validity_rules import (  # noqa: E402
+    ChassisFold,
+    chassis_char_ids,
+    compose_rule,
+    read_salapas,
+    rule_eval,
+)
 from technical_data_extract import (  # noqa: E402
     CLASSES,
     RuleParseError,
@@ -131,6 +137,23 @@ def test_facts():
     eq(rule_eval({"op": "salapa", "val": 5}, ids, {"salapa": {5}}), True, "an SA the car has")
     eq(rule_eval({"op": "salapa", "val": 6}, ids, {"salapa": {5}}), False, "an SA it has not")
     eq(rule_eval({"op": "salapa", "val": 6}, ids, {}), None, "no codes read: undecided")
+
+    # a fold of many builds: what every build has decides, what only some
+    # have is undecided, and NOT over it stays undecided
+    fold = ChassisFold({900}, {900, 901, 902})
+    m54, m52, other = ({"op": "eq", "root": 2, "val": v} for v in (901, 902, 999))
+    eq(rule_eval({"op": "eq", "root": 1, "val": 900}, fold), True, "every build has the chassis")
+    eq(rule_eval(m54, fold), None, "only some builds have M54")
+    eq(rule_eval({"op": "not", "kids": [m54]}, fold), None, "so NOT M54 is undecided, not false")
+    eq(rule_eval(other, fold), False, "no build has it")
+    eq(rule_eval(m54, {900}, {"may": {900, 901}}), None, "may travels as a fact too")
+    eq(rule_eval(m54, {900}), False, "a real car decides every leaf")
+    tks = {"A": {"53088651": [900], "2": [901]}, "B": {"53088651": [900], "2": [902]},
+           "Z": {"53088651": [800], "2": [901]}}
+    names = {"900": "E46", "800": "E39", "901": "M54", "902": "M52"}
+    got = chassis_char_ids(tks, names, "E46")
+    eq((set(got), got.may), ({900}, {900, 901, 902}), "the fold is intersection + union of the chassis's builds")
+    eq(bool(chassis_char_ids(tks, names, "E90")), False, "no type key, empty")
 
     own = {"op": "eq", "root": 1, "val": 900}
     a, b = {"op": "eq", "root": 1, "val": 1}, {"op": "eq", "root": 1, "val": 2}
