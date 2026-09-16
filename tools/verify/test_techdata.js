@@ -345,16 +345,29 @@ const T = loadClassic('screens/techdata/');
     // ONE SHAPE FOR EVERY GATE: the evaluator compares a DATE leaf as
     // year*100+month, so that is what the builder hands over. The Garage
     // stores the build date as `prod`, YYYYMM or YYYYMMDD.
-    const { techDataCarFacts, techDataFilter } = T;
+    const { techDataCarFacts, techDataFilter, techDataRuleEval } = T;
+    const { techDataDateTicks } = T;
     assert.deepStrictEqual(techDataCarFacts({ prod: '200203' }), {
       ym: 200203,
+      built: techDataDateTicks(2002, 3, 1),
     });
     assert.deepStrictEqual(techDataCarFacts({ prod: '20020315' }), {
       ym: 200203,
+      built: techDataDateTicks(2002, 3, 15),
     });
     assert.deepStrictEqual(techDataCarFacts({ prod: 20020315 }), {
       ym: 200203,
+      built: techDataDateTicks(2002, 3, 15),
     });
+    assert.strictEqual(
+      techDataRuleEval(
+        { op: 'mfd', cmp: 'ge', ticks: techDataDateTicks(2002, 3, 10) },
+        new Set(),
+        techDataCarFacts({ prod: '20020315' })
+      ),
+      true,
+      'the production-date leaf is decided from the build date'
+    );
     assert.deepStrictEqual(techDataCarFacts({ prod: '' }), {});
     assert.deepStrictEqual(techDataCarFacts({}), {});
     assert.deepStrictEqual(techDataCarFacts(null), {});
@@ -397,7 +410,6 @@ const T = loadClassic('screens/techdata/');
     // named by chassis and engine carries those two roots; a leaf about
     // its steering must stay open, not read false because the id is
     // absent from a set that never held that root.
-    const { techDataRuleEval } = T;
     const steer = { op: 'eq', root: 7, val: 700 };
     const named = { roots: new Set([1]) };
     assert.strictEqual(techDataRuleEval(steer, ids, named), null);

@@ -262,6 +262,47 @@ function repairGroupTree(idx) {
 }
 
 /**
+ * The index narrowed to one car.
+ *
+ * THE EXTRACT IS CHASSIS-WIDE, THE READER HAS ONE CAR. Every document
+ * carries its decoded validity rule, and the same evaluator that narrows
+ * the diagnosis structures and the technical data decides it here: a rule
+ * that is false for the car drops the document, one the facts cannot
+ * decide keeps it, and an undecoded rule keeps it marked. The index is
+ * copied, not changed: the chassis-wide one stays cached for the next car.
+ * @param {object|null} idx - the chassis index
+ * @param {object|null} car - the picked GarageCar
+ * @param {string} chassis - the development code
+ * @returns {Promise<object|null>} the index with its docs narrowed
+ */
+async function repairNarrow(idx, car, chassis) {
+  if (!idx || !Array.isArray(idx.docs)) return idx;
+  if (
+    typeof techDataCarKeys !== 'function' ||
+    typeof techDataRuleApplies !== 'function'
+  )
+    return idx;
+  const keys = await techDataCarKeys(car, chassis);
+  if (!keys || !keys.ids || !keys.ids.size) return idx;
+  const facts =
+    typeof techDataCarFactsAsync === 'function'
+      ? await techDataCarFactsAsync(car)
+      : {};
+  const docs = idx.docs.filter(
+    (d) => d.unsure || techDataRuleApplies(d.rule, keys.ids, facts)
+  );
+  return {
+    ...idx,
+    docs,
+    narrowed: {
+      exact: keys.exact,
+      typeKey: keys.typeKey,
+      total: idx.docs.length,
+    },
+  };
+}
+
+/**
  * The documents in one group, or one subgroup of it.
  * @param {object|null} idx - the chassis index
  * @param {string|null} group - the main group id, null for all
@@ -402,6 +443,7 @@ if (typeof window !== 'undefined') {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     REPAIR_SEARCH_CAP,
+    repairNarrow,
     repairUrls,
     repairFetchJson,
     repairIndex,

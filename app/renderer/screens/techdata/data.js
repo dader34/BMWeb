@@ -182,7 +182,17 @@ function techDataCarFacts(car) {
   if (/^\d{6}/.test(prod)) {
     const year = Number(prod.slice(0, 4));
     const month = Number(prod.slice(4, 6));
-    if (month >= 1 && month <= 12) facts.ym = year * 100 + month;
+    if (month >= 1 && month <= 12) {
+      facts.ym = year * 100 + month;
+      // the production-date leaf compares .NET ticks; the tool takes the
+      // exact date when it has one and the model month at day 1 otherwise
+      const day = /^\d{8}/.test(prod) ? Number(prod.slice(6, 8)) : 1;
+      facts.built = techDataDateTicks(
+        year,
+        month,
+        day >= 1 && day <= 31 ? day : 1
+      );
+    }
   }
   // THE ORDER'S OPTION CODES DECIDE THE SA LEAVES. A SALAPA leaf names an
   // XEP_SALAPAS id and the car's order names a code (403, 2VB); the shipped
