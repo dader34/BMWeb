@@ -225,6 +225,14 @@ def rule_eval(rule, ids, facts=None):
     facts = facts or {}
     op = rule.get("op")
     if op == "eq":
+        # A CHARACTERISTIC THE CALLER KNOWS NOTHING ABOUT IS UNDECIDED. A car
+        # identified by name (chassis, engine, body) rather than by its type
+        # key carries facts for those three roots only; a leaf about its
+        # steering or sales designation must stay open, not read as false
+        # because the id is absent from a set that never held that root.
+        roots = facts.get("roots")
+        if roots is not None and rule.get("root") not in roots:
+            return None
         return rule["val"] in ids
     if op == "and":
         out = True
@@ -280,10 +288,41 @@ def rule_applies(rule, ids, facts=None):
     @param rule: a tree from parse_rule, or None
     @param ids: the set of characteristic value ids the car carries
     @param facts: optional dict: "built" (production date in .NET ticks),
-        "ym" (model year * 100 + month), and for each name in FACT_LEAVES a
-        set of ids the car carries
+        "ym" (model year * 100 + month), "roots" (the characteristic roots
+        the ids cover; absent means all of them), and for each name in
+        FACT_LEAVES a set of ids the car carries
     """
     return rule_eval(rule, ids, facts) is not False
+
+
+def compose_rule(own, ancestors):
+    """One tree for a document reached through a tree of gated nodes.
+
+    ISTA reaches a document through its diagnosis tree, and every node on
+    the way carries its own rule, so the document applies when its own rule
+    holds AND some path down to it holds: own AND (OR over paths of AND over
+    the path's rules). A document with no path is gated by its own rule
+    alone. Trees may be None (no rule).
+
+    @param own: the document's own tree, or None
+    @param ancestors: a list of paths, each a list of trees
+    """
+    paths = []
+    for path in ancestors or ():
+        kids = [t for t in path if t]
+        if not kids:
+            # an ungated path reaches the document unconditionally
+            paths = None
+            break
+        paths.append(kids[0] if len(kids) == 1 else {"op": "and", "kids": kids})
+    kids = []
+    if own:
+        kids.append(own)
+    if paths:
+        kids.append(paths[0] if len(paths) == 1 else {"op": "or", "kids": paths})
+    if not kids:
+        return None
+    return kids[0] if len(kids) == 1 else {"op": "and", "kids": kids}
 
 
 # ---- the vehicle characteristic maps ---------------------------------------
@@ -312,6 +351,24 @@ def read_typekeys(con):
         vals = by_root.setdefault(str(root), [])
         if cid not in vals:
             vals.append(cid)
+    return out
+
+
+def read_salapas(con):
+    """SA/LA/PA code -> the XEP_SALAPAS ids that carry it.
+
+    A SALAPA leaf names an id, and the car's order names a code (403, 2VB),
+    so this is the bridge the evaluator needs. Cars and motorcycles keep
+    separate rows for one code and both are listed: a rule ANDs the chassis
+    in, so the wrong product's id can never decide anything on its own.
+
+    @param con: an open DiagDocDb connection
+    """
+    out = {}
+    for sid, name in con.execute(
+        "SELECT ID, NAME FROM XEP_SALAPAS WHERE NAME IS NOT NULL AND NAME<>''"
+    ):
+        out.setdefault(str(name).strip().upper(), []).append(sid)
     return out
 
 

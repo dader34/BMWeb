@@ -1174,23 +1174,44 @@ async function istaOpenEcuWindow(slot, box, chassis) {
     slot.ecu && slot.ecu.code
       ? `?code=${encodeURIComponent(slot.ecu.code)}`
       : '';
-  // An unidentified slot has no sgbd of its own yet, only its candidates:
-  // one for most slots (the KOMBI is kombi46 and nothing else), several for
-  // the engine. The tool's lists are per variant, so the first candidate
-  // the extract carries stands for the slot until a scan identifies it.
-  const names = [slot.sgbd]
-    .concat((slot.candidates || []).map((c) => c && c.sgbd))
-    .filter((n, i, a) => n && a.indexOf(n) === i);
+  // AN UNIDENTIFIED SLOT IS IDENTIFIED BEFORE IT IS TALKED TO. A slot no
+  // scan has read has only its candidates -- one for most, eight for an
+  // E46 engine -- and the tool's function lists are per variant. Sending
+  // a candidate's jobs on the wire is sending MS42 jobs to an MSS54, so
+  // the slot's group is probed first, the way the vehicle test identifies
+  // it; the car's own answer picks the variant. When nothing answers (no
+  // cable, or a module that is not there) the window lists the first
+  // candidate's functions to read, says so, and refuses to send them.
   let variant = slot.sgbd || '';
-  let fn = null;
-  for (const n of names) {
-    fn = await istaEcuFnLoad(n);
-    if (fn) {
-      variant = n;
-      break;
+  let identified = !!variant;
+  if (!variant && typeof webResolveVariant === 'function') {
+    const groups = [slot.group]
+      .concat((slot.box && slot.box.groups) || [])
+      .map((g) => String(g || '').toLowerCase())
+      .filter((g, i, a) => g && a.indexOf(g) === i);
+    for (const g of groups) {
+      const got = await istaProbe(() => webResolveVariant(g));
+      if (got) {
+        variant = String(got).toLowerCase();
+        identified = true;
+        break;
+      }
     }
   }
-  if (!variant && names.length) variant = names[0];
+  const candidates = (slot.candidates || [])
+    .map((c) => c && String(c.sgbd || '').toLowerCase())
+    .filter((n, i, a) => n && a.indexOf(n) === i);
+  let fn = variant ? await istaEcuFnLoad(variant) : null;
+  if (!variant) {
+    for (const n of candidates) {
+      fn = await istaEcuFnLoad(n);
+      if (fn) {
+        variant = n;
+        break;
+      }
+    }
+    if (!variant && candidates.length) variant = candidates[0];
+  }
   const ir = variant
     ? await istaProbe(() => api(`/api/ecu/${variant}/ir${code}`))
     : null;
@@ -1199,7 +1220,16 @@ async function istaOpenEcuWindow(slot, box, chassis) {
     box,
     ir,
     fn,
+    notice: identified
+      ? ''
+      : `Control unit not identified. The lists show candidate ` +
+        `${variant || '-'}; run Identification (Start vehicle test) ` +
+        `before reading or triggering it.`,
     runJob: async (job, args, write) => {
+      if (!identified)
+        throw new Error(
+          'control unit not identified: run Identification first'
+        );
       // the same rule the raw job runner follows: a job that commands the
       // ECU asks first unless the user turned actuator confirmations off
       if (
@@ -1565,24 +1595,16 @@ async function istaDiagLoad(chassis, which, car) {
     typeof techDataCarKeys === 'function' ? techDataCarKeys(car, chassis) : null
   );
   if (!keys || !keys.ids || !keys.ids.size) return tree;
-  return istaDiagGate(tree, keys.ids, istaDiagFacts(car)) || tree;
-}
-
-/**
- * The dated facts a validity rule can test, for one car.
- *
- * A rule may ask when the car was built as well as what it is, so the
- * production date travels with the characteristic ids. A car whose date
- * nobody knows simply leaves those clauses undecided, which the gate keeps.
- * @param {object|null} car - the picked GarageCar
- * @returns {object} the facts
- */
-function istaDiagFacts(car) {
-  // the same builder every gate uses: the evaluator compares a DATE leaf as
-  // year*100+month, and a "YYYY-MM" string here once made every dated clause
-  // a decided false, which pruned the branches it guarded instead of keeping
-  // them
-  return typeof techDataCarFacts === 'function' ? techDataCarFacts(car) : {};
+  // THE FACTS COME FROM THE ONE BUILDER EVERY GATE USES (techDataCarFacts):
+  // the build date as year*100+month, the way the evaluator compares a DATE
+  // leaf, and the order's SA codes the Garage keeps. A "YYYY-MM" string
+  // built here once made every dated clause a decided false, which pruned
+  // the branches it guarded instead of keeping them.
+  const facts =
+    typeof techDataCarFactsAsync === 'function'
+      ? await techDataCarFactsAsync(car)
+      : {};
+  return istaDiagGate(tree, keys.ids, facts) || tree;
 }
 
 /**
@@ -2384,9 +2406,12 @@ let istaWiringCliques = null;
  */
 async function istaWiringFacts(chassis) {
   const car = istaState.car || null;
-  // the build date the Garage stores as `prod`, in the evaluator's shape
+  // the build date the Garage stores as `prod` and the order's SA codes,
+  // in the evaluator's shape
   const facts =
-    typeof techDataCarFacts === 'function' ? techDataCarFacts(car) : {};
+    typeof techDataCarFactsAsync === 'function'
+      ? await techDataCarFactsAsync(car)
+      : {};
   // the cliques of every variant this car has answered as
   if (istaWiringCliques === null)
     istaWiringCliques =
@@ -3055,6 +3080,11 @@ async function istaDrawPage(s, host) {
     });
     if (!host.isConnected) return;
     const codes = (got && got.codes) || [];
+    // THE ORDER'S CODES STAY WITH THE CAR. A validity rule's SA leaves are
+    // decided from them, and the read costs a cable, so what came back is
+    // kept on the Garage record for every later visit
+    if (car && codes.length && typeof garageUpdateCar === 'function')
+      garageUpdateCar(car.id, { sa: codes.slice() });
     const date = car && car.prod ? Number(String(car.prod).padEnd(8, '0')) : 0;
     // THE NAME LIVES ON VehicleIdentity, NOT AS A BARE GLOBAL. sa-names.js
     // assigns saName onto the VehicleIdentity namespace only, so a guard of
@@ -3491,7 +3521,6 @@ if (typeof module !== 'undefined' && module.exports) {
     istaSubReady,
     istaRouteStamp,
     istaOpenOperation,
-    istaDiagFacts,
     showIsta,
   };
 }

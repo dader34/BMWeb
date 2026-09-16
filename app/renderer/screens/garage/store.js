@@ -51,6 +51,8 @@ const GARAGE_VIN_TAIL = 7;
  * @property {string} [body] - body code
  * @property {string} [motor] - engine code
  * @property {string} [prod] - build date, YYYYMM(DD)
+ * @property {string[]} [sa] - the order's SA option codes, as the ISTA
+ *   equipment page last read them; the validity rules' SA leaves use them
  */
 
 /**

@@ -275,6 +275,8 @@ function istaEcuFnRows(item, sets) {
  * @param {object|null} ctx.ir - the module's decoded script
  * @param {(screen: object) => Promise<object[]>} ctx.run - run one screen and
  *   give back its result rows as [label, value] pairs
+ * @param {string} [ctx.notice] - what the result pane says before anything
+ *   runs: an unidentified slot names the candidate its lists came from
  * @returns {void}
  */
 function istaEcuWindow(ctx) {
@@ -285,7 +287,7 @@ function istaEcuWindow(ctx) {
   let tab = 'ident';
   let picked = null;
   /** @type {Array<[string, string]>} rows the last run produced */
-  let results = [];
+  let results = ctx.notice ? [['Control unit', String(ctx.notice)]] : [];
   // ISTA's lists drill down: the groups first, then a group's items. With
   // the tool's function data the pane shows groups; a script-only module
   // keeps the flat screen list the app can offer.

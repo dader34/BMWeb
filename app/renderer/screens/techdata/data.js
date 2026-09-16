@@ -164,12 +164,94 @@ function techDataCompare(left, cmp, right) {
  * @returns {{ym?: number}} facts for techDataRuleApplies
  */
 function techDataCarFacts(car) {
+  const facts = {};
   const prod = String((car && car.prod) || '').trim();
-  if (!/^\d{6}/.test(prod)) return {};
-  const year = Number(prod.slice(0, 4));
-  const month = Number(prod.slice(4, 6));
-  if (month < 1 || month > 12) return {};
-  return { ym: year * 100 + month };
+  if (/^\d{6}/.test(prod)) {
+    const year = Number(prod.slice(0, 4));
+    const month = Number(prod.slice(4, 6));
+    if (month >= 1 && month <= 12) facts.ym = year * 100 + month;
+  }
+  // THE ORDER'S OPTION CODES DECIDE THE SA LEAVES. A SALAPA leaf names an
+  // XEP_SALAPAS id and the car's order names a code (403, 2VB); the shipped
+  // bridge turns one into the other. A car whose codes nobody has read
+  // leaves those leaves undecided, which keeps the document -- the same
+  // posture as an unknown build date.
+  const sa = techDataSalapaIds(car && car.sa);
+  if (sa) facts.salapa = sa;
+  return facts;
+}
+
+/** @type {Object<string, number[]>|null} SA code -> XEP_SALAPAS ids */
+let techDataSalapas = null;
+
+/**
+ * The XEP_SALAPAS ids for a car's option codes, once the bridge is loaded.
+ * @param {string[]|null|undefined} codes - the order's SA codes
+ * @returns {Set<number>|null} the ids, or null when there are no codes or
+ *   the bridge has not loaded yet
+ */
+function techDataSalapaIds(codes) {
+  if (!techDataSalapas || !Array.isArray(codes) || !codes.length) return null;
+  const out = new Set();
+  for (const raw of codes) {
+    const code = String(raw || '')
+      .trim()
+      .toUpperCase();
+    if (!code) continue;
+    // the order writes an SA as its bare number ("403"); a coding key's
+    // catalogue form may carry the S prefix ("S403A"), which the table does
+    // not
+    const forms = [code];
+    const m = /^S(\w{3})[A-Z]?$/.exec(code);
+    if (m) forms.push(m[1]);
+    for (const f of forms)
+      for (const id of techDataSalapas[f] || []) out.add(id);
+  }
+  return out;
+}
+
+/**
+ * The car's facts with the SA bridge loaded first.
+ *
+ * The bridge is one small file that every gate needs before it can decide
+ * an option leaf, so it is fetched once here and techDataCarFacts stays
+ * synchronous for callers that already hold it.
+ * @param {object|null|undefined} car - a GarageCar
+ * @returns {Promise<object>} facts for techDataRuleApplies
+ */
+async function techDataCarFactsAsync(car) {
+  if (techDataSalapas === null && car && Array.isArray(car.sa) && car.sa.length)
+    techDataSalapas = (await techDataFetchJson('salapas.json')) || {};
+  return techDataCarFacts(car);
+}
+
+/**
+ * One tree for a document reached through gated tree nodes.
+ *
+ * The twin of compose_rule in validity_rules.py: the document applies when
+ * its own rule holds AND some path of ancestors down to it holds, so own
+ * AND (OR over paths of AND over the path). A path with no gated node
+ * reaches the document unconditionally.
+ * @param {object|null} own - the document's own tree
+ * @param {Array<Array<object|null>>} paths - the ancestor trees per path
+ * @returns {object|null} the composed tree, or null for "no rule"
+ */
+function techDataComposeRule(own, paths) {
+  let ors = [];
+  for (const path of paths || []) {
+    const kids = (path || []).filter(Boolean);
+    if (!kids.length) {
+      ors = null;
+      break;
+    }
+    ors.push(kids.length === 1 ? kids[0] : { op: 'and', kids });
+  }
+  const kids = [];
+  if (own) kids.push(own);
+  if (ors && ors.length)
+    kids.push(ors.length === 1 ? ors[0] : { op: 'or', kids: ors });
+  if (!kids.length) return null;
+  return kids.length === 1 ? kids[0] : { op: 'and', kids };
 }
 
 /**
@@ -214,6 +296,13 @@ function techDataRuleEval(rule, ids, facts) {
   const f = facts || {};
   switch (rule.op) {
     case 'eq':
+      // A CHARACTERISTIC THE CALLER KNOWS NOTHING ABOUT IS UNDECIDED. A car
+      // identified by name (chassis, engine, body) carries facts for those
+      // roots only; a leaf about its steering or sales designation stays
+      // open rather than reading false because the id is absent from a set
+      // that never held that root. Without `roots`, the ids are the whole
+      // build (a type key's) and every leaf is decided.
+      if (f.roots && !f.roots.has(rule.root)) return null;
       return ids.has(rule.val);
     case 'and': {
       let out = true;
@@ -350,6 +439,9 @@ if (typeof module !== 'undefined' && module.exports) {
     techDataBody,
     techDataCarKeys,
     techDataCarFacts,
+    techDataCarFactsAsync,
+    techDataSalapaIds,
+    techDataComposeRule,
     techDataRuleApplies,
     techDataRuleEval,
     techDataCompare,

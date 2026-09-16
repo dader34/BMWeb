@@ -19,6 +19,7 @@ sys.path.insert(
 )
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
+from validity_rules import compose_rule, read_salapas, rule_eval  # noqa: E402
 from technical_data_extract import (  # noqa: E402
     CLASSES,
     RuleParseError,
@@ -119,6 +120,36 @@ def test_rules():
 
 
 # ---- the group numbering ---------------------------------------------------
+def test_facts():
+    """The evaluator's twin rules: unknown roots, composition, the SA bridge."""
+    ids = {900, 901}
+    steer = {"op": "eq", "root": 7, "val": 700}
+    eq(rule_eval(steer, ids, {"roots": {1}}), None, "a root the car has no fact for is undecided")
+    eq(rule_eval({"op": "not", "kids": [steer]}, ids, {"roots": {1}}), None, "NOT of it stays undecided")
+    eq(rule_eval({"op": "eq", "root": 1, "val": 900}, ids, {"roots": {1}}), True, "a known root decides")
+    eq(rule_eval(steer, ids, {}), False, "without roots every leaf is decided")
+    eq(rule_eval({"op": "salapa", "val": 5}, ids, {"salapa": {5}}), True, "an SA the car has")
+    eq(rule_eval({"op": "salapa", "val": 6}, ids, {"salapa": {5}}), False, "an SA it has not")
+    eq(rule_eval({"op": "salapa", "val": 6}, ids, {}), None, "no codes read: undecided")
+
+    own = {"op": "eq", "root": 1, "val": 900}
+    a, b = {"op": "eq", "root": 1, "val": 1}, {"op": "eq", "root": 1, "val": 2}
+    eq(compose_rule(own, []), own, "no path: the own rule")
+    eq(compose_rule(None, []), None, "no rule at all")
+    eq(compose_rule(own, [[a]]), {"op": "and", "kids": [own, a]}, "one gated path ANDs in")
+    eq(compose_rule(own, [[a, b], [b]]),
+       {"op": "and", "kids": [own, {"op": "or", "kids": [{"op": "and", "kids": [a, b]}, b]}]},
+       "several paths OR")
+    eq(compose_rule(own, [[a], []]), own, "an ungated path reaches the document unconditionally")
+    eq(compose_rule(None, [[a]]), a, "a path alone")
+
+    con = sqlite3.connect(":memory:")
+    con.execute("CREATE TABLE XEP_SALAPAS (ID INTEGER, NAME TEXT, PRODUCT_TYPE TEXT)")
+    con.executemany("INSERT INTO XEP_SALAPAS VALUES (?,?,?)",
+                    [(1, "403", "P"), (2, "403", "M"), (3, "2vb", "P"), (4, None, "P"), (5, "", "P")])
+    eq(read_salapas(con), {"403": [1, 2], "2VB": [3]}, "code -> ids, both product types, upper-cased")
+
+
 def test_groups():
     """The source's ragged group codes normalise to their number."""
     eq(group_number("11"), "11", "a plain number")
@@ -349,6 +380,7 @@ def test_database():
 def main():
     """Run the pure checks, then the database ones when reachable."""
     test_rules()
+    test_facts()
     test_groups()
     test_bodies()
     if os.path.exists(DIAGDOC):

@@ -2241,28 +2241,31 @@ const I = loadClassic('screens/ista/');
   // "2002-03", a string techDataCompare read as NaN, so every dated clause
   // was a decided false and the branches it guarded were pruned from the
   // tree -- the opposite of the keep-on-unknown policy the gate promises.
-  global.techDataCarFacts = require(
-    path.join(ROOT, 'app', 'renderer', 'screens', 'techdata', 'data.js')
-  ).techDataCarFacts;
-  assert.deepStrictEqual(I.istaDiagFacts({ prod: '200203' }), { ym: 200203 });
-  assert.deepStrictEqual(I.istaDiagFacts({ prod: '20020315' }), {
-    ym: 200203,
-  });
-  assert.deepStrictEqual(I.istaDiagFacts({}), {});
-  assert.deepStrictEqual(I.istaDiagFacts(null), {});
-  ok("the diagnosis gate reads the build date in the evaluator's shape");
-
-  // the wiring gate reads the SAME field and the SAME shape, and loads the
-  // slots through the loader that exists
   const screen = fs.readFileSync(
     path.join(ROOT, 'app', 'renderer', 'screens', 'ista', 'screen.js'),
     'utf8'
   );
+  const diag = screen.slice(
+    screen.indexOf('async function istaDiagLoad'),
+    screen.indexOf('async function istaDiagBody')
+  );
+  assert.ok(
+    diag.includes('await techDataCarFactsAsync(car)'),
+    'the diagnosis gate takes its facts from the one builder'
+  );
+  assert.ok(!/ym:\s*`/.test(diag), 'no string-shaped date');
+  ok("the diagnosis gate reads the build date in the evaluator's shape");
+
+  // the wiring gate reads the SAME field and the SAME shape, and loads the
+  // slots through the loader that exists
   const wiring = screen.slice(
     screen.indexOf('async function istaWiringFacts'),
     screen.indexOf('async function istaWiringValid')
   );
-  assert.ok(wiring.includes('techDataCarFacts(car)'), 'one facts builder');
+  assert.ok(
+    wiring.includes('await techDataCarFactsAsync(car)'),
+    'one facts builder'
+  );
   assert.ok(
     !/car\.(built|buildDate|date)\b/.test(wiring),
     'no field the Garage never stores'
@@ -2286,6 +2289,44 @@ const I = loadClassic('screens/ista/');
     'an unknown build date is left out of the Garage record'
   );
   ok('Basic Features does not save a dateless car as dated');
+
+  // AN UNIDENTIFIED SLOT IS IDENTIFIED BEFORE IT IS TALKED TO. The window
+  // used to list the first candidate with a function extract and send that
+  // candidate's jobs -- MS42 jobs to an MSS54. It probes the slot's group
+  // first, and when nothing answers it says so and refuses to send.
+  const win = screen.slice(
+    screen.indexOf('async function istaOpenEcuWindow'),
+    screen.indexOf('function istaTestLive') > 0
+      ? screen.indexOf('async function istaOpenEcuWindow') + 6000
+      : undefined
+  );
+  assert.ok(win.includes('webResolveVariant(g)'), 'the group is probed');
+  assert.ok(win.includes('if (!identified)'), 'an unidentified slot refuses');
+  assert.ok(
+    win.includes('control unit not identified: run Identification first'),
+    'and says why'
+  );
+  assert.ok(win.includes('notice: identified'), 'the window carries a notice');
+  const probe = win.indexOf('webResolveVariant(g)');
+  const guess = win.indexOf('candidates[0]');
+  assert.ok(probe > 0 && guess > probe, 'the candidate is the LAST resort');
+  ok('the ECU window identifies a control unit before it sends anything');
+
+  // the order's SA codes the equipment page read stay on the Garage record,
+  // where the validity rules' SA leaves read them without a cable
+  assert.ok(
+    screen.includes('garageUpdateCar(car.id, { sa: codes.slice() })'),
+    'the shell equipment page keeps the codes'
+  );
+  const details = fs.readFileSync(
+    path.join(ROOT, 'app', 'renderer', 'screens', 'ista', 'details.js'),
+    'utf8'
+  );
+  assert.ok(
+    details.includes('garageUpdateCar(car.id, { sa: codes.slice() })'),
+    'so does the classic equipment page'
+  );
+  ok("the order's option codes stay with the car");
 }
 
 // ---- the ECU window's identification values -------------------------------

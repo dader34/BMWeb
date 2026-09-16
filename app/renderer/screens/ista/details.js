@@ -247,6 +247,10 @@ async function istaShowEquipment(host, car, chassis) {
   if (!host.isConnected) return;
 
   const codes = (got && got.codes) || [];
+  // the order's codes stay with the car: the validity rules' SA leaves are
+  // decided from them on every later visit, without a cable
+  if (car && codes.length && typeof garageUpdateCar === 'function')
+    garageUpdateCar(car.id, { sa: codes.slice() });
   if (!codes.length) {
     body.innerHTML =
       `<div class="ista-none-box">No option list came back. Either no ` +

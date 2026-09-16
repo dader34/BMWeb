@@ -356,6 +356,100 @@ const T = loadClassic('screens/techdata/');
     );
     ok('the technical data narrows by build date');
 
+    // ---- the roots the car has facts for ------------------------------
+    // A CHARACTERISTIC THE CALLER KNOWS NOTHING ABOUT IS UNDECIDED. A car
+    // named by chassis and engine carries those two roots; a leaf about
+    // its steering must stay open, not read false because the id is
+    // absent from a set that never held that root.
+    const { techDataRuleEval } = T;
+    const steer = { op: 'eq', root: 7, val: 700 };
+    const named = { roots: new Set([1]) };
+    assert.strictEqual(techDataRuleEval(steer, ids, named), null);
+    assert.strictEqual(
+      techDataRuleEval({ op: 'eq', root: 1, val: 900 }, ids, named),
+      true
+    );
+    assert.strictEqual(
+      techDataRuleEval({ op: 'eq', root: 1, val: 901 }, ids, named),
+      false
+    );
+    assert.strictEqual(
+      techDataRuleEval({ op: 'not', kids: [steer] }, ids, named),
+      null,
+      'NOT of an unknown root stays unknown'
+    );
+    assert.strictEqual(
+      techDataRuleEval(steer, ids, {}),
+      false,
+      'without roots every leaf is decided'
+    );
+    ok('a leaf about a root the car has no fact for is undecided');
+
+    // ---- the SA bridge -------------------------------------------------
+    // a SALAPA leaf names an XEP_SALAPAS id; the order names a code
+    global.hfFetchFirst = async (rel) =>
+      rel.includes('typekeys')
+        ? typekeys
+        : rel.includes('characteristics')
+          ? chars
+          : rel.includes('salapas')
+            ? { 403: [5001, 5002], '2VB': [5003] }
+            : null;
+    const glass = { op: 'salapa', val: 5001 };
+    assert.strictEqual(
+      techDataRuleEval(glass, ids, T.techDataCarFacts({ sa: ['403'] })),
+      null,
+      'before the bridge loads the leaf is undecided'
+    );
+    const withSa = await T.techDataCarFactsAsync({
+      prod: '200203',
+      sa: ['403', 'S2VBA'],
+    });
+    assert.deepStrictEqual([...withSa.salapa].sort(), [5001, 5002, 5003]);
+    assert.strictEqual(withSa.ym, 200203);
+    assert.strictEqual(techDataRuleEval(glass, ids, withSa), true);
+    assert.strictEqual(
+      techDataRuleEval({ op: 'salapa', val: 5009 }, ids, withSa),
+      false,
+      'an option the car does not have is a decided no'
+    );
+    assert.strictEqual(
+      techDataRuleEval(glass, ids, await T.techDataCarFactsAsync({})),
+      null,
+      'a car whose codes nobody read keeps the document'
+    );
+    ok("the SA leaves are decided from the order's codes");
+
+    // ---- composing a document with its gated path ----------------------
+    const { techDataComposeRule } = T;
+    const eq = (v) => ({ op: 'eq', root: 1, val: v });
+    const own = eq(100);
+    assert.deepStrictEqual(techDataComposeRule(own, []), own);
+    assert.deepStrictEqual(techDataComposeRule(null, []), null);
+    assert.deepStrictEqual(techDataComposeRule(own, [[eq(200)]]), {
+      op: 'and',
+      kids: [own, eq(200)],
+    });
+    assert.deepStrictEqual(
+      techDataComposeRule(own, [[eq(200), eq(300)], [eq(400)]]),
+      {
+        op: 'and',
+        kids: [
+          own,
+          {
+            op: 'or',
+            kids: [{ op: 'and', kids: [eq(200), eq(300)] }, eq(400)],
+          },
+        ],
+      }
+    );
+    assert.deepStrictEqual(
+      techDataComposeRule(own, [[eq(200)], []]),
+      own,
+      'an ungated path reaches the document unconditionally'
+    );
+    ok('a document composes with the paths that reach it');
+
     renderChecks();
   })().catch((e) => {
     console.error(e);

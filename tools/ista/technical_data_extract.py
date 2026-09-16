@@ -30,11 +30,10 @@ extract and the repair-instruction extract evaluate against, so a torque
 table and a repair step are shown for the same car by the same rule. What
 does not decode is flagged `unsure` and shown anyway, marked.
 
-(The older tools/wiring/ista_rules.py reads the same blobs by scanning for
-any 4-byte value that happens to be a known characteristic id. That finds
-the ids but cannot see AND/OR/NOT, so it cannot tell "E46 and M54" from
-"E46 or M54". This decodes the structure instead. It is left alone because
-the wiring index is built against its behaviour.)
+(The wiring applicability index, tools/wiring/build_applicability.py, and
+the reference-document importer decode the same blobs with this grammar
+too; the byte scanner they once shared could not see AND/OR/NOT and is
+gone.)
 
 Output, under data/ista/techdata/ (gitignored, uploaded to the dataset):
 
@@ -42,6 +41,7 @@ Output, under data/ista/techdata/ (gitignored, uploaded to the dataset):
                         `unsure`, and the shard its body is in
     roots.json          characteristic-root id -> name ("Engine", "Body", ...)
     typekeys.json       type key -> {root id: [value ids]}, for the car filter
+    salapas.json        SA/LA/PA code -> [XEP_SALAPAS ids], for the SA leaves
     body/<class>-<group>.json   bodies, sharded by class and main group
 
 Usage:
@@ -71,6 +71,7 @@ from validity_rules import (  # noqa: F401  re-exported for the tests
     parse_rule,
     read_char_names,
     read_roots,
+    read_salapas,
     read_typekeys,
 )
 
@@ -402,6 +403,7 @@ def main():
     roots = read_roots(diag)
     typekeys = read_typekeys(diag)
     char_names = read_char_names(diag)
+    salapas = read_salapas(diag)
 
     os.makedirs(os.path.join(args.out, "body"), exist_ok=True)
 
@@ -426,6 +428,7 @@ def main():
     total += write("roots.json", roots)
     total += write("typekeys.json", typekeys)
     total += write("characteristics.json", char_names)
+    total += write("salapas.json", salapas)
     biggest = 0
     for name, docs in shards.items():
         size = write(os.path.join("body", f"{name}.json"), docs)

@@ -61,7 +61,8 @@ async function techDataRescope(car, chassis) {
     return { exact: false, typeKey: null, total: docs.length };
   }
   const keys = await techDataCarKeys(car, chassis);
-  techDataScope = techDataFilter(docs, keys.ids, techDataCarFacts(car));
+  const facts = await techDataCarFactsAsync(car);
+  techDataScope = techDataFilter(docs, keys.ids, facts);
   return { exact: keys.exact, typeKey: keys.typeKey, total: docs.length };
 }
 
