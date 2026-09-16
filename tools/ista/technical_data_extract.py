@@ -41,7 +41,9 @@ Output, under data/ista/techdata/ (gitignored, uploaded to the dataset):
                         `unsure`, and the shard its body is in
     roots.json          characteristic-root id -> name ("Engine", "Body", ...)
     typekeys.json       type key -> {root id: [value ids]}, for the car filter
-    salapas.json        SA/LA/PA code -> [XEP_SALAPAS ids], for the SA leaves
+    rulefacts.json      the tables the vehicle leaves consult (SA/LA/PA
+                        rows, countries, I-levels, features, ECU cliques
+                        with their variants and groups), see read_rule_facts
     body/<class>-<group>.json   bodies, sharded by class and main group
 
 Usage:
@@ -71,7 +73,7 @@ from validity_rules import (  # noqa: F401  re-exported for the tests
     parse_rule,
     read_char_names,
     read_roots,
-    read_salapas,
+    read_rule_facts,
     read_typekeys,
 )
 
@@ -403,7 +405,7 @@ def main():
     roots = read_roots(diag)
     typekeys = read_typekeys(diag)
     char_names = read_char_names(diag)
-    salapas = read_salapas(diag)
+    rulefacts = read_rule_facts(diag)
 
     os.makedirs(os.path.join(args.out, "body"), exist_ok=True)
 
@@ -428,7 +430,7 @@ def main():
     total += write("roots.json", roots)
     total += write("typekeys.json", typekeys)
     total += write("characteristics.json", char_names)
-    total += write("salapas.json", salapas)
+    total += write("rulefacts.json", rulefacts)
     biggest = 0
     for name, docs in shards.items():
         size = write(os.path.join("body", f"{name}.json"), docs)

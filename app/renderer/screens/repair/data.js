@@ -285,8 +285,8 @@ async function repairNarrow(idx, car, chassis) {
   const keys = await techDataCarKeys(car, chassis);
   if (!keys || !keys.ids || !keys.ids.size) return idx;
   const facts =
-    typeof techDataCarFactsAsync === 'function'
-      ? await techDataCarFactsAsync(car)
+    typeof techDataVehicleFacts === 'function'
+      ? await techDataVehicleFacts(car, chassis)
       : {};
   const docs = idx.docs.filter(
     (d) => d.unsure || techDataRuleApplies(d.rule, keys.ids, facts)

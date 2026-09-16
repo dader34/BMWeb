@@ -174,7 +174,7 @@ function techDataCompare(left, cmp, right) {
  * fields the record never carries (so no date was ever known). A car whose
  * date nobody knows gets no `ym`, and the evaluator keeps the document.
  * @param {object|null|undefined} car - a GarageCar
- * @returns {{ym?: number}} facts for techDataRuleApplies
+ * @returns {{ym?: number, built?: number}} facts for techDataRuleApplies
  */
 function techDataCarFacts(car) {
   const facts = {};
@@ -194,58 +194,152 @@ function techDataCarFacts(car) {
       );
     }
   }
-  // THE ORDER'S OPTION CODES DECIDE THE SA LEAVES. A SALAPA leaf names an
-  // XEP_SALAPAS id and the car's order names a code (403, 2VB); the shipped
-  // bridge turns one into the other. A car whose codes nobody has read
-  // leaves those leaves undecided, which keeps the document -- the same
-  // posture as an unknown build date.
-  const sa = techDataSalapaIds(car && car.sa);
-  if (sa) facts.salapa = sa;
   return facts;
 }
 
-/** @type {Object<string, number[]>|null} SA code -> XEP_SALAPAS ids */
-let techDataSalapas = null;
+/** @type {object|null} the tables the vehicle leaves consult (rulefacts.json) */
+let techDataRuleFacts = null;
+
+/** The identification level at which the tool has read the car's modules. */
+const TECHDATA_LEVEL_READOUT = 5;
+
+/** The characteristic root that names the product type (P car, M motorcycle). */
+const TECHDATA_PRODART_ROOT = '53073547';
 
 /**
- * The XEP_SALAPAS ids for a car's option codes, once the bridge is loaded.
- * @param {string[]|null|undefined} codes - the order's SA codes
- * @returns {Set<number>|null} the ids, or null when there are no codes or
- *   the bridge has not loaded yet
+ * The tables the vehicle leaves consult, fetched once.
+ * @returns {Promise<object>}
  */
-function techDataSalapaIds(codes) {
-  if (!techDataSalapas || !Array.isArray(codes) || !codes.length) return null;
-  const out = new Set();
-  for (const raw of codes) {
-    const code = String(raw || '')
-      .trim()
-      .toUpperCase();
-    if (!code) continue;
-    // the order writes an SA as its bare number ("403"); a coding key's
-    // catalogue form may carry the S prefix ("S403A"), which the table does
-    // not
-    const forms = [code];
-    const m = /^S(\w{3})[A-Z]?$/.exec(code);
-    if (m) forms.push(m[1]);
-    for (const f of forms)
-      for (const id of techDataSalapas[f] || []) out.add(id);
-  }
-  return out;
+async function techDataRuleFactsLoad() {
+  if (techDataRuleFacts === null)
+    techDataRuleFacts = (await techDataFetchJson('rulefacts.json')) || {};
+  return techDataRuleFacts;
 }
 
 /**
- * The car's facts with the SA bridge loaded first.
+ * The workshop's country, the way the tool reads its dealer data.
  *
- * The bridge is one small file that every gate needs before it can decide
- * an option leaf, so it is fetched once here and techDataCarFacts stays
- * synchronous for callers that already hold it.
+ * A COUNTRY leaf compares the DEALER's outlet country, never the car's, so
+ * it is a setting here; unset, the browser's region stands in for it.
+ * @returns {string} a two-letter code, or ''
+ */
+function techDataCountry() {
+  let code = '';
+  try {
+    if (typeof Settings === 'object' && Settings && Settings.get)
+      code = String(Settings.get('istaCountry', '') || '');
+  } catch {
+    code = '';
+  }
+  if (!code && typeof navigator !== 'undefined' && navigator.language) {
+    const m = /[-_]([A-Za-z]{2})$/.exec(String(navigator.language));
+    if (m) code = m[1];
+  }
+  return code.toUpperCase();
+}
+
+/**
+ * The modules the car has answered as, from the last read.
+ *
+ * The ISTA shell's slot loader knows the bus map, so it is asked first;
+ * without it the Garage's stored scans say which variants answered and
+ * through which group.
+ * @param {object|null} car - a GarageCar
+ * @param {string} [chassis] - the development code
+ * @returns {Promise<{ecus: Set<string>, groups: Set<string>, titles: Set<string>}|null>}
+ */
+async function techDataReadModules(car, chassis) {
+  const ecus = new Set();
+  const groups = new Set();
+  const titles = new Set();
+  const code = String((car && car.chassis) || chassis || '').toUpperCase();
+  if (typeof istaLoadSlots === 'function' && code) {
+    let slots = null;
+    try {
+      slots = await istaLoadSlots(code, car);
+    } catch {
+      slots = null;
+    }
+    for (const s of slots || []) {
+      if (!s || !s.sgbd) continue;
+      ecus.add(String(s.sgbd).toLowerCase());
+      if (s.group) groups.add(String(s.group).toLowerCase());
+      if (s.box && s.box.name) titles.add(String(s.box.name).toUpperCase());
+    }
+  } else if (car && car.id && typeof garageScans === 'function') {
+    for (const scan of garageScans(car.id) || [])
+      for (const m of (scan && scan.report && scan.report.modules) || []) {
+        if (!m || !m.sgbd) continue;
+        ecus.add(String(m.sgbd).toLowerCase());
+        if (m.via) groups.add(String(m.via).toLowerCase());
+      }
+  }
+  return ecus.size ? { ecus, groups, titles } : null;
+}
+
+/**
+ * The car, described the way the tool's identification describes a
+ * vehicle to its rule engine.
+ *
+ * THE FACTS SAY HOW FAR THE CAR IS IDENTIFIED, and the leaves answer
+ * accordingly (techDataVehicleLeaf): a type key alone is level 1, a VIN
+ * level 3, a car whose modules have been read level 5. The build date, the
+ * order's codes the equipment page kept, the product type from the type
+ * key, the workshop's country and today's date travel with it.
  * @param {object|null|undefined} car - a GarageCar
+ * @param {string} [chassis] - the development code, when the car has none
  * @returns {Promise<object>} facts for techDataRuleApplies
  */
-async function techDataCarFactsAsync(car) {
-  if (techDataSalapas === null && car && Array.isArray(car.sa) && car.sa.length)
-    techDataSalapas = (await techDataFetchJson('salapas.json')) || {};
-  return techDataCarFacts(car);
+async function techDataVehicleFacts(car, chassis) {
+  const facts = techDataCarFacts(car);
+  facts.aux = await techDataRuleFactsLoad();
+  facts.today = new Date().toISOString().slice(0, 10);
+  const vin = String((car && car.vin) || '').toUpperCase();
+  facts.level = vin.length === 17 ? 3 : 1;
+  const sa = car && Array.isArray(car.sa) ? car.sa : null;
+  if (sa && sa.length) {
+    facts.fa = true;
+    facts.sa = new Set(
+      sa.map((c) =>
+        String(c || '')
+          .trim()
+          .toUpperCase()
+      )
+    );
+  }
+  facts.prodart = await techDataProdart(car, chassis);
+  const read = await techDataReadModules(car, chassis);
+  if (read) {
+    facts.level = TECHDATA_LEVEL_READOUT;
+    facts.ecus = read.ecus;
+    facts.groups = read.groups;
+    facts.titles = read.titles;
+  }
+  facts.ilevel = String((car && car.ilevel) || '');
+  facts.ilevelWerk = String((car && car.ilevelWerk) || '');
+  facts.country = techDataCountry();
+  return facts;
+}
+
+/**
+ * The car's product type, P or M, from its type key's characteristics.
+ * @param {object|null|undefined} car - a GarageCar
+ * @param {string} [chassis] - the development code
+ * @returns {Promise<string>} 'P' or 'M'
+ */
+async function techDataProdart(car, chassis) {
+  const keys = await techDataCarKeys(car, chassis);
+  if (!techDataCharNames)
+    techDataCharNames = (await techDataFetchJson('characteristics.json')) || {};
+  const may = (keys && (keys.may || keys.ids)) || new Set();
+  const names = new Set();
+  for (const tk of Object.values(techDataTypeKeys || {}))
+    for (const v of tk[TECHDATA_PRODART_ROOT] || [])
+      if (may.has(v)) names.add(String(techDataCharNames[String(v)] || ''));
+  if (names.size === 1) return [...names][0] === 'M' ? 'M' : 'P';
+  // no type key: a motorcycle chassis is a K number
+  const code = String((car && car.chassis) || chassis || '').toUpperCase();
+  return /^K\d/.test(code) ? 'M' : 'P';
 }
 
 /**
@@ -318,7 +412,7 @@ function techDataRuleEval(rule, ids, facts) {
   if (!rule) return true;
   const f = facts || {};
   switch (rule.op) {
-    case 'eq':
+    case 'eq': {
       // A CHARACTERISTIC THE CALLER KNOWS NOTHING ABOUT IS UNDECIDED. A car
       // identified by name (chassis, engine, body) carries facts for those
       // roots only; a leaf about its steering or sales designation stays
@@ -334,6 +428,7 @@ function techDataRuleEval(rule, ids, facts) {
       const may = f.may || ids.may;
       if (may && may.has(rule.val)) return null;
       return false;
+    }
     case 'and': {
       let out = true;
       for (const k of rule.kids || []) {
@@ -356,11 +451,30 @@ function techDataRuleEval(rule, ids, facts) {
       const v = techDataRuleEval((rule.kids || [])[0], ids, f);
       return v === null ? null : !v;
     }
+    default:
+      // ONE VEHICLE ANSWERS THE TOOL'S WAY. With an identification level in
+      // the facts the leaf is decided exactly as the tool's own evaluator
+      // decides it, missing data included; without one (a set of builds at
+      // extract time, or a caller with no car) a leaf the facts cannot
+      // decide is undecided.
+      if (f.level != null) return techDataVehicleLeaf(rule, ids, f);
+      return techDataOpenLeaf(rule, f);
+  }
+}
+
+/**
+ * A leaf with no vehicle behind it: decided only when the caller supplied
+ * that kind of fact, undecided otherwise.
+ * @param {object} rule - the leaf
+ * @param {object} f - the facts
+ * @returns {boolean|null}
+ */
+function techDataOpenLeaf(rule, f) {
+  switch (rule.op) {
     case 'mfd':
       if (f.built == null) return null;
       return techDataCompare(f.built, rule.cmp, rule.ticks);
     case 'date':
-      // the tool compares model year * 100 + month against this leaf
       if (f.ym == null) return null;
       return techDataCompare(f.ym, rule.cmp, rule.ym);
     case 'istufex':
@@ -371,6 +485,171 @@ function techDataRuleEval(rule, ids, facts) {
       return have.has(rule.val);
     }
   }
+}
+
+/**
+ * One leaf, answered the way ISTA's rule engine answers it for a vehicle.
+ *
+ * READ FROM THE TOOL, NOT GUESSED: RheingoldCoreFramework 4.15.16,
+ * RuleHandling.*Expression.Evaluate(Vehicle, IFFMDynamicResolver), from
+ * the decompiled assembly. The tool is strictly boolean, and a missing
+ * fact has a definite answer per leaf kind -- an unread order makes an SA
+ * leaf true, a missing model year makes a date leaf false -- and those
+ * answers are reproduced here, not softened. The twin is vehicle_leaf in
+ * tools/ista/validity_rules.py.
+ * @param {object} rule - the leaf
+ * @param {Set<number>} ids - the car's characteristic ids
+ * @param {object} f - techDataVehicleFacts output
+ * @returns {boolean}
+ */
+function techDataVehicleLeaf(rule, ids, f) {
+  const aux = f.aux || {};
+  const key = String(rule.val);
+  const level = Number(f.level) || 0;
+  switch (rule.op) {
+    case 'date':
+      // DateExpression: no model year and month -> false
+      return f.ym == null ? false : techDataCompare(f.ym, rule.cmp, rule.ym);
+    case 'mfd':
+      // ManufactoringDateExpression: the production date, else the model
+      // month at day 1 (both are `built` here), else false
+      return f.built == null
+        ? false
+        : techDataCompare(f.built, rule.cmp, rule.ticks);
+    case 'salapa': {
+      // SaLaPaExpression: unknown id or the other product type -> false; no
+      // order read, or not yet a vehicle readout -> true; else hasSA
+      const row = (aux.salapas || {})[key];
+      if (!row) return false;
+      if (row[1] !== (f.prodart || 'P')) return false;
+      if (!f.fa || level < TECHDATA_LEVEL_READOUT) return true;
+      return !!(f.sa && f.sa.has(String(row[0]).toUpperCase()));
+    }
+    case 'country': {
+      // CountryExpression: the WORKSHOP's outlet country, not the car's
+      const code = (aux.countries || {})[key];
+      return !!code && code === f.country;
+    }
+    case 'istufe': {
+      // IStufeExpression: no I-level, or the "0" wildcard -> true
+      const have = f.ilevel || '';
+      if (!have || have === '0') return true;
+      return (aux.istufen || {})[key] === have;
+    }
+    case 'istufex':
+      return techDataIstufexLeaf(rule, f, aux);
+    case 'equipment': {
+      // EquipmentExpression without a resolver: the feature's own rule
+      // decides; an unknown feature is false
+      const row = (aux.equipment || {})[key];
+      if (!row) return false;
+      return techDataRuleEval(row.r, ids, f) !== false;
+    }
+    case 'ecuclique':
+      return techDataCliqueLeaf(rule.val, ids, f, aux);
+    case 'ecurep': {
+      // EcuRepresentativeExpression: unknown -> false; before a readout ->
+      // true; else the control-unit tree carries that abbreviation
+      const kurz = (aux.ecureps || {})[key];
+      if (!kurz) return false;
+      if (level < TECHDATA_LEVEL_READOUT || !f.titles) return true;
+      return f.titles.has(String(kurz).toUpperCase());
+    }
+    case 'sifa':
+      // SiFaExpression: a dealer's protection-vehicle service; none here
+      return false;
+    case 'validfrom':
+    case 'validto': {
+      // compared with the wall clock, never with the car
+      if (!rule.iso || !f.today) return true;
+      return rule.op === 'validfrom'
+        ? f.today >= rule.iso
+        : f.today <= rule.iso;
+    }
+    case 'ecugroup':
+      // never stored in this corpus; before a readout the tool says true
+      return level < TECHDATA_LEVEL_READOUT;
+    default:
+      return false;
+  }
+}
+
+/**
+ * FormatConverter.ExtractNumericalILevel: the digits of a 14-character
+ * I-level ("E89X-21-03-500" -> 2103500), else null.
+ * @param {string} s - an I-level
+ * @returns {number|null}
+ */
+function techDataNumericIlevel(s) {
+  const t = String(s || '');
+  if (t.length !== 14) return null;
+  const n = Number(t.replace(/-/g, '').slice(4));
+  return Number.isFinite(n) ? n : null;
+}
+
+/**
+ * IStufeXExpression: the factory or current I-level against the rule's, by
+ * series prefix then numerically, with the tool's own answers for an empty
+ * or unparsable level.
+ * @param {object} rule - the leaf (cmp, flag, val)
+ * @param {object} f - the facts
+ * @param {object} aux - the rule tables
+ * @returns {boolean}
+ */
+function techDataIstufexLeaf(rule, f, aux) {
+  const literal = (aux.istufen || {})[String(rule.val)];
+  if (!literal) return false;
+  const have = String((rule.flag ? f.ilevelWerk : f.ilevel) || '');
+  if (!have || have === '0') return true;
+  const parts = String(literal).split('-');
+  if (
+    parts.length > 1 &&
+    have.slice(0, parts[0].length).toUpperCase() !== parts[0].toUpperCase()
+  )
+    return false;
+  const a = techDataNumericIlevel(have);
+  const b = techDataNumericIlevel(literal);
+  if (rule.cmp === 'eq')
+    return (a || 0) === (b || 0) && (a == null) === (b == null);
+  if (rule.cmp === 'ne')
+    return (a || 0) !== (b || 0) || (a == null) !== (b == null);
+  if (a == null || b == null) return false;
+  return techDataCompare(a, rule.cmp, b);
+}
+
+/**
+ * EcuCliqueExpression: an unknown clique is true; one with no variants is
+ * false; before a vehicle readout a variant whose own rule and whose
+ * group's rule hold makes it true; after one, a variant the car answered
+ * as does.
+ * @param {number} val - the clique id
+ * @param {Set<number>} ids - the car's characteristic ids
+ * @param {object} f - the facts
+ * @param {object} aux - the rule tables
+ * @returns {boolean}
+ */
+function techDataCliqueLeaf(val, ids, f, aux) {
+  const clique = (aux.cliques || {})[String(val)];
+  if (!clique) return true;
+  const variants = aux.variants || {};
+  const groups = aux.groups || {};
+  const names = clique.v || [];
+  if (!names.length) return false;
+  if ((Number(f.level) || 0) < TECHDATA_LEVEL_READOUT || !f.ecus) {
+    for (const vid of names) {
+      const v = variants[String(vid)] || {};
+      if (techDataRuleEval(v.r, ids, f) === false) continue;
+      const g = v.g ? groups[String(v.g)] : null;
+      if (g && techDataRuleEval(g.r, ids, f) === false) continue;
+      return true;
+    }
+    return false;
+  }
+  for (const vid of names) {
+    const v = variants[String(vid)] || {};
+    if (f.ecus.has(String(v.n || '').toLowerCase())) return true;
+  }
+  return false;
 }
 
 /**
@@ -469,8 +748,11 @@ if (typeof module !== 'undefined' && module.exports) {
     techDataBody,
     techDataCarKeys,
     techDataCarFacts,
-    techDataCarFactsAsync,
-    techDataSalapaIds,
+    techDataVehicleFacts,
+    techDataVehicleLeaf,
+    techDataCountry,
+    techDataProdart,
+    techDataRuleFactsLoad,
     techDataComposeRule,
     techDataRuleApplies,
     techDataRuleEval,

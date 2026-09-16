@@ -155,6 +155,39 @@ def test_facts():
     eq((set(got), got.may), ({900}, {900, 901, 902}), "the fold is intersection + union of the chassis's builds")
     eq(bool(chassis_char_ids(tks, names, "E90")), False, "no type key, empty")
 
+    # one vehicle answers the tool's way (the twin of techDataVehicleLeaf)
+    aux = {"salapas": {"5001": ["403", "P"], "5002": ["403", "M"]},
+           "countries": {"7001": "US"}, "istufen": {"8001": "E89X-21-03-500"},
+           "equipment": {"9001": {"n": "x", "r": {"op": "eq", "root": 1, "val": 900}}},
+           "ecureps": {"6001": "DME"},
+           "cliques": {"4001": {"k": "dme", "v": ["4101"]}},
+           "variants": {"4101": {"n": "ms430ds0", "g": "4201", "r": {"op": "eq", "root": 2, "val": 901}}},
+           "groups": {"4201": {"n": "d_motor", "r": None}}}
+    v3 = {"level": 3, "aux": aux, "ym": 200203, "prodart": "P", "today": "2026-09-16"}
+    v5 = dict(v3, level=5, fa=True, sa={"403"}, ecus={"ms450ds0"}, titles={"DME"})
+    sa = {"op": "salapa", "val": 5001}
+    eq(rule_eval(sa, ids, v3), True, "no order read: true")
+    eq(rule_eval({"op": "salapa", "val": 5002}, ids, v3), False, "a motorcycle SA on a car")
+    eq(rule_eval(sa, ids, v5), True, "the order carries it")
+    eq(rule_eval(sa, ids, dict(v5, sa={"205"})), False, "the order does not")
+    eq(rule_eval({"op": "not", "kids": [sa]}, ids, v3), False, "NOT decides for a vehicle")
+    eq(rule_eval({"op": "date", "cmp": "ge", "ym": 200109}, ids, dict(v3, ym=None)), False, "no model year: false")
+    eq(rule_eval({"op": "country", "val": 7001}, ids, dict(v3, country="US")), True, "the workshop's country")
+    eq(rule_eval({"op": "country", "val": 7001}, ids, v3), False, "no country: false")
+    eq(rule_eval({"op": "istufe", "val": 8001}, ids, v3), True, "no I-level: true")
+    eq(rule_eval({"op": "istufex", "cmp": "ge", "flag": False, "val": 8001}, ids, dict(v3, ilevel="E89X-21-05-500")), True, "a later I-level")
+    eq(rule_eval({"op": "istufex", "cmp": "ge", "flag": False, "val": 8001}, ids, dict(v3, ilevel="F001-21-05-500")), False, "another series")
+    eq(rule_eval({"op": "equipment", "val": 9001}, ids, v3), True, "the feature's rule holds")
+    eq(rule_eval({"op": "ecurep", "val": 6001}, ids, v3), True, "before a readout")
+    eq(rule_eval({"op": "ecurep", "val": 6001}, ids, dict(v5, titles={"LSZ"})), False, "after one, by tree title")
+    eq(rule_eval({"op": "ecuclique", "val": 4001}, {900, 901}, v3), True, "an M54 build fits ms430ds0")
+    eq(rule_eval({"op": "ecuclique", "val": 4001}, {900, 903}, v3), False, "no variant fits")
+    eq(rule_eval({"op": "ecuclique", "val": 4001}, ids, dict(v5, ecus={"ms430ds0"})), True, "the car answered as it")
+    eq(rule_eval({"op": "ecuclique", "val": 4001}, ids, v5), False, "the car answered as another")
+    eq(rule_eval({"op": "validfrom", "val": 1, "iso": "2011-07-14"}, ids, v3), True, "a window that opened")
+    eq(rule_eval({"op": "validto", "val": 1, "iso": "2011-07-14"}, ids, v3), False, "a window that closed")
+    eq(rule_eval({"op": "sifa", "val": 1}, ids, v3), False, "no protection-vehicle service")
+
     own = {"op": "eq", "root": 1, "val": 900}
     a, b = {"op": "eq", "root": 1, "val": 1}, {"op": "eq", "root": 1, "val": 2}
     eq(compose_rule(own, []), own, "no path: the own rule")

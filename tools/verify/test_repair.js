@@ -459,7 +459,7 @@ const IDX = {
     if (!(car && car.vin)) ids.may = new Set([900, 901, 902]);
     return { ids, exact: !!(car && car.vin), typeKey: null };
   };
-  ctx.techDataCarFactsAsync = async () => ({});
+  ctx.techDataVehicleFacts = async () => ({});
   const T = require(path.join(ROOT, 'screens', 'techdata', 'data.js'));
   ctx.techDataRuleApplies = T.techDataRuleApplies;
   const narrow = ctx.repairNarrow;

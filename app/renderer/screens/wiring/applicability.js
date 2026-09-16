@@ -66,6 +66,8 @@
   let TYPEKEYS = null;
   /** @type {object|null} characteristic id -> name */
   let NAMES = null;
+  /** @type {object|null} the tables the vehicle leaves consult */
+  let AUX = null;
   /** @type {Map<number, Map<string, Set<number>>>|null} root -> name -> ids */
   let BY_NAME = null;
   /** @type {Map<string, object>} composed trees, per SP id */
@@ -74,6 +76,8 @@
   let CAR = null;
 
   const EMPTY_INDEX = () => ({ version: 2, roots: {}, rules: {}, sp: {} });
+  /** the characteristic root that names the product type (P car, M motorcycle) */
+  const R_PRODART = 53073547;
 
   /**
    * One dataset file, through the app's mirror walker.
@@ -112,12 +116,15 @@
             INDEX = EMPTY_INDEX();
           }
           try {
-            [TYPEKEYS, NAMES] = await Promise.all([
+            [TYPEKEYS, NAMES, AUX] = await Promise.all([
               fetchJson('ista/techdata/typekeys.json'),
               fetchJson('ista/techdata/characteristics.json'),
+              typeof techDataRuleFactsLoad === 'function'
+                ? techDataRuleFactsLoad()
+                : fetchJson('ista/techdata/rulefacts.json'),
             ]);
           } catch {
-            TYPEKEYS = NAMES = null;
+            TYPEKEYS = NAMES = AUX = null;
           }
           return INDEX;
         })();
@@ -233,12 +240,26 @@
         for (const v of got) ids.add(v);
       }
     }
-    const facts = { roots };
-    const dated =
+    // THE DECODED VIN IS A VEHICLE THE TOOL WOULD CALL VIN-identified
+    // (level 3) or, from a production number alone, type-key identified
+    // (level 1): no order read, no modules read. The leaves answer for that
+    // state the way the tool's evaluator does.
+    const facts =
       typeof techDataCarFacts === 'function'
         ? techDataCarFacts({ prod: hit.prod })
         : {};
-    if (dated.ym != null) facts.ym = dated.ym;
+    facts.roots = roots;
+    facts.level = tk ? 3 : 1;
+    facts.aux = AUX || {};
+    facts.today = new Date().toISOString().slice(0, 10);
+    let prodart = '';
+    if (tk && NAMES)
+      for (const v of tk[String(R_PRODART)] || [])
+        prodart = String(NAMES[String(v)] || '');
+    facts.prodart =
+      prodart === 'M' || (!prodart && /^K\d/.test(up(hit.chassis))) ? 'M' : 'P';
+    facts.country =
+      typeof techDataCountry === 'function' ? techDataCountry() : '';
     CAR = { key, keys: { ids, facts } };
     return CAR.keys;
   }

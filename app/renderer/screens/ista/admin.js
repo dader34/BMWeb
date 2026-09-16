@@ -76,6 +76,23 @@ function istaAdminRows() {
           : 'on',
     },
     {
+      // A COUNTRY leaf in a validity rule compares the WORKSHOP's outlet
+      // country, never the car's; the tool takes it from its dealer data,
+      // this build from here, and from the browser's region until set
+      key: 'istaCountry',
+      title: 'Workshop country (dealer data)',
+      options: [
+        { val: '', label: 'Browser region' },
+        { val: 'US', label: 'US' },
+        { val: 'CA', label: 'CA' },
+        { val: 'GB', label: 'GB' },
+        { val: 'DE', label: 'DE' },
+        { val: 'AU', label: 'AU' },
+        { val: 'JP', label: 'JP' },
+      ],
+      now: typeof Settings === 'object' ? Settings.get('istaCountry', '') : '',
+    },
+    {
       key: '_brand',
       title: 'Select brand',
       options: [

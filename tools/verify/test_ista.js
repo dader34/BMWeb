@@ -2250,7 +2250,7 @@ const I = loadClassic('screens/ista/');
     screen.indexOf('async function istaDiagBody')
   );
   assert.ok(
-    diag.includes('await techDataCarFactsAsync(car)'),
+    diag.includes('await techDataVehicleFacts(car, chassis)'),
     'the diagnosis gate takes its facts from the one builder'
   );
   assert.ok(!/ym:\s*`/.test(diag), 'no string-shaped date');
@@ -2263,14 +2263,13 @@ const I = loadClassic('screens/ista/');
     screen.indexOf('async function istaWiringValid')
   );
   assert.ok(
-    wiring.includes('await techDataCarFactsAsync(car)'),
+    wiring.includes('await techDataVehicleFacts(car, chassis)'),
     'one facts builder'
   );
   assert.ok(
     !/car\.(built|buildDate|date)\b/.test(wiring),
     'no field the Garage never stores'
   );
-  assert.ok(wiring.includes('istaLoadSlots(chassis, car)'));
   assert.ok(!/istaSlotsFor/.test(screen), 'no call to an undefined loader');
   ok('the wiring gate builds its facts the same way');
 
@@ -2315,15 +2314,25 @@ const I = loadClassic('screens/ista/');
   // the order's SA codes the equipment page read stay on the Garage record,
   // where the validity rules' SA leaves read them without a cable
   assert.ok(
-    screen.includes('garageUpdateCar(car.id, { sa: codes.slice() })'),
-    'the shell equipment page keeps the codes'
+    screen.includes('garageUpdateCar(car.id, { sa: istaOrderWords(got) })'),
+    'the shell equipment page keeps the order words'
   );
+  // hasSA searches the order's SA codes, E words and HO words alike
+  assert.deepStrictEqual(
+    I.istaOrderWords({
+      codes: ['403', '205'],
+      fa: { ewort: ['E123'], howort: ['H456', '403'] },
+    }),
+    ['403', '205', 'E123', 'H456']
+  );
+  assert.deepStrictEqual(I.istaOrderWords({ codes: ['403'] }), ['403']);
+  assert.deepStrictEqual(I.istaOrderWords(null), []);
   const details = fs.readFileSync(
     path.join(ROOT, 'app', 'renderer', 'screens', 'ista', 'details.js'),
     'utf8'
   );
   assert.ok(
-    details.includes('garageUpdateCar(car.id, { sa: codes.slice() })'),
+    details.includes('istaOrderWords(got)'),
     'so does the classic equipment page'
   );
   ok("the order's option codes stay with the car");

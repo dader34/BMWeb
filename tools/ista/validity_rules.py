@@ -145,8 +145,31 @@ def parse_rule(blob, pos=0):
         return {"op": "istufex", "cmp": CMP_OPS[cmp_byte], "flag": flag, "val": val}, pos + 10
     if op in OPS_SINGLE:
         (val,) = struct.unpack_from("<q", blob, pos)
-        return {"op": OPS_SINGLE[op], "val": val}, pos + 8
+        leaf = {"op": OPS_SINGLE[op], "val": val}
+        if op in (0x07, 0x08):
+            # VALID_FROM / VALID_TO hold a .NET DateTime.ToBinary() value:
+            # the ticks in the low 62 bits, the kind in the top two. The
+            # tool compares it with the wall clock, so the calendar date
+            # travels with the leaf -- a 64-bit tick count does not survive
+            # a JSON round trip into a double
+            leaf["iso"] = binary_date(val)
+        return leaf, pos + 8
     raise RuleParseError(f"opcode {op:#04x}")
+
+
+def binary_date(value):
+    """The calendar date (YYYY-MM-DD) inside a DateTime.ToBinary() value.
+
+    @param value: the int64 the rule carries
+    """
+    import datetime
+
+    ticks = value & ((1 << 62) - 1)
+    try:
+        d = datetime.datetime(1, 1, 1) + datetime.timedelta(microseconds=ticks // 10)
+    except OverflowError:
+        return None
+    return d.strftime("%Y-%m-%d")
 
 
 def decode_rule(blob):
@@ -210,11 +233,15 @@ def date_ticks(year, month, day=1):
 def rule_eval(rule, ids, facts=None):
     """Three-valued evaluation: True, False, or None for "not decidable".
 
-    A leaf the caller has no fact for is None, and None propagates the way
-    ISTA's engine would if it lacked the fact: NOT None is None, an AND is
-    False on any False else None on any None, an OR is True on any True else
-    None on any None. That keeps a NOT over an unknown leaf from turning a
-    missing fact into an exclusion.
+    TWO CALLERS, TWO MEANINGS OF `ids`. For ONE VEHICLE (facts carry a
+    `level`), every leaf answers the way the tool's own evaluator does,
+    including what it answers when a fact is missing -- see vehicle_leaf.
+    For a SET of builds (a chassis fold at extract time), a leaf only some
+    builds satisfy is None, and None propagates the way the tool's engine
+    would if it lacked the fact: NOT None is None, an AND is False on any
+    False else None on any None, an OR is True on any True else None on any
+    None. That keeps a NOT over an undecided leaf from turning a set into
+    an exclusion.
 
     @param rule: a tree from parse_rule, or None
     @param ids: the set of characteristic value ids the car carries
@@ -224,6 +251,8 @@ def rule_eval(rule, ids, facts=None):
         return True
     facts = facts or {}
     op = rule.get("op")
+    if "level" in facts and op not in ("eq", "and", "or", "not"):
+        return vehicle_leaf(rule, ids, facts)
     if op == "eq":
         # A CHARACTERISTIC THE CALLER KNOWS NOTHING ABOUT IS UNDECIDED. A car
         # identified by name (chassis, engine, body) rather than by its type
@@ -284,6 +313,172 @@ def rule_eval(rule, ids, facts=None):
             return None
         return rule["val"] in have
     return None
+
+
+# the identification level at which the tool has read the car's modules
+# (IdentificationLevel.VINVehicleReadout); below it, the ECU and SA leaves
+# answer from the data rather than from the car
+LEVEL_READOUT = 5
+
+
+def vehicle_leaf(rule, ids, facts):
+    """One leaf, answered the way ISTA's rule engine answers it for a
+    vehicle -- RheingoldCoreFramework.dll 4.15.16, RuleHandling.*Expression
+    .Evaluate(Vehicle, IFFMDynamicResolver), read from the decompiled
+    assembly. The tool is strictly boolean; a missing fact has a definite
+    answer per leaf kind, and that answer is reproduced here, not softened.
+
+    facts: "level" (IdentificationLevel: 1 type key only, 3 VIN, 5 modules
+    read), "ym" (model year*100+month), "built" (production date ticks),
+    "prodart" ("P"/"M"), "fa" (True when the order was read), "sa" (the
+    order's SA, E and HO words, upper-cased), "ecus" (variant names the car
+    answered as, lower-cased), "titles" (control-unit tree names the car's
+    modules carry, upper-cased), "ilevel"/"ilevel_werk" (I-level strings),
+    "country" (the workshop's country code), "today" (YYYY-MM-DD), and
+    "aux" (read_rule_facts output). Any of them may be absent.
+
+    @param rule: the leaf
+    @param ids: the car's characteristic ids
+    @param facts: the vehicle's facts
+    """
+    op = rule.get("op")
+    aux = facts.get("aux") or {}
+    val = rule.get("val")
+    key = str(val)
+    level = int(facts.get("level") or 0)
+    if op == "date":
+        # DateExpression: no model year and month -> false
+        ym = facts.get("ym")
+        return False if ym is None else compare(ym, rule["cmp"], rule["ym"])
+    if op == "mfd":
+        # ManufactoringDateExpression: the production date, else the model
+        # month at day 1 (both are `built` here), else false
+        built = facts.get("built")
+        return False if built is None else compare(built, rule["cmp"], rule["ticks"])
+    if op == "salapa":
+        # SaLaPaExpression: unknown id or the other product type -> false;
+        # no order read, or not yet a vehicle readout -> true; else hasSA
+        row = (aux.get("salapas") or {}).get(key)
+        if not row:
+            return False
+        name, ptype = row[0], row[1]
+        if ptype != facts.get("prodart", "P"):
+            return False
+        if not facts.get("fa") or level < LEVEL_READOUT:
+            return True
+        return str(name).upper() in (facts.get("sa") or set())
+    if op == "country":
+        # CountryExpression: the WORKSHOP's outlet country, not the car's
+        code = (aux.get("countries") or {}).get(key)
+        return bool(code) and code == facts.get("country")
+    if op == "istufe":
+        # IStufeExpression: no I-level, or the "0" wildcard -> true
+        have = facts.get("ilevel") or ""
+        if not have or have == "0":
+            return True
+        return (aux.get("istufen") or {}).get(key) == have
+    if op == "istufex":
+        return istufex_leaf(rule, facts, aux)
+    if op == "equipment":
+        # EquipmentExpression without a resolver: the feature's own rule
+        # decides; an unknown feature is false
+        row = (aux.get("equipment") or {}).get(key)
+        if not row:
+            return False
+        return rule_eval(row.get("r"), ids, facts) is not False
+    if op == "ecuclique":
+        return clique_leaf(val, ids, facts, aux)
+    if op == "ecurep":
+        # EcuRepresentativeExpression: unknown -> false; before a readout
+        # -> true; else the control-unit tree carries that abbreviation
+        kurz = (aux.get("ecureps") or {}).get(key)
+        if not kurz:
+            return False
+        if level < LEVEL_READOUT or facts.get("titles") is None:
+            return True
+        return str(kurz).upper() in facts["titles"]
+    if op == "sifa":
+        # SiFaExpression: a dealer's protection-vehicle service; none here
+        return False
+    if op in ("validfrom", "validto"):
+        # compared with the wall clock, never with the car
+        iso = rule.get("iso")
+        today = facts.get("today")
+        if not iso or not today:
+            return True
+        return today >= iso if op == "validfrom" else today <= iso
+    if op in ("ecuvariant", "ecugroup"):
+        # never stored in this corpus; the group leaf before a readout is
+        # true, the variant leaf false without its row
+        return level < LEVEL_READOUT and op == "ecugroup"
+    return False
+
+
+def numeric_ilevel(s):
+    """FormatConverter.ExtractNumericalILevel: the digits of a 14-character
+    I-level ("E89X-21-03-500" -> 2103500), else None."""
+    s = str(s or "")
+    if len(s) != 14:
+        return None
+    try:
+        return int(s.replace("-", "")[4:])
+    except ValueError:
+        return None
+
+
+def istufex_leaf(rule, facts, aux):
+    """IStufeXExpression: the factory or current I-level against the
+    rule's, by series prefix then numerically, with the tool's own answers
+    for an empty or unparsable level."""
+    literal = (aux.get("istufen") or {}).get(str(rule.get("val")))
+    if not literal:
+        return False
+    have = facts.get("ilevel_werk" if rule.get("flag") else "ilevel") or ""
+    if not have or have == "0":
+        return True
+    parts = str(literal).split("-")
+    if len(parts) > 1 and have[: len(parts[0])].upper() != parts[0].upper():
+        return False
+    a, b = numeric_ilevel(have), numeric_ilevel(literal)
+    cmp = rule.get("cmp")
+    if cmp == "eq":
+        return (a or 0) == (b or 0) and (a is None) == (b is None)
+    if cmp == "ne":
+        return (a or 0) != (b or 0) or (a is None) != (b is None)
+    if a is None or b is None:
+        return False
+    return compare(a, cmp, b)
+
+
+def clique_leaf(val, ids, facts, aux):
+    """EcuCliqueExpression: an unknown clique is true; one with no
+    variants is false; before a vehicle readout a variant whose own rule
+    and whose group's rule hold makes it true; after one, a variant the car
+    answered as does."""
+    clique = (aux.get("cliques") or {}).get(str(val))
+    if not clique:
+        return True
+    variants = aux.get("variants") or {}
+    groups = aux.get("groups") or {}
+    names = [str(v) for v in clique.get("v") or []]
+    if not names:
+        return False
+    ecus = facts.get("ecus")
+    if int(facts.get("level") or 0) < LEVEL_READOUT or ecus is None:
+        for vid in names:
+            v = variants.get(vid) or {}
+            if rule_eval(v.get("r"), ids, facts) is False:
+                continue
+            g = groups.get(str(v.get("g"))) if v.get("g") else None
+            if g and rule_eval(g.get("r"), ids, facts) is False:
+                continue
+            return True
+        return False
+    for vid in names:
+        v = variants.get(vid) or {}
+        if str(v.get("n") or "").lower() in ecus:
+            return True
+    return False
 
 
 def rule_applies(rule, ids, facts=None):
@@ -363,6 +558,94 @@ def read_typekeys(con):
         vals = by_root.setdefault(str(root), [])
         if cid not in vals:
             vals.append(cid)
+    return out
+
+
+def read_rule_facts(con):
+    """The tables the vehicle leaves consult, keyed by the ids rules carry.
+
+    Only what some rule references is kept: the SA/LA/PA rows (code and
+    product type), the countries, the I-levels, the features with their
+    own rules, the ECU representatives, and the ECU cliques a rule names
+    with their variants, the variants' rules and their groups' rules --
+    that is what EcuCliqueExpression walks before a vehicle readout.
+
+    @param con: an open DiagDocDb connection
+    """
+    rules = {}
+    for rid, blob in con.execute("SELECT ID, RULE FROM XEP_RULES"):
+        tree, unsure = decode_rule(blob)
+        if tree is not None:
+            rules[rid] = tree
+    refs = {}
+
+    def walk(t):
+        op = t.get("op")
+        if op in ("and", "or", "not"):
+            for k in t.get("kids", ()):
+                walk(k)
+        elif "val" in t and op != "eq":
+            refs.setdefault(op, set()).add(t["val"])
+
+    for t in rules.values():
+        walk(t)
+    out = {}
+    want = refs.get("salapa", set())
+    out["salapas"] = {
+        str(sid): [name, ptype]
+        for sid, name, ptype in con.execute(
+            "SELECT ID, NAME, PRODUCT_TYPE FROM XEP_SALAPAS WHERE NAME IS NOT NULL"
+        )
+        if sid in want
+    }
+    want = refs.get("country", set())
+    out["countries"] = {
+        str(cid): code
+        for cid, code in con.execute("SELECT ID, LAENDERKUERZEL FROM XEP_COUNTRIES")
+        if cid in want
+    }
+    want = refs.get("istufe", set()) | refs.get("istufex", set())
+    out["istufen"] = {
+        str(iid): name
+        for iid, name in con.execute("SELECT ID, NAME FROM XEP_ISTUFEN")
+        if iid in want
+    }
+    want = refs.get("equipment", set())
+    out["equipment"] = {
+        str(eid): {"n": name, "r": rules.get(eid)}
+        for eid, name in con.execute("SELECT ID, NAME FROM XEP_EQUIPMENT")
+        if eid in want
+    }
+    want = refs.get("ecurep", set())
+    out["ecureps"] = {
+        str(rid): kurz
+        for rid, kurz in con.execute("SELECT ID, STEUERGERAETEKUERZEL FROM XEP_ECUREPS")
+        if rid in want
+    }
+    want = refs.get("ecuclique", set())
+    by_clique = {}
+    for vid, cid in con.execute("SELECT ID, ECUCLIQUEID FROM XEP_REFECUCLIQUES"):
+        if cid in want:
+            by_clique.setdefault(cid, []).append(vid)
+    out["cliques"] = {
+        str(cid): {"k": kurz, "v": [str(v) for v in sorted(by_clique.get(cid, []))]}
+        for cid, kurz in con.execute("SELECT ID, CLIQUENKURZBEZEICHNUNG FROM XEP_ECUCLIQUES")
+        if cid in want
+    }
+    variant_ids = {v for vs in by_clique.values() for v in vs}
+    out["variants"] = {}
+    group_ids = set()
+    for vid, name, gid in con.execute("SELECT ID, NAME, ECUGROUPID FROM XEP_ECUVARIANTS"):
+        if vid not in variant_ids:
+            continue
+        out["variants"][str(vid)] = {"n": name, "g": str(gid) if gid else None, "r": rules.get(vid)}
+        if gid:
+            group_ids.add(gid)
+    out["groups"] = {
+        str(gid): {"n": name, "r": rules.get(gid)}
+        for gid, name in con.execute("SELECT ID, NAME FROM XEP_ECUGROUPS")
+        if gid in group_ids
+    }
     return out
 
 

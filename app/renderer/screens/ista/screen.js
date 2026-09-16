@@ -1601,8 +1601,8 @@ async function istaDiagLoad(chassis, which, car) {
   // built here once made every dated clause a decided false, which pruned
   // the branches it guarded instead of keeping them.
   const facts =
-    typeof techDataCarFactsAsync === 'function'
-      ? await techDataCarFactsAsync(car)
+    typeof techDataVehicleFacts === 'function'
+      ? await techDataVehicleFacts(car, chassis)
       : {};
   return istaDiagGate(tree, keys.ids, facts) || tree;
 }
@@ -2389,9 +2389,6 @@ async function istaWiringForDesignator(chassis, designator) {
     .sort((a, b) => order.indexOf(a.type) - order.indexOf(b.type));
 }
 
-/** The ECU clique name -> id map, once. */
-let istaWiringCliques = null;
-
 /**
  * The car's facts, in the shape the rule evaluator wants.
  *
@@ -2404,31 +2401,40 @@ let istaWiringCliques = null;
  * @param {string} chassis - the development code
  * @returns {Promise<object>} facts for techDataRuleApplies
  */
+/**
+ * Every word of the order a validity rule's SA leaf may name.
+ *
+ * The tool's hasSA searches the order's SA codes, its E words and its HO
+ * words alike, so all three are kept on the car; a coding-key car has only
+ * the codes.
+ * @param {object|null} got - readIdentityCodes output
+ * @returns {string[]} the words, upper-cased, without duplicates
+ */
+function istaOrderWords(got) {
+  const fa = (got && got.fa) || null;
+  const words = [
+    ...((got && got.codes) || []),
+    ...((fa && fa.ewort) || []),
+    ...((fa && fa.howort) || []),
+  ]
+    .map((w) =>
+      String(w || '')
+        .trim()
+        .toUpperCase()
+    )
+    .filter((w, i, a) => w && a.indexOf(w) === i);
+  return words;
+}
+
 async function istaWiringFacts(chassis) {
+  // the one description of the car every gate evaluates against: its
+  // identification level, build date, order codes, product type and the
+  // modules it answered as (the ECU-clique leaves read those through the
+  // rule tables, the way the tool's own evaluator does)
   const car = istaState.car || null;
-  // the build date the Garage stores as `prod` and the order's SA codes,
-  // in the evaluator's shape
-  const facts =
-    typeof techDataCarFactsAsync === 'function'
-      ? await techDataCarFactsAsync(car)
-      : {};
-  // the cliques of every variant this car has answered as
-  if (istaWiringCliques === null)
-    istaWiringCliques =
-      (await istaProbe(() => istaWiringFetchJson('cliques.json'))) || {};
-  const names = new Set();
-  const slots = (await istaProbe(() => istaLoadSlots(chassis, car))) || [];
-  for (const slot of slots)
-    if (slot && slot.sgbd) names.add(String(slot.sgbd).toLowerCase());
-  if (names.size) {
-    const ids = new Set();
-    for (const n of names) {
-      const id = istaWiringCliques[n];
-      if (id != null) ids.add(id);
-    }
-    if (ids.size) facts.ecuclique = ids;
-  }
-  return facts;
+  return typeof techDataVehicleFacts === 'function'
+    ? await techDataVehicleFacts(car, chassis)
+    : {};
 }
 
 /**
@@ -3084,7 +3090,7 @@ async function istaDrawPage(s, host) {
     // decided from them, and the read costs a cable, so what came back is
     // kept on the Garage record for every later visit
     if (car && codes.length && typeof garageUpdateCar === 'function')
-      garageUpdateCar(car.id, { sa: codes.slice() });
+      garageUpdateCar(car.id, { sa: istaOrderWords(got) });
     const date = car && car.prod ? Number(String(car.prod).padEnd(8, '0')) : 0;
     // THE NAME LIVES ON VehicleIdentity, NOT AS A BARE GLOBAL. sa-names.js
     // assigns saName onto the VehicleIdentity namespace only, so a guard of
@@ -3521,6 +3527,7 @@ if (typeof module !== 'undefined' && module.exports) {
     istaSubReady,
     istaRouteStamp,
     istaOpenOperation,
+    istaOrderWords,
     showIsta,
   };
 }
