@@ -253,6 +253,12 @@ async function istaOpenVehicleTest() {
     if (!report || !(report.modules || []).length) return;
     garageAddScan(car.id, { report, lines }, { chassis });
   };
+  /** the vehicle_state names table, for any module the detection runs */
+  const vehicleText = await istaProbe(() =>
+    typeof istaAblFetch === 'function'
+      ? istaAblFetch('vehicle-states.json')
+      : null
+  );
 
   redraw(true);
   try {
@@ -262,6 +268,35 @@ async function istaOpenVehicleTest() {
       const r = await pass(null, identKey, 'ident');
       if (istaTestRun !== token) return;
       istaTestLiveState.ident = r.report;
+      // THE FEATURES ARE DETECTED THE WAY THE TOOL DETECTS THEM. A validity
+      // rule's EQUIPMENT leaf ("ASC MK60?", "trailer module?") is answered
+      // by a test module the tool's FFM resolver runs on the car; the
+      // identification is when this build runs them, and their verdicts
+      // ride on the identification scan so every gate reads them later
+      // without a cable.
+      if (r.report && (r.report.modules || []).length) {
+        istaTestLiveState.phase = 'features';
+        istaTestLiveState.features = { done: 0, total: 0 };
+        r.report.ffm = await istaFfmResolve(
+          car,
+          chassis,
+          istaAblRunner(car, chassis, vehicleText),
+          (done, total) => {
+            if (istaTestRun !== token) return;
+            istaTestLiveState.features = { done, total };
+            if (!painting) {
+              painting = true;
+              Promise.resolve(redraw())
+                .catch(() => {})
+                .then(() => {
+                  painting = false;
+                });
+            }
+          },
+          () => istaTestRun !== token
+        );
+        if (istaTestRun !== token) return;
+      }
       keep(r.report, r.lines);
     } catch (e) {
       // a script with no Ident key still has fault memories worth reading,
@@ -302,6 +337,104 @@ async function istaOpenVehicleTest() {
 }
 
 /**
+ * The tool's FFM resolver: run each feature's detection module on the car.
+ *
+ * READ FROM THE TOOL. EquipmentExpression asks the vehicle for a cached
+ * feature verdict and, failing that, evaluates the feature's own rule;
+ * when that holds it hands the feature's linked test module (an ABL-IDE
+ * procedure) to FFMDynamicResolver, which runs it and maps its
+ * CollectiveResult: Ok and Verified are the feature fitted, NotOk is not,
+ * and any other outcome -- Unknown, a module that could not run, an
+ * exception -- is null, which the expression treats as fitted. The
+ * verdict is cached on the vehicle for the session. This does the same,
+ * for every feature whose own rule holds for this car, with the module
+ * window's own runner, and returns the cache the facts builder hands the
+ * evaluator.
+ *
+ * NOTHING INTERACTIVE. A detection module reads identifications; one that
+ * stops to ask the technician something cannot be answered here, and that
+ * run ends as the resolver's null rather than with a guessed answer.
+ * @param {object|null} car - the picked GarageCar
+ * @param {string} chassis - the development code
+ * @param {object} runner - istaAblRunner output
+ * @param {(done: number, total: number) => void} [onProgress] - per module
+ * @param {() => boolean} [cancelled] - true once the test was stopped
+ * @returns {Promise<Object<string, boolean|null>>} feature name -> verdict
+ */
+async function istaFfmResolve(car, chassis, runner, onProgress, cancelled) {
+  /** @type {Object<string, boolean|null>} */
+  const out = {};
+  if (
+    typeof techDataVehicleFacts !== 'function' ||
+    typeof techDataCarKeys !== 'function' ||
+    typeof techDataRuleApplies !== 'function' ||
+    typeof AblEngine === 'undefined'
+  )
+    return out;
+  const facts = await techDataVehicleFacts(car, chassis);
+  const keys = await techDataCarKeys(car, chassis);
+  const ids = (keys && keys.ids) || new Set();
+  const table = (facts.aux && facts.aux.equipment) || {};
+  // the features the tool would resolve: those whose own rule holds
+  const wanted = Object.values(table).filter(
+    (e) => e && e.n && e.m && techDataRuleApplies(e.r, ids, facts)
+  );
+  let done = 0;
+  if (typeof onProgress === 'function') onProgress(0, wanted.length);
+  for (const e of wanted) {
+    if (typeof cancelled === 'function' && cancelled()) break;
+    out[e.n] = await istaFfmRun(e.m, chassis, runner);
+    done += 1;
+    if (typeof onProgress === 'function') onProgress(done, wanted.length);
+  }
+  return out;
+}
+
+/**
+ * Run one feature-detection module headlessly and map its verdict.
+ * @param {string} module - the module's identifier, DLL spelling
+ * @param {string} chassis - the development code
+ * @param {object} runner - istaAblRunner output
+ * @returns {Promise<boolean|null>} fitted, not fitted, or the resolver's null
+ */
+async function istaFfmRun(module, chassis, runner) {
+  const graph = await istaProbe(() =>
+    typeof istaAblLoad === 'function' ? istaAblLoad(module, chassis) : null
+  );
+  if (!graph) return null;
+  const refuse = async () => {
+    throw new Error('feature detection cannot answer a prompt');
+  };
+  let verdict;
+  try {
+    const engine = new AblEngine(graph, {
+      job: runner.job,
+      module: runner.module,
+      native: runner.native || {},
+      vehicleText: runner.vehicleText || null,
+      ui: {
+        // a timed or plain message is read and passed; anything that needs
+        // an answer ends the run as unresolved
+        message: async (m) => ({ quit: !(m && m.live) }),
+        input: refuse,
+        selection: refuse,
+        question: refuse,
+        value: refuse,
+        hide: async () => {},
+      },
+    });
+    verdict = await engine.run();
+  } catch (e) {
+    return null;
+  }
+  // FFMDynamicResolver.Resolve: Ok and Verified succeed, NotOk fails,
+  // everything else is "unsupported result" and null
+  if (verdict === 'Ok' || verdict === 'Verified') return true;
+  if (verdict === 'NotOk') return false;
+  return null;
+}
+
+/**
  * The status line while the test runs: the count and what it is doing.
  * @param {object[]} slots - the slots as they stand now
  * @returns {void}
@@ -336,6 +469,10 @@ function istaTestPhase() {
   // PROGRESSES, so the line flipped to "reading fault memories" the moment
   // the first module identified -- for the whole of the pass that was
   // actually running.
+  if (live.phase === 'features') {
+    const f = live.features || { done: 0, total: 0 };
+    return `detecting features (${f.done} of ${f.total} modules)`;
+  }
   const r = live.phase === 'faults' ? live.faults : live.ident;
   const n = ((r && r.modules) || []).length + ((r && r.silent) || []).length;
   return live.phase === 'faults'
@@ -1862,6 +1999,98 @@ async function istaOpenPlanRow(row, car, chassis, after) {
 }
 
 /**
+ * What a test module needs from the app to run against this car.
+ *
+ * ONE RUNNER FOR EVERY MODULE RUN: the module window and the feature
+ * detection the vehicle test performs (istaFfmResolve) drive the same
+ * hooks, so an activation asks first in both, a group resolves to the
+ * variant that answers in both, and the fault list comes off the stored
+ * scan in both.
+ * @param {object|null} car - the picked GarageCar
+ * @param {string} chassis - the development code
+ * @param {object|null} vehicleText - the vehicle_state names table
+ * @returns {object} the engine's host hooks (job, module, native, vehicleText)
+ */
+function istaAblRunner(car, chassis, vehicleText) {
+  return {
+    // the module addresses a GROUP; the app resolves it to the variant
+    // that answers on this car, exactly as every other screen does
+    job: async (spec) => {
+      let sgbd = spec.sgbd;
+      if (!sgbd && spec.group && typeof webResolveVariant === 'function')
+        sgbd = await istaProbe(() => webResolveVariant(spec.group));
+      if (!sgbd) return null;
+      const q = spec.argText ? `?arg=${encodeURIComponent(spec.argText)}` : '';
+      // AN ACTIVATION ASKS FIRST. A module's STEUERN_* job drives a
+      // component (the cluster self-test sweeps every gauge and lamp),
+      // and the app's contract is that a write is confirmed unless the
+      // user turned actuator confirmations off -- the same rule the ECU
+      // window and the raw job runner follow. The module's own words are
+      // the warning; this is the consent.
+      // DIAGNOSE_ENDE is classed a write (no read token, default-deny)
+      // but it ends the diagnostic session and drives nothing, and the
+      // library modules send it after every activation: a confirm for
+      // it would be noise on every run, teaching the hand to click
+      // through the confirm that matters.
+      const write =
+        typeof isWriteJob === 'function' &&
+        isWriteJob(spec.job) &&
+        !/^DIAGNOSE_ENDE$/i.test(String(spec.job || ''));
+      if (
+        write &&
+        (typeof confirmActuators !== 'function' || confirmActuators()) &&
+        typeof confirmDialog === 'function'
+      ) {
+        const okGo = await confirmDialog({
+          title: `${spec.job} commands ${sgbd}`,
+          body:
+            'The test module is about to drive a component rather than ' +
+            'read it. Make sure the module and anything it moves are safe.',
+          confirmLabel: 'Trigger',
+          danger: true,
+        });
+        if (!okGo) return { refused: true, job: spec.job, sgbd };
+      }
+      // A FAILED JOB IS REPORTED, NOT SWALLOWED. api() throws the
+      // router's real reason -- "no module answered on the wire", an
+      // IFH code, "no job code shipped" -- and turning that into null
+      // told the engine "no communication" and told the technician
+      // nothing: an activation they had just been warned about could
+      // simply not happen, silently. The reason travels back; an
+      // activation's failure is shown, a read's is the flow's own
+      // no-communication path.
+      try {
+        return await api(
+          `/api/ecu/${sgbd}/run/${encodeURIComponent(spec.job)}${q}`,
+          { method: 'POST' }
+        );
+      } catch (e) {
+        return {
+          error: String((e && e.message) || e),
+          notify: write,
+          job: spec.job,
+          sgbd,
+        };
+      }
+    },
+    module: ({ identifier }) =>
+      typeof istaAblLoad === 'function'
+        ? istaAblLoad(identifier, chassis)
+        : null,
+    vehicleText: vehicleText || null,
+    native: {
+      // THE FAULT LIST IS ALREADY READ. The library module the engine
+      // would otherwise run asks the car for the fault memory of a
+      // group; the Garage scan holds that answer, so the stand-in
+      // filters the stored faults by the module's own fault locations
+      // rather than putting the car back on the bus for them.
+      submodule: async ({ seed }) => istaAblFaultList(seed, car),
+      faultList: async ({ vars }) => istaAblFaultList(vars, car),
+    },
+  };
+}
+
+/**
  * Run a recovered test module in the shell's content area.
  *
  * This is the seam between the step player and the app: the engine asks for
@@ -1929,84 +2158,7 @@ async function istaRunAblModule(graph, row, car, chassis, after) {
         istaWiringBindDesignators(box, chassis, open),
       designatorDocs: (key) => istaWiringForDesignator(chassis, key),
       designatorHtml: (id) => istaWiringDocHtml(chassis, id),
-      runner: fake || {
-        // the module addresses a GROUP; the app resolves it to the variant
-        // that answers on this car, exactly as every other screen does
-        job: async (spec) => {
-          let sgbd = spec.sgbd;
-          if (!sgbd && spec.group && typeof webResolveVariant === 'function')
-            sgbd = await istaProbe(() => webResolveVariant(spec.group));
-          if (!sgbd) return null;
-          const q = spec.argText
-            ? `?arg=${encodeURIComponent(spec.argText)}`
-            : '';
-          // AN ACTIVATION ASKS FIRST. A module's STEUERN_* job drives a
-          // component (the cluster self-test sweeps every gauge and lamp),
-          // and the app's contract is that a write is confirmed unless the
-          // user turned actuator confirmations off -- the same rule the ECU
-          // window and the raw job runner follow. The module's own words are
-          // the warning; this is the consent.
-          // DIAGNOSE_ENDE is classed a write (no read token, default-deny)
-          // but it ends the diagnostic session and drives nothing, and the
-          // library modules send it after every activation: a confirm for
-          // it would be noise on every run, teaching the hand to click
-          // through the confirm that matters.
-          const write =
-            typeof isWriteJob === 'function' &&
-            isWriteJob(spec.job) &&
-            !/^DIAGNOSE_ENDE$/i.test(String(spec.job || ''));
-          if (
-            write &&
-            (typeof confirmActuators !== 'function' || confirmActuators()) &&
-            typeof confirmDialog === 'function'
-          ) {
-            const okGo = await confirmDialog({
-              title: `${spec.job} commands ${sgbd}`,
-              body:
-                'The test module is about to drive a component rather than ' +
-                'read it. Make sure the module and anything it moves are safe.',
-              confirmLabel: 'Trigger',
-              danger: true,
-            });
-            if (!okGo) return { refused: true, job: spec.job, sgbd };
-          }
-          // A FAILED JOB IS REPORTED, NOT SWALLOWED. api() throws the
-          // router's real reason -- "no module answered on the wire", an
-          // IFH code, "no job code shipped" -- and turning that into null
-          // told the engine "no communication" and told the technician
-          // nothing: an activation they had just been warned about could
-          // simply not happen, silently. The reason travels back; an
-          // activation's failure is shown, a read's is the flow's own
-          // no-communication path.
-          try {
-            return await api(
-              `/api/ecu/${sgbd}/run/${encodeURIComponent(spec.job)}${q}`,
-              { method: 'POST' }
-            );
-          } catch (e) {
-            return {
-              error: String((e && e.message) || e),
-              notify: write,
-              job: spec.job,
-              sgbd,
-            };
-          }
-        },
-        module: ({ identifier }) =>
-          typeof istaAblLoad === 'function'
-            ? istaAblLoad(identifier, chassis)
-            : null,
-        vehicleText: vehicleText || null,
-        native: {
-          // THE FAULT LIST IS ALREADY READ. The library module the engine
-          // would otherwise run asks the car for the fault memory of a
-          // group; the Garage scan holds that answer, so the stand-in
-          // filters the stored faults by the module's own fault locations
-          // rather than putting the car back on the bus for them.
-          submodule: async ({ seed }) => istaAblFaultList(seed, car),
-          faultList: async ({ vars }) => istaAblFaultList(vars, car),
-        },
-      },
+      runner: fake || istaAblRunner(car, chassis, vehicleText),
       // THE RUN IS WRITTEN BACK. A module that ends leaves its result on
       // the plan row, so the State column's square carries the legend's
       // colour and the technician can see at a glance what has been done

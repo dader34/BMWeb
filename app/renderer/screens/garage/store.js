@@ -354,6 +354,9 @@ function garageCompactReport(report) {
       label: s.label,
       error: s.error,
     })),
+    // the feature verdicts the identification's detection modules gave
+    // (ISTA's FFM cache), read back by the validity rules' equipment leaves
+    ...(r.ffm && typeof r.ffm === 'object' ? { ffm: { ...r.ffm } } : {}),
     // the viewer's own toggle, never persisted as "on": a reopened scan
     // always shows the table first
     showText: false,

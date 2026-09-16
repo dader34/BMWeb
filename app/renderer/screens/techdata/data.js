@@ -252,7 +252,18 @@ async function techDataReadModules(car, chassis) {
   const ecus = new Set();
   const groups = new Set();
   const titles = new Set();
+  /** @type {Object<string, boolean|null>} the identification's feature verdicts */
+  const ffm = {};
   const code = String((car && car.chassis) || chassis || '').toUpperCase();
+  // the feature verdicts ride on the identification scan whichever way the
+  // modules themselves are read
+  if (car && car.id && typeof garageScans === 'function')
+    for (const scan of garageScans(car.id) || []) {
+      const r = scan && scan.report;
+      if (r && r.kind === 'ident' && r.ffm && typeof r.ffm === 'object')
+        for (const [k, v] of Object.entries(r.ffm))
+          if (!Object.prototype.hasOwnProperty.call(ffm, k)) ffm[k] = v;
+    }
   if (typeof istaLoadSlots === 'function' && code) {
     let slots = null;
     try {
@@ -274,7 +285,7 @@ async function techDataReadModules(car, chassis) {
         if (m.via) groups.add(String(m.via).toLowerCase());
       }
   }
-  return ecus.size ? { ecus, groups, titles } : null;
+  return ecus.size ? { ecus, groups, titles, ffm } : null;
 }
 
 /**
@@ -314,6 +325,7 @@ async function techDataVehicleFacts(car, chassis) {
     facts.ecus = read.ecus;
     facts.groups = read.groups;
     facts.titles = read.titles;
+    facts.ffm = read.ffm || {};
   }
   facts.ilevel = String((car && car.ilevel) || '');
   facts.ilevelWerk = String((car && car.ilevelWerk) || '');
@@ -539,10 +551,16 @@ function techDataVehicleLeaf(rule, ids, f) {
     case 'istufex':
       return techDataIstufexLeaf(rule, f, aux);
     case 'equipment': {
-      // EquipmentExpression without a resolver: the feature's own rule
-      // decides; an unknown feature is false
+      // EquipmentExpression: an unknown feature is false; a feature the
+      // resolver has run for (the vehicle test's detection pass) answers
+      // with the module's verdict, a verdict it could not read being true
+      // as the tool answers; otherwise the feature's own rule decides, and
+      // holds unless it is false
       const row = (aux.equipment || {})[key];
       if (!row) return false;
+      const name = String(row.n || '');
+      if (f.ffm && Object.prototype.hasOwnProperty.call(f.ffm, name))
+        return f.ffm[name] == null ? true : !!f.ffm[name];
       return techDataRuleEval(row.r, ids, f) !== false;
     }
     case 'ecuclique':

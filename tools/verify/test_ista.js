@@ -2378,4 +2378,78 @@ const I = loadClassic('screens/ista/');
   ok('the unit list repaints each row from its own slot');
 }
 
+// ---- the features are detected the way the tool detects them ------------
+{
+  // A VALIDITY RULE'S EQUIPMENT LEAF IS ANSWERED BY A TEST MODULE. The tool's
+  // FFM resolver runs the feature's linked ABL-IDE procedure on the car and
+  // maps its verdict; the vehicle test runs the same modules after the
+  // identification, with the module window's own runner, and keeps the
+  // verdicts on the identification scan.
+  const screen = fs.readFileSync(
+    path.join(ROOT, 'app', 'renderer', 'screens', 'ista', 'screen.js'),
+    'utf8'
+  );
+  assert.ok(screen.includes('function istaAblRunner('), 'one runner');
+  assert.ok(
+    screen.includes('runner: fake || istaAblRunner(car, chassis, vehicleText)'),
+    'the module window uses it'
+  );
+  assert.ok(screen.includes('async function istaFfmResolve('));
+  const test = screen.slice(
+    screen.indexOf("const r = await pass(null, identKey, 'ident')"),
+    screen.indexOf("const r2 = await pass(faultMenu, faultKey, 'faults')")
+  );
+  assert.ok(
+    test.includes('r.report.ffm = await istaFfmResolve('),
+    'the vehicle test detects features after the identification'
+  );
+  assert.ok(
+    test.indexOf('r.report.ffm = await istaFfmResolve(') <
+      test.indexOf('keep(r.report, r.lines)'),
+    'and keeps the verdicts on the identification scan'
+  );
+  const run = screen.slice(
+    screen.indexOf('async function istaFfmRun('),
+    screen.indexOf('function istaTestStatus(')
+  );
+  assert.ok(
+    run.includes("verdict === 'Ok' || verdict === 'Verified'") &&
+      run.includes("verdict === 'NotOk') return false") &&
+      run.includes('return null;'),
+    "FFMDynamicResolver's mapping: Ok/Verified fitted, NotOk not, else null"
+  );
+  assert.ok(run.includes('input: refuse'), 'nothing interactive is answered');
+  ok('feature detection runs the linked modules and maps their verdicts');
+
+  // the pool spells a module the way its DLL is named
+  // plan.js is already in the loaded set
+  const P = I;
+  assert.strictEqual(
+    P.istaAblDllName('ABL-IDE-ASC_MK60_E46'),
+    'ABL_IDE_ASC_MK60_E46'
+  );
+  assert.strictEqual(
+    P.istaAblDllName('ABL-DIT-B1362_D6LDF'),
+    'ABL_DIT_B1362_D6LDF'
+  );
+  assert.strictEqual(P.istaAblDllName('ABL_IDE_X'), 'ABL_IDE_X');
+  const plan = fs.readFileSync(
+    path.join(ROOT, 'app', 'renderer', 'screens', 'ista', 'plan.js'),
+    'utf8'
+  );
+  assert.ok(plan.includes('istaAblDllName(name)'), 'the loader tries it');
+  ok('a module is found under either spelling');
+
+  // the stored identification keeps the verdicts
+  const store = fs.readFileSync(
+    path.join(ROOT, 'app', 'renderer', 'screens', 'garage', 'store.js'),
+    'utf8'
+  );
+  assert.ok(
+    store.includes('ffm: { ...r.ffm }'),
+    'the compact report keeps them'
+  );
+  ok('the verdicts survive the scan store');
+}
+
 console.log(`test_ista: ${passed} checks passed`);

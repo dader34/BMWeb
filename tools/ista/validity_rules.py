@@ -380,11 +380,18 @@ def vehicle_leaf(rule, ids, facts):
     if op == "istufex":
         return istufex_leaf(rule, facts, aux)
     if op == "equipment":
-        # EquipmentExpression without a resolver: the feature's own rule
-        # decides; an unknown feature is false
+        # EquipmentExpression: an unknown feature is false; a feature the
+        # resolver has run for answers with the module's verdict (a verdict
+        # the resolver could not read -- None -- is true, as the tool
+        # answers); otherwise the feature's own rule decides, and holds
+        # unless it is false
         row = (aux.get("equipment") or {}).get(key)
         if not row:
             return False
+        ffm = facts.get("ffm") or {}
+        name = str(row.get("n") or "")
+        if name in ffm:
+            return True if ffm[name] is None else bool(ffm[name])
         return rule_eval(row.get("r"), ids, facts) is not False
     if op == "ecuclique":
         return clique_leaf(val, ids, facts, aux)
@@ -611,8 +618,20 @@ def read_rule_facts(con):
         if iid in want
     }
     want = refs.get("equipment", set())
+    # THE FEATURE IS DETECTED BY A TEST MODULE. Each XEP_EQUIPMENT row links
+    # one ABL (ServiceProcedureLink) that the tool's FFM resolver runs on
+    # the car; its verdict decides the leaf. The module ships under its
+    # DLL spelling (the first two dashes are underscores).
+    module_of = {}
+    for eid, ident in con.execute(
+        "SELECT r.ID, io.IDENTIFIER FROM XEP_REFINFOOBJECTS r "
+        "JOIN XEP_INFOOBJECTS io ON io.ID=r.INFOOBJECTID "
+        "WHERE r.LINK_TYPE_ID='ServiceProcedureLink'"
+    ):
+        if eid in want and ident:
+            module_of.setdefault(eid, str(ident).replace("-", "_", 2))
     out["equipment"] = {
-        str(eid): {"n": name, "r": rules.get(eid)}
+        str(eid): {"n": name, "r": rules.get(eid), "m": module_of.get(eid)}
         for eid, name in con.execute("SELECT ID, NAME FROM XEP_EQUIPMENT")
         if eid in want
     }

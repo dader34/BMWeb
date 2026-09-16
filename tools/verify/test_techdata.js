@@ -582,6 +582,28 @@ const T = loadClassic('screens/techdata/');
     );
     assert.strictEqual(leaf({ op: 'equipment', val: 9002 }, v3), false);
     assert.strictEqual(leaf({ op: 'equipment', val: 9999 }, v3), false);
+    // the resolver's cache: the detection module's verdict wins, and a
+    // verdict it could not read is true, as EquipmentExpression answers
+    assert.strictEqual(
+      leaf({ op: 'equipment', val: 9001 }, { ...v3, ffm: { ascmk60: false } }),
+      false,
+      'the module said NotOk'
+    );
+    assert.strictEqual(
+      leaf({ op: 'equipment', val: 9002 }, { ...v3, ffm: { ahm3p: true } }),
+      true,
+      'the module said Ok, whatever the rule'
+    );
+    assert.strictEqual(
+      leaf({ op: 'equipment', val: 9001 }, { ...v3, ffm: { ascmk60: null } }),
+      true,
+      'an unreadable verdict is true'
+    );
+    assert.strictEqual(
+      leaf({ op: 'equipment', val: 9001 }, { ...v3, ffm: { other: false } }),
+      true,
+      "another feature's verdict is not this one's"
+    );
     assert.strictEqual(
       leaf({ op: 'ecurep', val: 6001 }, v3),
       true,
