@@ -288,7 +288,26 @@ function showEtkGroup(data, chassisId, mg, openBtnr = null) {
  */
 function printEtkDiagram(data, chassisId, mg, d) {
   const parts = etkFitParts(d.parts);
-  const rows = parts.map((p) => [p.pos, fmtSachnr(p.sachnr, p.pre), p.name]);
+  const groups =
+    typeof etkRows === 'function'
+      ? etkRows(parts, ETK_STATE)
+      : parts.map((p) => ({ pos: p.pos, items: [{ part: p, line: null }] }));
+  const month = (ym) => (typeof etkMonth === 'function' ? etkMonth(ym) : '');
+  const rows = [];
+  for (const g of groups)
+    for (const it of g.items) {
+      const ln = it.line || {};
+      rows.push([
+        it.part.pos,
+        it.part.name,
+        it.part.sup || '',
+        ln.q || '1',
+        month(ln.f),
+        month(ln.t),
+        fmtSachnr(it.part.sachnr, it.part.pre),
+      ]);
+      if (ln.n) rows.push(['', `Note: ${ln.n}`, '', '', '', '', '']);
+    }
   const veh = ETK_STATE.variantLabel || dispChassis(chassisId);
   printDoc({
     title: d.name,
@@ -299,11 +318,19 @@ function printEtkDiagram(data, chassisId, mg, d) {
     ],
     sections: [
       printImage(etkImageUrl(data, d.img), d.name),
-      printTable(['No.', 'Part number', 'Description'], rows, [
-        'pr-num',
-        'pr-mono',
-        '',
-      ]),
+      printTable(
+        [
+          'No.',
+          'Description',
+          'Supplement',
+          'Qty',
+          'From',
+          'Up to',
+          'Part number',
+        ],
+        rows,
+        ['pr-num', '', '', 'pr-num', '', '', 'pr-mono']
+      ),
     ],
     footer: `${APP_NAME} · BMW ETK · ${dispChassis(chassisId)} · printed ${new Date().toLocaleDateString()}`,
   });
@@ -361,15 +388,16 @@ function renderDiagram(data, chassisId, d, viewEl) {
 
   const table = document.createElement('table');
   table.className = 'etk-parts';
-  table.innerHTML = `<thead><tr><th>No.</th><th>Part number</th><th>Description</th></tr></thead>`;
+  // THE CATALOGUE'S OWN LAYOUT: one row per callout and part number, the
+  // parts sharing a callout folded under it with a + to expand, an i on a
+  // line that carries a note, and the columns the tool prints -- No.,
+  // Description, Supplement, Qty, From, Up to, Part number
+  table.innerHTML =
+    `<thead><tr><th class="etk-ctl"></th><th>No.</th><th>Description</th>` +
+    `<th>Supplement</th><th class="etk-num">Qty</th><th>From</th>` +
+    `<th>Up to</th><th>Part number</th></tr></thead>`;
   const tb = document.createElement('tbody');
-  parts.forEach((p) => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `<td class="etk-pos">${esc(p.pos)}</td>
-                    <td class="etk-sachnr">${esc(fmtSachnr(p.sachnr, p.pre))}</td>
-                    <td class="etk-name">${esc(p.name)}</td>`;
-    tb.appendChild(tr);
-  });
+  etkTableRows(tb, parts);
   table.appendChild(tb);
   wrap.appendChild(table);
   viewEl.appendChild(wrap);
@@ -407,6 +435,116 @@ function renderDiagram(data, chassisId, d, viewEl) {
   sbRight.textContent =
     `${parts.length} part${parts.length === 1 ? '' : 's'}` +
     (filtered ? ` (of ${d.parts.length})` : '');
+}
+
+/**
+ * Fill a parts table body the way the catalogue lays it out (etkRows): a
+ * plain row per lone part, a collapsed group row per callout with several
+ * parts (+ expands it), and an i button on a line with a note that opens
+ * the note beneath. Every part row carries its callout in .etk-pos, which
+ * is what the drawing's callouts join to; note rows carry none.
+ * @param {HTMLTableSectionElement} tb - the tbody to fill
+ * @param {EtkPart[]} parts - the parts to draw, already filtered
+ * @returns {void}
+ */
+function etkTableRows(tb, parts) {
+  const groups =
+    typeof etkRows === 'function'
+      ? etkRows(parts, ETK_STATE)
+      : (parts || []).map((p) => ({
+          pos: String(p.pos == null ? '' : p.pos),
+          name: p.name || '',
+          items: [{ part: p, line: null }],
+        }));
+  const month = (ym) => (typeof etkMonth === 'function' ? etkMonth(ym) : '');
+  /**
+   * One part's row.
+   * @param {{part: EtkPart, line: object|null}} it - the item
+   * @param {boolean} sub - drawn under a group row
+   * @returns {HTMLTableRowElement}
+   */
+  const itemRow = (it, sub) => {
+    const p = it.part;
+    const ln = it.line || {};
+    const tr = document.createElement('tr');
+    if (sub) tr.className = 'etk-sub';
+    const info = ln.n
+      ? `<button type="button" class="etk-info" aria-expanded="false" ` +
+        `aria-label="Note">i</button>`
+      : '';
+    tr.innerHTML =
+      `<td class="etk-ctl">${info}</td>` +
+      `<td class="etk-pos">${esc(p.pos)}</td>` +
+      `<td class="etk-name">${esc(p.name)}</td>` +
+      `<td class="etk-sup">${esc(p.sup || '')}</td>` +
+      `<td class="etk-qty etk-num">${esc(ln.q || '1')}</td>` +
+      `<td class="etk-from">${esc(month(ln.f))}</td>` +
+      `<td class="etk-to">${esc(month(ln.t))}</td>` +
+      `<td class="etk-sachnr">${esc(fmtSachnr(p.sachnr, p.pre))}</td>`;
+    const btn = tr.querySelector('.etk-info');
+    if (btn) {
+      let note = null;
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        if (note) {
+          note.remove();
+          note = null;
+          btn.setAttribute('aria-expanded', 'false');
+          return;
+        }
+        note = document.createElement('tr');
+        note.className = 'etk-note';
+        note.innerHTML =
+          `<td class="etk-ctl"></td><td></td>` +
+          `<td colspan="6">${esc(ln.n)}</td>`;
+        tr.after(note);
+        btn.setAttribute('aria-expanded', 'true');
+      };
+    }
+    return tr;
+  };
+  for (const g of groups) {
+    if (g.items.length === 1) {
+      tb.appendChild(itemRow(g.items[0], false));
+      continue;
+    }
+    const head = document.createElement('tr');
+    head.className = 'etk-group';
+    head.innerHTML =
+      `<td class="etk-ctl"><button type="button" class="etk-tgl" ` +
+      `aria-expanded="false" aria-label="Show ${g.items.length} parts">+</button></td>` +
+      `<td class="etk-pos">${esc(g.pos)}</td>` +
+      `<td class="etk-name">${esc(g.name)}</td>` +
+      `<td class="etk-sup"></td><td class="etk-qty etk-num"></td>` +
+      `<td class="etk-from"></td><td class="etk-to"></td>` +
+      `<td class="etk-sachnr etk-count">${g.items.length} parts</td>`;
+    tb.appendChild(head);
+    const kids = g.items.map((it) => itemRow(it, true));
+    for (const k of kids) {
+      k.hidden = true;
+      tb.appendChild(k);
+    }
+    const tgl = head.querySelector('.etk-tgl');
+    const toggle = () => {
+      const open = tgl.getAttribute('aria-expanded') === 'true';
+      tgl.setAttribute('aria-expanded', open ? 'false' : 'true');
+      tgl.textContent = open ? '+' : '−';
+      for (const k of kids) {
+        k.hidden = open;
+        // a note opened under a child folds with it
+        if (
+          open &&
+          k.nextElementSibling &&
+          k.nextElementSibling.classList.contains('etk-note')
+        )
+          k.nextElementSibling.remove();
+      }
+    };
+    tgl.onclick = (e) => {
+      e.stopPropagation();
+      toggle();
+    };
+  }
 }
 
 /**

@@ -156,4 +156,111 @@ assert.strictEqual(
 );
 ok('the sidecar lands on the parts, inline records first');
 
+// THE ROWS THE TABLE DRAWS: one per callout and part number, the parts of a
+// callout grouped, a part listed on two lines folded into one row that shows
+// the line fitting the car, the supplement from the sidecar
+{
+  const parts = [
+    { pos: '01', sachnr: '7519629', name: 'Vibration damper' },
+    {
+      pos: '01',
+      sachnr: '7562509',
+      name: 'Vibration damper',
+      ln: [{ c: 'C', n: 'For vehicles with +Automatic transmission' }],
+    },
+    { pos: '02', sachnr: '7570107', name: 'Hub', ln: [{ t: 200903 }] },
+    { pos: '02', sachnr: '7570107', name: 'Hub', ln: [{ t: 200903 }] },
+    { pos: '02', sachnr: '7593701', name: 'Hub', ln: [{ f: 200903, q: '2' }] },
+    { pos: '03', sachnr: '1439395', name: 'Hex Bolt', sup: 'M8X16' },
+    { pos: '04', sachnr: '7564511', name: 'ASA-Bolt', ln: [{ q: '6' }] },
+  ];
+  const rows = L.etkRows(parts, { prod: 201001 });
+  assert.deepStrictEqual(
+    rows.map((g) => [g.pos, g.name, g.items.length]),
+    [
+      ['01', 'Vibration damper', 2],
+      ['02', 'Hub', 2],
+      ['03', 'Hex Bolt', 1],
+      ['04', 'ASA-Bolt', 1],
+    ]
+  );
+  assert.strictEqual(
+    rows[1].items[0].part.ln.length,
+    1,
+    'the same line twice folds to one'
+  );
+  assert.deepStrictEqual(rows[1].items[1].line, { f: 200903, q: '2' });
+  assert.deepStrictEqual(rows[3].items[0].line, { q: '6' });
+  assert.strictEqual(
+    rows[0].items[0].line,
+    null,
+    'no line record, nothing to show'
+  );
+  assert.strictEqual(
+    rows[0].items[1].line.n,
+    'For vehicles with +Automatic transmission'
+  );
+  ok("the table groups a callout's parts and folds repeated lines");
+
+  // the line shown is the one that fits the car; without a car, the first
+  const two = {
+    pos: '05',
+    sachnr: '1',
+    name: 'x',
+    ln: [{ t: 200109 }, { f: 200110, q: '3' }],
+  };
+  assert.deepStrictEqual(L.etkDisplayLine(two, { prod: 200409 }), {
+    f: 200110,
+    q: '3',
+  });
+  assert.deepStrictEqual(L.etkDisplayLine(two, { prod: 200001 }), {
+    t: 200109,
+  });
+  assert.deepStrictEqual(L.etkDisplayLine(two, null), { t: 200109 });
+  assert.strictEqual(L.etkDisplayLine({ pos: '1', sachnr: '2' }, null), null);
+  ok('a row shows the line that fits the car');
+
+  // a group whose parts differ in name takes the first's
+  const mixed = L.etkRows(
+    [
+      { pos: '07', sachnr: '1', name: 'Bolt' },
+      { pos: '07', sachnr: '2', name: 'Washer' },
+    ],
+    null
+  );
+  assert.strictEqual(mixed[0].name, 'Bolt');
+  assert.strictEqual(L.etkMonth(200109), '09/2001');
+  assert.strictEqual(L.etkMonth(undefined), '');
+  ok('mixed groups and months');
+
+  // the sidecar's supplements land on the parts
+  const tree = {
+    groups: [
+      {
+        diagrams: [
+          {
+            btnr: 'b',
+            parts: [
+              { pos: '1', sachnr: '7564511' },
+              { pos: '2', sachnr: '9', sup: 'kept' },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+  L.etkMergeLines(tree, {
+    v: 2,
+    ln: {},
+    sup: { 7564511: 'M8X16', 9: 'not this' },
+  });
+  assert.strictEqual(tree.groups[0].diagrams[0].parts[0].sup, 'M8X16');
+  assert.strictEqual(
+    tree.groups[0].diagrams[0].parts[1].sup,
+    'kept',
+    'an inline supplement wins'
+  );
+  ok('the Supplement column comes from the sidecar');
+}
+
 console.log(`test_etk_lines: ${passed} checks passed`);

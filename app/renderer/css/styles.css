@@ -1494,6 +1494,66 @@ html.no-chrome body.apps-section .topbar {
 }
 
 /* while the ~20 MB bundle streams from HF, a centred spinner + progress bar */
+/* the catalogue's table: the control column (+ to expand a callout's parts,
+   i for a note), the parts under a group indented, notes muted */
+.etk-parts .etk-ctl {
+  width: 26px;
+  padding-left: 10px;
+  padding-right: 0;
+  text-align: center;
+}
+.etk-parts .etk-num {
+  text-align: right;
+}
+.etk-parts .etk-sup,
+.etk-parts .etk-from,
+.etk-parts .etk-to,
+.etk-parts .etk-qty,
+.etk-parts .etk-count {
+  color: var(--ink-dim);
+  white-space: nowrap;
+}
+.etk-parts .etk-count {
+  font-family: inherit;
+  font-size: 12px;
+}
+.etk-tgl,
+.etk-info {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: var(--panel-2);
+  color: var(--ink);
+  font: 700 12px/16px var(--mono);
+  cursor: pointer;
+}
+.etk-info {
+  border-radius: 50%;
+  font-family: Georgia, serif;
+  font-style: italic;
+}
+.etk-tgl:hover,
+.etk-info:hover,
+.etk-info[aria-expanded='true'] {
+  border-color: var(--amber);
+  color: var(--amber);
+}
+.etk-parts tr.etk-group .etk-name {
+  font-weight: 600;
+}
+.etk-parts tr.etk-sub .etk-name {
+  padding-left: 32px;
+}
+.etk-parts tr.etk-note td {
+  padding-top: 2px;
+  padding-bottom: 8px;
+  color: var(--ink-dim);
+  font-size: 12.5px;
+  border-top: 0;
+}
+
 .etk-loading {
   display: flex;
   align-items: center;

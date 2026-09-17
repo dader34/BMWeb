@@ -236,8 +236,12 @@ def build(con, chassis, names, out_dir, quiet=False):
             "FROM w_bildtaf WHERE bildtaf_btnr IN (%s)", btnr_list):
         diagrams[btnr] = {'hg': hg, 'fg': fg, 'grafikid': gid, 'textcode': tc}
 
-    # 4a. the line's own validity: dates, steering, gearbox, condition, note
+    # 4a. the line's own validity: dates, steering, gearbox, condition, note,
+    #     and the quantity when it is not 1
     conds = line_conditions(con, btnr_list, names)
+    for key, q in line_quantities(con, mospids, btnrs).items():
+        conds.setdefault(key, {})['q'] = q
+    sups = part_supplements(con, all_sachnr)
 
     # 4. callout numbers per part-line (btnr,pos -> bildposnr)
     callouts = {}
@@ -312,6 +316,8 @@ def build(con, chassis, names, out_dir, quiet=False):
             cond = conds.get((btnr, pos))
             if cond:
                 p['ln'] = [cond]   # the line's validity (see line_conditions)
+            if sachnr in sups:
+                p['sup'] = sups[sachnr]   # the Supplement column (M8X16)
             parts.append(p)
         img_ref = None
         gid = d['grafikid']
@@ -409,6 +415,40 @@ def chassis_btnrs(con, chassis):
     return btnrs
 
 
+def line_quantities(con, mospids, btnrs):
+    """(btnr, line pos) -> the quantity the catalogue lists for that line,
+    the most common across the chassis's vehicles (it is per vehicle in the
+    fitment table and all but never differs). Only quantities other than 1
+    are returned; 1 is what a missing value means."""
+    counts = {}
+    for btnr, pos, q, mospid in chunked_in(con,
+            "SELECT btzeilenv_btnr, btzeilenv_pos, btzeilenv_vmenge, btzeilenv_mospid "
+            "FROM w_btzeilen_verbauung WHERE btzeilenv_mospid IN (%s)", mospids):
+        if btnr not in btnrs or q is None:
+            continue
+        d = counts.setdefault((btnr, pos), {})
+        d[str(q).strip()] = d.get(str(q).strip(), 0) + 1
+    out = {}
+    for key, d in counts.items():
+        best = max(d.items(), key=lambda kv: (kv[1], kv[0]))[0]
+        if best and best != '1':
+            out[key] = best
+    return out
+
+
+def part_supplements(con, sachnrs):
+    """sachnr -> the part's name supplement ("M8X16", the size or grade that
+    tells one bolt from another), the ETK's Supplement column."""
+    out = {}
+    for sachnr, sup in chunked_in(con,
+            "SELECT teil_sachnr, teil_benennzus FROM w_teil "
+            "WHERE teil_sachnr IN (%s) AND teil_benennzus IS NOT NULL", sachnrs):
+        s = str(sup or '').strip()
+        if s:
+            out[sachnr] = s
+    return out
+
+
 def build_lines(con, chassis, names, out_dir, quiet=False):
     """Write <chassis>.lines.json.gz: the validity of every parts line the
     chassis's bundle carries, keyed the way the viewer can join it to a part
@@ -428,6 +468,13 @@ def build_lines(con, chassis, names, out_dir, quiet=False):
     if not btnrs:
         return None
     conds = line_conditions(con, btnrs, names)
+    mospids = [r[0] for r in con.execute(
+        "SELECT fztyp_mospid FROM w_fztyp WHERE fztyp_baureihe=?", (chassis,))]
+    qty = line_quantities(con, mospids, btnrs)
+    # the quantity rides on the line record, so a line with only a quantity
+    # gets a record too
+    for key, q in qty.items():
+        conds.setdefault(key, {})['q'] = q
     if not conds:
         return None
     callouts = {}
@@ -438,10 +485,16 @@ def build_lines(con, chassis, names, out_dir, quiet=False):
         callouts[(btnr, pos)] = callout if callout is not None else pos
         sachnr_of[(btnr, pos)] = sachnr
     ln = {}
-    for (btnr, pos), rec in conds.items():
+    for (btnr, pos), rec in sorted(conds.items()):
         key = f"{callouts.get((btnr, pos), pos)}|{sachnr_of.get((btnr, pos), '')}"
-        ln.setdefault(btnr, {}).setdefault(key, []).append(rec)
-    payload = json.dumps({'v': 1, 'ln': ln}, ensure_ascii=False,
+        recs = ln.setdefault(btnr, {}).setdefault(key, [])
+        # a callout-less part is drawn on many lines with one and the same
+        # validity; one record says it
+        if rec not in recs:
+            recs.append(rec)
+    # the Supplement column: per part, so once per file
+    sup = part_supplements(con, {s for s in sachnr_of.values() if s})
+    payload = json.dumps({'v': 2, 'ln': ln, 'sup': sup}, ensure_ascii=False,
                          separators=(',', ':')).encode('utf-8')
     os.makedirs(out_dir, exist_ok=True)
     path = os.path.join(out_dir, f'{chassis}.lines.json.gz')
