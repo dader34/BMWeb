@@ -246,13 +246,37 @@ async function showChassis() {
  */
 async function showScriptSelection(chassisId, onAbort) {
   setStateSgbd(null); // reset the battery/ignition poll target now, re-aim below (screens/sweep/autoscan.js)
+  // THE CHASSIS IS A 20 MB ARCHIVE THE FIRST TIME. Nothing moved between the
+  // click and the popup, so a slow connection looked like a dead key. The
+  // app's own progress popup (the roundel turning) covers the wait; it only
+  // appears when the load takes longer than an eye can miss, so a cached
+  // chassis opens without a flash, and Esc leaves the vehicle screen alone.
+  let busy = null;
+  let cancelled = false;
+  const showBusy = setTimeout(() => {
+    if (typeof progressDialog !== 'function') return;
+    busy = progressDialog({
+      title: `Loading ${esc(dispChassis(chassisId))}`,
+      text: 'Fetching the chassis data…',
+      onCancel: () => {
+        cancelled = true;
+      },
+    });
+  }, 150);
   let ch;
   try {
     ch = await api(`/api/chassis/${chassisId}`);
   } catch (e) {
+    clearTimeout(showBusy);
+    if (busy) busy.close();
+    if (cancelled) return;
     showSections(chassisId);
     return;
+  } finally {
+    clearTimeout(showBusy);
+    if (busy) busy.close();
   } // fall back to the full screen
+  if (cancelled) return;
   setStateSgbd(ch); // retarget the battery/ignition poll at this chassis's DME (screens/sweep/autoscan.js)
   autoScan(chassisId, ch).catch(() => {}); // background engine/trans scan; no-ops when the config has no grouped targets
 
