@@ -1,6 +1,6 @@
 {
   "name": "bmweb-renderer",
-  "version": "1.0.2-beta",
+  "version": "1.0.3-beta",
   "private": true,
   "description": "BMWeb renderer",
   "scripts": {
