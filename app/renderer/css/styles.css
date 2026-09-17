@@ -1494,24 +1494,6 @@ html.no-chrome body.apps-section .topbar {
 }
 
 /* while the ~20 MB bundle streams from HF, a centred spinner + progress bar */
-/* a parts line's validity beside its description: the window, the side,
-   the condition the catalogue prints ("For vehicles with +...") */
-.etk-tags {
-  display: block;
-  margin-top: 2px;
-}
-.etk-tag {
-  display: inline-block;
-  margin: 2px 6px 0 0;
-  padding: 1px 6px;
-  border-radius: 3px;
-  font-size: 11px;
-  line-height: 16px;
-  color: var(--ink-dim);
-  background: var(--panel-2);
-  border: 1px solid var(--line);
-}
-
 .etk-loading {
   display: flex;
   align-items: center;

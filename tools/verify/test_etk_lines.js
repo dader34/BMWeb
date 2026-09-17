@@ -92,25 +92,6 @@ assert.strictEqual(L.etkLineFits({ pos: '01', sachnr: '1' }, car), true);
 assert.strictEqual(L.etkLineFits({ ln: [] }, car), true);
 ok('a part fits when any of its lines does');
 
-// the tags, in the catalogue's words
-assert.deepStrictEqual(L.etkLineTags(old), [
-  'up to 09/2001 · For vehicles with +Headlight cleaning system',
-]);
-assert.deepStrictEqual(L.etkLineTags(cur), [
-  'from 09/2001 · For vehicles with +Headlight cleaning system',
-]);
-assert.deepStrictEqual(
-  L.etkLineTags({ ln: [{ f: 200109, t: 200303, s: 'R', a: 'A' }] }),
-  ['from 09/2001 · up to 03/2003 · RHD · automatic']
-);
-assert.deepStrictEqual(
-  L.etkLineTags({ ln: [{ f: 200109 }, { f: 200109 }] }),
-  ['from 09/2001'],
-  'identical lines read once'
-);
-assert.deepStrictEqual(L.etkLineTags({}), []);
-ok('a row prints its window, side, gearbox and note');
-
 // the sidecar merges onto the bundle's parts by callout and part number;
 // inline records win
 const tree = {
