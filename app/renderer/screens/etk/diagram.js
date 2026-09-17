@@ -39,7 +39,19 @@ function etkFitParts(parts) {
   // "Show all" in the tree header lifts the variant filter without
   // forgetting the variant, so "My car" can put it back
   if (ETK_STATE.variant == null || ETK_STATE.showAll) return parts.slice();
-  return parts.filter((p) => !p.fit || p.fit.includes(ETK_STATE.variant));
+  return parts.filter(etkPartFits);
+}
+
+/**
+ * Does a part fit the chosen vehicle: its type key (the bundle's `fit`),
+ * and its line's window, steering side and gearbox against what the VIN
+ * or the picked variant said (lines.js)?
+ * @param {EtkPart} p - a part row
+ * @returns {boolean}
+ */
+function etkPartFits(p) {
+  if (p.fit && !p.fit.includes(ETK_STATE.variant)) return false;
+  return typeof etkLineFits === 'function' ? etkLineFits(p, ETK_STATE) : true;
 }
 
 /**
@@ -50,8 +62,7 @@ function etkFitParts(parts) {
  */
 function etkFitCount(parts) {
   if (ETK_STATE.variant == null) return parts.length;
-  return parts.filter((p) => !p.fit || p.fit.includes(ETK_STATE.variant))
-    .length;
+  return parts.filter(etkPartFits).length;
 }
 
 /**
@@ -277,7 +288,13 @@ function showEtkGroup(data, chassisId, mg, openBtnr = null) {
  */
 function printEtkDiagram(data, chassisId, mg, d) {
   const parts = etkFitParts(d.parts);
-  const rows = parts.map((p) => [p.pos, fmtSachnr(p.sachnr, p.pre), p.name]);
+  const rows = parts.map((p) => [
+    p.pos,
+    fmtSachnr(p.sachnr, p.pre),
+    typeof etkLineTags === 'function' && etkLineTags(p).length
+      ? `${p.name} (${etkLineTags(p).join('; ')})`
+      : p.name,
+  ]);
   const veh = ETK_STATE.variantLabel || dispChassis(chassisId);
   printDoc({
     title: d.name,
@@ -354,9 +371,21 @@ function renderDiagram(data, chassisId, d, viewEl) {
   const tb = document.createElement('tbody');
   parts.forEach((p) => {
     const tr = document.createElement('tr');
+    // THE LINE'S VALIDITY IS PRINTED THE WAY THE CATALOGUE PRINTS IT: the
+    // window, the side, and the condition ("For vehicles with +Headlight
+    // cleaning system"), so a reader browsing without a VIN can still tell
+    // the pre-facelift row from the one for their car
+    const tags =
+      typeof etkLineTags === 'function'
+        ? etkLineTags(p)
+            .map((t) => `<span class="etk-tag">${esc(t)}</span>`)
+            .join('')
+        : '';
     tr.innerHTML = `<td class="etk-pos">${esc(p.pos)}</td>
                     <td class="etk-sachnr">${esc(fmtSachnr(p.sachnr, p.pre))}</td>
-                    <td class="etk-name">${esc(p.name)}</td>`;
+                    <td class="etk-name">${esc(p.name)}${
+                      tags ? `<span class="etk-tags">${tags}</span>` : ''
+                    }</td>`;
     tb.appendChild(tr);
   });
   table.appendChild(tb);

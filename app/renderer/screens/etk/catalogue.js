@@ -16,7 +16,32 @@
  */
 
 /** @type {EtkFilterState} */
-const ETK_STATE = { variant: null, variantLabel: null, showAll: false };
+const ETK_STATE = {
+  variant: null,
+  variantLabel: null,
+  showAll: false,
+  // what a VIN said about the car, for the lines' validity (lines.js): the
+  // build month decides the from/up-to windows, the side and gearbox their
+  // lines; a variant picked by hand has a side and gearbox, never a month
+  prod: null,
+  steer: null,
+  auto: null,
+};
+
+/**
+ * Set the car facts the lines' validity is judged by.
+ * @param {object|null} variant - the chosen EtkVariant, or null
+ * @param {{prod?: string|number, steer?: string}|null} [hit] - the decoded VIN, when there is one
+ * @returns {void}
+ */
+function etkSetCarFacts(variant, hit) {
+  const prod = hit && hit.prod ? String(hit.prod).slice(0, 6) : '';
+  ETK_STATE.prod = /^\d{6}$/.test(prod) ? Number(prod) : null;
+  const steer = String((hit && hit.steer) || (variant && variant.steer) || '');
+  ETK_STATE.steer = steer === 'L' || steer === 'R' ? steer : null;
+  const gear = String((variant && variant.gear) || '');
+  ETK_STATE.auto = gear === 'A' || gear === 'M' ? gear : null;
+}
 
 /** How many chassis get a number key on the picker. */
 const ETK_FKEY_SLOTS = 9;
@@ -221,6 +246,10 @@ async function showEtkChassis(chassisId, preselect) {
   }
   ETK_STATE.variant = pre ? pre.variant : null;
   ETK_STATE.variantLabel = pre ? pre.label : null;
+  etkSetCarFacts(
+    pre ? (data.tree.variants || [])[pre.variant] : null,
+    preselect && preselect.hit ? preselect.hit : null
+  );
 
   // --- variant selector (custom searchable dropdown) ---
   const vbar = document.createElement('div');
@@ -335,6 +364,7 @@ function buildVariantDropdown(variants) {
       // the exact variant string, so a printed diagram names the vehicle it was
       // filtered to; null = all variants
       ETK_STATE.variantLabel = idx != null && item ? item.text : null;
+      etkSetCarFacts(idx != null ? variants[idx] : null, null);
     },
   });
   dd.el.classList.add('etk-vdd');

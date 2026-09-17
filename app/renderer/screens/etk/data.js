@@ -15,7 +15,7 @@
  * present (dev + the offline single-file export), else fall back to HF.
  */
 
-/* exported ETK_HF_BASE, etkFetch, etkDataUrl, etkFetchFirst, loadEtk, readWithProgress, etkChassisList, loadVehicles, loadEtkThumbs, etkThumbUrl, etkImageUrl, loadEtkHotspots */
+/* exported ETK_HF_BASE, etkFetch, etkDataUrl, etkFetchFirst, loadEtk, readWithProgress, etkChassisList, loadVehicles, loadEtkThumbs, etkThumbUrl, etkImageUrl, loadEtkHotspots, loadEtkLines */
 
 /**
  * One part row on a diagram.
@@ -187,9 +187,44 @@ async function loadEtk(chassisId, onProgress) {
   const unzipped = fflate.unzipSync(bytes);
   const tree = JSON.parse(new TextDecoder().decode(unzipped['tree.json']));
   const files = new Map(Object.entries(unzipped));
+  // THE LINES' VALIDITY RIDES BESIDE THE PUBLISHED BUNDLE (dates, steering,
+  // condition, note -- see lines.js); a bundle built with them inline needs
+  // nothing from the sidecar, and a chassis without one browses as before
+  if (typeof etkMergeLines === 'function') {
+    const side = await loadEtkLines(id);
+    if (side) etkMergeLines(tree, side);
+  }
   const data = { tree, files };
   ETK_CACHE.set(id, data);
   return data;
+}
+
+/** @type {Map<string, Promise<object|null>>} chassis id -> its lines file */
+const ETK_LINES_CACHE = new Map();
+
+/**
+ * Load (and cache) one chassis's parts-line validity file. Never throws: a
+ * chassis whose file is missing or unreadable resolves to null and its
+ * parts carry no conditions.
+ * @param {string} chassisId - chassis code, any case
+ * @returns {Promise<object|null>} the parsed <CHASSIS>.lines.json.gz, or null
+ */
+function loadEtkLines(chassisId) {
+  const id = String(chassisId || '').toUpperCase();
+  if (ETK_LINES_CACHE.has(id)) return ETK_LINES_CACHE.get(id);
+  const p = (async () => {
+    const hit = await etkFetchFirst(`${id}.lines.json.gz`);
+    if (!hit) return null;
+    try {
+      const bytes = new Uint8Array(await hit.resp.arrayBuffer());
+      const data = JSON.parse(fflate.strFromU8(fflate.gunzipSync(bytes)));
+      return data && data.ln ? data : null;
+    } catch (e) {
+      return null;
+    }
+  })();
+  ETK_LINES_CACHE.set(id, p);
+  return p;
 }
 
 /** @type {Map<string, Promise<EtkHotspotFile|null>>} chassis id -> its hotspot file, in flight or settled */
