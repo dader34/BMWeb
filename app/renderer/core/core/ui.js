@@ -219,10 +219,27 @@ function head(eyebrow, title, subtitle) {
  * @returns {void}
  */
 function stagger(container, step = 35) {
-  [...container.children].forEach((c, i) => {
+  const kids = [...container.children];
+  kids.forEach((c, i) => {
     c.style.animationDelay = `${i * step}ms`;
   });
+  // THE ENTRANCE IS DROPPED ONCE IT IS OVER. The rise keeps each child at
+  // opacity 0 until its animation runs, and an animation the browser froze
+  // mid-flight (a tab hidden while the grid came in, a throttled frame) left
+  // tiles half-transparent yet clickable. After the last child's turn has
+  // had time to finish, the container stops being a stagger and every child
+  // is simply drawn.
+  const settle = kids.length * step + STAGGER_RISE_MS + STAGGER_GRACE_MS;
+  setTimeout(() => {
+    if (container.isConnected) container.classList.remove('stagger');
+  }, settle);
 }
+
+/** How long the rise animation runs (styles.css, .stagger > *). */
+const STAGGER_RISE_MS = 500;
+
+/** Slack after the last child's rise before the entrance is dropped. */
+const STAGGER_GRACE_MS = 250;
 
 /**
  * Shimmering placeholder list.
