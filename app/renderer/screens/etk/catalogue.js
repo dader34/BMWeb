@@ -242,7 +242,18 @@ async function showEtkChassis(chassisId, preselect) {
     const vs = data.tree.variants || [];
     const m =
       typeof etkMatchVariant === 'function' ? etkMatchVariant(vs, pre.hit) : -1;
-    pre = m >= 0 ? { variant: m, label: etkVariantLabel(vs[m]) } : null;
+    // the caption names the CAR's build month when the VIN gave one, not
+    // the month its type key was introduced
+    pre =
+      m >= 0
+        ? {
+            variant: m,
+            label:
+              typeof etkCarLabel === 'function'
+                ? etkCarLabel(vs[m], pre.hit)
+                : etkVariantLabel(vs[m]),
+          }
+        : null;
   }
   ETK_STATE.variant = pre ? pre.variant : null;
   ETK_STATE.variantLabel = pre ? pre.label : null;
