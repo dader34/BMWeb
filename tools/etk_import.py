@@ -127,6 +127,68 @@ def to_png(blob, fmt):
     return None, None
 
 
+def comment_text(con, names, komm_id, cache):
+    """The English text of one ETK line comment (w_komm), as the catalogue
+    prints it: the fixed pieces plain ("For vehicles with", "and"), the named
+    pieces (an option, a package) with their sign -- "+M Sports package" is
+    with it, "-Sport Line" without."""
+    if komm_id in cache:
+        return cache[komm_id]
+    pieces = []
+    for pos, tc, vz, darst in con.execute(
+            "SELECT komm_pos, komm_textcode, komm_vz, komm_darstellung "
+            "FROM w_komm WHERE komm_id=? ORDER BY komm_pos", (komm_id,)):
+        text = (names.get(tc) or '').strip()
+        if not text:
+            continue
+        if darst == 'N' and vz in ('+', '-'):
+            text = vz + text
+        pieces.append(text)
+    out = ' '.join(pieces)
+    cache[komm_id] = out
+    return out
+
+
+def line_conditions(con, btnrs, names):
+    """(btnr, line pos) -> the validity of that parts line, or nothing.
+
+    THE FITMENT TABLE SAYS WHICH VEHICLE TYPES A LINE IS FOR; THE LINE ITSELF
+    SAYS WHEN AND UNDER WHAT CONDITION. w_btzeilen carries a from-month
+    (eins) and a to-month (auslf), a steering side, an automatic/manual flag,
+    a condition letter (bedkez) and the comment the catalogue prints beside
+    the line ("For vehicles with +Headlight cleaning system"). Without these
+    a 2004 car was shown the pre-facelift bumper trim next to its own.
+
+    Short keys, the same the app reads: f from, t to (both YYYYMM), s
+    steering L/R, a gearbox A/M, c the condition letter, n the note."""
+    out = {}
+    cache = {}
+    for btnr, pos, eins, auslf, bedkez, lenkg, auto, kvor, knach in chunked_in(
+            con,
+            "SELECT btzeilen_btnr, btzeilen_pos, btzeilen_eins, btzeilen_auslf, "
+            "btzeilen_bedkez, btzeilen_lenkg, btzeilen_automatik, "
+            "btzeilen_kommvor, btzeilen_kommnach "
+            "FROM w_btzeilen WHERE btzeilen_btnr IN (%s)", sorted(btnrs)):
+        rec = {}
+        if eins:
+            rec['f'] = int(eins) // 100
+        if auslf:
+            rec['t'] = int(auslf) // 100
+        if lenkg in ('L', 'R'):
+            rec['s'] = lenkg
+        if auto in ('A', 'M'):
+            rec['a'] = auto
+        if bedkez:
+            rec['c'] = str(bedkez)
+        notes = [comment_text(con, names, k, cache) for k in (kvor, knach) if k]
+        notes = [n for n in notes if n]
+        if notes:
+            rec['n'] = ' / '.join(notes)
+        if rec:
+            out[(btnr, pos)] = rec
+    return out
+
+
 def build(con, chassis, names, out_dir, quiet=False):
     """Pack one chassis into <chassis>.etk. Returns (diagrams, parts, bytes)
     or None if the chassis has no data."""
@@ -173,6 +235,9 @@ def build(con, chassis, names, out_dir, quiet=False):
             "SELECT bildtaf_btnr, bildtaf_hg, bildtaf_fg, bildtaf_grafikid, bildtaf_textc "
             "FROM w_bildtaf WHERE bildtaf_btnr IN (%s)", btnr_list):
         diagrams[btnr] = {'hg': hg, 'fg': fg, 'grafikid': gid, 'textcode': tc}
+
+    # 4a. the line's own validity: dates, steering, gearbox, condition, note
+    conds = line_conditions(con, btnr_list, names)
 
     # 4. callout numbers per part-line (btnr,pos -> bildposnr)
     callouts = {}
@@ -244,6 +309,9 @@ def build(con, chassis, names, out_dir, quiet=False):
             pre = part_prefix.get(sachnr)
             if pre:
                 p['pre'] = pre   # 4-digit group prefix for the full 11-digit number
+            cond = conds.get((btnr, pos))
+            if cond:
+                p['ln'] = [cond]   # the line's validity (see line_conditions)
             parts.append(p)
         img_ref = None
         gid = d['grafikid']
@@ -339,6 +407,62 @@ def chassis_btnrs(con, chassis):
             "WHERE btzeilenv_mospid IN (%s)", mospids):
         btnrs.add(btnr)
     return btnrs
+
+
+def build_lines(con, chassis, names, out_dir, quiet=False):
+    """Write <chassis>.lines.json.gz: the validity of every parts line the
+    chassis's bundle carries, keyed the way the viewer can join it to a part
+    row (the bundle keeps the callout, not the line number):
+
+        {"v": 1, "ln": {"<btnr>": {"<callout>|<sachnr>": [{f,t,s,a,c,n}, ...]}}}
+
+    A callout and part number can appear on more than one line of a diagram
+    (one window each), so the value is a list and the viewer keeps the part
+    when ANY line fits. Rides beside the published bundle like the callout
+    rectangles do; a bundle built after this carries the same records inline
+    (part.ln) and the viewer prefers those.
+
+    Returns (diagrams, lines, bytes) or None when nothing has a condition."""
+    import gzip
+    btnrs = chassis_btnrs(con, chassis)
+    if not btnrs:
+        return None
+    conds = line_conditions(con, btnrs, names)
+    if not conds:
+        return None
+    callouts = {}
+    sachnr_of = {}
+    for btnr, pos, callout, sachnr in chunked_in(con,
+            "SELECT btzeilen_btnr, btzeilen_pos, btzeilen_bildposnr, btzeilen_sachnr "
+            "FROM w_btzeilen WHERE btzeilen_btnr IN (%s)", sorted(btnrs)):
+        callouts[(btnr, pos)] = callout if callout is not None else pos
+        sachnr_of[(btnr, pos)] = sachnr
+    ln = {}
+    for (btnr, pos), rec in conds.items():
+        key = f"{callouts.get((btnr, pos), pos)}|{sachnr_of.get((btnr, pos), '')}"
+        ln.setdefault(btnr, {}).setdefault(key, []).append(rec)
+    payload = json.dumps({'v': 1, 'ln': ln}, ensure_ascii=False,
+                         separators=(',', ':')).encode('utf-8')
+    os.makedirs(out_dir, exist_ok=True)
+    path = os.path.join(out_dir, f'{chassis}.lines.json.gz')
+    tmp_path = path + '.tmp'
+    try:
+        with open(tmp_path, 'wb') as f:
+            with gzip.GzipFile(fileobj=f, mode='wb', mtime=0) as g:
+                g.write(payload)
+    except BaseException:
+        try:
+            os.remove(tmp_path)
+        except OSError:
+            pass
+        raise
+    os.replace(tmp_path, path)
+    size = os.path.getsize(path)
+    nlines = sum(len(v) for d in ln.values() for v in d.values())
+    if not quiet:
+        print(f"  {chassis}: {len(ln)} diagrams, {nlines} conditioned lines "
+              f"-> {size/1e3:.1f} KB")
+    return (len(ln), nlines, size)
 
 
 def build_hotspots(con, chassis, out_dir, quiet=False):
@@ -566,6 +690,10 @@ def main():
     ap.add_argument('--hotspots', action='store_true',
                     help='write only <chassis>.hs.json.gz (the diagram callout '
                          'rectangles) and exit; a full run always writes them')
+    ap.add_argument('--lines', action='store_true',
+                    help='write only <chassis>.lines.json.gz (each parts line\'s '
+                         'validity: dates, steering, gearbox, condition, note) '
+                         'and exit; a bundle built by a full run carries them inline')
     args = ap.parse_args()
 
     if not os.path.exists(args.db):
@@ -583,6 +711,22 @@ def main():
     # Hotspots read no image blobs, so this runs before the w_grafik index
     # below (which exists only to make blob lookups bearable) and is fast
     # enough to re-run for every chassis on its own.
+    if args.lines:
+        targets = [args.chassis] if args.chassis else chassis_list(con)
+        names = resolve_names(con, args.iso)
+        print(f"writing line validity for {len(targets)} chassis...")
+        nch = ndiag = nln = nbytes = 0
+        for ch in targets:
+            r = build_lines(con, ch, names, args.out, quiet=False)
+            if r:
+                nch += 1
+                ndiag += r[0]
+                nln += r[1]
+                nbytes += r[2]
+        print(f"done: {nch}/{len(targets)} chassis, {ndiag:,} diagrams, "
+              f"{nln:,} conditioned lines, {nbytes/1e6:.2f} MB total")
+        return
+
     if args.hotspots:
         targets = [args.chassis] if args.chassis else chassis_list(con)
         print(f"writing callout hotspots for {len(targets)} chassis...")
