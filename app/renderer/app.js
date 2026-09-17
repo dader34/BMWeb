@@ -136,20 +136,6 @@ function showSettings() {
   tourRow.appendChild(tourBtn);
   wrap.appendChild(tourRow);
 
-  const hiwRow = document.createElement('div');
-  hiwRow.className = 'setting-row tour-setting';
-  hiwRow.innerHTML = `
-    <div class="setting-text">
-      <div class="setting-title">How it works</div>
-      <div class="setting-desc">A quick guided demo of what ${APP_NAME} does and the BMW software it uses.</div>
-    </div>`;
-  const hiwBtn = document.createElement('button');
-  hiwBtn.className = 'btn';
-  hiwBtn.textContent = 'How it works';
-  hiwBtn.onclick = () => showHowItWorks();
-  hiwRow.appendChild(hiwBtn);
-  wrap.appendChild(hiwRow);
-
   // beta feedback: the Report button + what a report carries
   const betaRow = document.createElement('div');
   betaRow.className = 'setting-row';
