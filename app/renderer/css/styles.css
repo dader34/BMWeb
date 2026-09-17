@@ -1411,7 +1411,9 @@ html.no-chrome body.apps-section .topbar {
   position: absolute;
   border: 2px solid var(--amber);
   border-radius: 4px;
-  background: var(--amber-glow);
+  /* tinted from the accent like the box on the drawing: the theme's glow
+     can be opaque (INPA) and would hide the magnified number */
+  background: color-mix(in srgb, var(--amber) 18%, transparent);
 }
 .etk-loupe-mark.pinned {
   background: color-mix(in srgb, var(--amber) 45%, transparent);
