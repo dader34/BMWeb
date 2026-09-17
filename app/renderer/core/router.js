@@ -163,12 +163,18 @@ function resolveRoute(route) {
     const task = sv[2] ? decodeURIComponent(sv[2]) : null;
     return () => showService(chassis, task);
   }
-  // #apps/wiring/<CHASSIS>[/<DOC>]
-  const w = /^apps\/wiring\/([A-Za-z0-9]+)(?:\/([A-Za-z0-9_-]+))?$/.exec(route);
+  // #apps/wiring/<CHASSIS>[/<DOC>][/~<VIN>] -- the vehicle the view is
+  // filtered to rides at the end (see routeVinCode), so a reload or a shared
+  // link keeps the filter
+  const w =
+    /^apps\/wiring\/([A-Za-z0-9]+)(?:\/([A-Za-z0-9_-]+))?(?:\/~([A-Za-z0-9_-]+))?$/.exec(
+      route
+    );
   if (w && typeof showWiring === 'function') {
     const chassis = w[1].toUpperCase();
     const doc = w[2] ? decodeURIComponent(w[2]) : null;
-    return () => showWiring(chassis, doc);
+    const vin = routeVinFrom(w[3]);
+    return async () => showWiring(chassis, doc, await routeVinHit(vin));
   }
   // #apps/tree/<CHASSIS>[/<CAR>] -- the control unit tree of a chassis, the
   // boxes coloured by a saved car's last fault scan when a car id follows
@@ -193,21 +199,110 @@ function resolveRoute(route) {
     const docId = dq[2] ? 'd:' + dq[2] : null;
     return () => showWiring(chassis, docId, null, 'repair');
   }
-  // #apps/parts/<CHASSIS>[/<HG>[/<BTNR>]]  (vin is an exact route, handled above)
+  // #apps/parts/<CHASSIS>[/<HG>[/<BTNR>]][/~<VIN>]  (vin is an exact route,
+  // handled above); the filtered vehicle rides at the end, as for wiring
   const p =
-    /^apps\/parts\/([A-Za-z0-9]+)(?:\/([A-Za-z0-9_-]+)(?:\/([A-Za-z0-9_-]+))?)?$/.exec(
+    /^apps\/parts\/([A-Za-z0-9]+)(?:\/([A-Za-z0-9_-]+)(?:\/([A-Za-z0-9_-]+))?)?(?:\/~([A-Za-z0-9_-]+))?$/.exec(
       route
     );
   if (p && p[1].toLowerCase() !== 'vin') {
     const chassis = p[1].toUpperCase();
     const hg = p[2] ? decodeURIComponent(p[2]) : null;
     const btnr = p[3] ? decodeURIComponent(p[3]) : null;
+    const vin = routeVinFrom(p[4]);
     if (hg && typeof showEtkDeep === 'function')
-      return () => showEtkDeep(chassis, hg, btnr);
+      return async () => {
+        const hit = await routeVinHit(vin);
+        return showEtkDeep(chassis, hg, btnr, hit ? { hit } : null);
+      };
     if (typeof showEtkChassis === 'function')
-      return () => showEtkChassis(chassis);
+      return async () => {
+        const hit = await routeVinHit(vin);
+        return showEtkChassis(chassis, hit ? { hit } : null);
+      };
   }
   return null;
+}
+
+// THE VEHICLE A VIEW IS FILTERED TO RIDES IN THE URL. The Parts catalogue and
+// the wiring viewer narrow to one car once a VIN is decoded, and that filter
+// used to live in module state only: a reload, a hard reload or a shared
+// link came back unfiltered. The VIN travels as a trailing `~<code>` segment,
+// base64url of the upper-cased VIN -- an ENCODING, not a secret: anyone with
+// the link can read it back, it only keeps the number out of plain sight in
+// a URL bar or a chat. A production number alone (7 characters) is enough
+// for the decoder and travels the same way.
+
+/**
+ * The URL segment for a VIN: base64url of the upper-cased VIN, no padding.
+ * @param {string|null|undefined} vin - a VIN or 7-character production number
+ * @returns {string} the code, or '' when there is no usable VIN
+ */
+function routeVinCode(vin) {
+  const v = String(vin || '')
+    .trim()
+    .toUpperCase();
+  if (!/^[A-Z0-9]{7,17}$/.test(v)) return '';
+  const b64 =
+    typeof btoa === 'function'
+      ? btoa(v)
+      : Buffer.from(v, 'utf8').toString('base64');
+  return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+/**
+ * The VIN a URL segment carries, or null when the segment is absent or not
+ * a VIN.
+ * @param {string|null|undefined} code - the `~` segment, without the tilde
+ * @returns {string|null}
+ */
+function routeVinFrom(code) {
+  if (!code) return null;
+  try {
+    const b64 = String(code).replace(/-/g, '+').replace(/_/g, '/');
+    const pad = b64 + '='.repeat((4 - (b64.length % 4)) % 4);
+    const v = (
+      typeof atob === 'function'
+        ? atob(pad)
+        : Buffer.from(pad, 'base64').toString('utf8')
+    ).toUpperCase();
+    return /^[A-Z0-9]{7,17}$/.test(v) ? v : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+/**
+ * Decode a VIN from the URL into the vehicle the views filter by, the way
+ * the identification page does; null when the VIN is unknown or the decoder
+ * is not loaded, so the view opens unfiltered rather than not at all.
+ * @param {string|null} vin - from routeVinFrom
+ * @returns {Promise<object|null>} an EtkVinHit with `vin` set, or null
+ */
+async function routeVinHit(vin) {
+  if (!vin) return null;
+  if (typeof loadVinIndex !== 'function' || typeof decodeVin !== 'function')
+    return null;
+  try {
+    const idx = await loadVinIndex();
+    const hit = decodeVin(idx, vin);
+    if (!hit) return null;
+    hit.vin = vin;
+    return hit;
+  } catch (e) {
+    return null;
+  }
+}
+
+/**
+ * A route with the filtered vehicle appended, when there is one.
+ * @param {string} route - the route without the vehicle
+ * @param {string|null|undefined} vin - the VIN the view is filtered to
+ * @returns {string}
+ */
+function routeWithVin(route, vin) {
+  const code = routeVinCode(vin);
+  return code ? `${route}/~${code}` : route;
 }
 
 // Screens that mean "left the Apps section" -- reaching one clears the apps
@@ -522,9 +617,12 @@ function routeSetService(chassis) {
  * @param {string|null} doc - The schematic id.
  * @returns {void}
  */
-function routeSetWiringDoc(chassis, doc) {
+function routeSetWiringDoc(chassis, doc, vin) {
   if (_routing || !chassis || !doc) return;
-  const route = `apps/wiring/${String(chassis).toUpperCase()}/${encodeURIComponent(doc)}`;
+  const route = routeWithVin(
+    `apps/wiring/${String(chassis).toUpperCase()}/${encodeURIComponent(doc)}`,
+    vin
+  );
   if (currentRoute() === route) return;
   _routing = true;
   try {
@@ -586,11 +684,13 @@ function routeSetDocsDoc(chassis, docId) {
  * @param {string|null} btnr - The diagram number.
  * @returns {void}
  */
-function routeSetEtkDiagram(chassis, hg, btnr) {
+function routeSetEtkDiagram(chassis, hg, btnr, vin) {
   if (_routing || !chassis || !hg || !btnr) return;
-  const route =
+  const route = routeWithVin(
     `apps/parts/${String(chassis).toUpperCase()}/` +
-    `${encodeURIComponent(hg)}/${encodeURIComponent(btnr)}`;
+      `${encodeURIComponent(hg)}/${encodeURIComponent(btnr)}`,
+    vin
+  );
   if (currentRoute() === route) return;
   _routing = true;
   try {
@@ -601,8 +701,45 @@ function routeSetEtkDiagram(chassis, hg, btnr) {
   }
 }
 
+/**
+ * Set the hash to a chassis's catalogue or wiring view, carrying the
+ * vehicle it is filtered to: #apps/parts/<CHASSIS>[/~<VIN>] or
+ * #apps/wiring/<CHASSIS>[/~<VIN>]. Without a vehicle the section's own
+ * hash stands, as before, so Back keeps its old shape.
+ * @param {'parts'|'wiring'} section - which app
+ * @param {string|null} chassis - Chassis id.
+ * @param {string|null|undefined} vin - the VIN the view is filtered to
+ * @returns {void}
+ */
+function routeSetFiltered(section, chassis, vin) {
+  if (_routing || !chassis) return;
+  const code = routeVinCode(vin);
+  if (!code) return;
+  const route = `apps/${section}/${String(chassis).toUpperCase()}/~${code}`;
+  if (currentRoute() === route) return;
+  _routing = true;
+  try {
+    history.replaceState(null, '', '#' + route);
+    _openRoute = route;
+  } finally {
+    _routing = false;
+  }
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    resolveRoute,
+    routeVinCode,
+    routeVinFrom,
+    routeWithVin,
+    routeSetFiltered,
+  };
+}
+
 if (typeof window !== 'undefined') {
   window.installRouter = installRouter;
+  window.routeSetFiltered = routeSetFiltered;
+  window.routeVinCode = routeVinCode;
   window.routeApplyHash = routeApplyHash;
   window.routeSyncFromScreen = routeSyncFromScreen;
   window.routeSetWiringDoc = routeSetWiringDoc;

@@ -26,6 +26,9 @@ const ETK_STATE = {
   prod: null,
   steer: null,
   auto: null,
+  // the VIN the filter came from, for the URL (routeSetFiltered); null for
+  // a variant picked by hand
+  vin: null,
 };
 
 /**
@@ -41,6 +44,7 @@ function etkSetCarFacts(variant, hit) {
   ETK_STATE.steer = steer === 'L' || steer === 'R' ? steer : null;
   const gear = String((variant && variant.gear) || '');
   ETK_STATE.auto = gear === 'A' || gear === 'M' ? gear : null;
+  ETK_STATE.vin = hit && hit.vin ? String(hit.vin).toUpperCase() : null;
 }
 
 /** How many chassis get a number key on the picker. */
@@ -292,6 +296,9 @@ async function showEtkChassis(chassisId, preselect) {
 
   sbLeft.textContent = `${(data.tree.maingroups || []).length} main groups`;
   sbRight.textContent = `${(data.tree.variants || []).length} variants`;
+  // the filtered vehicle rides in the URL, so a reload keeps it
+  if (typeof routeSetFiltered === 'function')
+    routeSetFiltered('parts', id, ETK_STATE.vin);
   // Print here isn't the icon grid (a navigation menu) -- it's a clean catalogue
   // index: the vehicle and its list of main groups.
   setActions([
@@ -406,12 +413,12 @@ function buildVariantDropdown(variants) {
  * @param {string} [btnr] - diagram number within that main group
  * @returns {Promise<void>}
  */
-async function showEtkDeep(chassisId, hg, btnr) {
+async function showEtkDeep(chassisId, hg, btnr, preselect = null) {
   const id = String(chassisId || '').toUpperCase();
   if (!hg) {
-    return showEtkChassis(id);
+    return showEtkChassis(id, preselect);
   }
-  await showEtkChassis(id);
+  await showEtkChassis(id, preselect);
   try {
     const data = await loadEtk(id);
     const mg = (data.tree.maingroups || []).find(

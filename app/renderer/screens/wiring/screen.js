@@ -504,6 +504,9 @@ function showWiring(chassisId, openDoc = null, vin = null, category = null) {
     { label: 'Wiring & Documents', fn: showWiringChassis },
     { label: dispChassis(chassisId) },
   ]);
+  // the filtered vehicle rides in the URL, so a reload keeps the filter
+  if (!openDoc && typeof routeSetFiltered === 'function')
+    routeSetFiltered('wiring', chassisId, vin && vin.vin);
   sbLeft.textContent = 'loading…';
   // no page heading: a schematic wants every pixel of height, crumbs say where
   // you are
