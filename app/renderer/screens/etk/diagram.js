@@ -288,7 +288,29 @@ function showEtkGroup(data, chassisId, mg, openBtnr = null) {
  */
 function printEtkDiagram(data, chassisId, mg, d) {
   const parts = etkFitParts(d.parts);
-  const rows = parts.map((p) => [p.pos, fmtSachnr(p.sachnr, p.pre), p.name]);
+  const groups =
+    typeof etkRows === 'function'
+      ? etkRows(parts, ETK_STATE)
+      : parts.map((p) => ({ pos: p.pos, items: [{ part: p, line: null }] }));
+  const month = (ym) => (typeof etkMonth === 'function' ? etkMonth(ym) : '');
+  const rows = [];
+  for (const g of groups)
+    for (const it of g.items) {
+      const ln = it.line || {};
+      if (ln.n) rows.push(['', ln.n, '', '', '', '', '', '', '', '']);
+      rows.push([
+        it.part.pos,
+        it.part.name,
+        it.part.sup || '',
+        ln.q || '1',
+        month(ln.f),
+        month(ln.t),
+        ln.k || '',
+        ln.a || '',
+        ln.s || '',
+        fmtSachnr(it.part.sachnr, it.part.pre),
+      ]);
+    }
   const veh = ETK_STATE.variantLabel || dispChassis(chassisId);
   printDoc({
     title: d.name,
@@ -299,11 +321,22 @@ function printEtkDiagram(data, chassisId, mg, d) {
     ],
     sections: [
       printImage(etkImageUrl(data, d.img), d.name),
-      printTable(['No.', 'Part number', 'Description'], rows, [
-        'pr-num',
-        'pr-mono',
-        '',
-      ]),
+      printTable(
+        [
+          'No.',
+          'Description',
+          'Supplement',
+          'Qty',
+          'From',
+          'Up to',
+          'Kat',
+          'Ge',
+          'Le',
+          'Part number',
+        ],
+        rows,
+        ['pr-num', '', '', 'pr-num', '', '', '', '', '', 'pr-mono']
+      ),
     ],
     footer: `${APP_NAME} · BMW ETK · ${dispChassis(chassisId)} · printed ${new Date().toLocaleDateString()}`,
   });
@@ -347,10 +380,6 @@ function renderDiagram(data, chassisId, d, viewEl) {
     img.src = url;
     img.title = 'Click to enlarge';
     fig.appendChild(img);
-    const hint = document.createElement('span');
-    hint.className = 'etk-figure-hint';
-    hint.textContent = '⌕ enlarge';
-    fig.appendChild(hint);
     fig.onclick = () => etkOpenLightbox(url, d.name, d.btnr, chassisId);
     wrap.appendChild(fig);
     figImg = img;
@@ -361,15 +390,18 @@ function renderDiagram(data, chassisId, d, viewEl) {
 
   const table = document.createElement('table');
   table.className = 'etk-parts';
-  table.innerHTML = `<thead><tr><th>No.</th><th>Part number</th><th>Description</th></tr></thead>`;
+  // THE CATALOGUE'S OWN LAYOUT: one row per callout and part number, the
+  // parts sharing a callout folded under it with a + to expand, an i on
+  // every part that opens its Part information window (the line's note
+  // lives there too), and the columns the tool prints -- No.,
+  // Description, Supplement, Qty, From, Up to, Kat, Ge, Le, Part number
+  table.innerHTML =
+    `<thead><tr><th class="etk-ctl"></th><th>No.</th><th>Description</th>` +
+    `<th>Supplement</th><th class="etk-num">Qty</th><th>From</th>` +
+    `<th>Up to</th><th class="etk-flag">Kat</th><th class="etk-flag">Ge</th>` +
+    `<th class="etk-flag">Le</th><th>Part number</th></tr></thead>`;
   const tb = document.createElement('tbody');
-  parts.forEach((p) => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `<td class="etk-pos">${esc(p.pos)}</td>
-                    <td class="etk-sachnr">${esc(fmtSachnr(p.sachnr, p.pre))}</td>
-                    <td class="etk-name">${esc(p.name)}</td>`;
-    tb.appendChild(tr);
-  });
+  etkTableRows(tb, parts, (data.tree && data.tree.pt) || null);
   table.appendChild(tb);
   wrap.appendChild(table);
   viewEl.appendChild(wrap);
@@ -407,6 +439,157 @@ function renderDiagram(data, chassisId, d, viewEl) {
   sbRight.textContent =
     `${parts.length} part${parts.length === 1 ? '' : 's'}` +
     (filtered ? ` (of ${d.parts.length})` : '');
+}
+
+/**
+ * The catalogue's Part information window for one part: what the row shows
+ * and what the sidecar knows about the part, in the app's modal -- the
+ * part number and name as the head, the short facts as a grid, the line's
+ * note, and the lists as tables.
+ * @param {EtkPart} p - the part
+ * @param {object} ln - the line shown for the chosen car ({} when none)
+ * @param {object|null} info - the part's sidecar record, if any
+ * @returns {void}
+ */
+function etkPartInfoDialog(p, ln, info) {
+  const sec = etkPartInfoSections(p, ln, info, fmtSachnr);
+  const facts = sec.facts.length
+    ? `<dl class="etk-pi-facts">` +
+      sec.facts
+        .map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`)
+        .join('') +
+      `</dl>`
+    : '';
+  const note = sec.note
+    ? `<div class="etk-pi-sec"><div class="etk-pi-h">Note</div>` +
+      `<p class="etk-pi-note">${esc(sec.note)}</p></div>`
+    : '';
+  const tables = sec.tables
+    .map(
+      (t) =>
+        `<div class="etk-pi-sec"><div class="etk-pi-h">${esc(t.title)}</div>` +
+        `<table class="etk-pi-table"><thead><tr>` +
+        t.cols.map((c) => `<th>${esc(c)}</th>`).join('') +
+        `</tr></thead><tbody>` +
+        t.rows
+          .map(
+            (r) =>
+              `<tr>` +
+              r
+                .map(
+                  (c, i) =>
+                    `<td class="${t.cols[i] === 'Part number' ? 'etk-sachnr' : t.cols[i] === 'Qty' || t.cols[i] === 'Weight %' ? 'etk-num' : ''}">${esc(c)}</td>`
+                )
+                .join('') +
+              `</tr>`
+          )
+          .join('') +
+        `</tbody></table></div>`
+    )
+    .join('');
+  const { overlay, close } = openModal(
+    `<div class="modal etk-pi-modal" role="dialog" aria-modal="true">` +
+      `<div class="modal-title">Part information</div>` +
+      `<div class="modal-body">` +
+      `<div class="etk-pi-head"><span class="etk-pi-num">${esc(sec.head.sachnr)}</span>` +
+      `<span class="etk-pi-name">${esc(sec.head.name)}</span></div>` +
+      facts +
+      note +
+      tables +
+      `</div>` +
+      `<div class="modal-actions"><button class="btn primary modal-confirm">` +
+      `Close<span class="modal-key">Esc</span></button></div></div>`
+  );
+  overlay.querySelector('.modal-confirm').onclick = () => close();
+  overlay.querySelector('.modal-confirm').focus();
+}
+
+/**
+ * Fill a parts table body the way the catalogue lays it out (etkRows): a
+ * plain row per lone part, a collapsed group row per callout with several
+ * parts (+ expands it), and an i on every part that opens its Part
+ * information window (which also carries the line's note). Every part row
+ * carries its callout in .etk-pos, which is what the drawing's callouts
+ * join to.
+ * @param {HTMLTableSectionElement} tb - the tbody to fill
+ * @param {EtkPart[]} parts - the parts to draw, already filtered
+ * @param {Object<string, object>|null} [pt] - Part information per part number
+ * @returns {void}
+ */
+function etkTableRows(tb, parts, pt = null) {
+  const groups =
+    typeof etkRows === 'function'
+      ? etkRows(parts, ETK_STATE)
+      : (parts || []).map((p) => ({
+          pos: String(p.pos == null ? '' : p.pos),
+          name: p.name || '',
+          items: [{ part: p, line: null }],
+        }));
+  const month = (ym) => (typeof etkMonth === 'function' ? etkMonth(ym) : '');
+  /**
+   * One part's row, with the i that opens its Part information window.
+   * @param {{part: EtkPart, line: object|null}} it - the item
+   * @param {boolean} sub - drawn under a group row
+   * @returns {HTMLTableRowElement}
+   */
+  const itemRow = (it, sub) => {
+    const p = it.part;
+    const ln = it.line || {};
+    const tr = document.createElement('tr');
+    if (sub) tr.className = 'etk-sub';
+    tr.innerHTML =
+      `<td class="etk-ctl"><button type="button" class="etk-info" ` +
+      `aria-label="Part information">i</button></td>` +
+      `<td class="etk-pos">${esc(p.pos)}</td>` +
+      `<td class="etk-name">${esc(p.name)}</td>` +
+      `<td class="etk-sup">${esc(p.sup || '')}</td>` +
+      `<td class="etk-qty etk-num">${esc(ln.q || '1')}</td>` +
+      `<td class="etk-from">${esc(month(ln.f))}</td>` +
+      `<td class="etk-to">${esc(month(ln.t))}</td>` +
+      `<td class="etk-flag">${esc(ln.k || '')}</td>` +
+      `<td class="etk-flag">${esc(ln.a || '')}</td>` +
+      `<td class="etk-flag">${esc(ln.s || '')}</td>` +
+      `<td class="etk-sachnr">${esc(fmtSachnr(p.sachnr, p.pre))}</td>`;
+    tr.querySelector('.etk-info').onclick = (e) => {
+      e.stopPropagation();
+      etkPartInfoDialog(p, ln, pt && p.sachnr ? pt[p.sachnr] : null);
+    };
+    return tr;
+  };
+  for (const g of groups) {
+    if (g.items.length === 1) {
+      tb.appendChild(itemRow(g.items[0], false));
+      continue;
+    }
+    const head = document.createElement('tr');
+    head.className = 'etk-group';
+    head.innerHTML =
+      `<td class="etk-ctl"><button type="button" class="etk-tgl" ` +
+      `aria-expanded="false" aria-label="Show ${g.items.length} parts">+</button></td>` +
+      `<td class="etk-pos">${esc(g.pos)}</td>` +
+      `<td class="etk-name">${esc(g.name)}</td>` +
+      `<td class="etk-sup"></td><td class="etk-qty etk-num"></td>` +
+      `<td class="etk-from"></td><td class="etk-to"></td>` +
+      `<td class="etk-flag"></td><td class="etk-flag"></td><td class="etk-flag"></td>` +
+      `<td class="etk-sachnr etk-count">${g.items.length} parts</td>`;
+    tb.appendChild(head);
+    const kids = g.items.map((it) => itemRow(it, true));
+    for (const k of kids) {
+      k.hidden = true;
+      tb.appendChild(k);
+    }
+    const tgl = head.querySelector('.etk-tgl');
+    const toggle = () => {
+      const open = tgl.getAttribute('aria-expanded') === 'true';
+      tgl.setAttribute('aria-expanded', open ? 'false' : 'true');
+      tgl.textContent = open ? '+' : '−';
+      for (const k of kids) k.hidden = open;
+    };
+    tgl.onclick = (e) => {
+      e.stopPropagation();
+      toggle();
+    };
+  }
 }
 
 /**

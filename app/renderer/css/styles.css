@@ -1256,23 +1256,6 @@ html.no-chrome body.apps-section .topbar {
   height: auto;
   image-rendering: -webkit-optimize-contrast;
 }
-.etk-figure-hint {
-  position: absolute;
-  right: 10px;
-  bottom: 8px;
-  font-family: var(--mono);
-  font-size: 11px;
-  color: #666;
-  background: rgba(255, 255, 255, 0.85);
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  padding: 2px 6px;
-  opacity: 0;
-  transition: opacity 0.12s;
-}
-.etk-figure:hover .etk-figure-hint {
-  opacity: 1;
-}
 
 /* the callout hotspots: one focusable box per numbered callout, laid over the
    drawing in the image's own pixel space and scaled with it (see
@@ -1302,7 +1285,10 @@ html.no-chrome body.apps-section .topbar {
 .etk-hotspot:hover,
 .etk-hotspot.on {
   border-color: var(--amber);
-  background: var(--amber-glow);
+  /* mixed from the accent, never the theme's glow: a theme whose glow is
+     an opaque colour (INPA's Win9x selection blue) would paint over the
+     callout number the box exists to point at */
+  background: color-mix(in srgb, var(--amber) 18%, transparent);
 }
 .etk-hotspot:focus-visible {
   outline: 2px solid var(--amber);
@@ -1425,7 +1411,9 @@ html.no-chrome body.apps-section .topbar {
   position: absolute;
   border: 2px solid var(--amber);
   border-radius: 4px;
-  background: var(--amber-glow);
+  /* tinted from the accent like the box on the drawing: the theme's glow
+     can be opaque (INPA) and would hide the magnified number */
+  background: color-mix(in srgb, var(--amber) 18%, transparent);
 }
 .etk-loupe-mark.pinned {
   background: color-mix(in srgb, var(--amber) 45%, transparent);
@@ -1494,6 +1482,161 @@ html.no-chrome body.apps-section .topbar {
 }
 
 /* while the ~20 MB bundle streams from HF, a centred spinner + progress bar */
+/* the catalogue's table: the control column (+ to expand a callout's parts,
+   i for a note), the parts under a group indented, notes muted */
+.etk-parts .etk-ctl {
+  width: 26px;
+  padding-left: 10px;
+  padding-right: 0;
+  text-align: center;
+}
+.etk-parts .etk-num {
+  text-align: right;
+}
+.etk-parts .etk-sup,
+.etk-parts .etk-from,
+.etk-parts .etk-to,
+.etk-parts .etk-qty,
+.etk-parts .etk-count {
+  color: var(--ink-dim);
+  white-space: nowrap;
+}
+.etk-parts .etk-count {
+  font-family: inherit;
+  font-size: 12px;
+}
+.etk-tgl,
+.etk-info {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: var(--panel-2);
+  color: var(--ink);
+  font: 700 12px/16px var(--mono);
+  cursor: pointer;
+}
+.etk-info {
+  border-radius: 50%;
+  font-family: Georgia, serif;
+  font-style: italic;
+}
+.etk-tgl:hover,
+.etk-info:hover,
+.etk-info[aria-expanded='true'] {
+  border-color: var(--amber);
+  color: var(--amber);
+}
+.etk-parts tr.etk-group .etk-name {
+  font-weight: 600;
+}
+.etk-parts tr.etk-sub .etk-name {
+  padding-left: 32px;
+}
+.etk-parts .etk-flag {
+  width: 2em;
+  text-align: center;
+  color: var(--ink-dim);
+  font-family: var(--mono);
+  padding-left: 6px;
+  padding-right: 6px;
+}
+/* the Part information window the i opens: the part number and name as
+   the head, short facts in a two-column grid, the note as a paragraph,
+   the lists (a set's parts, supersession, substances) as tables */
+.modal.etk-pi-modal {
+  width: min(720px, calc(100vw - 32px));
+  max-width: 720px;
+}
+.etk-pi-modal .modal-body {
+  max-height: min(70vh, 640px);
+  overflow: auto;
+  user-select: text;
+  -webkit-user-select: text;
+}
+.etk-pi-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 14px;
+  padding-bottom: 10px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+}
+.etk-pi-num {
+  font-family: var(--mono);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--amber);
+  white-space: nowrap;
+}
+.etk-pi-name {
+  font-size: 14px;
+  color: var(--ink);
+}
+.etk-pi-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 8px 18px;
+  margin: 0 0 12px;
+}
+.etk-pi-facts > div {
+  min-width: 0;
+}
+.etk-pi-facts dt,
+.etk-pi-h {
+  color: var(--ink-faint);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 2px;
+}
+.etk-pi-facts dd {
+  margin: 0;
+  font-size: 13px;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+.etk-pi-sec {
+  margin-top: 12px;
+}
+.etk-pi-note {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--ink);
+}
+.etk-pi-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+.etk-pi-table th {
+  text-align: left;
+  font-weight: 500;
+  font-size: 11px;
+  color: var(--ink-faint);
+  padding: 4px 8px 4px 0;
+  border-bottom: 1px solid var(--line);
+}
+.etk-pi-table td {
+  padding: 5px 8px 5px 0;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+  color: var(--ink);
+}
+.etk-pi-table tr:last-child td {
+  border-bottom: 0;
+}
+.etk-pi-table .etk-num {
+  text-align: right;
+  white-space: nowrap;
+}
+.etk-pi-table td.etk-sachnr {
+  font-size: 12.5px;
+}
+
 .etk-loading {
   display: flex;
   align-items: center;
