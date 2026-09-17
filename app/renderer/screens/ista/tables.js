@@ -207,7 +207,7 @@ function istaPageUnitList(host, ctx) {
   const body = rows
     .map(
       (s, i) =>
-        `<tr data-i="${i}">` +
+        `<tr data-i="${i}" data-slot="${esc(s.id || '')}">` +
         `<td class="irstate"><i class="${
           ISTA_STATE_CLASS[s.state] || 'dim'
         }"></i></td>` +

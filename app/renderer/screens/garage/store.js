@@ -51,6 +51,8 @@ const GARAGE_VIN_TAIL = 7;
  * @property {string} [body] - body code
  * @property {string} [motor] - engine code
  * @property {string} [prod] - build date, YYYYMM(DD)
+ * @property {string[]} [sa] - the order's SA option codes, as the ISTA
+ *   equipment page last read them; the validity rules' SA leaves use them
  */
 
 /**
@@ -352,6 +354,9 @@ function garageCompactReport(report) {
       label: s.label,
       error: s.error,
     })),
+    // the feature verdicts the identification's detection modules gave
+    // (ISTA's FFM cache), read back by the validity rules' equipment leaves
+    ...(r.ffm && typeof r.ffm === 'object' ? { ffm: { ...r.ffm } } : {}),
     // the viewer's own toggle, never persisted as "on": a reopened scan
     // always shows the table first
     showText: false,

@@ -649,10 +649,16 @@ function ablCompare(op, a, b) {
           : x >= y;
   }
   if (op === '==' || op === '!=') {
+    // A STRING WITH NO NUMBER IN IT EQUALS NO NUMBER. ablNum reads "OKAY"
+    // as null, and null-or-0 once made "OKAY" == 0 true, so a status word
+    // compared against a register took the equal arm whatever the ECU said.
+    const wordy = (x) => typeof x === 'string' && ablNum(x) == null;
     const eq =
       typeof a === 'boolean' || typeof b === 'boolean'
         ? ablTruthy(a) === ablTruthy(b)
-        : (ablNum(a) || 0) === (ablNum(b) || 0);
+        : wordy(a) || wordy(b)
+          ? String(a) === String(b)
+          : (ablNum(a) || 0) === (ablNum(b) || 0);
     return op === '==' ? eq : !eq;
   }
   const x = ablNum(a) || 0;
@@ -877,8 +883,9 @@ class AblEngine {
       case 'switch': {
         const cases = node.cases || {};
         const v = ablEval(node.expr, ctx);
-        const key = ablSwitchKey(v);
-        const to = key != null && key in cases ? cases[key] : cases.default;
+        const keys = ablSwitchKeys(v);
+        const key = keys.find((k) => k in cases);
+        const to = key != null ? cases[key] : cases.default;
         if (to == null)
           throw new AblHalt(
             `a switch in ${stepName} has no arm for ${String(key)}`,
@@ -1634,6 +1641,34 @@ function ablSwitchKey(v) {
   const n = ablNum(v);
   if (n != null) return String(Math.trunc(n));
   return String(v);
+}
+
+/**
+ * Every label a switch subject can match, most specific first.
+ *
+ * THE EXTRACT KEEPS THE COMPILER'S OWN LABELS. A switch on a string (the
+ * selected fault location, `f_SELEKT_ORT_NR_HEX`) is labelled with the C#
+ * literal, quotes and all: `"30D8F"`. A switch on a number or on the result
+ * register is labelled bare: `5`, `NotOk`. So a string subject is tried in
+ * its quoted form first, then bare, and only then as a number -- the old
+ * numeric-first key read "30D8F" as 30 and "4550" as the bare 4550, matched
+ * no quoted label, and sent every fault-location dispatch down `default`.
+ * @param {*} v - the subject's value
+ * @returns {string[]} candidate labels
+ */
+function ablSwitchKeys(v) {
+  if (v == null) return [];
+  const out = [];
+  if (typeof v === 'string') {
+    const s = v.trim();
+    if (s) {
+      out.push(`"${s}"`);
+      out.push(s);
+    }
+  }
+  const k = ablSwitchKey(v);
+  if (k != null && !out.includes(k)) out.push(k);
+  return out;
 }
 
 /**

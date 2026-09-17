@@ -50,6 +50,8 @@ global.Settings = {
   },
 };
 
+// the dataset mirror walker the screens fetch through (hfUrls, hfFetchFirst)
+loadClassic('core/webshim/data-fetch.js');
 const I = loadClassic('screens/ista/');
 
 // ---- the tab model ---------------------------------------------------------
@@ -154,8 +156,8 @@ const I = loadClassic('screens/ista/');
   );
   assert.deepStrictEqual(
     ISTA_TABS.find((t) => t.id === 'service-plan').subs.map((s) => s.label),
-    ['Hit list', 'Test plan', 'Programming plan'],
-    'Service plan has its three sub-tabs'
+    ['Hit list', 'Test plan'],
+    'Service plan has its two sub-tabs'
   );
   ok("the labels are the real tool's");
 
@@ -254,7 +256,6 @@ const I = loadClassic('screens/ista/');
     ['information', 'unit-list'],
     ['service-plan', 'hit-list'],
     ['service-plan', 'test-plan'],
-    ['service-plan', 'programming-plan'],
   ]) {
     const leaf = istaSub(tab, sub);
     assert.ok(leaf && leaf.page, `${tab}/${sub} is a page`);
@@ -2232,6 +2233,223 @@ const I = loadClassic('screens/ista/');
   )[0];
   assert.strictEqual(none.state, 'unread');
   ok('a slot matches any group name its bus-map box carries');
+}
+
+// ---- the facts a validity rule tests --------------------------------------
+{
+  // THE DIAGNOSIS GATE HANDS THE EVALUATOR A NUMBER. It once built
+  // "2002-03", a string techDataCompare read as NaN, so every dated clause
+  // was a decided false and the branches it guarded were pruned from the
+  // tree -- the opposite of the keep-on-unknown policy the gate promises.
+  const screen = fs.readFileSync(
+    path.join(ROOT, 'app', 'renderer', 'screens', 'ista', 'screen.js'),
+    'utf8'
+  );
+  const diag = screen.slice(
+    screen.indexOf('async function istaDiagLoad'),
+    screen.indexOf('async function istaDiagBody')
+  );
+  assert.ok(
+    diag.includes('await techDataVehicleFacts(car, chassis)'),
+    'the diagnosis gate takes its facts from the one builder'
+  );
+  assert.ok(!/ym:\s*`/.test(diag), 'no string-shaped date');
+  ok("the diagnosis gate reads the build date in the evaluator's shape");
+
+  // the wiring gate reads the SAME field and the SAME shape, and loads the
+  // slots through the loader that exists
+  const wiring = screen.slice(
+    screen.indexOf('async function istaWiringFacts'),
+    screen.indexOf('async function istaWiringValid')
+  );
+  assert.ok(
+    wiring.includes('await techDataVehicleFacts(car, chassis)'),
+    'one facts builder'
+  );
+  assert.ok(
+    !/car\.(built|buildDate|date)\b/.test(wiring),
+    'no field the Garage never stores'
+  );
+  assert.ok(!/istaSlotsFor/.test(screen), 'no call to an undefined loader');
+  ok('the wiring gate builds its facts the same way');
+
+  // the coding tabs gate on a probe that can run: istaProbe wants a
+  // function, and a bare Promise threw inside it and read as "no coding"
+  assert.ok(
+    screen.includes('istaProbe(() => chassisHasCoding(chassis))'),
+    'the coding probe is a thunk'
+  );
+  assert.ok(!screen.includes('istaProbe(chassisHasCoding('));
+  ok('Conversion/Remove coding gate on a real probe');
+
+  // a car opened from Basic Features stores no build date rather than ''
+  assert.ok(
+    !screen.includes("prod: `${row._year || ''}${row._month || ''}`"),
+    'an unknown build date is left out of the Garage record'
+  );
+  ok('Basic Features does not save a dateless car as dated');
+
+  // AN UNIDENTIFIED SLOT IS IDENTIFIED BEFORE IT IS TALKED TO. The window
+  // used to list the first candidate with a function extract and send that
+  // candidate's jobs -- MS42 jobs to an MSS54. It probes the slot's group
+  // first, and when nothing answers it says so and refuses to send.
+  const win = screen.slice(
+    screen.indexOf('async function istaOpenEcuWindow'),
+    screen.indexOf('function istaTestLive') > 0
+      ? screen.indexOf('async function istaOpenEcuWindow') + 6000
+      : undefined
+  );
+  assert.ok(win.includes('webResolveVariant(g)'), 'the group is probed');
+  assert.ok(win.includes('if (!identified)'), 'an unidentified slot refuses');
+  assert.ok(
+    win.includes('control unit not identified: run Identification first'),
+    'and says why'
+  );
+  assert.ok(win.includes('notice: identified'), 'the window carries a notice');
+  const probe = win.indexOf('webResolveVariant(g)');
+  const guess = win.indexOf('candidates[0]');
+  assert.ok(probe > 0 && guess > probe, 'the candidate is the LAST resort');
+  ok('the ECU window identifies a control unit before it sends anything');
+
+  // the order's SA codes the equipment page read stay on the Garage record,
+  // where the validity rules' SA leaves read them without a cable
+  assert.ok(
+    screen.includes('garageUpdateCar(car.id, { sa: istaOrderWords(got) })'),
+    'the shell equipment page keeps the order words'
+  );
+  // hasSA searches the order's SA codes, E words and HO words alike
+  assert.deepStrictEqual(
+    I.istaOrderWords({
+      codes: ['403', '205'],
+      fa: { ewort: ['E123'], howort: ['H456', '403'] },
+    }),
+    ['403', '205', 'E123', 'H456']
+  );
+  assert.deepStrictEqual(I.istaOrderWords({ codes: ['403'] }), ['403']);
+  assert.deepStrictEqual(I.istaOrderWords(null), []);
+  const details = fs.readFileSync(
+    path.join(ROOT, 'app', 'renderer', 'screens', 'ista', 'details.js'),
+    'utf8'
+  );
+  assert.ok(
+    details.includes('istaOrderWords(got)'),
+    'so does the classic equipment page'
+  );
+  ok("the order's option codes stay with the car");
+}
+
+// ---- the ECU window's identification values -------------------------------
+{
+  // A YEAR THE MODULE DID NOT REPORT IS NOT PRINTED. Padding '' to '00'
+  // once rendered "KW 12/00" for a module that answered only the week.
+  const v = (ident) => I.istaIdentValue(ident, ['DATUM']);
+  assert.strictEqual(v({ ID_DATUM_KW: '12', ID_DATUM_JAHR: '1' }), 'KW 12/01');
+  assert.strictEqual(
+    v({ ID_DATUM_KW: '12', ID_DATUM_JAHR: 2001 }),
+    'KW 12/2001'
+  );
+  assert.strictEqual(v({ ID_DATUM_KW: '12' }), 'KW 12');
+  assert.strictEqual(v({ ID_DATUM_KW: '12', ID_DATUM_JAHR: '' }), 'KW 12');
+  assert.strictEqual(v({ DATUM: '25.09.2001' }), '25.09.2001');
+  ok('a calendar-week build date never invents a year');
+}
+
+// ---- the control unit list repaints by slot -------------------------------
+{
+  // THE ROWS ARE DRAWN SORTED BY STATE, AND A READ CHANGES STATES. A repaint
+  // that re-sorted and zipped by index painted the first module's dot onto
+  // whichever row now sat at its old position. Each row names its slot and
+  // the repaint finds the row by that name.
+  const tables = fs.readFileSync(
+    path.join(ROOT, 'app', 'renderer', 'screens', 'ista', 'tables.js'),
+    'utf8'
+  );
+  assert.ok(tables.includes('data-slot="${esc(s.id'), 'rows carry the id');
+  const screen = fs.readFileSync(
+    path.join(ROOT, 'app', 'renderer', 'screens', 'ista', 'screen.js'),
+    'utf8'
+  );
+  const paint = screen.slice(
+    screen.indexOf('function istaPaintStates'),
+    screen.indexOf('async function showIsta')
+  );
+  assert.ok(paint.includes("getAttribute('data-slot')"));
+  assert.ok(!paint.includes('istaUnitListOrder'), 'no re-sort on repaint');
+  ok('the unit list repaints each row from its own slot');
+}
+
+// ---- the features are detected the way the tool detects them ------------
+{
+  // A VALIDITY RULE'S EQUIPMENT LEAF IS ANSWERED BY A TEST MODULE. The tool's
+  // FFM resolver runs the feature's linked ABL-IDE procedure on the car and
+  // maps its verdict; the vehicle test runs the same modules after the
+  // identification, with the module window's own runner, and keeps the
+  // verdicts on the identification scan.
+  const screen = fs.readFileSync(
+    path.join(ROOT, 'app', 'renderer', 'screens', 'ista', 'screen.js'),
+    'utf8'
+  );
+  assert.ok(screen.includes('function istaAblRunner('), 'one runner');
+  assert.ok(
+    screen.includes('runner: fake || istaAblRunner(car, chassis, vehicleText)'),
+    'the module window uses it'
+  );
+  assert.ok(screen.includes('async function istaFfmResolve('));
+  const test = screen.slice(
+    screen.indexOf("const r = await pass(null, identKey, 'ident')"),
+    screen.indexOf("const r2 = await pass(faultMenu, faultKey, 'faults')")
+  );
+  assert.ok(
+    test.includes('r.report.ffm = await istaFfmResolve('),
+    'the vehicle test detects features after the identification'
+  );
+  assert.ok(
+    test.indexOf('r.report.ffm = await istaFfmResolve(') <
+      test.indexOf('keep(r.report, r.lines)'),
+    'and keeps the verdicts on the identification scan'
+  );
+  const run = screen.slice(
+    screen.indexOf('async function istaFfmRun('),
+    screen.indexOf('function istaTestStatus(')
+  );
+  assert.ok(
+    run.includes("verdict === 'Ok' || verdict === 'Verified'") &&
+      run.includes("verdict === 'NotOk') return false") &&
+      run.includes('return null;'),
+    "FFMDynamicResolver's mapping: Ok/Verified fitted, NotOk not, else null"
+  );
+  assert.ok(run.includes('input: refuse'), 'nothing interactive is answered');
+  ok('feature detection runs the linked modules and maps their verdicts');
+
+  // the pool spells a module the way its DLL is named
+  // plan.js is already in the loaded set
+  const P = I;
+  assert.strictEqual(
+    P.istaAblDllName('ABL-IDE-ASC_MK60_E46'),
+    'ABL_IDE_ASC_MK60_E46'
+  );
+  assert.strictEqual(
+    P.istaAblDllName('ABL-DIT-B1362_D6LDF'),
+    'ABL_DIT_B1362_D6LDF'
+  );
+  assert.strictEqual(P.istaAblDllName('ABL_IDE_X'), 'ABL_IDE_X');
+  const plan = fs.readFileSync(
+    path.join(ROOT, 'app', 'renderer', 'screens', 'ista', 'plan.js'),
+    'utf8'
+  );
+  assert.ok(plan.includes('istaAblDllName(name)'), 'the loader tries it');
+  ok('a module is found under either spelling');
+
+  // the stored identification keeps the verdicts
+  const store = fs.readFileSync(
+    path.join(ROOT, 'app', 'renderer', 'screens', 'garage', 'store.js'),
+    'utf8'
+  );
+  assert.ok(
+    store.includes('ffm: { ...r.ffm }'),
+    'the compact report keeps them'
+  );
+  ok('the verdicts survive the scan store');
 }
 
 console.log(`test_ista: ${passed} checks passed`);

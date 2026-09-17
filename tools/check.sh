@@ -284,10 +284,12 @@ node tools/verify/test_diag_structure.js || exit 1
 echo
 echo "== ISTA test modules: flattening, the opaque switch, dispatch, the validator =="
 python3 tools/verify/test_abl_extract.py || exit 1
+node tools/verify/test_abl_engine.js || exit 1
 
 echo
 echo "== ISTA wiring: the designator index a clicked schematic resolves through =="
 python3 tools/verify/test_wiring_extract.py || exit 1
+node tools/verify/test_wiring_applicability.js || exit 1
 
 echo
 echo "== parts diagrams: callout hotspot file shape, the pos join, scale mapping =="

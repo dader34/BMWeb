@@ -597,7 +597,7 @@ function showWiring(chassisId, openDoc = null, vin = null, category = null) {
   Promise.all([
     loadWiring(chassisId),
     wiringVinHit && typeof wiringApplicability !== 'undefined'
-      ? wiringApplicability.load().catch(() => null)
+      ? wiringApplicability.load(wiringVinHit).catch(() => null)
       : Promise.resolve(),
   ])
     .then(([data]) => {
