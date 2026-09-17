@@ -150,4 +150,20 @@ assert.strictEqual(
 );
 ok("the caption names the car's build month, not the type key's introduction");
 
+// the picker draws its rows from its own text, so the pre-selected row must
+// carry the car's caption or the picker still reads "10/2001" over a 2004 car
+const cat = fs.readFileSync(
+  path.join(ROOT, 'screens', 'etk', 'catalogue.js'),
+  'utf8'
+);
+const dd = cat.slice(
+  cat.indexOf('function buildVariantDropdown'),
+  cat.indexOf('makeDropdown({')
+);
+assert.ok(
+  dd.includes('i === ETK_STATE.variant && ETK_STATE.variantLabel'),
+  'the pre-selected row uses the car caption'
+);
+ok("the vehicle picker's selected row reads as the car");
+
 console.log(`test_etk_identify: ${passed} checks passed`);

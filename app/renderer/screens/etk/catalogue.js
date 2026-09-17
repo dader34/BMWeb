@@ -337,8 +337,21 @@ function printEtkIndex(data, chassisId) {
 function buildVariantDropdown(variants) {
   // The variant rows, sorted by model then date. Each item keeps its ORIGINAL
   // index (i) -- that index is the value ETK_STATE.variant holds.
+  // THE ROW FOR THE CAR READS AS THE CAR. The variant the VIN matched is
+  // captioned with the car's build month (etkCarLabel, held in
+  // ETK_STATE.variantLabel); every other row is the variant's own caption,
+  // whose date is the type key's introduction. The dropdown draws its rows
+  // from this text, so the pre-selected row must carry the car's caption or
+  // the picker still reads "10/2001" over a 2004 car.
   const order = variants
-    .map((v, i) => ({ i, v, text: etkVariantLabel(v) }))
+    .map((v, i) => ({
+      i,
+      v,
+      text:
+        i === ETK_STATE.variant && ETK_STATE.variantLabel
+          ? ETK_STATE.variantLabel
+          : etkVariantLabel(v),
+    }))
     .sort(
       (a, b) =>
         (a.v.model || '').localeCompare(b.v.model || '') ||
