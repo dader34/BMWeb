@@ -1285,7 +1285,10 @@ html.no-chrome body.apps-section .topbar {
 .etk-hotspot:hover,
 .etk-hotspot.on {
   border-color: var(--amber);
-  background: var(--amber-glow);
+  /* mixed from the accent, never the theme's glow: a theme whose glow is
+     an opaque colour (INPA's Win9x selection blue) would paint over the
+     callout number the box exists to point at */
+  background: color-mix(in srgb, var(--amber) 18%, transparent);
 }
 .etk-hotspot:focus-visible {
   outline: 2px solid var(--amber);
