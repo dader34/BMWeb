@@ -36,6 +36,19 @@ const WEB_BASE = (
 const CHASSIS_CACHE = new Map();
 
 /**
+ * Chassis archives on their way in, keyed by chassis id: the SECOND caller
+ * of a 20 MB (or, for the catch-all, 112 MB) archive waits on the first
+ * fetch rather than starting its own. Nine ECU reads that arrived together
+ * on opening a chassis each found the cache empty and each pulled the
+ * whole catch-all -- a gigabyte for one click.
+ * @type {Map<string, Promise<ChassisData>>}
+ */
+const CHASSIS_LOADING = new Map();
+
+/** The sgbd -> chassis index, fetched once. @type {Promise<Record<string,string>|null>|null} */
+let ECU_INDEX_LOADING = null;
+
+/**
  * Cache of parsed ECU files: sgbd (lowercased) -> Map(filename -> content).
  * @type {Map<string, Map<string, any>>}
  */
@@ -71,6 +84,7 @@ function inlineData() {
 async function loadChassis(chassisId, realFetch) {
   const upperId = chassisId.toUpperCase();
   if (CHASSIS_CACHE.has(upperId)) return CHASSIS_CACHE.get(upperId);
+  if (CHASSIS_LOADING.has(upperId)) return CHASSIS_LOADING.get(upperId);
 
   const inline = inlineData();
   if (inline && inline[upperId]) {
@@ -81,12 +95,19 @@ async function loadChassis(chassisId, realFetch) {
   }
 
   const fileUrl = `${WEB_BASE}/api/chassis/${upperId}.chassis`;
-  const res = await realFetch(fileUrl);
-  if (!res.ok)
-    throw new Error(`Failed to load chassis ${upperId}: ${res.statusText}`);
-
-  const buffer = await res.arrayBuffer();
-  return cacheChassis(upperId, new Uint8Array(buffer));
+  const loading = (async () => {
+    const res = await realFetch(fileUrl);
+    if (!res.ok)
+      throw new Error(`Failed to load chassis ${upperId}: ${res.statusText}`);
+    const buffer = await res.arrayBuffer();
+    return cacheChassis(upperId, new Uint8Array(buffer));
+  })();
+  CHASSIS_LOADING.set(upperId, loading);
+  try {
+    return await loading;
+  } finally {
+    CHASSIS_LOADING.delete(upperId);
+  }
 }
 
 /**
@@ -128,9 +149,17 @@ function cacheChassis(upperId, bytes) {
 async function loadEcuIndex(realFetch) {
   const inline = inlineData();
   if (inline && inline._index) return inline._index;
-  return (await realFetch(`${WEB_BASE}/${WEB_API_BASE}/ecu-index.json`))
-    .json()
-    .catch(() => null);
+  // one fetch for everyone: the index is asked for by every ECU read that
+  // finds no open chassis holding its SGBD, and nine at once fetched it
+  // nine times
+  if (!ECU_INDEX_LOADING)
+    ECU_INDEX_LOADING = realFetch(`${WEB_BASE}/${WEB_API_BASE}/ecu-index.json`)
+      .then((r) => r.json())
+      .catch(() => {
+        ECU_INDEX_LOADING = null; // a failed fetch may be retried
+        return null;
+      });
+  return ECU_INDEX_LOADING;
 }
 
 /**
