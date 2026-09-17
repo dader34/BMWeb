@@ -18,7 +18,7 @@
  * shows for the chosen car; nothing about them is printed on the row.
  */
 
-/* exported etkLineFits, etkMergeLines, etkLineKey, etkDisplayLine, etkRows, etkMonth */
+/* exported etkLineFits, etkMergeLines, etkLineKey, etkDisplayLine, etkRows, etkMonth, etkPartInfoSections */
 
 /**
  * One parts line's validity, as tools/etk_import.py writes it.
@@ -27,8 +27,28 @@
  * @property {number} [t] - valid up to, YYYYMM (inclusive)
  * @property {string} [s] - steering side the line is for, L or R
  * @property {string} [a] - gearbox the line is for, A (automatic) or M (manual)
+ * @property {string} [k] - the catalogue's Kat mark, + or -
  * @property {string} [c] - the catalogue's condition letter
  * @property {string} [n] - the note printed beside the line
+ * @property {string} [q] - the quantity when it is not 1
+ */
+
+/**
+ * What the catalogue's Part information window knows about one part
+ * beyond its name, as tools/etk_import.py writes it (sidecar `pt`).
+ * @typedef {object} EtkPartInfo
+ * @property {number} [w] - weight as the catalogue holds it, kg
+ * @property {string} [c] - the description comment ("black")
+ * @property {number} [h] - 1 when the part is hazardous goods
+ * @property {string} [dn] - the DIN / norm number
+ * @property {number} [e] - discontinued, YYYYMM
+ * @property {string} [x] - the exchange (remanufactured) part number
+ * @property {Array<[string, string]>} [rep] - superseded by: [part number, name]
+ * @property {Array<[string, string]>} [for] - replaces: [part number, name]
+ * @property {Array<[string, string, string, number]>} [kit] - a set's parts:
+ *   [part number, name, quantity, 1 when sold on its own]
+ * @property {Array<[string, string, number|null, string]>} [reach] - REACH
+ *   substances: [CAS number, substance, weight %, subcomponent]
  */
 
 /**
@@ -164,10 +184,77 @@ function etkRows(parts, car) {
  * @param {{v?: number, ln?: Object<string, Object<string, EtkLine[]>>}|null} sidecar - the parsed file
  * @returns {number} how many parts received records
  */
+/**
+ * The Part information window for one part row, laid out in sections:
+ * the part number and name as the head, short facts as a grid, the line's
+ * note as a paragraph, and the lists (a set's parts, the supersession
+ * chain, the substances) as tables. Only what is known appears. Pure, so
+ * the print sheet and the pane share it.
+ * @param {{sachnr?: string, pre?: string, name?: string, sup?: string}} part - the part row
+ * @param {EtkLine|null} line - the line shown for the chosen car, if any
+ * @param {EtkPartInfo|null} info - the part's sidecar record, if any
+ * @param {(sachnr: string, pre?: string) => string} [fmt] - part number formatter
+ * @returns {{head: {sachnr: string, name: string}, facts: Array<[string, string]>,
+ *   note: string, tables: Array<{title: string, cols: string[], rows: string[][]}>}}
+ */
+function etkPartInfoSections(part, line, info, fmt = (s) => s) {
+  const p = part || {};
+  const i = info || {};
+  const ln = line || {};
+  const num = (s) => fmt(String(s || ''), p.pre);
+  const facts = [];
+  if (i.c) facts.push(['Comment', i.c]);
+  if (p.sup) facts.push(['Supplement', p.sup]);
+  if (ln.q) facts.push(['Quantity', ln.q]);
+  if (i.w != null) facts.push(['Weight', `${i.w} kg`]);
+  if (i.dn) facts.push(['Standard', i.dn]);
+  if (i.h) facts.push(['Hazardous goods', 'yes']);
+  if (i.e) facts.push(['Discontinued', etkMonth(i.e)]);
+  if (i.x) facts.push(['Exchange part', num(i.x)]);
+  const tables = [];
+  const related = (title, list) =>
+    tables.push({
+      title,
+      cols: ['Part number', 'Description'],
+      rows: list.map(([s, name]) => [num(s), name || '']),
+    });
+  if (i.rep && i.rep.length) related('Superseded by', i.rep);
+  if (i.for && i.for.length) related('Replaces', i.for);
+  if (i.kit && i.kit.length)
+    tables.push({
+      title: 'Set contents',
+      cols: ['Qty', 'Part number', 'Description', ''],
+      rows: i.kit.map(([s, name, q, sold]) => [
+        q || '1',
+        num(s),
+        name || '',
+        sold ? '' : 'not sold separately',
+      ]),
+    });
+  if (i.reach && i.reach.length)
+    tables.push({
+      title: 'REACH substances',
+      cols: ['Substance', 'CAS number', 'Weight %', 'In'],
+      rows: i.reach.map(([cas, name, pct, sub]) => [
+        name || '',
+        cas || '',
+        pct != null ? String(pct) : '',
+        sub || '',
+      ]),
+    });
+  return {
+    head: { sachnr: num(p.sachnr), name: String(p.name || '') },
+    facts,
+    note: ln.n || '',
+    tables,
+  };
+}
 function etkMergeLines(tree, sidecar) {
   const ln = sidecar && sidecar.ln;
   if (!ln || !tree) return 0;
   const sup = (sidecar && sidecar.sup) || {};
+  // the Part information records ride on the tree, per part number
+  if (sidecar.pt && !tree.pt) tree.pt = sidecar.pt;
   let n = 0;
   const groups = tree.maingroups
     ? tree.maingroups.flatMap((mg) => mg.groups || [])
@@ -196,5 +283,6 @@ if (typeof module !== 'undefined' && module.exports) {
     etkDisplayLine,
     etkRows,
     etkMonth,
+    etkPartInfoSections,
   };
 }

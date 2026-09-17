@@ -189,16 +189,24 @@ function etkAttachHotspots({
 
   /** @type {HTMLButtonElement[]} every rectangle button, in file order */
   const areas = [];
-  /** @type {string|null} the pinned callout, or null when nothing is pinned */
+  /**
+   * The pinned selection: a callout (every row carrying it lights up, the
+   * way a click on the drawing or on a group row asks) or one row of it (a
+   * click on a part listed under a group lights that part alone, not its
+   * siblings). Null when nothing is pinned.
+   * @type {{pos: string, row: HTMLTableRowElement|null}|null}
+   */
   let pinned = null;
 
   /**
    * Paint one highlight state over both the rectangles and the rows.
    * @param {string|null} pos - the callout to light up, or null for none
    * @param {boolean} isPinned - true when this is a pinned (clicked) selection
+   * @param {HTMLTableRowElement|null} [only] - light this row alone rather
+   *   than every row carrying the callout
    * @returns {void}
    */
-  function paint(pos, isPinned) {
+  function paint(pos, isPinned, only = null) {
     for (const a of areas) {
       const on = pos != null && a.dataset.pos === pos;
       a.classList.toggle('on', on);
@@ -208,9 +216,18 @@ function etkAttachHotspots({
       rows[i].classList.remove('etk-row-on', 'etk-row-pinned');
     }
     if (pos == null) return;
-    for (const r of byPos.get(pos) || []) {
+    const lit = only ? [only] : byPos.get(pos) || [];
+    for (const r of lit) {
       r.classList.add('etk-row-on');
       if (isPinned) r.classList.add('etk-row-pinned');
+      // a part folded under its group is shown when the drawing points at it
+      if (isPinned && r.hidden) {
+        let g = r.previousElementSibling;
+        while (g && !g.classList.contains('etk-group'))
+          g = g.previousElementSibling;
+        const tgl = g && g.querySelector('.etk-tgl');
+        if (tgl && tgl.getAttribute('aria-expanded') !== 'true') tgl.click();
+      }
     }
   }
 
@@ -218,29 +235,38 @@ function etkAttachHotspots({
    * Show a callout, honouring the pin: a transient hover must never wipe a
    * pinned selection, it only previews on top of nothing.
    * @param {string|null} pos - the callout under the pointer, or null on leave
+   * @param {HTMLTableRowElement|null} [only] - preview this row alone
    * @returns {void}
    */
-  function hover(pos) {
+  function hover(pos, only = null) {
     if (pinned) return;
-    paint(pos, false);
+    paint(pos, false, only);
   }
 
   /**
    * Pin (or unpin) a callout, and bring its first row into view so a pick on
    * the drawing answers the question "which part is this" without scrolling.
    * @param {string} pos - the callout that was clicked
+   * @param {HTMLTableRowElement|null} [only] - pin this row alone (a part
+   *   under a group), not every row of the callout
    * @returns {void}
    */
-  function pick(pos) {
-    pinned = pinned === pos ? null : pos;
-    paint(pinned, pinned != null);
+  function pick(pos, only = null) {
+    const same =
+      pinned && pinned.pos === pos && (pinned.row || null) === (only || null);
+    pinned = same ? null : { pos, row: only || null };
+    paint(
+      pinned ? pinned.pos : null,
+      pinned != null,
+      pinned ? pinned.row : null
+    );
     if (!pinned) return;
     if (scrollRows) {
-      const first = (byPos.get(pinned) || [])[0];
+      const first = pinned.row || (byPos.get(pinned.pos) || [])[0];
       if (first && first.scrollIntoView)
         first.scrollIntoView({ block: 'nearest' });
     }
-    if (onPick) onPick(pinned);
+    if (onPick) onPick(pinned.pos);
   }
 
   // ---- the rectangles -----------------------------------------------------
@@ -308,9 +334,9 @@ function etkAttachHotspots({
   // a pin handed over from the enlarged view: the reader clicked a number
   // there, so the pane opens already answering which part it is
   if (initialPin && areas.some((a) => a.dataset.pos === String(initialPin))) {
-    pinned = String(initialPin);
-    paint(pinned, true);
-    const first = (byPos.get(pinned) || [])[0];
+    pinned = { pos: String(initialPin), row: null };
+    paint(pinned.pos, true);
+    const first = (byPos.get(pinned.pos) || [])[0];
     if (first && first.scrollIntoView)
       first.scrollIntoView({ block: 'nearest' });
   }
@@ -328,9 +354,12 @@ function etkAttachHotspots({
     const drawn = areas.some((a) => a.dataset.pos === pos);
     if (!drawn) continue;
     row.classList.add('etk-row-linked');
-    row.onpointerenter = () => hover(pos);
+    // a part listed under a group speaks for itself; a group row, or a
+    // part standing alone, speaks for the whole callout
+    const alone = row.classList.contains('etk-sub') ? row : null;
+    row.onpointerenter = () => hover(pos, alone);
     row.onpointerleave = () => hover(null);
-    row.onclick = () => pick(pos);
+    row.onclick = () => pick(pos, alone);
     wired.push(row);
   }
 

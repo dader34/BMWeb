@@ -264,3 +264,97 @@ ok('the sidecar lands on the parts, inline records first');
 }
 
 console.log(`test_etk_lines: ${passed} checks passed`);
+
+// THE PART INFORMATION WINDOW: the i on every part opens what the sidecar's
+// pt record knows -- weight, comment, the supersession chain, a set's
+// contents, REACH substances -- laid out as a head, a fact grid, the note
+// and tables, and only what is known.
+{
+  const fmt = (s) => `#${s}`;
+  const sec = L.etkPartInfoSections(
+    { sachnr: '7553142', name: 'Hub', sup: 'M8X16' },
+    { n: 'Note Repair Manual', q: '2', k: '+' },
+    {
+      w: 0.759,
+      c: 'black',
+      h: 1,
+      dn: 'DIN 933',
+      e: 200903,
+      x: '7553143',
+      rep: [['7593701', 'Hub']],
+      for: [
+        ['7519630', 'Hub'],
+        ['7557356', ''],
+      ],
+      kit: [
+        ['7191670', 'Lock set', '1', 1],
+        ['6965050', 'Control unit CAS', '2', 0],
+      ],
+      reach: [['7439-92-1', 'Lead', 3.5, 'Bushing']],
+    },
+    fmt
+  );
+  assert.deepStrictEqual(sec.head, { sachnr: '#7553142', name: 'Hub' });
+  assert.deepStrictEqual(sec.facts, [
+    ['Comment', 'black'],
+    ['Supplement', 'M8X16'],
+    ['Quantity', '2'],
+    ['Weight', '0.759 kg'],
+    ['Standard', 'DIN 933'],
+    ['Hazardous goods', 'yes'],
+    ['Discontinued', '03/2009'],
+    ['Exchange part', '#7553143'],
+  ]);
+  assert.strictEqual(sec.note, 'Note Repair Manual');
+  assert.deepStrictEqual(
+    sec.tables.map((t) => t.title),
+    ['Superseded by', 'Replaces', 'Set contents', 'REACH substances']
+  );
+  assert.deepStrictEqual(sec.tables[1].rows, [
+    ['#7519630', 'Hub'],
+    ['#7557356', ''],
+  ]);
+  assert.deepStrictEqual(sec.tables[2].rows, [
+    ['1', '#7191670', 'Lock set', ''],
+    ['2', '#6965050', 'Control unit CAS', 'not sold separately'],
+  ]);
+  assert.deepStrictEqual(sec.tables[3].rows, [
+    ['Lead', '7439-92-1', '3.5', 'Bushing'],
+  ]);
+  ok('the Part information sections carry everything the record knows');
+
+  const bare = L.etkPartInfoSections(
+    { sachnr: '1439395', name: 'Hex Bolt' },
+    null,
+    null
+  );
+  assert.deepStrictEqual(bare, {
+    head: { sachnr: '1439395', name: 'Hex Bolt' },
+    facts: [],
+    note: '',
+    tables: [],
+  });
+  ok('a part without a record shows its number and name only');
+}
+
+// The Kat mark rides on the line like steering and gearbox do, and the
+// part records reach the tree once, off the sidecar.
+{
+  const tree = {
+    groups: [{ diagrams: [{ btnr: 'b', parts: [{ pos: '1', sachnr: '9' }] }] }],
+  };
+  L.etkMergeLines(tree, {
+    v: 3,
+    ln: { b: { '1|9': [{ k: '+', a: 'A', s: 'L' }] } },
+    sup: {},
+    pt: { 9: { w: 1.5 } },
+  });
+  const p = tree.groups[0].diagrams[0].parts[0];
+  assert.deepStrictEqual(p.ln, [{ k: '+', a: 'A', s: 'L' }]);
+  assert.deepStrictEqual(tree.pt, { 9: { w: 1.5 } });
+  const [g] = L.etkRows([p], { prod: null, steer: null, auto: null });
+  assert.strictEqual(g.items[0].line.k, '+');
+  ok('the Kat mark and the part records come through the sidecar');
+}
+
+console.log(`test_etk_lines: ${passed} checks passed (part information)`);
