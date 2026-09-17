@@ -288,13 +288,7 @@ function showEtkGroup(data, chassisId, mg, openBtnr = null) {
  */
 function printEtkDiagram(data, chassisId, mg, d) {
   const parts = etkFitParts(d.parts);
-  const rows = parts.map((p) => [
-    p.pos,
-    fmtSachnr(p.sachnr, p.pre),
-    typeof etkLineTags === 'function' && etkLineTags(p).length
-      ? `${p.name} (${etkLineTags(p).join('; ')})`
-      : p.name,
-  ]);
+  const rows = parts.map((p) => [p.pos, fmtSachnr(p.sachnr, p.pre), p.name]);
   const veh = ETK_STATE.variantLabel || dispChassis(chassisId);
   printDoc({
     title: d.name,
@@ -371,21 +365,9 @@ function renderDiagram(data, chassisId, d, viewEl) {
   const tb = document.createElement('tbody');
   parts.forEach((p) => {
     const tr = document.createElement('tr');
-    // THE LINE'S VALIDITY IS PRINTED THE WAY THE CATALOGUE PRINTS IT: the
-    // window, the side, and the condition ("For vehicles with +Headlight
-    // cleaning system"), so a reader browsing without a VIN can still tell
-    // the pre-facelift row from the one for their car
-    const tags =
-      typeof etkLineTags === 'function'
-        ? etkLineTags(p)
-            .map((t) => `<span class="etk-tag">${esc(t)}</span>`)
-            .join('')
-        : '';
     tr.innerHTML = `<td class="etk-pos">${esc(p.pos)}</td>
                     <td class="etk-sachnr">${esc(fmtSachnr(p.sachnr, p.pre))}</td>
-                    <td class="etk-name">${esc(p.name)}${
-                      tags ? `<span class="etk-tags">${tags}</span>` : ''
-                    }</td>`;
+                    <td class="etk-name">${esc(p.name)}</td>`;
     tb.appendChild(tr);
   });
   table.appendChild(tb);

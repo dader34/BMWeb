@@ -14,10 +14,11 @@
  * The records come inline on a part (`part.ln`, bundles built after this)
  * or from the <CHASSIS>.lines.json.gz sidecar (bundles already published),
  * keyed by callout and part number. A part may carry several lines, one
- * window each; it fits when any line does.
+ * window each; it fits when any line does. The records decide what a row
+ * shows for the chosen car; nothing about them is printed on the row.
  */
 
-/* exported etkLineFits, etkLineTags, etkMergeLines, etkLineKey */
+/* exported etkLineFits, etkMergeLines, etkLineKey */
 
 /**
  * One parts line's validity, as tools/etk_import.py writes it.
@@ -80,36 +81,6 @@ function etkLineFits(p, car) {
 }
 
 /**
- * YYYYMM as the catalogue prints it, MM/YYYY.
- * @param {number} ym - the month
- * @returns {string}
- */
-function etkMonth(ym) {
-  const s = String(ym || '');
-  return s.length >= 6 ? `${s.slice(4, 6)}/${s.slice(0, 4)}` : s;
-}
-
-/**
- * The tags a row shows for its validity, in the catalogue's words.
- * @param {{ln?: EtkLine[]}} p - a part row
- * @returns {string[]} e.g. ["from 09/2001", "LHD", "For vehicles with +Headlight cleaning system"]
- */
-function etkLineTags(p) {
-  const out = [];
-  for (const ln of (p && Array.isArray(p.ln) && p.ln) || []) {
-    const t = [];
-    if (ln.f) t.push(`from ${etkMonth(ln.f)}`);
-    if (ln.t) t.push(`up to ${etkMonth(ln.t)}`);
-    if (ln.s) t.push(ln.s === 'R' ? 'RHD' : 'LHD');
-    if (ln.a) t.push(ln.a === 'A' ? 'automatic' : 'manual');
-    if (ln.n) t.push(ln.n);
-    const s = t.join(' · ');
-    if (s && !out.includes(s)) out.push(s);
-  }
-  return out;
-}
-
-/**
  * Put a sidecar's line records onto the tree's parts. Inline records win:
  * a bundle built with them needs nothing from the sidecar.
  * @param {{maingroups?: object[], groups?: object[]}} tree - the bundle's tree
@@ -140,5 +111,5 @@ function etkMergeLines(tree, sidecar) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { etkLineKey, etkLineFits, etkLineTags, etkMergeLines };
+  module.exports = { etkLineKey, etkLineFits, etkMergeLines };
 }
