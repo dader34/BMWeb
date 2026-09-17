@@ -218,7 +218,7 @@ function showEtkGroup(data, chassisId, mg, openBtnr = null) {
     if (phone()) bodyEl.dataset.pane = 'doc';
     // reflect the open diagram in the URL so it's a shareable deep link
     if (typeof routeSetEtkDiagram === 'function') {
-      routeSetEtkDiagram(id, mg.hg, d.btnr);
+      routeSetEtkDiagram(id, mg.hg, d.btnr, ETK_STATE.vin);
     }
   };
   mg.groups.forEach((g) => treeEl.appendChild(etkTreeGroup(g, onLeaf)));

@@ -447,7 +447,12 @@ function wiringRenderSchematic(ctx, bar, doc) {
 function wiringRenderDocument(ctx, entry) {
   ctx.atIndex = ctx.index.findIndex((e) => e.doc === entry.doc);
   if (typeof routeSetWiringDoc === 'function' && entry && entry.doc) {
-    routeSetWiringDoc(ctx.chassisId, entry.doc);
+    // the filtered vehicle rides along, so a reload keeps the filter
+    const vin =
+      typeof wiringVinHit !== 'undefined' && wiringVinHit && wiringVinHit.vin
+        ? wiringVinHit.vin
+        : null;
+    routeSetWiringDoc(ctx.chassisId, entry.doc, vin);
   }
   // ONE PANE AT A TIME ON A PHONE: below 760px the CSS hides the unselected
   // pane, so loading into it means a 0x0 stage. Switch to it; no-op on

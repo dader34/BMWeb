@@ -296,6 +296,7 @@ echo "== parts diagrams: callout hotspot file shape, the pos join, scale mapping
 node tools/verify/test_etk_hotspots.js || exit 1
 node tools/verify/test_etk_lines.js || exit 1
 node tools/verify/test_etk_identify.js || exit 1
+node tools/verify/test_router_vin.js || exit 1
 python3 tools/verify/test_etk_lines.py || exit 1
 
 echo
