@@ -86,6 +86,12 @@ const THEMES = [
 
 /** The rendered logo's edge, in CSS pixels, for the dock icon / favicon. */
 const LOGO_PNG_SIZE = 256;
+/**
+ * The cursor logo's edge, in CSS pixels. Browsers refuse a cursor image
+ * wider than 128px, and a pointer has to stay small enough to see past, so
+ * this is drawn separately from the 256px dock icon rather than scaled down.
+ */
+const LOGO_CURSOR_SIZE = 28;
 /** Delay before re-rendering the logo after a theme swap, so the new colours have applied. */
 const DOCK_ICON_REPAINT_MS = 100;
 /** Window translucency under the aero skin (a CSS custom property). */
@@ -115,6 +121,44 @@ function applyTheme(id) {
   }
   applyAeroOpacity();
   setTimeout(updateDockIcon, DOCK_ICON_REPAINT_MS);
+  // the pointer wears the same logo, so it is redrawn in the new colours too
+  setTimeout(applyCursor, DOCK_ICON_REPAINT_MS);
+}
+
+/**
+ * Is the BMWeb cursor turned on? Off unless the setting says otherwise, so
+ * the app keeps the system pointer by default.
+ * @returns {boolean}
+ */
+function bmwebCursor() {
+  return Settings.get('bmwebCursor', false) === true;
+}
+
+/**
+ * Draw the app's logo as the mouse pointer, in the current theme's colours,
+ * or hand the system pointer back when the setting is off.
+ *
+ * The logo is published as a CSS custom property rather than written onto
+ * every element: one rule on the root carries it, and `cursor: inherit`
+ * lets a control that wants its own pointer (a text field, a resize grip)
+ * keep saying so. The hotspot sits at the disc's centre because the mark is
+ * a roundel with no point to aim.
+ * @returns {void}
+ */
+function applyCursor() {
+  const root = document.documentElement;
+  if (!bmwebCursor()) {
+    root.classList.remove('bmweb-cursor');
+    root.style.removeProperty('--app-cursor');
+    return;
+  }
+  const svg = logoSvg(LOGO_CURSOR_SIZE);
+  const mid = Math.round(LOGO_CURSOR_SIZE / 2);
+  root.style.setProperty(
+    '--app-cursor',
+    `url("data:image/svg+xml,${encodeURIComponent(svg)}") ${mid} ${mid}, auto`
+  );
+  root.classList.add('bmweb-cursor');
 }
 
 /**
@@ -147,34 +191,42 @@ function setFavicon(dataUrl) {
  * the dock (native shell) or the favicon (web).
  * @returns {void}
  */
-function updateDockIcon() {
-  const dock = window.bmacw && window.bmacw.setDockIcon;
-  if (!dock && !IS_WEB) return;
+function logoSvg(size) {
   const styles = getComputedStyle(document.documentElement);
   const bg = styles.getPropertyValue('--logo-bg').trim() || '#11161c';
   const border = styles.getPropertyValue('--logo-border').trim() || '#9aa6b2';
   const q1 = styles.getPropertyValue('--logo-quad-1').trim() || '#eef2f5';
   const q2 = styles.getPropertyValue('--logo-quad-2').trim() || '#ff9e2c';
   const ib = styles.getPropertyValue('--logo-inner-border').trim() || '#0a0d11';
+  return (
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 100 100">` +
+    `<circle cx="50" cy="50" r="48" fill="${bg}" stroke="${border}" stroke-width="3"/>` +
+    `<clipPath id="disc"><circle cx="50" cy="50" r="31"/></clipPath>` +
+    `<g clip-path="url(#disc)">` +
+    `<rect x="19" y="19" width="31" height="31" fill="${q1}"/>` +
+    `<rect x="50" y="50" width="31" height="31" fill="${q1}"/>` +
+    `<rect x="50" y="19" width="31" height="31" fill="${q2}"/>` +
+    `<rect x="19" y="50" width="31" height="31" fill="${q2}"/>` +
+    `</g>` +
+    `<circle cx="50" cy="50" r="31" fill="none" stroke="${ib}" stroke-width="2"/>` +
+    `</svg>`
+  );
+}
 
-  const resolvedSvg = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="${LOGO_PNG_SIZE}" height="${LOGO_PNG_SIZE}" viewBox="0 0 100 100">
-      <circle cx="50" cy="50" r="48" fill="${bg}" stroke="${border}" stroke-width="3"/>
-      <clipPath id="disc"><circle cx="50" cy="50" r="31"/></clipPath>
-      <g clip-path="url(#disc)">
-        <rect x="19" y="19" width="31" height="31" fill="${q1}"/>
-        <rect x="50" y="50" width="31" height="31" fill="${q1}"/>
-        <rect x="50" y="19" width="31" height="31" fill="${q2}"/>
-        <rect x="19" y="50" width="31" height="31" fill="${q2}"/>
-      </g>
-      <circle cx="50" cy="50" r="31" fill="none" stroke="${ib}" stroke-width="2"/>
-    </svg>
-  `;
+/**
+ * Render the logo SVG to a PNG in the current theme's colours and hand it to
+ * the dock (native shell) or the favicon (web).
+ * @returns {void}
+ */
+function updateDockIcon() {
+  const dock = window.bmacw && window.bmacw.setDockIcon;
+  if (!dock && !IS_WEB) return;
+  const resolvedSvg = logoSvg(LOGO_PNG_SIZE);
 
   // the spinners are this logo turning (styles.css --app-logo)
   document.documentElement.style.setProperty(
     '--app-logo',
-    `url("data:image/svg+xml,${encodeURIComponent(resolvedSvg.replace(/\s+/g, ' ').trim())}")`
+    `url("data:image/svg+xml,${encodeURIComponent(resolvedSvg)}")`
   );
 
   const img = new Image();
@@ -201,6 +253,7 @@ function updateDockIcon() {
   img.src = url;
 }
 applyTheme(Settings.get('theme', 'instrument'));
+applyCursor();
 
 /**
  * The caption language: 'en' = translated English, 'orig' = raw EDIABAS names.

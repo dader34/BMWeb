@@ -11738,3 +11738,47 @@ body.ista-mode .view {
 .ista-repair .rp-cancel:hover {
   filter: brightness(0.95);
 }
+
+/* The BMWeb cursor (Settings > BMWeb cursor): the app's own mark as the
+   mouse pointer, redrawn by applyCursor() whenever the skin changes so it
+   always matches the favicon.
+
+   THE STYLESHEET ALREADY DECLARES `cursor` 120 TIMES (97 of them
+   `pointer`), and every one of those is more specific than a value
+   inherited from the root -- so an inherit-only rule showed the logo on
+   bare background and the system arrow everywhere else, which looked like
+   it was flickering on and off. Instead the pointer-ish values are
+   replaced wholesale under the toggle class, with `!important` to beat the
+   existing declarations wherever they sit. Only the cursors that carry
+   real meaning are left alone: a text caret, a resize/drag grip, the
+   loupe's zoom, and not-allowed on a disabled control. */
+.bmweb-cursor,
+.bmweb-cursor *:not(:disabled):not([disabled]) {
+  cursor: var(--app-cursor) !important;
+}
+/* the pointers that say something the logo cannot */
+.bmweb-cursor
+  input:not([type='button']):not([type='submit']):not([type='checkbox']):not(
+    [type='radio']
+  ),
+.bmweb-cursor textarea,
+.bmweb-cursor [contenteditable='true'],
+.bmweb-cursor .etk-parts td,
+.bmweb-cursor .etk-dtitle,
+.bmweb-cursor .etk-sachnr,
+.bmweb-cursor .etk-name {
+  cursor: text !important;
+}
+.bmweb-cursor :disabled,
+.bmweb-cursor [disabled] {
+  cursor: not-allowed !important;
+}
+.bmweb-cursor .etk-figure,
+.bmweb-cursor .etk-lightbox-img {
+  cursor: zoom-in !important;
+}
+.bmweb-cursor [class*='resize'],
+.bmweb-cursor [class*='drag'],
+.bmweb-cursor .split-handle {
+  cursor: inherit;
+}
