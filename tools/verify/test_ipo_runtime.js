@@ -2761,6 +2761,45 @@ const sysSet = (sgbd) => ({
     ok('setcolor / userboxsetcolor: the model carries the colours');
   }
 
+  // ---- A CLEAN SINGLE-MODULE READ KEEPS THE SCRIPT'S OWN TEXT ----
+  // GS20's Error memory key writes a protocol file and opens it as a view,
+  // exactly as the whole-car script does. With no faults stored, the table
+  // rendered an empty one-row summary of the module already on screen and
+  // threw away the script's "no faults" printout. With faults, or across
+  // several modules, the table still earns the screen.
+  {
+    const src = fs.readFileSync(R('screens/ipo-runtime/protocol.js'), 'utf8');
+    const fn = src.match(/function ipoReportBeatsText[\s\S]*?\n}/);
+    assert.ok(fn, 'ipoReportBeatsText is defined');
+    // eslint-disable-next-line no-eval
+    eval(fn[0]);
+    const one = (codes) => ({ modules: [{ codes }], silent: [] });
+    const cases = [
+      ['one module, no faults (the GS20 bug)', one([]), false],
+      ['one module with a fault (airbag)', one([{ F_ORT_NR: 5 }]), true],
+      [
+        'a sweep: four answered, all clean',
+        { modules: [1, 2, 3, 4].map(() => ({ codes: [] })), silent: [] },
+        true,
+      ],
+      [
+        'a sweep: one answered, three silent',
+        { modules: [{ codes: [] }], silent: ['a', 'b', 'c'] },
+        true,
+      ],
+      [
+        'an identification sweep has no codes to count',
+        { kind: 'ident', modules: [{ codes: [] }], silent: [] },
+        true,
+      ],
+      ['nothing read at all', { modules: [], silent: [] }, false],
+      ['no report', null, false],
+    ];
+    for (const [what, rep, want] of cases)
+      assert.strictEqual(ipoReportBeatsText(rep), want, what);
+    ok("a clean single-module read keeps the script's own text");
+  }
+
   console.log(`ipo-runtime: ${passed} checks passed`);
 })().catch((e) => {
   console.error(e && e.stack ? e.stack : e);

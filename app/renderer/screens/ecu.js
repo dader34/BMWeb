@@ -179,6 +179,33 @@ async function showEcuDeep(chassisId, sgbd, menuName, screenName) {
     );
     if (hit) return showEcu(chassisId, sec.name, hit, menuName, screenName);
   }
+  // THE LINK MAY NAME AN IDENTIFIED VARIANT, NOT A CONFIGURED ROW. The car
+  // answers as gs20 where the config lists gsds2/ags732, and the module view
+  // writes that answer into the URL -- so reloading #car/E46/gs20/m_fehler
+  // looked up a variant the menu has no row for and dropped the reader at
+  // the script picker. The variant's own record names the row it belongs to
+  // (identifiedVariantOf, written per module by build_ecu_tree.py), so ask
+  // for it and open the parent with the variant already resolved.
+  const rec = await tryApi(`/api/ecu/${encodeURIComponent(want)}/ecu`, null);
+  const parent = rec && rec.identifiedVariantOf;
+  if (parent) {
+    const pw = String(parent).toLowerCase();
+    for (const sec of ch.sections || []) {
+      const hit = (sec.ecus || []).find(
+        (e) =>
+          String(e.sgbd).toLowerCase() === pw ||
+          String(e.code || '').toLowerCase() === pw
+      );
+      if (hit)
+        return showEcu(
+          chassisId,
+          sec.name,
+          { ...hit, _variant: want.toUpperCase() },
+          menuName,
+          screenName
+        );
+    }
+  }
   sbLeft.textContent = `${sgbd} not in ${dispChassis(chassisId)}`;
   return backToModules(chassisId);
 }

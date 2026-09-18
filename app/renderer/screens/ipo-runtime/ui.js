@@ -226,8 +226,25 @@ function ipoMakeUi(ecu, container, back) {
                 garageOfferSave(gridEl, drawn, p.ecu);
             });
           } else {
+            // THE TEXT PATH TRANSLATES TOO. The table path runs every code
+            // through the fault dictionaries; the file the script wrote was
+            // printed raw, so a module that reports "Kein Fehler im
+            // Fehlerspeicher" showed it in German beside English chrome.
+            // Exact lookup only (phraseText), per the i18n rule: a line the
+            // dictionaries do not carry whole passes through untouched, and
+            // the leading indent is kept so the columns stay put.
+            const tr =
+              typeof phraseText === 'function'
+                ? (l) => {
+                    const s = String(l);
+                    const body = s.trimStart();
+                    const pad = s.slice(0, s.length - body.length);
+                    const out = phraseText(body.trimEnd());
+                    return out === body.trimEnd() ? s : pad + out;
+                  }
+                : (l) => l;
             gridEl.innerHTML = `<pre class="ipo-protocol mono">${esc(
-              (p.view.lines || []).join('\n')
+              (p.view.lines || []).map(tr).join('\n')
             )}</pre>`;
           }
         }

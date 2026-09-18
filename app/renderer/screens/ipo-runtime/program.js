@@ -1343,9 +1343,16 @@ class IpoProgram {
     // as the data behind it where the body read fault memories
     if (out.view) {
       this.view = out.view;
+      // THE TABLE ONLY WINS WHEN IT HAS MORE TO SAY THAN THE TEXT. A single
+      // module's Error memory key writes a protocol file and opens it as a
+      // view exactly as the whole-car script does (GS20's m_fehler), so a
+      // CLEAN read used to have its "no faults stored" printout replaced by
+      // an empty one-row table of the module already on screen. With faults,
+      // or across several modules, the table still earns it (see
+      // ipoReportBeatsText).
       if (typeof ipoProtocolReport === 'function') {
         const rep = ipoProtocolReport(this.wireReads, out.view.lines);
-        this.view.report = rep.modules.length ? rep : null;
+        this.view.report = ipoReportBeatsText(rep) ? rep : null;
       }
     } else if (out.viewClose) {
       // viewclose without a viewopen after it: INPA's viewer window is

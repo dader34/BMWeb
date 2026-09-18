@@ -11,6 +11,15 @@
  * @type {Array<[string, string]>}
  */
 const FAULT_PHRASES = [
+  // the empty fault memory, as the module reports it. INPA prints this line
+  // verbatim into the protocol a module's Error memory key writes, so it is
+  // runtime text (no script carries the literal) and belongs here rather
+  // than in a caption dictionary.
+  ['Kein Fehler im Fehlerspeicher', 'No fault in the fault memory'],
+  ['Keine Fehler im Fehlerspeicher', 'No faults in the fault memory'],
+  ['Kein Fehler gefunden', 'No fault found'],
+  ['Keine Fehlereinträge', 'No fault entries'],
+  ['Fehler im Fehlerspeicher', 'Faults in the fault memory'],
   // symptom (F_SYMPTOM_TEXT)
   ['kein Signal oder Wert', 'No signal or value'],
   // fault-type (FA) texts as BMW composes them into F_PCODE_TEXT
