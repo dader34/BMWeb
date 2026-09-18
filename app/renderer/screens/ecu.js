@@ -220,6 +220,8 @@ async function showEcu(
     { label: dispChassis(chassisId), fn: () => backToModules(chassisId) },
     { label: ecu.label },
   ]);
+  // the reader may leave while this screen loads (screenOwner)
+  const _mine = screenOwner();
   sbLeft.textContent = `${ecu.sgbd}.prg`;
   view.innerHTML = head(
     `${sectionName} · ${ecu.code}`,
@@ -308,6 +310,7 @@ async function showEcu(
       'Its jobs are shipped in ecus/ but INPA draws no UI for it.'
   );
   sbLeft.textContent = 'no screen';
+  if (!_mine()) return;
   setActions([
     { key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: back },
   ]);

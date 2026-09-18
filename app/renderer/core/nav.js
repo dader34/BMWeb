@@ -36,6 +36,8 @@ async function showChassis() {
   cancelSweep(); // leaving the chassis list stops any sweep (sweep.js)
   lastScreen = showChassis;
   setCrumbs([{ label: 'Vehicles' }]);
+  // the reader may leave while this screen loads (screenOwner)
+  const _mine = screenOwner();
   sbLeft.textContent = 'select chassis';
   const ids = await tryApi('/api/chassis', null, view);
   if (!ids) return;
@@ -91,6 +93,7 @@ async function showChassis() {
     return;
   }
 
+  if (!_mine()) return;
   view.innerHTML = head(
     'Vehicles',
     'Select your vehicle',
@@ -111,6 +114,7 @@ async function showChassis() {
     </span>
     <span class="lookup-entry-arrow">→</span>`;
   appsCard.onclick = () => showApps();
+  if (!_mine()) return;
   view.appendChild(appsCard);
 
   // Garage: the cars this user keeps, and the scan history read from each.
@@ -217,7 +221,9 @@ async function showChassis() {
     filterRow.appendChild(chip);
   });
 
+  if (!_mine()) return;
   view.appendChild(filterRow);
+  if (!_mine()) return;
   view.appendChild(grid);
   renderGrid();
 
@@ -232,6 +238,7 @@ async function showChassis() {
     label: 'Apps',
     fn: () => showApps(),
   });
+  if (!_mine()) return;
   setActions(acts);
 }
 
@@ -423,6 +430,8 @@ async function showFunctionalJobs(chassisId) {
     { label: dispChassis(id) },
     { label: 'Functional Jobs' },
   ]);
+  // the reader may leave while this screen loads (screenOwner)
+  const _mine = screenOwner();
   sbLeft.textContent = 'functional jobs';
   view.innerHTML = head(
     'Functional Jobs',
@@ -591,6 +600,8 @@ async function showSections(id, selectIndex = 0) {
     { label: 'Vehicles', fn: showChassis },
     { label: dispChassis(id) },
   ]);
+  // the reader may leave while this screen loads (screenOwner)
+  const _mine = screenOwner();
   if (typeof routeSetCarList === 'function') routeSetCarList(id);
   sbLeft.textContent = `loading ${dispChassis(id)}…`;
   // name neither side: below 760px the system rail sits ABOVE its modules, not left
@@ -740,5 +751,6 @@ async function showSections(id, selectIndex = 0) {
     kind: 'back',
     fn: showChassis,
   });
+  if (!_mine()) return;
   setActions(actions);
 }
