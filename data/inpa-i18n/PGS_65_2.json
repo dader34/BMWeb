@@ -17,6 +17,7 @@
  "CAN - Signale": "CAN signals",
  "Datum der SG-Programmierung in der Form JJJJ.MM.TT": "Control unit programming date, YYYY.MM.DD",
  "Datum der SG-Programmierung in der Form TT.MM.JJJJ": "Control unit programming date, DD.MM.YYYY",
+ "Der Fehlerspeicher wird gelesen! ... bitte warten": "Reading the fault memory ... please wait",
  "Diagnose-Index": "diagnosis-Index",
  "Einschalten des Zuheizers ueber K-Bus oder ueber Eingang Pin 1": "Switch on the auxiliary heater via K-bus or via input pin 1",
  "Entwicklungsbezeichnung des Radios mit Unterstrich": "Radio development designation with underscore",

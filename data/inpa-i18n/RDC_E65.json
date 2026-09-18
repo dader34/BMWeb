@@ -146,6 +146,7 @@
  "Radelektronik-Status der ID": "Wheel electronics status for this ID",
  "Radposition der ID": "Wheel position for this ID",
  "Radzuordnung konnte nicht abgeschlossen werden": "Wheel assignment could not be completed",
+ "Reifen Druck Control": "Tyre pressure control",
  "Restlebensdauer der ID": "Remaining service life for this ID",
  "Signalsstatus S-Taster": "S button signal status",
  "Software-Nummer": "Software number",
@@ -171,6 +172,7 @@
  "Steuergerät": "Control unit",
  "Steuergerätebeschreibungsdatei": "Control unit description file",
  "Strom Kupplung": "Clutch current",
+ "System aktiv": "System active",
  "Taste betaetigt/nicht betaetigt": "Button pressed / not pressed",
  "Tempomat-Fehler": "Cruise control fault",
  "Test-Eigenraderkennung im Stand wurde gestartet": "Test own-wheel detection at standstill was started",
@@ -183,6 +185,7 @@
  "Wert der Triggerschwelle": "Trigger threshold value",
  "Wert in %": "Value in %",
  "Zeitzaehler der Zuordnung in Minuten": "Assignment time counter in minutes",
+ "Zu viele REs.": "Too many wheel electronics.",
  "Zuendung Klemme 15 0 oder 1": "Ignition, terminal 15, 0 or 1",
  "Zuendung Klemme 50 0 oder 1": "Ignition, terminal 50, 0 or 1",
  "Zuendung Klemme R 0 oder 1": "Ignition, terminal R, 0 or 1",
@@ -194,7 +197,12 @@
  "aus": "Off",
  "auslesen des VF-Status moeglich": "Vehicle-function status can be read",
  "auslesen ob Radio ein aus moeglich": "Radio on/off state can be read",
+ "hinten links": "Rear left",
+ "hinten rechts": "Rear right",
  "km-Stand bei der Programmierung": "Odometer at programming",
  "letzte 2 Stellen der BMW-Teilenummer": "Last 2 digits of the BMW part number",
- "range = 0x90 bis 0xCF bei RAM und 0x01 bis 0xFF bei ROM": "Range = 0x90 to 0xCF for RAM and 0x01 to 0xFF for ROM"
+ "range = 0x90 bis 0xCF bei RAM und 0x01 bis 0xFF bei ROM": "Range = 0x90 to 0xCF for RAM and 0x01 to 0xFF for ROM",
+ "starten                                              ": "Start                                              ",
+ "vorn links": "Front left",
+ "vorn rechts": "Front right"
 }

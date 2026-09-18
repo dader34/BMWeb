@@ -50,6 +50,8 @@
  "Lieferanten-Nummer": "Supplier number",
  "Lieferanten-Text": "Supplier text",
  "Mittelwert der Motordrehzahl": "Mean engine speed",
+ "Motor Air circulation OFF": "Air recirculation motor off",
+ "Motor Air circulation ON": "Air recirculation motor on",
  "Motor Blower": "Blower motor",
  "Motor mixing valve Air manifold": "Motor, air distribution blend flap",
  "Motor mixing valve Temperature": "Motor, temperature blend flap",

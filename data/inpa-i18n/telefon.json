@@ -576,6 +576,8 @@
  "Texte aus Spezifikation": "Texts from the specification",
  "Timer 0 Wert": "Timer 0 value",
  "Timer 1 Wert": "Timer 1 value",
+ "Transport mode AUS": "Transport mode OFF",
+ "Transport mode EIN": "Transport mode ON",
  "Tuer Beifahrerseite Sensor": "Passenger door sensor",
  "Tuer Fahrerseite Sensor": "Driver door sensor",
  "Tuer Sensor links": "Door sensor left",

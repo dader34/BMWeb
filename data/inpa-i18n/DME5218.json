@@ -358,6 +358,8 @@
  "MIL 0=nicht angest./ 1=angest.": "MIL 0=not driven / 1=driven",
  "MUL-Signal Wert": "MUL signal value",
  "MUL-Signal Wert Bank 2": "MUL signal value bank 2",
+ "Monitorsonde 2   nach KAT": "Monitor sensor 2 after catalyst",
+ "Monitorsonde nach KAT 1, Monitorsonde nach KAT 2": "Monitor sensor after catalyst 1, monitor sensor after catalyst 2",
  "Motordrehzahl Wert": "Engine speed value",
  "Motordrehzahl als Wert": "Engine speed as value",
  "Motordrehzahl, Geschwindigkeit": "Engine speed, road speed",

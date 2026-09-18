@@ -85,6 +85,7 @@
  "Motor dreht": "Engine is turning",
  "Motordrehzahl von CAN": "Engine speed from CAN",
  "Motortemperatur": "Engine temperature",
+ "PDC aktiv with cl.15": "PDC active with terminal 15",
  "Position Kupplung": "Clutch position",
  "Position Kupplung-Rohwert, Inkrement": "Clutch position raw value, increments",
  "Programmtaster * /M ein": "Program button * / M on",

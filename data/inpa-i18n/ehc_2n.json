@@ -19,6 +19,8 @@
  "Gerätetyp 4-stellig": "Device type, 4 digits",
  "Hardware-Nummer": "Hardware number",
  "Hex-Antwort von SG": "Hex response from control unit",
+ "Hoehenstand hinten links": "Ride height, rear left",
+ "Hoehenstand hinten rechts": "Ride height, rear right",
  "Index zur Erkennung der SG-Variante": "Index identifying the control unit variant",
  "Inhalt der Speicherzellen": "Contents of the memory cells",
  "Inhalte der Speicherzellen 1 bis n": "Contents of memory cells 1 to n",

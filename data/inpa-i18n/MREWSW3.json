@@ -1,0 +1,21 @@
+{
+ "EWS-Fehler": "EWS fault",
+ "Fehler": "Fault",
+ "MREWS-Fehler": "MREWS fault",
+ "Mechanischer Schließcode": "Mechanical lock code",
+ "Schlüssel": "Key",
+ "Schlüsselnummer": "Key number",
+ "Schlüsseltyp": "Key type",
+ "Status Freigabe Schlüssel": "Status key release",
+ "Status Schalter NOT-AUS": "Status emergency stop switch",
+ "Status Schlüssel": "Status key",
+ "Status Schlüssel gültig": "Status, key valid",
+ "Status der MREWS": "Status of the MREWS",
+ "Status des aktuellen Schlüssels": "Status of the current key",
+ "Steuernmenü Schlüssel": "Activation menu, key",
+ "Taste <F1>: Schlüssel sperren": "Key <F1>: Lock key",
+ "Taste <F1>: Status Schlüssel": "Key <F1>: Status key",
+ "Taste <F2>: Schlüssel freigeben": "Key <F2>: Release key",
+ "Taste <F2>: Status MREWS    ": "Key <F2>: Status MREWS    ",
+ "Taste <F3>: MREWS-Fehler    ": "Key <F3>: MREWS fault    "
+}

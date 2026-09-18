@@ -1,0 +1,8 @@
+{
+ "Antriebsstrang Fehler": "Powertrain faults",
+ "Fahrwerk Fehler": "Chassis faults",
+ "Karosserie Fehler": "Body faults",
+ "Netzwerkkommunikation Fehler": "Network communication faults",
+ "alle Fehler": "All faults",
+ "alle Steuergeräte": "All control units"
+}

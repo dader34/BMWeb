@@ -598,5 +598,7 @@
  "erh. LL durch falsche oder unbek. DK Stellung 0=Nein / 1=Ja": "Raised idle due to incorrect or unknown throttle position, 0 = no / 1 = yes",
  "erh. LL durch zu niedrige Bordspg. 0=Nein / 1=Ja": "Raised idle due to low system voltage 0=no / 1=yes",
  "km-Stand bei der Programmierung": "Odometer at programming",
- "letzte 2 Stellen der BMW-Teilenummer": "Last 2 digits of the BMW part number"
+ "letzte 2 Stellen der BMW-Teilenummer": "Last 2 digits of the BMW part number",
+ "oel temperature": "Oil temperature",
+ "tp position, oel temperature": "Throttle position, oil temperature"
 }

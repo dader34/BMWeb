@@ -1,0 +1,18 @@
+{
+ "Adaptionswerte löschen": "Clear adaptation values",
+ "Anhebung LL-Drehzahl": "Idle speed increase",
+ "EKAT Fehlerspeicher lesen": "Read EKAT fault memory",
+ "EKAT Fehlerspeicher löschen": "Clear EKAT fault memory",
+ "EKAT Shadowspeicher lesen": "Read EKAT info memory",
+ "EKAT-Heizung": "EKAT heater",
+ "EKAT-Heizung KAT links": "EKAT heater, catalyst left",
+ "EKAT-Heizung KAT rechts": "EKAT heater, catalyst right",
+ "HLM-Spannung": "Air mass meter voltage",
+ "Monitorsonde nach KAT 1": "Monitor sensor after catalyst 1",
+ "Relais EKP": "Fuel pump relay",
+ "Relais EKP, Relais Klimakompressor": "Fuel pump relay, A/C compressor relay",
+ "Relais Kraftstoffpumpe": "Fuel pump relay",
+ "Status EKAT-Heizung": "Status EKAT heater",
+ "Status Heizung rechts , links": "Status heater, right / left",
+ "Steuern Relais, TEV": "Drive relay, tank vent valve"
+}

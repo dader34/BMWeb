@@ -1,4 +1,5 @@
 {
+ " EKP-relais": " Fuel pump relay",
  "0 = Fenster geschlossen, 1 = Fenster (halb) offen": "0 = window closed, 1 = window (half) open",
  "0 = Fenster halb offen oder geschlossen, 1 = Fenster ganz offen": "0 = window half open or closed, 1 = window fully open",
  "1 = ein, 0 = aus": "1 = on, 0 = off",
@@ -95,6 +96,8 @@
  "Bremslichttestschalter aktiv 0=Nein / 1=Ja": "Brake light test switch active 0=no / 1=yes",
  "Code bei \"NEG_RESPONSE\"": "Code on NEG_RESPONSE",
  "Code bei NEG_RESPONSE": "Code on NEG_RESPONSE",
+ "DISA-relais": "DISA relay",
+ "DISA-relais, EKP-relais": "DISA relay, fuel pump relay",
  "DMTL-Pumpe aktiv  0=Aus / 1=Ein": "DMTL pump active 0=off / 1=on",
  "DMTL-Umschaltventil aktiv  0=Aus / 1=Ein": "DMTL changeover valve active 0=off / 1=on",
  "DSC ASC Taster": "DSC/ASC button",

@@ -1,0 +1,22 @@
+{
+ " Menüauswahl": " Menu selection",
+ "Aktiv auf Schnittstelle COM3": "Active on interface COM3",
+ "Aktiv auf Schnittstelle COM4": "Active on interface COM4",
+ "Aktiv auf Schnittstelle COM5": "Active on interface COM5",
+ "Aktiv auf Schnittstelle COM6": "Active on interface COM6",
+ "Ausdruck bei NIO-Prüfung": "Printout on failed test",
+ "Ohne RE": "Without wheel electronics",
+ "Parameter COM-Schnittstelle (Kopplung zu TERESA-Prüfgerät):": "COM interface parameters (link to TERESA test unit):",
+ "Parität": "Parity",
+ "Prüfprogramm": "Test program",
+ "Prüfstand 1": "Test bench 1",
+ "Prüfstand 1 / TERESA 1": "Test bench 1 / TERESA 1",
+ "Prüfstand 1 / TERESA 2": "Test bench 1 / TERESA 2",
+ "Prüfstand 2": "Test bench 2",
+ "Prüfstand 2 / TERESA 1": "Test bench 2 / TERESA 1",
+ "Prüfstand 2 / TERESA 2": "Test bench 2 / TERESA 2",
+ "RE-Prüfung startet automatisch !": "Wheel electronics test starts automatically!",
+ "Radelektronik-Prüfung Rädervormontage Werk 1.1": "Wheel electronics test, wheel pre-assembly, plant 1.1",
+ "Setup-Einstellungen zu": "Setup settings for",
+ "Testdatei für Netz": "Test file for network"
+}

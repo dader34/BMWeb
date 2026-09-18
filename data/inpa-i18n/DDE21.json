@@ -258,6 +258,7 @@
  "Notlaufstatus LL-Steller": "Idle actuator limp-home status",
  "PWG Wert": "Pedal sensor value",
  "Plausibilitaet Geschwindigkeit": "Speed plausibility",
+ "Preheating-relais": "Preheating relay",
  "RPA Taster": "Tyre pressure reset button",
  "Rad Geschwindigkeit vorne links": "Wheel speed front left",
  "Reedswitch ein 0=Nein / 1=Ja": "Reed switch on 0=no / 1=yes",

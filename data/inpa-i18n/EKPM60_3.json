@@ -1,0 +1,8 @@
+{
+ "Istdrehzahl Pumpe; Sollspannung Pumpe": "Pump actual speed; pump setpoint voltage",
+ "Pump motor current  [I/A]": "Pump motor current  [I/A]",
+ "Pump motor voltage  [U/V]": "Pump motor voltage  [U/V]",
+ "Soll Fördermenge": "Delivery rate setpoint",
+ "Solldrehzahl Pumpe ; PWM Register": "Pump setpoint speed; PWM register",
+ "Spannung Kl.30": "Terminal 30 voltage"
+}
