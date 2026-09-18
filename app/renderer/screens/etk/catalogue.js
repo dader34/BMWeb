@@ -131,6 +131,8 @@ async function showEtk() {
     { label: 'Apps', fn: showApps },
     { label: 'Parts Catalogue' },
   ]);
+  // the reader may leave while this screen loads (screenOwner)
+  const _mine = screenOwner();
   document.body.classList.add('apps-section');
   sbLeft.textContent = 'parts';
   view.innerHTML = head(
@@ -151,6 +153,7 @@ async function showEtk() {
   view.appendChild(grid);
 
   const ids = await etkChassisList();
+  if (!_mine()) return;
   wait.remove();
   if (!ids.length) {
     view.appendChild(etkNoDataNote());
@@ -158,7 +161,9 @@ async function showEtk() {
   }
   ids.forEach((id) => grid.appendChild(etkChassisCard(id)));
   stagger(grid, ETK_STAGGER_CARDS);
+  if (!_mine()) return;
   sbRight.textContent = `${ids.length} chassis`;
+  if (!_mine()) return;
   setActions([
     ...ids.slice(0, ETK_FKEY_SLOTS).map((id, i) => ({
       key: String(i + 1),
@@ -216,6 +221,8 @@ async function showEtkChassis(chassisId, preselect) {
     { label: 'Parts', fn: showEtk },
     { label: dispChassis(id) },
   ]);
+  // the reader may leave while this screen loads (screenOwner)
+  const _mine = screenOwner();
   sbLeft.textContent = 'loading parts…';
   view.innerHTML = head(
     'ETK',
@@ -274,11 +281,13 @@ async function showEtkChassis(chassisId, preselect) {
   label.textContent = 'Vehicle:';
   vbar.appendChild(label);
   vbar.appendChild(buildVariantDropdown(data.tree.variants || []));
+  if (!_mine()) return;
   view.appendChild(vbar);
 
   // --- main-group icon grid ---
   const grid = document.createElement('div');
   grid.className = 'etk-grid stagger';
+  if (!_mine()) return;
   view.appendChild(grid);
 
   (data.tree.maingroups || []).forEach((mg) => {
@@ -295,12 +304,14 @@ async function showEtkChassis(chassisId, preselect) {
   stagger(grid, ETK_STAGGER_GRID);
 
   sbLeft.textContent = `${(data.tree.maingroups || []).length} main groups`;
+  if (!_mine()) return;
   sbRight.textContent = `${(data.tree.variants || []).length} variants`;
   // the filtered vehicle rides in the URL, so a reload keeps it
   if (typeof routeSetFiltered === 'function')
     routeSetFiltered('parts', id, ETK_STATE.vin);
   // Print here isn't the icon grid (a navigation menu) -- it's a clean catalogue
   // index: the vehicle and its list of main groups.
+  if (!_mine()) return;
   setActions([
     etkBackAction(showEtk),
     {

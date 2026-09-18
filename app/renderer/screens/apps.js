@@ -230,6 +230,8 @@ function appCard(app, ready) {
 async function showApps() {
   lastScreen = showApps;
   setCrumbs([{ label: 'Vehicles', fn: showChassis }, { label: 'Apps' }]);
+  // the reader may leave while this screen loads (screenOwner)
+  const _mine = screenOwner();
   document.body.classList.add('apps-section'); // hides the F-key bar on mobile (touch nav)
   sbLeft.textContent = 'apps';
   view.innerHTML = head('Apps', 'Apps', '');
@@ -265,8 +267,10 @@ async function showApps() {
     if (ready) openable.push(app);
   });
   stagger(list, APPS_STAGGER);
+  if (!_mine()) return;
   sbRight.textContent = `${openable.length} app${openable.length === 1 ? '' : 's'}`;
 
+  if (!_mine()) return;
   setActions([
     ...openable.slice(0, APPS_FKEY_SLOTS).map((a, i) => ({
       key: String(i + 1),

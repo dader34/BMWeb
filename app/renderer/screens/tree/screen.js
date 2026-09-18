@@ -31,6 +31,8 @@ async function showEcuTree() {
     { label: 'Apps', fn: showApps },
     { label: 'Control unit tree' },
   ]);
+  // the reader may leave while this screen loads (screenOwner)
+  const _mine = screenOwner();
   sbLeft.textContent = 'select chassis';
   sbRight.textContent = '';
   view.innerHTML = head(
@@ -71,6 +73,7 @@ async function showEcuTree() {
     list.appendChild(card);
   });
   stagger(list);
+  if (!_mine()) return;
   sbRight.textContent = `${Object.keys(have).length} chassis with a tree`;
 }
 
@@ -211,6 +214,8 @@ async function showEcuTreeChassis(chassis, carId, opts) {
     { label: 'Control unit tree', fn: showEcuTree },
     { label: dispChassis(car) },
   ]);
+  // the reader may leave while this screen loads (screenOwner)
+  const _mine = screenOwner();
   ecuTreeRouteStamp(car, picked);
   sbLeft.textContent = 'loading tree';
   view.innerHTML = head(
@@ -427,6 +432,7 @@ async function showEcuTreeChassis(chassis, carId, opts) {
     stopBtn.onclick = () => ecuTreeStopScan();
     acts.push({ key: '1', label: 'Fault scan', fn: run });
   }
+  if (!_mine()) return;
   setActions(acts);
   // ISTA's "Start vehicle test" lands here with the read already running
   if (opts && opts.scan && shipped) run();

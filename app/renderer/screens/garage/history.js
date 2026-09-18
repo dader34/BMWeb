@@ -70,6 +70,8 @@ async function showGarageCar(carId) {
     { label: 'Garage', fn: showGarage },
     { label: garageCarLabel(car) },
   ]);
+  // the reader may leave while this screen loads (screenOwner)
+  const _mine = screenOwner();
   document.body.classList.add('apps-section');
   garageRouteSet(`garage/${carId}`);
   sbLeft.textContent = 'scan history';
@@ -112,6 +114,7 @@ async function showGarageCar(carId) {
     )}</div><div class="quick-bar-btns"></div></div>` +
     `<div class="quick-rows"></div>`;
   const rowsEl = wrap.querySelector('.quick-rows');
+  if (!_mine()) return;
   view.appendChild(wrap);
 
   // a fault scan compares with the fault scan before it, an identification
@@ -180,6 +183,7 @@ async function showGarageCar(carId) {
     });
   if (run) acts.push(...garageRunActions(car, acts.length, run));
   acts.push(garageBackAction(showGarage));
+  if (!_mine()) return;
   setActions(acts);
 }
 
@@ -439,6 +443,8 @@ async function showGarageScan(carId, scanId) {
     { label: garageCarLabel(car), fn: () => showGarageCar(carId) },
     { label: garageDateText(scan.at) },
   ]);
+  // the reader may leave while this screen loads (screenOwner)
+  const _mine = screenOwner();
   document.body.classList.add('apps-section');
   garageRouteSet(`garage/${carId}/${scanId}`);
   sbLeft.textContent = 'saved scan';
@@ -492,6 +498,7 @@ async function showGarageScan(carId, scanId) {
       },
     });
   acts.push(garageBackAction(() => showGarageCar(carId)));
+  if (!_mine()) return;
   setActions(acts);
 }
 

@@ -220,6 +220,8 @@ async function showGarageAddChassis() {
     { label: 'Garage', fn: showGarage },
     { label: 'Add' },
   ]);
+  // the reader may leave while this screen loads (screenOwner)
+  const _mine = screenOwner();
   document.body.classList.add('apps-section');
   sbLeft.textContent = 'add vehicle';
   view.innerHTML = head(
@@ -244,6 +246,7 @@ async function showGarageAddChassis() {
     };
     grid.appendChild(card);
   }
+  if (!_mine()) return;
   view.appendChild(grid);
   stagger(grid, 18);
 }
