@@ -198,6 +198,7 @@
  "Zustand der Codierschalter L2": "Coding switch L2 state",
  "Zustand der Codierschalter L3": "Coding switch L3 state",
  "Zustand der Codierschalter L4": "Coding switch L4 state",
+ "aktiv!": "active",
  "aktuelle Geschwindigkeit auf Zehntel km/h 0.0-250.0": "Current speed to a tenth of a km/h, 0.0 to 250.0",
  "aktuelle Uhrzeit im Format hh:mm:ss": "Current time in hh:mm:ss format",
  "angeforderter Datenblock (bis zu 24 Bytes!)": "Requested data block (up to 24 bytes)",

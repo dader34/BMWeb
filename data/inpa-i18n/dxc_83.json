@@ -24,6 +24,7 @@
  "Abgasrueckfuehrung ready 0=Nein / 1=Ja": "Exhaust gas recirculation ready, 0 = no / 1 = yes",
  "Abgasrueckfuehrung ueber Codewort frei 0=Nein / 1=Ja": "Exhaust gas recirculation released by code word, 0 = no / 1 = yes",
  "Aggregat Heckklappe verbaut": "Tailgate drive unit fitted",
+ "Aktiv =1 / Inaktiv =0": "Active = 1 / inactive = 0",
  "Aktivierung der Kl. 30 Überwachung": "Activation of terminal 30 monitoring",
  "Anzahl Busse": "Number of buses",
  "Anzahl Programmiervorgaenge": "Count programming operations",

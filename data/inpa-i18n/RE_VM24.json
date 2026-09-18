@@ -1,0 +1,14 @@
+{
+ " Menüauswahl": " Menu selection",
+ "Ausdruck bei NIO-Prüfung": "Printout on failed test",
+ "Default-Werte der Dateien, Protokolle, ...": "Default values of the files, logs, ...",
+ "Ohne RE": "Without wheel electronics",
+ "Parameter COM-Schnittstelle (Kopplung zu TERESA-Prüfgerät):": "COM interface parameters (link to TERESA test unit):",
+ "Parität": "Parity",
+ "Prüfprogramm": "Test program",
+ "Prüfung": "Test",
+ "RE-Prüfung": "Wheel electronics test",
+ "Radelektronik-Prüfung Rädervormontage Werk 2.4": "Wheel electronics test, wheel pre-assembly, plant 2.4",
+ "Setup-Einstellungen zu": "Setup settings for",
+ "Wartezeit nach Startsignal": "Waiting time after start signal"
+}

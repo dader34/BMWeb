@@ -1,0 +1,10 @@
+{
+ "ACHTUNG: Infospeicher werden zuvor gelöscht!": "ATTENTION: the info memory will be cleared beforehand!",
+ "Ansteuern -3dB Absenkung im MOST-Ring Version 1.00": "Activate -3 dB attenuation in the MOST ring, version 1.00",
+ "Ansteuerung Most WakeUp-Funktion": "Activate MOST wake-up function",
+ "Der Infospeicher wird gelesen! ... bitte warten": "The info memory is being read! ... please wait",
+ "Most Version lesen": "Read MOST version",
+ "Revision der Oasis NetServices": "Oasis NetServices revision",
+ "Status der Lichtleistungsabsenkung": "Optical power attenuation status",
+ "Version der Oasis NetServices": "Oasis NetServices version"
+}

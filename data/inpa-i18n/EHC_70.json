@@ -180,6 +180,7 @@
  "Anzahl noch vorhandener (freier) AIF-Eintraege": "Remaining (free) AIF entries",
  "Anzahl noch vorhandener AIF-Eintraege": "Count remaining AIF entries",
  "Anzehl der gespeicherten Fehler": "Number of stored faults",
+ "Anzeige Pruefstempelwerte": "Display test stamp values",
  "Aufsplittung von F_HEX_CODE": "Breakdown of F_HEX_CODE",
  "Ausgabe Anzahl der Umweltbedingen, hier 1": "Output: number of freeze-frame conditions, here 1",
  "Ausgabe der Fehleranzahl gesamt": "Output: total fault count",
@@ -970,14 +971,17 @@
  "Wert zur 7. Umweltbedingung": "Value for freeze-frame condition 7",
  "Wert zur 8. Umweltbedingung": "Value for freeze-frame condition 8",
  "Wert zur 9. Umweltbedingung": "Value for freeze-frame condition 9",
+ "Werte": "Values",
  "Zeigt an, ob der Zustand LEVELUP(Hochniveau) gerade eingenommen ist": "Indicates whether the LEVELUP (raised) state is currently active",
  "Zeigt an, ob die Funktionalitaet LEVELUP grundsaetzlich aktiviert ist": "Indicates whether the LEVELUP function is enabled at all",
  "Zentralverriegelung verbaut": "Central locking fitted",
  "Ziffern der FG-Nummer, die in den Pruefstempel": "Digits of the VIN that go into the test stamp",
+ "aktiv!": "active",
  "angeforderter Datenblock (bis zu 24 Bytes!)": "Requested data block (up to 24 bytes)",
  "auslesen des VF-Status moeglich": "Vehicle-function status can be read",
  "auslesen ob Radio ein aus moeglich": "Radio on/off state can be read",
  "die letzten vier Stellen der Fahrgestellnummer": "The last four digits of the VIN",
+ "fast filter werte": "Fast filter values",
  "gibt an, ob die MIL angesteuert wird": "Reports whether the MIL is being driven",
  "gibt die Anzahl der verbauten MOST-SG'e zurück": "Returns the number of MOST control units fitted",
  "gibt die Eintragsentprellung des Fehlers an": "Reports the entry debounce of the fault",
@@ -989,5 +993,6 @@
  "nach Codierung soll hier ein Teil der Fahrgestell-Nr. stehen": "After coding this should hold part of the VIN",
  "nicht aktiv": "Not active",
  "nur ein Symptom zur Anzeige im EDSE": "Only one symptom for display in EDSE",
- "range = 0x90 bis 0xCF bei RAM und 0x01 bis 0xFF bei ROM": "Range = 0x90 to 0xCF for RAM and 0x01 to 0xFF for ROM"
+ "range = 0x90 bis 0xCF bei RAM und 0x01 bis 0xFF bei ROM": "Range = 0x90 to 0xCF for RAM and 0x01 to 0xFF for ROM",
+ "status motor": "Motor status"
 }

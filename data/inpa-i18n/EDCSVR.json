@@ -83,6 +83,7 @@
  "km-Stand bei der Programmierung": "Odometer at programming",
  "letzte 2 Stellen der BMW-Teilenummer": "Last 2 digits of the BMW part number",
  "range = 0x90 bis 0xCF bei RAM und 0x01 bis 0xFF bei ROM": "Range = 0x90 to 0xCF for RAM and 0x01 to 0xFF for ROM",
+ "read temperatur": "Read temperature",
  "z.B. HeaderCRC- oder FrameCRC-Fehler": "For example header CRC or frame CRC faults",
  "zeigt an, ob die EEProm-Daten zwischenzeitlich": "Indicates whether the EEPROM data have meanwhile",
  "zurückgelegte Wegstrecke in km seit Beginn": "Distance travelled in km since the start"

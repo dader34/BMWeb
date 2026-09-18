@@ -1,0 +1,7 @@
+{
+ "Status Motor": "Motor status",
+ "Vor Neuansteuerung jeweils 30s warten!": "Wait 30 s before each new activation!",
+ "bidirectionalsolenoid S1 ansteuern": "Activate bidirectional solenoid S1",
+ "bidirectionalsolenoid S2 ansteuern": "Activate bidirectional solenoid S2",
+ "shift lock ansteuern": "Activate shift lock"
+}

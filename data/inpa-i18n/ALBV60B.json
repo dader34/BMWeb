@@ -76,6 +76,8 @@
  "Softwarenummer (Reserve) Zur Zeit nicht benutzt": "Software number (spare), not currently used",
  "Status Brückentreiber": "Bridge driver status",
  "Status Hallsensoren": "Hall sensor status",
+ "Status Hardware Links": "Hardware status, left",
+ "Status Hardware Rechts": "Hardware status, right",
  "Status Motor": "Motor status",
  "Status der Initialisierung": "Initialisation status",
  "Text Status Software laden": "Software load status text",

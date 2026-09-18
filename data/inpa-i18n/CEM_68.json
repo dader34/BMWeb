@@ -1,0 +1,13 @@
+{
+ "Auslesen  Ausgänge": "Read out outputs",
+ "Auslesen  Eingänge": "Read out inputs",
+ "Auslesen  Näherungssensor": "Read out proximity sensor",
+ "Eingänge Crash/Motor": "Inputs crash/engine",
+ "Messdaten lesen": "Read measured data",
+ "Näherungssensor": "Proximity sensor",
+ "Näherungssensor Tankdeckel": "Proximity sensor, fuel filler flap",
+ "Sonstige Ausgänge": "Other outputs",
+ "Sonstige Eingänge": "Other inputs",
+ "Temperatursensoren Kühlmittel": "Temperature sensors, coolant",
+ "Temperatursensoren Wärmetauscher": "Temperature sensors, heat exchanger"
+}

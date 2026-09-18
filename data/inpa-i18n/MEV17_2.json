@@ -65,6 +65,7 @@
  "Datum der SG-Programmierung in der Form JJJJ.MM.TT": "Control unit programming date, YYYY.MM.DD",
  "Datum der SG-Programmierung in der Form TT.MM.JJJJ": "Control unit programming date, DD.MM.YYYY",
  "Diagnose-Index": "diagnosis-Index",
+ "Eingabe": "Entry",
  "Einheit Adaption Gemisch multiplikativ": "Unit, multiplicative mixture adaptation",
  "Einheit Adaptionswert Nockenwelle Auslass": "Unit, exhaust camshaft adaptation value",
  "Einheit Adaptionswert Nockenwelle Einlass": "Unit, intake camshaft adaptation value",

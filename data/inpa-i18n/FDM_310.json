@@ -1,0 +1,9 @@
+{
+ "CAN-Aufzeichnung auslesen, interpretieren und in Datei speichern": "Read out, interpret and save CAN recording to file",
+ "CAN-Daten lesen": "Read CAN data",
+ "CANCorder und CANOE-Datei schreiben": "Write CANCorder and CANOE file",
+ "Info der CAN-Aufzeichnungen auslesen": "Read out information on the CAN recordings",
+ "Zusätzlich als CANOE-Format in Datei speichern": "Additionally save to file in CANoe format",
+ "für": "for",
+ "und als CANCorder-Format in Datei speichern": "and save to file in CANCorder format"
+}

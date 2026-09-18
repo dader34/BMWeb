@@ -1,0 +1,7 @@
+{
+ "Aktuelle Einspritzmenge (ohne ARD)": "Current injection quantity (without ARD)",
+ "Einspritzmenge nach ARD": "Injection quantity after ARD",
+ "Menge aus Leerlaufregelung": "Quantity from idle speed control",
+ "Menge aus Leerlaufregelung, Einspritzmenge nach ARD": "Quantity from idle speed control, injection quantity after ARD",
+ "externer Momenteneingriff MSR, Aktuelle Einspritzmenge (ohne ARD)": "External torque intervention MSR, current injection quantity (without ARD)"
+}

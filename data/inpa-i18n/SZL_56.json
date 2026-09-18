@@ -102,6 +102,7 @@
  "Softwarenummer (Reserve) Zur Zeit nicht benutzt": "Software number (spare), not currently used",
  "Spannung an Heckwischerschalter": "Voltage at the rear wiper switch",
  "Spannung an PT-CAN Weckleitung": "Voltage at the PT-CAN wake-up line",
+ "Status CAN Signala": "Status, CAN signals",
  "Status der BC/CC_TASTE": "Status of the BC/CC button",
  "Status der Taste im Kombi": "Status of the instrument cluster button",
  "Status der Wippe auf MINUS": "Paddle status, MINUS",

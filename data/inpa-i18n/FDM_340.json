@@ -1,0 +1,13 @@
+{
+ "Analysedaten lesen": "Read analysis data",
+ "Bitte warten": "Please wait",
+ "CAN-Aufzeichnung auslesen, interpretieren und in Datei speichern": "Read out, interpret and save CAN recording to file",
+ "CAN-Daten lesen": "Read CAN data",
+ "CANCorder und CANOE-Datei schreiben": "Write CANCorder and CANOE file",
+ "Diagnosedaten kategoriensortiert lesen": "Read diagnostic data sorted by category",
+ "Diagnosedaten zeitsortiert lesen": "Read diagnostic data sorted by time",
+ "Info auslesen für Kategorie 1 -16": "Read out info for category 1 - 16",
+ "Info der CAN-Aufzeichnungen auslesen": "Read out information on the CAN recordings",
+ "Zusätzlich als:  CANCorder-Format in Datei speichern": "Additionally as:  save CANCorder format to file",
+ "für:": "for:"
+}

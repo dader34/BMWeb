@@ -55,6 +55,7 @@
  "Fehlercode bei NEG_RESPONSE": "Fault code on NEG_RESPONSE",
  "Frischluft- / Umluftmotor links Sollwert": "Fresh air / recirculation motor left, target value",
  "Frischluft- / Umluftmotor rechts Sollwert": "Fresh air / recirculation motor right, target value",
+ "Frischluft-/Air circulation flap": "Fresh air / air circulation flap",
  "Fuer HIGH-Ausfuehrung: Temperatur links": "For HIGH version: temperature left",
  "Fuer HIGH-Ausfuehrung: Temperatur rechts": "For HIGH version: temperature right",
  "Gibt den Status des Taster für die Anhängevorrichtung aus: 0 = Taste nicht gedrückt  1 = Taste gedrückt": "Reports the tow hitch button status: 0 = button not pressed, 1 = button pressed",

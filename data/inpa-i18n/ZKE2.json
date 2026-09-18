@@ -1,0 +1,13 @@
+{
+ "Auslesen der I/O-Ports": "Read out the I/O ports",
+ "motor sunroof close": "Sunroof motor, close",
+ "motor sunroof open": "Sunroof motor, open",
+ "motor window close (driver´s side)": "Window motor, close (driver's side)",
+ "motor window close (passenger´s side)": "Window motor, close (passenger's side)",
+ "motor window close (rear driver´s side)": "Window motor, close (rear driver's side)",
+ "motor window close (rear passenger´s side)": "Window motor, close (rear passenger's side)",
+ "motor window open (driver´s side)": "Window motor, open (driver's side)",
+ "motor window open (passenger´s side)": "Window motor, open (passenger's side)",
+ "motor window open (rear driver´s side)": "Window motor, open (rear driver's side)",
+ "motor window open (rear passenger´s side)": "Window motor, open (rear passenger's side)"
+}

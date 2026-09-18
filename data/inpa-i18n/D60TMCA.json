@@ -128,6 +128,7 @@
  "Dummy fuer Klimaanforderung (entspricht Klimakompressor ein)": "Dummy for A/C request (equivalent to A/C compressor on)",
  "EGS verbaut 0=Nein / 1=Ja": "Transmission control unit fitted, 0 = no / 1 = yes",
  "EKP Relais angesteuert 0=Nein / 1=Ja": "Electric fuel pump relay driven 0=no / 1=yes",
+ "EWS-Startwert": "EWS start value",
  "EWS-Startwert zurücksetzen": "Reset EWS start value",
  "Eingang Bremse (direkt)": "Brake input (direct)",
  "Eingang CAN-Error (vom CAN-Chip)": "Input: CAN error (from CAN chip)",

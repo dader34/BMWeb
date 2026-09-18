@@ -1,0 +1,16 @@
+{
+ " Menüauswahl": " Menu selection",
+ "Aktiv auf Schnittstelle COM1": "Active on interface COM1",
+ "Inaktiv": "Inactive",
+ "Kopplung zum TERESA-Prüfgerät": "Link to TERESA tester",
+ "Kopplung zur Füllglocken-SPS": "Link to the filling bell PLC",
+ "Messung": "Measurement",
+ "Netz-Speicherung FGST und RE-ID": "Network storage of chassis number and wheel electronics ID",
+ "Ohne RE": "Without wheel electronics",
+ "Parität": "Parity",
+ "Prüfprogramm": "Test program",
+ "Prüfung": "Test",
+ "RE-Prüfung": "Wheel electronics test",
+ "Radelektronik-Prüfung Rädervormontage Werk 6.1": "Wheel electronics test, wheel pre-assembly, plant 6.1",
+ "Zwischenspeicherung bei Netzausfall": "Buffering in the event of a power failure"
+}

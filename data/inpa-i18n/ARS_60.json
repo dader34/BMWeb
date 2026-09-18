@@ -52,6 +52,7 @@
  "Lieferant-Nummer": "Supplier number",
  "Lieferanten-Nummer": "Supplier number",
  "Lieferanten-Text": "Supplier text",
+ "MIT GRENZWERTUEBERWACHUNG": "WITH LIMIT VALUE MONITORING",
  "RB-BB-Nummer": "Bosch BB number",
  "STAT_CAN Fehler in Tabelleneintrag": "CAN fault in table entry",
  "Sensor Zustand, siehe Tabelle --> StatusDruckSens": "Sensor state, see table --> StatusDruckSens",

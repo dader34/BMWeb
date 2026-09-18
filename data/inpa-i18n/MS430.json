@@ -1,4 +1,6 @@
 {
+ " DMTL - VENTIL": " DMTL valve",
+ " EKP-relais": " Fuel pump relay",
  "+-50 Wert von TI_LAM_COR[1]": "+-50 lambda injection-time correction value [1]",
  "0 = Fenster geschlossen, 1 = Fenster (halb) offen": "0 = window closed, 1 = window (half) open",
  "0 = Fenster halb offen oder geschlossen, 1 = Fenster ganz offen": "0 = window half open or closed, 1 = window fully open",
@@ -105,6 +107,8 @@
  "Bremslichttestschalter aktiv 0=Nein / 1=Ja": "Brake light test switch active 0=no / 1=yes",
  "Code bei \"NEG_RESPONSE\"": "Code on NEG_RESPONSE",
  "Code bei NEG_RESPONSE": "Code on NEG_RESPONSE",
+ "DISA-relais": "DISA relay",
+ "DISA-relais, EKP-relais": "DISA relay, fuel pump relay",
  "DMTL-Pumpe aktiv  0=Aus / 1=Ein": "DMTL pump active 0=off / 1=on",
  "DMTL-Umschaltventil aktiv  0=Aus / 1=Ein": "DMTL changeover valve active 0=off / 1=on",
  "DSC ASC Taster": "DSC/ASC button",
@@ -659,6 +663,7 @@
  "erh. LL durch falsche oder unbek. DK Stellung 0=Nein / 1=Ja": "Raised idle due to incorrect or unknown throttle position, 0 = no / 1 = yes",
  "erh. LL durch zu niedrige Bordspg. 0=Nein / 1=Ja": "Raised idle due to low system voltage 0=no / 1=yes",
  "km-Stand bei der Programmierung": "Odometer at programming",
+ "leak diagnostic funktion, DMTL - VENTIL": "Leak diagnosis function, DMTL valve",
  "letzte 2 Stellen der BMW-Teilenummer": "Last 2 digits of the BMW part number",
  "probe resistor NKAT Sonde 1": "Sensor resistance, post-cat sensor 1",
  "probe resistor NKAT Sonde 2": "Sensor resistance, post-cat sensor 2",

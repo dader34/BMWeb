@@ -1,0 +1,13 @@
+{
+ "Frequenz wählen": "Select frequency",
+ "Gerätename": "Device name",
+ "Kanal hinten links": "Channel rear left",
+ "Kanal hinten rechts": "Channel rear right",
+ "Kanal vorn links": "Channel front left",
+ "Kanal vorn rechts": "Channel front right",
+ "Lautstärke erhöhen": "Increase volume",
+ "Lautstärke senken": "Decrease volume",
+ "aktuelle Lautstärkestufe über Grundstellung: ": "Current volume level above basic setting: ",
+ "gewählte Frequenz [kHz]: ": "Selected frequency [kHz]: ",
+ "gewählter Kanal: ": "Selected channel: "
+}
