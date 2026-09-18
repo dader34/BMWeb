@@ -41,6 +41,30 @@ const IPO_IDENT_ROWS = [
 const IPO_PROTOCOL_OVERVIEW_RE = /^(\S+)\s+(\d+|\*)\s+(\S.*)$/;
 
 /**
+ * Should the report TABLE replace the script's own printed listing?
+ *
+ * The table earns the screen when it has something the text does not: the
+ * app's fault dictionaries joined onto real codes, or a sweep across the
+ * bus where the per-module roll-up is the point. What it must never do is
+ * replace a clean single-module listing with an empty summary -- that is
+ * what GS20's Error memory key did, turning the technician's "no faults
+ * stored" printout into a one-row table of the module already on screen.
+ *
+ * So: any stored fault, or more than one module in play, keeps the table.
+ * One module, nothing found, and the script's own text stays.
+ * @param {object|null} rep - the report just built by ipoProtocolReport
+ * @returns {boolean} true when the table is the right view
+ */
+function ipoReportBeatsText(rep) {
+  if (!rep || !rep.modules || !rep.modules.length) return false;
+  // an identification sweep is a table by nature: it has no codes to count
+  if (rep.kind === 'ident') return true;
+  const faults = rep.modules.some((m) => m.codes && m.codes.length);
+  const reached = rep.modules.length + (rep.silent ? rep.silent.length : 0);
+  return faults || reached > 1;
+}
+
+/**
  * @typedef {object} IpoWireRead
  * @property {string} target - the SGBD the script named (a group, or a variant)
  * @property {string} [variant] - the SGBD that answered (VARIANTE)
