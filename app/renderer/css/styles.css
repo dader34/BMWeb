@@ -11782,3 +11782,38 @@ body.ista-mode .view {
 .bmweb-cursor .split-handle {
   cursor: inherit;
 }
+
+/* A key legend the script printed into its own screen ("< F4 >  Read fault
+   memory") is clickable, and reads like the vehicle screen's F-key rows:
+   the same quiet wash under the pointer. The legend is the key AND its
+   label, so the words light with the number and either fires the key. A
+   row carrying two legends keeps them separate -- only the half under the
+   pointer lights, so which one a click would send is never in doubt. The
+   row's TEXT is untouched: the script's columns stay exactly where it put
+   them, only the affordance is added. */
+.ipo-key {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  white-space: pre;
+  border-radius: 3px;
+  transition:
+    background 0.1s,
+    color 0.1s;
+}
+.ipo-key:hover {
+  background: rgba(127, 127, 127, 0.1);
+  color: var(--amber);
+}
+html[data-theme='inpa'] .ipo-key:hover {
+  background: #eef2ff;
+  color: #000080;
+}
+.ipo-key:focus-visible {
+  outline: 1px solid var(--amber);
+  outline-offset: 1px;
+}
