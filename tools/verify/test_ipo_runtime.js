@@ -2761,7 +2761,7 @@ const sysSet = (sgbd) => ({
     ok('setcolor / userboxsetcolor: the model carries the colours');
   }
 
-  // ---- A CLEAN SINGLE-MODULE READ KEEPS THE SCRIPT'S OWN TEXT ----
+  // ---- A SINGLE-MODULE READ KEEPS THE SCRIPT'S OWN TEXT ----
   // GS20's Error memory key writes a protocol file and opens it as a view,
   // exactly as the whole-car script does. With no faults stored, the table
   // rendered an empty one-row summary of the module already on screen and
@@ -2776,7 +2776,15 @@ const sysSet = (sgbd) => ({
     const one = (codes) => ({ modules: [{ codes }], silent: [] });
     const cases = [
       ['one module, no faults (the GS20 bug)', one([]), false],
-      ['one module with a fault (airbag)', one([{ F_ORT_NR: 5 }]), true],
+      // ONE MODULE IS ONE MODULE, faults or not: the table is the
+      // whole-car scan's view, and a GS20 read that found a fault was
+      // dressed up as a vehicle scan that had "caught" it, down to
+      // offering Save to garage for a one-module report.
+      [
+        'one module with a fault (GS20 m_fehler)',
+        one([{ F_ORT_NR: 5 }]),
+        false,
+      ],
       [
         'a sweep: four answered, all clean',
         { modules: [1, 2, 3, 4].map(() => ({ codes: [] })), silent: [] },
