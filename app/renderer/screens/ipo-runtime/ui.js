@@ -243,6 +243,7 @@ function ipoMakeUi(ecu, container, back) {
                     return out === body.trimEnd() ? s : pad + out;
                   }
                 : (l) => l;
+            gridEl._ipoHtml = null;
             gridEl.innerHTML = `<pre class="ipo-protocol mono">${esc(
               (p.view.lines || []).map(tr).join('\n')
             )}</pre>`;

@@ -79,7 +79,11 @@ function ipoPaintGrid(gridEl, p) {
   const byRow = ipoGridRows(p);
   const rows = [...byRow.keys()].sort((a, b) => a - b);
   if (!rows.length) {
-    gridEl.innerHTML = `<div class="ipo-empty">${esc(ipoText(p.title || ''))}</div>`;
+    const empty = `<div class="ipo-empty">${esc(ipoText(p.title || ''))}</div>`;
+    if (gridEl._ipoHtml !== empty) {
+      gridEl._ipoHtml = empty;
+      gridEl.innerHTML = empty;
+    }
     return;
   }
   const last = rows[rows.length - 1];
@@ -98,9 +102,92 @@ function ipoPaintGrid(gridEl, p) {
     }
     html.push(`<div class="ipo-row${band}">${ipoGridRowHtml(cells)}</div>`);
   }
-  gridEl.innerHTML = html.join('');
+  // DO NOT REBUILD A SCREEN THAT DID NOT CHANGE. A frequent screen repaints
+  // every cycle, and replacing the markup destroys the node under the
+  // pointer -- the hover wash dropped and came back a second later, which
+  // read as a flashing highlight. Values that really changed still repaint;
+  // an identical frame is left alone, so the hover survives it.
+  const next = html.join('');
+  if (gridEl._ipoHtml === next) return;
+  gridEl._ipoHtml = next;
+  gridEl.innerHTML = next;
+  ipoWireScreenKeys(gridEl, p);
+}
+
+/**
+ * The key legend a script prints into its own screen: "< F4 >  Read fault
+ * memory", and the shifted form "< Shift > + < F6 >  EWS start value
+ * matching". INPA's own screens are read with the keyboard, but the rows
+ * are sitting right there under the pointer, so make them do what the key
+ * does -- the same p.press() the F-key bar and the keyboard call.
+ *
+ * The row's TEXT is untouched: the legend keeps the columns the script laid
+ * out. Only a span around the "< Fn >" token becomes a button, so a row
+ * that merely mentions a key in prose is not turned into a control.
+ * @type {RegExp}
+ */
+const IPO_SCREEN_KEY_RE =
+  /(&lt;\s*Shift\s*&gt;\s*\+\s*)?&lt;\s*F(\d{1,2})\s*&gt;/gi;
+
+/**
+ * Make every "< Fn >" the script printed into the screen clickable.
+ * @param {HTMLElement} gridEl - the painted grid
+ * @param {IpoProgram} p - the program, for press()
+ * @returns {void}
+ */
+function ipoWireScreenKeys(gridEl, p) {
+  if (!p || typeof p.press !== 'function') return;
+  const shiftBase = typeof IPO_SHIFT_BASE === 'number' ? IPO_SHIFT_BASE : 10;
+  for (const cap of gridEl.querySelectorAll('.ipo-cap')) {
+    const html = cap.innerHTML;
+    if (!/&lt;\s*F\d/i.test(html)) continue;
+    // A LEGEND IS THE KEY *AND* ITS LABEL. "< F4 >  Read fault memory" reads
+    // as one thing and should behave as one: the whole span up to the next
+    // legend (or the end of the line) becomes the target, so the words are
+    // as clickable as the number. Two legends on a row each keep their own
+    // half -- "< F6 > Actuator activations" and "< Shift > + < F6 > EWS
+    // start value matching" light and fire separately.
+    IPO_SCREEN_KEY_RE.lastIndex = 0;
+    const hits = [];
+    for (
+      let m = IPO_SCREEN_KEY_RE.exec(html);
+      m;
+      m = IPO_SCREEN_KEY_RE.exec(html)
+    ) {
+      const nr = Number(m[2]) + (m[1] ? shiftBase : 0);
+      // only a key the running screen actually offers: a legend for a key
+      // this menu does not carry must stay plain text
+      if ((p.items || []).some((it) => it.nr === nr))
+        hits.push({ start: m.index, end: m.index + m[0].length, nr });
+    }
+    if (!hits.length) continue;
+    let next = '';
+    let at = 0;
+    for (let i = 0; i < hits.length; i++) {
+      const h = hits[i];
+      // the label runs to the next legend, or to the end of the row
+      const stop = i + 1 < hits.length ? hits[i + 1].start : html.length;
+      next += html.slice(at, h.start);
+      const body = html.slice(h.start, stop);
+      // trailing run-out stays outside the button so the underline/wash
+      // stops with the words rather than running to the window edge
+      const tail = (body.match(/\s+$/) || [''])[0];
+      const label = tail ? body.slice(0, -tail.length) : body;
+      next += `<button type="button" class="ipo-key" data-nr="${h.nr}">${label}</button>${tail}`;
+      at = stop;
+    }
+    next += html.slice(at);
+    if (next !== html) cap.innerHTML = next;
+  }
+  for (const b of gridEl.querySelectorAll('.ipo-key')) {
+    b.onclick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      p.press(Number(b.dataset.nr));
+    };
+  }
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { ipoPaintGrid };
+  module.exports = { ipoPaintGrid, ipoWireScreenKeys };
 }
