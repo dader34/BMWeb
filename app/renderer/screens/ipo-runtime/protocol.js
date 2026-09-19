@@ -57,11 +57,19 @@ const IPO_PROTOCOL_OVERVIEW_RE = /^(\S+)\s+(\d+|\*)\s+(\S.*)$/;
  */
 function ipoReportBeatsText(rep) {
   if (!rep || !rep.modules || !rep.modules.length) return false;
-  // an identification sweep is a table by nature: it has no codes to count
+  // HOW MANY MODULES WERE READ IS THE WHOLE TEST. The table is the
+  // whole-car scan's view: a roll-up across the bus, its "N modules with
+  // faults · N read" line, and Save to garage. One module's own Error
+  // memory key is not that, however many faults it finds -- a GS20 read
+  // reporting one fault was dressed up as a vehicle scan that had "caught"
+  // it, offering to save a one-module report. INPA prints its own listing
+  // there, and that is what the technician is reading.
+  //
+  // An identification sweep is a table by nature (it has no codes to
+  // count), and it only ever runs across the car.
   if (rep.kind === 'ident') return true;
-  const faults = rep.modules.some((m) => m.codes && m.codes.length);
   const reached = rep.modules.length + (rep.silent ? rep.silent.length : 0);
-  return faults || reached > 1;
+  return reached > 1;
 }
 
 /**

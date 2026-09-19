@@ -208,7 +208,11 @@ function ipoMakeUi(ecu, container, back) {
       if (p.view) {
         if (p.view !== paintedView) {
           paintedView = p.view;
-          if (p.view.report && typeof ipoProtocolRender === 'function') {
+          if (
+            p.view.report &&
+            p.view.showReport &&
+            typeof ipoProtocolRender === 'function'
+          ) {
             const drawn = p.view;
             // the whole-car read is finished: show what each fault captured,
             // then offer to keep the report. Deferred until the renderer has
