@@ -31,14 +31,22 @@ const newScreen = () => (_screenGen += 1); // what setCrumbs() does
 {
   newScreen();
   const mine = screenOwner();
-  assert.strictEqual(mine(), true, 'the screen owns itself while nothing else draws');
+  assert.strictEqual(
+    mine(),
+    true,
+    'the screen owns itself while nothing else draws'
+  );
   ok('a screen owns the view it just claimed');
 }
 {
   newScreen();
   const first = screenOwner();
   newScreen(); // someone else drew
-  assert.strictEqual(first(), false, 'the abandoned screen knows it lost the view');
+  assert.strictEqual(
+    first(),
+    false,
+    'the abandoned screen knows it lost the view'
+  );
   const second = screenOwner();
   assert.strictEqual(second(), true, 'the new screen owns it');
   ok('a screen replaced mid-load loses ownership');
@@ -56,7 +64,11 @@ const newScreen = () => (_screenGen += 1); // what setCrumbs() does
   };
   finish('fast', fast);
   finish('slow', slow);
-  assert.deepStrictEqual(painted, ['fast'], 'only the screen that owns the view paints');
+  assert.deepStrictEqual(
+    painted,
+    ['fast'],
+    'only the screen that owns the view paints'
+  );
   ok('the loser of a race paints nothing');
 }
 
