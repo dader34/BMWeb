@@ -60,6 +60,31 @@ const IPO_INIT_JOB_RE = /^INITIALISIERUNG$/i;
 const IPO_SILENT_RE = /IFH-0009|IFH-0019|no answer/i;
 
 /**
+ * The titles of the standard inpainit prologue's two advisory boxes, as the
+ * scripts' own literals in both build languages. The prologue compares the
+ * script's baked-in version and language against the SGBD's INFO job
+ * (REVISION / SPRACHE) and, on a difference, shows "Versions do not match"
+ * (or "Program under development" when either side is 0.x) and "Language
+ * variants do not match", each ending "Malfunction possible!". They fire on
+ * nearly every module when the scripts and SGBDs come from different
+ * packages, INPA itself included; nothing is wrong and the script carries on
+ * regardless. Testers read them as errors, so the entry run demotes them to
+ * the status line and the session journal instead of a blocking box. Every
+ * other box (variant not found, "Program will be stopped!") still shows.
+ *
+ *   "Checking versions"           593 scripts   "Versionskontrolle"          504
+ *   "Checking language variants"  376 scripts   "Sprachvariantenkontrolle"   273
+ *
+ * @type {Set<string>}
+ */
+const IPO_PROLOGUE_ADVISORY_TITLES = new Set([
+  'Checking versions',
+  'Versionskontrolle',
+  'Checking language variants',
+  'Sprachvariantenkontrolle',
+]);
+
+/**
  * The context a run is driven in: what it is, for confirm dialogs and the
  * confirm cache, and whether the user already confirmed it.
  * @typedef {object} IpoRunContext
@@ -170,6 +195,8 @@ class IpoProgram {
     this.pendingSaves = new Map();
     /** @type {IpoMessage[]} messageboxes shown, in order */
     this.messages = [];
+    /** @type {IpoMessage[]} the prologue's advisories noted instead, in order */
+    this.advisories = [];
     this.hops = 0;
     /** @type {string|null} the script scriptchange handed control to */
     this.script = null;
@@ -276,6 +303,16 @@ class IpoProgram {
         if (picked && picked.name) this.pendingSaves.set(picked.name, picked);
         step = vm.resume(picked ? picked.name : '');
       } else if (step.kind === 'message') {
+        if (
+          ctx &&
+          ctx.scope === 'entry' &&
+          IPO_PROLOGUE_ADVISORY_TITLES.has(String(step.title || '').trim())
+        ) {
+          // the prologue's version / language advisory: noted, not shown
+          this.advise(step.title, step.body);
+          step = vm.resume();
+          continue;
+        }
         this.reflect(vm.out);
         this.messages.push({ title: step.title, body: step.body });
         await this.ui.message(step.title, step.body);
@@ -385,6 +422,25 @@ class IpoProgram {
     this.cells = new Map();
     this.lines = [];
     this.filterChanged = true;
+  }
+
+  /**
+   * Note one of the prologue's advisories (IPO_PROLOGUE_ADVISORY_TITLES)
+   * without blocking: kept on the program, put on the status line, and
+   * logged to the session journal so a beta report still carries it.
+   * @param {string} title - the box's title
+   * @param {string|null} body - its text
+   * @returns {void}
+   */
+  advise(title, body) {
+    const text = `${title}: ${String(body || '')
+      .replace(/\s+/g, ' ')
+      .trim()}`;
+    this.advisories.push({ title, body });
+    this.ui.status(this, text);
+    if (typeof Journal !== 'undefined' && Journal && Journal.log) {
+      Journal.log('ipo', `${(this.ecu || {}).sgbd || this.script} ${text}`);
+    }
   }
 
   /**
@@ -720,6 +776,7 @@ class IpoProgram {
     this.confirmedWrites.clear();
     this.lineFilter = null;
     this.messages = [];
+    this.advisories = [];
     this.vm = this.newVm(nexec);
     this.ui.status(this, `${next}.ipo · starting`);
     const r = await this.runEntry();
