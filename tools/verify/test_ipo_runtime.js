@@ -373,6 +373,8 @@ const sysSet = (sgbd) => ({
     return { system: sysSet('ihka46_3'), sets: [{ JOB_STATUS: 'OKAY' }] };
   });
   const ui = fakeUi();
+  const statuses = [];
+  ui.status = (p, text) => statuses.push(text);
   const p = new IpoProgram(ecu, exec, ui);
   const r = await p.start();
   assert.strictEqual(r.ok, true, `start failed: ${r.reason}`);
@@ -384,6 +386,34 @@ const sysSet = (sgbd) => ({
   assert.strictEqual(p.menu, 'm_main', 'inpainit names the root menu');
   assert.strictEqual(p.screen, 's_main', 'inpainit names the root screen');
   ok('IHKA46: inpainit opens m_main / s_main');
+
+  // The prologue's language check: the script expects "English Metric", the
+  // SGBD said "englisch". INPA would box "Language variants do not match.
+  // Malfunction possible!" and carry on; here it is noted, never shown.
+  assert.strictEqual(
+    ui.messages.length,
+    0,
+    `entry shows no box: ${JSON.stringify(ui.messages)}`
+  );
+  assert.strictEqual(
+    p.messages.length,
+    0,
+    'an advisory is not a message the stopped screen could name'
+  );
+  assert.deepStrictEqual(
+    p.advisories.map((m) => m.title),
+    ['Checking language variants'],
+    `the advisory is kept: ${JSON.stringify(p.advisories)}`
+  );
+  assert.ok(
+    statuses.some((t) =>
+      /^Checking language variants: Language variants do not match\. Malfunction possible!$/.test(
+        t
+      )
+    ),
+    `...and put on the status line: ${JSON.stringify(statuses)}`
+  );
+  ok('IHKA46: the prologue advisory is noted, not boxed');
 
   const jobsSoFar = sent.map((s) => s.job);
   assert.ok(
