@@ -151,9 +151,10 @@ jobs:
           scripts/build/ci-fetch-hf-data.sh etk
           df -h /
 
+      # with the photographs: this build is for a machine with no internet
       - name: Wiring diagrams
         if: steps.hf.outputs.ok == 'true'
-        run: scripts/build/ci-fetch-hf-data.sh wiring
+        run: scripts/build/ci-fetch-hf-data.sh wiring-photos
 
       - name: Package the complete variant
         if: steps.hf.outputs.ok == 'true'

@@ -8,6 +8,7 @@
 #   scripts/build/ci-fetch-hf-data.sh ista-all adds the repair manual, ~1.0 GB
 #   scripts/build/ci-fetch-hf-data.sh etk      the ETK parts tree, ~5.8 GB
 #   scripts/build/ci-fetch-hf-data.sh wiring   the WDS wiring archives, ~150 MB
+#   scripts/build/ci-fetch-hf-data.sh wiring-photos   with their photographs, ~1.0 GB
 #
 # Layout matches what the renderer probes locally before falling back to HF:
 # translate.js  -> data/fault{db,index,meta,info}.js
@@ -98,13 +99,17 @@ PY
     rm -rf "$DIST/data/etk/.cache"
     du -sh "$DIST/data/etk"
     ;;
-  wiring)
+  wiring|wiring-photos)
     # One .wiring per covered chassis, from bmw-files like the XDF library.
-    # The photographs are dropped on the way in (see fetch_wiring.py): with
-    # them the set is 1 GB, which is the whole of what a Pages site may hold.
+    # "wiring" drops the photographs on the way in (see fetch_wiring.py): with
+    # them the set is 1 GB, which is the whole of what a Pages site may hold
+    # and would put the offline zip within reach of the 2 GB release-asset
+    # cap. "wiring-photos" keeps them, for the complete build: it has no cap,
+    # and with no internet there is nowhere else to get them from.
     echo "==> WDS wiring archives -> $DIST/data/wiring"
-    python3 scripts/build/fetch_wiring.py "${HF_TUNING:-CraigFf/bmw-files}" "$DIST/data/wiring"
+    PHOTOS=""; if [ "${1}" = "wiring-photos" ]; then PHOTOS="--photos"; fi
+    python3 scripts/build/fetch_wiring.py $PHOTOS "${HF_TUNING:-CraigFf/bmw-files}" "$DIST/data/wiring"
     du -sh "$DIST/data/wiring"
     ;;
-  *) echo "usage: $0 faults|tuning|ista|ista-all|etk|wiring" >&2; exit 2 ;;
+  *) echo "usage: $0 faults|tuning|ista|ista-all|etk|wiring|wiring-photos" >&2; exit 2 ;;
 esac
