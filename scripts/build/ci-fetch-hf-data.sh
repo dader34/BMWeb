@@ -7,6 +7,7 @@
 #   scripts/build/ci-fetch-hf-data.sh ista     the ISTA app's own data, ~360 MB
 #   scripts/build/ci-fetch-hf-data.sh ista-all adds the repair manual, ~1.0 GB
 #   scripts/build/ci-fetch-hf-data.sh etk      the ETK parts tree, ~5.8 GB
+#   scripts/build/ci-fetch-hf-data.sh wiring   the WDS wiring archives, ~150 MB
 #
 # Layout matches what the renderer probes locally before falling back to HF:
 # translate.js  -> data/fault{db,index,meta,info}.js
@@ -17,6 +18,7 @@
 # ista/plan.js  -> data/ista/abl/       (the test modules)
 # ista/*.js     -> data/ista/{diag,ecufn,techdata,wiring,repair}/
 # tuning/xdf-library.js -> data/tuning/xdf/ (a DIFFERENT dataset: bmw-files)
+# wiring/archive.js     -> data/wiring/<chassis>.wiring (bmw-files as well)
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 DATASET="${HF_DATA:-CraigFf/bmweb-etk}"
@@ -96,5 +98,13 @@ PY
     rm -rf "$DIST/data/etk/.cache"
     du -sh "$DIST/data/etk"
     ;;
-  *) echo "usage: $0 faults|tuning|ista|ista-all|etk" >&2; exit 2 ;;
+  wiring)
+    # One .wiring per covered chassis, from bmw-files like the XDF library.
+    # The photographs are dropped on the way in (see fetch_wiring.py): with
+    # them the set is 1 GB, which is the whole of what a Pages site may hold.
+    echo "==> WDS wiring archives -> $DIST/data/wiring"
+    python3 scripts/build/fetch_wiring.py "${HF_TUNING:-CraigFf/bmw-files}" "$DIST/data/wiring"
+    du -sh "$DIST/data/wiring"
+    ;;
+  *) echo "usage: $0 faults|tuning|ista|ista-all|etk|wiring" >&2; exit 2 ;;
 esac

@@ -16,7 +16,7 @@
 # orphaned to a grep -- a reference count says 1, itself -- but their output
 # is load-bearing. Do not delete them:
 #   sgbd_code.py        -> data/job-code/  (input to the VM)
-# data/sim-captures/vmfix.json is a COMMITTED capture: the result sets the
+# data/sim-captures/vmfix.json is a FETCHED capture: the result sets the
 # real EDIABAS engine produced for the replayed telegrams. The engine that
 # wrote it (the .NET reference CLI) was removed from the repo in 2026-09,
 # so the fixture cannot be regenerated -- restore it from git.
