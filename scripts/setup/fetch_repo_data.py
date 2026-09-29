@@ -3,11 +3,11 @@
 
     python3 scripts/setup/fetch_repo_data.py [--force]
 
-data/, app/renderer/data/ and the ISTA test fixtures are generated from a BMW
-Standard Tools install and are not in this repository. They are published as
-one archive, repo-data/repo-data.tar, in the bmw-files dataset, and unpacked
-here to the paths everything has always read them from. CI runs this before
-it builds; a fresh clone runs it once.
+data/, app/renderer/data/, the ISTA test fixtures and the caption dictionary
+are generated from a BMW Standard Tools install and are not in this
+repository. They are published as one archive, repo-data/repo-data.tar, in
+the bmw-files dataset, and unpacked here to the paths everything has always
+read them from. CI runs this before it builds; a fresh clone runs it once.
 
 The archive is pinned by checksum in scripts/setup/repo-data.sha256, so a
 build knows it got the data it was written against. After regenerating data,
@@ -34,7 +34,12 @@ PIN = os.path.join(ROOT, "scripts", "setup", "repo-data.sha256")
 STAMP = os.path.join(ROOT, "data", ".repo-data")
 MIRRORS = ["CraigFf/bmw-files", "HarryG8/bmw-files", "VerilP0/bmw-files"]
 # only these are unpacked, whatever the archive holds
-ROOTS = ("data/", "app/renderer/data/", "tools/verify/fixtures/")
+ROOTS = (
+    "data/",
+    "app/renderer/data/",
+    "tools/verify/fixtures/",
+    "tools/decompile/env_i18n_de.json",
+)
 # hand-maintained and committed; an archive copy must not overwrite it
 KEEP = ("data/service-functions.json",)
 
