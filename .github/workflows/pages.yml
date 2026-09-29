@@ -165,6 +165,20 @@ jobs:
           # one archive per covered chassis.
           scripts/build/ci-fetch-hf-data.sh wiring
 
+      - name: Reference documents and the wiring VIN filter
+        run: |
+          set -euo pipefail
+          # Both came with the fetched data and live outside app/renderer, so
+          # the copy above does not bring them. Without the .docs the wiring
+          # app's Components and Repair tabs say "No documents shipped";
+          # without the index a VIN cannot narrow the diagrams.
+          mkdir -p dist-web/data/docs dist-web/data/wiring
+          cp data/docs/*.docs dist-web/data/docs/
+          cp data/wiring-applicability.json.gz dist-web/data/wiring/applicability.json.gz
+          n=$(find dist-web/data/docs -name '*.docs' | wc -l)
+          echo "reference document archives: $n"
+          test "$n" -ge 15   # one per covered chassis
+
       - name: Put the installer at the root
         run: |
           set -euo pipefail
