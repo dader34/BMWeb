@@ -184,15 +184,17 @@ function wiringDoc(data, docId) {
   return null;
 }
 
-// Photographs the .wiring archive doesn't carry (878 MB, over the GitHub Pages
-// cap), fetched from a CDN on the hosted site. jsDelivr, not a release asset:
-// release downloads send no access-control-allow-origin, jsDelivr is CORS-open.
-// PINNED TO A COMMIT, not @main: a moving branch means a later repo reorg
-// retroactively breaks the photos in every export ever shipped. Bump the SHA
-// deliberately.
-const WIRING_IMG_CDN =
-  'https://cdn.jsdelivr.net/gh/dader34/BMacW-wiring-images@55cad337b4787326cfcacbea220fa4787aaa74e4/img/';
-const WIRING_IMG_CACHE = 'bmacw-wiring-images-v3'; // bump with the CDN URL
+// Photographs the .wiring archive doesn't carry (539 MB, and a GitHub Pages
+// site may hold 1 GB in all), fetched on the hosted site from the same dataset
+// mirrors the archives themselves are built from. One file per photograph,
+// under a folder named for the first two characters of its name, lower-cased:
+// a dataset folder may hold 10,000 files and there are 11,549 photographs.
+const WIRING_IMG_MIRRORS = [
+  'https://huggingface.co/datasets/CraigFf/bmw-files/resolve/main/wiring/img/',
+  'https://huggingface.co/datasets/HarryG8/bmw-files/resolve/main/wiring/img/',
+  'https://huggingface.co/datasets/VerilP0/bmw-files/resolve/main/wiring/img/',
+];
+const WIRING_IMG_CACHE = 'bmacw-wiring-images-v4'; // bump when the layout changes
 
 /**
  * A blob URL per image, made once and kept: the same photo appears on many
@@ -220,29 +222,35 @@ function wiringImageUrl(data, path, bytesOrBlob) {
 /**
  * Fetch a photograph the archive doesn't hold, and cache it (Cache API
  * survives reloads, so a car browsed once keeps its pictures offline). A miss
- * re-fetches.
- * @param {string} name - file name under the CDN's img/ folder
+ * re-fetches. The mirrors are tried in order; the cache is keyed on the first
+ * so a photograph is kept once whichever mirror answered.
+ * @param {string} name - the photograph's file name
  * @returns {Promise<Blob | null>}
  */
 async function wiringFetchImage(name) {
-  const url = WIRING_IMG_CDN + name;
+  const rel = `${name.slice(0, 2).toLowerCase()}/${name}`;
+  const key = WIRING_IMG_MIRRORS[0] + rel;
+  /** @type {Cache | null} */
+  let cache = null;
   try {
-    const cache = await caches.open(WIRING_IMG_CACHE);
-    const hit = await cache.match(url);
+    cache = await caches.open(WIRING_IMG_CACHE);
+    const hit = await cache.match(key);
     if (hit) return hit.blob();
-    const res = await fetch(url);
-    if (!res.ok) return null;
-    await cache.put(url, res.clone());
-    return res.blob();
   } catch {
     // no Cache API (file://, private mode): still show the picture
+    cache = null;
+  }
+  for (const mirror of WIRING_IMG_MIRRORS) {
     try {
-      const res = await fetch(url);
-      return res.ok ? res.blob() : null;
+      const res = await fetch(mirror + rel);
+      if (!res.ok) continue;
+      if (cache) await cache.put(key, res.clone()).catch(() => {});
+      return res.blob();
     } catch {
-      return null;
+      // this mirror is unreachable; the next one carries the same files
     }
   }
+  return null;
 }
 
 /**

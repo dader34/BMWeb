@@ -1,10 +1,13 @@
 #!/bin/bash
-# Assemble dist-web the way CI does it, with no running app: expand the
-# committed data, build the per-car tree, freeze the API into static JSON,
+# Assemble dist-web the way CI does it, with no running app: fetch and expand
+# the generated data, build the per-car tree, freeze the API into static JSON,
 # lay the renderer over it and stamp the version. Used by release-web.yml;
 # pages.yml runs the same steps inline.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
+
+# data/ is not in the repo: it is one pinned archive in the bmw-files dataset
+python3 scripts/setup/fetch_repo_data.py
 
 find data/inpa-ir -name '*.json.gz' -print0 | xargs -0 -r -P 4 -I{} gzip -dkf {}
 echo "expanded: $(find data/inpa-ir -name '*.json' | wc -l) IR files"
@@ -18,14 +21,14 @@ cp -R app/renderer/. dist-web/
 
 # WDS wiring VIN-applicability index (SP-doc -> chassis/engine, from ISTA). The
 # .wiring bundles it filters are downloaded into dist-web/data/wiring/ later by
-# release-web.yml; the index is small and committed, so place it now.
+# release-web.yml; the index is small and already fetched, so place it now.
 if [ -f data/wiring-applicability.json.gz ]; then
   mkdir -p dist-web/data/wiring
   cp data/wiring-applicability.json.gz dist-web/data/wiring/applicability.json.gz
 fi
 
-# ISTA reference-document bundles (one .docs per chassis). Small and committed,
-# so copy them straight in -- no release download needed, unlike .wiring.
+# ISTA reference-document bundles (one .docs per chassis). They came with the
+# repo data above, so copy them straight in.
 if ls data/docs/*.docs >/dev/null 2>&1; then
   mkdir -p dist-web/data/docs
   cp data/docs/*.docs dist-web/data/docs/
