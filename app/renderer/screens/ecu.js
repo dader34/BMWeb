@@ -179,6 +179,78 @@ async function showEcuDeep(chassisId, sgbd, menuName, screenName) {
     );
     if (hit) return showEcu(chassisId, sec.name, hit, menuName, screenName);
   }
+  // THE LINK MAY NAME AN IDENTIFIED VARIANT, NOT A CONFIGURED ROW. The car
+  // answers as gs20 where the config lists gsds2/ags732, and the module view
+  // writes that answer into the URL -- so reloading #car/E46/gs20/m_fehler
+  // looked up a variant the menu has no row for and dropped the reader at
+  // the script picker. The variant's own record names the row it belongs to
+  // (identifiedVariantOf, written per module by build_ecu_tree.py), so ask
+  // for it and open that row with the variant already resolved.
+  //
+  // MATCH ON THE ADDRESS FIRST, THE NAMED PARENT ONLY AS A HINT.
+  // identifiedVariantOf records which configured row the variant was
+  // DISCOVERED under, and one bus address hosts many modules -- the E46's
+  // D_0012 carries eight (DDE40, BMS46, ME9_4N, MS420/430/450, MSS54M3,
+  // D50M57) -- so the name it happens to carry can be another engine
+  // entirely, or not a configured row at all (me9k_ng4 names DME338DS,
+  // which the E46 menu has no row for; matching it alone dropped the
+  // reader at the picker). The GROUP is what the car actually answers on.
+  const rec = await tryApi(`/api/ecu/${encodeURIComponent(want)}/ecu`, null);
+  if (rec) {
+    const par = String(rec.identifiedVariantOf || '').toLowerCase();
+    const grp = String(rec.group || '').toLowerCase();
+    /** @type {{sec: object, ecu: object}|null} */
+    let byGroup = null;
+    for (const sec of ch.sections || []) {
+      for (const e of sec.ecus || []) {
+        if (
+          par &&
+          (String(e.sgbd).toLowerCase() === par ||
+            String(e.code || '').toLowerCase() === par)
+        )
+          return showEcu(
+            chassisId,
+            sec.name,
+            { ...e, _variant: want.toUpperCase() },
+            menuName,
+            screenName
+          );
+        // Among the rows sharing that address, prefer the one whose SGBD
+        // looks like the same family as the variant: me9k_ng4 belongs with
+        // ME9_4N, not with the DDE40 diesel that merely answers on the same
+        // address. The stem is the leading letters of the SGBD, which is
+        // what BMW names a family by (me9, ms45, dde, mss).
+        if (grp && String(e.group || '').toLowerCase() === grp) {
+          const stem = (x) => (String(x || '').match(/^[a-z]+/) || [''])[0];
+          const same = stem(e.sgbd) && stem(e.sgbd) === stem(want);
+          if (same) byGroup = { sec, ecu: e, exact: true };
+          else if (!byGroup) byGroup = { sec, ecu: e, exact: false };
+        }
+      }
+    }
+    if (byGroup && !byGroup.exact) {
+      // one more pass: a family match anywhere on the address beats the
+      // first row that merely shares it
+      for (const sec of ch.sections || [])
+        for (const e of sec.ecus || []) {
+          const stem = (x) => (String(x || '').match(/^[a-z]+/) || [''])[0];
+          if (
+            String(e.group || '').toLowerCase() === grp &&
+            stem(e.sgbd) &&
+            stem(e.sgbd) === stem(want)
+          )
+            byGroup = { sec, ecu: e, exact: true };
+        }
+    }
+    if (byGroup)
+      return showEcu(
+        chassisId,
+        byGroup.sec.name,
+        { ...byGroup.ecu, _variant: want.toUpperCase() },
+        menuName,
+        screenName
+      );
+  }
   sbLeft.textContent = `${sgbd} not in ${dispChassis(chassisId)}`;
   return backToModules(chassisId);
 }
@@ -220,6 +292,8 @@ async function showEcu(
     { label: dispChassis(chassisId), fn: () => backToModules(chassisId) },
     { label: ecu.label },
   ]);
+  // the reader may leave while this screen loads (screenOwner)
+  const _mine = screenOwner();
   sbLeft.textContent = `${ecu.sgbd}.prg`;
   view.innerHTML = head(
     `${sectionName} · ${ecu.code}`,
@@ -308,6 +382,7 @@ async function showEcu(
       'Its jobs are shipped in ecus/ but INPA draws no UI for it.'
   );
   sbLeft.textContent = 'no screen';
+  if (!_mine()) return;
   setActions([
     { key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: back },
   ]);

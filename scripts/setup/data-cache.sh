@@ -5,7 +5,7 @@
 #   scripts/setup/data-cache.sh clean    # delete the .json, keep the .gz
 #   scripts/setup/data-cache.sh status
 #
-# The generated data is committed GZIPPED (38 MB); the .json beside it is a
+# The generated data is fetched GZIPPED (38 MB); the .json beside it is a
 # working copy, gitignored and regenerable. Both existing at once is 565 MB of
 # duplication, which is most of what makes data/ feel crammed.
 #
@@ -19,7 +19,7 @@ cd "$(dirname "$0")/../.."
 # groups ships/loads as .json.gz directly (bytecode + local tables +
 # variants); it is listed so tests that want a readable .json can expand it,
 # and clean keeps only ever removing a .json that has a .gz twin -- which
-# leaves variants.json and index.json (committed plain) alone.
+# leaves variants.json and index.json (fetched plain) alone.
 DIRS="job-code job-meta sgbd-tables inpa-ir groups"
 
 case "${1:-status}" in

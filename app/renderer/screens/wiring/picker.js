@@ -80,6 +80,8 @@ async function showWiringChassis() {
     { label: 'Apps', fn: showApps },
     { label: 'Wiring' },
   ]);
+  // the reader may leave while this screen loads (screenOwner)
+  const _mine = screenOwner();
   sbLeft.textContent = 'wiring';
   view.innerHTML = head(
     'WDS',
@@ -111,7 +113,9 @@ async function showWiringChassis() {
   }
   ids.forEach((id, i) => grid.appendChild(wiringChassisCard(id, i, classic)));
   if (!classic) stagger(grid, 22);
+  if (!_mine()) return;
   sbRight.textContent = `${ids.length} chassis`;
+  if (!_mine()) return;
   setActions([
     ...ids.slice(0, WIRING_PICKER_HOTKEYS).map((id, i) => ({
       key: String(i + 1),

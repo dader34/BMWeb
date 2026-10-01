@@ -367,12 +367,33 @@ async function istaAblLoad(id, chassis) {
   const name = String(id || '').trim();
   if (!name) return null;
   // the car's bundle holds the graph flat under abl/; failing that the
-  // sharded pool, and failing that the flat name an older extract used
-  return (
-    (await istaAblFetch(`${name}.json.gz`, chassis)) ||
-    (await istaAblFetch(`${istaAblShard(name)}/${name}.json.gz`)) ||
-    (await istaAblFetch(`${name}.json.gz`))
+  // sharded pool, and failing that the flat name an older extract used.
+  // THE POOL SPELLS A MODULE THE WAY ITS DLL IS NAMED: the database's
+  // ABL-IDE-ASC_MK60_E46 is the pool's ABL_IDE_ASC_MK60_E46 (the first two
+  // dashes are underscores), so both spellings are tried; the shard is the
+  // same for both.
+  const names = [name, istaAblDllName(name)].filter(
+    (n, i, a) => n && a.indexOf(n) === i
   );
+  for (const n of names) {
+    const hit =
+      (await istaAblFetch(`${n}.json.gz`, chassis)) ||
+      (await istaAblFetch(`${istaAblShard(n)}/${n}.json.gz`)) ||
+      (await istaAblFetch(`${n}.json.gz`));
+    if (hit) return hit;
+  }
+  return null;
+}
+
+/**
+ * A module identifier in the pool's DLL spelling.
+ * @param {string} id - ABL-IDE-ASC_MK60_E46
+ * @returns {string} ABL_IDE_ASC_MK60_E46
+ */
+function istaAblDllName(id) {
+  let s = String(id || '');
+  for (let i = 0; i < 2; i++) s = s.replace('-', '_');
+  return s;
 }
 
 /**
@@ -402,6 +423,7 @@ function istaAblShard(id) {
 
 if (typeof module !== 'undefined')
   module.exports = {
+    istaAblDllName,
     ISTA_PLAN_KEY,
     istaPlanAll,
     istaPlanRows,

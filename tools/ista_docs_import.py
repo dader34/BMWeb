@@ -438,11 +438,29 @@ def main():
         applic = json.loads(raw).get("sp", {})
 
     store = Store(args.diagdoc, args.content)
-    # applicability decoder (engine/body/dates) for VIN filtering, shared with
-    # the wiring index so both read ISTA's rules the same way
+    # THE SAME GRAMMAR THE WIRING INDEX SHIPS. A document's applicability is
+    # its own rule AND a gated path down the diagnosis tree to it, decoded as
+    # trees (tools/ista/validity_rules.py) and evaluated by the app against
+    # the car, three-valued. The byte scanner this used to share with the
+    # wiring index could not see AND/OR/NOT and shipped "not M54" as M54.
     sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "wiring"))
-    from ista_rules import RuleDecoder
-    rules = RuleDecoder(store.d)
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "ista"))
+    from build_applicability import Rules, ancestor_paths, tree_paths
+    from validity_rules import compose_rule
+    rule_trees = Rules(store.d)
+    parent_of, objs_by_ctrl, doc_ctrls = tree_paths(store.d)
+
+    class _Applic:
+        """doc id -> {"r": <composed tree>} or None, the shape the app's
+        wiring VIN filter evaluates (screens/wiring/applicability.js)."""
+
+        def doc_applicability(self, did):
+            own, _unsure = rule_trees.get(did)
+            paths = ancestor_paths(did, rule_trees, parent_of, objs_by_ctrl, doc_ctrls)
+            tree = compose_rule(own, [[rule_trees.trees[o] for o in p] for p in paths])
+            return {"r": tree} if tree else None
+
+    rules = _Applic()
     types = [args.type] if args.type else TEXT_TYPES
     catalog = chassis_doc_ids(store, args.chassis, types, applic)
     print(f"{args.chassis}: {len(catalog)} candidate docs across "
@@ -471,7 +489,7 @@ def main():
                 n_empty += 1
                 continue
             title = parsed.get("title") or meta["title"]
-            applic = rules.doc_applicability(did)   # {e,b,f,t} for VIN filtering
+            applic = rules.doc_applicability(did)   # {r: tree} for VIN filtering
             doc = {"id": did, "type": meta["type"], "title": title,
                    "chapters": parsed["chapters"]}
             z.writestr(f"docs/{did}.json",

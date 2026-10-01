@@ -57,6 +57,8 @@ const ctx = {
 ctx.globalThis = ctx;
 vm.createContext(ctx);
 for (const f of [
+  // the dataset mirror walker the screens fetch through (hfUrls)
+  'core/webshim/data-fetch.js',
   'screens/repair/data.js',
   'screens/repair/render.js',
   'screens/repair/browser.js',
@@ -429,4 +431,56 @@ const IDX = {
   ok('an empty tree says so');
 }
 
-console.log(`test_repair: ${passed} checks passed`);
+// ---- the index narrows to the car ------------------------------------------
+// THE EXTRACT IS CHASSIS-WIDE, THE READER HAS ONE CAR. Every document
+// carries its decoded rule, and the same evaluator every other sub-tab
+// uses decides it: false drops, undecided keeps, unsure keeps marked. The
+// cached chassis index is copied, never changed.
+(async () => {
+  const eq = (v) => ({ op: 'eq', root: 1, val: v });
+  const wide = {
+    version: 1,
+    docs: [
+      { id: 1, g: '11', s: '1100', title: 'a', rule: eq(900) },
+      { id: 2, g: '11', s: '1100', title: 'b', rule: eq(999) },
+      {
+        id: 3,
+        g: '11',
+        s: '1100',
+        title: 'c',
+        rule: { op: 'not', kids: [eq(901)] },
+      },
+      { id: 4, g: '11', s: '1100', title: 'd', rule: null, unsure: true },
+      { id: 5, g: '11', s: '1100', title: 'e', rule: { op: 'salapa', val: 7 } },
+    ],
+  };
+  ctx.techDataCarKeys = async (car) => {
+    const ids = new Set(car && car.vin ? [900, 901] : [900]);
+    if (!(car && car.vin)) ids.may = new Set([900, 901, 902]);
+    return { ids, exact: !!(car && car.vin), typeKey: null };
+  };
+  ctx.techDataVehicleFacts = async () => ({});
+  const T = require(path.join(ROOT, 'screens', 'techdata', 'data.js'));
+  ctx.techDataRuleApplies = T.techDataRuleApplies;
+  const narrow = ctx.repairNarrow;
+  const exact = await narrow(wide, { vin: 'WBAET37010ABC1234' }, 'E46');
+  assert.deepStrictEqual(
+    exact.docs.map((d) => d.id),
+    [1, 3, 4, 5].filter((i) => i !== 3),
+    'a VIN car keeps the docs its rules hold for, the unsure one, and the undecided one'
+  );
+  assert.strictEqual(exact.narrowed.total, 5);
+  assert.strictEqual(wide.docs.length, 5, 'the cached index is untouched');
+  const byChassis = await narrow(wide, { chassis: 'E46' }, 'E46');
+  assert.deepStrictEqual(
+    byChassis.docs.map((d) => d.id),
+    [1, 3, 4, 5],
+    'without a VIN, "not M54" stays for the builds that are not M54'
+  );
+  assert.strictEqual(await narrow(null, null, 'E46'), null);
+  ok('the repair index narrows to the car by its own rules');
+  console.log(`test_repair: ${passed} checks passed`);
+})().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});

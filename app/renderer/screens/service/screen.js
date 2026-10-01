@@ -258,6 +258,8 @@ async function showService(chassis, taskId, category) {
     { label: 'Apps', fn: showApps },
     { label: 'Service functions' },
   ]);
+  // the reader may leave while this screen loads (screenOwner)
+  const _mine = screenOwner();
   sbLeft.textContent = 'service functions';
 
   view.innerHTML = head(
@@ -337,6 +339,7 @@ async function showService(chassis, taskId, category) {
   body.appendChild(list);
   render();
 
+  if (!_mine()) return;
   setActions([
     backAction,
     {

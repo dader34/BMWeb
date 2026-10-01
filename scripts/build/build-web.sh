@@ -14,7 +14,7 @@
 # Nothing in the renderer changes. The shim installs over window.fetch
 # before core.js loads, so api() cannot tell the difference.
 #
-# No app is needed: web_export.py reads the committed chassis-config cache
+# No app is needed: web_export.py reads the fetched chassis-config cache
 # (data/chassis-config), the same way CI does (scripts/build/ci-dist-web.sh).
 # Set BMACW_PORT to freeze against a running engine instead, which also
 # refreshes that cache.
@@ -28,7 +28,7 @@ if [ -n "${BMACW_PORT:-}" ]; then
   export BMACW_PORT
   echo "==> using the engine on 127.0.0.1:$BMACW_PORT to resolve chassis config"
 else
-  echo "==> no BMACW_PORT: using the committed chassis-config cache"
+  echo "==> no BMACW_PORT: using the fetched chassis-config cache"
 fi
 
 rm -rf "$OUT"

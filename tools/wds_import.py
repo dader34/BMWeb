@@ -247,7 +247,7 @@ def build(wds_root, app_chassis, wds_dirs, out_dir, quiet=False,
         #
         # images_out sends them OUTSIDE the archive instead, deduplicated
         # across chassis: the hosted build cannot carry 878 MB of them (a
-        # GitHub Pages site may hold 1 GB) so it fetches them from a CDN and
+        # GitHub Pages site may hold 1 GB) so it fetches them at runtime and
         # caches what it has seen. The app and offline copies keep them in
         # here, where nothing needs a network at all.
         img_dir = os.path.join(wds_root, 'zi_images')
@@ -256,7 +256,11 @@ def build(wds_root, app_chassis, wds_dirs, out_dir, quiet=False,
             if not os.path.exists(src):
                 continue
             if images_out is not None:
-                dst = os.path.join(images_out, name)
+                # a folder per two-character prefix, lower-cased: the
+                # renderer asks for them this way, and 11,549 files do not
+                # fit in one folder where they are hosted
+                dst = os.path.join(images_out, name[:2].lower(), name)
+                os.makedirs(os.path.dirname(dst), exist_ok=True)
                 if not os.path.exists(dst):     # shared: write each one once
                     with open(src, 'rb') as fh, open(dst, 'wb') as out:
                         out.write(fh.read())
@@ -290,13 +294,11 @@ def main():
     ap.add_argument('--images-out', metavar='DIR',
                     help='write the images HERE as loose files instead of into '
                          'the archives, deduplicated across chassis. For the '
-                         'hosted build, which fetches them from a CDN because '
+                         'hosted build, which fetches them at runtime because '
                          'a GitHub Pages site may hold only 1 GB and these are '
-                         '516 MB on their own. Point this at the images repo\'s '
-                         'img/ subdirectory: the renderer\'s WIRING_IMG_CDN '
-                         'expects that prefix, and 11,549 files at a repo root '
-                         'make the listing untraversable (GitHub truncates at '
-                         '1,000).')
+                         '539 MB on their own. Each image lands under a folder '
+                         'named for the first two characters of its name, the '
+                         'layout the renderer\'s WIRING_IMG_MIRRORS expects.')
     args = ap.parse_args()
 
     if not os.path.isdir(os.path.join(args.wds, 'svg', 'sp')):

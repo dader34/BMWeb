@@ -20,6 +20,14 @@ const MAX_JOB_PASSES = 64;
  */
 
 /**
+ * One request/answer on the wire.
+ * @callback ExchangeFn
+ * @param {number[]} out - The request without its checksum.
+ * @param {CommParams} comm - Its wire parameters.
+ * @returns {Promise<number[]>} The answer bytes.
+ */
+
+/**
  * One SGBD's session state.
  * @typedef {object} Session
  * @property {Map<string, any>} shared - shmset data carried across jobs.
@@ -85,7 +93,7 @@ function sessionFor(sgbd) {
  * not matter, but the ECU is entitled to the notification.
  * @param {string} sgbd - The SGBD whose session ends.
  */
-async function endSession(sgbd) {
+async function endSession(sgbd, exchange) {
   const key = String(sgbd).toLowerCase();
   const s = sessions.get(key);
   if (!s || !s.inited) {
@@ -94,12 +102,13 @@ async function endSession(sgbd) {
   }
   sessions.delete(key);
   try {
-    const code = await webFetchJson(`data/job-code/${key}.json`);
+    const { code } = await jobCodeFor(key);
     if (code && code.jobs && code.jobs.ENDE !== undefined) {
       await webRunJob(sgbd, 'ENDE', null, {
         noInit: true,
         shared: s.shared,
         comm: s.comm,
+        exchange,
       });
     }
   } catch {
@@ -122,8 +131,28 @@ let loadedSgbd = null;
  * become the session concept, the port reopened at 115200, and the wake
  * performed at 10400 was undone before the telegram went out.
  * @param {string} sgbd - The SGBD about to run.
+ * @param {ExchangeFn} [exchange] - The wire to run the previous session's
+ *   ENDE on; the raw exchange when the caller already holds the bus lock.
  */
-async function switchSession(sgbd) {
+/**
+ * Forget an SGBD's session because the module was reset
+ * (STEUERGERAETE_RESET after a flash). The module rebooted out of the
+ * diagnostic session INITIALISIERUNG opened, while the runner still held
+ * it as initialised: reads kept answering, but AIF_SCHREIBEN came back
+ * ERROR_ECU_SERVICE_NOT_SUPPORTED_IN_ACTIVE_DIAGNOSTIC_MODE. The reference
+ * tool starts a fresh EdiabasNet for every operation, so its init always
+ * ran again; this is the same thing. No ENDE: the module is rebooting.
+ * @param {string} sgbd - The SGBD whose module was reset.
+ */
+function webDropSession(sgbd) {
+  const key = String(sgbd).toLowerCase();
+  sessions.delete(key);
+  if (loadedSgbd === key) loadedSgbd = null;
+  webBus.sessionConcept = null;
+  webBus.inited = null;
+}
+
+async function switchSession(sgbd, exchange) {
   const key = String(sgbd).toLowerCase();
   if (loadedSgbd === key) return;
   const prev = loadedSgbd;
@@ -133,7 +162,7 @@ async function switchSession(sgbd) {
   // may live on a different wire, so the remembered concept and the wake
   // that went with it do not carry over.
   if (prev) {
-    await endSession(prev);
+    await endSession(prev, exchange);
     webBus.sessionConcept = null;
     webBus.inited = null;
   }
@@ -215,11 +244,14 @@ function isNoUsableAnswer(err) {
  * @param {string} job - The job name.
  * @param {string} arg - The job's argument string.
  * @param {AnswerTally} tally - Updated in place as telegrams are answered.
+ * @param {ExchangeFn} [exchange] - The wire; webBus.exchange (which takes
+ *   the bus lock per telegram) unless the caller already holds the lock.
  * @returns {Promise<DriveResult>} The result sets and the finished VM.
  * @throws {Error} A VM error from the job itself, a wire error that is not
  *   silence, or 'did not settle' after MAX_JOB_PASSES exchanges.
  */
-async function driveJobOverBus(buildVm, job, arg, tally) {
+async function driveJobOverBus(buildVm, job, arg, tally, exchange) {
+  const wire = exchange || ((out, comm) => webBus.exchange(out, comm));
   const answers = new Map();
   const jobNow = new Date();
   for (let attempt = 0; attempt < MAX_JOB_PASSES; attempt++) {
@@ -246,7 +278,7 @@ async function driveJobOverBus(buildVm, job, arg, tally) {
       if (!missing || !e.needAnswer) throw e;
       let answer;
       try {
-        answer = await webBus.exchange(missing.out, missing.comm);
+        answer = await wire(missing.out, missing.comm);
       } catch (err) {
         if (!isNoUsableAnswer(err)) throw err;
         answer = [];
@@ -262,22 +294,59 @@ async function driveJobOverBus(buildVm, job, arg, tally) {
 }
 
 /**
+ * An SGBD's parsed job code and tables, loaded once per page. The archive
+ * shim answers `data/job-code/<sgbd>.json` by re-serialising the unpacked
+ * member and the caller re-parses it: ~90 ms for ms450ds0's 215k ops. Paid
+ * on EVERY job, that was most of what a 254-byte memory-read chunk cost --
+ * a 1 MB flash read spent longer parsing JSON than talking to the DME. The
+ * VM never mutates the code, so one object serves every job (vmbridge
+ * shares its copy the same way). A missing SGBD is remembered as missing.
+ * @type {Map<string, Promise<{code: ?object, tables: object}>>}
+ */
+const jobCodeCache = new Map();
+
+/**
+ * The job code and SGBD tables for an SGBD, cached.
+ * @param {string} sgbd - The SGBD name (any case).
+ * @returns {Promise<{code: ?object, tables: object}>}
+ */
+function jobCodeFor(sgbd) {
+  const key = String(sgbd).toLowerCase();
+  let p = jobCodeCache.get(key);
+  if (!p) {
+    p = (async () => {
+      const code = await webFetchJson(`data/job-code/${key}.json`);
+      const tables = code
+        ? (await webFetchJson(`data/sgbd-tables/${key}.json`)) || {}
+        : {};
+      return { code, tables };
+    })();
+    jobCodeCache.set(key, p);
+    // a fetch that THREW (cable-less offline handle, a transient 404 while
+    // the archive loads) is not an answer; let the next job ask again
+    p.catch(() => jobCodeCache.delete(key));
+  }
+  return p;
+}
+
+/**
  * Run a job on an SGBD over the live bus, inside its EDIABAS session.
  * @param {string} sgbd - The SGBD name.
  * @param {string} job - The job name.
  * @param {string|null} arg - The argument string (null for none).
- * @param {{shared?: Map<string, any>, comm?: CommParams|null, noInit?: boolean}} [opts] -
- *   A detached session to run in (endSession's ENDE uses this).
+ * @param {{shared?: Map<string, any>, comm?: CommParams|null, noInit?: boolean, exchange?: ExchangeFn}} [opts] -
+ *   A detached session to run in (endSession's ENDE uses this), and the
+ *   wire to use: the raw exchange when the caller already holds the bus
+ *   lock for the whole job (routeRun does, so a session switch and its job
+ *   cannot interleave with another caller's telegrams).
  * @returns {Promise<{sets: object[]}>} The job's result sets.
  * @throws {Error} When no job code is shipped, when the ECU answered nothing
  *   at all (IFH-0009), or whatever the job or wire threw.
  */
 async function webRunJob(sgbd, job, arg, opts = {}) {
-  const code = await webFetchJson(`data/job-code/${sgbd.toLowerCase()}.json`);
+  const { code, tables } = await jobCodeFor(sgbd);
   if (!code) throw new Error(`no job code shipped for ${sgbd}`);
   const sharedTables = await loadSharedTables();
-  const tables =
-    (await webFetchJson(`data/sgbd-tables/${sgbd.toLowerCase()}.json`)) || {};
   const session = opts.shared
     ? { shared: opts.shared, inited: true, comm: opts.comm || null }
     : sessionFor(sgbd);
@@ -302,7 +371,8 @@ async function webRunJob(sgbd, job, arg, opts = {}) {
       }),
     job,
     argText,
-    tally
+    tally,
+    opts.exchange
   );
   session.inited = true;
   session.comm = vm.comm || session.comm;

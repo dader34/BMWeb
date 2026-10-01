@@ -35,6 +35,7 @@ import glob
 import gzip
 import json
 import os
+import re
 import sqlite3
 import sys
 
@@ -65,6 +66,13 @@ def config_variants(root):
         with open(f, encoding="utf-8") as fh:
             walk(json.load(fh))
     return names
+
+
+def _param_order(name):
+    """Sort key for a job parameter name: P1, P2, ... P10 by the number
+    it carries, names without one after them in text order."""
+    m = re.search(r"(\d+)", str(name or ""))
+    return (0, int(m.group(1)), str(name)) if m else (1, 0, str(name))
 
 
 def clean_title(t):
@@ -111,9 +119,13 @@ def extract_variant(con, var_id):
             jid, jname = job
             params = con.execute(
                 "SELECT NAME, PARAMVALUE FROM XEP_ECUPARAMETERS "
-                "WHERE ECUJOBID=? ORDER BY NAME",
+                "WHERE ECUJOBID=?",
                 (jid,),
             ).fetchall()
+            # P1..Pn in NUMERIC order: a lexical sort puts P10 before P2 and
+            # ships a scrambled argument string for any job with ten or more
+            # parameters, and that string is what the window sends to a car
+            params.sort(key=lambda nv: _param_order(nv[0]))
             args = ";".join(str(v if v is not None else "") for _n, v in params)
             results = []
             for rname, rtitle, unit, uname, fmt in con.execute(

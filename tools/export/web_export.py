@@ -38,6 +38,45 @@ from search_index import build_index                          # noqa: E402
 from service_functions import build as build_service_functions  # noqa: E402
 
 
+def coding_sgbds_by_chassis():
+    """chassis -> the coding SGBDs its SGFAM table names (CABD, lowercased).
+
+    THE IDENTITY IS READ FROM THE CODING SGBD. The vehicle-identity discovery
+    asks each configured module's coding twin (c_kmb46, c_ews3, c_lsza ...)
+    for its job table before the diagnostic one, because that is where the
+    order and the coding keys are declared. Those twins are orphans -- no
+    menu names them -- so they lived only in the catch-all, and opening any
+    chassis pulled the whole 112 MB archive to answer a 25 KB question.
+    Packing a chassis's own CABDs into its archive (283 KB for an E46) keeps
+    the catch-all for what it is: the fallback for a variant nobody listed.
+    The table is the renderer's committed copy, so CI reads the same one.
+    """
+    path = os.path.join(ROOT, "app", "renderer", "data", "tables.js")
+    if not os.path.isfile(path):
+        return {}
+    with open(path, encoding="utf-8") as f:
+        text = f.read()
+    at = text.find("BMW_TABLES")
+    start = text.find("{", at)
+    end = text.rfind("}")
+    if at < 0 or start < 0 or end < start:
+        return {}
+    try:
+        tables = json.loads(text[start:end + 1])
+    except ValueError:
+        return {}
+    out = {}
+    for cid, tbl in tables.items():
+        names = set()
+        for row in ((tbl or {}).get("sgfam") or {}).values():
+            cabd = (row or {}).get("cabd")
+            if cabd:
+                names.add(str(cabd).lower())
+        if names:
+            out[str(cid).upper()] = names
+    return out
+
+
 def _ecu_src_sgbds():
     """Every SGBD that has committed source in data/ecu-src (by its job-code
     file). This is the corpus as it exists IN CI: the vendor .prg tree
@@ -309,6 +348,17 @@ def main():
         json.dump(ids, f, ensure_ascii=False, separators=(",", ":"))
     print(f"  chassis.json written")
 
+    # 1b. Every chassis config in one small file. The renderer asks for a
+    # config far more often than for an archive (car detection consults
+    # ALL of them; nav, the module screen and the tour each want one), and
+    # the only other place a config lives is config.json INSIDE the
+    # .chassis -- so without this file each of those reads fetched and
+    # unpacked a 20-37 MB archive, and detection all 26 of them.
+    configs = {cid: get(port, f"/api/chassis/{cid}") for cid in ids}
+    with open(os.path.join(api, "chassis-configs.json"), "w") as f:
+        json.dump(configs, f, ensure_ascii=False, separators=(",", ":"))
+    print(f"  chassis-configs.json written ({len(configs)} configs)")
+
     # Gather all referenced SGBDs. (The IR itself ships from the per-car
     # tree's screens.json below, so nothing here resolves IR files.)
     sgbds = set()
@@ -484,6 +534,8 @@ def main():
     for sgbd, places in T.owners().items():
         for c, _code in places:
             tree_owner.setdefault(c.upper(), set()).add(sgbd.lower())
+    # the coding twins the chassis's SGFAM table names (see coding_sgbds_by_chassis)
+    coding_owner = coding_sgbds_by_chassis()
 
     for cid in ids:
         cfg = chassis_configs[cid]
@@ -527,6 +579,7 @@ def main():
                 if sgbd:
                     want.add(sgbd)
         want |= tree_owner.get(cid.upper(), set())
+        want |= coding_owner.get(cid.upper(), set())
         packed = set()
         for sgbd in sorted(want):
             if sgbd in ecu_zips:

@@ -111,6 +111,8 @@ async function showJobSearch(query) {
     { label: 'Apps', fn: showApps },
     { label: 'Job search' },
   ]);
+  // the reader may leave while this screen loads (screenOwner)
+  const _mine = screenOwner();
   sbLeft.textContent = 'job search';
 
   view.innerHTML = head(
@@ -238,6 +240,7 @@ async function showJobSearch(query) {
   render();
   setTimeout(() => input.focus(), JOB_SEARCH_FOCUS_MS);
 
+  if (!_mine()) return;
   setActions([
     {
       key: 'Escape',

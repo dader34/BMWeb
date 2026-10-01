@@ -208,7 +208,11 @@ function ipoMakeUi(ecu, container, back) {
       if (p.view) {
         if (p.view !== paintedView) {
           paintedView = p.view;
-          if (p.view.report && typeof ipoProtocolRender === 'function') {
+          if (
+            p.view.report &&
+            p.view.showReport &&
+            typeof ipoProtocolRender === 'function'
+          ) {
             const drawn = p.view;
             // the whole-car read is finished: show what each fault captured,
             // then offer to keep the report. Deferred until the renderer has
@@ -226,8 +230,26 @@ function ipoMakeUi(ecu, container, back) {
                 garageOfferSave(gridEl, drawn, p.ecu);
             });
           } else {
+            // THE TEXT PATH TRANSLATES TOO. The table path runs every code
+            // through the fault dictionaries; the file the script wrote was
+            // printed raw, so a module that reports "Kein Fehler im
+            // Fehlerspeicher" showed it in German beside English chrome.
+            // Exact lookup only (phraseText), per the i18n rule: a line the
+            // dictionaries do not carry whole passes through untouched, and
+            // the leading indent is kept so the columns stay put.
+            const tr =
+              typeof phraseText === 'function'
+                ? (l) => {
+                    const s = String(l);
+                    const body = s.trimStart();
+                    const pad = s.slice(0, s.length - body.length);
+                    const out = phraseText(body.trimEnd());
+                    return out === body.trimEnd() ? s : pad + out;
+                  }
+                : (l) => l;
+            gridEl._ipoHtml = null;
             gridEl.innerHTML = `<pre class="ipo-protocol mono">${esc(
-              (p.view.lines || []).join('\n')
+              (p.view.lines || []).map(tr).join('\n')
             )}</pre>`;
           }
         }

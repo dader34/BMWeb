@@ -38,10 +38,7 @@ jobs:
   offline:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout with Git LFS (the SGBDs and IPOs the build reads)
-        uses: actions/checkout@v4
-        with:
-          lfs: true
+      - uses: actions/checkout@v4
 
       # A v0.9.9 tag must build a 0.9.9 app -- check before spending the time.
       - name: Tag must match the app version
@@ -85,17 +82,7 @@ jobs:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
 
       - name: Wiring diagrams
-        run: |
-          set -euo pipefail
-          gh release download wiring-latest \
-            --repo dader34/BMacW-wiring-images \
-            --pattern '*.wiring' --dir dist-web/data/wiring
-          n=$(find dist-web/data/wiring -name '*.wiring' | wc -l)
-          echo "wiring archives: $n"
-          test "$n" -ge 15
-          du -sh dist-web/data/wiring
-        env:
-          GH_TOKEN: ${{ github.token }}
+        run: scripts/build/ci-fetch-hf-data.sh wiring
 
       - name: Package the release-asset variants
         run: |
@@ -134,8 +121,6 @@ jobs:
           df -h /
 
       - uses: actions/checkout@v4
-        with:
-          lfs: true
 
       - uses: actions/setup-python@v5
         with: { python-version: '3.12' }
@@ -166,16 +151,10 @@ jobs:
           scripts/build/ci-fetch-hf-data.sh etk
           df -h /
 
+      # with the photographs: this build is for a machine with no internet
       - name: Wiring diagrams
         if: steps.hf.outputs.ok == 'true'
-        run: |
-          set -euo pipefail
-          gh release download wiring-latest \
-            --repo dader34/BMacW-wiring-images \
-            --pattern '*.wiring' --dir dist-web/data/wiring
-          test "$(find dist-web/data/wiring -name '*.wiring' | wc -l)" -ge 15
-        env:
-          GH_TOKEN: ${{ github.token }}
+        run: scripts/build/ci-fetch-hf-data.sh wiring-photos
 
       - name: Package the complete variant
         if: steps.hf.outputs.ok == 'true'

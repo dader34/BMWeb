@@ -274,6 +274,18 @@ function etkVinBox(opts, onResolve) {
  */
 function etkMatchVariant(variants, hit) {
   const eq = (a, b) => (a || '') === (b || '');
+  // A FULL VIN NAMES THE TYPE KEY OUTRIGHT (characters 4 to 7), and the
+  // catalogue's variants are type keys: an exact hit beats any match by
+  // model and body, which can land on a sibling type of the same model
+  const vin = String(hit.vin || '').toUpperCase();
+  if (vin.length === 17) {
+    const key = vin.slice(3, 7);
+    const exact = [];
+    variants.forEach((v, i) => {
+      if (String(v.key || '').toUpperCase() === key) exact.push(i);
+    });
+    if (exact.length) return etkNearestVariant(variants, exact, hit.prod);
+  }
   // steer is known on the VIN path only; a Garage car saved without it must
   // not be refused a match on that account
   const steerOk = (v) => !hit.steer || eq(v.steer, hit.steer);

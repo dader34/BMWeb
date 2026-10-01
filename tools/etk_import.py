@@ -127,6 +127,71 @@ def to_png(blob, fmt):
     return None, None
 
 
+def comment_text(con, names, komm_id, cache):
+    """The English text of one ETK line comment (w_komm), as the catalogue
+    prints it: the fixed pieces plain ("For vehicles with", "and"), the named
+    pieces (an option, a package) with their sign -- "+M Sports package" is
+    with it, "-Sport Line" without."""
+    if komm_id in cache:
+        return cache[komm_id]
+    pieces = []
+    for pos, tc, vz, darst in con.execute(
+            "SELECT komm_pos, komm_textcode, komm_vz, komm_darstellung "
+            "FROM w_komm WHERE komm_id=? ORDER BY komm_pos", (komm_id,)):
+        text = (names.get(tc) or '').strip()
+        if not text:
+            continue
+        if darst == 'N' and vz in ('+', '-'):
+            text = vz + text
+        pieces.append(text)
+    out = ' '.join(pieces)
+    cache[komm_id] = out
+    return out
+
+
+def line_conditions(con, btnrs, names):
+    """(btnr, line pos) -> the validity of that parts line, or nothing.
+
+    THE FITMENT TABLE SAYS WHICH VEHICLE TYPES A LINE IS FOR; THE LINE ITSELF
+    SAYS WHEN AND UNDER WHAT CONDITION. w_btzeilen carries a from-month
+    (eins) and a to-month (auslf), a steering side, an automatic/manual flag,
+    a condition letter (bedkez) and the comment the catalogue prints beside
+    the line ("For vehicles with +Headlight cleaning system"). Without these
+    a 2004 car was shown the pre-facelift bumper trim next to its own.
+
+    Short keys, the same the app reads: f from, t to (both YYYYMM), s
+    steering L/R, a gearbox A/M, k the catalogue's Kat mark (+ or -), c the
+    condition letter, n the note."""
+    out = {}
+    cache = {}
+    for btnr, pos, eins, auslf, bedkez, lenkg, auto, kat, kvor, knach in chunked_in(
+            con,
+            "SELECT btzeilen_btnr, btzeilen_pos, btzeilen_eins, btzeilen_auslf, "
+            "btzeilen_bedkez, btzeilen_lenkg, btzeilen_automatik, btzeilen_kat, "
+            "btzeilen_kommvor, btzeilen_kommnach "
+            "FROM w_btzeilen WHERE btzeilen_btnr IN (%s)", sorted(btnrs)):
+        rec = {}
+        if eins:
+            rec['f'] = int(eins) // 100
+        if auslf:
+            rec['t'] = int(auslf) // 100
+        if lenkg in ('L', 'R'):
+            rec['s'] = lenkg
+        if auto in ('A', 'M'):
+            rec['a'] = auto
+        if kat in ('+', '-'):
+            rec['k'] = kat
+        if bedkez:
+            rec['c'] = str(bedkez)
+        notes = [comment_text(con, names, k, cache) for k in (kvor, knach) if k]
+        notes = [n for n in notes if n]
+        if notes:
+            rec['n'] = ' / '.join(notes)
+        if rec:
+            out[(btnr, pos)] = rec
+    return out
+
+
 def build(con, chassis, names, out_dir, quiet=False):
     """Pack one chassis into <chassis>.etk. Returns (diagrams, parts, bytes)
     or None if the chassis has no data."""
@@ -173,6 +238,13 @@ def build(con, chassis, names, out_dir, quiet=False):
             "SELECT bildtaf_btnr, bildtaf_hg, bildtaf_fg, bildtaf_grafikid, bildtaf_textc "
             "FROM w_bildtaf WHERE bildtaf_btnr IN (%s)", btnr_list):
         diagrams[btnr] = {'hg': hg, 'fg': fg, 'grafikid': gid, 'textcode': tc}
+
+    # 4a. the line's own validity: dates, steering, gearbox, condition, note,
+    #     and the quantity when it is not 1
+    conds = line_conditions(con, btnr_list, names)
+    for key, q in line_quantities(con, mospids, btnrs).items():
+        conds.setdefault(key, {})['q'] = q
+    sups = part_supplements(con, all_sachnr)
 
     # 4. callout numbers per part-line (btnr,pos -> bildposnr)
     callouts = {}
@@ -244,6 +316,11 @@ def build(con, chassis, names, out_dir, quiet=False):
             pre = part_prefix.get(sachnr)
             if pre:
                 p['pre'] = pre   # 4-digit group prefix for the full 11-digit number
+            cond = conds.get((btnr, pos))
+            if cond:
+                p['ln'] = [cond]   # the line's validity (see line_conditions)
+            if sachnr in sups:
+                p['sup'] = sups[sachnr]   # the Supplement column (M8X16)
             parts.append(p)
         img_ref = None
         gid = d['grafikid']
@@ -339,6 +416,206 @@ def chassis_btnrs(con, chassis):
             "WHERE btzeilenv_mospid IN (%s)", mospids):
         btnrs.add(btnr)
     return btnrs
+
+
+def line_quantities(con, mospids, btnrs):
+    """(btnr, line pos) -> the quantity the catalogue lists for that line,
+    the most common across the chassis's vehicles (it is per vehicle in the
+    fitment table and all but never differs). Only quantities other than 1
+    are returned; 1 is what a missing value means."""
+    counts = {}
+    for btnr, pos, q, mospid in chunked_in(con,
+            "SELECT btzeilenv_btnr, btzeilenv_pos, btzeilenv_vmenge, btzeilenv_mospid "
+            "FROM w_btzeilen_verbauung WHERE btzeilenv_mospid IN (%s)", mospids):
+        if btnr not in btnrs or q is None:
+            continue
+        d = counts.setdefault((btnr, pos), {})
+        d[str(q).strip()] = d.get(str(q).strip(), 0) + 1
+    out = {}
+    for key, d in counts.items():
+        best = max(d.items(), key=lambda kv: (kv[1], kv[0]))[0]
+        if best and best != '1':
+            out[key] = best
+    return out
+
+
+def part_supplements(con, sachnrs):
+    """sachnr -> the part's name supplement ("M8X16", the size or grade that
+    tells one bolt from another), the ETK's Supplement column."""
+    out = {}
+    for sachnr, sup in chunked_in(con,
+            "SELECT teil_sachnr, teil_benennzus FROM w_teil "
+            "WHERE teil_sachnr IN (%s) AND teil_benennzus IS NOT NULL", sachnrs):
+        s = str(sup or '').strip()
+        if s:
+            out[sachnr] = s
+    return out
+
+
+def part_info(con, names, sachnrs):
+    """sachnr -> what the catalogue's Part information window shows for it
+    beyond the name: the part master (w_teil) and the tables hanging off it.
+    Only what the dump carries -- prices, stock and customs codes are the
+    dealer's own files, not the catalogue.
+
+        w  weight, kg                    c  the description comment ("black")
+        h  1 when hazardous goods        dn the DIN/norm number
+        e  discontinued, YYYYMM          x  the exchange (remanufactured) part
+        rep [[sachnr, name], ...]        superseded by
+        for [[sachnr, name], ...]        replaces
+        kit [[sachnr, name, qty, orderable], ...]   the parts of a set
+        reach [[CAS number, substance, %, subcomponent], ...]
+
+    Keys are left out when empty, so a plain bolt is one short record."""
+    def name_of(sachnr):
+        tc = textcodes.get(sachnr)
+        return (names.get(tc) or '').strip() if tc else ''
+
+    out = {}
+    textcodes = {}
+    sachnrs = {s for s in sachnrs if s}
+    for sachnr, tc, kom, gew, gefahr, norm, entfall_kez, entfall_dat, tausch in chunked_in(
+            con,
+            "SELECT teil_sachnr, teil_textcode, teil_textcode_kom, teil_teile_gew, "
+            "teil_gefahr_kl, teil_normnummer, teil_entfall_kez, teil_entfall_dat, "
+            "teil_tausch FROM w_teil WHERE teil_sachnr IN (%s)", sachnrs):
+        textcodes[sachnr] = tc
+        rec = {}
+        if gew and gew > 0:
+            rec['w'] = round(float(gew), 3)
+        comment = (names.get(kom) or '').strip() if kom else ''
+        if comment:
+            rec['c'] = comment
+        if (gefahr or '').strip() == 'J':
+            rec['h'] = 1
+        if (norm or '').strip():
+            rec['dn'] = norm.strip()
+        if (entfall_kez or '').strip() == 'E' and entfall_dat:
+            rec['e'] = int(entfall_dat) // 100
+        if (tausch or '').strip():
+            rec['x'] = tausch.strip()
+        if rec:
+            out[sachnr] = rec
+    # the related parts need names of their own, and most are not in the
+    # chassis's bundle; resolve them in one pass at the end
+    related = {}
+    rows = {}
+    for old, new in chunked_in(con,
+            "SELECT teilatb_sachnr_alt, teilatb_sachnr_neu FROM w_teil_atb "
+            "WHERE teilatb_sachnr_alt IN (%s)", sachnrs):
+        rows.setdefault(old, {}).setdefault('rep', []).append(new)
+        related[new] = None
+    for old, new in chunked_in(con,
+            "SELECT teilatb_sachnr_alt, teilatb_sachnr_neu FROM w_teil_atb "
+            "WHERE teilatb_sachnr_neu IN (%s)", sachnrs):
+        rows.setdefault(new, {}).setdefault('for', []).append(old)
+        related[old] = None
+    for satz, pos, part, qty, orderable in chunked_in(con,
+            "SELECT ke_sachnr_satz, ke_pos, ke_sachnr_einzelteil, ke_menge, "
+            "ke_beziehbar FROM w_kompl_einzelteil WHERE ke_sachnr_satz IN (%s)", sachnrs):
+        rows.setdefault(satz, {}).setdefault('kit', []).append(
+            (pos or 0, part, str(qty or '').strip(), orderable))
+        related[part] = None
+    for sachnr, cas, subst, pct, sub in chunked_in(con,
+            "SELECT teilreach_sachnr, teilreach_casnr, teilreach_casname, "
+            "teilreach_gewanteil, teilreach_subcomponent FROM w_teil_reach "
+            "WHERE teilreach_sachnr IN (%s)", sachnrs):
+        rows.setdefault(sachnr, {}).setdefault('reach', []).append(
+            [(cas or '').strip(), (subst or '').strip(),
+             float(pct) if pct is not None else None, (sub or '').strip()])
+    missing = {s for s in related if s not in textcodes}
+    for sachnr, tc in chunked_in(con,
+            "SELECT teil_sachnr, teil_textcode FROM w_teil "
+            "WHERE teil_sachnr IN (%s)", missing):
+        textcodes[sachnr] = tc
+    for sachnr, r in rows.items():
+        rec = out.setdefault(sachnr, {})
+        for key in ('rep', 'for'):
+            if r.get(key):
+                rec[key] = [[s, name_of(s)] for s in sorted(set(r[key]))]
+        if r.get('kit'):
+            rec['kit'] = [[s, name_of(s), q, 1 if o == 'J' else 0]
+                          for _, s, q, o in sorted(r['kit'])]
+        if r.get('reach'):
+            rec['reach'] = sorted(r['reach'], key=lambda x: (x[3], x[1]))
+    return out
+
+
+def build_lines(con, chassis, names, out_dir, quiet=False):
+    """Write <chassis>.lines.json.gz: the validity of every parts line the
+    chassis's bundle carries, keyed the way the viewer can join it to a part
+    row (the bundle keeps the callout, not the line number):
+
+        {"v": 3, "ln": {"<btnr>": {"<callout>|<sachnr>": [{f,t,s,a,k,c,n,q}, ...]}},
+         "sup": {"<sachnr>": "M8X16"}, "pt": {"<sachnr>": {...}}}
+
+    sup is the Supplement column and pt the Part information window (see
+    part_info), both per part so once per file.
+
+    A callout and part number can appear on more than one line of a diagram
+    (one window each), so the value is a list and the viewer keeps the part
+    when ANY line fits. Rides beside the published bundle like the callout
+    rectangles do; a bundle built after this carries the same records inline
+    (part.ln) and the viewer prefers those.
+
+    Returns (diagrams, lines, bytes) or None when nothing has a condition."""
+    import gzip
+    btnrs = chassis_btnrs(con, chassis)
+    if not btnrs:
+        return None
+    conds = line_conditions(con, btnrs, names)
+    mospids = [r[0] for r in con.execute(
+        "SELECT fztyp_mospid FROM w_fztyp WHERE fztyp_baureihe=?", (chassis,))]
+    qty = line_quantities(con, mospids, btnrs)
+    # the quantity rides on the line record, so a line with only a quantity
+    # gets a record too
+    for key, q in qty.items():
+        conds.setdefault(key, {})['q'] = q
+    if not conds:
+        return None
+    callouts = {}
+    sachnr_of = {}
+    for btnr, pos, callout, sachnr in chunked_in(con,
+            "SELECT btzeilen_btnr, btzeilen_pos, btzeilen_bildposnr, btzeilen_sachnr "
+            "FROM w_btzeilen WHERE btzeilen_btnr IN (%s)", sorted(btnrs)):
+        callouts[(btnr, pos)] = callout if callout is not None else pos
+        sachnr_of[(btnr, pos)] = sachnr
+    ln = {}
+    for (btnr, pos), rec in sorted(conds.items()):
+        key = f"{callouts.get((btnr, pos), pos)}|{sachnr_of.get((btnr, pos), '')}"
+        recs = ln.setdefault(btnr, {}).setdefault(key, [])
+        # a callout-less part is drawn on many lines with one and the same
+        # validity; one record says it
+        if rec not in recs:
+            recs.append(rec)
+    # the Supplement column and the Part information window: per part, so
+    # once per file
+    sachnrs = {s for s in sachnr_of.values() if s}
+    sup = part_supplements(con, sachnrs)
+    pt = part_info(con, names, sachnrs)
+    payload = json.dumps({'v': 3, 'ln': ln, 'sup': sup, 'pt': pt},
+                         ensure_ascii=False,
+                         separators=(',', ':')).encode('utf-8')
+    os.makedirs(out_dir, exist_ok=True)
+    path = os.path.join(out_dir, f'{chassis}.lines.json.gz')
+    tmp_path = path + '.tmp'
+    try:
+        with open(tmp_path, 'wb') as f:
+            with gzip.GzipFile(fileobj=f, mode='wb', mtime=0) as g:
+                g.write(payload)
+    except BaseException:
+        try:
+            os.remove(tmp_path)
+        except OSError:
+            pass
+        raise
+    os.replace(tmp_path, path)
+    size = os.path.getsize(path)
+    nlines = sum(len(v) for d in ln.values() for v in d.values())
+    if not quiet:
+        print(f"  {chassis}: {len(ln)} diagrams, {nlines} conditioned lines, "
+              f"{len(pt)} parts with information -> {size/1e3:.1f} KB")
+    return (len(ln), nlines, size)
 
 
 def build_hotspots(con, chassis, out_dir, quiet=False):
@@ -566,6 +843,10 @@ def main():
     ap.add_argument('--hotspots', action='store_true',
                     help='write only <chassis>.hs.json.gz (the diagram callout '
                          'rectangles) and exit; a full run always writes them')
+    ap.add_argument('--lines', action='store_true',
+                    help='write only <chassis>.lines.json.gz (each parts line\'s '
+                         'validity: dates, steering, gearbox, condition, note) '
+                         'and exit; a bundle built by a full run carries them inline')
     args = ap.parse_args()
 
     if not os.path.exists(args.db):
@@ -583,6 +864,22 @@ def main():
     # Hotspots read no image blobs, so this runs before the w_grafik index
     # below (which exists only to make blob lookups bearable) and is fast
     # enough to re-run for every chassis on its own.
+    if args.lines:
+        targets = [args.chassis] if args.chassis else chassis_list(con)
+        names = resolve_names(con, args.iso)
+        print(f"writing line validity for {len(targets)} chassis...")
+        nch = ndiag = nln = nbytes = 0
+        for ch in targets:
+            r = build_lines(con, ch, names, args.out, quiet=False)
+            if r:
+                nch += 1
+                ndiag += r[0]
+                nln += r[1]
+                nbytes += r[2]
+        print(f"done: {nch}/{len(targets)} chassis, {ndiag:,} diagrams, "
+              f"{nln:,} conditioned lines, {nbytes/1e6:.2f} MB total")
+        return
+
     if args.hotspots:
         targets = [args.chassis] if args.chassis else chassis_list(con)
         print(f"writing callout hotspots for {len(targets)} chassis...")

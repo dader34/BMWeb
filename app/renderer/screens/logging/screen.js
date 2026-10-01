@@ -60,6 +60,8 @@ async function showLogging() {
     { label: 'Apps', fn: showApps },
     { label: 'Data logging' },
   ]);
+  // the reader may leave while this screen loads (screenOwner)
+  const _mine = screenOwner();
   sbLeft.textContent = 'select chassis';
   sbRight.textContent = '';
   view.innerHTML = head(
@@ -100,6 +102,7 @@ async function showLogging() {
     list.appendChild(card);
   });
   stagger(list);
+  if (!_mine()) return;
   sbRight.textContent = `${ids.length} chassis`;
 }
 
@@ -118,6 +121,8 @@ async function showLoggingChassis(chassis) {
     { label: 'Data logging', fn: showLogging },
     { label: dispChassis(car) },
   ]);
+  // the reader may leave while this screen loads (screenOwner)
+  const _mine = screenOwner();
   // setCrumbs syncs the hash off lastScreen's NAME, and this screen's
   // lastScreen is a closure, so the chassis route is set explicitly
   if (typeof history !== 'undefined' && history.replaceState)

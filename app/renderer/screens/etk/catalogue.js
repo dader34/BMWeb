@@ -16,7 +16,36 @@
  */
 
 /** @type {EtkFilterState} */
-const ETK_STATE = { variant: null, variantLabel: null, showAll: false };
+const ETK_STATE = {
+  variant: null,
+  variantLabel: null,
+  showAll: false,
+  // what a VIN said about the car, for the lines' validity (lines.js): the
+  // build month decides the from/up-to windows, the side and gearbox their
+  // lines; a variant picked by hand has a side and gearbox, never a month
+  prod: null,
+  steer: null,
+  auto: null,
+  // the VIN the filter came from, for the URL (routeSetFiltered); null for
+  // a variant picked by hand
+  vin: null,
+};
+
+/**
+ * Set the car facts the lines' validity is judged by.
+ * @param {object|null} variant - the chosen EtkVariant, or null
+ * @param {{prod?: string|number, steer?: string}|null} [hit] - the decoded VIN, when there is one
+ * @returns {void}
+ */
+function etkSetCarFacts(variant, hit) {
+  const prod = hit && hit.prod ? String(hit.prod).slice(0, 6) : '';
+  ETK_STATE.prod = /^\d{6}$/.test(prod) ? Number(prod) : null;
+  const steer = String((hit && hit.steer) || (variant && variant.steer) || '');
+  ETK_STATE.steer = steer === 'L' || steer === 'R' ? steer : null;
+  const gear = String((variant && variant.gear) || '');
+  ETK_STATE.auto = gear === 'A' || gear === 'M' ? gear : null;
+  ETK_STATE.vin = hit && hit.vin ? String(hit.vin).toUpperCase() : null;
+}
 
 /** How many chassis get a number key on the picker. */
 const ETK_FKEY_SLOTS = 9;
@@ -102,6 +131,8 @@ async function showEtk() {
     { label: 'Apps', fn: showApps },
     { label: 'Parts Catalogue' },
   ]);
+  // the reader may leave while this screen loads (screenOwner)
+  const _mine = screenOwner();
   document.body.classList.add('apps-section');
   sbLeft.textContent = 'parts';
   view.innerHTML = head(
@@ -122,6 +153,7 @@ async function showEtk() {
   view.appendChild(grid);
 
   const ids = await etkChassisList();
+  if (!_mine()) return;
   wait.remove();
   if (!ids.length) {
     view.appendChild(etkNoDataNote());
@@ -129,7 +161,9 @@ async function showEtk() {
   }
   ids.forEach((id) => grid.appendChild(etkChassisCard(id)));
   stagger(grid, ETK_STAGGER_CARDS);
+  if (!_mine()) return;
   sbRight.textContent = `${ids.length} chassis`;
+  if (!_mine()) return;
   setActions([
     ...ids.slice(0, ETK_FKEY_SLOTS).map((id, i) => ({
       key: String(i + 1),
@@ -187,6 +221,8 @@ async function showEtkChassis(chassisId, preselect) {
     { label: 'Parts', fn: showEtk },
     { label: dispChassis(id) },
   ]);
+  // the reader may leave while this screen loads (screenOwner)
+  const _mine = screenOwner();
   sbLeft.textContent = 'loading parts…';
   view.innerHTML = head(
     'ETK',
@@ -217,10 +253,25 @@ async function showEtkChassis(chassisId, preselect) {
     const vs = data.tree.variants || [];
     const m =
       typeof etkMatchVariant === 'function' ? etkMatchVariant(vs, pre.hit) : -1;
-    pre = m >= 0 ? { variant: m, label: etkVariantLabel(vs[m]) } : null;
+    // the caption names the CAR's build month when the VIN gave one, not
+    // the month its type key was introduced
+    pre =
+      m >= 0
+        ? {
+            variant: m,
+            label:
+              typeof etkCarLabel === 'function'
+                ? etkCarLabel(vs[m], pre.hit)
+                : etkVariantLabel(vs[m]),
+          }
+        : null;
   }
   ETK_STATE.variant = pre ? pre.variant : null;
   ETK_STATE.variantLabel = pre ? pre.label : null;
+  etkSetCarFacts(
+    pre ? (data.tree.variants || [])[pre.variant] : null,
+    preselect && preselect.hit ? preselect.hit : null
+  );
 
   // --- variant selector (custom searchable dropdown) ---
   const vbar = document.createElement('div');
@@ -230,11 +281,13 @@ async function showEtkChassis(chassisId, preselect) {
   label.textContent = 'Vehicle:';
   vbar.appendChild(label);
   vbar.appendChild(buildVariantDropdown(data.tree.variants || []));
+  if (!_mine()) return;
   view.appendChild(vbar);
 
   // --- main-group icon grid ---
   const grid = document.createElement('div');
   grid.className = 'etk-grid stagger';
+  if (!_mine()) return;
   view.appendChild(grid);
 
   (data.tree.maingroups || []).forEach((mg) => {
@@ -251,9 +304,14 @@ async function showEtkChassis(chassisId, preselect) {
   stagger(grid, ETK_STAGGER_GRID);
 
   sbLeft.textContent = `${(data.tree.maingroups || []).length} main groups`;
+  if (!_mine()) return;
   sbRight.textContent = `${(data.tree.variants || []).length} variants`;
+  // the filtered vehicle rides in the URL, so a reload keeps it
+  if (typeof routeSetFiltered === 'function')
+    routeSetFiltered('parts', id, ETK_STATE.vin);
   // Print here isn't the icon grid (a navigation menu) -- it's a clean catalogue
   // index: the vehicle and its list of main groups.
+  if (!_mine()) return;
   setActions([
     etkBackAction(showEtk),
     {
@@ -297,8 +355,21 @@ function printEtkIndex(data, chassisId) {
 function buildVariantDropdown(variants) {
   // The variant rows, sorted by model then date. Each item keeps its ORIGINAL
   // index (i) -- that index is the value ETK_STATE.variant holds.
+  // THE ROW FOR THE CAR READS AS THE CAR. The variant the VIN matched is
+  // captioned with the car's build month (etkCarLabel, held in
+  // ETK_STATE.variantLabel); every other row is the variant's own caption,
+  // whose date is the type key's introduction. The dropdown draws its rows
+  // from this text, so the pre-selected row must carry the car's caption or
+  // the picker still reads "10/2001" over a 2004 car.
   const order = variants
-    .map((v, i) => ({ i, v, text: etkVariantLabel(v) }))
+    .map((v, i) => ({
+      i,
+      v,
+      text:
+        i === ETK_STATE.variant && ETK_STATE.variantLabel
+          ? ETK_STATE.variantLabel
+          : etkVariantLabel(v),
+    }))
     .sort(
       (a, b) =>
         (a.v.model || '').localeCompare(b.v.model || '') ||
@@ -335,6 +406,7 @@ function buildVariantDropdown(variants) {
       // the exact variant string, so a printed diagram names the vehicle it was
       // filtered to; null = all variants
       ETK_STATE.variantLabel = idx != null && item ? item.text : null;
+      etkSetCarFacts(idx != null ? variants[idx] : null, null);
     },
   });
   dd.el.classList.add('etk-vdd');
@@ -352,12 +424,12 @@ function buildVariantDropdown(variants) {
  * @param {string} [btnr] - diagram number within that main group
  * @returns {Promise<void>}
  */
-async function showEtkDeep(chassisId, hg, btnr) {
+async function showEtkDeep(chassisId, hg, btnr, preselect = null) {
   const id = String(chassisId || '').toUpperCase();
   if (!hg) {
-    return showEtkChassis(id);
+    return showEtkChassis(id, preselect);
   }
-  await showEtkChassis(id);
+  await showEtkChassis(id, preselect);
   try {
     const data = await loadEtk(id);
     const mg = (data.tree.maingroups || []).find(

@@ -187,6 +187,8 @@ async function showGarageSharedReport(payload) {
     { label: 'Garage', fn: showGarage },
     { label: 'Shared report' },
   ]);
+  // the reader may leave while this screen loads (screenOwner)
+  const _mine = screenOwner();
   document.body.classList.add('apps-section');
   sbLeft.textContent = 'shared report';
   if (!p) {
@@ -249,6 +251,7 @@ async function showGarageSharedReport(payload) {
     save.onclick = keep;
     bar.appendChild(save);
   }
+  if (!_mine()) return;
   setActions([
     { key: '1', label: 'Save to garage', fn: keep },
     {

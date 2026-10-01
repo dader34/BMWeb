@@ -123,11 +123,47 @@ const inpaTheme = () =>
   Settings.get('theme', 'instrument') === 'inpa' && !isMobileViewport();
 
 /**
+ * How many times a screen has been drawn. Bumped by setCrumbs(), which every
+ * show*() calls as it takes over the view.
+ * @type {number}
+ */
+let _screenGen = 0;
+
+/**
+ * Claim the screen for the caller and hand back the check it uses to find
+ * out, later, whether it still owns it.
+ *
+ * THE BUG THIS EXISTS FOR: a show*() paints, awaits its data, and then keeps
+ * writing -- appending nodes it captured before the await, calling
+ * setActions, setting the status bar. If the reader navigated away during
+ * that await, all of it lands on WHOEVER IS ON SCREEN NOW: the parts
+ * catalogue's tiles appearing under the VIN decoder, one screen's F-keys
+ * over another's. Nothing cancels a fetch that is already in flight, so the
+ * writer has to ask before it writes.
+ *
+ * Call it at the top of an async screen (after setCrumbs), then guard every
+ * write that happens after an await:
+ *
+ *   const mine = screenOwner();
+ *   const data = await load();
+ *   if (!mine()) return;          // someone else owns the view now
+ *
+ * @returns {() => boolean} true while the caller still owns the screen
+ */
+function screenOwner() {
+  const gen = _screenGen;
+  return () => gen === _screenGen;
+}
+
+/**
  * Draw the breadcrumb strip and mirror the screen into the URL.
  * @param {Crumb[]} items - Crumbs, root first.
  * @returns {void}
  */
 function setCrumbs(items) {
+  // a new screen is taking the view: work still in flight for the old one
+  // must not paint into it (see screenOwner)
+  _screenGen += 1;
   // the WDS wiring screen hides the F-key bar; any other screen drawing itself restores it
   document.body.classList.remove('wds-nofkeys');
   // ETK screens tag the body so CSS can drop the F-key bar on mobile; cleared
@@ -219,10 +255,27 @@ function head(eyebrow, title, subtitle) {
  * @returns {void}
  */
 function stagger(container, step = 35) {
-  [...container.children].forEach((c, i) => {
+  const kids = [...container.children];
+  kids.forEach((c, i) => {
     c.style.animationDelay = `${i * step}ms`;
   });
+  // THE ENTRANCE IS DROPPED ONCE IT IS OVER. The rise keeps each child at
+  // opacity 0 until its animation runs, and an animation the browser froze
+  // mid-flight (a tab hidden while the grid came in, a throttled frame) left
+  // tiles half-transparent yet clickable. After the last child's turn has
+  // had time to finish, the container stops being a stagger and every child
+  // is simply drawn.
+  const settle = kids.length * step + STAGGER_RISE_MS + STAGGER_GRACE_MS;
+  setTimeout(() => {
+    if (container.isConnected) container.classList.remove('stagger');
+  }, settle);
 }
+
+/** How long the rise animation runs (styles.css, .stagger > *). */
+const STAGGER_RISE_MS = 500;
+
+/** Slack after the last child's rise before the entrance is dropped. */
+const STAGGER_GRACE_MS = 250;
 
 /**
  * Shimmering placeholder list.

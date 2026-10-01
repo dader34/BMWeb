@@ -16,7 +16,7 @@
 # orphaned to a grep -- a reference count says 1, itself -- but their output
 # is load-bearing. Do not delete them:
 #   sgbd_code.py        -> data/job-code/  (input to the VM)
-# data/sim-captures/vmfix.json is a COMMITTED capture: the result sets the
+# data/sim-captures/vmfix.json is a FETCHED capture: the result sets the
 # real EDIABAS engine produced for the replayed telegrams. The engine that
 # wrote it (the .NET reference CLI) was removed from the repo in 2026-09,
 # so the fixture cannot be regenerated -- restore it from git.
@@ -90,6 +90,22 @@ node tools/verify/test_ir_i18n.js
 echo
 echo "== ECU backup engine: crypto bit-exact, reads byte-identical, rails hold =="
 node tools/verify/test_flasher.js
+
+echo
+echo "== GS20 calibration engine: checksum pinned, write sequence, rails, baud change =="
+node tools/verify/test_gs20.js || exit 1
+
+echo
+echo "== GS20 program / AIF / no-upshift / .0DA: checksums, records, patches, decode =="
+node tools/verify/test_gs20_program.js || exit 1
+
+echo
+echo "== MS45 flashing engine: CRC-32, RSA signatures, EWS delete, exchange files =="
+node tools/verify/test_ms45_flash.js || exit 1
+
+echo
+echo "== Map switch builder: byte-identical to the reference build, recognition, gates =="
+node tools/verify/test_mapswitch.js || exit 1
 
 echo
 echo "== MS45 image validation math: CRC-32/MPEG-2, RSA signature, region/address =="
@@ -284,14 +300,20 @@ node tools/verify/test_diag_structure.js || exit 1
 echo
 echo "== ISTA test modules: flattening, the opaque switch, dispatch, the validator =="
 python3 tools/verify/test_abl_extract.py || exit 1
+node tools/verify/test_abl_engine.js || exit 1
 
 echo
 echo "== ISTA wiring: the designator index a clicked schematic resolves through =="
 python3 tools/verify/test_wiring_extract.py || exit 1
+node tools/verify/test_wiring_applicability.js || exit 1
 
 echo
 echo "== parts diagrams: callout hotspot file shape, the pos join, scale mapping =="
 node tools/verify/test_etk_hotspots.js || exit 1
+node tools/verify/test_etk_lines.js || exit 1
+node tools/verify/test_etk_identify.js || exit 1
+node tools/verify/test_router_vin.js || exit 1
+python3 tools/verify/test_etk_lines.py || exit 1
 
 echo
 echo "== workshop documents: validity rules, the car filter, tree, renderers =="

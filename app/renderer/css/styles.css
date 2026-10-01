@@ -1256,23 +1256,6 @@ html.no-chrome body.apps-section .topbar {
   height: auto;
   image-rendering: -webkit-optimize-contrast;
 }
-.etk-figure-hint {
-  position: absolute;
-  right: 10px;
-  bottom: 8px;
-  font-family: var(--mono);
-  font-size: 11px;
-  color: #666;
-  background: rgba(255, 255, 255, 0.85);
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  padding: 2px 6px;
-  opacity: 0;
-  transition: opacity 0.12s;
-}
-.etk-figure:hover .etk-figure-hint {
-  opacity: 1;
-}
 
 /* the callout hotspots: one focusable box per numbered callout, laid over the
    drawing in the image's own pixel space and scaled with it (see
@@ -1302,7 +1285,10 @@ html.no-chrome body.apps-section .topbar {
 .etk-hotspot:hover,
 .etk-hotspot.on {
   border-color: var(--amber);
-  background: var(--amber-glow);
+  /* mixed from the accent, never the theme's glow: a theme whose glow is
+     an opaque colour (INPA's Win9x selection blue) would paint over the
+     callout number the box exists to point at */
+  background: color-mix(in srgb, var(--amber) 18%, transparent);
 }
 .etk-hotspot:focus-visible {
   outline: 2px solid var(--amber);
@@ -1425,7 +1411,9 @@ html.no-chrome body.apps-section .topbar {
   position: absolute;
   border: 2px solid var(--amber);
   border-radius: 4px;
-  background: var(--amber-glow);
+  /* tinted from the accent like the box on the drawing: the theme's glow
+     can be opaque (INPA) and would hide the magnified number */
+  background: color-mix(in srgb, var(--amber) 18%, transparent);
 }
 .etk-loupe-mark.pinned {
   background: color-mix(in srgb, var(--amber) 45%, transparent);
@@ -1494,6 +1482,161 @@ html.no-chrome body.apps-section .topbar {
 }
 
 /* while the ~20 MB bundle streams from HF, a centred spinner + progress bar */
+/* the catalogue's table: the control column (+ to expand a callout's parts,
+   i for a note), the parts under a group indented, notes muted */
+.etk-parts .etk-ctl {
+  width: 26px;
+  padding-left: 10px;
+  padding-right: 0;
+  text-align: center;
+}
+.etk-parts .etk-num {
+  text-align: right;
+}
+.etk-parts .etk-sup,
+.etk-parts .etk-from,
+.etk-parts .etk-to,
+.etk-parts .etk-qty,
+.etk-parts .etk-count {
+  color: var(--ink-dim);
+  white-space: nowrap;
+}
+.etk-parts .etk-count {
+  font-family: inherit;
+  font-size: 12px;
+}
+.etk-tgl,
+.etk-info {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: var(--panel-2);
+  color: var(--ink);
+  font: 700 12px/16px var(--mono);
+  cursor: pointer;
+}
+.etk-info {
+  border-radius: 50%;
+  font-family: Georgia, serif;
+  font-style: italic;
+}
+.etk-tgl:hover,
+.etk-info:hover,
+.etk-info[aria-expanded='true'] {
+  border-color: var(--amber);
+  color: var(--amber);
+}
+.etk-parts tr.etk-group .etk-name {
+  font-weight: 600;
+}
+.etk-parts tr.etk-sub .etk-name {
+  padding-left: 32px;
+}
+.etk-parts .etk-flag {
+  width: 2em;
+  text-align: center;
+  color: var(--ink-dim);
+  font-family: var(--mono);
+  padding-left: 6px;
+  padding-right: 6px;
+}
+/* the Part information window the i opens: the part number and name as
+   the head, short facts in a two-column grid, the note as a paragraph,
+   the lists (a set's parts, supersession, substances) as tables */
+.modal.etk-pi-modal {
+  width: min(720px, calc(100vw - 32px));
+  max-width: 720px;
+}
+.etk-pi-modal .modal-body {
+  max-height: min(70vh, 640px);
+  overflow: auto;
+  user-select: text;
+  -webkit-user-select: text;
+}
+.etk-pi-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 14px;
+  padding-bottom: 10px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+}
+.etk-pi-num {
+  font-family: var(--mono);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--amber);
+  white-space: nowrap;
+}
+.etk-pi-name {
+  font-size: 14px;
+  color: var(--ink);
+}
+.etk-pi-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 8px 18px;
+  margin: 0 0 12px;
+}
+.etk-pi-facts > div {
+  min-width: 0;
+}
+.etk-pi-facts dt,
+.etk-pi-h {
+  color: var(--ink-faint);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 2px;
+}
+.etk-pi-facts dd {
+  margin: 0;
+  font-size: 13px;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+.etk-pi-sec {
+  margin-top: 12px;
+}
+.etk-pi-note {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--ink);
+}
+.etk-pi-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+.etk-pi-table th {
+  text-align: left;
+  font-weight: 500;
+  font-size: 11px;
+  color: var(--ink-faint);
+  padding: 4px 8px 4px 0;
+  border-bottom: 1px solid var(--line);
+}
+.etk-pi-table td {
+  padding: 5px 8px 5px 0;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+  color: var(--ink);
+}
+.etk-pi-table tr:last-child td {
+  border-bottom: 0;
+}
+.etk-pi-table .etk-num {
+  text-align: right;
+  white-space: nowrap;
+}
+.etk-pi-table td.etk-sachnr {
+  font-size: 12.5px;
+}
+
 .etk-loading {
   display: flex;
   align-items: center;
@@ -9678,6 +9821,437 @@ body.remote-helper::after {
   border-left-color: var(--red);
 }
 
+/* ---- Flashing/Backups (screens/flashing/) --------------------------------------
+   Laid out like the BMWeb Flasher app: a rail of pages down the left, the
+   control unit and Identify across the top, the log beside the actions, the
+   Custom Options button pinned under them, the status line and progress bar
+   along the bottom. */
+/* The Flasher's window: it fills the view edge to edge and never scrolls the
+   page -- the log, the history table and the options sheet scroll their own
+   contents. Mirrors .view:has(.wiring-split). */
+.view:has(.fb) {
+  overflow: hidden !important;
+  padding: 0;
+}
+.fb {
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr);
+  height: 100%;
+  min-height: 0;
+  background: var(--panel);
+  overflow: hidden;
+}
+.fb-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 7px;
+  border-right: 1px solid var(--line);
+  background: var(--panel-2);
+}
+.fb-rail-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--ink-dim);
+  font-size: 18px;
+  cursor: pointer;
+}
+.fb-rail-btn:hover {
+  color: var(--ink);
+  border-color: var(--line-bright);
+}
+.fb-rail-btn.current {
+  color: var(--amber);
+  border-color: var(--amber);
+  background: var(--panel);
+}
+.fb-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+}
+/* the screen hides pages, module panels and the options sheet with the
+   hidden attribute; the display rules below would otherwise outrank it */
+.fb [hidden] {
+  display: none !important;
+}
+.fb-topbar {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel-2);
+}
+.fb-select {
+  font: inherit;
+  font-size: 13px;
+  padding: 9px 10px;
+  border-radius: 4px;
+  border: 1px solid var(--line-bright);
+  background: var(--raised);
+  color: var(--ink);
+}
+.fb-ecu {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  text-align: center;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fb-identify {
+  min-width: 120px;
+  justify-content: center;
+}
+.fb-page {
+  flex: 1;
+  min-height: 0;
+  padding: 12px 14px 0;
+  display: flex;
+  flex-direction: column;
+}
+#fb-page-settings {
+  gap: 12px;
+  overflow-y: auto;
+}
+.fb-flashing {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 236px;
+  gap: 14px;
+  flex: 1;
+  min-height: 0;
+}
+.fb-log-wrap {
+  position: relative;
+  display: flex;
+  min-height: 0;
+}
+.fb-log-wrap .fb-log {
+  flex: 1;
+}
+.fb-log-clear {
+  position: absolute;
+  top: 6px;
+  right: 14px;
+  padding: 2px 8px;
+  font: inherit;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  cursor: pointer;
+  opacity: 0.7;
+}
+.fb-log-clear:hover {
+  opacity: 1;
+  color: var(--ink);
+}
+.fb-log {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  line-height: 19px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-y: auto;
+  min-height: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel-2);
+  color: var(--ink-dim);
+}
+.fb-side {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+}
+.fb-actions {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+.fb-actions.fb-locked {
+  opacity: 0.6;
+  pointer-events: none;
+}
+.fb-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.fb-wide {
+  width: 100%;
+  justify-content: center;
+  padding: 9px 12px;
+  font-size: 12.5px;
+}
+.fb-custom {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+.fb-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--ink);
+  cursor: pointer;
+  padding: 2px 0;
+}
+.fb-check input {
+  accent-color: var(--amber);
+}
+.fb-faint {
+  font-size: 11.5px;
+  color: var(--ink-faint);
+  line-height: 1.4;
+}
+.fb-dim {
+  font-size: 12.5px;
+  color: var(--ink-dim);
+  line-height: 1.45;
+}
+.fb-mono {
+  font-family: var(--mono);
+  font-size: 11.5px;
+}
+.fb-name {
+  padding: 0 2px 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fb-ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  align-self: center;
+}
+.fb-pill {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-dim);
+  padding: 5px 6px 5px 10px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+.fb-pill span {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fb-x {
+  border: 1px solid var(--line-bright);
+  background: var(--raised);
+  color: var(--ink);
+  border-radius: 3px;
+  padding: 1px 6px;
+  cursor: pointer;
+  font-size: 11px;
+}
+.fb-sep {
+  border: 0;
+  border-top: 1px solid var(--line);
+  margin: 6px 0 2px;
+}
+.fb-statusbar {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 9px 14px 11px;
+  margin-top: 12px;
+  flex: none;
+  border-top: 1px solid var(--line);
+  background: var(--panel-2);
+}
+.fb-status {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--ink);
+  white-space: pre-wrap;
+  min-height: 1.2em;
+}
+.fb-bar {
+  height: 12px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: rgba(127, 127, 127, 0.18);
+}
+.fb-bar-fill {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--amber);
+  transition: width 0.15s linear;
+}
+.fb-bar-fill.flashing {
+  background: var(--red, #d64545);
+}
+.fb-bar-fill.indeterminate {
+  width: 30% !important;
+  animation: fb-sweep 1.2s linear infinite;
+}
+@keyframes fb-sweep {
+  from {
+    margin-left: -30%;
+  }
+  to {
+    margin-left: 100%;
+  }
+}
+.fb-options {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+.fb-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.fb-h1 {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 18px;
+}
+.fb-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel-2);
+}
+.fb-code {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--amber);
+}
+.fb-grid2 {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 6px 12px;
+  align-items: center;
+}
+.fb-files {
+  grid-template-columns: 220px minmax(0, 1fr);
+}
+.fb-radios {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.fb-report {
+  white-space: pre-wrap;
+  color: var(--ink);
+}
+.fb-table-wrap {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  margin: 10px 0;
+}
+.fb-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+.fb-table th {
+  text-align: left;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line);
+  position: sticky;
+  top: 0;
+  background: var(--panel-2);
+}
+.fb-table td {
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+.fb-table tr {
+  cursor: pointer;
+}
+.fb-table tr:hover td {
+  background: var(--raised);
+}
+.fb-table tr.active td {
+  background: var(--panel-2);
+  box-shadow: inset 2px 0 0 var(--amber);
+}
+.fb-details {
+  color: var(--ink-dim);
+  word-break: break-word;
+}
+.fb-result-ok {
+  color: var(--green, #5fbf7a);
+}
+.fb-result-failed {
+  color: var(--red, #d64545);
+}
+.fb-field-label {
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--ink-dim);
+}
+.fb-ack {
+  margin-top: 12px;
+}
+.fb-modal-actions {
+  flex-wrap: wrap;
+}
+@media (max-width: 760px) {
+  .fb {
+    grid-template-columns: 44px minmax(0, 1fr);
+  }
+  .fb-flashing {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .fb-topbar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .fb-log {
+    min-height: 220px;
+  }
+}
+
 /* ---- Control unit tree (screens/tree/) ---- */
 .tree-wrap {
   display: grid;
@@ -11594,4 +12168,83 @@ body.ista-mode .view {
 }
 .ista-repair .rp-cancel:hover {
   filter: brightness(0.95);
+}
+
+/* The BMWeb cursor (Settings > BMWeb cursor): the app's own mark as the
+   mouse pointer, redrawn by applyCursor() whenever the skin changes so it
+   always matches the favicon.
+
+   THE STYLESHEET ALREADY DECLARES `cursor` 120 TIMES (97 of them
+   `pointer`), and every one of those is more specific than a value
+   inherited from the root -- so an inherit-only rule showed the logo on
+   bare background and the system arrow everywhere else, which looked like
+   it was flickering on and off. Instead the pointer-ish values are
+   replaced wholesale under the toggle class, with `!important` to beat the
+   existing declarations wherever they sit. Only the cursors that carry
+   real meaning are left alone: a text caret, a resize/drag grip, the
+   loupe's zoom, and not-allowed on a disabled control. */
+.bmweb-cursor,
+.bmweb-cursor *:not(:disabled):not([disabled]) {
+  cursor: var(--app-cursor) !important;
+}
+/* the pointers that say something the logo cannot */
+.bmweb-cursor
+  input:not([type='button']):not([type='submit']):not([type='checkbox']):not(
+    [type='radio']
+  ),
+.bmweb-cursor textarea,
+.bmweb-cursor [contenteditable='true'],
+.bmweb-cursor .etk-parts td,
+.bmweb-cursor .etk-dtitle,
+.bmweb-cursor .etk-sachnr,
+.bmweb-cursor .etk-name {
+  cursor: text !important;
+}
+.bmweb-cursor :disabled,
+.bmweb-cursor [disabled] {
+  cursor: not-allowed !important;
+}
+.bmweb-cursor .etk-figure,
+.bmweb-cursor .etk-lightbox-img {
+  cursor: zoom-in !important;
+}
+.bmweb-cursor [class*='resize'],
+.bmweb-cursor [class*='drag'],
+.bmweb-cursor .split-handle {
+  cursor: inherit;
+}
+
+/* A key legend the script printed into its own screen ("< F4 >  Read fault
+   memory") is clickable, and reads like the vehicle screen's F-key rows:
+   the same quiet wash under the pointer. The legend is the key AND its
+   label, so the words light with the number and either fires the key. A
+   row carrying two legends keeps them separate -- only the half under the
+   pointer lights, so which one a click would send is never in doubt. The
+   row's TEXT is untouched: the script's columns stay exactly where it put
+   them, only the affordance is added. */
+.ipo-key {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  white-space: pre;
+  border-radius: 3px;
+  transition:
+    background 0.1s,
+    color 0.1s;
+}
+.ipo-key:hover {
+  background: rgba(127, 127, 127, 0.1);
+  color: var(--amber);
+}
+html[data-theme='inpa'] .ipo-key:hover {
+  background: #eef2ff;
+  color: #000080;
+}
+.ipo-key:focus-visible {
+  outline: 1px solid var(--amber);
+  outline-offset: 1px;
 }

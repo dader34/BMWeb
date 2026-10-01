@@ -57,6 +57,24 @@ function showSettings() {
   themeRow.appendChild(themeGrid);
   wrap.appendChild(themeRow);
 
+  // the pointer wears the app's own mark, in whichever skin is current
+  const cursorRow = document.createElement('div');
+  cursorRow.className = 'setting-row';
+  const cursorOn = typeof bmwebCursor === 'function' ? bmwebCursor() : false;
+  cursorRow.innerHTML = `
+    <div class="setting-text">
+      <div class="setting-title">${APP_NAME} cursor</div>
+      <div class="setting-desc">Use the ${APP_NAME} logo as the mouse pointer.
+        It follows the skin, so it always matches the icon in the tab.</div>
+    </div>
+    <button class="btn" id="set-cursor-toggle">${cursorOn ? 'On' : 'Off'}</button>`;
+  cursorRow.querySelector('#set-cursor-toggle').onclick = () => {
+    Settings.set('bmwebCursor', !cursorOn);
+    if (typeof applyCursor === 'function') applyCursor();
+    showSettings();
+  };
+  wrap.appendChild(cursorRow);
+
   wrap.appendChild(
     settingRow(
       'Function labels',
@@ -118,20 +136,6 @@ function showSettings() {
   tourRow.appendChild(tourBtn);
   wrap.appendChild(tourRow);
 
-  const hiwRow = document.createElement('div');
-  hiwRow.className = 'setting-row tour-setting';
-  hiwRow.innerHTML = `
-    <div class="setting-text">
-      <div class="setting-title">How it works</div>
-      <div class="setting-desc">A quick guided demo of what ${APP_NAME} does and the BMW software it uses.</div>
-    </div>`;
-  const hiwBtn = document.createElement('button');
-  hiwBtn.className = 'btn';
-  hiwBtn.textContent = 'How it works';
-  hiwBtn.onclick = () => showHowItWorks();
-  hiwRow.appendChild(hiwBtn);
-  wrap.appendChild(hiwRow);
-
   // beta feedback: the Report button + what a report carries
   const betaRow = document.createElement('div');
   betaRow.className = 'setting-row';
@@ -156,57 +160,6 @@ function showSettings() {
     if (!betaOn && typeof _journalButton === 'function') _journalButton();
     showSettings();
   };
-  // a cable another machine is serving (`bmweb gateway`). Not gated on the
-  // offline flag: an offline export served over http on a workshop LAN is
-  // exactly the case where this works, and the hosted https site is the one
-  // where a plain ws:// cannot be opened at all.
-  const gwRow = document.createElement('div');
-  gwRow.className = 'setting-row';
-  const gwNow = Settings.get('gatewayUrl', '');
-  gwRow.innerHTML = `
-    <div class="setting-text">
-      <div class="setting-title">Cable on another machine</div>
-      <div class="setting-desc">Drive a K+DCAN cable plugged into a different
-        computer, which serves it with <code>bmweb gateway</code>. The car is
-        driven from here: only bytes cross. That machine is a plain pipe with
-        no gate of its own, so anyone who can reach it can drive the car.
-        A page served over http (localhost, an offline copy on your network)
-        can use a <code>ws://</code> gateway; this site over https cannot
-        (browsers block it as mixed content), so from https only
-        <code>wss://</code> works.<br>Now: <b>${esc(gwNow || 'this machine’s own cable')}</b></div>
-    </div>
-    <div class="setting-btns">
-      <button class="btn" id="set-gateway">${gwNow ? 'Change…' : 'Set…'}</button>
-      ${gwNow ? '<button class="btn" id="set-gateway-clear">Use this machine</button>' : ''}
-    </div>`;
-  gwRow.querySelector('#set-gateway').onclick = async () => {
-    const v = await inputDialog({
-      title: 'Cable on another machine',
-      body:
-        'The address that machine’s `bmweb gateway` prints, for example ' +
-        '192.168.1.9:6801 or ws://192.168.1.9:6801. Leave it empty to use ' +
-        'this machine’s own cable.',
-      example: '192.168.1.9:6801',
-      confirmLabel: 'Use it',
-    });
-    if (v === null) return;
-    Settings.set('gatewayUrl', gatewayWsUrl(v));
-    // the cable in hand belongs to the old choice; drop it so the next
-    // connect goes where the setting now points
-    if (window.webBus && webBus.connected) await webBus.disconnect();
-    showSettings();
-    if (typeof statusPoller !== 'undefined') statusPoller.refresh();
-  };
-  const gwClear = gwRow.querySelector('#set-gateway-clear');
-  if (gwClear)
-    gwClear.onclick = async () => {
-      Settings.set('gatewayUrl', '');
-      if (window.webBus && webBus.connected) await webBus.disconnect();
-      showSettings();
-      if (typeof statusPoller !== 'undefined') statusPoller.refresh();
-    };
-  wrap.appendChild(gwRow);
-
   // remote diagnostics: share the car, or drive a shared one
   const remoteRow = document.createElement('div');
   remoteRow.className = 'setting-row';

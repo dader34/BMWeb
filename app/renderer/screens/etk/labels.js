@@ -102,6 +102,32 @@ function etkVariantLabel(v) {
 }
 
 /**
+ * The caption for the CAR the catalogue is filtered to, when a VIN said
+ * when it was built: the variant's model, body, engine, side and gearbox,
+ * then "built 09/2004" -- the car's own month, not the month its type key
+ * was introduced. The variant label's date is the introduction ("10/2001"
+ * for an ET37), and printed beside a 2004 car it read as the car's year.
+ * @param {EtkVariant} v - the matched variant
+ * @param {{prod?: string|number}|null} [hit] - the decoded VIN
+ * @returns {string}
+ */
+function etkCarLabel(v, hit) {
+  const prod = String((hit && hit.prod) || '').slice(0, 6);
+  if (!/^\d{6}$/.test(prod)) return etkVariantLabel(v);
+  const parts = [];
+  if (v.model) parts.push(v.model);
+  if (v.body) parts.push(v.body);
+  if (v.motor) parts.push(v.motor);
+  if (v.steer) parts.push(ETK_STEER_ABBREV[v.steer] || v.steer);
+  if (v.gear) {
+    const g = ETK_GEAR_ABBREV[v.gear];
+    if (g) parts.push(g);
+  }
+  parts.push(`built ${etkYearMonth(prod)}`);
+  return parts.join(' · ');
+}
+
+/**
  * BMW part numbers print as the full 11-digit number when we have the group
  * prefix: main-group + subgroup + 7-digit sachnr, grouped "11 13 7 791 531".
  * Without a prefix, fall back to grouping the 7-digit number alone.

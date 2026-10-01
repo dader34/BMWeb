@@ -145,6 +145,8 @@ async function showLookup() {
     { label: 'Apps', fn: showApps },
     { label: 'Diagnostics' },
   ]);
+  // the reader may leave while this screen loads (screenOwner)
+  const _mine = screenOwner();
   sbLeft.textContent = 'diagnostics';
 
   view.innerHTML = head(
@@ -188,16 +190,19 @@ async function showLookup() {
   const inpa = typeof inpaMode === 'function' && inpaMode();
 
   const controls = lookupControls();
+  if (!_mine()) return;
   view.appendChild(controls.el);
   const { input, clearBtn } = controls;
 
   // count line + results container
   const countLine = document.createElement('div');
   countLine.className = 'lookup-count';
+  if (!_mine()) return;
   view.appendChild(countLine);
 
   const results = document.createElement('div');
   results.className = 'lookup-results';
+  if (!_mine()) return;
   view.appendChild(results);
 
   const chassisDd = lookupDropdown(
@@ -315,6 +320,7 @@ async function showLookup() {
     }
   );
 
+  if (!_mine()) return;
   setActions([
     {
       key: 'Escape',

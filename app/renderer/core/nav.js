@@ -36,6 +36,8 @@ async function showChassis() {
   cancelSweep(); // leaving the chassis list stops any sweep (sweep.js)
   lastScreen = showChassis;
   setCrumbs([{ label: 'Vehicles' }]);
+  // the reader may leave while this screen loads (screenOwner)
+  const _mine = screenOwner();
   sbLeft.textContent = 'select chassis';
   const ids = await tryApi('/api/chassis', null, view);
   if (!ids) return;
@@ -91,6 +93,7 @@ async function showChassis() {
     return;
   }
 
+  if (!_mine()) return;
   view.innerHTML = head(
     'Vehicles',
     'Select your vehicle',
@@ -111,6 +114,7 @@ async function showChassis() {
     </span>
     <span class="lookup-entry-arrow">→</span>`;
   appsCard.onclick = () => showApps();
+  if (!_mine()) return;
   view.appendChild(appsCard);
 
   // Garage: the cars this user keeps, and the scan history read from each.
@@ -217,7 +221,9 @@ async function showChassis() {
     filterRow.appendChild(chip);
   });
 
+  if (!_mine()) return;
   view.appendChild(filterRow);
+  if (!_mine()) return;
   view.appendChild(grid);
   renderGrid();
 
@@ -232,6 +238,7 @@ async function showChassis() {
     label: 'Apps',
     fn: () => showApps(),
   });
+  if (!_mine()) return;
   setActions(acts);
 }
 
@@ -246,13 +253,37 @@ async function showChassis() {
  */
 async function showScriptSelection(chassisId, onAbort) {
   setStateSgbd(null); // reset the battery/ignition poll target now, re-aim below (screens/sweep/autoscan.js)
+  // THE CHASSIS IS A 20 MB ARCHIVE THE FIRST TIME. Nothing moved between the
+  // click and the popup, so a slow connection looked like a dead key. The
+  // app's own progress popup (the roundel turning) covers the wait; it only
+  // appears when the load takes longer than an eye can miss, so a cached
+  // chassis opens without a flash, and Esc leaves the vehicle screen alone.
+  let busy = null;
+  let cancelled = false;
+  const showBusy = setTimeout(() => {
+    if (typeof progressDialog !== 'function') return;
+    busy = progressDialog({
+      title: `Loading ${esc(dispChassis(chassisId))}`,
+      text: 'Fetching the chassis data…',
+      onCancel: () => {
+        cancelled = true;
+      },
+    });
+  }, 150);
   let ch;
   try {
     ch = await api(`/api/chassis/${chassisId}`);
   } catch (e) {
+    clearTimeout(showBusy);
+    if (busy) busy.close();
+    if (cancelled) return;
     showSections(chassisId);
     return;
+  } finally {
+    clearTimeout(showBusy);
+    if (busy) busy.close();
   } // fall back to the full screen
+  if (cancelled) return;
   setStateSgbd(ch); // retarget the battery/ignition poll at this chassis's DME (screens/sweep/autoscan.js)
   autoScan(chassisId, ch).catch(() => {}); // background engine/trans scan; no-ops when the config has no grouped targets
 
@@ -399,6 +430,8 @@ async function showFunctionalJobs(chassisId) {
     { label: dispChassis(id) },
     { label: 'Functional Jobs' },
   ]);
+  // the reader may leave while this screen loads (screenOwner)
+  const _mine = screenOwner();
   sbLeft.textContent = 'functional jobs';
   view.innerHTML = head(
     'Functional Jobs',
@@ -567,6 +600,8 @@ async function showSections(id, selectIndex = 0) {
     { label: 'Vehicles', fn: showChassis },
     { label: dispChassis(id) },
   ]);
+  // the reader may leave while this screen loads (screenOwner)
+  const _mine = screenOwner();
   if (typeof routeSetCarList === 'function') routeSetCarList(id);
   sbLeft.textContent = `loading ${dispChassis(id)}…`;
   // name neither side: below 760px the system rail sits ABOVE its modules, not left
@@ -716,5 +751,6 @@ async function showSections(id, selectIndex = 0) {
     kind: 'back',
     fn: showChassis,
   });
+  if (!_mine()) return;
   setActions(actions);
 }

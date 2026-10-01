@@ -36,6 +36,19 @@ const WEB_BASE = (
 const CHASSIS_CACHE = new Map();
 
 /**
+ * Chassis archives on their way in, keyed by chassis id: the SECOND caller
+ * of a 20 MB (or, for the catch-all, 112 MB) archive waits on the first
+ * fetch rather than starting its own. Nine ECU reads that arrived together
+ * on opening a chassis each found the cache empty and each pulled the
+ * whole catch-all -- a gigabyte for one click.
+ * @type {Map<string, Promise<ChassisData>>}
+ */
+const CHASSIS_LOADING = new Map();
+
+/** The sgbd -> chassis index, fetched once. @type {Promise<Record<string,string>|null>|null} */
+let ECU_INDEX_LOADING = null;
+
+/**
  * Cache of parsed ECU files: sgbd (lowercased) -> Map(filename -> content).
  * @type {Map<string, Map<string, any>>}
  */
@@ -71,6 +84,7 @@ function inlineData() {
 async function loadChassis(chassisId, realFetch) {
   const upperId = chassisId.toUpperCase();
   if (CHASSIS_CACHE.has(upperId)) return CHASSIS_CACHE.get(upperId);
+  if (CHASSIS_LOADING.has(upperId)) return CHASSIS_LOADING.get(upperId);
 
   const inline = inlineData();
   if (inline && inline[upperId]) {
@@ -81,12 +95,19 @@ async function loadChassis(chassisId, realFetch) {
   }
 
   const fileUrl = `${WEB_BASE}/api/chassis/${upperId}.chassis`;
-  const res = await realFetch(fileUrl);
-  if (!res.ok)
-    throw new Error(`Failed to load chassis ${upperId}: ${res.statusText}`);
-
-  const buffer = await res.arrayBuffer();
-  return cacheChassis(upperId, new Uint8Array(buffer));
+  const loading = (async () => {
+    const res = await realFetch(fileUrl);
+    if (!res.ok)
+      throw new Error(`Failed to load chassis ${upperId}: ${res.statusText}`);
+    const buffer = await res.arrayBuffer();
+    return cacheChassis(upperId, new Uint8Array(buffer));
+  })();
+  CHASSIS_LOADING.set(upperId, loading);
+  try {
+    return await loading;
+  } finally {
+    CHASSIS_LOADING.delete(upperId);
+  }
 }
 
 /**
@@ -121,6 +142,47 @@ function cacheChassis(upperId, bytes) {
 }
 
 /**
+ * Every chassis config by id, from the export's one small file, cached
+ * for the page. Null when the file is not there (an export older than it,
+ * or an offline copy without it), in which case a config still comes from
+ * its archive. The promise is cached so concurrent askers (car detection
+ * asks for all 26 at once) share one fetch; a failed fetch is forgotten.
+ * @type {Promise<Record<string, any>|null>|null}
+ */
+let chassisConfigsP = null;
+
+/**
+ * A chassis config WITHOUT its archive. A config is a few KB and is what
+ * nav, the module screen, the tour and car detection want; the archive
+ * behind it is 20-37 MB and only an ECU load needs it. Before this every
+ * config read fetched and unzipped the archive, and detection -- which
+ * reads all 26 to see which cars list the module that answered -- pulled
+ * ~400 MB to answer a question a 280 KB file settles.
+ * @param {string} chassisId - The chassis id (any case).
+ * @param {RealFetch} realFetch - The unshimmed fetch.
+ * @returns {Promise<any|null>} The config, or null when only the archive has it.
+ */
+async function loadChassisConfig(chassisId, realFetch) {
+  const upperId = chassisId.toUpperCase();
+  const cached = CHASSIS_CACHE.get(upperId);
+  if (cached) return cached.config;
+  const inline = inlineData();
+  if (inline && inline._configs) return inline._configs[upperId] || null;
+  if (!chassisConfigsP) {
+    chassisConfigsP = realFetch(
+      `${WEB_BASE}/${WEB_API_BASE}/chassis-configs.json`
+    )
+      .then((r) => (r.ok ? r.json() : null))
+      .catch(() => null);
+    chassisConfigsP.then((v) => {
+      if (!v) chassisConfigsP = null;
+    });
+  }
+  const all = await chassisConfigsP;
+  return (all && all[upperId]) || null;
+}
+
+/**
  * The sgbd -> chassis owner index, inlined or fetched.
  * @param {RealFetch} realFetch - The unshimmed fetch.
  * @returns {Promise<Record<string, string>|null>}
@@ -128,9 +190,17 @@ function cacheChassis(upperId, bytes) {
 async function loadEcuIndex(realFetch) {
   const inline = inlineData();
   if (inline && inline._index) return inline._index;
-  return (await realFetch(`${WEB_BASE}/${WEB_API_BASE}/ecu-index.json`))
-    .json()
-    .catch(() => null);
+  // one fetch for everyone: the index is asked for by every ECU read that
+  // finds no open chassis holding its SGBD, and nine at once fetched it
+  // nine times
+  if (!ECU_INDEX_LOADING)
+    ECU_INDEX_LOADING = realFetch(`${WEB_BASE}/${WEB_API_BASE}/ecu-index.json`)
+      .then((r) => r.json())
+      .catch(() => {
+        ECU_INDEX_LOADING = null; // a failed fetch may be retried
+        return null;
+      });
+  return ECU_INDEX_LOADING;
 }
 
 /**
@@ -387,8 +457,18 @@ async function routeRun(rel, sgbd, jobRaw) {
         return errorResponse(`${sgbd}: no module answered on the wire`);
       }
     }
-    await switchSession(variant || sgbd);
-    const r = await webRunJob(variant || sgbd, job, arg);
+    // The session switch and the job are ONE critical section. The bus
+    // lock is per telegram, so two jobs on different SGBDs issued together
+    // used to interleave telegram by telegram, each start ending the
+    // other's session and re-running its INITIALISIERUNG (with the probe
+    // timeout that carries). Hold the lock across both and run on the raw
+    // exchange, as the coding write does, so nothing else reaches the wire
+    // until this job has its answer.
+    const r = await withBusLock(async () => {
+      const exchange = (out, comm) => webBusRawExchange(out, comm);
+      await switchSession(variant || sgbd, exchange);
+      return webRunJob(variant || sgbd, job, arg, { exchange });
+    });
     apiTrace.add({
       sgbd,
       job,
@@ -506,12 +586,19 @@ async function routeStatic(rel, real, init) {
       // file explicitly.
       const inline = inlineData();
       if (inline) {
-        return jsonResponse(Object.keys(inline).filter((k) => k !== '_index'));
+        // _SGBD (the catch-all) IS a chassis here; only the side tables are not
+        return jsonResponse(
+          Object.keys(inline).filter((k) => k !== '_index' && k !== '_configs')
+        );
       }
       return real(`${WEB_BASE}/${WEB_API_BASE}/chassis.json`, init);
     }
     const cid = m[1];
     try {
+      // the config alone when the export ships it; the archive only
+      // when nothing else has it
+      const config = await loadChassisConfig(cid, real);
+      if (config) return jsonResponse(config);
       const data = await loadChassis(cid, real);
       return jsonResponse(data.config);
     } catch (e) {

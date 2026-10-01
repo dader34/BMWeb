@@ -21,5 +21,7 @@ when reading the reference.
 ## BMW EDIABAS / INPA data
 
 `vendor/EDIABAS/` and `vendor/EC-APPS/` are BMW proprietary diagnostic data (SGBD
-.prg files, INPA .ipo configs). They are NOT redistributed and are excluded from
-this repository. Supply your own copy (BMW Standard Tools) to run the app.
+.prg files, INPA .ipo configs). Neither they nor anything generated from them
+(`data/`, `app/renderer/data/`) is part of this repository, which holds the
+tools and the app only. `scripts/setup/fetch_repo_data.py` fetches the
+generated data a build reads.

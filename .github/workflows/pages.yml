@@ -9,9 +9,11 @@
 # this is not a fast job -- most of the time is the artifact upload, not the
 # build (the export itself is ~20s).
 #
-# No app is needed here: web_export.py falls back to data/chassis-config,
-# committed for exactly this reason. Everything else is already a generated
-# file in the repo.
+# No app is needed here: web_export.py falls back to data/chassis-config.
+# That and every other generated file the build reads is NOT in the repo: it
+# is one archive in the bmw-files dataset, pinned by checksum in
+# scripts/setup/repo-data.sha256 and fetched as the first step. Regenerated
+# data deploys when that checksum is committed.
 name: pages
 
 on:
@@ -19,10 +21,13 @@ on:
     branches: [main]
     paths:
       - 'app/renderer/**'
-      - 'data/**'
+      - 'scripts/setup/repo-data.sha256'
+      - 'scripts/setup/fetch_repo_data.py'
       - 'tools/export/**'
       - 'tools/sgbd/ecu_tree.py'
       - 'scripts/build/build-web.sh'
+      - 'scripts/build/ci-fetch-hf-data.sh'
+      - 'scripts/build/fetch_wiring.py'
       - '.github/workflows/pages.yml'
   workflow_dispatch:
 
@@ -57,10 +62,13 @@ jobs:
           # re-downloading eslint/prettier/typescript every time (~7 min)
           cache: npm
 
-      - name: Expand the committed data
+      - name: Fetch the generated data
+        run: python3 scripts/setup/fetch_repo_data.py
+
+      - name: Expand the fetched data
         run: |
           set -euo pipefail
-          # The committed data is gzipped. inpa-ir is read as .json by the tree
+          # The fetched data is gzipped. inpa-ir is read as .json by the tree
           # builder, so expand it in place first.
           find data/inpa-ir -name '*.json.gz' -print0 \
             | xargs -0 -r -P 4 -I{} gzip -dkf {}
@@ -87,7 +95,7 @@ jobs:
           npm run typecheck
 
       # NO DEPLOY OF UNTESTED CODE. These are the verify tests whose inputs
-      # are all in git (plus the data/chassis tree assembled above): the VM
+      # are all fetched above (plus the data/chassis tree assembled there): the VM
       # against captured telegrams, the wire framing, the VM bridge, the live .IPO
       # runtime and its captions, and -- critically -- the safety write-guard and its gate,
       # which keep an unrecognised job from ever reaching the car. They need no
@@ -108,7 +116,7 @@ jobs:
       - name: Build the static site
         run: |
           set -euo pipefail
-          # The exporter reads the committed chassis-config cache here (no
+          # The exporter reads the fetched chassis-config cache here (no
           # BMACW_PORT), so call the pieces directly.
           mkdir -p dist-web
           python3 tools/export/web_export.py --out dist-web
@@ -146,26 +154,30 @@ jobs:
           set -euo pipefail
           # The .wiring archives are built from a WDS release, which is 4.7 GB
           # and not in this repo, so they cannot be generated here. They are
-          # published to the wiring-images repo's releases by hand and pulled
-          # in: 154 MB of diagrams and text, no photographs. Those come from a
-          # CDN at runtime (see WIRING_IMG_CDN in screens/wiring.js) because a
-          # Pages site may hold 1 GB and the images alone are 539 MB.
+          # pulled from the bmw-files dataset with the photographs dropped:
+          # ~150 MB of diagrams and text. The photographs are fetched from the
+          # same dataset at runtime (see WIRING_IMG_MIRRORS in
+          # screens/wiring/archive.js) because a Pages site may hold 1 GB and
+          # the complete archives are that alone.
           #
-          # Absent IS fatal now: a site with no Wiring section shipped
-          # before this step existed and nothing noticed. If the wiring
-          # release is genuinely meant to be skipped, delete this step on
-          # purpose rather than letting it fail quietly.
-          # (gh creates the --dir itself; no pre-mkdir, so a failed download
-          # cannot leave an empty directory behind.)
-          gh release download wiring-latest \
-            --repo dader34/BMacW-wiring-images \
-            --pattern '*.wiring' --dir dist-web/data/wiring
-          n=$(find dist-web/data/wiring -name '*.wiring' | wc -l)
-          echo "wiring archives: $n"
+          # Absent IS fatal: a site with no Wiring section shipped before this
+          # step existed and nothing noticed. The fetch fails on fewer than
+          # one archive per covered chassis.
+          scripts/build/ci-fetch-hf-data.sh wiring
+
+      - name: Reference documents and the wiring VIN filter
+        run: |
+          set -euo pipefail
+          # Both came with the fetched data and live outside app/renderer, so
+          # the copy above does not bring them. Without the .docs the wiring
+          # app's Components and Repair tabs say "No documents shipped";
+          # without the index a VIN cannot narrow the diagrams.
+          mkdir -p dist-web/data/docs dist-web/data/wiring
+          cp data/docs/*.docs dist-web/data/docs/
+          cp data/wiring-applicability.json.gz dist-web/data/wiring/applicability.json.gz
+          n=$(find dist-web/data/docs -name '*.docs' | wc -l)
+          echo "reference document archives: $n"
           test "$n" -ge 15   # one per covered chassis
-          du -sh dist-web/data/wiring
-        env:
-          GH_TOKEN: ${{ github.token }}
 
       - name: Put the installer at the root
         run: |

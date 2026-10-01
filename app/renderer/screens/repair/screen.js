@@ -204,7 +204,8 @@ async function showRepair(host, car, chassis, view) {
     `<div class="ista-repair"><div class="rp-loading">` +
     `<span class="wiring-spinner"></span>` +
     `<span>Loading the repair manual…</span></div></div>`;
-  const idx = await repairIndex(code);
+  // the chassis index, narrowed to this car by its own rules
+  const idx = await repairNarrow(await repairIndex(code), car, code);
   if (!host.isConnected) return;
   if (!idx) {
     host.innerHTML =

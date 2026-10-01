@@ -1,102 +1,224 @@
 #!/usr/bin/env python3
 """Build the WDS wiring VIN-applicability index from ISTA's DiagDocDb.
 
-Each wiring schematic (XEP_INFOOBJECTS INFOTYPE='SSP', IDENTIFIER '...-SP0000NNNNNN')
-is valid for a set of chassis (E-Bezeichnung) and engines (Motor). That
-applicability comes from two places, combined:
+Each wiring schematic (XEP_INFOOBJECTS INFOTYPE='SSP', IDENTIFIER
+'...-SP0000NNNNNN') carries a validity rule, and ISTA reaches it through
+the diagnosis tree, whose nodes carry rules of their own. So a schematic
+applies to a car when its OWN rule holds AND some path of tree nodes down
+to it holds. Both are shipped as decoded rule trees, in ISTA's own grammar
+(tools/ista/validity_rules.py), and the app evaluates them against the car
+three-valued: true shows, false hides, undecidable keeps.
 
-  1. The doc's OWN validity rule: XEP_RULES.ID = XEP_INFOOBJECTS.ID (1:1). The
-     rule BLOB encodes characteristic ids.
-  2. INHERITED from its diagnosis-tree ancestors. Many docs' own rule is
-     chassis-only; the engine constraint sits on an ancestor node ("Engine
-     control" carries M62/S54/S62, say) that the doc hangs under. We walk up:
-        doc -> XEP_REFINFOOBJECTS(DiagobjDocumentLink) -> diagnosis CONTROLIDs
-            -> XEP_REFDIAGNOSISTREE upward (ID=parent controlid,
-               DIAGNOSISOBJECTCONTROLID=child controlid)
-            -> at each ancestor, XEP_RULES[diagobj.ID] -> characteristics
-     and take engine chars from the NEAREST ancestor that has any.
+THE RULE IS A TREE, NOT A BAG OF IDS. The previous index slid a four-byte
+window over the blob and kept any value that happened to be a chassis,
+engine or body id. That has no notion of AND, OR or NOT, so a rule reading
+"NOT engine M54" shipped as engine {M54} -- the exact inverse -- and a date
+was any number in a plausible range preceded by a byte the real grammar
+uses for NOT. Every blob decodes with the real grammar; one that does not
+is a corrupt row and is shipped as `u` (unsure), which the app keeps.
 
-Output data/wiring-applicability.json.gz:
-    { "sp": { "SP0000014320": { "c": ["E46"], "e": ["S54"] }, ... } }
+Output (compact JSON, gzipped when the name ends in .gz):
 
-Usage: build_applicability.py <DiagDocDb.decrypted.sqlite> <out.json>
+    {"version": 2,
+     "roots": {"chassis": 53088651, "engine": 53363595, "body": 53046411},
+     "rules": {"<object id>": <tree>, ...},
+     "sp": {"SP0000014320": {"r": "<own rule id>",
+                              "p": [["<ancestor rule id>", ...], ...],
+                              "c": ["E46"],
+                              "u": 1}, ...}}
+
+`r` names the document's own rule in `rules`, `p` lists every distinct
+path of gated ancestors (nearest first) as rule ids, `c` is the chassis
+list the composed rule holds for (every type key of the chassis folded
+together -- what the reference-document importer packs bundles by) and `u`
+marks a rule the grammar could not read. A document with neither `r` nor
+`p` is generally valid.
+
+Usage: build_applicability.py <DiagDocDb.decrypted.sqlite> <out.json[.gz]>
 """
+import gzip
 import json
 import os
 import sqlite3
 import sys
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # tools/
-from ista_rules import RuleDecoder                              # noqa: E402
-from _cli import parse_args                                     # noqa: E402
+HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.dirname(HERE))                        # tools/
+sys.path.insert(0, os.path.join(os.path.dirname(HERE), "ista"))  # tools/ista
+from _cli import parse_args                                      # noqa: E402
+from validity_rules import (                                     # noqa: E402
+    CHASSIS_ROOT,
+    RuleParseError,
+    chassis_char_ids,
+    compose_rule,
+    parse_rule,
+    read_char_names,
+    read_typekeys,
+    rule_applies,
+)
+
+ENGINE_ROOT = 53363595
+BODY_ROOT = 53046411
+# a document hangs under several tree nodes at most a handful of times; more
+# distinct paths than this is a data oddity, not something to ship whole
+MAX_PATHS = 8
+MAX_DEPTH = 40
+
+
+def sp_of(ident):
+    """The SP document number inside an identifier, or None."""
+    for part in str(ident or "").split("-"):
+        if part.startswith("SP") and part[2:].isdigit():
+            return part
+    return None
+
+
+class Rules:
+    """Every rule blob, decoded once on first use."""
+
+    def __init__(self, con):
+        self.raw = {r[0]: r[1] for r in con.execute("SELECT ID, RULE FROM XEP_RULES")}
+        self.trees = {}
+        self.unsure = set()
+
+    def get(self, obj_id):
+        """(tree or None, unsure) for one object id."""
+        if obj_id in self.trees:
+            return self.trees[obj_id], obj_id in self.unsure
+        blob = self.raw.get(obj_id)
+        tree = None
+        if blob:
+            try:
+                tree, end = parse_rule(blob)
+                if end != len(blob):
+                    raise RuleParseError("trailing bytes")
+            except RuleParseError:
+                tree = None
+                self.unsure.add(obj_id)
+        self.trees[obj_id] = tree
+        return tree, obj_id in self.unsure
+
+
+def tree_paths(con):
+    """The diagnosis tree as the maps a walk upward needs."""
+    parent_of = {}
+    for pid, cid in con.execute(
+        "SELECT ID, DIAGNOSISOBJECTCONTROLID FROM XEP_REFDIAGNOSISTREE"
+    ):
+        parent_of[cid] = pid
+    objs_by_ctrl = {}
+    for oid, ctrl in con.execute(
+        "SELECT ID, CONTROLID FROM XEP_DIAGNOSISOBJECTS WHERE CONTROLID IS NOT NULL"
+    ):
+        objs_by_ctrl.setdefault(ctrl, []).append(oid)
+    doc_ctrls = {}
+    for cid, io_id in con.execute(
+        "SELECT ID, INFOOBJECTID FROM XEP_REFINFOOBJECTS "
+        "WHERE LINK_TYPE_ID='DiagobjDocumentLink'"
+    ):
+        doc_ctrls.setdefault(io_id, []).append(cid)
+    return parent_of, objs_by_ctrl, doc_ctrls
+
+
+def ancestor_paths(io_id, rules, parent_of, objs_by_ctrl, doc_ctrls):
+    """Every distinct path of gated ancestors above a document, nearest
+    first, as lists of object ids whose rule decoded. An ancestor whose rule
+    is unsure is left out of the path: the app would treat it as undecided,
+    which keeps the document, and that is what leaving it out does too."""
+    paths = []
+    seen = set()
+    for start in doc_ctrls.get(io_id, ()):
+        path = []
+        ctrl, depth = start, 0
+        while ctrl is not None and depth < MAX_DEPTH:
+            for oid in sorted(objs_by_ctrl.get(ctrl, ())):
+                tree, _unsure = rules.get(oid)
+                if tree:
+                    path.append(oid)
+            ctrl = parent_of.get(ctrl)
+            depth += 1
+        key = tuple(path)
+        if key in seen:
+            continue
+        seen.add(key)
+        paths.append(path)
+        if len(paths) >= MAX_PATHS:
+            break
+    return paths
 
 
 def main():
-    """CLI entry: decode every SSP wiring document's applicability into
-    `<out.json>` (compact JSON) and print the coverage statistics.
-
-    Returns:
-        0, for the process exit code.
-    """
-    ns = parse_args(__doc__, positional=("args", 2, "DiagDocDb.decrypted.sqlite OUT.json"))
+    """CLI entry: decode every SSP wiring document's applicability."""
+    ns = parse_args(__doc__, positional=("args", 2, "DiagDocDb.decrypted.sqlite OUT.json[.gz]"))
     db, out = ns.args
-    con = sqlite3.connect(db)
-    cur = con.cursor()
-    # rule decoding (characteristics, diagnosis-tree walk) is shared with the
-    # reference-document extractor so both read ISTA's rules the same way
-    rules = RuleDecoder(con)
+    con = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
+    rules = Rules(con)
+    parent_of, objs_by_ctrl, doc_ctrls = tree_paths(con)
 
-    # --- SSP wiring docs -----------------------------------------------------
-    cur.execute("SELECT ID, IDENTIFIER FROM XEP_INFOOBJECTS WHERE INFOTYPE='SSP'")
-    ssp = cur.fetchall()
+    # the chassis folds the reference-document importer packs by
+    typekeys = read_typekeys(con)
+    char_names = read_char_names(con)
+    chassis_names = sorted(
+        {
+            str(char_names.get(str(v), "")).upper()
+            for tk in typekeys.values()
+            for v in tk.get(str(CHASSIS_ROOT), [])
+        }
+        - {""}
+    )
+    folds = {c: chassis_char_ids(typekeys, char_names, c) for c in chassis_names}
 
     index = {}
-    stats = dict(total=0, own_engine=0, inherited_engine=0, chassis_only=0,
-                 dated=0, none=0)
-    for io_id, ident in ssp:
-        stats['total'] += 1
-        sp = None
-        if ident:
-            for part in ident.split('-'):
-                if part.startswith('SP') and part[2:].isdigit():
-                    sp = part
-                    break
+    shipped = {}
+    stats = dict(total=0, own=0, gated=0, unsure=0, generic=0, paths=0)
+    for io_id, ident in con.execute(
+        "SELECT ID, IDENTIFIER FROM XEP_INFOOBJECTS WHERE INFOTYPE='SSP'"
+    ):
+        sp = sp_of(ident)
         if not sp:
             continue
-        c, e, bod, dfrom, dto = rules.rule_chars(io_id)
-        if e:
-            stats['own_engine'] += 1
-        else:
-            inh = rules.inherited_engines(io_id)
-            if inh:
-                e = inh
-                stats['inherited_engine'] += 1
+        stats["total"] += 1
+        own, unsure = rules.get(io_id)
+        paths = ancestor_paths(io_id, rules, parent_of, objs_by_ctrl, doc_ctrls)
         rec = {}
-        if c:
-            rec['c'] = sorted(c)
-        if e:
-            rec['e'] = sorted(e)
-        if bod:
-            rec['b'] = sorted(bod)
-        if dfrom is not None:
-            rec['f'] = dfrom      # build date FROM (YYYYMM, >=)
-        if dto is not None:
-            rec['t'] = dto          # build date TO   (YYYYMM, <=)
-        if dfrom is not None or dto is not None:
-            stats['dated'] += 1
+        if own:
+            rec["r"] = str(io_id)
+            shipped[str(io_id)] = own
+            stats["own"] += 1
+        if unsure:
+            rec["u"] = 1
+            stats["unsure"] += 1
+        if paths:
+            rec["p"] = [[str(o) for o in p] for p in paths]
+            for p in paths:
+                for o in p:
+                    shipped[str(o)] = rules.trees[o]
+            stats["gated"] += 1
+            stats["paths"] += len(paths)
+        composed = compose_rule(own, [[rules.trees[o] for o in p] for p in paths])
+        if composed:
+            rec["c"] = [c for c in chassis_names if rule_applies(composed, folds[c])]
         if not rec:
-            stats['none'] += 1
-        elif 'e' not in rec:
-            stats['chassis_only'] += 1
+            stats["generic"] += 1
         index[sp] = rec
 
-    json.dump({'roots': {'chassis': 'E-Bezeichnung', 'engine': 'Motor'},
-               'sp': index}, open(out, 'w'), separators=(',', ':'))
-    print("stats:", stats)
-    print("wrote", out, "sp entries:", len(index))
+    doc = {
+        "version": 2,
+        "roots": {"chassis": CHASSIS_ROOT, "engine": ENGINE_ROOT, "body": BODY_ROOT},
+        "rules": shipped,
+        "sp": index,
+    }
+    text = json.dumps(doc, separators=(",", ":"), sort_keys=True)
+    if out.endswith(".gz"):
+        with gzip.GzipFile(out, "wb", mtime=0) as fh:
+            fh.write(text.encode("utf-8"))
+    else:
+        with open(out, "w", encoding="utf-8") as fh:
+            fh.write(text)
+    print("stats:", stats, "rules shipped:", len(shipped))
+    print("wrote", out, "sp entries:", len(index), f"{os.path.getsize(out) / 1e6:.2f} MB")
     return 0
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     sys.exit(main())

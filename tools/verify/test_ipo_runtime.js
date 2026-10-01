@@ -373,6 +373,8 @@ const sysSet = (sgbd) => ({
     return { system: sysSet('ihka46_3'), sets: [{ JOB_STATUS: 'OKAY' }] };
   });
   const ui = fakeUi();
+  const statuses = [];
+  ui.status = (p, text) => statuses.push(text);
   const p = new IpoProgram(ecu, exec, ui);
   const r = await p.start();
   assert.strictEqual(r.ok, true, `start failed: ${r.reason}`);
@@ -384,6 +386,34 @@ const sysSet = (sgbd) => ({
   assert.strictEqual(p.menu, 'm_main', 'inpainit names the root menu');
   assert.strictEqual(p.screen, 's_main', 'inpainit names the root screen');
   ok('IHKA46: inpainit opens m_main / s_main');
+
+  // The prologue's language check: the script expects "English Metric", the
+  // SGBD said "englisch". INPA would box "Language variants do not match.
+  // Malfunction possible!" and carry on; here it is noted, never shown.
+  assert.strictEqual(
+    ui.messages.length,
+    0,
+    `entry shows no box: ${JSON.stringify(ui.messages)}`
+  );
+  assert.strictEqual(
+    p.messages.length,
+    0,
+    'an advisory is not a message the stopped screen could name'
+  );
+  assert.deepStrictEqual(
+    p.advisories.map((m) => m.title),
+    ['Checking language variants'],
+    `the advisory is kept: ${JSON.stringify(p.advisories)}`
+  );
+  assert.ok(
+    statuses.some((t) =>
+      /^Checking language variants: Language variants do not match\. Malfunction possible!$/.test(
+        t
+      )
+    ),
+    `...and put on the status line: ${JSON.stringify(statuses)}`
+  );
+  ok('IHKA46: the prologue advisory is noted, not boxed');
 
   const jobsSoFar = sent.map((s) => s.job);
   assert.ok(
@@ -2759,6 +2789,53 @@ const sysSet = (sgbd) => ({
       'offline elements carry no colour (parity with the Python twin)'
     );
     ok('setcolor / userboxsetcolor: the model carries the colours');
+  }
+
+  // ---- A SINGLE-MODULE READ KEEPS THE SCRIPT'S OWN TEXT ----
+  // GS20's Error memory key writes a protocol file and opens it as a view,
+  // exactly as the whole-car script does. With no faults stored, the table
+  // rendered an empty one-row summary of the module already on screen and
+  // threw away the script's "no faults" printout. With faults, or across
+  // several modules, the table still earns the screen.
+  {
+    const src = fs.readFileSync(R('screens/ipo-runtime/protocol.js'), 'utf8');
+    const fn = src.match(/function ipoReportBeatsText[\s\S]*?\n}/);
+    assert.ok(fn, 'ipoReportBeatsText is defined');
+    // eslint-disable-next-line no-eval
+    eval(fn[0]);
+    const one = (codes) => ({ modules: [{ codes }], silent: [] });
+    const cases = [
+      ['one module, no faults (the GS20 bug)', one([]), false],
+      // ONE MODULE IS ONE MODULE, faults or not: the table is the
+      // whole-car scan's view, and a GS20 read that found a fault was
+      // dressed up as a vehicle scan that had "caught" it, down to
+      // offering Save to garage for a one-module report.
+      [
+        'one module with a fault (GS20 m_fehler)',
+        one([{ F_ORT_NR: 5 }]),
+        false,
+      ],
+      [
+        'a sweep: four answered, all clean',
+        { modules: [1, 2, 3, 4].map(() => ({ codes: [] })), silent: [] },
+        true,
+      ],
+      [
+        'a sweep: one answered, three silent',
+        { modules: [{ codes: [] }], silent: ['a', 'b', 'c'] },
+        true,
+      ],
+      [
+        'an identification sweep has no codes to count',
+        { kind: 'ident', modules: [{ codes: [] }], silent: [] },
+        true,
+      ],
+      ['nothing read at all', { modules: [], silent: [] }, false],
+      ['no report', null, false],
+    ];
+    for (const [what, rep, want] of cases)
+      assert.strictEqual(ipoReportBeatsText(rep), want, what);
+    ok("a clean single-module read keeps the script's own text");
   }
 
   console.log(`ipo-runtime: ${passed} checks passed`);

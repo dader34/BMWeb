@@ -89,6 +89,8 @@ async function showCodingHub(chassisId, initialTab) {
     { label: dispChassis(chassisId), fn: back },
     { label: 'Coding' },
   ]);
+  // the reader may leave while this screen loads (screenOwner)
+  const _mine = screenOwner();
   sbLeft.textContent = `${dispChassis(chassisId)} · coding`;
 
   const curated = typeof hasCurated === 'function' && hasCurated(chassisId);
@@ -125,11 +127,13 @@ async function showCodingHub(chassisId, initialTab) {
   // atomically, covers the lot: the reader never sees a blank coding page or
   // a progress bar arriving after the toggles.
   const loadHost = document.createElement('div');
+  if (!_mine()) return;
   view.appendChild(loadHost);
   loadHost.innerHTML = codingScanShell(
     'Reading the car…',
     'identifying equipment…'
   );
+  if (!_mine()) return;
   setActions([
     { key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: back },
   ]);
@@ -163,9 +167,11 @@ async function showCodingHub(chassisId, initialTab) {
     (curated
       ? `<button class="coding-tab" data-tab="features">Features</button>`
       : '') + `<button class="coding-tab" data-tab="expert">Expert</button>`;
+  if (!_mine()) return;
   view.appendChild(tabs);
   const panel = document.createElement('div');
   panel.className = 'coding-panel';
+  if (!_mine()) return;
   view.appendChild(panel);
 
   // Re-read the whole car and redraw the active tab. The single Re-read
