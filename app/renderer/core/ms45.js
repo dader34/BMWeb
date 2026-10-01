@@ -977,13 +977,28 @@ async function ms45FinishFlash(area, resetEcu, diagProtocol, onStage) {
   stage('Checking signature');
   if (!(await ms45Job('FLASH_SIGNATUR_PRUEFEN', `${area};64`)).ok) {
     stage('Signature check failed');
-    await ms45Job('STEUERGERAETE_RESET', '');
+    await ms45Reset();
     return false;
   }
   if (!(await ms45Job('FLASH_PROGRAMMIER_STATUS_LESEN', '')).ok) return false;
   if (!resetEcu) return true;
   stage('Resetting ECU');
-  return (await ms45Job('STEUERGERAETE_RESET', '')).ok;
+  return ms45Reset();
+}
+
+/**
+ * Reset the DME and forget its session: the module reboots out of the
+ * diagnostic session the SGBD's INITIALISIERUNG opened, so the next job must
+ * open it again (the reference tool does this by starting a fresh EDIABAS
+ * for every operation). Without it the re-identify after a flash still
+ * answers, but AIF_SCHREIBEN is refused as not supported in the active
+ * diagnostic mode.
+ * @returns {Promise<boolean>} Whether the reset job answered OKAY.
+ */
+async function ms45Reset() {
+  const ok = (await ms45Job('STEUERGERAETE_RESET', '')).ok;
+  if (typeof webDropSession === 'function') webDropSession(MS45_SGBD);
+  return ok;
 }
 
 function _ms45Le32(v) {
@@ -1046,8 +1061,7 @@ async function ms45FlashBlock(toFlash, blockStart, blockEnd, opts = {}) {
       stage(
         `Flash failed at 0x${blockStart.toString(16).toUpperCase()}. Resetting DME.`
       );
-      if (!(await ms45Job('STEUERGERAETE_RESET', '')).ok)
-        stage('Error Resetting ECU');
+      if (!(await ms45Reset())) stage('Error Resetting ECU');
       return false;
     }
     blockStart += seg;
