@@ -9819,6 +9819,7 @@ body.remote-helper::after {
 /* a compile failure is the one card the eye should land on first */
 .result-card.sr-bad {
   border-left-color: var(--red);
+}
 
 /* ---- Flashing/Backups (screens/flashing/) --------------------------------------
    Laid out like the BMWeb Flasher app: a rail of pages down the left, the
