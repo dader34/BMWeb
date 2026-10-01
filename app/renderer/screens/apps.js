@@ -115,16 +115,13 @@ const APP_REGISTRY = [
   },
   {
     id: 'backup',
-    icon: '⇩',
-    title: 'ECU Backup',
-    desc: 'Read a control unit’s firmware off the car and save it (read only)',
-    tag: 'BIN',
-    open: () => (typeof showFlasher === 'function' ? showFlasher() : null),
-    // present whenever the engine shipped with at least one profile
-    hasData: async () =>
-      typeof showFlasher === 'function' &&
-      typeof FLASH_PROFILES !== 'undefined' &&
-      FLASH_PROFILES.length > 0,
+    icon: '↯',
+    title: 'Flashing/Backups',
+    desc: 'Read, flash and tune the MS45 DME and the GS20 transmission: tunes, programs, EWS delete, map switch',
+    tag: 'FLASH',
+    open: () => (typeof showFlashing === 'function' ? showFlashing() : null),
+    // the engines ship with the app shell; the car's SGBDs come with the ECU data
+    hasData: async () => typeof showFlashing === 'function',
   },
   {
     id: 'tool32',

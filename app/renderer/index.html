@@ -197,6 +197,7 @@
   <script src="core/webshim/gateway-port.js"></script>
   <script src="core/webshim/web-serial-bus.js"></script>
   <script src="core/webshim/bus.js"></script>
+  <script src="core/webshim/ds2-wire.js"></script>
   <script src="core/webshim/data-fetch.js"></script>
   <script src="core/webshim/job-runner.js"></script>
   <script src="core/webshim/variant-resolver.js"></script>
@@ -266,6 +267,13 @@
   <script src="core/xdf/checksum.js"></script>
   <script src="core/xdf/parser.js"></script>
   <script src="core/flasher.js"></script>
+  <!-- Flashing/Backups engines: the transmission over raw DS2, the DME over
+       its SGBD's jobs, the map switch builder, the session log and history. -->
+  <script src="core/gs20.js"></script>
+  <script src="core/gs20-program.js"></script>
+  <script src="core/ms45.js"></script>
+  <script src="core/mapswitch.js"></script>
+  <script src="core/flash-history.js"></script>
   <script src="ui/typed-block.js"></script>
   <script src="ui/dropdown.js"></script>
   <script src="ui/listbox.js"></script>
@@ -411,7 +419,12 @@
   <script src="screens/service/open.js"></script>
   <script src="screens/service/screen.js"></script>
   <script src="screens/tool32.js"></script>
-  <script src="screens/flasher.js"></script>
+  <!-- Flashing/Backups: the DME, transmission and Custom Options halves,
+       then the frame that mounts them. -->
+  <script src="screens/flashing/dme.js"></script>
+  <script src="screens/flashing/tcu.js"></script>
+  <script src="screens/flashing/options.js"></script>
+  <script src="screens/flashing/screen.js"></script>
   <script src="screens/tuning/memory-spec.js"></script>
   <script src="screens/tuning/memory-read.js"></script>
   <!-- The Tuning screen, one piece per concern. state.js first (the shared
