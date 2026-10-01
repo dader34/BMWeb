@@ -123,6 +123,24 @@ let loadedSgbd = null;
  * performed at 10400 was undone before the telegram went out.
  * @param {string} sgbd - The SGBD about to run.
  */
+/**
+ * Forget an SGBD's session because the module was reset
+ * (STEUERGERAETE_RESET after a flash). The module rebooted out of the
+ * diagnostic session INITIALISIERUNG opened, while the runner still held
+ * it as initialised: reads kept answering, but AIF_SCHREIBEN came back
+ * ERROR_ECU_SERVICE_NOT_SUPPORTED_IN_ACTIVE_DIAGNOSTIC_MODE. The reference
+ * tool starts a fresh EdiabasNet for every operation, so its init always
+ * ran again; this is the same thing. No ENDE: the module is rebooting.
+ * @param {string} sgbd - The SGBD whose module was reset.
+ */
+function webDropSession(sgbd) {
+  const key = String(sgbd).toLowerCase();
+  sessions.delete(key);
+  if (loadedSgbd === key) loadedSgbd = null;
+  webBus.sessionConcept = null;
+  webBus.inited = null;
+}
+
 async function switchSession(sgbd) {
   const key = String(sgbd).toLowerCase();
   if (loadedSgbd === key) return;
