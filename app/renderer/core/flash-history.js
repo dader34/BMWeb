@@ -29,7 +29,10 @@ function _flashDb() {
       req.onupgradeneeded = () => {
         const db = req.result;
         if (!db.objectStoreNames.contains(FLASH_STORE)) {
-          db.createObjectStore(FLASH_STORE, { keyPath: 'id', autoIncrement: true });
+          db.createObjectStore(FLASH_STORE, {
+            keyPath: 'id',
+            autoIncrement: true,
+          });
         }
       };
       req.onsuccess = () => resolve(req.result);
@@ -49,8 +52,9 @@ function _flashStamp() {
 
 function _flashHex(bytes, max = 64) {
   const n = Math.min(bytes.length, max);
-  let s = Array.from(bytes.subarray ? bytes.subarray(0, n) : bytes.slice(0, n), (b) =>
-    (b & 0xff).toString(16).toUpperCase().padStart(2, '0')
+  let s = Array.from(
+    bytes.subarray ? bytes.subarray(0, n) : bytes.slice(0, n),
+    (b) => (b & 0xff).toString(16).toUpperCase().padStart(2, '0')
   ).join(' ');
   if (bytes.length > max) s += ` ... (${bytes.length} bytes)`;
   return s;
@@ -111,7 +115,8 @@ const flashLog = {
     _flashSession.lastStatus = text;
     const judged = flashHistory.judge(text);
     if (judged === 'failed') _flashSession.result = 'failed';
-    else if (judged === 'ok' && _flashSession.result !== 'failed') _flashSession.result = 'ok';
+    else if (judged === 'ok' && _flashSession.result !== 'failed')
+      _flashSession.result = 'ok';
   },
   /**
    * One job entry: name, arg summary, status, and the request/response telegrams.
@@ -123,9 +128,13 @@ const flashLog = {
    */
   job(name, argSummary, status, request, response) {
     if (!_flashSession) return;
-    _flashSession.lines.push(`${_flashStamp()}${name}${argSummary ? ` [${argSummary}]` : ''} -> ${status || '(no status)'}`);
-    if (request && request.length) _flashSession.lines.push(`    tx: ${_flashHex(request)}`);
-    if (response && response.length) _flashSession.lines.push(`    rx: ${_flashHex(response)}`);
+    _flashSession.lines.push(
+      `${_flashStamp()}${name}${argSummary ? ` [${argSummary}]` : ''} -> ${status || '(no status)'}`
+    );
+    if (request && request.length)
+      _flashSession.lines.push(`    tx: ${_flashHex(request)}`);
+    if (response && response.length)
+      _flashSession.lines.push(`    rx: ${_flashHex(response)}`);
   },
   /**
    * A raw-wire trace line (what Ds2Wire reports), kept verbatim.
@@ -144,7 +153,9 @@ const flashLog = {
     if (!_flashSession || !bytes) return;
     if (!Settings.get('flashKeepFiles', false)) return;
     _flashSession.files.push({ name, bytes: Uint8Array.from(bytes) });
-    _flashSession.lines.push(`${_flashStamp()}copy of the image written kept: ${name} (${bytes.length} bytes)`);
+    _flashSession.lines.push(
+      `${_flashStamp()}copy of the image written kept: ${name} (${bytes.length} bytes)`
+    );
   },
   /**
    * End the session and record it.
@@ -222,7 +233,10 @@ const flashHistory = {
     const rows = await new Promise((resolve) => {
       try {
         const out = [];
-        const req = db.transaction(FLASH_STORE, 'readonly').objectStore(FLASH_STORE).openCursor();
+        const req = db
+          .transaction(FLASH_STORE, 'readonly')
+          .objectStore(FLASH_STORE)
+          .openCursor();
         req.onsuccess = () => {
           const c = req.result;
           if (!c) return resolve(out);
@@ -261,7 +275,10 @@ const flashHistory = {
     if (!db) return null;
     const row = await new Promise((resolve) => {
       try {
-        const req = db.transaction(FLASH_STORE, 'readonly').objectStore(FLASH_STORE).get(id);
+        const req = db
+          .transaction(FLASH_STORE, 'readonly')
+          .objectStore(FLASH_STORE)
+          .get(id);
         req.onsuccess = () => resolve(req.result || null);
         req.onerror = () => resolve(null);
       } catch (e) {
@@ -327,10 +344,24 @@ const flashHistory = {
   judge(status) {
     if (!status) return 'ended';
     const s = status.toLowerCase();
-    if (s.includes('fail') || s.includes('denied') || s.includes('cancel') || s.includes('no data') || s.includes('error') || s.includes('not match')) {
+    if (
+      s.includes('fail') ||
+      s.includes('denied') ||
+      s.includes('cancel') ||
+      s.includes('no data') ||
+      s.includes('error') ||
+      s.includes('not match')
+    ) {
       return 'failed';
     }
-    if (s.includes('success') || s.includes('written') || s.startsWith('read 0x') || s.startsWith('read tcu') || s.startsWith('saved')) return 'ok';
+    if (
+      s.includes('success') ||
+      s.includes('written') ||
+      s.startsWith('read 0x') ||
+      s.startsWith('read tcu') ||
+      s.startsWith('saved')
+    )
+      return 'ok';
     return 'ended';
   },
 };

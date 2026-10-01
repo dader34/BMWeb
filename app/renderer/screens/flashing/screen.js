@@ -55,10 +55,22 @@ function fbDevUi() {
  */
 async function showFlashing() {
   lastScreen = showFlashing;
-  setCrumbs([{ label: 'Vehicles', fn: showChassis }, { label: 'Apps', fn: showApps }, { label: 'Flashing/Backups' }]);
+  setCrumbs([
+    { label: 'Vehicles', fn: showChassis },
+    { label: 'Apps', fn: showApps },
+    { label: 'Flashing/Backups' },
+  ]);
   document.body.classList.add('apps-section');
   sbLeft.textContent = 'flashing';
-  setActions([{ key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: showApps }]);
+  setActions([
+    {
+      key: 'Escape',
+      keyLabel: 'Esc',
+      label: 'Back',
+      kind: 'back',
+      fn: showApps,
+    },
+  ]);
 
   fbState.module = null;
   fbState.running = false;
@@ -180,8 +192,10 @@ async function showFlashing() {
   fbEls['set-keep'].checked = !!Settings.get('flashKeepFiles', false);
   fbEls['set-aif'].checked = Settings.get('flashWriteAif', true) !== false;
   fbEls['set-dev'].checked = fbDevUi();
-  fbEls['set-keep'].onchange = () => Settings.set('flashKeepFiles', fbEls['set-keep'].checked);
-  fbEls['set-aif'].onchange = () => Settings.set('flashWriteAif', fbEls['set-aif'].checked);
+  fbEls['set-keep'].onchange = () =>
+    Settings.set('flashKeepFiles', fbEls['set-keep'].checked);
+  fbEls['set-aif'].onchange = () =>
+    Settings.set('flashWriteAif', fbEls['set-aif'].checked);
   fbEls['set-dev'].onchange = () => {
     Settings.set('flashDevUi', fbEls['set-dev'].checked);
     fbRefreshAll();
@@ -200,13 +214,22 @@ async function showFlashing() {
   fbOptionsWire();
   fbRefreshAll();
   fbHistoryRefresh();
-  fbSetStatus(webBus.connected ? 'Cable connected' : 'No cable connected: Identify will ask for the port');
+  fbSetStatus(
+    webBus.connected
+      ? 'Cable connected'
+      : 'No cable connected: Identify will ask for the port'
+  );
   // the cable reconnects on its own after a page load, usually a moment after
   // this screen opens; follow it rather than freeze the first answer
   if (!fbCableListener) {
     fbCableListener = (e) => {
-      if (lastScreen !== showFlashing || fbState.running || !fbEls.status) return;
-      fbSetStatus(e.detail && e.detail.connected ? 'Cable connected' : 'Cable disconnected');
+      if (lastScreen !== showFlashing || fbState.running || !fbEls.status)
+        return;
+      fbSetStatus(
+        e.detail && e.detail.connected
+          ? 'Cable connected'
+          : 'Cable disconnected'
+      );
     };
     window.addEventListener('bmweb-cable', fbCableListener);
   }
@@ -244,7 +267,8 @@ function fbStamp() {
 }
 
 function fbPaintLog() {
-  if (fbState.log.length > FB_LOG_LINES) fbState.log.splice(0, fbState.log.length - FB_LOG_LINES);
+  if (fbState.log.length > FB_LOG_LINES)
+    fbState.log.splice(0, fbState.log.length - FB_LOG_LINES);
   const el = fbEls.log;
   if (!el) return;
   el.textContent = fbState.log.join('\n');
@@ -291,7 +315,8 @@ function fbSetStatusInPlace(text) {
   if (!text) return;
   if (fbEls.status) fbEls.status.textContent = text;
   const line = fbStamp() + text;
-  if (fbState.lastInPlace && fbState.log.length) fbState.log[fbState.log.length - 1] = line;
+  if (fbState.lastInPlace && fbState.log.length)
+    fbState.log[fbState.log.length - 1] = line;
   else fbState.log.push(line);
   fbState.lastInPlace = true;
   fbPaintLog();
@@ -314,7 +339,8 @@ function fbLog(text) {
  * @param {number} pct - Percent.
  */
 function fbProgress(pct) {
-  if (fbEls.fill) fbEls.fill.style.width = `${Math.max(0, Math.min(100, pct))}%`;
+  if (fbEls.fill)
+    fbEls.fill.style.width = `${Math.max(0, Math.min(100, pct))}%`;
 }
 
 /**
@@ -358,7 +384,12 @@ function fbHtml(text) {
  * @returns {Promise<boolean>}
  */
 function fbConfirm(message, title) {
-  return confirmDialog({ title: esc(title), body: fbHtml(message), confirmLabel: 'Yes', cancelLabel: 'No' });
+  return confirmDialog({
+    title: esc(title),
+    body: fbHtml(message),
+    confirmLabel: 'Yes',
+    cancelLabel: 'No',
+  });
 }
 
 /**
@@ -504,7 +535,9 @@ async function fbReadText(file) {
  * @param {Uint8Array|string} data - The bytes, or text.
  */
 function fbSaveBytes(name, data) {
-  const blob = new Blob([data], { type: typeof data === 'string' ? 'text/plain' : 'application/octet-stream' });
+  const blob = new Blob([data], {
+    type: typeof data === 'string' ? 'text/plain' : 'application/octet-stream',
+  });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -525,7 +558,10 @@ async function fbEnsureCable() {
   try {
     await webBus.connect();
   } catch (e) {
-    await fbMessage(`The cable could not be opened.\n\n${fbDescribeError(e)}`, 'Cable');
+    await fbMessage(
+      `The cable could not be opened.\n\n${fbDescribeError(e)}`,
+      'Cable'
+    );
     return false;
   }
   return !!webBus.connected;
@@ -540,7 +576,9 @@ async function fbEnsureCable() {
  */
 async function fbSessionStart(operation, car) {
   await flashLog.start(operation, car);
-  ms45SetJobTrace((job, arg, status, tx, rx) => flashLog.job(job, arg, status, tx, rx));
+  ms45SetJobTrace((job, arg, status, tx, rx) =>
+    flashLog.job(job, arg, status, tx, rx)
+  );
 }
 
 /** End the session and refresh History. @returns {Promise<void>} */
@@ -558,9 +596,18 @@ function fbModuleChanged() {
   fbTcuReset();
   fbEls.identify.disabled = !m;
   fbEls.identify.textContent = 'Identify';
-  fbSetEcuBox(m === 'tcu' ? 'TCU not identified' : m === 'dme' ? 'DME not identified' : 'Select a control unit');
+  fbSetEcuBox(
+    m === 'tcu'
+      ? 'TCU not identified'
+      : m === 'dme'
+        ? 'DME not identified'
+        : 'Select a control unit'
+  );
   fbRefreshAll();
-  if (m) fbSetStatus(`Module: ${m === 'tcu' ? 'TCU (transmission)' : 'DME (engine)'}`);
+  if (m)
+    fbSetStatus(
+      `Module: ${m === 'tcu' ? 'TCU (transmission)' : 'DME (engine)'}`
+    );
 }
 
 async function fbIdentify() {
@@ -570,7 +617,11 @@ async function fbIdentify() {
   fbBusy(true);
   fbEls.identify.textContent = 'Identifying...';
   fbEls.fill.classList.add('indeterminate');
-  fbSetStatus(fbState.module === 'tcu' ? 'Identifying the TCU...' : 'Identifying the DME...');
+  fbSetStatus(
+    fbState.module === 'tcu'
+      ? 'Identifying the TCU...'
+      : 'Identifying the DME...'
+  );
   try {
     if (fbState.module === 'tcu') await fbTcuIdentify();
     else await fbDmeIdentify();
@@ -608,7 +659,12 @@ function fbCustomOptionsAllowed() {
   if (fbState.module === 'tcu') return fbState.tcu.sgbd === 'gs20';
   if (fbState.module === 'dme') {
     const d = fbState.dme;
-    return d.identified && d.ident.hwRef === '0044570' && !!d.ident.progRef && d.ident.progRef.includes(ewsDelete.SUPPORTED_PROGRAM_VERSION);
+    return (
+      d.identified &&
+      d.ident.hwRef === '0044570' &&
+      !!d.ident.progRef &&
+      d.ident.progRef.includes(ewsDelete.SUPPORTED_PROGRAM_VERSION)
+    );
   }
   return false;
 }
@@ -616,7 +672,10 @@ function fbCustomOptionsAllowed() {
 function fbRefreshCustomOptionsGate() {
   const allowed = fbCustomOptionsAllowed();
   fbEls.custom.hidden = !allowed;
-  fbEls['custom-open'].title = fbState.module === 'tcu' ? 'Remove auto upshift.' : 'EWS delete and map switch.';
+  fbEls['custom-open'].title =
+    fbState.module === 'tcu'
+      ? 'Remove auto upshift.'
+      : 'EWS delete and map switch.';
   if (!allowed) fbShowOptions(false);
   fbOptionsRefreshSummary();
 }
@@ -637,7 +696,8 @@ function fbOpenOptions() {
  */
 function fbProgrammingCounter(tcu) {
   fbState.aifVin = '';
-  if (Settings.get('flashWriteAif', true) === false) return Promise.resolve(true);
+  if (Settings.get('flashWriteAif', true) === false)
+    return Promise.resolve(true);
   const module = tcu ? 'transmission' : 'DME';
   const aif = tcu ? fbState.tcu.aif : fbState.dme.aif;
   const free = parseInt((aif && aif.AIF_ANZ_FREI) || '', 10);
@@ -649,8 +709,11 @@ function fbProgrammingCounter(tcu) {
       : `Remaining programming operations for this ${module}: ${free} of ${FB_AIF_SLOTS}. This flash uses one; the entries cannot be erased.`;
   const dmeAif = (fbState.dme && fbState.dme.aif) || {};
   let suggested = dmeAif.AIF_FG_NR_LANG || '';
-  if (!fbIsAlnum(suggested, 17)) suggested = (aif && (aif.AIF_FG_NR_LANG || aif.AIF_FG_NR)) || '';
-  if (!fbIsAlnum(suggested, 17) && !fbIsAlnum(suggested, 7)) suggested = (fbState.dme && fbState.dme.ident && fbState.dme.ident.vin) || '';
+  if (!fbIsAlnum(suggested, 17))
+    suggested = (aif && (aif.AIF_FG_NR_LANG || aif.AIF_FG_NR)) || '';
+  if (!fbIsAlnum(suggested, 17) && !fbIsAlnum(suggested, 7))
+    suggested =
+      (fbState.dme && fbState.dme.ident && fbState.dme.ident.vin) || '';
 
   return new Promise((resolve) => {
     const { overlay, close } = openModal(
@@ -676,7 +739,8 @@ function fbProgrammingCounter(tcu) {
     const go = overlay.querySelector('.modal-confirm');
     const validate = () => {
       const v = (box.value || '').trim().toUpperCase();
-      const ok = v.length === 0 || fbIsAlnum(v, 17) || (!tcu && fbIsAlnum(v, 7));
+      const ok =
+        v.length === 0 || fbIsAlnum(v, 17) || (!tcu && fbIsAlnum(v, 7));
       go.disabled = !ok;
       hint.textContent =
         v.length === 0
@@ -732,17 +796,35 @@ async function fbWriteAif() {
   const zb = sevenOrNine(a('AIF_ZB_NR'), '0000000');
   const sw = sevenOrNine(a('AIF_SW_NR'), sevenOrNine(d.ident.swRef, '0000000'));
   const approval = sevenOrNine(a('AIF_BEHOERDEN_NR'), '0000000');
-  const dealer = /^\d{6}$/.test(a('AIF_HAENDLER_NR')) ? a('AIF_HAENDLER_NR') : '000000';
-  const progRef = fbIsAlnum(d.ident.progRef, 12) ? d.ident.progRef : fbIsAlnum(a('AIF_PROG_NR'), 12) ? a('AIF_PROG_NR') : '000000000000';
+  const dealer = /^\d{6}$/.test(a('AIF_HAENDLER_NR'))
+    ? a('AIF_HAENDLER_NR')
+    : '000000';
+  const progRef = fbIsAlnum(d.ident.progRef, 12)
+    ? d.ident.progRef
+    : fbIsAlnum(a('AIF_PROG_NR'), 12)
+      ? a('AIF_PROG_NR')
+      : '000000000000';
   let km = parseInt(a('AIF_KM'), 10);
   if (!Number.isFinite(km) || km < 0) km = 0;
   if (km > 152999) km = 152999;
   const now = new Date();
   const p = (n) => String(n).padStart(2, '0');
-  const args = [vin, `${p(now.getDate())}.${p(now.getMonth() + 1)}.${now.getFullYear()}`, zb, sw, approval, dealer, fbTesterSerial, String(km), progRef].join(';');
+  const args = [
+    vin,
+    `${p(now.getDate())}.${p(now.getMonth() + 1)}.${now.getFullYear()}`,
+    zb,
+    sw,
+    approval,
+    dealer,
+    fbTesterSerial,
+    String(km),
+    progRef,
+  ].join(';');
   fbSetStatus('Writing the programming record (AIF)');
   const r = await ms45WriteAif(args);
-  const outcome = r.ok ? `AIF written${r.number ? ` (entry ${r.number})` : ''}` : `AIF not written: ${r.status}`;
+  const outcome = r.ok
+    ? `AIF written${r.number ? ` (entry ${r.number})` : ''}`
+    : `AIF not written: ${r.status}`;
   flashLog.note(`${outcome} [${args}]`);
   fbSetStatus(outcome);
 }
@@ -770,14 +852,18 @@ async function fbHistoryRefresh() {
       tbody.querySelectorAll('tr').forEach((x) => x.classList.remove('active'));
       tr.classList.add('active');
       fbHistorySelected = r;
-      fbEls['history-status'].textContent = (r.status || '') + (r.seconds > 0 ? `  (${r.seconds} s)` : '');
+      fbEls['history-status'].textContent =
+        (r.status || '') + (r.seconds > 0 ? `  (${r.seconds} s)` : '');
       fbEls['history-log'].disabled = !r.hasLog;
       fbEls['history-files'].disabled = !r.fileCount;
     };
     tbody.appendChild(tr);
   }
   fbHistorySelected = null;
-  fbEls['history-count'].textContent = fbHistoryRows.length === 1 ? '1 session' : `${fbHistoryRows.length} sessions`;
+  fbEls['history-count'].textContent =
+    fbHistoryRows.length === 1
+      ? '1 session'
+      : `${fbHistoryRows.length} sessions`;
   fbEls['history-log'].disabled = true;
   fbEls['history-files'].disabled = true;
   fbEls['history-status'].textContent = 'Select a session to see how it ended.';
@@ -801,7 +887,13 @@ async function fbHistorySaveFiles() {
 }
 
 async function fbHistoryClear() {
-  if (!(await fbConfirm('Forget every session in the history, with its log and the saved copies of the flashed files?', 'Clear History'))) return;
+  if (
+    !(await fbConfirm(
+      'Forget every session in the history, with its log and the saved copies of the flashed files?',
+      'Clear History'
+    ))
+  )
+    return;
   await flashHistory.clear();
 }
 
