@@ -35,7 +35,9 @@ const APPS_ROUTES = {
   'apps/job-search': () =>
     typeof showJobSearch === 'function' ? showJobSearch('') : null,
   'apps/backup': () =>
-    typeof showFlasher === 'function' ? showFlasher() : null,
+    typeof showFlashing === 'function' ? showFlashing() : null,
+  'apps/flashing': () =>
+    typeof showFlashing === 'function' ? showFlashing() : null,
   'apps/tuning': () => (typeof showTuning === 'function' ? showTuning() : null),
   garage: () => (typeof showGarage === 'function' ? showGarage() : null),
   'apps/logging': () =>
@@ -65,7 +67,7 @@ const ROUTE_FOR_SCREEN = {
   showVinDecoder: 'apps/parts/vin',
   showTool32: 'apps/tool32',
   showJobSearch: 'apps/job-search',
-  showFlasher: 'apps/backup',
+  showFlashing: 'apps/flashing',
   showTuning: 'apps/tuning',
   showGarage: 'garage',
   showLogging: 'apps/logging',

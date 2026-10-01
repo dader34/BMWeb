@@ -94,7 +94,7 @@ async function endSession(sgbd) {
   }
   sessions.delete(key);
   try {
-    const code = await webFetchJson(`data/job-code/${key}.json`);
+    const { code } = await jobCodeFor(key);
     if (code && code.jobs && code.jobs.ENDE !== undefined) {
       await webRunJob(sgbd, 'ENDE', null, {
         noInit: true,
@@ -262,6 +262,42 @@ async function driveJobOverBus(buildVm, job, arg, tally) {
 }
 
 /**
+ * An SGBD's parsed job code and tables, loaded once per page. The archive
+ * shim answers `data/job-code/<sgbd>.json` by re-serialising the unpacked
+ * member and the caller re-parses it: ~90 ms for ms450ds0's 215k ops. Paid
+ * on EVERY job, that was most of what a 254-byte memory-read chunk cost --
+ * a 1 MB flash read spent longer parsing JSON than talking to the DME. The
+ * VM never mutates the code, so one object serves every job (vmbridge
+ * shares its copy the same way). A missing SGBD is remembered as missing.
+ * @type {Map<string, Promise<{code: ?object, tables: object}>>}
+ */
+const jobCodeCache = new Map();
+
+/**
+ * The job code and SGBD tables for an SGBD, cached.
+ * @param {string} sgbd - The SGBD name (any case).
+ * @returns {Promise<{code: ?object, tables: object}>}
+ */
+function jobCodeFor(sgbd) {
+  const key = String(sgbd).toLowerCase();
+  let p = jobCodeCache.get(key);
+  if (!p) {
+    p = (async () => {
+      const code = await webFetchJson(`data/job-code/${key}.json`);
+      const tables = code
+        ? (await webFetchJson(`data/sgbd-tables/${key}.json`)) || {}
+        : {};
+      return { code, tables };
+    })();
+    jobCodeCache.set(key, p);
+    // a fetch that THREW (cable-less offline handle, a transient 404 while
+    // the archive loads) is not an answer; let the next job ask again
+    p.catch(() => jobCodeCache.delete(key));
+  }
+  return p;
+}
+
+/**
  * Run a job on an SGBD over the live bus, inside its EDIABAS session.
  * @param {string} sgbd - The SGBD name.
  * @param {string} job - The job name.
@@ -273,11 +309,9 @@ async function driveJobOverBus(buildVm, job, arg, tally) {
  *   at all (IFH-0009), or whatever the job or wire threw.
  */
 async function webRunJob(sgbd, job, arg, opts = {}) {
-  const code = await webFetchJson(`data/job-code/${sgbd.toLowerCase()}.json`);
+  const { code, tables } = await jobCodeFor(sgbd);
   if (!code) throw new Error(`no job code shipped for ${sgbd}`);
   const sharedTables = await loadSharedTables();
-  const tables =
-    (await webFetchJson(`data/sgbd-tables/${sgbd.toLowerCase()}.json`)) || {};
   const session = opts.shared
     ? { shared: opts.shared, inited: true, comm: opts.comm || null }
     : sessionFor(sgbd);

@@ -92,6 +92,22 @@ echo "== ECU backup engine: crypto bit-exact, reads byte-identical, rails hold =
 node tools/verify/test_flasher.js
 
 echo
+echo "== GS20 calibration engine: checksum pinned, write sequence, rails, baud change =="
+node tools/verify/test_gs20.js || exit 1
+
+echo
+echo "== GS20 program / AIF / no-upshift / .0DA: checksums, records, patches, decode =="
+node tools/verify/test_gs20_program.js || exit 1
+
+echo
+echo "== MS45 flashing engine: CRC-32, RSA signatures, EWS delete, exchange files =="
+node tools/verify/test_ms45_flash.js || exit 1
+
+echo
+echo "== Map switch builder: byte-identical to the reference build, recognition, gates =="
+node tools/verify/test_mapswitch.js || exit 1
+
+echo
 echo "== MS45 image validation math: CRC-32/MPEG-2, RSA signature, region/address =="
 node tools/verify/test_ms45_bin.js || exit 1
 
