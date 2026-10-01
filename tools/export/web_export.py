@@ -348,6 +348,17 @@ def main():
         json.dump(ids, f, ensure_ascii=False, separators=(",", ":"))
     print(f"  chassis.json written")
 
+    # 1b. Every chassis config in one small file. The renderer asks for a
+    # config far more often than for an archive (car detection consults
+    # ALL of them; nav, the module screen and the tour each want one), and
+    # the only other place a config lives is config.json INSIDE the
+    # .chassis -- so without this file each of those reads fetched and
+    # unpacked a 20-37 MB archive, and detection all 26 of them.
+    configs = {cid: get(port, f"/api/chassis/{cid}") for cid in ids}
+    with open(os.path.join(api, "chassis-configs.json"), "w") as f:
+        json.dump(configs, f, ensure_ascii=False, separators=(",", ":"))
+    print(f"  chassis-configs.json written ({len(configs)} configs)")
+
     # Gather all referenced SGBDs. (The IR itself ships from the per-car
     # tree's screens.json below, so nothing here resolves IR files.)
     sgbds = set()

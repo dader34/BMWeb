@@ -780,7 +780,14 @@ const ms45AifFields = [
  * @returns {Promise<Ms45Ident>}
  */
 async function ms45Identify() {
-  const aifRes = await ms45Job('aif_lesen', '');
+  // the first job after a flash's reset can land while the DME is still
+  // restarting (seen: the AIF unanswered two seconds after the reset, read
+  // fine on the next identify), so an unanswered first read is asked again
+  let aifRes = await ms45Job('aif_lesen', '');
+  if (!aifRes.ok) {
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    aifRes = await ms45Job('aif_lesen', '');
+  }
   const aif = {};
   for (const f of ms45AifFields) {
     const v = _ms45Field(aifRes.res, f);

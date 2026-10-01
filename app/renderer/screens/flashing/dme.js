@@ -990,6 +990,9 @@ async function fbDmeFlashTune() {
       },
     });
     if (success) {
+      // the programming record goes in while the DME is still in
+      // programming mode; the default session refuses the write
+      await fbWriteAif();
       success = await ms45FinishFlash(
         'Daten',
         true,
@@ -1003,10 +1006,7 @@ async function fbDmeFlashTune() {
   } finally {
     fbFlashingBar(false);
     fbProgress(0);
-    if (success) {
-      await fbDmeIdentify(true);
-      await fbWriteAif();
-    }
+    if (success) await fbDmeIdentify(true);
     await fbSessionStop();
   }
 }
@@ -1142,6 +1142,10 @@ async function fbDmeFlashProgram() {
       }
     }
     if (success) {
+      // the programming record goes in while the DME is still in
+      // programming mode (the default session refuses the write), naming
+      // the program just written rather than the one identified before
+      await fbWriteAif(ms45ReadAscii(signedFlash, 0x6031c, 12));
       success = await ms45FinishFlash(
         'Programm',
         !hasCal,
@@ -1164,10 +1168,7 @@ async function fbDmeFlashProgram() {
   } finally {
     fbFlashingBar(false);
     fbProgress(0);
-    if (success) {
-      await fbDmeIdentify(true);
-      await fbWriteAif();
-    }
+    if (success) await fbDmeIdentify(true);
     await fbSessionStop();
   }
 }
@@ -1206,6 +1207,8 @@ async function fbDmeVerifyProgramming() {
       success = false;
       return;
     }
+    // while in programming mode: the default session refuses the write
+    await fbWriteAif();
     fbSetStatus('Checking the program signature');
     success = await ms45FinishFlash(
       'Programm',
@@ -1241,7 +1244,6 @@ async function fbDmeVerifyProgramming() {
     if (success) {
       try {
         await fbDmeIdentify(true);
-        await fbWriteAif();
       } catch (e) {
         fbSetStatus(`Identify failed: ${e.message}`);
       }

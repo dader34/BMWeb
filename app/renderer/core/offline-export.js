@@ -618,6 +618,19 @@ async function offlineExport(
     // only used for a cross-chassis lookup, but its absence must be said
     warnings.push(`ECU index (cross-chassis lookup): ${e.message}`);
   }
+  try {
+    // the configs alone, so a config read never unpacks an inlined archive
+    const all = JSON.parse(
+      new TextDecoder().decode(await offlineGet('api/chassis-configs.json'))
+    );
+    inline._configs = Object.fromEntries(
+      ids.filter((id) => all[id]).map((id) => [id, all[id]])
+    );
+  } catch (e) {
+    warnings.push(
+      `chassis configs (read from the archives instead): ${e.message}`
+    );
+  }
   // the stamp rides in the data file and prints at boot
   files['data/inline.js'] = enc0.encode(
     `// ${stamp}\n` +
@@ -911,6 +924,20 @@ async function offlineSingleFile(
   } catch (e) {
     // only used for a cross-chassis lookup, but its absence must be said
     warnings.push(`ECU index (cross-chassis lookup): ${e.message}`);
+  }
+  try {
+    // the configs alone, so a config read never unpacks an inlined archive
+    const all = JSON.parse(
+      dec.decode(await offlineGet('api/chassis-configs.json'))
+    );
+    const mine = Object.fromEntries(
+      ids.filter((id) => all[id]).map((id) => [id, all[id]])
+    );
+    dataParts.push(`,"_configs":${JSON.stringify(mine)}`);
+  } catch (e) {
+    warnings.push(
+      `chassis configs (read from the archives instead): ${e.message}`
+    );
   }
   dataParts.push('};');
   if (withWiring) {
