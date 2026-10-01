@@ -39,11 +39,13 @@ const MAPSWITCH_FREE_END = 0x70000;
 const MAPSWITCH_R13 = 0x004017f0;
 
 const MS_LOOKUP_ENTRIES = [
-  0xcfc8, 0xd054, 0xd0e4, 0xd178, 0xd210, 0xd264, 0xd2c0, 0xd31c, 0xd380, 0xd38c, 0xd39c, 0xd3b8, 0xd3dc, 0xd44c, 0xd4c0, 0xd660,
+  0xcfc8, 0xd054, 0xd0e4, 0xd178, 0xd210, 0xd264, 0xd2c0, 0xd31c, 0xd380,
+  0xd38c, 0xd39c, 0xd3b8, 0xd3dc, 0xd44c, 0xd4c0, 0xd660,
 ];
 const MS_LOOKUP_STOCK = [
-  0x89830000, 0x88e30000, 0xa1830000, 0xa0e30000, 0x88a30000, 0x88a30000, 0xa0a30000, 0xa0a30000, 0x898dd7c6, 0x898dd7c6,
-  0x898dd7c6, 0x898dd7c6, 0x38e30000, 0x38e30000, 0x88add7c4, 0x88add7c4,
+  0x89830000, 0x88e30000, 0xa1830000, 0xa0e30000, 0x88a30000, 0x88a30000,
+  0xa0a30000, 0xa0a30000, 0x898dd7c6, 0x898dd7c6, 0x898dd7c6, 0x898dd7c6,
+  0x38e30000, 0x38e30000, 0x88add7c4, 0x88add7c4,
 ];
 const MS_TACH_STORE_ADDR = 0x4b6c4; // sth r3,-0x3B28(r13)
 const MS_TACH_STORE_INSN = 0xb06dc4d8;
@@ -96,7 +98,9 @@ const MS_R2_HIGH = -0x1c;
 const MS_R2_LOW = 0x7ff0;
 const MS_ROM_TEST_SUM_OFFSET = 0x60600;
 const MS_ROM_TEST_RANGES_OFFSET = 0x60608;
-const MS_ROM_TEST_RANGES = [0x0000bae8, 0x0000f5f8, 0xfff60630, 0xfff68c2c, 0x00000140, 0x000002d4];
+const MS_ROM_TEST_RANGES = [
+  0x0000bae8, 0x0000f5f8, 0xfff60630, 0xfff68c2c, 0x00000140, 0x000002d4,
+];
 const MS_ROM_TEST_SEED = 0x0123456789abcdefn;
 const MS_U64 = (1n << 64n) - 1n;
 const MS_CALIBRATION_RANGE_TAG = 0x7ff2;
@@ -110,11 +114,13 @@ const MS_CURRENT_GEN = 3;
 
 // ---- a minimal PowerPC assembler: just the instructions used --------------------------
 function msS16(v) {
-  if (v < -0x8000 || v > 0x7fff) throw new Error(`signed 16-bit operand out of range: ${v}`);
+  if (v < -0x8000 || v > 0x7fff)
+    throw new Error(`signed 16-bit operand out of range: ${v}`);
   return v & 0xffff;
 }
 function msU16(v) {
-  if (v < 0 || v > 0xffff) throw new Error(`unsigned 16-bit operand out of range: ${v}`);
+  if (v < 0 || v > 0xffff)
+    throw new Error(`unsigned 16-bit operand out of range: ${v}`);
   return v;
 }
 function msD(op, rt, ra, imm) {
@@ -134,9 +140,17 @@ const Cmpw = (ra, rb) => ((31 << 26) | (ra << 16) | (rb << 11)) >>> 0;
 const AndiDot = (ra, rs, v) => msD(28, rs, ra, msU16(v));
 const Ori = (ra, rs, v) => msD(24, rs, ra, msU16(v));
 const Xori = (ra, rs, v) => msD(26, rs, ra, msU16(v));
-const Rlwinm = (ra, rs, sh, mb, me) => ((21 << 26) | (rs << 21) | (ra << 16) | (sh << 11) | (mb << 6) | (me << 1)) >>> 0;
+const Rlwinm = (ra, rs, sh, mb, me) =>
+  ((21 << 26) |
+    (rs << 21) |
+    (ra << 16) |
+    (sh << 11) |
+    (mb << 6) |
+    (me << 1)) >>>
+  0;
 const Srwi = (ra, rs, n) => Rlwinm(ra, rs, 32 - n, n, 31);
-const Or = (ra, rs, rb) => ((31 << 26) | (rs << 21) | (ra << 16) | (rb << 11) | (444 << 1)) >>> 0;
+const Or = (ra, rs, rb) =>
+  ((31 << 26) | (rs << 21) | (ra << 16) | (rb << 11) | (444 << 1)) >>> 0;
 const MS_BLR = 0x4e800020;
 const MS_BEQ = [12, 2];
 const MS_BNE = [4, 2];
@@ -145,7 +159,8 @@ const MS_BGE = [4, 0];
 
 function msBranch(from, to, link) {
   const d = to - from;
-  if (d < -0x2000000 || d >= 0x2000000 || d & 3) throw new Error('branch out of range');
+  if (d < -0x2000000 || d >= 0x2000000 || d & 3)
+    throw new Error('branch out of range');
   return ((18 << 26) | (d & 0x03fffffc) | (link ? 1 : 0)) >>> 0;
 }
 
@@ -182,8 +197,11 @@ class MsAsm {
       if (it.word != null) out.push(it.word);
       else if (it.bo != null) {
         const d = this._labels.get(it.label) - pc;
-        if (d < -0x8000 || d >= 0x8000) throw new Error('conditional branch out of range');
-        out.push(((16 << 26) | (it.bo << 21) | (it.bi << 16) | (d & 0xfffc)) >>> 0);
+        if (d < -0x8000 || d >= 0x8000)
+          throw new Error('conditional branch out of range');
+        out.push(
+          ((16 << 26) | (it.bo << 21) | (it.bi << 16) | (d & 0xfffc)) >>> 0
+        );
       } else if (it.address != null) out.push(msBranch(pc, it.address, false));
       else out.push(msBranch(pc, this._labels.get(it.label), false));
     }
@@ -192,7 +210,13 @@ class MsAsm {
 }
 
 function msRead32(data, at) {
-  return ((data[at] << 24) | (data[at + 1] << 16) | (data[at + 2] << 8) | data[at + 3]) >>> 0;
+  return (
+    ((data[at] << 24) |
+      (data[at + 1] << 16) |
+      (data[at + 2] << 8) |
+      data[at + 3]) >>>
+    0
+  );
 }
 function msWrite32(data, at, v) {
   data[at] = (v >>> 24) & 0xff;
@@ -226,7 +250,15 @@ function msReadAscii(data, offset, length) {
  * @property {boolean} whileRunning
  * @property {number} gen
  */
-function msVersion(trigger, startup, watch = 'car', scope = 'mapsOnly', presses = MS_DEFAULT_DSC_PRESSES, whileRunning = false, gen = 0) {
+function msVersion(
+  trigger,
+  startup,
+  watch = 'car',
+  scope = 'mapsOnly',
+  presses = MS_DEFAULT_DSC_PRESSES,
+  whileRunning = false,
+  gen = 0
+) {
   return {
     trigger,
     startup,
@@ -251,10 +283,21 @@ function msVersionEq(a, b) {
 const msLampHook = (v) => v.whileRunning && v.gen >= 3;
 const msLockout = (v) => v.trigger === 'dsc' && v.gen >= 3;
 function msCurrentVersion(trigger, presses = MS_DEFAULT_DSC_PRESSES) {
-  return msVersion(trigger, 'immediateLong', 'car', 'fullTune', presses, true, MS_CURRENT_GEN);
+  return msVersion(
+    trigger,
+    'immediateLong',
+    'car',
+    'fullTune',
+    presses,
+    true,
+    MS_CURRENT_GEN
+  );
 }
 function msIsCurrent(v) {
-  return msVersionEq(v, msCurrentVersion(v.trigger, v.presses)) && (v.trigger !== 'dsc' || MS_DSC_PRESS_CHOICES.includes(v.presses));
+  return (
+    msVersionEq(v, msCurrentVersion(v.trigger, v.presses)) &&
+    (v.trigger !== 'dsc' || MS_DSC_PRESS_CHOICES.includes(v.presses))
+  );
 }
 const MS_KNOWN_VERSIONS = [
   msCurrentVersion('dsc', 4),
@@ -297,7 +340,17 @@ function msEmitBaseRegister(a, flagReg, scope, label) {
   a.label(label);
 }
 
-function msEmitDscGesture(a, flag, count, indicate, watch, scope, pressesToToggle, whileRunning, lockout) {
+function msEmitDscGesture(
+  a,
+  flag,
+  count,
+  indicate,
+  watch,
+  scope,
+  pressesToToggle,
+  whileRunning,
+  lockout
+) {
   const presses = msOff(MS_RAM_PRESS_COUNTER);
   const state = watch === 'car' ? MS_VAR_DSC_STATE : MS_FIRST_VAR_DSC_STATE;
   const mask = watch === 'car' ? MS_DSC_STATE_MASK : MS_FIRST_DSC_STATE_MASK;
@@ -412,7 +465,9 @@ function msTachStub(at, version) {
   const delayed = version.startup === 'delayed';
   const dsc = version.trigger === 'dsc';
   const wide = version.startup === 'immediateLong';
-  const disp = msOff(wide ? MS_RAM_WIDE_DISPLAY_COUNTER : MS_RAM_DISPLAY_COUNTER);
+  const disp = msOff(
+    wide ? MS_RAM_WIDE_DISPLAY_COUNTER : MS_RAM_DISPLAY_COUNTER
+  );
   const loadDisp = wide ? Lhz : Lbz;
   const storeDisp = wide ? Sth : Stb;
   const a = new MsAsm(at);
@@ -441,7 +496,17 @@ function msTachStub(at, version) {
     a.label('gesture');
   }
   if (dsc) {
-    msEmitDscGesture(a, flag, count, indicate, version.watch, version.scope, version.presses, version.whileRunning, msLockout(version));
+    msEmitDscGesture(
+      a,
+      flag,
+      count,
+      indicate,
+      version.watch,
+      version.scope,
+      version.presses,
+      version.whileRunning,
+      msLockout(version)
+    );
   } else {
     msEmitPedalGesture(a, flag, count, indicate, version.scope);
   }
@@ -537,7 +602,8 @@ function msNvInit(at, version) {
   a.emit(Stb(12, MS_NV_VAR, 13));
   a.emit(Stb(12, msOff(MS_RAM_FLAG), 13));
   a.emit(Sth(12, msOff(MS_RAM_HOLD_COUNTER), 13));
-  if (version.trigger === 'dsc') a.emit(Stb(12, msOff(MS_RAM_PRESS_COUNTER), 13));
+  if (version.trigger === 'dsc')
+    a.emit(Stb(12, msOff(MS_RAM_PRESS_COUNTER), 13));
   if (version.whileRunning) {
     a.emit(Stb(12, msOff(MS_RAM_BLINKS), 13));
     a.emit(Stb(12, msOff(MS_RAM_BLINK_PHASE), 13));
@@ -563,7 +629,8 @@ function msNvRestore(at, version) {
   msEmitBaseRegister(a, 11, version.scope, 'base');
   a.emit(Li(11, 0));
   a.emit(Sth(11, msOff(MS_RAM_HOLD_COUNTER), 13));
-  if (version.trigger === 'dsc') a.emit(Stb(11, msOff(MS_RAM_PRESS_COUNTER), 13));
+  if (version.trigger === 'dsc')
+    a.emit(Stb(11, msOff(MS_RAM_PRESS_COUNTER), 13));
   if (version.whileRunning) {
     a.emit(Stb(11, msOff(MS_RAM_BLINKS), 13));
     a.emit(Stb(11, msOff(MS_RAM_BLINK_PHASE), 13));
@@ -600,7 +667,9 @@ function msBuildCode(version) {
   const lookupStubs = [];
   for (let i = 0; i < MS_LOOKUP_ENTRIES.length; i++) {
     lookupStubs.push(here());
-    all.push(...msLookupStub(here(), MS_LOOKUP_ENTRIES[i], MS_LOOKUP_STOCK[i]).words());
+    all.push(
+      ...msLookupStub(here(), MS_LOOKUP_ENTRIES[i], MS_LOOKUP_STOCK[i]).words()
+    );
   }
   const tachStub = here();
   all.push(...msTachStub(here(), version).words());
@@ -618,7 +687,8 @@ function msBuildCode(version) {
   all.push(...msNvSave(here()).words());
   const code = new Uint8Array(4 * all.length);
   for (let i = 0; i < all.length; i++) msWrite32(code, 4 * i, all[i]);
-  if (MAPSWITCH_FREE_START + code.length > MAPSWITCH_FREE_END) throw new Error('map switch code does not fit in the MPC free area');
+  if (MAPSWITCH_FREE_START + code.length > MAPSWITCH_FREE_END)
+    throw new Error('map switch code does not fit in the MPC free area');
   return { code, lookupStubs, tachStub, runStub, nvStubs };
 }
 
@@ -626,16 +696,34 @@ function msBuildCode(version) {
 function msCarriesVersion(mpc, version) {
   if (!mpc || mpc.length !== MAPSWITCH_MPC_LENGTH) return false;
   const built = msBuildCode(version);
-  for (let i = 0; i < built.code.length; i++) if (mpc[MAPSWITCH_FREE_START + i] !== built.code[i]) return false;
-  for (let i = MAPSWITCH_FREE_START + built.code.length; i < MAPSWITCH_FREE_END; i++) if (mpc[i] !== 0xff) return false;
+  for (let i = 0; i < built.code.length; i++)
+    if (mpc[MAPSWITCH_FREE_START + i] !== built.code[i]) return false;
+  for (
+    let i = MAPSWITCH_FREE_START + built.code.length;
+    i < MAPSWITCH_FREE_END;
+    i++
+  )
+    if (mpc[i] !== 0xff) return false;
   for (let i = 0; i < MS_LOOKUP_ENTRIES.length; i++) {
-    if (msRead32(mpc, MS_LOOKUP_ENTRIES[i]) !== msBranch(MS_LOOKUP_ENTRIES[i], built.lookupStubs[i], false)) return false;
+    if (
+      msRead32(mpc, MS_LOOKUP_ENTRIES[i]) !==
+      msBranch(MS_LOOKUP_ENTRIES[i], built.lookupStubs[i], false)
+    )
+      return false;
   }
-  if (msRead32(mpc, MS_TACH_STORE_ADDR) !== msBranch(MS_TACH_STORE_ADDR, built.tachStub, true)) return false;
-  const milExpected = msLampHook(version) ? msBranch(MS_MIL_STORE_ADDR, built.runStub, true) : MS_MIL_STORE_INSN;
+  if (
+    msRead32(mpc, MS_TACH_STORE_ADDR) !==
+    msBranch(MS_TACH_STORE_ADDR, built.tachStub, true)
+  )
+    return false;
+  const milExpected = msLampHook(version)
+    ? msBranch(MS_MIL_STORE_ADDR, built.runStub, true)
+    : MS_MIL_STORE_INSN;
   if (msRead32(mpc, MS_MIL_STORE_ADDR) !== milExpected) return false;
   if (msRead32(mpc, MS_ECON_STORE_ADDR) !== MS_ECON_STORE_INSN) return false;
-  for (let i = 0; i < 3; i++) if (msRead32(mpc, MS_NV_DESCRIPTOR + 4 * i) !== built.nvStubs[i]) return false;
+  for (let i = 0; i < 3; i++)
+    if (msRead32(mpc, MS_NV_DESCRIPTOR + 4 * i) !== built.nvStubs[i])
+      return false;
   return true;
 }
 
@@ -646,7 +734,8 @@ function msVersionOf(mpc) {
 
 function msBranchesIntoFreeArea(mpc, at, link) {
   const insn = msRead32(mpc, at);
-  if ((insn & 0xfc000003) >>> 0 !== (link ? 0x48000001 : 0x48000000)) return false;
+  if ((insn & 0xfc000003) >>> 0 !== (link ? 0x48000001 : 0x48000000))
+    return false;
   let offset = insn & 0x03fffffc;
   if (offset & 0x02000000) offset -= 0x04000000;
   const target = at + offset;
@@ -658,17 +747,35 @@ function msLooksLikeOurCode(freeArea) {
   const built = msBuildCode(msCurrentVersion('dsc'));
   const lookupBytes = built.tachStub - MAPSWITCH_FREE_START;
   if (freeArea.length < lookupBytes) return false;
-  for (let i = 0; i < lookupBytes; i++) if (freeArea[i] !== built.code[i]) return false;
+  for (let i = 0; i < lookupBytes; i++)
+    if (freeArea[i] !== built.code[i]) return false;
   return true;
 }
 
 function msCarriesSomeBuild(mpc) {
   if (!mpc || mpc.length !== MAPSWITCH_MPC_LENGTH) return false;
-  if (!msLooksLikeOurCode(mpc.subarray(MAPSWITCH_FREE_START, MAPSWITCH_FREE_START + MS_CAR_CHECK_LENGTH))) return false;
-  for (const e of MS_LOOKUP_ENTRIES) if (!msBranchesIntoFreeArea(mpc, e, false)) return false;
+  if (
+    !msLooksLikeOurCode(
+      mpc.subarray(
+        MAPSWITCH_FREE_START,
+        MAPSWITCH_FREE_START + MS_CAR_CHECK_LENGTH
+      )
+    )
+  )
+    return false;
+  for (const e of MS_LOOKUP_ENTRIES)
+    if (!msBranchesIntoFreeArea(mpc, e, false)) return false;
   if (!msBranchesIntoFreeArea(mpc, MS_TACH_STORE_ADDR, true)) return false;
-  if (msRead32(mpc, MS_MIL_STORE_ADDR) !== MS_MIL_STORE_INSN && !msBranchesIntoFreeArea(mpc, MS_MIL_STORE_ADDR, true)) return false;
-  if (msRead32(mpc, MS_ECON_STORE_ADDR) !== MS_ECON_STORE_INSN && !msBranchesIntoFreeArea(mpc, MS_ECON_STORE_ADDR, true)) return false;
+  if (
+    msRead32(mpc, MS_MIL_STORE_ADDR) !== MS_MIL_STORE_INSN &&
+    !msBranchesIntoFreeArea(mpc, MS_MIL_STORE_ADDR, true)
+  )
+    return false;
+  if (
+    msRead32(mpc, MS_ECON_STORE_ADDR) !== MS_ECON_STORE_INSN &&
+    !msBranchesIntoFreeArea(mpc, MS_ECON_STORE_ADDR, true)
+  )
+    return false;
   for (let i = 0; i < 3; i++) {
     const fn = msRead32(mpc, MS_NV_DESCRIPTOR + 4 * i);
     if (fn < MAPSWITCH_FREE_START || fn >= MAPSWITCH_FREE_END) return false;
@@ -677,19 +784,23 @@ function msCarriesSomeBuild(mpc) {
 }
 
 function msFreeAreaMatches(freeArea, code) {
-  for (let i = 0; i < freeArea.length; i++) if (freeArea[i] !== (i < code.length ? code[i] : 0xff)) return false;
+  for (let i = 0; i < freeArea.length; i++)
+    if (freeArea[i] !== (i < code.length ? code[i] : 0xff)) return false;
   return true;
 }
 function msCheckFreeArea(freeArea) {
   if (!freeArea || freeArea.length !== MS_CAR_CHECK_LENGTH) {
-    throw new Error(`expected the first 0x${MS_CAR_CHECK_LENGTH.toString(16).toUpperCase()} bytes of the MPC's free area`);
+    throw new Error(
+      `expected the first 0x${MS_CAR_CHECK_LENGTH.toString(16).toUpperCase()} bytes of the MPC's free area`
+    );
   }
 }
 function msVersionOnCar(freeArea) {
   msCheckFreeArea(freeArea);
   for (const v of MS_KNOWN_VERSIONS) {
     const { code } = msBuildCode(v);
-    if (code.length <= MS_CAR_CHECK_LENGTH && msFreeAreaMatches(freeArea, code)) return v;
+    if (code.length <= MS_CAR_CHECK_LENGTH && msFreeAreaMatches(freeArea, code))
+      return v;
   }
   return null;
 }
@@ -700,32 +811,56 @@ function msRomTestSum(flash, mpc) {
   for (let i = 0; i < MS_ROM_TEST_RANGES.length; i += 2) {
     const start = MS_ROM_TEST_RANGES[i];
     const end = MS_ROM_TEST_RANGES[i + 1];
-    if (msRead32(flash, MS_ROM_TEST_RANGES_OFFSET + 4 * i) !== start || msRead32(flash, MS_ROM_TEST_RANGES_OFFSET + 4 * i + 4) !== end) {
-      throw new Error("the program header does not list the expected ranges for the safety monitor's code sum");
+    if (
+      msRead32(flash, MS_ROM_TEST_RANGES_OFFSET + 4 * i) !== start ||
+      msRead32(flash, MS_ROM_TEST_RANGES_OFFSET + 4 * i + 4) !== end
+    ) {
+      throw new Error(
+        "the program header does not list the expected ranges for the safety monitor's code sum"
+      );
     }
     const inMpc = end <= MAPSWITCH_MPC_LENGTH;
     const image = inMpc ? mpc : flash;
     let offset = inMpc ? start : start & 0xfffff;
-    for (let n = (end - start) / 4; n > 0; n--, offset += 4) sum = (sum + BigInt(msRead32(image, offset))) & MS_U64;
+    for (let n = (end - start) / 4; n > 0; n--, offset += 4)
+      sum = (sum + BigInt(msRead32(image, offset))) & MS_U64;
   }
   return sum;
 }
 function msReadRomTestSum(flash) {
-  return (BigInt(msRead32(flash, MS_ROM_TEST_SUM_OFFSET)) << 32n) | BigInt(msRead32(flash, MS_ROM_TEST_SUM_OFFSET + 4));
+  return (
+    (BigInt(msRead32(flash, MS_ROM_TEST_SUM_OFFSET)) << 32n) |
+    BigInt(msRead32(flash, MS_ROM_TEST_SUM_OFFSET + 4))
+  );
 }
 function msCalTestSum(cal) {
   let sum = MS_ROM_TEST_SEED;
-  for (let o = MS_CAL_TEST_RANGE_START - MS_CALIBRATION_BASE; o < MS_CAL_TEST_RANGE_END - MS_CALIBRATION_BASE; o += 4) {
+  for (
+    let o = MS_CAL_TEST_RANGE_START - MS_CALIBRATION_BASE;
+    o < MS_CAL_TEST_RANGE_END - MS_CALIBRATION_BASE;
+    o += 4
+  ) {
     sum = (sum + BigInt(msRead32(cal, o))) & MS_U64;
   }
   return sum;
 }
 function msReadCalTestSum(image, calOffset) {
-  return (BigInt(msRead32(image, calOffset + MS_CAL_TEST_SUM_OFFSET)) << 32n) | BigInt(msRead32(image, calOffset + MS_CAL_TEST_SUM_OFFSET + 4));
+  return (
+    (BigInt(msRead32(image, calOffset + MS_CAL_TEST_SUM_OFFSET)) << 32n) |
+    BigInt(msRead32(image, calOffset + MS_CAL_TEST_SUM_OFFSET + 4))
+  );
 }
 function msWriteCalTestSum(image, calOffset, sum) {
-  msWrite32(image, calOffset + MS_CAL_TEST_SUM_OFFSET, Number((sum >> 32n) & 0xffffffffn));
-  msWrite32(image, calOffset + MS_CAL_TEST_SUM_OFFSET + 4, Number(sum & 0xffffffffn));
+  msWrite32(
+    image,
+    calOffset + MS_CAL_TEST_SUM_OFFSET,
+    Number((sum >> 32n) & 0xffffffffn)
+  );
+  msWrite32(
+    image,
+    calOffset + MS_CAL_TEST_SUM_OFFSET + 4,
+    Number(sum & 0xffffffffn)
+  );
 }
 const msHex16 = (v) => v.toString(16).toUpperCase().padStart(16, '0');
 
@@ -740,7 +875,8 @@ const mapSwitch = {
   MAP2_LENGTH: MAPSWITCH_MAP2_LENGTH,
   CAR_CHECK_OFFSET: MAPSWITCH_FREE_START,
   CAR_CHECK_LENGTH: MS_CAR_CHECK_LENGTH,
-  MAP2_DATA_VERSION_OFFSET: MAPSWITCH_MAP2_START + MAPSWITCH_DATA_VERSION_OFFSET,
+  MAP2_DATA_VERSION_OFFSET:
+    MAPSWITCH_MAP2_START + MAPSWITCH_DATA_VERSION_OFFSET,
   DATA_VERSION_LENGTH: MAPSWITCH_DATA_VERSION_LENGTH,
   DSC_PRESS_CHOICES: MS_DSC_PRESS_CHOICES,
   DEFAULT_DSC_PRESSES: MS_DEFAULT_DSC_PRESSES,
@@ -761,7 +897,9 @@ const mapSwitch = {
    * @returns {string}
    */
   describeTrigger(trigger, presses = MS_DEFAULT_DSC_PRESSES) {
-    return trigger === 'dsc' ? `DSC button pressed ${presses} times` : 'brake + full throttle held 5 s';
+    return trigger === 'dsc'
+      ? `DSC button pressed ${presses} times`
+      : 'brake + full throttle held 5 s';
   },
   /** @param {'fullTune'|'mapsOnly'} scope - The scope. @returns {string} */
   describeScope(scope) {
@@ -773,16 +911,33 @@ const mapSwitch = {
   },
   /** @param {Uint8Array} cal - A calibration. @returns {string|null} */
   readDataVersion(cal) {
-    return msReadAscii(cal, MAPSWITCH_DATA_VERSION_OFFSET, MAPSWITCH_DATA_VERSION_LENGTH);
+    return msReadAscii(
+      cal,
+      MAPSWITCH_DATA_VERSION_OFFSET,
+      MAPSWITCH_DATA_VERSION_LENGTH
+    );
   },
   /** The data version in a field read from the car, or null. @param {Uint8Array} field @returns {string|null} */
   dataVersionFrom(field) {
-    return field && field.length === MAPSWITCH_DATA_VERSION_LENGTH ? msReadAscii(field, 0, MAPSWITCH_DATA_VERSION_LENGTH) : null;
+    return field && field.length === MAPSWITCH_DATA_VERSION_LENGTH
+      ? msReadAscii(field, 0, MAPSWITCH_DATA_VERSION_LENGTH)
+      : null;
   },
   /** @param {Uint8Array} flash @param {Uint8Array} mpc @returns {boolean} */
   hasMap2(flash, mpc) {
-    if (!flash || flash.length !== MAPSWITCH_FULL_FLASH_LENGTH || !mapSwitch.isAlreadyPatched(mpc)) return false;
-    return msReadAscii(flash, MAPSWITCH_MAP2_START + MAPSWITCH_DATA_VERSION_OFFSET, MAPSWITCH_DATA_VERSION_LENGTH) != null;
+    if (
+      !flash ||
+      flash.length !== MAPSWITCH_FULL_FLASH_LENGTH ||
+      !mapSwitch.isAlreadyPatched(mpc)
+    )
+      return false;
+    return (
+      msReadAscii(
+        flash,
+        MAPSWITCH_MAP2_START + MAPSWITCH_DATA_VERSION_OFFSET,
+        MAPSWITCH_DATA_VERSION_LENGTH
+      ) != null
+    );
   },
   /** @param {Uint8Array} mpc @returns {boolean} */
   isAlreadyPatched(mpc) {
@@ -800,7 +955,9 @@ const mapSwitch = {
    */
   installed(mpc) {
     const v = msVersionOf(mpc);
-    return v ? { trigger: v.trigger, presses: v.presses, scope: v.scope } : null;
+    return v
+      ? { trigger: v.trigger, presses: v.presses, scope: v.scope }
+      : null;
   },
   /**
    * What the first CAR_CHECK_LENGTH bytes of the MPC's free area, as read from
@@ -811,10 +968,27 @@ const mapSwitch = {
    */
   stateOnCar(freeArea) {
     msCheckFreeArea(freeArea);
-    if (msFreeAreaMatches(freeArea, new Uint8Array(0))) return { state: 'notInstalled', trigger: null, presses: null, scope: null };
+    if (msFreeAreaMatches(freeArea, new Uint8Array(0)))
+      return {
+        state: 'notInstalled',
+        trigger: null,
+        presses: null,
+        scope: null,
+      };
     const v = msVersionOnCar(freeArea);
-    if (!v) return { state: msLooksLikeOurCode(freeArea) ? 'earlier' : 'unrecognised', trigger: null, presses: null, scope: null };
-    return { state: msIsCurrent(v) ? 'current' : 'earlier', trigger: v.trigger, presses: v.presses, scope: v.scope };
+    if (!v)
+      return {
+        state: msLooksLikeOurCode(freeArea) ? 'earlier' : 'unrecognised',
+        trigger: null,
+        presses: null,
+        scope: null,
+      };
+    return {
+      state: msIsCurrent(v) ? 'current' : 'earlier',
+      trigger: v.trigger,
+      presses: v.presses,
+      scope: v.scope,
+    };
   },
   /**
    * Turn the map 2 area, as read from a car, back into the tune it was stored from.
@@ -823,9 +997,18 @@ const mapSwitch = {
    */
   map2AsCalibration(map2Area) {
     if (!map2Area || map2Area.length !== MAPSWITCH_MAP2_LENGTH) {
-      throw new Error(`expected the 0x${MAPSWITCH_MAP2_LENGTH.toString(16).toUpperCase()} bytes of the map 2 area`);
+      throw new Error(
+        `expected the 0x${MAPSWITCH_MAP2_LENGTH.toString(16).toUpperCase()} bytes of the map 2 area`
+      );
     }
-    if (msReadAscii(map2Area, MAPSWITCH_DATA_VERSION_OFFSET, MAPSWITCH_DATA_VERSION_LENGTH) == null) return null;
+    if (
+      msReadAscii(
+        map2Area,
+        MAPSWITCH_DATA_VERSION_OFFSET,
+        MAPSWITCH_DATA_VERSION_LENGTH
+      ) == null
+    )
+      return null;
     const cal = new Uint8Array(MAPSWITCH_CAL_LENGTH).fill(0xff);
     cal.set(map2Area, 0);
     return cal;
@@ -838,8 +1021,15 @@ const mapSwitch = {
    */
   extractCalibration(file) {
     if (!file) throw new Error('no file');
-    if (file.length === MAPSWITCH_FULL_FLASH_LENGTH) return Uint8Array.from(file.subarray(MAPSWITCH_CAL_START, MAPSWITCH_CAL_START + MAPSWITCH_CAL_LENGTH));
-    if (file.length >= MAPSWITCH_CAL_LENGTH && file.length <= 0x20000) return Uint8Array.from(file.subarray(0, MAPSWITCH_CAL_LENGTH));
+    if (file.length === MAPSWITCH_FULL_FLASH_LENGTH)
+      return Uint8Array.from(
+        file.subarray(
+          MAPSWITCH_CAL_START,
+          MAPSWITCH_CAL_START + MAPSWITCH_CAL_LENGTH
+        )
+      );
+    if (file.length >= MAPSWITCH_CAL_LENGTH && file.length <= 0x20000)
+      return Uint8Array.from(file.subarray(0, MAPSWITCH_CAL_LENGTH));
     throw new Error(
       `a tune must be a calibration partial (0x1D000 bytes) or a full 1 MB image; this file is 0x${file.length.toString(16).toUpperCase()} bytes`
     );
@@ -852,30 +1042,43 @@ const mapSwitch = {
    * @returns {string|null}
    */
   blockedReason(flash, mpc) {
-    if (!flash || flash.length !== MAPSWITCH_FULL_FLASH_LENGTH) return 'Map switch needs a full 1 MB external flash image.';
-    if (!mpc || mpc.length !== MAPSWITCH_MPC_LENGTH) return 'Map switch needs the 448 KB MPC (internal flash) image.';
+    if (!flash || flash.length !== MAPSWITCH_FULL_FLASH_LENGTH)
+      return 'Map switch needs a full 1 MB external flash image.';
+    if (!mpc || mpc.length !== MAPSWITCH_MPC_LENGTH)
+      return 'Map switch needs the 448 KB MPC (internal flash) image.';
     const version = mapSwitch.readProgramVersion(flash);
     if (version !== MAPSWITCH_PROGRAM_VERSION) {
       return `Map switch is only built for program ${MAPSWITCH_PROGRAM_VERSION}, but this image reports ${version || 'an unreadable version'}.`;
     }
     if (mapSwitch.isAlreadyPatched(mpc)) return null;
     for (let i = MAPSWITCH_FREE_START; i < MAPSWITCH_FREE_END; i++) {
-      if (mpc[i] !== 0xff) return "The MPC's free area (0x6E550 up) is not empty, so it carries some other modification.";
+      if (mpc[i] !== 0xff)
+        return "The MPC's free area (0x6E550 up) is not empty, so it carries some other modification.";
     }
-    for (let i = MAPSWITCH_MAP2_START; i < MAPSWITCH_MAP2_START + MAPSWITCH_MAP2_LENGTH; i++) {
-      if (flash[i] !== 0xff) return 'The external flash area for map 2 (0xE0000-0xF7FFF) is not empty.';
+    for (
+      let i = MAPSWITCH_MAP2_START;
+      i < MAPSWITCH_MAP2_START + MAPSWITCH_MAP2_LENGTH;
+      i++
+    ) {
+      if (flash[i] !== 0xff)
+        return 'The external flash area for map 2 (0xE0000-0xF7FFF) is not empty.';
     }
     for (let i = 0; i < MS_LOOKUP_ENTRIES.length; i++) {
       if (msRead32(mpc, MS_LOOKUP_ENTRIES[i]) !== MS_LOOKUP_STOCK[i]) {
         return `The MPC does not carry the expected code at lookup routine 0x${MS_LOOKUP_ENTRIES[i].toString(16).toUpperCase()}.`;
       }
     }
-    if (msRead32(mpc, MS_TACH_STORE_ADDR) !== MS_TACH_STORE_INSN) return 'The MPC does not carry the expected code at the engine speed frame builder.';
-    if (msRead32(mpc, MS_MIL_STORE_ADDR) !== MS_MIL_STORE_INSN || msRead32(mpc, MS_ECON_STORE_ADDR) !== MS_ECON_STORE_INSN) {
+    if (msRead32(mpc, MS_TACH_STORE_ADDR) !== MS_TACH_STORE_INSN)
+      return 'The MPC does not carry the expected code at the engine speed frame builder.';
+    if (
+      msRead32(mpc, MS_MIL_STORE_ADDR) !== MS_MIL_STORE_INSN ||
+      msRead32(mpc, MS_ECON_STORE_ADDR) !== MS_ECON_STORE_INSN
+    ) {
       return 'The MPC does not carry the expected code at the lamp / fuel frame builder.';
     }
     for (let i = 0; i < 3; i++) {
-      if (msRead32(mpc, MS_NV_DESCRIPTOR + 4 * i) !== MS_NV_STOCK[i]) return "The MPC's stored-data table does not match the expected layout.";
+      if (msRead32(mpc, MS_NV_DESCRIPTOR + 4 * i) !== MS_NV_STOCK[i])
+        return "The MPC's stored-data table does not match the expected layout.";
     }
     return null;
   },
@@ -886,7 +1089,8 @@ const mapSwitch = {
    * @returns {string|null}
    */
   map2BlockedReason(calibration, map1) {
-    if (!calibration || calibration.length !== MAPSWITCH_CAL_LENGTH) return 'Map 2 is not a 0x1D000-byte calibration.';
+    if (!calibration || calibration.length !== MAPSWITCH_CAL_LENGTH)
+      return 'Map 2 is not a 0x1D000-byte calibration.';
     for (let i = MAPSWITCH_MAP2_LENGTH; i < MAPSWITCH_CAL_LENGTH; i++) {
       if (calibration[i] !== 0xff) {
         return `Map 2 has data past offset 0x${MAPSWITCH_MAP2_LENGTH.toString(16).toUpperCase()}, which does not fit in the free flash area.`;
@@ -911,12 +1115,27 @@ const mapSwitch = {
    * @param {number} [dscPresses]
    * @returns {{flash: Uint8Array, mpc: Uint8Array, wasAlreadyPatched: boolean, wasUpdated: boolean, mapsIdentical: boolean, codeBytes: number, log: string[]}}
    */
-  build(flash, mpc, map1, map2, trigger = 'dsc', dscPresses = MS_DEFAULT_DSC_PRESSES) {
-    if (trigger === 'dsc' && !MS_DSC_PRESS_CHOICES.includes(dscPresses)) throw new Error('the DSC button trigger takes 2 or 4 presses');
-    return msBuild(flash, mpc, map1, map2, msCurrentVersion(trigger, dscPresses));
+  build(
+    flash,
+    mpc,
+    map1,
+    map2,
+    trigger = 'dsc',
+    dscPresses = MS_DEFAULT_DSC_PRESSES
+  ) {
+    if (trigger === 'dsc' && !MS_DSC_PRESS_CHOICES.includes(dscPresses))
+      throw new Error('the DSC button trigger takes 2 or 4 presses');
+    return msBuild(
+      flash,
+      mpc,
+      map1,
+      map2,
+      msCurrentVersion(trigger, dscPresses)
+    );
   },
   /** For tests: build an earlier version. */
-  _buildVersion: (flash, mpc, map1, map2, version) => msBuild(flash, mpc, map1, map2, version),
+  _buildVersion: (flash, mpc, map1, map2, version) =>
+    msBuild(flash, mpc, map1, map2, version),
   _version: msVersion,
   _buildCode: msBuildCode,
   _romTestSum: msRomTestSum,
@@ -937,49 +1156,90 @@ function msBuild(flash, mpc, map1, map2, version) {
   };
   // an unpatched pair must carry the sum its own code gives; a patched one
   // may not: earlier builds left the stock value
-  if (!result.wasAlreadyPatched && msReadRomTestSum(flash) !== msRomTestSum(flash, mpc)) {
+  if (
+    !result.wasAlreadyPatched &&
+    msReadRomTestSum(flash) !== msRomTestSum(flash, mpc)
+  ) {
     throw new Error(
       "the safety monitor's code sum in the program header does not match the code, so this pair is not what the map switch was built for"
     );
   }
   if (map1) {
-    if (map1.length !== MAPSWITCH_CAL_LENGTH) throw new Error('map 1 is not a 0x1D000-byte calibration');
+    if (map1.length !== MAPSWITCH_CAL_LENGTH)
+      throw new Error('map 1 is not a 0x1D000-byte calibration');
     result.flash.set(map1, MAPSWITCH_CAL_START);
     result.log.push('Map 1: replaced the calibration at 0x40000');
   } else {
     result.log.push('Map 1: kept the calibration already in the image');
   }
-  const current1 = Uint8Array.from(result.flash.subarray(MAPSWITCH_CAL_START, MAPSWITCH_CAL_START + MAPSWITCH_CAL_LENGTH));
-  if (mapSwitch.readDataVersion(current1) == null) throw new Error('the external flash has no tune in it; choose a map 1 tune');
+  const current1 = Uint8Array.from(
+    result.flash.subarray(
+      MAPSWITCH_CAL_START,
+      MAPSWITCH_CAL_START + MAPSWITCH_CAL_LENGTH
+    )
+  );
+  if (mapSwitch.readDataVersion(current1) == null)
+    throw new Error(
+      'the external flash has no tune in it; choose a map 1 tune'
+    );
   const second = map2 || current1;
   const map2Blocked = mapSwitch.map2BlockedReason(second, current1);
   if (map2Blocked) throw new Error(map2Blocked);
-  result.flash.set(second.subarray(0, MAPSWITCH_MAP2_LENGTH), MAPSWITCH_MAP2_START);
-  result.log.push(map2 ? 'Map 2: stored at 0xE0000' : 'Map 2: stored a copy of map 1 at 0xE0000');
+  result.flash.set(
+    second.subarray(0, MAPSWITCH_MAP2_LENGTH),
+    MAPSWITCH_MAP2_START
+  );
+  result.log.push(
+    map2
+      ? 'Map 2: stored at 0xE0000'
+      : 'Map 2: stored a copy of map 1 at 0xE0000'
+  );
   // the monitor sums map 1's range through absolute addresses but reads the
   // value to compare with through r2, i.e. from whichever map is selected
-  if (msRead32(result.flash, MS_CAL_TEST_RANGE_OFFSET) !== MS_CAL_TEST_RANGE_START || msRead32(result.flash, MS_CAL_TEST_RANGE_OFFSET + 4) !== MS_CAL_TEST_RANGE_END) {
-    throw new Error("the program header does not list the expected range for the safety monitor's calibration sum");
+  if (
+    msRead32(result.flash, MS_CAL_TEST_RANGE_OFFSET) !==
+      MS_CAL_TEST_RANGE_START ||
+    msRead32(result.flash, MS_CAL_TEST_RANGE_OFFSET + 4) !==
+      MS_CAL_TEST_RANGE_END
+  ) {
+    throw new Error(
+      "the program header does not list the expected range for the safety monitor's calibration sum"
+    );
   }
   const calSum = msCalTestSum(current1);
   if (msReadCalTestSum(current1, 0) !== calSum) {
     msWriteCalTestSum(result.flash, MAPSWITCH_CAL_START, calSum);
-    result.log.push(`Map 1: safety monitor's calibration sum at 0x${MS_CAL_TEST_SUM_OFFSET.toString(16).toUpperCase()} set to ${msHex16(calSum)}`);
+    result.log.push(
+      `Map 1: safety monitor's calibration sum at 0x${MS_CAL_TEST_SUM_OFFSET.toString(16).toUpperCase()} set to ${msHex16(calSum)}`
+    );
   }
   if (msReadCalTestSum(result.flash, MAPSWITCH_MAP2_START) !== calSum) {
     msWriteCalTestSum(result.flash, MAPSWITCH_MAP2_START, calSum);
-    result.log.push(`Map 2: given map 1's calibration sum, ${msHex16(calSum)}, which the safety monitor reads from the selected map`);
+    result.log.push(
+      `Map 2: given map 1's calibration sum, ${msHex16(calSum)}, which the safety monitor reads from the selected map`
+    );
   }
-  for (let i = 0; i < MAPSWITCH_MAP2_LENGTH && result.mapsIdentical; i++) if (current1[i] !== second[i]) result.mapsIdentical = false;
+  for (let i = 0; i < MAPSWITCH_MAP2_LENGTH && result.mapsIdentical; i++)
+    if (current1[i] !== second[i]) result.mapsIdentical = false;
 
   const built = msBuildCode(version);
   result.codeBytes = built.code.length;
   const correctRomSum = () => {
     const sum = msRomTestSum(result.flash, result.mpc);
     if (msReadRomTestSum(result.flash) === sum) return;
-    msWrite32(result.flash, MS_ROM_TEST_SUM_OFFSET, Number((sum >> 32n) & 0xffffffffn));
-    msWrite32(result.flash, MS_ROM_TEST_SUM_OFFSET + 4, Number(sum & 0xffffffffn));
-    result.log.push(`Safety monitor: code sum at 0x${MS_ROM_TEST_SUM_OFFSET.toString(16).toUpperCase()} set to ${msHex16(sum)}`);
+    msWrite32(
+      result.flash,
+      MS_ROM_TEST_SUM_OFFSET,
+      Number((sum >> 32n) & 0xffffffffn)
+    );
+    msWrite32(
+      result.flash,
+      MS_ROM_TEST_SUM_OFFSET + 4,
+      Number(sum & 0xffffffffn)
+    );
+    result.log.push(
+      `Safety monitor: code sum at 0x${MS_ROM_TEST_SUM_OFFSET.toString(16).toUpperCase()} set to ${msHex16(sum)}`
+    );
   };
   if (msCarriesVersion(mpc, version)) {
     result.log.push(
@@ -991,22 +1251,45 @@ function msBuild(flash, mpc, map1, map2, version) {
   }
   if (result.wasAlreadyPatched) {
     const was = msVersionOf(mpc);
-    for (let i = MAPSWITCH_FREE_START; i < MAPSWITCH_FREE_END; i++) result.mpc[i] = 0xff;
+    for (let i = MAPSWITCH_FREE_START; i < MAPSWITCH_FREE_END; i++)
+      result.mpc[i] = 0xff;
     msWrite32(result.mpc, MS_MIL_STORE_ADDR, MS_MIL_STORE_INSN);
     msWrite32(result.mpc, MS_ECON_STORE_ADDR, MS_ECON_STORE_INSN);
     result.wasUpdated = true;
-    if (!was) result.log.push('Code: replaced an earlier build of the map switch');
-    else if (was.trigger === version.trigger && was.scope === version.scope && was.presses === version.presses) {
+    if (!was)
+      result.log.push('Code: replaced an earlier build of the map switch');
+    else if (
+      was.trigger === version.trigger &&
+      was.scope === version.scope &&
+      was.presses === version.presses
+    ) {
       result.log.push('Code: replaced the earlier version of the map switch');
     } else {
-      result.log.push(`Code: replaced the map switch, was ${mapSwitch.describeTrigger(was.trigger, was.presses)}, ${mapSwitch.describeScope(was.scope)}`);
+      result.log.push(
+        `Code: replaced the map switch, was ${mapSwitch.describeTrigger(was.trigger, was.presses)}, ${mapSwitch.describeScope(was.scope)}`
+      );
     }
   }
   result.mpc.set(built.code, MAPSWITCH_FREE_START);
-  for (let i = 0; i < MS_LOOKUP_ENTRIES.length; i++) msWrite32(result.mpc, MS_LOOKUP_ENTRIES[i], msBranch(MS_LOOKUP_ENTRIES[i], built.lookupStubs[i], false));
-  msWrite32(result.mpc, MS_TACH_STORE_ADDR, msBranch(MS_TACH_STORE_ADDR, built.tachStub, true));
-  if (msLampHook(version)) msWrite32(result.mpc, MS_MIL_STORE_ADDR, msBranch(MS_MIL_STORE_ADDR, built.runStub, true));
-  for (let i = 0; i < 3; i++) msWrite32(result.mpc, MS_NV_DESCRIPTOR + 4 * i, built.nvStubs[i]);
+  for (let i = 0; i < MS_LOOKUP_ENTRIES.length; i++)
+    msWrite32(
+      result.mpc,
+      MS_LOOKUP_ENTRIES[i],
+      msBranch(MS_LOOKUP_ENTRIES[i], built.lookupStubs[i], false)
+    );
+  msWrite32(
+    result.mpc,
+    MS_TACH_STORE_ADDR,
+    msBranch(MS_TACH_STORE_ADDR, built.tachStub, true)
+  );
+  if (msLampHook(version))
+    msWrite32(
+      result.mpc,
+      MS_MIL_STORE_ADDR,
+      msBranch(MS_MIL_STORE_ADDR, built.runStub, true)
+    );
+  for (let i = 0; i < 3; i++)
+    msWrite32(result.mpc, MS_NV_DESCRIPTOR + 4 * i, built.nvStubs[i]);
   result.log.push(
     `Code: ${MS_LOOKUP_ENTRIES.length} lookup hooks, gesture/tach routine and stored-data routines, ${built.code.length} bytes at ` +
       `MPC 0x${MAPSWITCH_FREE_START.toString(16).toUpperCase()}, trigger: ${mapSwitch.describeTrigger(version.trigger, version.presses)}, ` +
@@ -1017,4 +1300,5 @@ function msBuild(flash, mpc, map1, map2, version) {
 }
 
 if (typeof window !== 'undefined') window.mapSwitch = mapSwitch;
-if (typeof module !== 'undefined' && module.exports) module.exports = { mapSwitch };
+if (typeof module !== 'undefined' && module.exports)
+  module.exports = { mapSwitch };

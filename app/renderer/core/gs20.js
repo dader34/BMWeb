@@ -868,7 +868,13 @@ function gs20WriteCalibration(calibration, opts = {}) {
             stage(`AIF not written: ${aifError}`);
           }
         }
-        return { ...result, volts, eraseStarted: writer.eraseStarted, aif, aifError };
+        return {
+          ...result,
+          volts,
+          eraseStarted: writer.eraseStarted,
+          aif,
+          aifError,
+        };
       } catch (e) {
         if (e && typeof e === 'object') e.eraseStarted = writer.eraseStarted;
         throw e;

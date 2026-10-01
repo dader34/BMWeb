@@ -61,7 +61,8 @@ const GS20_PROGRAM_CRC_RANGES = [
 function _gs20Crc16(data, start, end, crc) {
   for (let i = start; i <= end; i++) {
     crc ^= data[i];
-    for (let b = 0; b < 8; b++) crc = crc & 1 ? (crc >>> 1) ^ 0xa001 : crc >>> 1;
+    for (let b = 0; b < 8; b++)
+      crc = crc & 1 ? (crc >>> 1) ^ 0xa001 : crc >>> 1;
   }
   return crc & 0xffff;
 }
@@ -84,7 +85,8 @@ const gs20ProgramChecksum = {
   compute(program) {
     _gs20RequireProgram(program);
     let crc = 0;
-    for (const [s, e] of GS20_PROGRAM_CRC_RANGES) crc = _gs20Crc16(program, s, e, crc);
+    for (const [s, e] of GS20_PROGRAM_CRC_RANGES)
+      crc = _gs20Crc16(program, s, e, crc);
     return crc;
   },
   /**
@@ -93,14 +95,19 @@ const gs20ProgramChecksum = {
    */
   stored(program) {
     _gs20RequireProgram(program);
-    return program[GS20_PROGRAM_CRC_AT] | (program[GS20_PROGRAM_CRC_AT + 1] << 8);
+    return (
+      program[GS20_PROGRAM_CRC_AT] | (program[GS20_PROGRAM_CRC_AT + 1] << 8)
+    );
   },
   /**
    * @param {Uint8Array} program - The 256 KB program region.
    * @returns {boolean}
    */
   verify(program) {
-    return gs20ProgramChecksum.stored(program) === gs20ProgramChecksum.compute(program);
+    return (
+      gs20ProgramChecksum.stored(program) ===
+      gs20ProgramChecksum.compute(program)
+    );
   },
   /**
    * A copy with the checksum written in; the caller's array is untouched.
@@ -210,7 +217,11 @@ const gs20DatenFile = {
     for (const line of String(text || '').split(/\r?\n/)) {
       if (line.startsWith(':')) break;
       const m = /;;K_F1:\s*(.+?)\s*$/.exec(line);
-      if (m) return m[1].replace('Daten fuer ', '').replace('Daten  fuer ', '').trim();
+      if (m)
+        return m[1]
+          .replace('Daten fuer ', '')
+          .replace('Daten  fuer ', '')
+          .trim();
     }
     return null;
   },
@@ -228,7 +239,11 @@ const gs20DatenFile = {
    * @returns {Uint8Array}
    */
   decodeProgram(text) {
-    return gs20DatenFile._decode(text, GS20_PROGRAM_ADDRESS, GS20_PROGRAM_LENGTH);
+    return gs20DatenFile._decode(
+      text,
+      GS20_PROGRAM_ADDRESS,
+      GS20_PROGRAM_LENGTH
+    );
   },
   /**
    * Whether an image ends with the trailer every GS20 calibration carries. A
@@ -239,7 +254,8 @@ const gs20DatenFile = {
   hasTrailer(cal) {
     const t = gs20DatenFile.TRAILER;
     if (!cal || cal.length < t.length) return false;
-    for (let i = 0; i < t.length; i++) if (cal[cal.length - t.length + i] !== t[i]) return false;
+    for (let i = 0; i < t.length; i++)
+      if (cal[cal.length - t.length + i] !== t[i]) return false;
     return true;
   },
   _decode(text, region, size) {
@@ -308,7 +324,10 @@ const gs20DatenFile = {
     const bytes = new Uint8Array(hex.length / 2);
     for (let i = 0; i < bytes.length; i++) {
       const v = parseInt(hex.substr(i * 2, 2), 16);
-      if (!Number.isFinite(v) || !/^[0-9a-fA-F]{2}$/.test(hex.substr(i * 2, 2))) {
+      if (
+        !Number.isFinite(v) ||
+        !/^[0-9a-fA-F]{2}$/.test(hex.substr(i * 2, 2))
+      ) {
         throw new Error(`line ${lineNumber} contains a non-hexadecimal byte`);
       }
       bytes[i] = v;
@@ -368,7 +387,8 @@ const gs20NoUpshift = {
         const at = group + t * GS20_UPSHIFT_TABLE_BYTES + 2;
         for (let e = 0; e < GS20_UPSHIFT_ENTRIES; e++) {
           const i = at + e * 2;
-          if ((cal[i] | (cal[i + 1] << 8)) !== GS20_UPSHIFT_UNREACHABLE) return false;
+          if ((cal[i] | (cal[i + 1] << 8)) !== GS20_UPSHIFT_UNREACHABLE)
+            return false;
         }
       }
     }
@@ -381,7 +401,9 @@ const gs20NoUpshift = {
    */
   apply(cal) {
     if (!gs20NoUpshift.isApplicable(cal)) {
-      throw new Error('this calibration does not have the upshift tables the patch expects');
+      throw new Error(
+        'this calibration does not have the upshift tables the patch expects'
+      );
     }
     const out = Uint8Array.from(cal);
     for (const group of GS20_UPSHIFT_GROUPS) {
@@ -431,13 +453,27 @@ const gs20Aif = {
    * @param {number[]} programRef - Three bytes.
    * @returns {Uint8Array}
    */
-  build(vin, date, softwareNr, changeIndex, approvalNr, assemblyNr, testerSerial, dealerNr, km, programRef) {
+  build(
+    vin,
+    date,
+    softwareNr,
+    changeIndex,
+    approvalNr,
+    assemblyNr,
+    testerSerial,
+    dealerNr,
+    km,
+    programRef
+  ) {
     if (!vin || vin.length !== 17 || !/^[0-9A-Za-z]{17}$/.test(vin)) {
       throw new Error('the VIN must be 17 letters or digits');
     }
-    if (!changeIndex || changeIndex.length !== 2) throw new Error('the change index is two characters');
-    if (!testerSerial || testerSerial.length !== 5) throw new Error('the tester serial is five characters');
-    if (!programRef || programRef.length !== 3) throw new Error('the program reference is three bytes');
+    if (!changeIndex || changeIndex.length !== 2)
+      throw new Error('the change index is two characters');
+    if (!testerSerial || testerSerial.length !== 5)
+      throw new Error('the tester serial is five characters');
+    if (!programRef || programRef.length !== 3)
+      throw new Error('the program reference is three bytes');
     const r = new Uint8Array(gs20Aif.RECORD_LENGTH);
     // VIN: a 104-bit stream, two zero bits then 17 six-bit values
     let acc = 0n;
@@ -451,11 +487,16 @@ const gs20Aif = {
         r[o++] = Number((acc >> BigInt(bits)) & 0xffn);
       }
     }
-    const packedDate = (date.getDate() << 11) | ((date.getMonth() + 1) << 7) | date.getFullYear() % 100;
+    const packedDate =
+      (date.getDate() << 11) |
+      ((date.getMonth() + 1) << 7) |
+      (date.getFullYear() % 100);
     r[0x0e] = (packedDate >> 8) & 0xff;
     r[0x0f] = packedDate & 0xff;
     gs20Aif._put24(r, 0x11, softwareNr);
-    const idx = (gs20Aif._indexChar(changeIndex[0]) << 6) | gs20Aif._indexChar(changeIndex[1]);
+    const idx =
+      (gs20Aif._indexChar(changeIndex[0]) << 6) |
+      gs20Aif._indexChar(changeIndex[1]);
     r[0x14] = (idx >> 8) & 0xff;
     r[0x15] = idx & 0xff;
     gs20Aif._put24(r, 0x17, approvalNr);
@@ -543,7 +584,9 @@ Gs20CalWriter.prototype.readInfo = function readInfo() {
 Gs20CalWriter.prototype.readAifAddress = async function readAifAddress() {
   const info = await this.readInfo();
   if (info.length < 0x42) {
-    throw new Error(`the info block is only ${info.length} bytes; no AIF address in it`);
+    throw new Error(
+      `the info block is only ${info.length} bytes; no AIF address in it`
+    );
   }
   return (info[0x3f] << 16) | (info[0x40] << 8) | info[0x41];
 };
@@ -556,7 +599,14 @@ Gs20CalWriter.prototype.readAifAddress = async function readAifAddress() {
  */
 Gs20CalWriter.prototype.readBytes = async function readBytes(address, length) {
   const reply = await this._exchange(
-    [0x06, (address >>> 24) & 0xff, (address >> 16) & 0xff, (address >> 8) & 0xff, address & 0xff, length & 0xff],
+    [
+      0x06,
+      (address >>> 24) & 0xff,
+      (address >> 16) & 0xff,
+      (address >> 8) & 0xff,
+      address & 0xff,
+      length & 0xff,
+    ],
     GS20_NORMAL_TIMEOUT_MS,
     'read'
   );
@@ -586,9 +636,16 @@ Gs20CalWriter.prototype.writeAifRecord = async function writeAifRecord(record) {
       break;
     }
   }
-  if (slot < 0) throw new Error(`the programming log is full: all ${gs20Aif.SLOTS} entries are used`);
+  if (slot < 0)
+    throw new Error(
+      `the programming log is full: all ${gs20Aif.SLOTS} entries are used`
+    );
   const slotAddress = base + slot * gs20Aif.RECORD_LENGTH;
-  const status = await this._exchange(_gs20AddressCommand(0x0f, slotAddress), GS20_NORMAL_TIMEOUT_MS, 'AIF status');
+  const status = await this._exchange(
+    _gs20AddressCommand(0x0f, slotAddress),
+    GS20_NORMAL_TIMEOUT_MS,
+    'AIF status'
+  );
   let sub = ds2SubStatus(status);
   if (sub !== 1) {
     throw new Error(
@@ -605,7 +662,11 @@ Gs20CalWriter.prototype.writeAifRecord = async function writeAifRecord(record) {
     record.length,
     ...record,
   ];
-  const reply = await this._exchange(payload, GS20_NORMAL_TIMEOUT_MS, 'AIF write');
+  const reply = await this._exchange(
+    payload,
+    GS20_NORMAL_TIMEOUT_MS,
+    'AIF write'
+  );
   sub = ds2SubStatus(reply);
   if (sub !== 1) {
     throw new Error(
@@ -660,7 +721,11 @@ class Gs20ProgramWriter {
     for (let attempt = 0; attempt < GS20_RETRIES; attempt++) {
       _gs20Check(opts.abort);
       try {
-        const reply = await this._wire.transfer(DS2_ADDRESS.tcu, payload, timeoutMs);
+        const reply = await this._wire.transfer(
+          DS2_ADDRESS.tcu,
+          payload,
+          timeoutMs
+        );
         const status = ds2Status(reply);
         if (status === DS2_STATUS.ok) return reply;
         if (opts.allowBusy && status === DS2_STATUS.busy) return reply;
@@ -684,12 +749,16 @@ class Gs20ProgramWriter {
             await this._wire.transfer(DS2_ADDRESS.tcu, [0x00], timeoutMs);
             this._note(`module answers ident, retrying ${what}`);
           } catch (identEx) {
-            this._note(`module did not answer ident either: ${identEx && identEx.message}`);
+            this._note(
+              `module did not answer ident either: ${identEx && identEx.message}`
+            );
           }
         }
       }
     }
-    throw new Error(`the ${what} failed after ${GS20_RETRIES} attempts: ${last && last.message}`);
+    throw new Error(
+      `the ${what} failed after ${GS20_RETRIES} attempts: ${last && last.message}`
+    );
   }
 
   /**
@@ -700,15 +769,21 @@ class Gs20ProgramWriter {
   async confirmFlashAccepted(abort) {
     let reply;
     try {
-      reply = await this._exchange(_gs20AddressCommand(0x0f, GS20_PROGRAM_ADDRESS), GS20_NORMAL_TIMEOUT_MS, 'flash status', {
-        abort,
-        allowBusy: true,
-      });
+      reply = await this._exchange(
+        _gs20AddressCommand(0x0f, GS20_PROGRAM_ADDRESS),
+        GS20_NORMAL_TIMEOUT_MS,
+        'flash status',
+        {
+          abort,
+          allowBusy: true,
+        }
+      );
     } catch (e) {
       if (e && e.message === 'cancelled') throw e;
       throw new Error(
         'the transmission did not answer a flash status request, so it is not open for programming. ' +
-          `Nothing was erased. (${e && e.message})`
+          `Nothing was erased. (${e && e.message})`,
+        { cause: e }
       );
     }
     const status = ds2Status(reply);
@@ -730,10 +805,15 @@ class Gs20ProgramWriter {
   async readStatus(address, abort) {
     for (let poll = 0; poll < GS20_MAX_BUSY_POLLS; poll++) {
       _gs20Check(abort);
-      const reply = await this._exchange(_gs20AddressCommand(0x0f, address), GS20_ERASE_TIMEOUT_MS, 'status', {
-        abort,
-        allowBusy: true,
-      });
+      const reply = await this._exchange(
+        _gs20AddressCommand(0x0f, address),
+        GS20_ERASE_TIMEOUT_MS,
+        'status',
+        {
+          abort,
+          allowBusy: true,
+        }
+      );
       if (ds2Status(reply) === DS2_STATUS.busy) {
         await bmwSleep(GS20_BUSY_POLL_MS);
         continue;
@@ -744,7 +824,12 @@ class Gs20ProgramWriter {
   }
 
   async _erase(address, abort) {
-    const reply = await this._exchange(_gs20AddressCommand(0x06, address), GS20_ERASE_TIMEOUT_MS, 'erase', { abort });
+    const reply = await this._exchange(
+      _gs20AddressCommand(0x06, address),
+      GS20_ERASE_TIMEOUT_MS,
+      'erase',
+      { abort }
+    );
     // the module answers status OK to an erase it has refused as well as to
     // one it has done; only the sub-status tells them apart (1 = erased; 8
     // came back in 16 ms from a module that then rejected every write)
@@ -760,23 +845,35 @@ class Gs20ProgramWriter {
   async _waitReady(address, abort) {
     for (let poll = 0; poll < GS20_MAX_BUSY_POLLS; poll++) {
       _gs20Check(abort);
-      const reply = await this._exchange(_gs20AddressCommand(0x0f, address), GS20_ERASE_TIMEOUT_MS, 'status', {
-        abort,
-        allowBusy: true,
-      });
+      const reply = await this._exchange(
+        _gs20AddressCommand(0x0f, address),
+        GS20_ERASE_TIMEOUT_MS,
+        'status',
+        {
+          abort,
+          allowBusy: true,
+        }
+      );
       if (ds2Status(reply) !== DS2_STATUS.busy) return;
       await bmwSleep(GS20_BUSY_POLL_MS);
     }
-    throw new Error(`the transmission stayed busy after erasing ${_gs20Hex(address)}`);
+    throw new Error(
+      `the transmission stayed busy after erasing ${_gs20Hex(address)}`
+    );
   }
 
   async _commit(abort) {
     for (let poll = 0; poll < GS20_MAX_BUSY_POLLS; poll++) {
       _gs20Check(abort);
-      const reply = await this._exchange(_gs20AddressCommand(0x0f, GS20_PROGRAM_ADDRESS), GS20_ERASE_TIMEOUT_MS, 'commit', {
-        abort,
-        allowBusy: true,
-      });
+      const reply = await this._exchange(
+        _gs20AddressCommand(0x0f, GS20_PROGRAM_ADDRESS),
+        GS20_ERASE_TIMEOUT_MS,
+        'commit',
+        {
+          abort,
+          allowBusy: true,
+        }
+      );
       if (ds2Status(reply) === DS2_STATUS.busy) {
         await bmwSleep(GS20_BUSY_POLL_MS);
         continue;
@@ -808,7 +905,12 @@ class Gs20ProgramWriter {
       length,
       ...image.subarray(offset, offset + length),
     ];
-    const reply = await this._exchange(payload, GS20_NORMAL_TIMEOUT_MS, 'write', { abort });
+    const reply = await this._exchange(
+      payload,
+      GS20_NORMAL_TIMEOUT_MS,
+      'write',
+      { abort }
+    );
     // an accepted chunk is answered with the next address and sub-status 1;
     // one the module did not program (unerased flash) with the same address
     // and sub-status 3, still under status OK
@@ -832,15 +934,29 @@ class Gs20ProgramWriter {
     let offset = 0;
     while (offset < image.length) {
       _gs20Check(opts.abort);
-      while (offset + 1 < image.length && image[offset] === 0xff && image[offset + 1] === 0xff) offset += 2;
+      while (
+        offset + 1 < image.length &&
+        image[offset] === 0xff &&
+        image[offset + 1] === 0xff
+      )
+        offset += 2;
       if (offset >= image.length) break;
       let length = Math.min(Gs20CalWriter.CHUNK, image.length - offset);
-      while (length > 2 && image[offset + length - 2] === 0xff && image[offset + length - 1] === 0xff) length -= 2;
+      while (
+        length > 2 &&
+        image[offset + length - 2] === 0xff &&
+        image[offset + length - 1] === 0xff
+      )
+        length -= 2;
       const address = GS20_PROGRAM_ADDRESS + offset;
-      length = Math.min(length, Gs20ProgramWriter._sectorEnd(address) - address + 1);
+      length = Math.min(
+        length,
+        Gs20ProgramWriter._sectorEnd(address) - address + 1
+      );
       await this._writeChunk(address, image, offset, length, opts.abort);
       offset += length;
-      opts.onProgress && opts.onProgress(Math.round((offset * 100) / image.length));
+      opts.onProgress &&
+        opts.onProgress(Math.round((offset * 100) / image.length));
     }
   }
 
@@ -879,7 +995,9 @@ class Gs20ProgramWriter {
       this.erasedSectors.push(address);
     }
     stage('writing program 0%');
-    this._note(`write ${image.length} bytes to ${_gs20Hex(GS20_PROGRAM_ADDRESS)}`);
+    this._note(
+      `write ${image.length} bytes to ${_gs20Hex(GS20_PROGRAM_ADDRESS)}`
+    );
     await this.writeRegion(image, {
       abort: opts.abort,
       onProgress: (pct) => {
@@ -930,7 +1048,8 @@ class Gs20FullReader {
       if (e && e.message === 'cancelled') throw e;
       return (e && e.message) || String(e);
     }
-    if (data.length !== 8) return `the module returned ${data.length} bytes where 8 were asked for`;
+    if (data.length !== 8)
+      return `the module returned ${data.length} bytes where 8 were asked for`;
     if (data[0] !== 0xfa || data[4] !== 0xfa) {
       return (
         `the module answered, but 0x080000 reads ${busTrace.hex(data)} where a boot block ` +
@@ -955,10 +1074,15 @@ class Gs20FullReader {
       _gs20Check(opts.abort);
       const absolute = address + offset;
       let want = Math.min(Gs20FullReader.CHUNK, length - offset);
-      want = Math.min(want, Gs20FullReader.PAGE - (absolute % Gs20FullReader.PAGE));
+      want = Math.min(
+        want,
+        Gs20FullReader.PAGE - (absolute % Gs20FullReader.PAGE)
+      );
       const chunk = await this._readChunk(absolute, want, opts.abort);
       if (chunk.length !== want) {
-        throw new Error(`the transmission returned ${chunk.length} bytes at ${_gs20Hex(absolute)} where ${want} were asked for`);
+        throw new Error(
+          `the transmission returned ${chunk.length} bytes at ${_gs20Hex(absolute)} where ${want} were asked for`
+        );
       }
       image.set(chunk, offset);
       offset += want;
@@ -969,12 +1093,23 @@ class Gs20FullReader {
   }
 
   async _readChunk(address, length, abort) {
-    const payload = [0x06, 0x08, (address >> 16) & 0xff, (address >> 8) & 0xff, address & 0xff, length];
+    const payload = [
+      0x06,
+      0x08,
+      (address >> 16) & 0xff,
+      (address >> 8) & 0xff,
+      address & 0xff,
+      length,
+    ];
     let last = null;
     for (let attempt = 0; attempt < GS20_RETRIES; attempt++) {
       _gs20Check(abort);
       try {
-        const reply = await this._wire.transfer(DS2_ADDRESS.tcu, payload, GS20_READ_TIMEOUT_MS);
+        const reply = await this._wire.transfer(
+          DS2_ADDRESS.tcu,
+          payload,
+          GS20_READ_TIMEOUT_MS
+        );
         const status = ds2Status(reply);
         if (status !== DS2_STATUS.ok) {
           if (status === DS2_STATUS.error) {
@@ -983,11 +1118,15 @@ class Gs20FullReader {
                 'not have the patched program; stock firmware answers only calibration reads'
             );
           }
-          throw new Error(`the transmission refused a read at ${_gs20Hex(address)}: ${busTrace.hex(reply.slice(0, 12))}`);
+          throw new Error(
+            `the transmission refused a read at ${_gs20Hex(address)}: ${busTrace.hex(reply.slice(0, 12))}`
+          );
         }
         const available = reply.length - 4;
         if (available < length) {
-          throw new Error(`a read at ${_gs20Hex(address)} returned only ${Math.max(available, 0)} of ${length} bytes`);
+          throw new Error(
+            `a read at ${_gs20Hex(address)} returned only ${Math.max(available, 0)} of ${length} bytes`
+          );
         }
         return Uint8Array.from(reply.slice(3, 3 + length));
       } catch (e) {
@@ -996,7 +1135,9 @@ class Gs20FullReader {
         if (attempt + 1 < GS20_RETRIES) await bmwSleep(GS20_RETRY_DELAY_MS);
       }
     }
-    throw new Error(`a read at ${_gs20Hex(address)} failed after ${GS20_RETRIES} attempts: ${last && last.message}`);
+    throw new Error(
+      `a read at ${_gs20Hex(address)} failed after ${GS20_RETRIES} attempts: ${last && last.message}`
+    );
   }
 }
 
@@ -1009,7 +1150,9 @@ class Gs20FullReader {
  * @returns {Promise<number[]>}
  */
 function gs20ReadInfo(opts = {}) {
-  return ds2WireSession((wire) => new Gs20CalWriter(wire).readInfo(), { trace: opts.onTrace });
+  return ds2WireSession((wire) => new Gs20CalWriter(wire).readInfo(), {
+    trace: opts.onTrace,
+  });
 }
 
 /**
@@ -1018,7 +1161,9 @@ function gs20ReadInfo(opts = {}) {
  * @returns {Promise<string|null>} null when it does, otherwise why not.
  */
 function gs20ProbeReadPatch(opts = {}) {
-  return ds2WireSession((wire) => new Gs20FullReader(wire).probe(), { trace: opts.onTrace });
+  return ds2WireSession((wire) => new Gs20FullReader(wire).probe(), {
+    trace: opts.onTrace,
+  });
 }
 
 /**
@@ -1037,7 +1182,9 @@ function gs20ReadFull(opts = {}) {
         const reader = new Gs20FullReader(wire, { note: stage });
         const problem = await reader.probe(opts.abort);
         if (problem) throw new Error(problem);
-        stage(`reading 0x${GS20_FULL_LENGTH.toString(16).toUpperCase()} bytes from ${_gs20Hex(GS20_FULL_ADDRESS)}`);
+        stage(
+          `reading 0x${GS20_FULL_LENGTH.toString(16).toUpperCase()} bytes from ${_gs20Hex(GS20_FULL_ADDRESS)}`
+        );
         return await reader.read(GS20_FULL_ADDRESS, GS20_FULL_LENGTH, {
           onProgress: opts.onProgress,
           abort: opts.abort,
@@ -1065,7 +1212,10 @@ function gs20ReadFull(opts = {}) {
  * @returns {Promise<{checksum: number, checksumCorrected: boolean, calibration: {checksumCorrected: boolean}|null, volts: number|null, info: number[]|null, aif: {address: number, slot: number, left: number}|null, aifError: string|null}>}
  */
 function gs20WriteProgram(program, opts = {}) {
-  if (!opts.confirmed) throw new Error('a program write requires an explicit confirmation from the UI');
+  if (!opts.confirmed)
+    throw new Error(
+      'a program write requires an explicit confirmation from the UI'
+    );
   _gs20RequireProgram(program);
   const stage = opts.onStage || (() => {});
   return ds2WireSession(
@@ -1092,7 +1242,9 @@ function gs20WriteProgram(program, opts = {}) {
           volts = await session.readBatteryVolts();
           stage(`battery ${volts.toFixed(1)} V`);
         } catch (e) {
-          stage(`battery reading unavailable (boot block answering?): ${(e && e.message) || e}`);
+          stage(
+            `battery reading unavailable (boot block answering?): ${(e && e.message) || e}`
+          );
         }
         if (volts != null && volts > 0 && volts < 11.5) {
           throw new Error(
@@ -1133,7 +1285,9 @@ function gs20WriteProgram(program, opts = {}) {
           try {
             stage('writing the programming record (AIF)');
             aif = await session.writeAifRecord(opts.aifRecord);
-            stage(`AIF entry ${aif.slot + 1} written at ${_gs20Hex(aif.address)} (${aif.left} left)`);
+            stage(
+              `AIF entry ${aif.slot + 1} written at ${_gs20Hex(aif.address)} (${aif.left} left)`
+            );
           } catch (e) {
             aifError = (e && e.message) || String(e);
             stage(`AIF not written: ${aifError}`);

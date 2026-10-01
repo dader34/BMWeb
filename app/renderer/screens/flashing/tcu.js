@@ -49,9 +49,11 @@ function fbTcuPanelHtml() {
 }
 
 function fbTcuWire() {
-  fbEls['tcu-read'].onclick = () => fbTcuGuard('Read Calibration', fbTcuReadCal);
+  fbEls['tcu-read'].onclick = () =>
+    fbTcuGuard('Read Calibration', fbTcuReadCal);
   fbEls['tcu-load-cal'].onclick = () => fbTcuLoadCalClick();
-  fbEls['tcu-write-cal'].onclick = () => fbTcuGuard('Write Calibration', fbTcuWriteCal);
+  fbEls['tcu-write-cal'].onclick = () =>
+    fbTcuGuard('Write Calibration', fbTcuWriteCal);
   fbEls['tcu-load-program'].onclick = () => fbTcuLoadProgramClick();
   fbEls['tcu-program-tune-remove'].onclick = () => {
     fbState.tcu.cal = null;
@@ -60,8 +62,10 @@ function fbTcuWire() {
     fbOptionsRefreshSummary();
     fbSetStatus('Calibration removed; only the program will be written');
   };
-  fbEls['tcu-write-program'].onclick = () => fbTcuGuard('Write Program', fbTcuWriteProgram);
-  fbEls['tcu-read-patch'].onclick = () => fbTcuGuard('Install Read Patch', fbTcuInstallReadPatch);
+  fbEls['tcu-write-program'].onclick = () =>
+    fbTcuGuard('Write Program', fbTcuWriteProgram);
+  fbEls['tcu-read-patch'].onclick = () =>
+    fbTcuGuard('Install Read Patch', fbTcuInstallReadPatch);
   fbEls['tcu-read-full'].onclick = () => fbTcuGuard('Read Full', fbTcuReadFull);
   fbEls['tcu-fullbin'].onchange = () => {
     fbState.tcu.fullBin = fbEls['tcu-fullbin'].checked;
@@ -99,7 +103,9 @@ function fbTcuRefresh() {
   fbEls['tcu-read-patch'].disabled = !(gs20 && !t.hasReadPatch);
   fbEls['tcu-read-full'].disabled = !t.hasReadPatch;
   const calVersion = t.cal ? gs20Checksum.version(t.cal) : null;
-  const calText = t.cal ? `${t.calName || 'calibration'}${calVersion ? `  ${calVersion}` : ''}` : '';
+  const calText = t.cal
+    ? `${t.calName || 'calibration'}${calVersion ? `  ${calVersion}` : ''}`
+    : '';
   fbEls['tcu-cal-name'].textContent = calText;
   fbEls['tcu-cal-name'].hidden = !calText || full;
   fbEls['tcu-program-name'].textContent = t.programName || '';
@@ -171,7 +177,10 @@ async function fbTcuIdentify() {
   if (!found) {
     fbLog(lastProblem);
     fbSetStatus('No response from the TCU');
-    await fbMessage(`The transmission did not respond to any known E46 auto-TCU variant. Check ignition and the cable.\n\nLast attempt: ${lastProblem}`, 'Identify TCU');
+    await fbMessage(
+      `The transmission did not respond to any known E46 auto-TCU variant. Check ignition and the cable.\n\nLast attempt: ${lastProblem}`,
+      'Identify TCU'
+    );
     return;
   }
   t.sgbd = found;
@@ -214,13 +223,18 @@ async function fbTcuIdentify() {
   // a module that already answers the patched read has nothing to install
   const problem = await gs20ProbeReadPatch();
   t.hasReadPatch = problem == null;
-  fbSetStatus(t.hasReadPatch ? 'TCU identified (gs20.prg), patched program: full read available' : 'TCU identified (gs20.prg), stock program: full read unavailable');
+  fbSetStatus(
+    t.hasReadPatch
+      ? 'TCU identified (gs20.prg), patched program: full read available'
+      : 'TCU identified (gs20.prg), stock program: full read unavailable'
+  );
 }
 
 function fbTcuField(res, field) {
   const sets = (res && res.sets) || [];
   for (const s of sets) {
-    if (s && Object.prototype.hasOwnProperty.call(s, field) && s[field] != null) return String(s[field]).trim();
+    if (s && Object.prototype.hasOwnProperty.call(s, field) && s[field] != null)
+      return String(s[field]).trim();
   }
   return '';
 }
@@ -231,16 +245,23 @@ function fbTcuLogAif(aif) {
     return;
   }
   const f = (k) => aif[k] || '';
-  fbLog(`Coding data: VIN ${f('AIF_FG_NR') || '-'} · date ${f('AIF_DATUM') || '-'}${f('AIF_AENDERUNGS_INDEX') ? ` · index ${f('AIF_AENDERUNGS_INDEX')}` : ''}`);
-  fbLog(`    software ${f('AIF_SW_NR') || '-'} · assembly ${f('AIF_ZB_NR') || '-'} · official ${f('AIF_BEHOERDEN_NR') || '-'}`);
+  fbLog(
+    `Coding data: VIN ${f('AIF_FG_NR') || '-'} · date ${f('AIF_DATUM') || '-'}${f('AIF_AENDERUNGS_INDEX') ? ` · index ${f('AIF_AENDERUNGS_INDEX')}` : ''}`
+  );
+  fbLog(
+    `    software ${f('AIF_SW_NR') || '-'} · assembly ${f('AIF_ZB_NR') || '-'} · official ${f('AIF_BEHOERDEN_NR') || '-'}`
+  );
   const extra = [];
   if (f('AIF_PROGG_NR')) extra.push(`program ${f('AIF_PROGG_NR')}`);
-  if (f('AIF_WERKSCODE') && f('AIF_WERKSCODE') !== '0') extra.push(`dealer ${f('AIF_WERKSCODE')}`);
+  if (f('AIF_WERKSCODE') && f('AIF_WERKSCODE') !== '0')
+    extra.push(`dealer ${f('AIF_WERKSCODE')}`);
   if (f('AIF_KM_STAND')) extra.push(`${f('AIF_KM_STAND')} km`);
   const addr = parseInt(f('AIF_ADRESSE'), 10);
-  if (Number.isFinite(addr)) extra.push(`base 0x${addr.toString(16).toUpperCase().padStart(6, '0')}`);
+  if (Number.isFinite(addr))
+    extra.push(`base 0x${addr.toString(16).toUpperCase().padStart(6, '0')}`);
   const free = parseInt(f('AIF_ANZ_FREI'), 10);
-  if (Number.isFinite(free)) extra.push(`${free} of ${FB_AIF_SLOTS} entries free`);
+  if (Number.isFinite(free))
+    extra.push(`${free} of ${FB_AIF_SLOTS} entries free`);
   if (extra.length) fbLog(`    ${extra.join(' · ')}`);
 }
 
@@ -252,7 +273,10 @@ async function fbTcuReadCal() {
     return;
   }
   if (t.sgbd !== 'gs20') {
-    await fbMessage('Only the GS20 is read here; its calibration layout is the only one known.', 'Read Calibration');
+    await fbMessage(
+      'Only the GS20 is read here; its calibration layout is the only one known.',
+      'Read Calibration'
+    );
     return;
   }
   await fbSessionStart('tcu-cal-read', { module: 'GS20' });
@@ -268,7 +292,9 @@ async function fbTcuReadCal() {
     });
     const stamp = fbTcuStamp();
     fbSaveBytes(`TCU_cal_${stamp}.bin`, cal);
-    fbSetStatus(`Read TCU calibration (0x${cal.length.toString(16).toUpperCase()} bytes)${fbTcuDescribeChecksum(cal)}`);
+    fbSetStatus(
+      `Read TCU calibration (0x${cal.length.toString(16).toUpperCase()} bytes)${fbTcuDescribeChecksum(cal)}`
+    );
   } finally {
     await fbSessionStop();
   }
@@ -283,7 +309,9 @@ function fbTcuStamp() {
 function fbTcuDescribeChecksum(cal) {
   if (!cal || cal.length < GS20_CAL_LENGTH) return '';
   const h4 = (v) => `0x${v.toString(16).toUpperCase().padStart(4, '0')}`;
-  return gs20Checksum.verify(cal) ? ', checksum valid' : `, checksum does NOT match (stored ${h4(gs20Checksum.stored(cal))}, expected ${h4(gs20Checksum.compute(cal))})`;
+  return gs20Checksum.verify(cal)
+    ? ', checksum valid'
+    : `, checksum does NOT match (stored ${h4(gs20Checksum.stored(cal))}, expected ${h4(gs20Checksum.compute(cal))})`;
 }
 
 async function fbTcuReadFull() {
@@ -297,7 +325,9 @@ async function fbTcuReadFull() {
     !(await fbConfirm(
       'This uses the subcode-8 read, which only exists on a module flashed with the patched program. A stock module will answer B0 and nothing will happen.\n\n' +
         `Reading 0x${GS20_FULL_LENGTH.toString(16).toUpperCase()} bytes from 0x${GS20_FULL_ADDRESS.toString(16).toUpperCase().padStart(6, '0')}.` +
-        (t.fast ? '' : ` At 9600 baud this takes roughly ${minutesAt9600} minutes; turn on fast mode to shorten it.`) +
+        (t.fast
+          ? ''
+          : ` At 9600 baud this takes roughly ${minutesAt9600} minutes; turn on fast mode to shorten it.`) +
         '\n\nNothing is written to the module.',
       'Read Full'
     ))
@@ -306,7 +336,9 @@ async function fbTcuReadFull() {
   }
   await fbSessionStart('tcu-full-read', { module: 'GS20' });
   try {
-    flashLog.note(`TCU gs20 / subcode-8 read of the full region / fast mode ${t.fast ? 'on' : 'off'}`);
+    flashLog.note(
+      `TCU gs20 / subcode-8 read of the full region / fast mode ${t.fast ? 'on' : 'off'}`
+    );
     const image = await gs20ReadFull({
       fast: t.fast,
       onStage: fbSetStage,
@@ -316,18 +348,31 @@ async function fbTcuReadFull() {
         fbSetStatusInPlace(`${p}%`);
       },
     });
-    const vectors = image[0] === 0xfa && image[4] === 0xfa && image[8] === 0xfa && image[12] === 0xfa;
+    const vectors =
+      image[0] === 0xfa &&
+      image[4] === 0xfa &&
+      image[8] === 0xfa &&
+      image[12] === 0xfa;
     let blank = 0;
-    for (const b of image.subarray(0, 0x10000)) if (b === 0x00 || b === 0xff) blank++;
+    for (const b of image.subarray(0, 0x10000))
+      if (b === 0x00 || b === 0xff) blank++;
     const verdict = !vectors
       ? ' -- WARNING: the reset vectors are not JMPS (0xFA). This boot block looks damaged.'
       : blank > 0x8000
         ? ` -- warning: the vectors are intact but ${blank} of 65536 boot-block bytes are blank.`
         : ' -- boot vectors intact (FA at 0x00/04/08/0C).';
-    flashLog.note(`RESULT: 0x${image.length.toString(16).toUpperCase()} bytes${verdict}`);
+    flashLog.note(
+      `RESULT: 0x${image.length.toString(16).toUpperCase()} bytes${verdict}`
+    );
     fbSaveBytes(`TCU_full_080000_${fbTcuStamp()}.bin`, image);
-    fbSetStatus(`Read 0x${image.length.toString(16).toUpperCase()} bytes from 0x080000${verdict}`);
-    if (/warning/i.test(verdict)) await fbMessage(`The read completed, but the contents look wrong:${verdict.replace(' -- ', '\n\n')}`, 'Read Full');
+    fbSetStatus(
+      `Read 0x${image.length.toString(16).toUpperCase()} bytes from 0x080000${verdict}`
+    );
+    if (/warning/i.test(verdict))
+      await fbMessage(
+        `The read completed, but the contents look wrong:${verdict.replace(' -- ', '\n\n')}`,
+        'Read Full'
+      );
   } finally {
     await fbSessionStop();
   }
@@ -382,7 +427,10 @@ async function fbTcuLoadCalibration(file, forProgram) {
       try {
         cal = gs20DatenFile.decode(text);
       } catch (e) {
-        await fbMessage(`This file could not be decoded, so nothing was loaded.\n\n${e.message}`, 'Load Calibration');
+        await fbMessage(
+          `This file could not be decoded, so nothing was loaded.\n\n${e.message}`,
+          'Load Calibration'
+        );
         return fail(`Could not read that Daten file: ${e.message}`);
       }
       const vehicle = gs20DatenFile.readVehicle(text);
@@ -398,16 +446,25 @@ async function fbTcuLoadCalibration(file, forProgram) {
         fbSetStatus('Nothing loaded');
         return false;
       }
-      if (choice === 0 || choice === 2) fbSaveBytes(`${file.name.replace(/\.[^.]+$/, '')}_converted.bin`, gs20Checksum.correct(cal));
+      if (choice === 0 || choice === 2)
+        fbSaveBytes(
+          `${file.name.replace(/\.[^.]+$/, '')}_converted.bin`,
+          gs20Checksum.correct(cal)
+        );
       if (choice === 0) {
-        fbSetStatus(`Converted ${file.name}${reference ? ` (${reference})` : ''}`);
+        fbSetStatus(
+          `Converted ${file.name}${reference ? ` (${reference})` : ''}`
+        );
         return false;
       }
       datenNote = ` [.0DA${vehicle ? `, ${vehicle}` : ''}]`;
     } else {
       cal = await fbReadBytes(file);
     }
-    if (cal.length !== GS20_CAL_LENGTH) return fail(`A GS20 calibration is 64 KB; that file is 0x${cal.length.toString(16).toUpperCase()} bytes`);
+    if (cal.length !== GS20_CAL_LENGTH)
+      return fail(
+        `A GS20 calibration is 64 KB; that file is 0x${cal.length.toString(16).toUpperCase()} bytes`
+      );
     if (!gs20DatenFile.hasTrailer(cal)) {
       await fbMessage(
         'This file does not end with the four bytes every GS20 calibration carries (C7 A3 8C 44).\n\nA calibration like this is written without complaint and then refused when the transmission validates it, so it has not been loaded.',
@@ -426,8 +483,12 @@ async function fbTcuLoadCalibration(file, forProgram) {
     const h4 = (v) => `0x${v.toString(16).toUpperCase().padStart(4, '0')}`;
     fbSetStatus(
       `Loaded ${file.name}${datenNote}${version ? ` (${version})` : ''}` +
-        (stored === corrected ? ', checksum already correct' : `, checksum corrected ${h4(stored)} to ${h4(corrected)}`) +
-        (fbTcuCalMatches(version) ? '' : ' - does NOT match the identified transmission')
+        (stored === corrected
+          ? ', checksum already correct'
+          : `, checksum corrected ${h4(stored)} to ${h4(corrected)}`) +
+        (fbTcuCalMatches(version)
+          ? ''
+          : ' - does NOT match the identified transmission')
     );
     return true;
   } catch (e) {
@@ -439,9 +500,12 @@ async function fbTcuLoadCalibration(file, forProgram) {
 /** Why the upshift patch cannot be offered, or null when it can. */
 function fbTcuNoUpshiftBlockedReason() {
   const t = fbState.tcu;
-  if (!t.cal) return 'Load a calibration first. The patch is applied to the file, not to the car.';
-  if (!gs20NoUpshift.isApplicable(t.cal)) return 'This calibration does not have the upshift tables the patch expects, so it cannot be applied to it safely.';
-  if (gs20NoUpshift.isApplied(t.cal)) return 'This calibration already has its upshift points raised.';
+  if (!t.cal)
+    return 'Load a calibration first. The patch is applied to the file, not to the car.';
+  if (!gs20NoUpshift.isApplicable(t.cal))
+    return 'This calibration does not have the upshift tables the patch expects, so it cannot be applied to it safely.';
+  if (gs20NoUpshift.isApplied(t.cal))
+    return 'This calibration already has its upshift points raised.';
   return null;
 }
 
@@ -462,11 +526,15 @@ async function fbTcuWriteCal() {
         'Calibration does not match'
       ))
     ) {
-      fbSetStatus('Write cancelled: the calibration does not match the transmission');
+      fbSetStatus(
+        'Write cancelled: the calibration does not match the transmission'
+      );
       return;
     }
   }
-  const patchNote = t.noUpshift ? 'Automatic upshifts will be removed from the calibration first.\n\n' : '';
+  const patchNote = t.noUpshift
+    ? 'Automatic upshifts will be removed from the calibration first.\n\n'
+    : '';
   if (
     !(await fbConfirm(
       `This erases and reprograms the transmission calibration at 0x${GS20_CAL_ADDRESS.toString(16).toUpperCase().padStart(6, '0')}.\n\n${patchNote}` +
@@ -482,7 +550,9 @@ async function fbTcuWriteCal() {
   fbFlashingBar(true);
   await fbSessionStart('tcu-cal-write', { module: 'GS20' });
   try {
-    flashLog.note(`TCU gs20 / cal 0x${GS20_CAL_ADDRESS.toString(16).toUpperCase()} / checksum 0x${gs20Checksum.stored(t.cal).toString(16).toUpperCase().padStart(4, '0')}`);
+    flashLog.note(
+      `TCU gs20 / cal 0x${GS20_CAL_ADDRESS.toString(16).toUpperCase()} / checksum 0x${gs20Checksum.stored(t.cal).toString(16).toUpperCase().padStart(4, '0')}`
+    );
     const image = t.noUpshift ? gs20NoUpshift.apply(t.cal) : t.cal;
     if (image !== t.cal) flashLog.note('auto upshift removed');
     flashLog.attach('tcu_calibration_0x090000.bin', image);
@@ -502,7 +572,10 @@ async function fbTcuWriteCal() {
       eraseStarted = res.eraseStarted;
       if (res.aif) t.aif.AIF_ANZ_FREI = String(res.aif.left);
       fbSetStatus('Calibration written. Cycle the ignition before driving.');
-      await fbMessage('The calibration was written and the transmission confirmed it.\n\nCycle the ignition, then check for stored faults before driving.', 'Write Calibration');
+      await fbMessage(
+        'The calibration was written and the transmission confirmed it.\n\nCycle the ignition, then check for stored faults before driving.',
+        'Write Calibration'
+      );
     } catch (e) {
       eraseStarted = !!(e && e.eraseStarted);
       fbSetStatus(`Calibration write failed: ${e.message}`);
@@ -533,25 +606,46 @@ function fbTcuAifRecord(program, calibration) {
   const t = fbState.tcu;
   const a = (f) => t.aif[f] || '';
   let vin = fbState.aifVin || '';
-  if (!fbIsAlnum(vin, 17)) vin = (fbState.dme && fbState.dme.aif && fbState.dme.aif.AIF_FG_NR_LANG) || '';
+  if (!fbIsAlnum(vin, 17))
+    vin =
+      (fbState.dme && fbState.dme.aif && fbState.dme.aif.AIF_FG_NR_LANG) || '';
   if (!fbIsAlnum(vin, 17)) vin = a('AIF_FG_NR');
   if (!fbIsAlnum(vin, 17)) {
-    flashLog.note('AIF not written: no 17-character VIN known (type one at the counter question or identify the DME first)');
+    flashLog.note(
+      'AIF not written: no 17-character VIN known (type one at the counter question or identify the DME first)'
+    );
     return null;
   }
   const ident = gs20IdentTail(program) || gs20IdentTail(calibration);
-  const progRef = ident ? [0, parseInt(ident.slice(0, 2), 16), parseInt(ident.slice(2, 4), 16)] : [0, 0, 0];
-  const known = gs20Aif.partNumbers(calibration ? gs20Checksum.version(calibration) : null);
+  const progRef = ident
+    ? [0, parseInt(ident.slice(0, 2), 16), parseInt(ident.slice(2, 4), 16)]
+    : [0, 0, 0];
+  const known = gs20Aif.partNumbers(
+    calibration ? gs20Checksum.version(calibration) : null
+  );
   const fileNr = (name) => {
     const m = /(?<!\d)(\d{7})(?!\d)/.exec(name || '');
     return m ? parseInt(m[1], 10) : null;
   };
   const zb = known ? known.assemblyNr : gs20Aif.number(a('AIF_ZB_NR'));
-  const sw = known ? known.dataNr : fileNr(t.calName) || gs20Aif.number(a('AIF_SW_NR'));
+  const sw = known
+    ? known.dataNr
+    : fileNr(t.calName) || gs20Aif.number(a('AIF_SW_NR'));
   let index = a('AIF_AENDERUNGS_INDEX');
   if (index.length !== 2) index = '00';
   try {
-    return gs20Aif.build(vin, new Date(), sw, index, gs20Aif.number(a('AIF_BEHOERDEN_NR')), zb, fbTesterSerial, gs20Aif.number(a('AIF_WERKSCODE')), gs20Aif.number(a('AIF_KM_STAND')), progRef);
+    return gs20Aif.build(
+      vin,
+      new Date(),
+      sw,
+      index,
+      gs20Aif.number(a('AIF_BEHOERDEN_NR')),
+      zb,
+      fbTesterSerial,
+      gs20Aif.number(a('AIF_WERKSCODE')),
+      gs20Aif.number(a('AIF_KM_STAND')),
+      progRef
+    );
   } catch (e) {
     flashLog.note(`AIF not written: ${e.message}`);
     return null;
@@ -572,14 +666,21 @@ async function fbTcuLoadProgramClick() {
     } else {
       const raw = await fbReadBytes(file);
       if (raw.length === GS20_FULL_LENGTH) {
-        program = Uint8Array.from(raw.subarray(GS20_PROGRAM_ADDRESS - GS20_FULL_ADDRESS, GS20_PROGRAM_ADDRESS - GS20_FULL_ADDRESS + GS20_PROGRAM_LENGTH));
+        program = Uint8Array.from(
+          raw.subarray(
+            GS20_PROGRAM_ADDRESS - GS20_FULL_ADDRESS,
+            GS20_PROGRAM_ADDRESS - GS20_FULL_ADDRESS + GS20_PROGRAM_LENGTH
+          )
+        );
         origin = '512 KB image';
       } else if (raw.length === GS20_PROGRAM_LENGTH) {
         program = raw;
         origin = '256 KB program';
       } else {
         t.program = null;
-        fbSetStatus(`A GS20 program is 256 KB (or a 512 KB full image); that file is 0x${raw.length.toString(16).toUpperCase()} bytes`);
+        fbSetStatus(
+          `A GS20 program is 256 KB (or a 512 KB full image); that file is 0x${raw.length.toString(16).toUpperCase()} bytes`
+        );
         return;
       }
     }
@@ -599,7 +700,9 @@ async function fbTcuLoadProgramClick() {
     const h4 = (v) => `0x${v.toString(16).toUpperCase().padStart(4, '0')}`;
     fbSetStatus(
       `Loaded ${file.name} [${origin}] release ${release}${gs20ProgramHasReadPatch(image) ? ', read patch present' : ', stock'}` +
-        (stored === checksum ? ', checksum already correct' : `, checksum corrected ${h4(stored)} -> ${h4(checksum)}`)
+        (stored === checksum
+          ? ', checksum already correct'
+          : `, checksum corrected ${h4(stored)} -> ${h4(checksum)}`)
     );
     await fbTcuPairCalibrationWithProgram(release);
   } catch (e) {
@@ -631,13 +734,18 @@ async function fbTcuPairCalibrationWithProgram(release) {
             `so a release-${release} calibration is written straight after this program.\n\nChoose it now: a matching .0DA from SP-Daten, or a tune built on one.`,
           'Program needs a matching calibration'
         )
-      : await fbConfirm('Also write a calibration after this program?\n\nOptional: without one the calibration on the transmission stays as it is. A .0DA from SP-Daten or a 64 KB tune can be chosen.', 'Add a calibration');
+      : await fbConfirm(
+          'Also write a calibration after this program?\n\nOptional: without one the calibration on the transmission stays as it is. A .0DA from SP-Daten or a 64 KB tune can be chosen.',
+          'Add a calibration'
+        );
     if (!pick) {
       if (!required) return;
       t.program = null;
       t.programName = '';
       fbTcuRefresh();
-      fbSetStatus(`Program not loaded: it needs a release-${release} calibration`);
+      fbSetStatus(
+        `Program not loaded: it needs a release-${release} calibration`
+      );
       return;
     }
     const file = await fbPickFile('.bin,.0DA,.0da');
@@ -671,7 +779,7 @@ async function fbTcuInstallReadPatch() {
   if (reported !== '90' || !part.includes('7552700')) {
     await fbMessage(
       `The read patch is built for program 7552700, software release 90 (G2210_0090C0). This transmission reports ${fbTcuDescribeSoftware()}.\n\n` +
-        'On any other release the patch\'s hook lands inside a different instruction and the module will not run, so it is not offered here. Update the transmission to 7552700 first.',
+        "On any other release the patch's hook lands inside a different instruction and the module will not run, so it is not offered here. Update the transmission to 7552700 first.",
       'Install Read Patch'
     );
     return;
@@ -682,11 +790,21 @@ async function fbTcuInstallReadPatch() {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     program = new Uint8Array(await res.arrayBuffer());
   } catch (e) {
-    await fbMessage(`The built-in program could not be loaded: ${e.message}`, 'Install Read Patch');
+    await fbMessage(
+      `The built-in program could not be loaded: ${e.message}`,
+      'Install Read Patch'
+    );
     return;
   }
-  if (program.length !== GS20_PROGRAM_LENGTH || !gs20ProgramHasReadPatch(program) || !gs20ProgramChecksum.verify(program)) {
-    await fbMessage('The built-in program failed its own checks, so it is not being written.', 'Install Read Patch');
+  if (
+    program.length !== GS20_PROGRAM_LENGTH ||
+    !gs20ProgramHasReadPatch(program) ||
+    !gs20ProgramChecksum.verify(program)
+  ) {
+    await fbMessage(
+      'The built-in program failed its own checks, so it is not being written.',
+      'Install Read Patch'
+    );
     return;
   }
   t.program = program;
@@ -709,12 +827,16 @@ async function fbTcuWriteProgram() {
   if (releaseChanges) {
     const calRelease = t.cal ? gs20Checksum.release(t.cal) : null;
     if (!release || !calRelease || calRelease !== release) {
-      fbSetStatus(`Write cancelled: a calibration of release ${release || '?'} must be loaded first`);
+      fbSetStatus(
+        `Write cancelled: a calibration of release ${release || '?'} must be loaded first`
+      );
       await fbMessage(
         `This program is release ${release || 'unknown'}; the transmission reports ${reported ? `software ${reported}` : 'no software (boot block only)'}.\n\n` +
           'A transmission only accepts a program together with a calibration of the same release: with a different one in place it reports a program/data mismatch (flash status 0E) and does not run.\n\n' +
           `Load a release-${release || '?'} calibration (a matching .0DA from SP-Daten, or a tune built on one) with Load Calibration File, then Write Program again: the program is written first and that calibration straight after it.` +
-          (t.cal ? `\n\nThe calibration loaded now is ${gs20Checksum.version(t.cal) || 'of unknown version'}, which is release ${calRelease || 'unknown'}.` : ''),
+          (t.cal
+            ? `\n\nThe calibration loaded now is ${gs20Checksum.version(t.cal) || 'of unknown version'}, which is release ${calRelease || 'unknown'}.`
+            : ''),
         'Program needs a matching calibration'
       );
       return;
@@ -754,7 +876,9 @@ async function fbTcuWriteProgram() {
       calImage = t.noUpshift ? gs20NoUpshift.apply(t.cal) : t.cal;
       if (calImage !== t.cal) flashLog.note('auto upshift removed');
       flashLog.attach('tcu_calibration_0x090000.bin', calImage);
-      flashLog.note(`calibration ${gs20Checksum.version(t.cal) || 'unknown version'} / checksum 0x${gs20Checksum.stored(t.cal).toString(16).toUpperCase().padStart(4, '0')} follows the program`);
+      flashLog.note(
+        `calibration ${gs20Checksum.version(t.cal) || 'unknown version'} / checksum 0x${gs20Checksum.stored(t.cal).toString(16).toUpperCase().padStart(4, '0')} follows the program`
+      );
     }
     const aifRecord = fbTcuAifRecord(image, calImage);
     try {
@@ -780,11 +904,17 @@ async function fbTcuWriteProgram() {
       if (calImage) {
         t.identSw = release;
         fbSetStatus('Calibration written. Cycle the ignition before driving.');
-        await fbMessage('The calibration was written and the transmission confirmed it.\n\nCycle the ignition, then check for stored faults before driving.', 'Write Calibration');
+        await fbMessage(
+          'The calibration was written and the transmission confirmed it.\n\nCycle the ignition, then check for stored faults before driving.',
+          'Write Calibration'
+        );
         return;
       }
       fbSetStatus('Program written. Cycle the ignition before driving.');
-      await fbMessage('The program was written and the transmission confirmed it.\n\nCycle the ignition, then check for stored faults before driving.', 'Write Program');
+      await fbMessage(
+        'The program was written and the transmission confirmed it.\n\nCycle the ignition, then check for stored faults before driving.',
+        'Write Program'
+      );
     } catch (e) {
       erased = (e && e.erasedSectors) || 0;
       if (e && e.programWritten) {

@@ -27,7 +27,8 @@ const MS45_CRC32_TABLE = (() => {
   const t = new Uint32Array(256);
   for (let i = 0; i < 256; i++) {
     let c = (i << 24) >>> 0;
-    for (let b = 0; b < 8; b++) c = c & 0x80000000 ? ((c << 1) ^ 0x04c11db7) >>> 0 : (c << 1) >>> 0;
+    for (let b = 0; b < 8; b++)
+      c = c & 0x80000000 ? ((c << 1) ^ 0x04c11db7) >>> 0 : (c << 1) >>> 0;
     t[i] = c;
   }
   return t;
@@ -42,13 +43,22 @@ const MS45_CRC32_TABLE = (() => {
 function ms45Crc32(bytes, initial) {
   let crc = initial >>> 0;
   for (let i = 0; i < bytes.length; i++) {
-    crc = (((crc << 8) & 0xffffff00) ^ MS45_CRC32_TABLE[((crc >>> 24) ^ bytes[i]) & 0xff]) >>> 0;
+    crc =
+      (((crc << 8) & 0xffffff00) ^
+        MS45_CRC32_TABLE[((crc >>> 24) ^ bytes[i]) & 0xff]) >>>
+      0;
   }
   return crc >>> 0;
 }
 
 function _ms45Be32(data, at) {
-  return ((data[at] << 24) | (data[at + 1] << 16) | (data[at + 2] << 8) | data[at + 3]) >>> 0;
+  return (
+    ((data[at] << 24) |
+      (data[at + 1] << 16) |
+      (data[at + 2] << 8) |
+      data[at + 3]) >>>
+    0
+  );
 }
 
 function _ms45PutBe32(data, at, v) {
@@ -111,8 +121,10 @@ function _ms45TableChecksum(binary, tablePointer, initial, memSubtract) {
   const count = _ms45Be32(binary, tablePointer);
   let crc = initial >>> 0;
   for (let i = 0; i < count; i++) {
-    const start = (_ms45Be32(binary, tablePointer + 4 + 8 * i) - memSubtract) >>> 0;
-    const end = (_ms45Be32(binary, tablePointer + 8 + 8 * i) - memSubtract) >>> 0;
+    const start =
+      (_ms45Be32(binary, tablePointer + 4 + 8 * i) - memSubtract) >>> 0;
+    const end =
+      (_ms45Be32(binary, tablePointer + 8 + 8 * i) - memSubtract) >>> 0;
     crc = ms45Crc32(binary.subarray(start, end + 1), crc);
   }
   return crc;
@@ -177,7 +189,10 @@ const ms45Checksums = {
       const length = _ms45Be32(out, 0x144 + i * 4);
       parts.push(out.subarray(start, start + length));
     }
-    out.set(_ms45Sign(_md5(_ms45Concat(parts)), MS45_SIGN_D, MS45_SIGN_N), 0x174);
+    out.set(
+      _ms45Sign(_md5(_ms45Concat(parts)), MS45_SIGN_D, MS45_SIGN_N),
+      0x174
+    );
     return out;
   },
   /**
@@ -195,9 +210,15 @@ const ms45Checksums = {
       const start = _ms45Be32(out, 0x60034 + i * 8);
       const length = _ms45Be32(out, 0x6004c + i * 4);
       if (start < 0xfff00000) parts.push(mpc.subarray(start, start + length));
-      else parts.push(out.subarray(start - 0xfff00000, start - 0xfff00000 + length));
+      else
+        parts.push(
+          out.subarray(start - 0xfff00000, start - 0xfff00000 + length)
+        );
     }
-    out.set(_ms45Sign(_md5(_ms45Concat(parts)), MS45_SIGN_D, MS45_SIGN_N), 0x60074);
+    out.set(
+      _ms45Sign(_md5(_ms45Concat(parts)), MS45_SIGN_D, MS45_SIGN_N),
+      0x60074
+    );
     return out;
   },
   /**
@@ -209,11 +230,18 @@ const ms45Checksums = {
    * @returns {Uint8Array}
    */
   securityAccessMessage(userId, serial, seed) {
-    const signed = _ms45Sign(_md5(_ms45Concat([userId, serial, seed])), MS45_LOGIN_D, MS45_LOGIN_N);
+    const signed = _ms45Sign(
+      _md5(_ms45Concat([userId, serial, seed])),
+      MS45_LOGIN_D,
+      MS45_LOGIN_N
+    );
     const payload = new Uint8Array(65);
     payload.set(signed, 0);
     payload[64] = 3;
-    const header = [1, 0, 0, 0, 0x0a, 0, 0, 0, 0, 0, 0, 0, 0, 0x44, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x10];
+    const header = [
+      1, 0, 0, 0, 0x0a, 0, 0, 0, 0, 0, 0, 0, 0, 0x44, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 0x10,
+    ];
     return _ms45Concat([Uint8Array.from(header), payload]);
   },
 };
@@ -260,7 +288,11 @@ const ewsDelete = {
    */
   isApplicable(flash) {
     if (!flash || flash.length !== MS45_FULL_FLASH_LENGTH) return false;
-    if (ewsDelete.readProgramVersion(flash) !== ewsDelete.SUPPORTED_PROGRAM_VERSION) return false;
+    if (
+      ewsDelete.readProgramVersion(flash) !==
+      ewsDelete.SUPPORTED_PROGRAM_VERSION
+    )
+      return false;
     const p = ewsDelete._half(flash, true);
     const c = ewsDelete._half(flash, false);
     if (p === 'unknown' || c === 'unknown') return false;
@@ -272,7 +304,11 @@ const ewsDelete = {
    */
   isAlreadyPatched(flash) {
     if (!flash || flash.length !== MS45_FULL_FLASH_LENGTH) return false;
-    if (ewsDelete.readProgramVersion(flash) !== ewsDelete.SUPPORTED_PROGRAM_VERSION) return false;
+    if (
+      ewsDelete.readProgramVersion(flash) !==
+      ewsDelete.SUPPORTED_PROGRAM_VERSION
+    )
+      return false;
     return EWS_EDITS.every(([o, , d]) => flash[o] === d);
   },
   /**
@@ -344,7 +380,8 @@ const ewsDelete = {
   applyCalibrationDelete(cal, calFileOffset) {
     const f2 = ewsDelete.CAL_FLAG2_OFFSET - MS45_CAL_START + calFileOffset;
     const f3 = ewsDelete.CAL_FLAG3_OFFSET - MS45_CAL_START + calFileOffset;
-    if (!cal || f3 >= cal.length) throw new Error('calibration buffer too small for the EWS flag offsets');
+    if (!cal || f3 >= cal.length)
+      throw new Error('calibration buffer too small for the EWS flag offsets');
     const out = Uint8Array.from(cal);
     out[f2] = 0x00;
     out[f3] = 0x00;
@@ -432,7 +469,10 @@ const ms45ExchangeFile = {
         if (a < MS45_MPC_LENGTH) {
           mpc[a] = data[i];
           mpcSeen[a] = 1;
-        } else if (a >= MS45_EXTERNAL_BASE + MS45_PROGRAM_START && a < MS45_EXTERNAL_BASE + programEnd) {
+        } else if (
+          a >= MS45_EXTERNAL_BASE + MS45_PROGRAM_START &&
+          a < MS45_EXTERNAL_BASE + programEnd
+        ) {
           flash[a - MS45_EXTERNAL_BASE] = data[i];
           flashSeen[a - MS45_EXTERNAL_BASE] = 1;
         } else {
@@ -444,14 +484,20 @@ const ms45ExchangeFile = {
       }
     }
     for (let i = 0; i < MS45_MPC_LENGTH; i++) {
-      if (!mpcSeen[i]) throw new Error(`the program file is incomplete: the MPC has no data at 0x${i.toString(16).toUpperCase()}`);
+      if (!mpcSeen[i])
+        throw new Error(
+          `the program file is incomplete: the MPC has no data at 0x${i.toString(16).toUpperCase()}`
+        );
     }
     for (let i = MS45_PROGRAM_START + 0x100; i < programEnd; i++) {
       if (!flashSeen[i]) {
-        throw new Error(`the program file is incomplete: the external program has no data at 0x${i.toString(16).toUpperCase()}`);
+        throw new Error(
+          `the program file is incomplete: the external program has no data at 0x${i.toString(16).toUpperCase()}`
+        );
       }
     }
-    if (!flashSeen[MS45_PROGRAM_START]) throw new Error('the program file has no program header');
+    if (!flashSeen[MS45_PROGRAM_START])
+      throw new Error('the program file has no program header');
     return { flash, mpc, reference: parsed.reference };
   },
   /**
@@ -467,14 +513,19 @@ const ms45ExchangeFile = {
       for (let i = 0; i < bytes.length; i++) {
         const a = address + i;
         if (a < start || a >= start + MS45_CAL_LENGTH) {
-          throw new Error(`this is not an MS45 data file: it has data at 0x${a.toString(16).toUpperCase()}, outside the calibration`);
+          throw new Error(
+            `this is not an MS45 data file: it has data at 0x${a.toString(16).toUpperCase()}, outside the calibration`
+          );
         }
         data[a - start] = bytes[i];
         seen[a - start] = 1;
       }
     }
     for (let i = 0x200; i < MS45_CAL_LENGTH; i++) {
-      if (!seen[i]) throw new Error(`the data file is incomplete: no data at calibration offset 0x${i.toString(16).toUpperCase()}`);
+      if (!seen[i])
+        throw new Error(
+          `the data file is incomplete: no data at calibration offset 0x${i.toString(16).toUpperCase()}`
+        );
     }
     if (!seen[0]) throw new Error('the data file has no calibration header');
     return { data, reference: parsed.reference };
@@ -492,44 +543,57 @@ const ms45ExchangeFile = {
       if (!line) continue;
       if (line[0] === '$') {
         const parts = line.split(/\s+/);
-        if (parts.length >= 2 && parts[0] === '$REFERENZ') out.reference = parts[1];
+        if (parts.length >= 2 && parts[0] === '$REFERENZ')
+          out.reference = parts[1];
         continue;
       }
       if (line[0] !== ':') continue;
-      if (ended) throw new Error(`line ${lineNumber}: data after the end record`);
+      if (ended)
+        throw new Error(`line ${lineNumber}: data after the end record`);
       const hex = line.slice(1);
-      if (hex.length < 2 || hex.length % 2) throw new Error(`line ${lineNumber}: odd number of hex digits`);
+      if (hex.length < 2 || hex.length % 2)
+        throw new Error(`line ${lineNumber}: odd number of hex digits`);
       const record = new Uint8Array(hex.length / 2);
       for (let i = 0; i < record.length; i++) {
         const pair = hex.substr(2 * i, 2);
-        if (!/^[0-9a-fA-F]{2}$/.test(pair)) throw new Error(`line ${lineNumber}: not hexadecimal`);
+        if (!/^[0-9a-fA-F]{2}$/.test(pair))
+          throw new Error(`line ${lineNumber}: not hexadecimal`);
         record[i] = parseInt(pair, 16);
       }
-      if (record.length < 5 || record.length !== record[0] + 5) throw new Error(`line ${lineNumber}: record length does not match`);
+      if (record.length < 5 || record.length !== record[0] + 5)
+        throw new Error(`line ${lineNumber}: record length does not match`);
       let sum = 0;
       for (const b of record) sum += b;
-      if (sum & 0xff) throw new Error(`line ${lineNumber}: record checksum is wrong`);
+      if (sum & 0xff)
+        throw new Error(`line ${lineNumber}: record checksum is wrong`);
       const count = record[0];
       const offset = (record[1] << 8) | record[2];
       const type = record[3];
       switch (type) {
         case 0x00:
         case 0x10:
-          out.records.push([linear + segment + offset, record.subarray(4, 4 + count)]);
+          out.records.push([
+            linear + segment + offset,
+            record.subarray(4, 4 + count),
+          ]);
           break;
         case 0x01:
           ended = true;
           break;
         case 0x02:
-          if (count !== 2) throw new Error(`line ${lineNumber}: bad segment record`);
+          if (count !== 2)
+            throw new Error(`line ${lineNumber}: bad segment record`);
           segment = ((record[4] << 8) | record[5]) << 4;
           break;
         case 0x04:
-          if (count !== 2) throw new Error(`line ${lineNumber}: bad linear address record`);
+          if (count !== 2)
+            throw new Error(`line ${lineNumber}: bad linear address record`);
           linear = ((record[4] << 8) | record[5]) * 0x10000;
           break;
         default:
-          throw new Error(`line ${lineNumber}: unknown record type 0x${type.toString(16).toUpperCase().padStart(2, '0')}`);
+          throw new Error(
+            `line ${lineNumber}: unknown record type 0x${type.toString(16).toUpperCase().padStart(2, '0')}`
+          );
       }
     }
     if (!out.records.length) throw new Error('the file has no data records');
@@ -553,7 +617,8 @@ function ms45VerifyProgramMatch(flash, hwRef) {
 function ms45VerifyFlashMpcMatch(flash, mpc) {
   const a = ms45ReadAscii(flash, 0x60310, 0xa);
   const b = ms45ReadAscii(mpc, 0x100, 0xa);
-  if (a == null || b == null || !/^\d+$/.test(a) || !/^\d+$/.test(b)) return false;
+  if (a == null || b == null || !/^\d+$/.test(a) || !/^\d+$/.test(b))
+    return false;
   return Number(a) - Number(b) === 500;
 }
 
@@ -581,7 +646,10 @@ function _ms45Field(res, field) {
     if (s && Object.prototype.hasOwnProperty.call(s, field)) {
       const v = s[field];
       if (v == null) return '';
-      if (v instanceof Uint8Array || Array.isArray(v)) return Array.from(v, (b) => Number(b).toString(16).padStart(2, '0')).join('');
+      if (v instanceof Uint8Array || Array.isArray(v))
+        return Array.from(v, (b) =>
+          Number(b).toString(16).padStart(2, '0')
+        ).join('');
       return String(v).trim();
     }
   }
@@ -643,20 +711,32 @@ function _ms45ArgSummary(arg) {
  * @returns {Promise<{ok: boolean, status: string, res: {sets?: object[]}|null, error: string|null}>}
  */
 async function ms45Job(job, arg) {
-  const text = arg instanceof Uint8Array ? _ms45BinArg(arg) : arg == null ? '' : String(arg);
+  const text =
+    arg instanceof Uint8Array
+      ? _ms45BinArg(arg)
+      : arg == null
+        ? ''
+        : String(arg);
   let res = null;
   try {
     res = await webRunJob(MS45_SGBD, job, text);
   } catch (e) {
     const msg = (e && e.message) || String(e);
-    if (_ms45JobTrace) _ms45JobTrace(job, _ms45ArgSummary(arg), `EXCEPTION: ${msg}`, null, null);
+    if (_ms45JobTrace)
+      _ms45JobTrace(job, _ms45ArgSummary(arg), `EXCEPTION: ${msg}`, null, null);
     return { ok: false, status: '', res: null, error: msg };
   }
   const status = _ms45Field(res, 'JOB_STATUS');
   if (_ms45JobTrace) {
     const tx = _ms45Bytes(res, '_TEL_AUFTRAG');
     const rx = _ms45Bytes(res, '_TEL_ANTWORT');
-    _ms45JobTrace(job, _ms45ArgSummary(arg), status, tx.length ? tx : null, rx.length ? rx : null);
+    _ms45JobTrace(
+      job,
+      _ms45ArgSummary(arg),
+      status,
+      tx.length ? tx : null,
+      rx.length ? rx : null
+    );
   }
   return { ok: status === 'OKAY', status, res, error: null };
 }
@@ -707,13 +787,22 @@ async function ms45Identify() {
     if (v) aif[f] = v;
   }
   const vin = _ms45Field(aifRes.res, 'AIF_FG_NR');
-  const hwRef = _ms45Field((await ms45Job('hardware_referenz_lesen', '')).res, 'HARDWARE_REFERENZ');
-  const swRef = _ms45Field((await ms45Job('daten_referenz_lesen', '')).res, 'DATEN_REFERENZ');
+  const hwRef = _ms45Field(
+    (await ms45Job('hardware_referenz_lesen', '')).res,
+    'HARDWARE_REFERENZ'
+  );
+  const swRef = _ms45Field(
+    (await ms45Job('daten_referenz_lesen', '')).res,
+    'DATEN_REFERENZ'
+  );
   // the PROGRAM reference ($2503), which is what the EWS patch is tied to;
   // DATEN_REFERENZ does not tell the two MS45.1 programs apart
   const zif = await ms45Job('ZIF_LESEN', '');
   const progRef = zif.ok ? _ms45Field(zif.res, 'ZIF_PROGRAMM_REFERENZ') : '';
-  const programmingStatus = _ms45Field((await ms45Job('flash_programmier_status_lesen', '')).res, 'FLASH_PROGRAMMIER_STATUS_TEXT');
+  const programmingStatus = _ms45Field(
+    (await ms45Job('flash_programmier_status_lesen', '')).res,
+    'FLASH_PROGRAMMIER_STATUS_TEXT'
+  );
   let type = 'Unknown / Unsupported';
   if (hwRef === '0044560') type = 'MS45.0';
   if (hwRef === '0044570') type = 'MS45.1';
@@ -724,7 +813,18 @@ async function ms45Identify() {
   const answered = !!hwRef;
   const diagProtocol = diag.ok ? _ms45Field(diag.res, 'DIAG_PROT_IST') : '';
   const diagProblem = diag.ok ? '' : diag.error || diag.status || 'no answer';
-  return { answered, vin, hwRef, swRef, progRef, programmingStatus, diagProtocol, diagProblem, type, aif };
+  return {
+    answered,
+    vin,
+    hwRef,
+    swRef,
+    progRef,
+    programmingStatus,
+    diagProtocol,
+    diagProblem,
+    type,
+    aif,
+  };
 }
 
 /**
@@ -745,7 +845,10 @@ async function ms45ReadMemory(start, end, segment, opts = {}) {
   while (done < length) {
     if (opts.abort && opts.abort.aborted) throw new Error('cancelled');
     const want = Math.min(254, length - done);
-    const r = await ms45Job('speicher_lesen_ascii', `${segment};${addr};${want}`);
+    const r = await ms45Job(
+      'speicher_lesen_ascii',
+      `${segment};${addr};${want}`
+    );
     if (!r.ok) return out.subarray(0, done);
     const bytes = _ms45Bytes(r.res, 'DATEN');
     if (!bytes.length) return out.subarray(0, done);
@@ -772,7 +875,11 @@ async function ms45ReadMemory(start, end, segment, opts = {}) {
 async function ms45ReadCarBytes(start, end, segment, diagProtocol) {
   const wanted = end - start + 1;
   let data = await ms45ReadMemory(start, end, segment);
-  if (data.length !== wanted && diagProtocol !== 'BMW-FAST' && (await ms45SecurityAccess(diagProtocol))) {
+  if (
+    data.length !== wanted &&
+    diagProtocol !== 'BMW-FAST' &&
+    (await ms45SecurityAccess(diagProtocol))
+  ) {
     data = await ms45ReadMemory(start, end, segment);
   }
   return data.length === wanted ? data : null;
@@ -792,15 +899,33 @@ async function ms45SecurityAccess(diagProtocol, onStage) {
   if (!serialRes.ok) return false;
   const serialReply = _ms45Bytes(serialRes.res, '_TEL_ANTWORT');
   if (serialReply.length < 5) return false;
-  const serial = serialReply.subarray(serialReply.length - 5, serialReply.length - 1);
+  const serial = serialReply.subarray(
+    serialReply.length - 5,
+    serialReply.length - 1
+  );
   const userId = new Uint8Array(4);
   (globalThis.crypto || require('crypto').webcrypto).getRandomValues(userId);
-  const userIdHex = '0x' + Array.from(userId, (b) => b.toString(16).padStart(2, '0')).join('').toUpperCase();
-  const seedRes = await ms45Job('authentisierung_zufallszahl_lesen', `3;${userIdHex}`);
+  const userIdHex =
+    '0x' +
+    Array.from(userId, (b) => b.toString(16).padStart(2, '0'))
+      .join('')
+      .toUpperCase();
+  const seedRes = await ms45Job(
+    'authentisierung_zufallszahl_lesen',
+    `3;${userIdHex}`
+  );
   if (!seedRes.ok) return false;
   const seed = _ms45Bytes(seedRes.res, 'ZUFALLSZAHL');
   if (!seed.length) return false;
-  if (!(await ms45Job('authentisierung_start', ms45Checksums.securityAccessMessage(userId, serial, seed))).ok) return false;
+  if (
+    !(
+      await ms45Job(
+        'authentisierung_start',
+        ms45Checksums.securityAccessMessage(userId, serial, seed)
+      )
+    ).ok
+  )
+    return false;
   if (diagProtocol !== 'BMW-FAST') {
     for (const [job, arg] of [
       ['diagnose_mode', 'ECUPM;PC115200'],
@@ -843,8 +968,10 @@ async function ms45FinishFlash(area, resetEcu, diagProtocol, onStage) {
     if (!(await ms45Job('diagnose_mode', 'DEFAULT;PC9600')).ok) return false;
     if (!(await ms45Job('SET_PARAMETER', ';9600')).ok) return false;
   } else {
-    if (area === 'Daten' && !(await ms45Job('diagnose_mode', 'DEFAULT')).ok) return false;
-    if (!(await ms45Job('normaler_datenverkehr', 'ja;nein;ja')).ok) return false;
+    if (area === 'Daten' && !(await ms45Job('diagnose_mode', 'DEFAULT')).ok)
+      return false;
+    if (!(await ms45Job('normaler_datenverkehr', 'ja;nein;ja')).ok)
+      return false;
   }
   if (!(await ms45Job('FLASH_PROGRAMMIER_STATUS_LESEN', '')).ok) return false;
   stage('Checking signature');
@@ -910,15 +1037,27 @@ async function ms45FlashBlock(toFlash, blockStart, blockEnd, opts = {}) {
     header[13] = seg;
     header.set(_ms45Le32(blockStart), 17);
     const from = blockStart - blockStartOrig;
-    const telegram = _ms45Concat([header, toFlash.subarray(from, from + seg), Uint8Array.from([3])]);
+    const telegram = _ms45Concat([
+      header,
+      toFlash.subarray(from, from + seg),
+      Uint8Array.from([3]),
+    ]);
     if (!(await ms45Job('flash_schreiben', telegram)).ok) {
-      stage(`Flash failed at 0x${blockStart.toString(16).toUpperCase()}. Resetting DME.`);
-      if (!(await ms45Job('STEUERGERAETE_RESET', '')).ok) stage('Error Resetting ECU');
+      stage(
+        `Flash failed at 0x${blockStart.toString(16).toUpperCase()}. Resetting DME.`
+      );
+      if (!(await ms45Job('STEUERGERAETE_RESET', '')).ok)
+        stage('Error Resetting ECU');
       return false;
     }
     blockStart += seg;
     blockLength -= seg;
-    opts.onProgress && opts.onProgress(Math.floor(((blockStart - blockStartOrig) * 100) / (blockEnd - blockStartOrig)));
+    opts.onProgress &&
+      opts.onProgress(
+        Math.floor(
+          ((blockStart - blockStartOrig) * 100) / (blockEnd - blockStartOrig)
+        )
+      );
   }
   if (!(await ms45Job('flash_schreiben_ende', addressSet)).ok) {
     stage('Failed to end flash job');
@@ -936,7 +1075,11 @@ async function ms45FlashBlock(toFlash, blockStart, blockEnd, opts = {}) {
  */
 async function ms45WriteAif(args) {
   const r = await ms45Job('AIF_SCHREIBEN', args);
-  return { ok: r.ok, status: r.status || (r.error ? `job failed: ${r.error}` : 'job failed'), number: _ms45Field(r.res, 'AIF_NUMMER') };
+  return {
+    ok: r.ok,
+    status: r.status || (r.error ? `job failed: ${r.error}` : 'job failed'),
+    number: _ms45Field(r.res, 'AIF_NUMMER'),
+  };
 }
 
 if (typeof window !== 'undefined') {
