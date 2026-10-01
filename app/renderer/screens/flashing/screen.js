@@ -774,13 +774,22 @@ function fbIsAlnum(s, n) {
 }
 
 /**
- * Append the DME's programming entry after a successful flash, through the
- * SGBD's own job. The previous entry's values are carried forward; today's
- * date, the program reference and the typed VIN fill in what changed. Never
- * fatal: the flash itself is done.
+ * Append the DME's programming entry through the SGBD's own job. The previous
+ * entry's values are carried forward; today's date, the program reference and
+ * the typed VIN fill in what changed. Never fatal: the flash itself is done.
+ *
+ * Must run while the DME is still in programming mode (security access +
+ * diagnose_mode ECUPM), i.e. after the last block is written and before
+ * ms45FinishFlash: the job's $3D WriteMemoryByAddress into the AIF area is
+ * refused with ERROR_ECU_SERVICE_NOT_SUPPORTED_IN_ACTIVE_DIAGNOSTIC_MODE in
+ * the default session, before or after the reset and whether or not the
+ * SGBD's INITIALISIERUNG ran again (seen on the car, and reproduced against
+ * the firmware in the emulator: only 10 85 opens the service).
+ * @param {string} [progRef] - The program reference of the image just
+ *   written, when it differs from the one identified before the flash.
  * @returns {Promise<void>}
  */
-async function fbWriteAif() {
+async function fbWriteAif(progRef) {
   if (Settings.get('flashWriteAif', true) === false) return;
   const d = fbState.dme;
   const aif = d.aif || {};
@@ -799,11 +808,13 @@ async function fbWriteAif() {
   const dealer = /^\d{6}$/.test(a('AIF_HAENDLER_NR'))
     ? a('AIF_HAENDLER_NR')
     : '000000';
-  const progRef = fbIsAlnum(d.ident.progRef, 12)
-    ? d.ident.progRef
-    : fbIsAlnum(a('AIF_PROG_NR'), 12)
-      ? a('AIF_PROG_NR')
-      : '000000000000';
+  if (!fbIsAlnum(progRef, 12)) {
+    progRef = fbIsAlnum(d.ident.progRef, 12)
+      ? d.ident.progRef
+      : fbIsAlnum(a('AIF_PROG_NR'), 12)
+        ? a('AIF_PROG_NR')
+        : '000000000000';
+  }
   let km = parseInt(a('AIF_KM'), 10);
   if (!Number.isFinite(km) || km < 0) km = 0;
   if (km > 152999) km = 152999;

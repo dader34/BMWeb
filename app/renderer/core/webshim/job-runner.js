@@ -20,6 +20,14 @@ const MAX_JOB_PASSES = 64;
  */
 
 /**
+ * One request/answer on the wire.
+ * @callback ExchangeFn
+ * @param {number[]} out - The request without its checksum.
+ * @param {CommParams} comm - Its wire parameters.
+ * @returns {Promise<number[]>} The answer bytes.
+ */
+
+/**
  * One SGBD's session state.
  * @typedef {object} Session
  * @property {Map<string, any>} shared - shmset data carried across jobs.
@@ -85,7 +93,7 @@ function sessionFor(sgbd) {
  * not matter, but the ECU is entitled to the notification.
  * @param {string} sgbd - The SGBD whose session ends.
  */
-async function endSession(sgbd) {
+async function endSession(sgbd, exchange) {
   const key = String(sgbd).toLowerCase();
   const s = sessions.get(key);
   if (!s || !s.inited) {
@@ -100,6 +108,7 @@ async function endSession(sgbd) {
         noInit: true,
         shared: s.shared,
         comm: s.comm,
+        exchange,
       });
     }
   } catch {
@@ -122,6 +131,8 @@ let loadedSgbd = null;
  * become the session concept, the port reopened at 115200, and the wake
  * performed at 10400 was undone before the telegram went out.
  * @param {string} sgbd - The SGBD about to run.
+ * @param {ExchangeFn} [exchange] - The wire to run the previous session's
+ *   ENDE on; the raw exchange when the caller already holds the bus lock.
  */
 /**
  * Forget an SGBD's session because the module was reset
@@ -141,7 +152,7 @@ function webDropSession(sgbd) {
   webBus.inited = null;
 }
 
-async function switchSession(sgbd) {
+async function switchSession(sgbd, exchange) {
   const key = String(sgbd).toLowerCase();
   if (loadedSgbd === key) return;
   const prev = loadedSgbd;
@@ -151,7 +162,7 @@ async function switchSession(sgbd) {
   // may live on a different wire, so the remembered concept and the wake
   // that went with it do not carry over.
   if (prev) {
-    await endSession(prev);
+    await endSession(prev, exchange);
     webBus.sessionConcept = null;
     webBus.inited = null;
   }
@@ -233,11 +244,14 @@ function isNoUsableAnswer(err) {
  * @param {string} job - The job name.
  * @param {string} arg - The job's argument string.
  * @param {AnswerTally} tally - Updated in place as telegrams are answered.
+ * @param {ExchangeFn} [exchange] - The wire; webBus.exchange (which takes
+ *   the bus lock per telegram) unless the caller already holds the lock.
  * @returns {Promise<DriveResult>} The result sets and the finished VM.
  * @throws {Error} A VM error from the job itself, a wire error that is not
  *   silence, or 'did not settle' after MAX_JOB_PASSES exchanges.
  */
-async function driveJobOverBus(buildVm, job, arg, tally) {
+async function driveJobOverBus(buildVm, job, arg, tally, exchange) {
+  const wire = exchange || ((out, comm) => webBus.exchange(out, comm));
   const answers = new Map();
   const jobNow = new Date();
   for (let attempt = 0; attempt < MAX_JOB_PASSES; attempt++) {
@@ -264,7 +278,7 @@ async function driveJobOverBus(buildVm, job, arg, tally) {
       if (!missing || !e.needAnswer) throw e;
       let answer;
       try {
-        answer = await webBus.exchange(missing.out, missing.comm);
+        answer = await wire(missing.out, missing.comm);
       } catch (err) {
         if (!isNoUsableAnswer(err)) throw err;
         answer = [];
@@ -320,8 +334,11 @@ function jobCodeFor(sgbd) {
  * @param {string} sgbd - The SGBD name.
  * @param {string} job - The job name.
  * @param {string|null} arg - The argument string (null for none).
- * @param {{shared?: Map<string, any>, comm?: CommParams|null, noInit?: boolean}} [opts] -
- *   A detached session to run in (endSession's ENDE uses this).
+ * @param {{shared?: Map<string, any>, comm?: CommParams|null, noInit?: boolean, exchange?: ExchangeFn}} [opts] -
+ *   A detached session to run in (endSession's ENDE uses this), and the
+ *   wire to use: the raw exchange when the caller already holds the bus
+ *   lock for the whole job (routeRun does, so a session switch and its job
+ *   cannot interleave with another caller's telegrams).
  * @returns {Promise<{sets: object[]}>} The job's result sets.
  * @throws {Error} When no job code is shipped, when the ECU answered nothing
  *   at all (IFH-0009), or whatever the job or wire threw.
@@ -354,7 +371,8 @@ async function webRunJob(sgbd, job, arg, opts = {}) {
       }),
     job,
     argText,
-    tally
+    tally,
+    opts.exchange
   );
   session.inited = true;
   session.comm = vm.comm || session.comm;
