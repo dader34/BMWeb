@@ -5,7 +5,7 @@
  * and no state: every function takes the decoded cells and returns results.
  */
 
-/* exported tnCellBounds, tnEngineeringLimits, tnStepSizes, tnInterpolateH, tnInterpolateV, tnInterpolate2D, tnSmoothSelection, tnSelectionBounds, tnParseCellKey, tnCellKey, tnCellsTsv, tnParseTsvGrid, tnMaxDelta */
+/* exported tnCellBounds, tnEngineeringLimits, tnStorageLimits, tnStepSizes, tnInterpolateH, tnInterpolateV, tnInterpolate2D, tnSmoothSelection, tnSelectionBounds, tnParseCellKey, tnCellKey, tnCellsTsv, tnParseTsvGrid, tnMaxDelta */
 
 /**
  * @typedef {Object} SelBounds
@@ -60,12 +60,12 @@ function tnCellBounds(cells) {
 }
 
 /**
- * The definition's range limits for a table's Z axis, in ENGINEERING units.
+ * The definition's DECLARED range for a table's Z axis, in ENGINEERING
+ * units. A DISPLAY hint only -- it flags cells worth a second look and
+ * labels the footer. It must never bound a write: see tnStorageLimits for
+ * the limit that actually applies, and the GS20 table documented there for
+ * what clamping to this did.
  *
- * The XDF carries rangelow/rangehigh per axis; the encoder only enforces
- * what fits the storage type, which is a much wider net (a 1-byte cell
- * happily takes 255 when the definition says 0..100). Clamping to the
- * definition is what stops a bulk op from quietly writing nonsense.
  * XDFAXIS spells its limits <min>/<max> (XDFCONSTANT uses rangelow/
  * rangehigh); accept either so both shapes of definition are honoured.
  *
@@ -114,6 +114,50 @@ function tnEngineeringLimits(z) {
     }
   }
   return { lo, hi };
+}
+
+/**
+ * The STORAGE limits for a table's Z axis, in ENGINEERING units: what the
+ * cell's own bytes can physically hold, mapped through the MATH.
+ *
+ * This -- not the definition's <min>/<max> -- is what bounds a write. A
+ * TunerPro definition treats min/max as DISPLAY hints and does not clamp to
+ * them, and real definitions carry values that contradict their own storage:
+ * the GS20 gearbox "Up/Downshift OSS Global thresholds" declares 16-bit
+ * cells with <max>255</max> while the shipped image holds 5800 in the very
+ * next row. Clamping to that max rewrote every selected cell to 255 and
+ * silently destroyed the map. The element size is the honest limit, so the
+ * bound is 0..65535 for a 16-bit unsigned cell, -32768..32767 signed, and
+ * so on, converted through the same MATH the cells are shown in.
+ *
+ * A subtractive or negative-slope equation flips the ends, so take the true
+ * low/high after conversion rather than assuming raw-low maps to eng-low.
+ * When the MATH will not compile there is nothing to convert through and we
+ * return nulls: the encoder still refuses anything the bytes cannot hold, so
+ * the write is bounded either way.
+ * @param {ScalarSpec} spec - The Z axis storage spec (from the decoded table).
+ * @param {XdfAxis} z
+ * @returns {{ lo: number|null, hi: number|null }}
+ */
+function tnStorageLimits(spec, z) {
+  if (!spec || spec.float) return { lo: null, hi: null };
+  const bytes = Math.max(1, Math.ceil(spec.sizeBits / 8));
+  const RANGES = {
+    1: spec.signed ? [-0x80, 0x7f] : [0, 0xff],
+    2: spec.signed ? [-0x8000, 0x7fff] : [0, 0xffff],
+    4: spec.signed ? [-0x80000000, 0x7fffffff] : [0, 0xffffffff],
+  };
+  const r = RANGES[bytes];
+  if (!r) return { lo: null, hi: null };
+  if (!window.XDF || !window.XDF.compileMath) return { lo: r[0], hi: r[1] };
+  try {
+    const conv = window.XDF.compileMath(z.mathEquation);
+    const ends = [conv(r[0]), conv(r[1])].filter((v) => Number.isFinite(v));
+    if (ends.length !== 2) return { lo: null, hi: null };
+    return { lo: Math.min(...ends), hi: Math.max(...ends) };
+  } catch (e) {
+    return { lo: null, hi: null };
+  }
 }
 
 /**
