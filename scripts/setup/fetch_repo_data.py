@@ -9,6 +9,10 @@ repository. They are published as one archive, repo-data/repo-data.tar, in
 the bmw-files dataset, and unpacked here to the paths everything has always
 read them from. CI runs this before it builds; a fresh clone runs it once.
 
+One member is not generated: app/renderer/data/gs20_7552700_readpatch_program.bin,
+the GS20 program image the TCU read patch installs. It is BMW's program with
+our patch applied, so it travels with the data rather than in the repository.
+
 The archive is pinned by checksum in scripts/setup/repo-data.sha256, so a
 build knows it got the data it was written against. After regenerating data,
 repack the archive, publish it, and commit the new checksum.

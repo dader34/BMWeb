@@ -24,4 +24,6 @@ when reading the reference.
 .prg files, INPA .ipo configs). Neither they nor anything generated from them
 (`data/`, `app/renderer/data/`) is part of this repository, which holds the
 tools and the app only. `scripts/setup/fetch_repo_data.py` fetches the
-generated data a build reads.
+generated data a build reads, and with it the patched GS20 transmission program
+image (`app/renderer/data/gs20_7552700_readpatch_program.bin`), which is BMW's
+program and is not in this repository either.
