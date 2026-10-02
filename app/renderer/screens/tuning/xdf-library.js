@@ -13,8 +13,18 @@
  *      ("LO00SJ2R457O0L..."); the definition's `software` field must appear
  *      in it. Size alone would happily match a same-length image built from
  *      different DME software.
- * A size hit WITHOUT the version confirmation is reported as a weak match
- * and says so in the prompt, rather than being hidden or auto-accepted.
+ *
+ * SIZE ALONE IS NOT A MATCH, and we do not offer one. Stage 1 is a filter,
+ * never evidence: a BIN length says nothing about which ECU wrote it. The
+ * library has 13 definitions at 65,536 bytes spanning five unrelated ECU
+ * families, so a 64 KB GS20 *gearbox* calibration used to be offered an
+ * MS43 *engine* definition purely because both are 64 KB -- and loading it
+ * would address garbage, with the user editing and flashing on those
+ * addresses. Stage 2 is the whole match. Only a hit the image itself
+ * corroborates (software string, known chip number, or a well-formed part
+ * number at the definition's own offset) is offered; an unconfirmed hit is
+ * dropped silently, and the user reaches the same definitions by hand via
+ * "Browse XDFs…" if they know better than we do.
  */
 
 /* exported tnOfferDefinitionFor, tnOpenXdfBrowser, tnApplyDefinition */
@@ -43,8 +53,8 @@
  * @typedef {Object} XdfMatch
  * @property {XdfIndexEntry} def
  * @property {string} ident - The trimmed identity string read from the image.
- * @property {boolean} confirmed
- * @property {'software'|'part'|'pattern'|''} via - What confirmed it.
+ * @property {boolean} confirmed - Always true; unconfirmed hits are dropped.
+ * @property {'software'|'part'|'pattern'} via - What confirmed it.
  */
 
 /** Default identity block length, in bytes. */
@@ -127,12 +137,17 @@ function tnIdentityAtReversed(bin, offset, len = TN_IDENTITY_REVERSED_LEN) {
 }
 
 /**
- * Every index entry that fits `bin`, confirmed ones first and the stronger
- * evidence first among those: an exact known chip number beats "a part
- * number reads here".
+ * Every index entry the image CORROBORATES, stronger evidence first: an
+ * exact known chip number beats "a part number reads here".
+ *
+ * Entries whose only claim is a matching byte length are dropped, not
+ * ranked last -- see the file header. Callers get a list they can offer
+ * without further vetting; an empty list means "we do not know what this
+ * image is", which is the honest answer far more often than the old
+ * size-only ranking implied.
  * @param {Uint8Array} bin
  * @param {XdfIndexEntry[]} defs
- * @returns {XdfMatch[]}
+ * @returns {XdfMatch[]} Confirmed matches only; possibly empty.
  */
 function tnMatchDefinitions(bin, defs) {
   const out = [];
@@ -172,15 +187,19 @@ function tnMatchDefinitions(bin, defs) {
       confirmed = true;
       via = 'pattern';
     }
+    // Size matched but nothing in the image agrees. That is not a match.
+    if (!confirmed) continue;
     out.push({ def: d, ident: trimmed, confirmed, via });
   }
-  const rank = (h) => (h.confirmed ? (h.via === 'pattern' ? 1 : 2) : 0);
+  const rank = (h) => (h.via === 'pattern' ? 1 : 2);
   out.sort((a, b) => rank(b) - rank(a));
   return out;
 }
 
 /**
- * The body of the "Definition found" prompt for the best match.
+ * The body of the "Definition found" prompt for the best match. Only ever
+ * called with a CONFIRMED match -- tnMatchDefinitions drops the rest -- so
+ * every branch here describes evidence actually read out of the image.
  * @param {XdfMatch} best
  * @returns {string} HTML.
  */
@@ -189,19 +208,15 @@ function tnMatchPromptHtml(best) {
   const sizeKb = tnDefSizeLabel(d.bytes);
   const chip = esc(best.ident.slice(0, 20));
   let evidence;
-  if (d.software) evidence = `software <code>${esc(d.software)}</code>`;
-  // Only name a chip when one actually validated. On a size-only hit
-  // `ident` is whatever bytes happened to sit at the offset -- printing
-  // that as "chip" dresses up noise as identification.
-  else if (best.confirmed && best.ident) evidence = `chip <code>${chip}</code>`;
+  // Name the software only when the software string is what confirmed it.
+  // Printing a definition's claimed `software` on a chip- or pattern-proven
+  // hit would credit the image with agreeing to something it never said.
+  if (best.via === 'software')
+    evidence = `software <code>${esc(d.software)}</code>`;
+  else if (best.ident) evidence = `chip <code>${chip}</code>`;
   else evidence = `${esc(d.items || '?')} items`;
   let verdict;
-  if (!best.confirmed) {
-    verdict =
-      `<div class="tn-match-warn">⚠ size matches but the software ` +
-      `version could not be confirmed in this image — the addresses ` +
-      `may not line up. Check before editing.</div>`;
-  } else if (best.via === 'pattern') {
+  if (best.via === 'pattern') {
     verdict =
       `<div class="tn-match-warn">⚠ this looks like the right DME ` +
       `family — part number <code>${chip}</code> ` +
@@ -244,7 +259,10 @@ async function tnOfferDefinitionFor(ed, bin) {
   }
   if (!found) return; // offline / mirrors down: silent
   const hits = tnMatchDefinitions(bin, found.index.definitions);
-  if (!hits.length) return; // nothing fits: say nothing
+  // Nothing the image corroborates: say nothing. A same-size definition from
+  // some other ECU is not a lead worth raising -- the user has "Browse XDFs…"
+  // for the cases where they know what the image is and we cannot tell.
+  if (!hits.length) return;
   if (tuningState.def) return; // they loaded one while we fetched
 
   const best = hits[0];
@@ -253,9 +271,9 @@ async function tnOfferDefinitionFor(ed, bin) {
     body: tnMatchPromptHtml(best),
     confirmLabel: 'Load definition',
     cancelLabel: 'Not now',
-    // A pattern-only hit is not a proven match -- keep the destructive
-    // styling so it reads as "probably right", not "confirmed".
-    danger: !best.confirmed || best.via === 'pattern',
+    // A pattern-only hit proves the DME family, not this exact chip -- keep
+    // the destructive styling so it reads as "probably right", not "confirmed".
+    danger: best.via === 'pattern',
   });
   if (!ok) return;
 

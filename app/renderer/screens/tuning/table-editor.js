@@ -23,9 +23,14 @@
  * @property {number} dp - Display decimal places.
  * @property {number} fineStep - One raw LSB in engineering units.
  * @property {number} coarseStep - The +/- key step.
- * @property {number|null|undefined} zLo - Engineering-unit lower limit.
- * @property {number|null|undefined} zHi - Engineering-unit upper limit.
+ * @property {number|null|undefined} zLo - The definition's DECLARED lower
+ *   limit, engineering units. A display hint: it flags cells and labels the
+ *   footer, and never bounds a write (see tnStorageLimits).
+ * @property {number|null|undefined} zHi - The declared upper limit.
  * @property {boolean} hasLimit
+ * @property {number|null} storeLo - Lowest value the cell's bytes can hold,
+ *   in engineering units. This is what bounds a write.
+ * @property {number|null} storeHi - Highest value the cell's bytes can hold.
  * @property {DecodedTable|null} baseTable - The table as it was when this
  *   FILE was loaded: tuningState.orig is the pristine image, so decoding
  *   this table out of it gives the baseline for both "vs original" shading
@@ -63,13 +68,26 @@
 function tnTableModalHtml(item, t, m) {
   const ro = m.invertible ? '' : 'disabled';
   const dp = m.dp;
-  const range =
+  // Two different numbers, and conflating them is what made the old footer
+  // misleading: the definition's declared range is a hint about what values
+  // are SENSIBLE, while the storage limit is what can actually be WRITTEN.
+  // Definitions disagree with their own storage often enough (a 16-bit
+  // table declaring max 255) that showing only the declared one read as a
+  // hard limit that was not there. Show the writable limit whenever it
+  // differs from what the definition claims.
+  const fmtSpan = (lo, hi) =>
+    (lo != null ? fmtNum(lo, dp) : '−∞') +
+    '…' +
+    (hi != null ? fmtNum(hi, dp) : '∞');
+  const declared =
     m.zLo != null || m.zHi != null
-      ? ' · range ' +
-        (m.zLo != null ? fmtNum(m.zLo, dp) : '−∞') +
-        '…' +
-        (m.zHi != null ? fmtNum(m.zHi, dp) : '∞')
+      ? ' · def range ' + fmtSpan(m.zLo, m.zHi)
       : '';
+  const showStore =
+    (m.storeLo != null || m.storeHi != null) &&
+    (m.storeLo !== m.zLo || m.storeHi !== m.zHi);
+  const range =
+    declared + (showStore ? ' · holds ' + fmtSpan(m.storeLo, m.storeHi) : '');
   return (
     `
       <div class="tn-modal-head">
@@ -131,6 +149,7 @@ function tnOpenTableModal(ed, item) {
   const dp = t0.z.decimalpl != null ? t0.z.decimalpl : h.defaults.sigdigits;
   const steps = tnStepSizes(t0.z, dp);
   const limits = tnEngineeringLimits(t0.z);
+  const store = tnStorageLimits(t0.spec, t0.z);
 
   const back = document.createElement('div');
   back.className = 'tn-modal-back';
@@ -153,6 +172,8 @@ function tnOpenTableModal(ed, item) {
     zLo: limits.lo,
     zHi: limits.hi,
     hasLimit: limits.lo != null || limits.hi != null,
+    storeLo: store.lo,
+    storeHi: store.hi,
     baseTable: tuningState.orig
       ? window.XDF.decodeTable(item, tuningState.orig, h)
       : null,

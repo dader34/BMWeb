@@ -13,32 +13,69 @@ const TN_SMOOTH_ALPHA = 0.5;
 
 /**
  * One cell <- engineering value, via the same encoder the inline editor
- * uses. Clamps to the definition's range rather than rejecting, so a bulk
- * op over a selection does something sane at the edges instead of leaving
- * a ragged hole where cells refused to move; a single typed cell reports
- * the clamp so the user is never lied to.
+ * uses.
+ *
+ * The bound is the CELL'S STORAGE, never the definition's declared <min>/
+ * <max>. Those are display hints and are routinely wrong about the storage
+ * (see tnStorageLimits): clamping a typed 8160 to a declared max of 255 in
+ * a 16-bit table silently destroyed every selected cell. A value outside
+ * what the bytes can hold is REFUSED, not substituted -- writing a number
+ * the user did not ask for is the defect, and the caller reports the
+ * refusal. Derived ops (offset, scale, smooth, interpolate) do clamp to the
+ * storage ends so a bulk pass does not leave a ragged hole where cells
+ * saturated; they pass `clampToStorage` and report how many were pinned.
  * @param {TableModal} m
  * @param {number} r
  * @param {number} c
  * @param {number} v
- * @param {{ strict?: boolean }} [opts] - `strict` refuses instead of clamping.
- * @returns {{ ok: boolean, clamped: boolean }}
+ * @param {{ clampToStorage?: boolean }} [opts] - Pin to the storage ends
+ *   instead of refusing (for derived bulk ops).
+ * @returns {{ ok: boolean, clamped: boolean, unrepresentable: boolean }}
  */
 function tnTableApplyCell(m, r, c, v, opts) {
   let val = v;
   let clamped = false;
-  if (m.zLo != null && val < m.zLo) {
-    val = m.zLo;
-    clamped = true;
+  if (opts && opts.clampToStorage) {
+    if (m.storeLo != null && val < m.storeLo) {
+      val = m.storeLo;
+      clamped = true;
+    }
+    if (m.storeHi != null && val > m.storeHi) {
+      val = m.storeHi;
+      clamped = true;
+    }
   }
-  if (m.zHi != null && val > m.zHi) {
-    val = m.zHi;
-    clamped = true;
-  }
-  if (clamped && opts && opts.strict) return { ok: false, clamped: true };
+  // The encoder is the last word: it returns null for anything the cell's
+  // bytes cannot hold, so an out-of-storage value never reaches the image.
   const enc = window.XDF.encodeTableCell(m.item, m.h, r, c, val);
-  if (!enc) return { ok: false, clamped };
-  return { ok: m.history.write(enc.address, enc.bytes), clamped };
+  if (!enc) return { ok: false, clamped, unrepresentable: true };
+  return {
+    ok: m.history.write(enc.address, enc.bytes),
+    clamped,
+    unrepresentable: false,
+  };
+}
+
+/**
+ * Why a value was refused, in the units the user is typing in. Names the
+ * storage width so the limit is explainable rather than arbitrary.
+ * @param {TableModal} m
+ * @param {number} v - The value that would not fit.
+ * @returns {string}
+ */
+function tnStorageRefusalText(m, v) {
+  const dp = m.dp;
+  const units = m.t.z.units ? ' ' + m.t.z.units : '';
+  const width =
+    m.t.spec && m.t.spec.sizeBits
+      ? `${m.t.spec.sizeBits}-bit${m.t.spec.signed ? ' signed' : ''} `
+      : '';
+  if (m.storeLo == null || m.storeHi == null)
+    return `${fmtNum(v, dp)}${units} does not fit this cell's ${width}storage`;
+  return (
+    `${fmtNum(v, dp)}${units} does not fit: this ${width}cell holds ` +
+    `${fmtNum(m.storeLo, dp)}…${fmtNum(m.storeHi, dp)}${units}`
+  );
 }
 
 /**
@@ -69,13 +106,14 @@ function tnTableCommitCell(m, input) {
   m.history.end('cell edit');
   if (!res.ok) {
     shake(input);
+    // Say WHY rather than just refusing: the number is outside what this
+    // cell's bytes can hold, which is a different problem from a bad edit.
+    if (res.unrepresentable) {
+      input.value = fmtNum(cur, dp);
+      tnTableFlashInfo(m, tnStorageRefusalText(m, v));
+    }
     return;
   }
-  if (res.clamped)
-    tnTableFlashInfo(
-      m,
-      `clamped to ${fmtNum(m.zLo != null && v < m.zLo ? m.zLo : m.zHi, dp)}`
-    );
   m.t = window.XDF.decodeTable(m.item, tuningState.bin, m.h);
   tnTablePaint(m);
   // paint deliberately skips the focused cell, so refresh this one by
@@ -104,20 +142,24 @@ function tnTableCommitCell(m, input) {
  * @param {TableModal} m
  * @param {CellValue[]} values
  * @param {string} label - The undo label.
- * @returns {{ n: number, clamped: number }} Cells written and cells clamped.
+ * @param {{ clampToStorage?: boolean }} [opts] - Passed to each cell write.
+ * @returns {{ n: number, clamped: number, refused: number }} Cells written,
+ *   cells pinned to a storage end, and cells refused as unrepresentable.
  */
-function tnTableApplyMany(m, values, label) {
+function tnTableApplyMany(m, values, label, opts) {
   let n = 0,
-    clamped = 0;
+    clamped = 0,
+    refused = 0;
   m.history.begin();
   for (const [r, c, v] of values) {
-    const res = tnTableApplyCell(m, r, c, v);
+    const res = tnTableApplyCell(m, r, c, v, opts);
     if (res.ok) n++;
     if (res.clamped) clamped++;
+    if (res.unrepresentable) refused++;
   }
   m.history.end(label);
   tnTableRefresh(m);
-  return { n, clamped };
+  return { n, clamped, refused };
 }
 
 /**
@@ -161,14 +203,27 @@ function tnTableWireTools(m) {
         c,
         op === 'set' ? raw : op === 'add' ? cur + raw : cur * (1 + raw / 100),
       ]);
-      const { n, clamped } = tnTableApplyMany(
+      // `set` is the number the user typed, so a value the storage cannot
+      // hold is refused and explained. offset/scale are DERIVED from the
+      // cells themselves, so pin them to the storage ends instead of
+      // leaving a ragged hole where a few cells saturated.
+      const derived = op !== 'set';
+      const { n, clamped, refused } = tnTableApplyMany(
         m,
         values,
-        op === 'set' ? 'set' : op === 'add' ? 'offset' : 'scale'
+        op === 'set' ? 'set' : op === 'add' ? 'offset' : 'scale',
+        { clampToStorage: derived }
       );
-      if (!n) shake(m.bulkVal);
+      if (!n) {
+        shake(m.bulkVal);
+        if (refused) tnTableFlashInfo(m, tnStorageRefusalText(m, raw));
+      } else if (refused)
+        tnTableFlashInfo(
+          m,
+          `${n} cells · ${refused} refused · ${tnStorageRefusalText(m, raw)}`
+        );
       else if (clamped)
-        tnTableFlashInfo(m, `${n} cells · ${clamped} clamped to range`);
+        tnTableFlashInfo(m, `${n} cells · ${clamped} pinned to storage limit`);
     };
   });
 
@@ -257,15 +312,19 @@ function tnTableRunOp(m, op) {
     );
     return;
   }
+  // Interpolate and smooth both derive their values from cells that are
+  // already in the image, so they can only leave the storage range by a
+  // rounding hair: pin rather than refuse, and say how many moved.
   const { n, clamped } = tnTableApplyMany(
     m,
     out,
-    op === 'smooth' ? 'smooth' : 'interpolate'
+    op === 'smooth' ? 'smooth' : 'interpolate',
+    { clampToStorage: true }
   );
   tnTableFlashInfo(
     m,
     `${op === 'smooth' ? 'smoothed' : 'interpolated'} ${n} cell${n === 1 ? '' : 's'}` +
-      (clamped ? ` · ${clamped} clamped` : '')
+      (clamped ? ` · ${clamped} pinned to storage limit` : '')
   );
 }
 
@@ -334,7 +393,10 @@ function tnTablePasteTsv(m, text) {
         clipped++;
         continue;
       }
-      if (tnTableApplyCell(m, r, c, v)) {
+      // Test .ok, not the result object: the object is always truthy, so
+      // testing it counted refused cells as written and reported a clean
+      // paste that had silently dropped values.
+      if (tnTableApplyCell(m, r, c, v).ok) {
         wrote++;
         if (r > maxR) maxR = r;
         if (c > maxC) maxC = c;
@@ -463,12 +525,16 @@ function tnTableStepKey(m, key) {
   if (!dir) return false;
   const step = (fine ? m.fineStep : m.coarseStep) * dir;
   const values = tnSelectedValues(m).map(([r, c, cur]) => [r, c, cur + step]);
+  // Nudging is derived from the cells, and holding + against the top of the
+  // storage range should rest there rather than start refusing keystrokes.
   const { n, clamped } = tnTableApplyMany(
     m,
     values,
-    dir > 0 ? 'increment' : 'decrement'
+    dir > 0 ? 'increment' : 'decrement',
+    { clampToStorage: true }
   );
-  if (clamped) tnTableFlashInfo(m, `${n} cells · ${clamped} clamped to range`);
+  if (clamped)
+    tnTableFlashInfo(m, `${n} cells · ${clamped} pinned to storage limit`);
   return true;
 }
 
