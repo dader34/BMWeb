@@ -549,8 +549,20 @@ function _binArg(bytes) {
  * @param {string|null} [arg] - The argument (null/undefined => '').
  * @returns {Promise<{sets?: object[]}>}
  */
+/**
+ * The job runner: on a shared car the owner's (core/webshim/job-runner.js's
+ * webRunJobAnywhere), else this machine's webRunJob -- which a headless
+ * test stands in for, so the choice is made per call.
+ * @returns {(sgbd: string, job: string, arg: string) => Promise<{sets?: object[]}>}
+ */
+function _flasherRunner() {
+  return typeof webRunJobAnywhere === 'function'
+    ? webRunJobAnywhere
+    : webRunJob;
+}
+
 async function _runJob(sgbd, job, arg) {
-  return webRunJob(sgbd, job, arg == null ? '' : arg);
+  return _flasherRunner()(sgbd, job, arg == null ? '' : arg);
 }
 
 // A job that must SUCCEED, the way the reference tool treats every step of

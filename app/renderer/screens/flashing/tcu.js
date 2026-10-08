@@ -153,6 +153,18 @@ function fbTcuDescribeSoftware() {
  * the read patch.
  * @returns {Promise<void>}
  */
+/**
+ * The job runner: on a shared car the owner's (core/webshim/job-runner.js's
+ * webRunJobAnywhere), else this machine's webRunJob -- which a headless
+ * test stands in for, so the choice is made per call.
+ * @returns {(sgbd: string, job: string, arg: string) => Promise<{sets?: object[]}>}
+ */
+function fbTcuRunner() {
+  return typeof webRunJobAnywhere === 'function'
+    ? webRunJobAnywhere
+    : webRunJob;
+}
+
 async function fbTcuIdentify() {
   const t = fbState.tcu;
   let found = null;
@@ -160,7 +172,7 @@ async function fbTcuIdentify() {
   let lastProblem = '';
   for (const variant of FB_TCU_VARIANTS) {
     try {
-      const r = await webRunJob(variant, 'IDENT', '');
+      const r = await fbTcuRunner()(variant, 'IDENT', '');
       const status = fbTcuField(r, 'JOB_STATUS');
       if (status === 'OKAY') {
         found = variant;
@@ -191,7 +203,7 @@ async function fbTcuIdentify() {
   // the programming log, through the diagnostic SGBD's own AIF_LESEN
   t.aif = {};
   try {
-    const a = await webRunJob(found, 'AIF_LESEN', '0');
+    const a = await fbTcuRunner()(found, 'AIF_LESEN', '0');
     if (fbTcuField(a, 'JOB_STATUS') === 'OKAY') {
       for (const f of [
         'AIF_FG_NR',
@@ -281,15 +293,24 @@ async function fbTcuReadCal() {
   }
   await fbSessionStart('tcu-cal-read', { module: 'GS20' });
   try {
-    const cal = await gs20ReadCalibration({
-      fast: t.fast,
-      onStage: (s) => flashLog.note(s),
-      onTrace: (s) => flashLog.trace(s),
-      onProgress: (p) => {
-        fbProgress(p);
-        fbSetStatusInPlace(`${p}%`);
+    const r = await fbFlashRun(
+      'tcu-cal-read',
+      {
+        fast: !!t.fast,
+        describe: 'TCU calibration read, 64 KB at 0x090000',
       },
-    });
+      {
+        progress: (p) => {
+          fbProgress(p);
+          fbSetStatusInPlace(`${p}%`);
+        },
+      }
+    );
+    if (!r.ok) {
+      fbSetStatus(`Read failed: ${r.status}`);
+      return;
+    }
+    const cal = r.image;
     const stamp = fbTcuStamp();
     fbSaveBytes(`TCU_cal_${stamp}.bin`, cal);
     fbSetStatus(
@@ -339,15 +360,25 @@ async function fbTcuReadFull() {
     flashLog.note(
       `TCU gs20 / subcode-8 read of the full region / fast mode ${t.fast ? 'on' : 'off'}`
     );
-    const image = await gs20ReadFull({
-      fast: t.fast,
-      onStage: fbSetStage,
-      onTrace: (s) => flashLog.trace(s),
-      onProgress: (p) => {
-        fbProgress(p);
-        fbSetStatusInPlace(`${p}%`);
+    const r = await fbFlashRun(
+      'tcu-full-read',
+      {
+        fast: !!t.fast,
+        describe: 'TCU full read (subcode 8), 512 KB from 0x080000',
       },
-    });
+      {
+        stage: fbSetStage,
+        progress: (p) => {
+          fbProgress(p);
+          fbSetStatusInPlace(`${p}%`);
+        },
+      }
+    );
+    if (!r.ok) {
+      fbSetStatus(`Read failed: ${r.status}`);
+      return;
+    }
+    const image = r.image;
     const vectors =
       image[0] === 0xfa &&
       image[4] === 0xfa &&
@@ -557,32 +588,38 @@ async function fbTcuWriteCal() {
     if (image !== t.cal) flashLog.note('auto upshift removed');
     flashLog.attach('tcu_calibration_0x090000.bin', image);
     const aifRecord = fbTcuAifRecord(null, image);
-    try {
-      const res = await gs20WriteCalibration(image, {
-        confirmed: true,
-        fast: t.fast,
+    const res = await fbFlashRun(
+      'tcu-cal',
+      {
+        calibration: image,
+        fast: !!t.fast,
         aifRecord,
-        onStage: fbSetStage,
-        onTrace: (s) => flashLog.trace(s),
-        onProgress: (p) => {
+        describe: `TCU calibration ${gs20Checksum.version(image) || 'of unknown version'}${t.noUpshift ? ', auto upshift removed' : ''}, 64 KB at 0x090000`,
+        vin: fbState.aifVin || '',
+      },
+      {
+        stage: fbSetStage,
+        progress: (p) => {
           fbProgress(p);
           fbSetStatusInPlace(`${p}%`);
         },
-      });
-      eraseStarted = res.eraseStarted;
-      if (res.aif) t.aif.AIF_ANZ_FREI = String(res.aif.left);
+      }
+    );
+    if (res.ok) {
+      eraseStarted = !!res.eraseStarted;
+      if (res.aifLeft != null) t.aif.AIF_ANZ_FREI = String(res.aifLeft);
       fbSetStatus('Calibration written. Cycle the ignition before driving.');
       await fbMessage(
         'The calibration was written and the transmission confirmed it.\n\nCycle the ignition, then check for stored faults before driving.',
         'Write Calibration'
       );
-    } catch (e) {
-      eraseStarted = !!(e && e.eraseStarted);
-      fbSetStatus(`Calibration write failed: ${e.message}`);
+    } else {
+      eraseStarted = !!res.eraseStarted;
+      fbSetStatus(`Calibration write failed: ${res.status}`);
       const aftermath = eraseStarted
         ? '\n\nThe transmission may be holding an incomplete calibration. Its boot block and program are untouched, so it still answers and can be written again: fix the cause, then write a known-good calibration before driving.'
         : '\n\nNothing was erased or written, so the calibration on the transmission is unchanged.';
-      await fbMessage(fbDescribeError(e) + aftermath, 'Write Calibration');
+      await fbMessage(res.status + aftermath, 'Write Calibration');
     }
   } finally {
     fbFlashingBar(false);
@@ -602,7 +639,7 @@ async function fbTcuWriteCal() {
  * @returns {Uint8Array|null} The record, or null when none can be made.
  */
 function fbTcuAifRecord(program, calibration) {
-  if (Settings.get('flashWriteAif', true) === false) return null;
+  if (!fbAifWanted()) return null;
   const t = fbState.tcu;
   const a = (f) => t.aif[f] || '';
   let vin = fbState.aifVin || '';
@@ -881,25 +918,31 @@ async function fbTcuWriteProgram() {
       );
     }
     const aifRecord = fbTcuAifRecord(image, calImage);
-    try {
-      const res = await gs20WriteProgram(image, {
-        confirmed: true,
-        fast: t.fast,
+    const res = await fbFlashRun(
+      'tcu-program',
+      {
+        program: image,
         calibration: calImage,
+        fast: !!t.fast,
         aifRecord,
-        onStage: (s) => {
+        describe: `TCU program release ${release}${gs20ProgramHasReadPatch(image) ? ' (read patch)' : ''}${calImage ? ` + calibration ${gs20Checksum.version(t.cal) || 'of unknown version'}` : ''}, 256 KB at 0x0A0000`,
+        vin: fbState.aifVin || '',
+      },
+      {
+        stage: (s) => {
           if (/^erasing, \d/.test(s) || /^writing program \d+%/.test(s)) {
             flashLog.note(s);
             fbSetStatusInPlace(s[0].toUpperCase() + s.slice(1));
           } else fbSetStage(s);
         },
-        onTrace: (s) => flashLog.trace(s),
-        onProgress: (p) => {
+        progress: (p) => {
           fbProgress(p);
           if (calImage) fbSetStatusInPlace(`${p}%`);
         },
-      });
-      if (res.aif) t.aif.AIF_ANZ_FREI = String(res.aif.left);
+      }
+    );
+    if (res.ok) {
+      if (res.aifLeft != null) t.aif.AIF_ANZ_FREI = String(res.aifLeft);
       flashLog.note('RESULT: written and committed');
       if (calImage) {
         t.identSw = release;
@@ -915,24 +958,24 @@ async function fbTcuWriteProgram() {
         'The program was written and the transmission confirmed it.\n\nCycle the ignition, then check for stored faults before driving.',
         'Write Program'
       );
-    } catch (e) {
-      erased = (e && e.erasedSectors) || 0;
-      if (e && e.programWritten) {
+    } else {
+      erased = res.erasedSectors || 0;
+      if (res.programWritten) {
         // the program is on; it is the calibration write that failed, so the
         // calibration write's own words apply
-        fbSetStatus(`Calibration write failed: ${e.message}`);
-        const aftermath = e.calibrationEraseStarted
+        fbSetStatus(`Calibration write failed: ${res.status}`);
+        const aftermath = res.calibrationEraseStarted
           ? '\n\nThe transmission may be holding an incomplete calibration. Its boot block and program are untouched, so it still answers and can be written again: fix the cause, then write a known-good calibration before driving.'
           : '\n\nNothing was erased or written, so the calibration on the transmission is unchanged.';
-        await fbMessage(fbDescribeError(e) + aftermath, 'Write Calibration');
+        await fbMessage(res.status + aftermath, 'Write Calibration');
         return;
       }
-      fbSetStatus(`Program write failed: ${e.message}`);
+      fbSetStatus(`Program write failed: ${res.status}`);
       const aftermath =
         erased === 0
           ? '\n\nNothing was erased or written, so the program on the transmission is unchanged.'
           : `\n\n${erased} of 4 program sectors were erased before this failed.`;
-      await fbMessage(fbDescribeError(e) + aftermath, 'Write Program');
+      await fbMessage(res.status + aftermath, 'Write Program');
     }
   } finally {
     fbFlashingBar(false);

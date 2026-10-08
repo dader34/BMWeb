@@ -8298,6 +8298,30 @@ body.remote-helper::after {
   margin-bottom: 6px;
   word-break: break-word;
 }
+.remote-overlay .ro-progress {
+  height: 10px;
+  margin: 14px 0 8px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+}
+.remote-overlay .ro-bar {
+  height: 100%;
+  background: #e8a33d;
+  transition: width 0.2s linear;
+}
+.remote-overlay .ro-stage {
+  min-height: 1.4em;
+}
+.remote-overlay .ro-warning {
+  margin-top: 14px;
+  padding: 10px 12px;
+  border: 1px solid rgba(232, 163, 61, 0.6);
+  border-radius: 6px;
+  background: rgba(232, 163, 61, 0.12);
+  color: #ffd38a;
+  font-weight: 600;
+}
 .remote-overlay .ro-actions {
   display: flex;
   gap: 10px;
@@ -9889,14 +9913,13 @@ body.remote-helper::after {
   border-bottom: 1px solid var(--line);
   background: var(--panel-2);
 }
-.fb-select {
-  font: inherit;
-  font-size: 13px;
-  padding: 9px 10px;
-  border-radius: 4px;
-  border: 1px solid var(--line-bright);
-  background: var(--raised);
-  color: var(--ink);
+.fb-module .lkd-btn {
+  width: 100%;
+  min-width: 0;
+}
+.fb-module .lkd-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 .fb-ecu {
   font-family: var(--mono);
@@ -10166,10 +10189,25 @@ body.remote-helper::after {
 .fb-files {
   grid-template-columns: 220px minmax(0, 1fr);
 }
+.fb-ms-remove {
+  padding: 0 7px;
+  min-width: 0;
+  line-height: 1.4;
+  margin-left: 6px;
+}
 .fb-radios {
   display: flex;
   gap: 16px;
   flex-wrap: wrap;
+}
+.modal-input.fb-num {
+  width: 84px;
+  margin-bottom: 0;
+  padding: 4px 8px;
+  font-size: 12.5px;
+}
+.modal-input.fb-num:disabled {
+  opacity: 0.5;
 }
 .fb-report {
   white-space: pre-wrap;
@@ -10238,17 +10276,83 @@ body.remote-helper::after {
   flex-wrap: wrap;
 }
 @media (max-width: 760px) {
+  /* A phone: the module's actions come first, as buttons a thumb can hit;
+     the log takes whatever height is left and reads at a phone's size;
+     clear sits above the log rather than over its first line. */
   .fb {
-    grid-template-columns: 44px minmax(0, 1fr);
+    grid-template-columns: 54px minmax(0, 1fr);
   }
-  .fb-flashing {
-    grid-template-columns: minmax(0, 1fr);
+  .fb-rail {
+    gap: 8px;
+    padding: 10px 7px;
+  }
+  .fb-rail-btn {
+    width: 40px;
+    height: 44px;
   }
   .fb-topbar {
     grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+    padding: 10px 12px;
+  }
+  .fb-ecu {
+    font-size: 13px;
+    padding: 11px 12px;
+  }
+  .fb-identify {
+    min-height: 44px;
+    font-size: 15px;
+  }
+  .fb-page {
+    padding: 10px 12px 0;
+  }
+  .fb-flashing {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .fb-side {
+    order: 0;
+    flex: none;
+    gap: 8px;
+  }
+  .fb-actions {
+    flex: none;
+    overflow: visible;
+  }
+  .fb-side .btn,
+  .fb-side .fb-wide {
+    min-height: 44px;
+    font-size: 15px;
+  }
+  .fb-log-wrap {
+    order: 1;
+    flex: 1;
+    flex-direction: column;
+    min-height: 160px;
+  }
+  .fb-log-clear {
+    position: static;
+    order: -1;
+    align-self: flex-end;
+    margin-bottom: 6px;
+    opacity: 0.85;
+    font-size: 11px;
+    padding: 4px 10px;
   }
   .fb-log {
-    min-height: 220px;
+    flex: 1;
+    min-height: 0;
+    font-size: 13px;
+    line-height: 20px;
+    padding: 10px 12px;
+  }
+  .fb-statusbar {
+    padding: 10px 12px;
+    margin-top: 10px;
+  }
+  .fb-status {
+    font-size: 14px;
   }
 }
 

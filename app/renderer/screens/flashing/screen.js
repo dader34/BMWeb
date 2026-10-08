@@ -11,7 +11,16 @@
 // upshift) in options.js. The engines underneath are core/ms45.js (the DME
 // over the SGBD's jobs), core/gs20.js + core/gs20-program.js (the
 // transmission over raw DS2), core/mapswitch.js and core/flash-history.js.
-/* exported showFlashing, fbState, fbEls, fbSetStatus, fbSetStage, fbSetStatusInPlace, fbLog, fbProgress, fbFlashingBar, fbBusy, fbConfirm, fbMessage, fbChoose, fbConfirmAck, fbPickFile, fbReadBytes, fbReadText, fbSaveBytes, fbEnsureCable, fbDescribeError, fbProgrammingCounter, fbRefreshCustomOptionsGate, fbShowOptions, fbSetEcuBox, fbRefreshAll, fbDevUi, fbWriteAif, fbTesterSerial, fbSessionStart, fbSessionStop */
+/* exported showFlashing, fbState, fbEls, fbSetStatus, fbSetStage, fbSetStatusInPlace, fbLog, fbProgress, fbFlashingBar, fbBusy, fbConfirm, fbMessage, fbChoose, fbConfirmAck, fbPickFile, fbReadBytes, fbReadText, fbSaveBytes, fbEnsureCable, fbDescribeError, fbProgrammingCounter, fbRefreshCustomOptionsGate, fbShowOptions, fbAifArgs, fbOnSharedCar, fbRemoteAction, fbFlashRun, fbAifWanted, fbSetEcuBox, fbRefreshAll, fbDevUi, fbWriteAif, fbTesterSerial, fbSessionStart, fbSessionStop */
+
+/**
+ * Whether a flash writes a programming-log entry (AIF): a setting, off
+ * unless switched on, since the entries cannot be erased.
+ * @returns {boolean}
+ */
+function fbAifWanted() {
+  return Settings.get('flashWriteAif', false) === true;
+}
 
 /** The tester serial every programming-log entry carries. */
 const fbTesterSerial = 'BMWEB';
@@ -36,6 +45,8 @@ const fbState = {
 
 /** The screen's elements, by id without the fb- prefix. @type {Object<string, HTMLElement>} */
 let fbEls = {};
+/** The control unit choice, a ui/dropdown.js handle. */
+let fbModuleDd = null;
 /** @type {?function(Event): void} The window's bmweb-cable listener, registered once. */
 let fbCableListener = null;
 
@@ -94,11 +105,7 @@ async function showFlashing() {
     </div>
     <div class="fb-main">
       <div class="fb-topbar">
-        <select class="fb-select" id="fb-module">
-          <option value="" selected disabled>Control unit...</option>
-          <option value="dme">DME (engine)</option>
-          <option value="tcu">TCU (transmission)</option>
-        </select>
+        <div class="fb-module" id="fb-module"></div>
         <div class="fb-ecu" id="fb-ecu">Select a control unit</div>
         <button class="btn primary fb-identify" id="fb-identify" disabled>Identify ECU</button>
       </div>
@@ -180,7 +187,22 @@ async function showFlashing() {
   fbEls['rail-history'].onclick = () => fbShowPage('history');
   fbEls['rail-settings'].onclick = () => fbShowPage('settings');
 
-  fbEls.module.onchange = () => fbModuleChanged();
+  // the app's own dropdown, in the skin the chassis and module pickers wear;
+  // two rows need no search box
+  fbModuleDd = makeDropdown({
+    items: [
+      { val: 'dme', label: 'DME (engine)' },
+      { val: 'tcu', label: 'TCU (transmission)' },
+    ],
+    value: '',
+    placeholder: 'Control unit...',
+    classPrefix: 'lkd',
+    parts: { cur: 'val', menu: 'pop', opt: 'item' },
+    searchable: false,
+    renderRow: (o) => `<span class="lkd-item-label">${esc(o.label)}</span>`,
+    onChange: () => fbModuleChanged(),
+  });
+  fbEls.module.appendChild(fbModuleDd.el);
   fbEls.identify.onclick = () => fbIdentify();
   fbEls['custom-open'].onclick = () => fbOpenOptions();
   fbEls['log-clear'].onclick = () => {
@@ -190,7 +212,7 @@ async function showFlashing() {
   };
 
   fbEls['set-keep'].checked = !!Settings.get('flashKeepFiles', false);
-  fbEls['set-aif'].checked = Settings.get('flashWriteAif', true) !== false;
+  fbEls['set-aif'].checked = fbAifWanted();
   fbEls['set-dev'].checked = fbDevUi();
   fbEls['set-keep'].onchange = () =>
     Settings.set('flashKeepFiles', fbEls['set-keep'].checked);
@@ -215,15 +237,22 @@ async function showFlashing() {
   fbRefreshAll();
   fbHistoryRefresh();
   fbSetStatus(
-    webBus.connected
-      ? 'Cable connected'
-      : 'No cable connected: Identify will ask for the port'
+    fbOnSharedCar()
+      ? "Remote: using the shared car's cable"
+      : webBus.connected
+        ? 'Cable connected'
+        : 'No cable connected: Identify will ask for the port'
   );
   // the cable reconnects on its own after a page load, usually a moment after
   // this screen opens; follow it rather than freeze the first answer
   if (!fbCableListener) {
     fbCableListener = (e) => {
-      if (lastScreen !== showFlashing || fbState.running || !fbEls.status)
+      if (
+        lastScreen !== showFlashing ||
+        fbState.running ||
+        !fbEls.status ||
+        fbOnSharedCar()
+      )
         return;
       fbSetStatus(
         e.detail && e.detail.connected
@@ -360,7 +389,8 @@ function fbBusy(busy) {
   fbState.running = !!busy;
   if (!fbEls.identify) return;
   fbEls.identify.disabled = busy || !fbState.module;
-  fbEls.module.disabled = busy;
+  fbEls.module.querySelector('.lkd-btn').disabled = !!busy;
+  if (busy) fbModuleDd.close();
   fbEls.actions.classList.toggle('fb-locked', !!busy);
 }
 
@@ -554,6 +584,12 @@ function fbSaveBytes(name, data) {
  * @returns {Promise<boolean>}
  */
 async function fbEnsureCable() {
+  if (fbOnSharedCar()) {
+    // the owner's cable, over the share; the jobs until a session starts
+    // (identify) serve one action the owner approves once
+    webSetRemoteAction(fbRemoteAction('identify'));
+    return true;
+  }
   if (webBus.connected) return true;
   try {
     await webBus.connect();
@@ -575,6 +611,7 @@ async function fbEnsureCable() {
  * @returns {Promise<void>}
  */
 async function fbSessionStart(operation, car) {
+  webSetRemoteAction(fbRemoteAction(operation));
   await flashLog.start(operation, car);
   ms45SetJobTrace((job, arg, status, tx, rx) =>
     flashLog.job(job, arg, status, tx, rx)
@@ -584,12 +621,118 @@ async function fbSessionStart(operation, car) {
 /** End the session and refresh History. @returns {Promise<void>} */
 async function fbSessionStop() {
   ms45SetJobTrace(null);
+  webSetRemoteAction(null);
   await flashLog.stop();
+}
+
+/** The flashing-screen operation each flash-ops operation is logged and approved as. */
+const FB_FLASH_OPERATION = {
+  'dme-tune': 'flash-tune',
+  'dme-program': 'flash-program',
+  'dme-read': 'read-dme',
+  'dme-maps-read': 'read-maps',
+  'tcu-cal': 'tcu-cal-write',
+  'tcu-program': 'tcu-program-write',
+  'tcu-cal-read': 'tcu-cal-read',
+  'tcu-full-read': 'tcu-full-read',
+};
+
+/**
+ * Run a flashing operation (a write or a read, core/flash-ops.js): on this
+ * machine's cable, or -- on a shared car -- by its owner, who gets the
+ * prepared images once, is asked (for a write), runs the whole operation on
+ * their cable and reports as it goes; what was read comes back once. Either
+ * way the screen shows the stages and the session log gets the lines.
+ * @param {string} op - The operation.
+ * @param {object} payload - As the operation takes it.
+ * @param {{stage?: (t: string) => void, progress?: (pct: number, what: string) => void}} [ui] - The screen's handlers.
+ * @returns {Promise<object>} The operation's result ({ok, status, ...bytes}).
+ */
+async function fbFlashRun(op, payload, ui = {}) {
+  const cb = {
+    stage: ui.stage || fbSetStatus,
+    progress:
+      ui.progress ||
+      ((pct, what) => {
+        fbProgress(pct);
+        fbSetStatusInPlace(`${what ? `${what} ` : ''}${pct}%`);
+      }),
+    note: (text) => flashLog.note(text),
+    attach: (name, bytes) => flashLog.attach(name, bytes),
+    trace: (text) => flashLog.trace(text),
+  };
+  if (!fbOnSharedCar()) return flashOps.run(op, payload, cb);
+  flashLog.note(
+    `Remote: ${payload.describe || flashOps.label(op)} handed to the car's owner to run`
+  );
+  fbSetStatus(
+    flashOps.writes(op)
+      ? "Waiting for the car's owner to approve the write"
+      : "Running on the car's owner's cable"
+  );
+  try {
+    const res = await Remote.requestOperation(
+      `/api/flash/${op}`,
+      flashOps.encode(payload),
+      {
+        action: fbRemoteAction(FB_FLASH_OPERATION[op] || op),
+        onProgress: (m) => {
+          if (m.stage) cb.stage(m.stage);
+          if (m.pct != null) cb.progress(m.pct, m.what || '');
+          if (m.note) cb.note(`owner: ${m.note}`);
+        },
+      }
+    );
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok)
+      return { ok: false, status: body.error || `remote: ${res.status}` };
+    const r = flashOps.decodeResult(body);
+    return {
+      ...r,
+      ok: !!r.ok,
+      status: r.status || (r.ok ? 'Done' : 'Failed'),
+    };
+  } catch (e) {
+    return { ok: false, status: fbDescribeError(e) };
+  }
+}
+
+/** Whether this browser drives a shared car (core/remote.js helper), which has the cable. */
+function fbOnSharedCar() {
+  return typeof Remote !== 'undefined' && !!Remote && Remote.role === 'helper';
+}
+
+/** What the flasher's operations are called when a shared car's owner is asked to approve one. */
+const FB_REMOTE_LABELS = {
+  identify: 'Flashing: identify the module',
+  'read-dme': 'Flashing: read the DME',
+  'read-maps': 'Flashing: read the installed maps',
+  'flash-tune': 'Flashing: Flash Tune (DME calibration)',
+  'flash-program': 'Flashing: Flash Program (DME program + calibration)',
+  'verify-program': 'Flashing: verify the programming',
+  'tcu-cal-read': 'Flashing: read the TCU calibration',
+  'tcu-full-read': 'Flashing: read the whole TCU',
+  'tcu-cal-write': 'Flashing: write the TCU calibration',
+  'tcu-program-write': 'Flashing: write the TCU program',
+};
+
+/**
+ * The user action a flashing operation's jobs serve, for the owner of a
+ * shared car: approved once, every job of the operation then passes.
+ * @param {string} operation - e.g. flash-tune.
+ * @returns {{id: string, label: string, jobs: string[]}}
+ */
+function fbRemoteAction(operation) {
+  return {
+    id: `flashing-${operation}-${Date.now().toString(36)}`,
+    label: FB_REMOTE_LABELS[operation] || `Flashing: ${operation}`,
+    jobs: [],
+  };
 }
 
 // ---- the module choice and Identify ------------------------------------------------------------------
 function fbModuleChanged() {
-  const m = fbEls.module.value || null;
+  const m = fbModuleDd.value() || null;
   fbState.module = m;
   fbShowOptions(false);
   fbDmeReset();
@@ -655,11 +798,15 @@ function fbRefreshAll() {
  * @returns {boolean}
  */
 function fbCustomOptionsAllowed() {
-  if (fbDevUi()) return !!fbState.module;
+  // the DME's options all go into a full program flash, so they are offered
+  // once Full Binary is ticked (the files themselves may come later)
+  if (fbDevUi())
+    return fbState.module === 'dme' ? fbState.dme.fullBin : !!fbState.module;
   if (fbState.module === 'tcu') return fbState.tcu.sgbd === 'gs20';
   if (fbState.module === 'dme') {
     const d = fbState.dme;
     return (
+      d.fullBin &&
       d.identified &&
       d.ident.hwRef === '0044570' &&
       !!d.ident.progRef &&
@@ -675,7 +822,7 @@ function fbRefreshCustomOptionsGate() {
   fbEls['custom-open'].title =
     fbState.module === 'tcu'
       ? 'Remove auto upshift.'
-      : 'EWS delete and map switch.';
+      : 'EWS delete, spark cut rev limiter, engine protection and map switch.';
   if (!allowed) fbShowOptions(false);
   fbOptionsRefreshSummary();
 }
@@ -696,8 +843,7 @@ function fbOpenOptions() {
  */
 function fbProgrammingCounter(tcu) {
   fbState.aifVin = '';
-  if (Settings.get('flashWriteAif', true) === false)
-    return Promise.resolve(true);
+  if (!fbAifWanted()) return Promise.resolve(true);
   const module = tcu ? 'transmission' : 'DME';
   const aif = tcu ? fbState.tcu.aif : fbState.dme.aif;
   const free = parseInt((aif && aif.AIF_ANZ_FREI) || '', 10);
@@ -789,8 +935,16 @@ function fbIsAlnum(s, n) {
  *   written, when it differs from the one identified before the flash.
  * @returns {Promise<void>}
  */
-async function fbWriteAif(progRef) {
-  if (Settings.get('flashWriteAif', true) === false) return;
+/**
+ * The programming record (AIF) a flash writes, as AIF_SCHREIBEN's
+ * semicolon-joined arguments, or null when none is to be written (switched
+ * off in Settings, or no usable VIN). Pure: the write itself happens where
+ * the cable is (core/ms45-write.js).
+ * @param {string} [progRef] - The program reference to record; identify's when absent.
+ * @returns {string|null}
+ */
+function fbAifArgs(progRef) {
+  if (!fbAifWanted()) return null;
   const d = fbState.dme;
   const aif = d.aif || {};
   const a = (f) => aif[f] || '';
@@ -800,7 +954,7 @@ async function fbWriteAif(progRef) {
   if (!fbIsAlnum(vin, 17)) vin = d.ident.vin || '';
   if (!fbIsAlnum(vin, 17) && !fbIsAlnum(vin, 7)) {
     flashLog.note(`AIF not written: no usable VIN (${vin})`);
-    return;
+    return null;
   }
   const zb = sevenOrNine(a('AIF_ZB_NR'), '0000000');
   const sw = sevenOrNine(a('AIF_SW_NR'), sevenOrNine(d.ident.swRef, '0000000'));
@@ -831,6 +985,17 @@ async function fbWriteAif(progRef) {
     String(km),
     progRef,
   ].join(';');
+  return args;
+}
+
+/**
+ * Write the programming record, while the DME is in programming mode.
+ * @param {string} [progRef] - The program reference to record.
+ * @returns {Promise<void>}
+ */
+async function fbWriteAif(progRef) {
+  const args = fbAifArgs(progRef);
+  if (!args) return;
   fbSetStatus('Writing the programming record (AIF)');
   const r = await ms45WriteAif(args);
   const outcome = r.ok

@@ -334,6 +334,51 @@ function showOwnerConsole(code, opts = {}) {
       });
     });
 
+  // A FLASHING OPERATION the helper runs on this cable, as it happens: a
+  // full-screen card with the stage and a bar, up until it finishes, with
+  // the one thing the owner must not do while it runs. A write that is
+  // interrupted leaves the module without a program.
+  let opCard = null;
+  Remote.onOperation = (ev) => {
+    const warning = ev.write
+      ? `<p class="ro-warning">Do not switch the ignition off, unplug the cable or close this page until it finishes. While a program is being written the module has no valid one, and a write that is interrupted can leave it needing a bench recovery.</p>`
+      : `<p class="ro-warning">Keep the ignition on and the cable in until it finishes.</p>`;
+    if (ev.phase === 'start') {
+      opCard = remoteOverlay({
+        kind: 'run',
+        title: `${ev.label} is running on your car`,
+        body: `<div class="ro-detail mono">${esc(ev.what || '')}</div>
+          <div class="ro-progress"><div class="ro-bar" style="width:0%"></div></div>
+          <div class="ro-detail ro-stage">Starting…</div>${warning}`,
+        actions: [],
+      });
+      return;
+    }
+    if (!opCard) return;
+    const stage = opCard.el.querySelector('.ro-stage');
+    const bar = opCard.el.querySelector('.ro-bar');
+    if (ev.phase === 'stage' && stage) {
+      stage.textContent = ev.stage || '';
+      if (bar) bar.style.width = '0%';
+    } else if (ev.phase === 'progress') {
+      if (bar) bar.style.width = `${Math.max(0, Math.min(100, ev.pct || 0))}%`;
+      if (stage)
+        stage.textContent = `${ev.stage ? `${ev.stage} ` : ''}${ev.pct}%`;
+    } else if (ev.phase === 'done') {
+      const secs = Math.round((ev.took || 0) / 1000);
+      opCard = remoteOverlay({
+        kind: ev.ok ? 'run' : 'approve',
+        title: ev.ok ? `${ev.label} finished` : `${ev.label} failed`,
+        body: `<div class="ro-detail mono">${esc(ev.what || '')}</div>
+          <div class="ro-detail">${esc(ev.status || '')}${secs ? ` · ${secs} s` : ''}</div>
+          ${ev.ok ? '' : ev.write ? '<p class="ro-warning">Leave the ignition on and tell the helper: the module may be holding an incomplete program, and the helper can write it again.</p>' : ''}`,
+        actions: [
+          { label: 'Close', cls: 'primary', fn: () => (opCard = null) },
+        ],
+      });
+    }
+  };
+
   // APPROVE a single write/actuator -- also full-screen. Only fires when the
   // session allows writes and confirm is on; reads never reach here.
   Remote.onGate = (j) =>
@@ -433,8 +478,15 @@ function showRemoteBar() {
   Remote.onAwait = (waiting, path) => {
     if (waiting) {
       if (awaitCard) return;
+      const op = /\/api\/flash\/([a-z0-9-]+)/.exec(String(path || ''));
       const m = /\/(run|clear|write|flash)\/([^/?]+)/.exec(String(path || ''));
-      const what = m ? decodeURIComponent(m[2]) : 'this action';
+      const what = op
+        ? typeof flashOps !== 'undefined'
+          ? flashOps.label(op[1])
+          : op[1]
+        : m
+          ? decodeURIComponent(m[2])
+          : 'this action';
       awaitCard = remoteOverlay({
         kind: 'wait',
         title: 'Waiting for the host to accept your request',

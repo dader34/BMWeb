@@ -108,6 +108,11 @@ echo "== Map switch builder: byte-identical to the reference build, recognition,
 node tools/verify/test_mapswitch.js || exit 1
 
 echo
+echo "== Engine protection builder: byte-identical to the emulator-tested build, gates, config =="
+node tools/verify/test_ms45_protect.js || exit 1
+node tools/verify/test_flash_ops.js || exit 1
+
+echo
 echo "== MS45 image validation math: CRC-32/MPEG-2, RSA signature, region/address =="
 node tools/verify/test_ms45_bin.js || exit 1
 

@@ -37,6 +37,8 @@ const ok = (m) => {
     '/api/port',
     '/api/state',
     '/api/state?sgbd=ms450ds0',
+    '/api/flash/dme-program',
+    '/api/flash/dme-tune',
   ];
   const local = [
     '/api/chassis',
@@ -47,6 +49,7 @@ const ok = (m) => {
     '/api/ecu/ms450ds0/results/FS_LESEN',
     '/data/groups/variants.json',
     '/api/ecu-index.json',
+    '/api/flashing/history',
   ];
   for (const r of remote)
     assert.ok(REMOTE_CAR_ROUTE.test(r), `should forward: ${r}`);

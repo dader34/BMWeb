@@ -710,6 +710,18 @@ function _ms45ArgSummary(arg) {
  * @param {string|Uint8Array} [arg] - The argument (a Uint8Array is a binary argument).
  * @returns {Promise<{ok: boolean, status: string, res: {sets?: object[]}|null, error: string|null}>}
  */
+/**
+ * The job runner: on a shared car the owner's (core/webshim/job-runner.js's
+ * webRunJobAnywhere), else this machine's webRunJob -- which a headless
+ * test stands in for, so the choice is made per call.
+ * @returns {(sgbd: string, job: string, arg: string) => Promise<{sets?: object[]}>}
+ */
+function _ms45Runner() {
+  return typeof webRunJobAnywhere === 'function'
+    ? webRunJobAnywhere
+    : webRunJob;
+}
+
 async function ms45Job(job, arg) {
   const text =
     arg instanceof Uint8Array
@@ -719,7 +731,7 @@ async function ms45Job(job, arg) {
         : String(arg);
   let res = null;
   try {
-    res = await webRunJob(MS45_SGBD, job, text);
+    res = await _ms45Runner()(MS45_SGBD, job, text);
   } catch (e) {
     const msg = (e && e.message) || String(e);
     if (_ms45JobTrace)

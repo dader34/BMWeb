@@ -2,7 +2,7 @@
  * @file EDIABAS's session model and the job runner: run a job the way the
  * server's /run endpoint did, but in the VM, over the live bus.
  */
-/* exported sessionFor, switchSession, forgetSessions, newTally, driveJobOverBus, webRunJob */
+/* exported sessionFor, switchSession, forgetSessions, newTally, driveJobOverBus, webRunJob, webRunJobAnywhere, webSetRemoteAction */
 
 /**
  * How many telegram exchanges a single job may need before it is declared
@@ -386,4 +386,57 @@ async function webRunJob(sgbd, job, arg, opts = {}) {
     );
   }
   return { sets };
+}
+
+// ---- the same job on a shared car ------------------------------------------
+// A helper driving an owner's car (core/remote.js) has no cable: every
+// car-touching request leaves through window.fetch on the /api/ecu/.../run/
+// route, which the helper's shim forwards and the owner runs on its own
+// cable. Code that calls webRunJob directly (the MS45 and GS20 flashers)
+// bypasses that seam, so it goes through here instead.
+
+/**
+ * The user action the flasher's jobs serve while a session runs, so the
+ * owner of a shared car approves the operation once rather than each of
+ * its thousands of jobs. Null outside a session.
+ * @type {{id: string, label: string, jobs: string[]}|null}
+ */
+let webRemoteAction = null;
+
+/**
+ * Name the user action the flasher's next jobs serve (null to clear).
+ * @param {{id: string, label: string, jobs: string[]}|null} action - The action.
+ * @returns {void}
+ */
+function webSetRemoteAction(action) {
+  webRemoteAction = action;
+}
+
+/** Whether this browser is a helper on a shared car, with no cable of its own. */
+function webOnSharedCar() {
+  return (
+    typeof window !== 'undefined' &&
+    !!window.Remote &&
+    window.Remote.role === 'helper'
+  );
+}
+
+/**
+ * Run one job on this machine's cable, or -- while this browser is a helper
+ * on a shared car -- on the owner's, through the same /api route the rest of
+ * the app uses, so the owner's gate sees it. Same result shape as webRunJob.
+ * @param {string} sgbd - The SGBD.
+ * @param {string} job - The job name.
+ * @param {string|null} [arg] - The argument (null/undefined => '').
+ * @returns {Promise<{sets: object[]}>}
+ */
+async function webRunJobAnywhere(sgbd, job, arg) {
+  const text = arg == null ? '' : String(arg);
+  if (!webOnSharedCar()) return webRunJob(sgbd, job, text);
+  const q = text ? `?arg=${encodeURIComponent(text)}` : '';
+  const d = await api(
+    `/api/ecu/${encodeURIComponent(sgbd)}/run/${encodeURIComponent(job)}${q}`,
+    { method: 'POST', action: webRemoteAction || undefined }
+  );
+  return { sets: (d && d.sets) || [] };
 }

@@ -28,10 +28,17 @@ function fbDmeFreshState() {
     exchangeKind: null,
     exchangeTuneLoaded: false,
     ews: false,
+    /** The spark cut and engine protection to flash: undefined = as loaded, null = none, else the config. */
+    protect: undefined,
     carProgramEwsDeleted: null,
     carTuneEwsDeleted: null,
     carMapSwitch: null,
-    carMap2Version: null,
+    /** 'blocks' (several maps as blocks) or 'copy' (an earlier build's full copy of map 2). */
+    carMapLayout: null,
+    /** Maps stored on the car, map 1 included; null when none besides map 1. */
+    carMapCount: null,
+    /** The rev limit the car's own limiter works to, rpm, or null when not read. */
+    carRevLimit: null,
   };
 }
 
@@ -187,6 +194,7 @@ async function fbDmeIdentify(afterFlash = false) {
     );
   await fbDmeReadCarImmobilizer();
   await fbDmeReadCarMapSwitch();
+  await fbDmeReadCarRevLimit();
   fbRefreshAll();
   fbOptionsRefreshEwsGate();
   const summary = fbDmeImmobilizerSummary() + fbDmeMapSwitchSummary();
@@ -262,11 +270,12 @@ async function fbDmeReadCarImmobilizer() {
   }
 }
 
-/** The MPC's free area, and map 2's data version when the map switch is there. */
+/** The MPC's free area, and how many maps are stored when the map switch is there. */
 async function fbDmeReadCarMapSwitch() {
   const d = fbState.dme;
   d.carMapSwitch = null;
-  d.carMap2Version = null;
+  d.carMapLayout = null;
+  d.carMapCount = null;
   d.carTrigger = null;
   d.carPresses = null;
   if (
@@ -286,14 +295,27 @@ async function fbDmeReadCarMapSwitch() {
     d.carMapSwitch = s.state;
     d.carTrigger = s.trigger;
     d.carPresses = s.presses;
+    d.carMapLayout = s.layout;
     if (s.state === 'current' || s.state === 'earlier') {
-      const field = await ms45ReadCarBytes(
-        mapSwitch.MAP2_DATA_VERSION_OFFSET,
-        mapSwitch.MAP2_DATA_VERSION_OFFSET + mapSwitch.DATA_VERSION_LENGTH - 1,
-        'ROMX',
-        d.ident.diagProtocol
-      );
-      d.carMap2Version = mapSwitch.dataVersionFrom(field);
+      if (s.layout === 'blocks' || s.layout === 'chunks') {
+        const header = await ms45ReadCarBytes(
+          mapSwitch.TABLES_OFFSET,
+          mapSwitch.TABLES_OFFSET + 0x3f,
+          'ROMX',
+          d.ident.diagProtocol
+        );
+        d.carMapCount = mapSwitch.mapCountFrom(header);
+      } else {
+        const field = await ms45ReadCarBytes(
+          mapSwitch.MAP2_DATA_VERSION_OFFSET,
+          mapSwitch.MAP2_DATA_VERSION_OFFSET +
+            mapSwitch.DATA_VERSION_LENGTH -
+            1,
+          'ROMX',
+          d.ident.diagProtocol
+        );
+        d.carMapCount = mapSwitch.dataVersionFrom(field) ? 2 : null;
+      }
     }
   } catch (e) {
     d.carMapSwitch = null;
@@ -315,6 +337,98 @@ function fbDmeImmobilizerSummary() {
   return 'Identified, EWS state not read';
 }
 
+/**
+ * The rev limit the car's own limiter works to, from the limit tables of the
+ * tune it is running, read on identify's session. These reads do not unlock
+ * the DME: when one comes back short the limit is simply not known.
+ */
+async function fbDmeReadCarRevLimit() {
+  const d = fbState.dme;
+  d.carRevLimit = null;
+  if (
+    d.ident.hwRef === '0044570' &&
+    (d.ident.progRef || '').includes(ms45Protect.SUPPORTED_PROGRAM_VERSION)
+  ) {
+    try {
+      const byteAt = async (address) => {
+        const b = await ms45ReadMemory(address, address, 'LAR');
+        return b.length === 1 ? b[0] : null;
+      };
+      // with the map switch the limiter follows whichever map is selected
+      let index = 0;
+      if (d.carMapSwitch === 'current' || d.carMapSwitch === 'earlier')
+        index = mapSwitch.selectedIndex(
+          await byteAt(mapSwitch.RAM.flag),
+          d.carMapLayout
+        );
+      const tables = await fbDmeReadCarCalibration(
+        index,
+        ms45Protect.LIMIT_TABLES_START - mapSwitch.CALIBRATION_START,
+        ms45Protect.LIMIT_TABLES_END - mapSwitch.CALIBRATION_START
+      );
+      if (tables)
+        d.carRevLimit = ms45Protect.stockLimit(
+          tables,
+          await byteAt(ms45Protect.RAM.transmission)
+        );
+    } catch (e) {
+      d.carRevLimit = null;
+    }
+  }
+  fbOptionsCarRevLimitRead();
+}
+
+/**
+ * Calibration bytes [calStart, calEnd] of the map at `index` (0 = map 1) as
+ * the car holds them: from map 1, from an earlier build's full copy, or
+ * block by block through the map's table. Null when a read comes back short.
+ * @returns {Promise<Uint8Array|null>}
+ */
+async function fbDmeReadCarCalibration(index, calStart, calEnd) {
+  const d = fbState.dme;
+  const readRange = async (start, end) => {
+    const data = await ms45ReadMemory(start, end, 'ROMX');
+    return data.length === end - start + 1 ? data : null;
+  };
+  if (!index || d.carMapLayout === 'copy') {
+    const shift = index
+      ? mapSwitch.MAP2_START - mapSwitch.CALIBRATION_START
+      : 0;
+    return readRange(
+      mapSwitch.CALIBRATION_START + shift + calStart,
+      mapSwitch.CALIBRATION_START + shift + calEnd
+    );
+  }
+  const area = await readRange(
+    mapSwitch.TABLES_OFFSET,
+    mapSwitch.TABLES_OFFSET + mapSwitch.tablesLength(d.carMapLayout) - 1
+  );
+  if (!area) return null;
+  const out = new Uint8Array(calEnd - calStart + 1);
+  const block = mapSwitch.pieceLength(area);
+  for (let at = calStart; at <= calEnd;) {
+    const pieceEnd = Math.min(calEnd, (Math.floor(at / block) + 1) * block - 1);
+    const where = mapSwitch.locateFrom(area, index, at);
+    const piece = await readRange(where, where + pieceEnd - at);
+    if (!piece) return null;
+    out.set(piece, at - calStart);
+    at = pieceEnd + 1;
+  }
+  // the current layout keeps the single values a map changes beside their
+  // load sites, not in the chunks
+  const sites = mapSwitch.siteRangeFrom(area);
+  if (sites) {
+    const siteArea = await readRange(sites.start, sites.end - 1);
+    if (!siteArea) return null;
+    for (const v of mapSwitch.scalarsFrom(siteArea, index))
+      for (let k = 0; k < v.data.length; k++) {
+        const at = v.offset + k;
+        if (at >= calStart && at <= calEnd) out[at - calStart] = v.data[k];
+      }
+  }
+  return out;
+}
+
 function fbDmeMapSwitchSummary() {
   const d = fbState.dme;
   switch (d.carMapSwitch) {
@@ -324,7 +438,8 @@ function fbDmeMapSwitchSummary() {
     case 'earlier':
       return (
         `, map switch installed (${d.carTrigger ? mapSwitch.describeTrigger(d.carTrigger, d.carPresses || mapSwitch.DEFAULT_DSC_PRESSES) : 'unknown trigger'}` +
-        `${d.carMapSwitch === 'earlier' ? ', earlier version)' : ')'}${d.carMap2Version == null ? ', no map 2 stored' : ''}`
+        `${d.carMapSwitch === 'earlier' ? ', earlier version)' : ')'}` +
+        `${d.carMapCount == null ? ', no map 2 stored' : d.carMapCount > 2 ? `, ${d.carMapCount} maps` : ''}`
       );
     case 'unrecognised':
       return ', MPC carries an unrecognised modification';
@@ -342,47 +457,34 @@ async function fbDmeRead() {
     flashLog.note(
       `DME ${d.ident.hwRef} / prog ${d.ident.progRef} / diag ${d.ident.diagProtocol} / ${d.fullBin ? 'full' : 'tune'}`
     );
-    if (
-      d.ident.diagProtocol !== 'BMW-FAST' &&
-      !(await ms45SecurityAccess(d.ident.diagProtocol, fbSetStatus))
-    ) {
-      fbSetStatus('Security Access Denied');
+    const r = await fbFlashRun(
+      'dme-read',
+      {
+        diagProtocol: d.ident.diagProtocol,
+        full: !!d.fullBin,
+        describe: d.fullBin
+          ? 'DME full read: 1 MB external + 448 KB MPC'
+          : 'DME tune read: the calibration',
+        vin: d.ident.vin,
+        hwRef: d.ident.hwRef,
+      },
+      {
+        progress: (p) => {
+          fbProgress(p);
+          fbSetStatusInPlace(`${p}%`);
+        },
+      }
+    );
+    if (!r.ok) {
+      fbSetStatus(r.status);
+      return;
     }
-    const progress = (p) => {
-      fbProgress(p);
-      fbSetStatusInPlace(`${p}%`);
-    };
-    let dump;
-    let mpc = null;
-    if (!d.fullBin) {
-      fbSetStatus('Reading parameters');
-      dump = await ms45ReadMemory(0x40000, 0x5cfff, 'ROMX', {
-        onProgress: progress,
-      });
-    } else {
-      fbSetStatus('Reading External Flash');
-      dump = await ms45ReadMemory(0x00000, 0xfffff, 'ROMX', {
-        onProgress: progress,
-      });
-      fbSetStatus('Reading Internal Flash');
-      mpc = await ms45ReadMemory(0x00000, 0x6ffff, 'LAR', {
-        onProgress: progress,
-      });
-    }
-    const wanted = d.fullBin ? 0x100000 : 0x1d000;
-    if (dump.length !== wanted || (mpc && mpc.length !== 0x70000)) {
-      fbSetStatus(
-        `Read failed: the DME returned ${dump.length} of ${wanted} bytes`
-      );
-    } else {
-      const base = `${d.ident.vin}_${d.ident.hwRef}`;
-      fbSaveBytes(`${base}${d.fullBin ? '_Flash' : ''}.bin`, dump);
-      if (mpc) fbSaveBytes(`${base}_MPC.bin`, mpc);
-      fbSetStatus(
-        `Saved ${d.fullBin ? 'the full flash and MPC' : 'the tune'} (${dump.length} bytes)`
-      );
-    }
-    await ms45LeaveProgrammingMode(d.ident.diagProtocol);
+    const base = `${d.ident.vin}_${d.ident.hwRef}`;
+    fbSaveBytes(`${base}${d.fullBin ? '_Flash' : ''}.bin`, r.flash);
+    if (r.mpc) fbSaveBytes(`${base}_MPC.bin`, r.mpc);
+    fbSetStatus(
+      `Saved ${d.fullBin ? 'the full flash and MPC' : 'the tune'} (${r.flash.length} bytes)`
+    );
   } finally {
     await fbSessionStop();
   }
@@ -396,43 +498,34 @@ async function fbDmeReadInstalledMaps() {
     module: d.ident.hwRef,
   });
   try {
-    if (
-      d.ident.diagProtocol !== 'BMW-FAST' &&
-      !(await ms45SecurityAccess(d.ident.diagProtocol, fbSetStatus))
-    )
-      fbSetStatus('Security Access Denied');
-    const progress = (p) => fbProgress(p);
-    fbSetStatus('Reading map 1');
-    const map1 = await ms45ReadMemory(
-      mapSwitch.CALIBRATION_START,
-      mapSwitch.CALIBRATION_START + mapSwitch.CALIBRATION_LENGTH - 1,
-      'ROMX',
-      { onProgress: progress }
+    const r = await fbFlashRun(
+      'dme-maps-read',
+      {
+        diagProtocol: d.ident.diagProtocol,
+        layout: d.carMapLayout === 'copy' ? 'copy' : 'blocks',
+        describe: `DME installed maps read (${d.carMapCount || '?'} maps)`,
+        vin: d.ident.vin,
+        hwRef: d.ident.hwRef,
+      },
+      {
+        progress: (p) => {
+          fbProgress(p);
+          fbSetStatusInPlace(`${p}%`);
+        },
+      }
     );
-    fbSetStatus('Reading map 2');
-    const map2Area = await ms45ReadMemory(
-      mapSwitch.MAP2_START,
-      mapSwitch.MAP2_START + mapSwitch.MAP2_LENGTH - 1,
-      'ROMX',
-      { onProgress: progress }
-    );
-    await ms45LeaveProgrammingMode(d.ident.diagProtocol);
-    if (
-      map1.length !== mapSwitch.CALIBRATION_LENGTH ||
-      map2Area.length !== mapSwitch.MAP2_LENGTH
-    ) {
-      fbSetStatus('Read failed. The DME did not return both maps.');
+    if (!r.ok) {
+      fbSetStatus(r.status);
       return;
     }
-    const map2 = mapSwitch.map2AsCalibration(map2Area);
     const name = `${d.ident.vin}_${d.ident.hwRef}`;
-    fbSaveBytes(`${name}_map1.bin`, map1);
-    if (map2) fbSaveBytes(`${name}_map2.bin`, map2);
-    const v1 = mapSwitch.readDataVersion(map1) || 'unknown data version';
+    fbSaveBytes(`${name}_map1.bin`, r.map1);
+    r.maps.forEach((cal, i) => fbSaveBytes(`${name}_map${i + 2}.bin`, cal));
+    const v1 = mapSwitch.readDataVersion(r.map1) || 'unknown data version';
     fbSetStatus(
-      map2
-        ? `Read map 1 (${v1}) and map 2 (${mapSwitch.readDataVersion(map2)})`
-        : `Read map 1 (${v1}). No map 2 is stored on the car.`
+      r.maps.length
+        ? `Read map 1 (${v1}) and ${r.maps.length === 1 ? 'map 2' : `maps 2-${r.maps.length + 1}`} (${mapSwitch.readDataVersion(r.maps[0])})`
+        : `Read map 1 (${v1}). No other map is stored on the car.`
     );
   } finally {
     await fbSessionStop();
@@ -866,14 +959,52 @@ async function fbDmeMatchImmobilizer(
       );
     }
   }
-  if (
-    mapSwitch.hasMap2(flash, mpc) &&
-    ewsDelete.calibrationHasStockImmobilizer(flash, mapSwitch.MAP2_START)
-  ) {
-    flash = ewsDelete.applyCalibrationDelete(flash, mapSwitch.MAP2_START);
-    note('Map 2: immobilizer flags cleared to match the EWS-deleted program');
+  const cleared = fbDmeStoredMapsWithoutImmobilizer(flash, mpc);
+  if (cleared.changed) {
+    flash = cleared.flash;
+    note(
+      `${cleared.changed}: immobilizer flags cleared to match the EWS-deleted program`
+    );
   }
   return flash;
+}
+
+/** Whether any map stored beside map 1 still has the stock immobilizer flags. */
+function fbDmeStoredMapsHaveStockImmobilizer(flash, mpc) {
+  const maps = mapSwitch.storedMaps(flash, mpc);
+  return (
+    !!maps &&
+    maps.some((cal) => ewsDelete.calibrationHasStockImmobilizer(cal, 0))
+  );
+}
+
+/**
+ * The image with the immobilizer flags cleared in every stored map that has
+ * them, the maps laid out again. `changed` names the maps, or is null.
+ * @returns {{flash: Uint8Array, changed: string|null}}
+ */
+function fbDmeStoredMapsWithoutImmobilizer(flash, mpc) {
+  const maps = mapSwitch.storedMaps(flash, mpc);
+  if (!maps) return { flash, changed: null };
+  const which = [];
+  const cleared = maps.map((cal, i) => {
+    if (!ewsDelete.calibrationHasStockImmobilizer(cal, 0)) return cal;
+    which.push(`map ${i + 2}`);
+    return ewsDelete.applyCalibrationDelete(cal, 0);
+  });
+  if (!which.length) return { flash, changed: null };
+  const replaced = mapSwitch.replaceStoredMaps(flash, mpc, cleared);
+  // the immobilizer flags are table data, so the maps' load sites, and with
+  // them the MPC, stay as they are; anything else would need a rebuild
+  for (let i = 0; i < mpc.length; i++)
+    if (replaced.mpc[i] !== mpc[i])
+      throw new Error(
+        'clearing the immobilizer flags in the stored maps changed the MPC; rebuild the map switch in Custom Options instead'
+      );
+  return {
+    flash: replaced.flash,
+    changed: which.join(', ').replace(/^m/, 'M'),
+  };
 }
 
 /**
@@ -913,8 +1044,17 @@ async function fbDmeFlashTune() {
       `DME ${d.ident.hwRef} / prog ${d.ident.progRef} / diag ${d.ident.diagProtocol}${d.flashName ? ` / file ${d.flashName}` : ''}`
     );
     if (!(await fbProgrammingCounter(false))) return;
-    if (!(await ms45SecurityAccess(d.ident.diagProtocol, fbSetStatus))) {
-      fbSetStatus('Security Access Denied');
+    // the other maps of a block-layout map switch take what they do not
+    // store from map 1, so a new map 1 changes them too
+    if (
+      d.carMapLayout === 'blocks' &&
+      d.carMapCount > 1 &&
+      !(await fbConfirm(
+        `The car carries the map switch with ${d.carMapCount} maps. Maps 2 and up store only what differs from map 1 and take the rest from it, so writing a different map 1 changes them as well.\n\nTo keep them as they are, rebuild the map switch with this tune as map 1 and flash the program instead.\n\nWrite the tune anyway?`,
+        'Flash Tune'
+      ))
+    ) {
+      fbSetStatus('Tune not written');
       return;
     }
     const calFromFull = d.fullBin || d.flash.length > 0x40000;
@@ -922,20 +1062,23 @@ async function fbDmeFlashTune() {
       ? Uint8Array.from(d.flash.subarray(0x40000, 0x40000 + MS45_CAL_LENGTH))
       : Uint8Array.from(d.flash.subarray(0, MS45_CAL_LENGTH));
     // the program on the DME EWS-deleted but the tune still stock would
-    // re-enable EWS in the calibration while the program stays deleted
+    // re-enable EWS in the calibration while the program stays deleted (a
+    // read, before the programming session opens)
     let programDeleted = false;
     if (
       d.ident.hwRef === '0044570' &&
       (d.ident.progRef || '').includes(ewsDelete.SUPPORTED_PROGRAM_VERSION)
     ) {
-      const progBytes = await ms45ReadMemory(
+      const progBytes = await ms45ReadCarBytes(
         ewsDelete.PROGRAM_STATE_OFFSET,
         ewsDelete.PROGRAM_MASK_OFFSET,
-        'ROMX'
+        'ROMX',
+        d.ident.diagProtocol
       );
       if (
+        progBytes &&
         progBytes.length ===
-        ewsDelete.PROGRAM_MASK_OFFSET - ewsDelete.PROGRAM_STATE_OFFSET + 1
+          ewsDelete.PROGRAM_MASK_OFFSET - ewsDelete.PROGRAM_STATE_OFFSET + 1
       ) {
         programDeleted = ewsDelete.programBytesAreDeleted(
           progBytes[0],
@@ -968,41 +1111,16 @@ async function fbDmeFlashTune() {
         );
       }
     }
-    if (d.ident.diagProtocol === 'BMW-FAST') {
-      if (!(await ms45Job('normaler_datenverkehr', 'nein;nein;ja')).ok) return;
-      if (!(await ms45Job('normaler_datenverkehr', 'ja;nein;nein')).ok) return;
-    }
-    fbSetStatus('Erasing Flash');
-    if (!(await ms45Erase(0x2040000, 0x20000))) {
-      fbSetStatus('Erase failed');
-      success = false;
-      return;
-    }
-    let toFlash = ms45Checksums.correctParameterChecksums(cal);
-    toFlash = ms45Checksums.signParameters(toFlash);
-    flashLog.attach('tune_0x40000.bin', toFlash);
-    fbSetStatus('Flashing ECU');
-    success = await ms45FlashBlock(toFlash, 0x2040000, 0x205cfff, {
-      onStage: fbSetStatus,
-      onProgress: (p) => {
-        fbProgress(p);
-        fbSetStatusInPlace(`Flashing ${p}%`);
-      },
+    const result = await fbFlashRun('dme-tune', {
+      cal,
+      diagProtocol: d.ident.diagProtocol,
+      aifArgs: fbAifArgs(),
+      describe: `DME calibration (Flash Tune), data version ${mapSwitch.readDataVersion(cal) || 'unknown'}`,
+      vin: d.ident.vin,
+      hwRef: d.ident.hwRef,
     });
-    if (success) {
-      // the programming record goes in while the DME is still in
-      // programming mode; the default session refuses the write
-      await fbWriteAif();
-      success = await ms45FinishFlash(
-        'Daten',
-        true,
-        d.ident.diagProtocol,
-        fbSetStatus
-      );
-      fbSetStatus(success ? 'Flash successful' : 'Flash failed');
-    } else {
-      fbSetStatus('Flash failed');
-    }
+    success = result.ok;
+    fbSetStatus(result.status);
   } finally {
     fbFlashingBar(false);
     fbProgress(0);
@@ -1015,6 +1133,16 @@ async function fbDmeFlashTune() {
 async function fbDmeFlashProgram() {
   const d = fbState.dme;
   if (!d.identified || !d.flash || !d.mpc) return;
+  // the spark cut and engine protection are checked before anything is
+  // opened or erased
+  if (d.protect) {
+    const bad =
+      ms45Protect.configError(d.protect) || fbOptionsProtectBlockedReason();
+    if (bad) {
+      await fbMessage(bad, 'Engine Protection');
+      return;
+    }
+  }
   // the immobilizer match, asked before the diagnostic session opens so a
   // prompt left waiting cannot time it out
   let clearMap1 = false;
@@ -1037,8 +1165,8 @@ async function fbDmeFlashProgram() {
       ewsDelete.calibrationHasStockImmobilizer(d.flash, MS45_CAL_START) &&
       !ewsDelete.calibrationHasStockImmobilizer(matched, MS45_CAL_START);
     clearMap2 =
-      ewsDelete.calibrationHasStockImmobilizer(d.flash, mapSwitch.MAP2_START) &&
-      !ewsDelete.calibrationHasStockImmobilizer(matched, mapSwitch.MAP2_START);
+      fbDmeStoredMapsHaveStockImmobilizer(d.flash, d.mpc) &&
+      !fbDmeStoredMapsHaveStockImmobilizer(matched, d.mpc);
   }
   let success = true;
   fbFlashingBar(true);
@@ -1051,14 +1179,6 @@ async function fbDmeFlashProgram() {
       `DME ${d.ident.hwRef} / prog ${d.ident.progRef} / diag ${d.ident.diagProtocol} / EWS delete ${d.ews}${d.flashName ? ` / ${d.flashName}` : ''}${d.mpcName ? ` + ${d.mpcName}` : ''}`
     );
     if (!(await fbProgrammingCounter(false))) return;
-    if (!(await ms45SecurityAccess(d.ident.diagProtocol, fbSetStatus))) {
-      fbSetStatus('Security Access Denied');
-      return;
-    }
-    if (d.ident.diagProtocol === 'BMW-FAST') {
-      if (!(await ms45Job('normaler_datenverkehr', 'nein;nein;ja')).ok) return;
-      if (!(await ms45Job('normaler_datenverkehr', 'ja;nein;nein')).ok) return;
-    }
     let source = d.flash;
     if (d.ews) {
       try {
@@ -1079,92 +1199,48 @@ async function fbDmeFlashProgram() {
       );
     }
     if (clearMap2) {
-      source = ewsDelete.applyCalibrationDelete(source, mapSwitch.MAP2_START);
-      flashLog.note('Immobilizer flags cleared in map 2 to match the program');
-    }
-    let toFlash = ms45Checksums.correctProgramChecksums(source, d.mpc);
-    const signedFlash = ms45Checksums.signProgram(toFlash, d.mpc);
-    flashLog.attach('external_flash.bin', signedFlash);
-    flashLog.attach('mpc_flash.bin', d.mpc);
-    toFlash = signedFlash.subarray(
-      MS45_PROGRAM_START,
-      MS45_PROGRAM_START + 0x9ff40
-    );
-    const progress = (what) => (p) => {
-      fbProgress(p);
-      fbSetStatusInPlace(`${what} ${p}%`);
-    };
-    flashLog.note('PHASE: erase program region 0x2060000 block 0xA0000');
-    fbSetStatus('Erasing Flash');
-    if (!(await ms45Erase(0x2060000, 0xa0000))) {
-      fbSetStatus('Flash failed');
-      success = false;
-      return;
-    }
-    flashLog.note('PHASE: write external program 0x2060000..0x20FFF3F');
-    fbSetStatus('Flashing External Program');
-    success = await ms45FlashBlock(toFlash, 0x2060000, 0x20fff3f, {
-      onStage: fbSetStatus,
-      onProgress: progress('Flashing external'),
-    });
-    if (!success) {
-      fbSetStatus('Flash failed');
-      return;
-    }
-    // the program signature spans external + MPC together: an external-only
-    // write leaves the program invalid
-    flashLog.note(
-      'PHASE: write internal MPC 0x0..0x6FFFF (brick-capable step)'
-    );
-    fbSetStatus('Flashing Internal Program');
-    success = await ms45FlashBlock(d.mpc, 0, 0x6ffff, {
-      onStage: fbSetStatus,
-      onProgress: progress('Flashing MPC'),
-    });
-    const hasCal = d.flash.length >= 0x5d000 && !fbDmeProgramHasNoTune();
-    if (success && hasCal) {
-      let calFlash = Uint8Array.from(
-        source.subarray(MS45_CAL_START, MS45_CAL_START + MS45_CAL_LENGTH)
+      const cleared = fbDmeStoredMapsWithoutImmobilizer(source, d.mpc);
+      source = cleared.flash;
+      flashLog.note(
+        `Immobilizer flags cleared in ${cleared.changed || 'the stored maps'} to match the program`
       );
-      calFlash = ms45Checksums.signParameters(
-        ms45Checksums.correctParameterChecksums(calFlash)
-      );
-      flashLog.note('PHASE: erase calibration 0x2040000 block 0x20000');
-      fbSetStatus('Erasing Calibration');
-      success = await ms45Erase(0x2040000, 0x20000);
-      if (success) {
-        flashLog.note('PHASE: write calibration 0x2040000..0x205CFFF');
-        fbSetStatus('Flashing Calibration');
-        success = await ms45FlashBlock(calFlash, 0x2040000, 0x205cfff, {
-          onStage: fbSetStatus,
-          onProgress: progress('Flashing calibration'),
-        });
+    }
+    let mpc = d.mpc;
+    if (d.protect !== undefined) {
+      try {
+        if (d.protect) {
+          const gated = ms45Protect.apply(source, mpc, d.protect);
+          source = gated.flash;
+          mpc = gated.mpc;
+          for (const line of gated.log) flashLog.note(line);
+          fbSetStatus('Applied spark cut / engine protection');
+        } else if (ms45Protect.isApplied(source, mpc)) {
+          const plain = ms45Protect.remove(source, mpc);
+          source = plain.flash;
+          mpc = plain.mpc;
+          flashLog.note('Engine protection: taken out of the program');
+          fbSetStatus('Removed spark cut / engine protection');
+        }
+      } catch (e) {
+        fbSetStatus(`Engine protection failed: ${e.message}`);
+        await fbMessage(e.message, 'Engine Protection');
+        return;
       }
     }
-    if (success) {
-      // the programming record goes in while the DME is still in
-      // programming mode (the default session refuses the write), naming
-      // the program just written rather than the one identified before
-      await fbWriteAif(ms45ReadAscii(signedFlash, 0x6031c, 12));
-      success = await ms45FinishFlash(
-        'Programm',
-        !hasCal,
-        d.ident.diagProtocol,
-        fbSetStatus
-      );
-      if (!success) fbSetStatus('Flash failed');
-    }
-    if (success && hasCal) {
-      success = await ms45FinishFlash(
-        'Daten',
-        true,
-        d.ident.diagProtocol,
-        fbSetStatus
-      );
-      fbSetStatus(success ? 'Flash successful' : 'Flash failed');
-    } else if (success) {
-      fbSetStatus('Flash successful');
-    }
+    const hasCal = d.flash.length >= 0x5d000 && !fbDmeProgramHasNoTune();
+    const progRef = ms45ReadAscii(source, 0x6031c, 12);
+    const result = await fbFlashRun('dme-program', {
+      flash: source,
+      mpc,
+      hasCal,
+      diagProtocol: d.ident.diagProtocol,
+      aifArgs: fbAifArgs(progRef),
+      describe: `DME program ${progRef || '(unreadable version)'}${hasCal ? ' + calibration' : ''}, 1 MB external + 448 KB MPC`,
+      vin: d.ident.vin,
+      hwRef: d.ident.hwRef,
+    });
+    success = result.ok;
+    fbSetStatus(result.status);
   } finally {
     fbFlashingBar(false);
     fbProgress(0);

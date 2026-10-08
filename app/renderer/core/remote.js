@@ -31,7 +31,21 @@
  * @type {RegExp}
  */
 const REMOTE_CAR_ROUTE =
-  /\/api\/(ecu\/[^/]+\/(run|clear|write|flash)\/|port\b|state\b)/;
+  /\/api\/(ecu\/[^/]+\/(run|clear|write|flash)\/|port\b|state\b|flash\/)/;
+/**
+ * A whole flashing OPERATION the owner runs for the helper (core/flash-ops.js
+ * registers them on window.flashOperations): the helper sends the
+ * prepared images once instead of one job per 253-byte segment. Always
+ * asked about, whatever the confirm setting.
+ * @type {RegExp}
+ */
+const REMOTE_OPERATION_ROUTE = /^\/api\/flash\/([a-z0-9-]+)/;
+/** Silence from the owner during an operation after which the helper gives up (the owner's prompt counts). */
+const REMOTE_OPERATION_IDLE_MS = 10 * 60 * 1000;
+/** A channel message is kept well under the browsers' limit; bigger ones go as ordered parts. */
+const REMOTE_PART_SIZE = 48 * 1024;
+const REMOTE_PART_MAX = 256;
+const REMOTE_PART_TOTAL_MAX = 6 * 1024 * 1024;
 /**
  * Jobs a script sends on its own to hold a session -- never a car command, so
  * they never prompt the owner.
@@ -73,7 +87,7 @@ function remoteVersion() {
  * A message on the data channel between the two peers. The protocol is
  * byte-compatible across builds; these are the exact shapes on the wire.
  * @typedef {Object} RemoteMessage
- * @property {'hello'|'admit'|'req'|'res'} t - Message type.
+ * @property {'hello'|'admit'|'req'|'res'|'prog'|'part'} t - Message type (prog: the owner's progress during an operation; part: a piece of a message too big for the channel).
  * @property {string} [id] - Request/response id (req, res).
  * @property {string} [path] - The forwarded route (req).
  * @property {{method?: string, body?: string, action?: RemoteAction}} [init] - fetch init (req).
@@ -99,6 +113,8 @@ const Remote = {
   chan: null, // RTCDataChannel
   poll: null, // signaling poll timer
   pending: new Map(), // helper: reqId -> {resolve, reject, timer}
+  partSeq: 0, // outbound multi-part messages
+  parts: new Map(), // inbound: partId -> {n, pieces, size}
   seq: 0,
   onLog: null, // owner console hook
   onState: null, // UI hook: 'connecting'|'live'|'closed'
@@ -121,6 +137,7 @@ const Remote = {
   accepted: false,
   onGate: null, // (job, sgbd, arg) -> Promise<bool>  owner approves a write
   onAwait: null, // helper: (waiting: bool, path) -- a request awaits the owner
+  onOperation: null, // owner: ({phase, label, what, write, stage, pct, ok, status}) -- a helper's flashing operation on this cable
   awaiting: 0, // helper: how many such requests are outstanding
   onAccept: null, // (info) -> Promise<bool>            owner admits a helper
   peerInfo: null, // {ip, ua, at} best-effort helper details for the prompt
@@ -246,6 +263,10 @@ const Remote = {
       return reply(403, { error: 'remote: route not permitted' });
     }
 
+    // a whole flashing operation: its own gate, always asked about
+    const opM = REMOTE_OPERATION_ROUTE.exec(rel);
+    if (opM) return this._ownerOperation(msg, opM[1], reply);
+
     // classify what this request would do to the car
     const runM = /\/api\/ecu\/([^/]+)\/(run|clear|write|flash)\/([^/?]+)/.exec(
       rel
@@ -346,6 +367,122 @@ const Remote = {
       body = { error: e.message };
     }
     reply(status, body, Date.now() - t0);
+  },
+
+  /**
+   * OWNER: run a whole flashing operation for the helper, on this cable.
+   * The payload is the helper's prepared images (DATA: decoded and checked
+   * by the operation itself); the owner is asked every time, read-only
+   * sessions refuse, and stages / progress / log lines go back as `prog`
+   * messages while it runs. The result is the operation's {ok, status}.
+   * @param {RemoteMessage} msg - The helper's `req` message.
+   * @param {string} op - The operation name from the route.
+   * @param {(status: number, body: object, took?: number) => void} reply - Answers the request.
+   * @returns {Promise<void>}
+   */
+  async _ownerOperation(msg, op, reply) {
+    const ops = typeof window !== 'undefined' && window.flashOperations;
+    const handler =
+      ops && Object.prototype.hasOwnProperty.call(ops, op) ? ops[op] : null;
+    if (!handler) {
+      this.log(`refused (unknown operation): ${op}`);
+      return reply(404, { error: `remote: unknown operation ${op}` });
+    }
+    if (this.access === 'ro' && handler.write) {
+      this.log(`blocked (read-only session): ${handler.label}`);
+      return reply(403, { error: 'remote: this session is read-only' });
+    }
+    const text =
+      msg.init && typeof msg.init.body === 'string' ? msg.init.body : '';
+    let what;
+    try {
+      what = handler.describe(text);
+    } catch (e) {
+      this.log(`refused (bad payload): ${handler.label}: ${e.message}`);
+      return reply(400, { error: `remote: ${e.message}` });
+    }
+    // a write is asked about EVERY time, whatever the confirm setting: it is
+    // the one thing a helper can do that can leave the car not starting. A
+    // read runs like any other read, logged.
+    if (handler.write) {
+      if (typeof this.onGate !== 'function')
+        return reply(403, {
+          error: 'remote: this owner cannot approve a flash',
+        });
+      this.log(`awaiting your approval: ${handler.label} — ${what}`);
+      let ok = false;
+      try {
+        ok = await this.onGate({
+          sgbd: /transmission/.test(handler.label) ? 'GS20' : 'DME',
+          job: handler.label,
+          arg: what,
+          action: this._actionOf(msg),
+          operation: true,
+        });
+      } catch {
+        ok = false;
+      }
+      if (!ok) {
+        this.log(`you declined: ${handler.label}`);
+        return reply(403, {
+          error: 'remote: the car owner declined the flash',
+        });
+      }
+    }
+    this.log(`${handler.label} · running on this cable…`);
+    // the owner watches it happen: a write must not be interrupted
+    const show = (ev) => {
+      if (typeof this.onOperation !== 'function') return;
+      try {
+        this.onOperation({
+          label: handler.label,
+          what,
+          write: !!handler.write,
+          ...ev,
+        });
+      } catch {
+        /* the screen's slip must not stop the operation */
+      }
+    };
+    show({ phase: 'start' });
+    const t0 = Date.now();
+    let last = -1;
+    const cb = {
+      stage: (stage) => {
+        this.log(`${handler.label} · ${stage}`);
+        this._send({ t: 'prog', id: msg.id, stage });
+        show({ phase: 'stage', stage });
+      },
+      progress: (pct, what2) => {
+        if (pct === last) return;
+        last = pct;
+        this._send({ t: 'prog', id: msg.id, pct, what: what2 });
+        show({ phase: 'progress', pct, stage: what2 });
+      },
+      note: (note) => this._send({ t: 'prog', id: msg.id, note }),
+    };
+    try {
+      const r = await handler.run(text, cb);
+      this.log(
+        `${handler.label} · ${r.status} · ${Math.round((Date.now() - t0) / 1000)} s`
+      );
+      show({
+        phase: 'done',
+        ok: !!r.ok,
+        status: r.status,
+        took: Date.now() - t0,
+      });
+      reply(200, r, Date.now() - t0);
+    } catch (e) {
+      this.log(`${handler.label} · failed: ${e.message}`);
+      show({
+        phase: 'done',
+        ok: false,
+        status: e.message,
+        took: Date.now() - t0,
+      });
+      reply(500, { ok: false, status: e.message }, Date.now() - t0);
+    }
   },
 
   /**
@@ -461,6 +598,7 @@ const Remote = {
    * @returns {boolean}
    */
   _needsApproval(path) {
+    if (REMOTE_OPERATION_ROUTE.test(String(path || ''))) return true;
     const m = /\/api\/ecu\/([^/]+)\/(run|clear|write|flash)\/([^/?]+)/.exec(
       String(path || '')
     );
@@ -552,6 +690,106 @@ const Remote = {
   },
 
   /**
+   * HELPER: ask the owner to run a whole flashing operation (the prepared
+   * images in `text`, as core/flash-ops.js encodes them) and report as it
+   * goes. Resolves with a Response whose JSON is the operation's
+   * {ok, status}; rejects when the owner falls silent for
+   * REMOTE_OPERATION_IDLE_MS (its approval prompt counts as silence).
+   * @param {string} path - The operation route, /api/flash/<op>.
+   * @param {string} text - The payload.
+   * @param {{action?: RemoteAction, onProgress?: (m: {stage?: string, pct?: number, what?: string, note?: string}) => void}} [opts]
+   * @returns {Promise<Response>}
+   */
+  async requestOperation(path, text, opts = {}) {
+    await this._ready();
+    // the wait is for the owner's answer to the prompt, not for the whole
+    // operation: it ends at the first progress report (a read needs no
+    // answer, so its first report comes at once), or at the response
+    this.awaiting = (this.awaiting || 0) + 1;
+    if (this.onAwait) this.onAwait(true, path);
+    let waiting = true;
+    const settle = () => {
+      if (!waiting) return;
+      waiting = false;
+      this.awaiting = Math.max(0, (this.awaiting || 0) - 1);
+      if (this.onAwait) this.onAwait(this.awaiting > 0, path);
+    };
+    return new Promise((resolve, reject) => {
+      const id = `${++this.seq}`;
+      const entry = {
+        resolve: (v) => {
+          settle();
+          resolve(v);
+        },
+        reject: (e) => {
+          settle();
+          reject(e);
+        },
+        accepted: settle,
+        timer: null,
+        at: Date.now(),
+        path,
+        onProgress: opts.onProgress || null,
+        touch: null,
+      };
+      entry.touch = () => {
+        clearTimeout(entry.timer);
+        entry.timer = setTimeout(() => {
+          this.pending.delete(id);
+          entry.reject(
+            new Error(
+              'remote timeout: the owner stopped answering during the operation'
+            )
+          );
+        }, REMOTE_OPERATION_IDLE_MS);
+      };
+      entry.touch();
+      this.pending.set(id, entry);
+      const a =
+        opts.action && typeof opts.action === 'object' ? opts.action : null;
+      const act =
+        a && a.id
+          ? {
+              id: String(a.id).slice(0, 64),
+              label: String(a.label || '').slice(0, 80),
+              jobs: [],
+            }
+          : undefined;
+      this._send({
+        t: 'req',
+        id,
+        path,
+        init: { method: 'POST', body: String(text), action: act },
+      });
+    });
+  },
+
+  /**
+   * HELPER: the owner's progress during an operation: hand it to the
+   * request's listener and keep the request alive.
+   * @param {RemoteMessage} msg - The owner's `prog` message.
+   * @returns {void}
+   */
+  _helperProgress(msg) {
+    const p = this.pending.get(msg.id);
+    if (!p) return;
+    if (p.touch) p.touch();
+    if (p.accepted) p.accepted();
+    if (p.onProgress) {
+      try {
+        p.onProgress({
+          stage: msg.stage != null ? String(msg.stage) : undefined,
+          pct: typeof msg.pct === 'number' ? msg.pct : undefined,
+          what: msg.what != null ? String(msg.what) : undefined,
+          note: msg.note != null ? String(msg.note) : undefined,
+        });
+      } catch {
+        /* a listener's slip must not break the request */
+      }
+    }
+  },
+
+  /**
    * HELPER: settle the pending request a `res` message answers, logging a slow
    * round trip and handing back a Response.
    * @param {RemoteMessage} msg - The owner's `res` message.
@@ -589,8 +827,59 @@ const Remote = {
    * @returns {void}
    */
   _send(obj) {
-    if (this.chan && this.chan.readyState === 'open') {
-      this.chan.send(JSON.stringify(obj));
+    if (!(this.chan && this.chan.readyState === 'open')) return;
+    const text = JSON.stringify(obj);
+    if (text.length <= REMOTE_PART_SIZE) {
+      this.chan.send(text);
+      return;
+    }
+    // a flashing operation carries whole images, far over a channel
+    // message's limit: ordered parts, joined by the other end
+    const id = `${++this.partSeq}`;
+    const n = Math.ceil(text.length / REMOTE_PART_SIZE);
+    for (let i = 0; i < n; i++) {
+      this.chan.send(
+        JSON.stringify({
+          t: 'part',
+          id,
+          i,
+          n,
+          s: text.slice(i * REMOTE_PART_SIZE, (i + 1) * REMOTE_PART_SIZE),
+        })
+      );
+    }
+  },
+
+  /**
+   * One part of a message that came in pieces: the whole message once the
+   * last part is in, else null. Bounded: too many parts, or too much in all,
+   * drops the message.
+   * @param {{id?: string, i?: number, n?: number, s?: string}} part - The part.
+   * @returns {RemoteMessage|null}
+   */
+  _joinPart(part) {
+    const id = String(part.id || '');
+    const n = Number(part.n) || 0;
+    const i = Number(part.i);
+    if (!id || n < 1 || n > REMOTE_PART_MAX || !(i >= 0 && i < n)) return null;
+    let buf = this.parts.get(id);
+    if (!buf) {
+      buf = { n, pieces: new Array(n).fill(null), size: 0 };
+      this.parts.set(id, buf);
+    }
+    const piece = String(part.s || '');
+    buf.size += piece.length;
+    if (buf.n !== n || buf.size > REMOTE_PART_TOTAL_MAX) {
+      this.parts.delete(id);
+      return null;
+    }
+    buf.pieces[i] = piece;
+    if (buf.pieces.some((x) => x == null)) return null;
+    this.parts.delete(id);
+    try {
+      return JSON.parse(buf.pieces.join(''));
+    } catch {
+      return null;
     }
   },
 
@@ -606,6 +895,10 @@ const Remote = {
       msg = JSON.parse(ev.data);
     } catch {
       return;
+    }
+    if (msg && msg.t === 'part') {
+      msg = this._joinPart(msg);
+      if (!msg) return;
     }
     if (this.role === 'owner') {
       // the helper's greeting: hold it for the owner to accept before ANY job
@@ -630,6 +923,7 @@ const Remote = {
     } else {
       if (msg.t === 'admit') this._helperAdmitted(msg);
       else if (msg.t === 'res') this._helperResponse(msg);
+      else if (msg.t === 'prog') this._helperProgress(msg);
     }
   },
 
@@ -700,10 +994,7 @@ const Remote = {
     this.log('you admitted the helper');
     // one driver on the cable: close the owner's own live module so the
     // helper's jobs are not queued behind its screen cycles
-    if (typeof ipoPauseForRemote === 'function') {
-      ipoPauseForRemote();
-      this.log('your own module screens are paused while the helper drives');
-    }
+    if (typeof ipoPauseForRemote === 'function') ipoPauseForRemote();
     if (this.onState) this.onState('live');
     this._send({ t: 'admit', ok: true, access: this.access });
   },
@@ -830,6 +1121,7 @@ const Remote = {
       clearInterval(this.poll);
       this.poll = null;
     }
+    this.parts.clear();
     for (const [, p] of this.pending) {
       clearTimeout(p.timer);
       p.reject(new Error('remote session ended'));
