@@ -9,6 +9,16 @@
 # this is not a fast job -- most of the time is the artifact upload, not the
 # build (the export itself is ~20s).
 #
+# SPEED. Three things take the job from ~3.5 min to under 2: the wiring
+# archives are fetched in the background from the first step (they depend on
+# nothing before them and nothing needs them until the end); the fetched
+# wiring set is cached by the dataset's revision; and the exported API tree
+# (the per-car tree + web_export, ~50 s) is cached by the data pin and the
+# exporter's own sources, so a renderer-only push restores it instead of
+# rebuilding it. The data archive itself is still fetched every run (17 s):
+# the tests and the docs copy read from it, and a partial cache of it would
+# be a correctness risk for a small saving.
+#
 # No app is needed here: web_export.py falls back to data/chassis-config.
 # That and every other generated file the build reads is NOT in the repo: it
 # is one archive in the bmw-files dataset, pinned by checksum in
@@ -62,6 +72,36 @@ jobs:
           # re-downloading eslint/prettier/typescript every time (~7 min)
           cache: npm
 
+      # The wiring archives come from the bmw-files dataset; its current
+      # revision keys their cache, so a republished set is picked up and an
+      # unchanged one costs a restore instead of a minute's download.
+      - name: Where the wiring comes from
+        id: wiring-src
+        run: |
+          rev=$(curl -fsS --max-time 20 https://huggingface.co/api/datasets/CraigFf/bmw-files \
+                | python3 -c 'import json,sys; print(json.load(sys.stdin).get("sha","unknown"))' 2>/dev/null || echo unknown)
+          echo "rev=$rev" >> "$GITHUB_OUTPUT"
+          echo "bmw-files revision: $rev"
+
+      - name: Restore the wiring archives
+        id: wiring-cache
+        uses: actions/cache@v4
+        with:
+          path: dist-web/data/wiring
+          key: wiring-v1-${{ steps.wiring-src.outputs.rev }}-${{ hashFiles('scripts/build/fetch_wiring.py', 'scripts/build/ci-fetch-hf-data.sh') }}
+
+      # Not cached: start the download now and let it run under everything
+      # below. The step's shell exits but the process lives on until the job
+      # ends; "Wiring diagrams" waits for it and reads its exit status.
+      - name: Start the wiring fetch
+        if: steps.wiring-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p dist-web
+          nohup bash -c 'scripts/build/ci-fetch-hf-data.sh wiring; echo $? > wiring-fetch.status' \
+            > wiring-fetch.log 2>&1 &
+          disown
+          echo "wiring fetch started in the background"
+
       - name: Fetch the generated data
         run: python3 scripts/setup/fetch_repo_data.py
 
@@ -74,7 +114,19 @@ jobs:
             | xargs -0 -r -P 4 -I{} gzip -dkf {}
           echo "expanded: $(find data/inpa-ir -name '*.json' | wc -l) files"
 
+      # The exported API tree depends only on the fetched data (pinned by its
+      # checksum) and the exporter's sources, so it is cached on exactly those.
+      # A hit skips the per-car tree and the export; a miss rebuilds both and
+      # the cache is saved when the job succeeds.
+      - name: Restore the exported API tree
+        id: export-cache
+        uses: actions/cache@v4
+        with:
+          path: dist-web-export
+          key: export-v1-${{ hashFiles('scripts/setup/repo-data.sha256', 'tools/export/**', 'tools/sgbd/ecu_tree.py') }}
+
       - name: Assemble the per-car tree
+        if: steps.export-cache.outputs.cache-hit != 'true'
         run: |
           set -euo pipefail
           # data/chassis/ is DERIVED and gitignored, so the runner has to build
@@ -113,13 +165,27 @@ jobs:
           node tools/verify/test_flasher.js
           node tools/verify/test_global_collisions.js
 
-      - name: Build the static site
+      - name: Export the API tree
+        if: steps.export-cache.outputs.cache-hit != 'true'
         run: |
           set -euo pipefail
           # The exporter reads the fetched chassis-config cache here (no
           # BMACW_PORT), so call the pieces directly.
+          mkdir -p dist-web-export
+          python3 tools/export/web_export.py --out dist-web-export
+
+      - name: Build the static site
+        run: |
+          set -euo pipefail
+          # The exported tree, restored or just built, hard-linked into place
+          # (instant, and the cached copy is left as it is for the save).
           mkdir -p dist-web
-          python3 tools/export/web_export.py --out dist-web
+          cp -al dist-web-export/. dist-web/
+          if [ "${{ steps.export-cache.outputs.cache-hit }}" = "true" ]; then
+            echo "exported tree: $(du -sh dist-web-export | cut -f1), restored from the cache"
+          else
+            echo "exported tree: $(du -sh dist-web-export | cut -f1), built"
+          fi
           cp -R app/renderer/. dist-web/
           # index.html already loads the transport shim (core/webshim/) --
           # both hosts need it.
@@ -160,10 +226,24 @@ jobs:
           # screens/wiring/archive.js) because a Pages site may hold 1 GB and
           # the complete archives are that alone.
           #
+          # The download was started at the top of the job (or the set was
+          # restored from the cache); here it is waited for and checked.
+          #
           # Absent IS fatal: a site with no Wiring section shipped before this
-          # step existed and nothing noticed. The fetch fails on fewer than
-          # one archive per covered chassis.
-          scripts/build/ci-fetch-hf-data.sh wiring
+          # step existed and nothing noticed.
+          if [ "${{ steps.wiring-cache.outputs.cache-hit }}" != "true" ]; then
+            echo "waiting for the wiring fetch..."
+            for i in $(seq 1 240); do [ -f wiring-fetch.status ] && break; sleep 2; done
+            cat wiring-fetch.log || true
+            test -f wiring-fetch.status || { echo "the wiring fetch did not finish in time" >&2; exit 1; }
+            status=$(cat wiring-fetch.status)
+            test "$status" = "0" || { echo "the wiring fetch failed ($status)" >&2; exit 1; }
+          else
+            echo "wiring archives restored from the cache"
+          fi
+          n=$(find dist-web/data/wiring -name '*.wiring' | wc -l)
+          echo "wiring archives: $n"
+          test "$n" -ge 15   # one per covered chassis
 
       - name: Reference documents and the wiring VIN filter
         run: |
