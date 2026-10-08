@@ -134,9 +134,12 @@ if (VARIANTS.some((v) => !v.dropParts)) {
 // app.js, same mechanism as version.js.
 const PARTS_OFF_JS = 'window.BMACW_NO_PARTS=true;\n';
 const OFFLINE_JS = 'window.BMACW_OFFLINE=true;\n';
-// what zip stores rather than deflates: the app's own archives and images
-const STORED_SUFFIXES =
-  '.etk:.ista:.wiring:.docs:.chassis:.gz:.zip:.jpg:.jpeg:.png:.gif:.webp:.woff2';
+// What zip stores rather than deflates: the archives whose members are
+// deflated already and the images. Deflating these again gains 2-4 % at
+// ~45 MB/s. NOT the .etk, .chassis and .docs archives: those store their
+// members, so zip -1 still takes 6-13 % off them (0.5 GB of the complete
+// build), worth the two minutes.
+const STORED_SUFFIXES = '.ista:.wiring:.gz:.zip:.jpg:.jpeg:.png:.gif:.webp:.woff2';
 
 /**
  * Write a file in the stage, replacing rather than overwriting it. The stage
@@ -286,10 +289,8 @@ for (const v of VARIANTS) {
   rmSync(zipPath, { force: true });
   console.log(`    staged ${humanSize(size)}, zipping…`);
   // zip from inside OUT so the archive holds "<stageName>/..." not the full
-  // path. Most of the bytes are archives already (.etk, .ista, .wiring,
-  // .docs, .chassis, .gz) and photographs: deflating those again gains
-  // nothing and took eleven minutes on the complete variant, so -n stores
-  // them as they are and only the loose text is compressed.
+  // path. -n stores the file types that would not shrink (see
+  // STORED_SUFFIXES) instead of running deflate over them for nothing.
   execFileSync(
     'zip',
     ['-r', '-q', '-1', '-n', STORED_SUFFIXES, basename(zipPath), stageName],
