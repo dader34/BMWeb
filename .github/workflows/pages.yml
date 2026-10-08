@@ -116,8 +116,8 @@ jobs:
 
       # The exported API tree depends only on the fetched data (pinned by its
       # checksum) and the exporter's sources, so it is cached on exactly those.
-      # A hit skips the per-car tree and the export; a miss rebuilds both and
-      # the cache is saved when the job succeeds.
+      # A hit skips the export; a miss rebuilds it and the cache is saved when
+      # the job succeeds.
       - name: Restore the exported API tree
         id: export-cache
         uses: actions/cache@v4
@@ -125,12 +125,15 @@ jobs:
           path: dist-web-export
           key: export-v1-${{ hashFiles('scripts/setup/repo-data.sha256', 'tools/export/**', 'tools/sgbd/ecu_tree.py') }}
 
+      # Always, cache or not: the verify tests below read data/chassis as
+      # well as the export (a run that skipped this on a cache hit failed
+      # at test_bestvm.js). ~30 s, overlapping the wiring download.
       - name: Assemble the per-car tree
-        if: steps.export-cache.outputs.cache-hit != 'true'
         run: |
           set -euo pipefail
           # data/chassis/ is DERIVED and gitignored, so the runner has to build
-          # it before anything can read it. It is what web_export reads now.
+          # it before anything can read it. It is what web_export and the
+          # verify tests read.
           python3 tools/export/build_ecu_tree.py
           test -d data/chassis/E46
 
