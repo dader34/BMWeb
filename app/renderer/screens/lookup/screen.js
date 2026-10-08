@@ -149,12 +149,7 @@ async function showLookup() {
   const _mine = screenOwner();
   sbLeft.textContent = 'diagnostics';
 
-  view.innerHTML = head(
-    'Reference',
-    'Diagnostic Plans and Trouble Codes',
-    'Search fault codes across every chassis; open one for its ISTA service ' +
-      'data and diagnostic procedure. Works offline, no cable needed.'
-  );
+  view.innerHTML = head('Reference', 'Diagnostic Plans and Trouble Codes');
 
   // loading state while the index literal is injected + parsed
   const loading = document.createElement('div');
