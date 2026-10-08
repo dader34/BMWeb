@@ -38,15 +38,14 @@ function fbIsLiveSite() {
  */
 function fbBetaWarning() {
   return fbConfirmAck(
-    'This app ERASES and REWRITES the program and calibration in your DME or transmission. It is in beta, and a mistake here is not a software glitch you can undo with a reload: a wrong file, an unplugged cable or a flat battery in the middle of a write leaves the module without a working program and the car not starting until it is flashed again.\n\n' +
+    'This app ERASES and REWRITES the program and calibration in your DME or transmission.\n\n' +
       'Before you write anything:\n' +
       '\u2022 Take a FULL read of the module first (Read DME / Read Full, Full Binary ticked) and keep the files somewhere safe. That read is the only guaranteed way back.\n' +
       '\u2022 Battery charger connected, ignition on, engine off. Do not switch off, unplug or close this page until it reports success.\n' +
       '\u2022 Flash only files you understand: a tune or program for exactly this control unit and program version. Reading never hurts; writing does.\n' +
-      '\u2022 Options such as EWS delete change how the car behaves and what it protects against. Know what they do before ticking them.\n\n' +
-      'If something goes wrong, stop, leave the ignition on, and ask before trying again \u2014 a module that answers can always be recovered; guessing is what makes it worse.',
+      '\u2022 Options such as EWS delete change how the car behaves and what it protects against. Know what they do before ticking them.',
     'I have read this. I will take a full read before I write anything, and I accept that what I flash is my responsibility.',
-    'Flashing/Backups \u2014 beta'
+    'Flashing/Backups beta'
   );
 }
 
