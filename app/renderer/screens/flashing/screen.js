@@ -22,6 +22,34 @@ function fbAifWanted() {
   return Settings.get('flashWriteAif', false) === true;
 }
 
+/** Whether this is the published site rather than a developer's local build. */
+function fbIsLiveSite() {
+  if (typeof location === 'undefined') return false;
+  return !/^(localhost|127\.0\.0\.1|\[::1\]|.*\.local)$/.test(
+    location.hostname
+  );
+}
+
+/**
+ * The beta warning in front of the Flashing/Backups app: what it does, what
+ * can go wrong, and what to do first. Resolves true only when the reader
+ * has ticked the acknowledgement and confirmed.
+ * @returns {Promise<boolean>}
+ */
+function fbBetaWarning() {
+  return fbConfirmAck(
+    'This app ERASES and REWRITES the program and calibration in your DME or transmission. It is in beta, and a mistake here is not a software glitch you can undo with a reload: a wrong file, an unplugged cable or a flat battery in the middle of a write leaves the module without a working program and the car not starting until it is flashed again.\n\n' +
+      'Before you write anything:\n' +
+      '\u2022 Take a FULL read of the module first (Read DME / Read Full, Full Binary ticked) and keep the files somewhere safe. That read is the only guaranteed way back.\n' +
+      '\u2022 Battery charger connected, ignition on, engine off. Do not switch off, unplug or close this page until it reports success.\n' +
+      '\u2022 Flash only files you understand: a tune or program for exactly this control unit and program version. Reading never hurts; writing does.\n' +
+      '\u2022 Options such as EWS delete change how the car behaves and what it protects against. Know what they do before ticking them.\n\n' +
+      'If something goes wrong, stop, leave the ignition on, and ask before trying again \u2014 a module that answers can always be recovered; guessing is what makes it worse.',
+    'I have read this. I will take a full read before I write anything, and I accept that what I flash is my responsibility.',
+    'Flashing/Backups \u2014 beta'
+  );
+}
+
 /** The tester serial every programming-log entry carries. */
 const fbTesterSerial = 'BMWEB';
 /** How many log lines the screen keeps; the session logs on disk hold the detail. */
@@ -65,6 +93,13 @@ function fbDevUi() {
  * @returns {Promise<void>}
  */
 async function showFlashing() {
+  // BETA: this app writes to a car's control units. On the live site every
+  // entry goes through the warning, every time, so nobody lands here on a
+  // wrong click and nobody flashes without having read it.
+  if (fbIsLiveSite() && !(await fbBetaWarning())) {
+    showApps();
+    return;
+  }
   lastScreen = showFlashing;
   setCrumbs([
     { label: 'Vehicles', fn: showChassis },
