@@ -186,10 +186,20 @@ const APP_REGISTRY = [
  * @param {AppEntry} app - the app
  * @returns {Promise<boolean>}
  */
+/**
+ * How long an availability probe may take before the card is drawn as
+ * absent. A probe that goes to the internet (the parts catalogue's) never
+ * answers on an adapter's own WiFi, and the hub must not wait on it.
+ */
+const APP_PROBE_MS = 2500;
+
 async function appIsReady(app) {
   if (typeof app.hasData !== 'function') return true;
   try {
-    return await app.hasData();
+    return await Promise.race([
+      app.hasData(),
+      new Promise((resolve) => setTimeout(() => resolve(false), APP_PROBE_MS)),
+    ]);
   } catch (e) {
     return false;
   }

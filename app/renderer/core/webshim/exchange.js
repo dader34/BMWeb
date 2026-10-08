@@ -26,6 +26,10 @@ const REGEN_MAX_MS = 1000;
 const NR78_MIN_MS = 5000;
 /** How many "response pending" polls a stuck ECU gets before it fails. */
 const MAX_PENDING_POLLS = 30;
+/** An answer slower than this is noted in the console, with the page's state. */
+const SLOW_ANSWER_MS = 200;
+/** What a page that is not in front adds to every telegram's budget: its own late wake-ups. */
+const HIDDEN_PAGE_ALLOWANCE_MS = 500;
 /** Send once, retransmit once: EDIABAS's single-glitch cover. */
 const EXCHANGE_ATTEMPTS = 2;
 /** KWP negative response service id. */
@@ -245,7 +249,22 @@ async function runExchange(bus, out, comm) {
   bus.sessionConcept = conceptOf(comm);
   await bus.ensureConfig(portConfig(comm));
   const framed = withChecksum(out, comm);
-  const timeoutMs = (comm && comm.timeout) || DEFAULT_TIMEOUT_MS;
+  // ParTimeoutStd is the ECU's budget to start answering. A page that is
+  // not in front gets its wake-ups (the port's next chunk, the worker's
+  // timers) delivered late: measured on a flash, +150..200 ms on every
+  // exchange, which turned a 340 ms answer into a miss of a 500 ms budget
+  // at random blocks. That lateness is the browser's, not the ECU's, so a
+  // hidden page waits that much longer before calling the ECU silent.
+  const hidden =
+    typeof document !== 'undefined' && document.visibilityState === 'hidden';
+  // an emulated DME (the gateway's or the adapter's emulator) runs slower
+  // than the real one and says so through its port: its telegrams get
+  // what it asks for on top, the car's none
+  const emulated = (bus.port && bus.port.timeoutAllowanceMs) || 0;
+  const timeoutMs =
+    ((comm && comm.timeout) || DEFAULT_TIMEOUT_MS) +
+    (hidden ? HIDDEN_PAGE_ALLOWANCE_MS : 0) +
+    emulated;
   // xreps: the SGBD's own retransmit count (CommRepeats). The reference
   // sends a telegram repeats + 1 times, on silence as well as on a garbled
   // answer, and stops early only on a cable-level IFH-0003. A garbled
@@ -258,13 +277,22 @@ async function runExchange(bus, out, comm) {
     // the retry is a pure retransmission after the regeneration wait,
     // never a reinit
     await paceBeforeWrite(bus, comm);
+    const sentAt = Date.now();
     try {
       busTrace.add(
         'tx',
         framed,
         `${attempt ? 'retransmit' : 'tx'} timeout=${timeoutMs}ms`
       );
+      const askedAt = Date.now();
       let frame = await bus.exchangeRaw(framed, timeoutMs, comm);
+      // the wall-clock side, for a flash that dies on one slow answer: an
+      // answer that took a good part of its budget is noted in the console
+      // with the page's state at the time
+      if (Date.now() - askedAt > SLOW_ANSWER_MS)
+        console.warn(
+          `[kline] ${out[0].toString(16).padStart(2, '0')} answered after ${Date.now() - askedAt} ms (budget ${timeoutMs} ms, attempt ${attempt + 1}/${attempts}, page ${typeof document !== 'undefined' ? document.visibilityState : '?'})`
+        );
       // keep reading while the ECU says "still working" -- bounded, so a
       // stuck ECU still fails instead of hanging the screen
       for (
@@ -285,6 +313,9 @@ async function runExchange(bus, out, comm) {
     } catch (e) {
       lastErr = e;
       busTrace.add('err', null, `${e.ifh || ''} ${e.message}`.trim());
+      console.warn(
+        `[kline] ${out[0].toString(16).padStart(2, '0')} ${e && e.ifh ? e.ifh : 'failed'} after ${Date.now() - sentAt} ms (budget ${timeoutMs} ms, attempt ${attempt + 1}/${attempts}, page ${typeof document !== 'undefined' ? document.visibilityState : '?'}): ${e && e.message}`
+      );
       // The error carries its IFH code: a garbled answer is IFH-0019
       // (checksum / incomplete), a cable fault IFH-0003 (echo), silence
       // IFH-0009. A cable fault is final, as in the reference loop. A

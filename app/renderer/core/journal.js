@@ -385,7 +385,6 @@ function _journalButton() {
   const b = document.createElement('button');
   b.className = 'icon-btn';
   b.id = 'beta-btn';
-  b.title = 'File a beta report (session log + wire trace)';
   b.innerHTML =
     '<span class="btn-text">Report</span>' +
     '<span class="btn-icon" aria-hidden="true">◉</span>';

@@ -80,6 +80,18 @@ class WebSerialBus extends SerialTransportBase {
    */
   async _acquirePort() {
     const url = typeof gatewaySetting === 'function' ? gatewaySetting() : '';
+    const adapter =
+      typeof adapterSetting === 'function' ? adapterSetting(url) : null;
+    if (adapter) {
+      // a Deep OBD style WiFi adapter (THOR): the port does the wrapping
+      const pipe =
+        adapter.scheme === 'ws'
+          ? new WsPipe(`ws://${adapter.host}:${adapter.port}`)
+          : new NativePipe(adapter.host, adapter.port);
+      const port = new AdapterPort(pipe, `${adapter.host}:${adapter.port}`);
+      await port.dial();
+      return port;
+    }
     if (url) {
       const remote = new GatewayPort(url);
       await remote.dial();

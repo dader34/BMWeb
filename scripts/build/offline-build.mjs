@@ -139,7 +139,8 @@ const OFFLINE_JS = 'window.BMACW_OFFLINE=true;\n';
 // ~45 MB/s. NOT the .etk, .chassis and .docs archives: those store their
 // members, so zip -1 still takes 6-13 % off them (0.5 GB of the complete
 // build), worth the two minutes.
-const STORED_SUFFIXES = '.ista:.wiring:.gz:.zip:.jpg:.jpeg:.png:.gif:.webp:.woff2';
+const STORED_SUFFIXES =
+  '.ista:.wiring:.gz:.zip:.jpg:.jpeg:.png:.gif:.webp:.woff2';
 
 /**
  * Write a file in the stage, replacing rather than overwriting it. The stage
