@@ -27,7 +27,6 @@
  *   setLoading: (msg: string) => void,
  *   clear: () => void,
  *   selected: () => ListBoxItem|null,
- *   select: (key: string) => boolean,
  *   onpick: ((key: string, label: string) => void)|null
  * }} ListBoxElement
  */
@@ -102,19 +101,6 @@ function makeListBox(opts) {
     render();
   };
   box.selected = () => (value >= 0 ? items[value] : null);
-  // Select a row by key as if it were clicked (highlight, scroll, onpick).
-  // Returns false when no row carries that key. Lets a screen restore a
-  // remembered choice without reaching into the rows.
-  box.select = (key) => {
-    const i = items.findIndex((it) => it.key === key);
-    if (i < 0) return false;
-    value = i;
-    render();
-    const row = box.children[i];
-    if (row && row.scrollIntoView) row.scrollIntoView({ block: 'nearest' });
-    if (box.onpick) box.onpick(items[i].key, items[i].label);
-    return true;
-  };
 
   render();
   return box;

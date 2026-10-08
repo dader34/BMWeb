@@ -36,8 +36,6 @@ const GATEWAY_DEFAULT_PORT = 6801;
 
 /** How long a control call waits for the host's answer, in ms. */
 const GATEWAY_REPLY_MS = 10000;
-/** What an emulated DME's telegrams get on top of the SGBD's budget (it answers slower than the car). */
-const EMULATOR_ALLOWANCE_MS = 1500;
 
 /**
  * Turn what a user typed into a WebSocket URL.
@@ -52,8 +50,6 @@ function gatewayWsUrl(value) {
   const text = String(value || '').trim();
   if (!text) return '';
   if (/^wss?:\/\//i.test(text)) return text;
-  // a WiFi adapter's address (adapter-port.js) is kept as it is
-  if (/^adapter(\+ws)?:\/\//i.test(text)) return text;
   // an http(s) URL means the same host: keep the scheme's security level
   if (/^https?:\/\//i.test(text)) return text.replace(/^http/i, 'ws');
   return `ws://${text.includes(':') ? text : `${text}:${GATEWAY_DEFAULT_PORT}`}`;
@@ -214,11 +210,8 @@ class GatewayPort {
       return; // a frame this end cannot read is not a reply it waits on
     }
     if (typeof msg.event === 'string') {
-      if (msg.event === 'hello' && typeof msg.port === 'string') {
+      if (msg.event === 'hello' && typeof msg.port === 'string')
         this.device = msg.port;
-        // the emulator runs slower than a DME: its telegrams get longer
-        if (msg.port === 'ms45-emu') this.timeoutAllowanceMs = EMULATOR_ALLOWANCE_MS;
-      }
       // A write that never left the cable. It carried no id, so the host
       // reports it unsolicited; recording it makes the next write throw
       // the wire's own message rather than letting the bus believe a

@@ -70,27 +70,6 @@ function tool32JobName(j) {
   return typeof j === 'string' ? j : (j && j.name) || '';
 }
 
-// What Tool32 remembers across a reload: the SGBD, the job and the argument
-// you had open. A reload mid-test used to drop all three and send you back
-// to an empty screen. Kept in localStorage; a missing or unparsable entry
-// just means nothing to restore.
-const TOOL32_STORE = 'bmweb.tool32';
-function tool32Remember(patch) {
-  try {
-    const cur = JSON.parse(localStorage.getItem(TOOL32_STORE) || '{}');
-    localStorage.setItem(TOOL32_STORE, JSON.stringify({ ...cur, ...patch }));
-  } catch (e) {
-    /* storage unavailable: nothing to remember */
-  }
-}
-function tool32Remembered() {
-  try {
-    return JSON.parse(localStorage.getItem(TOOL32_STORE) || '{}') || {};
-  } catch (e) {
-    return {};
-  }
-}
-
 /**
  * Render the Tool32 screen: SGBD list, job list, run panel, and the trace
  * section.
@@ -226,9 +205,6 @@ function showTool32() {
   view.appendChild(card);
 
   const state = { sgbds: [], jobs: [], sgbd: null, job: null };
-  // A remembered job + argument waiting for its SGBD's job list to load
-  // (set by the restore at the bottom, applied in sgbdBox.onpick).
-  let restoring = null;
 
   // ---- populate SGBD list -----------------------------------------------
   function paintSgbds() {
@@ -274,21 +250,6 @@ function showTool32() {
         .sort((a, b) => a.name.localeCompare(b.name));
       paintJobs();
       if (!state.jobs.length) jobBox.setLoading('This SGBD declares no jobs.');
-      // Restoring after a reload: re-pick the remembered job, then put the
-      // argument back (jobBox.onpick clears the argument field, so it goes
-      // in after). A job this SGBD no longer declares is simply dropped.
-      if (restoring) {
-        const r = restoring;
-        restoring = null;
-        if (r.job && jobBox.select(r.job)) {
-          argInput.value = r.arg || '';
-          tool32Remember({ sgbd, job: r.job, arg: argInput.value });
-        } else {
-          tool32Remember({ sgbd, job: null, arg: '' });
-        }
-      } else {
-        tool32Remember({ sgbd, job: null, arg: '' });
-      }
     } catch (e) {
       jobBox.setLoading(`Could not load jobs: ${e.message || e}`);
     }
@@ -323,7 +284,6 @@ function showTool32() {
     argInput.value = '';
     argInput.placeholder = 'argument (optional)';
     out.innerHTML = '';
-    tool32Remember({ sgbd: state.sgbd, job: name, arg: '' });
     // fetch the declared arguments + results (present in every build via the
     // arguments/:JOB and results/:JOB routes, independent of the jobs array).
     const jobKey = name;
@@ -380,14 +340,6 @@ function showTool32() {
 
   // ---- run --------------------------------------------------------------
   async function run() {
-    // The button reads "Stop" while a repeat loop runs. Clicking it then
-    // must end the loop -- without this, the repeat branch below called
-    // startRepeat() again, which cleared the timer and started a fresh one,
-    // so Stop only ever restarted the loop.
-    if (repTimer) {
-      stopRepeat();
-      return;
-    }
     if (!state.sgbd || !state.job) return;
     const name = state.job.name;
     const write = typeof isWriteJob === 'function' && isWriteJob(name);
@@ -491,7 +443,6 @@ function showTool32() {
   argInput.onkeydown = (e) => {
     if (e.key === 'Enter') run();
   };
-  argInput.oninput = () => tool32Remember({ arg: argInput.value });
 
   function renderResults(r) {
     const pairs = typeof flatResults === 'function' ? flatResults(r.sets) : [];
@@ -523,15 +474,6 @@ function showTool32() {
       return;
     }
     paintSgbds();
-    // Put back what was open before the reload. Picking the SGBD loads its
-    // jobs; the job and argument are applied once they arrive (see
-    // sgbdBox.onpick). The remembered values are read into `restoring`
-    // first, so the pick's own bookkeeping cannot wipe them.
-    const was = tool32Remembered();
-    if (was.sgbd && state.sgbds.includes(was.sgbd)) {
-      restoring = { job: was.job || null, arg: was.arg || '' };
-      sgbdBox.select(was.sgbd);
-    }
   })();
 }
 
