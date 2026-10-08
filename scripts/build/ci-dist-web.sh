@@ -12,11 +12,34 @@ python3 scripts/setup/fetch_repo_data.py
 find data/inpa-ir -name '*.json.gz' -print0 | xargs -0 -r -P 4 -I{} gzip -dkf {}
 echo "expanded: $(find data/inpa-ir -name '*.json' | wc -l) IR files"
 
-python3 tools/export/build_ecu_tree.py
-test -d data/chassis/E46
-
+# The exported API tree (the per-car tree + web_export, ~50 s) depends only
+# on the fetched data and the exporter's sources, so CI caches it: EXPORT_DIR
+# names the cached directory (pages.yml and release-web.yml key it the same
+# way, so a release restores what the last Pages deploy built). A restored
+# export is hard-linked into dist-web rather than rebuilt; an empty EXPORT_DIR
+# is built into and left for the cache to save. Unset, everything is built
+# straight into dist-web as before.
+EXPORT_DIR="${EXPORT_DIR:-}"
 rm -rf dist-web && mkdir -p dist-web
-python3 tools/export/web_export.py --out dist-web
+if [ -n "$EXPORT_DIR" ] && [ -d "$EXPORT_DIR/api/chassis" ]; then
+  echo "exported tree: $(du -sh "$EXPORT_DIR" | cut -f1), restored from the cache"
+else
+  python3 tools/export/build_ecu_tree.py
+  test -d data/chassis/E46
+  if [ -n "$EXPORT_DIR" ]; then
+    mkdir -p "$EXPORT_DIR"
+    python3 tools/export/web_export.py --out "$EXPORT_DIR"
+    echo "exported tree: $(du -sh "$EXPORT_DIR" | cut -f1), built"
+  else
+    python3 tools/export/web_export.py --out dist-web
+  fi
+fi
+if [ -n "$EXPORT_DIR" ]; then cp -al "$EXPORT_DIR/." dist-web/; fi
+# Over the hard links: cp -R writes the renderer's copy of a shared file in
+# place, which would reach the cached export too. The export writes api/ and
+# a few things under data/; app/renderer/data is gitignored, so a CI checkout
+# has none of those and nothing is written through. (A dev tree with
+# app/renderer/data filled should not set EXPORT_DIR.)
 cp -R app/renderer/. dist-web/
 
 # WDS wiring VIN-applicability index (SP-doc -> chassis/engine, from ISTA). The

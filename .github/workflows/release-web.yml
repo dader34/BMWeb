@@ -22,6 +22,16 @@ name: Release offline web builds
 #
 #   push a tag  v*   -> builds and publishes
 #   run manually     -> builds and uploads as workflow artifacts (no release)
+#
+# SPEED. What does not change between releases is cached, keyed on what it is
+# made of: the exported API tree on the data pin and the exporter's sources
+# (the same key pages.yml uses, so a release restores what the last deploy
+# built), the ISTA set and the wiring archives on their dataset's revision.
+# The wiring download runs in the background under the other fetches, and in
+# the complete job the runner's disk is freed in the background under
+# everything up to the ETK download, the one step that needs the room. The
+# fault files and the XDF library take ten seconds together and are fetched
+# every run; the ETK tree is 5.8 GB, more than the cache allows, and is too.
 on:
   push:
     tags: ['v*']
@@ -32,6 +42,7 @@ permissions:
 
 env:
   HF_DATA: CraigFf/bmweb-etk          # where the runtime datasets live
+  HF_FILES: CraigFf/bmw-files         # the XDF library and the wiring archives
   HF_RELEASES: CraigFf/bmweb-releases # where the complete build is published
 
 jobs:
@@ -57,11 +68,66 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: '20' }
 
+      # The datasets' current revisions key their caches: a republished set is
+      # picked up, an unchanged one costs a restore instead of a download.
+      - name: Where the data comes from
+        id: src
+        run: |
+          rev() {
+            curl -fsS --max-time 20 "https://huggingface.co/api/datasets/$1" \
+              | python3 -c 'import json,sys; print(json.load(sys.stdin).get("sha","unknown"))' 2>/dev/null || echo unknown
+          }
+          echo "data=$(rev "$HF_DATA")" >> "$GITHUB_OUTPUT"
+          echo "files=$(rev "$HF_FILES")" >> "$GITHUB_OUTPUT"
+          cat "$GITHUB_OUTPUT"
+
+      # The same key as pages.yml: a release normally follows a deploy of the
+      # same data pin, so this is a restore, not a rebuild.
+      - name: Restore the exported API tree
+        id: export-cache
+        uses: actions/cache@v4
+        with:
+          path: dist-web-export
+          key: export-v1-${{ hashFiles('scripts/setup/repo-data.sha256', 'tools/export/**', 'tools/sgbd/ecu_tree.py') }}
+
       - name: Build dist-web
         run: scripts/build/ci-dist-web.sh
+        env:
+          EXPORT_DIR: dist-web-export
 
-      - name: Fault lookup data (every variant)
-        run: scripts/build/ci-fetch-hf-data.sh faults
+      # Restored AFTER the build: ci-dist-web.sh starts dist-web afresh.
+      - name: Restore the ISTA data
+        id: ista-cache
+        uses: actions/cache@v4
+        with:
+          path: dist-web/data/ista
+          key: ista-v1-${{ steps.src.outputs.data }}-${{ hashFiles('scripts/build/fetch_ista.py', 'scripts/build/ci-fetch-hf-data.sh') }}
+
+      - name: Restore the wiring archives
+        id: wiring-cache
+        uses: actions/cache@v4
+        with:
+          path: dist-web/data/wiring
+          key: wiring-v1-${{ steps.src.outputs.files }}-${{ hashFiles('scripts/build/fetch_wiring.py', 'scripts/build/ci-fetch-hf-data.sh') }}
+
+      # Not cached: start the download now and let it run under the fetches
+      # below. "Wiring diagrams" waits for it and reads its exit status.
+      - name: Start the wiring fetch
+        if: steps.wiring-cache.outputs.cache-hit != 'true'
+        run: |
+          nohup bash -c 'scripts/build/ci-fetch-hf-data.sh wiring; echo $? > wiring-fetch.status' \
+            > wiring-fetch.log 2>&1 &
+          disown
+          echo "wiring fetch started in the background"
+
+      # The XDF definition library (29 MB, a different dataset): without it
+      # the Tuning screen's definition list is empty offline.
+      - name: Fault lookup data and the XDF library (every variant)
+        run: |
+          scripts/build/ci-fetch-hf-data.sh faults
+          scripts/build/ci-fetch-hf-data.sh tuning
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
 
       # the ISTA app's own data. Without it every ISTA screen -- the control
       # unit tree, the whole-car scan, the test plan, wiring, technical data --
@@ -69,20 +135,27 @@ jobs:
       # actually work offline. The repair manual (675 MB) rides with the
       # complete build only.
       - name: ISTA data (every variant)
+        if: steps.ista-cache.outputs.cache-hit != 'true'
         run: scripts/build/ci-fetch-hf-data.sh ista
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
 
-      # the XDF definition library (29 MB, a different dataset). Without it
-      # the Tuning screen's definition list is empty offline: xdf-library.js
-      # went straight to its mirrors before this.
-      - name: XDF definition library (every variant)
-        run: scripts/build/ci-fetch-hf-data.sh tuning
-        env:
-          HF_TOKEN: ${{ secrets.HF_TOKEN }}
-
       - name: Wiring diagrams
-        run: scripts/build/ci-fetch-hf-data.sh wiring
+        run: |
+          set -euo pipefail
+          if [ "${{ steps.wiring-cache.outputs.cache-hit }}" != "true" ]; then
+            echo "waiting for the wiring fetch..."
+            for i in $(seq 1 240); do [ -f wiring-fetch.status ] && break; sleep 2; done
+            cat wiring-fetch.log || true
+            test -f wiring-fetch.status || { echo "the wiring fetch did not finish in time" >&2; exit 1; }
+            status=$(cat wiring-fetch.status)
+            test "$status" = "0" || { echo "the wiring fetch failed ($status)" >&2; exit 1; }
+          else
+            echo "wiring archives restored from the cache"
+          fi
+          n=$(find dist-web/data/wiring -name '*.wiring' | wc -l)
+          echo "wiring archives: $n"
+          test "$n" -ge 15   # one per covered chassis
 
       - name: Package the release-asset variants
         run: |
@@ -111,14 +184,25 @@ jobs:
 
   complete:
     runs-on: ubuntu-latest
-    # ~0.5 GB of site, 5.8 GB of ETK, ~6.5 GB of zip: the stock runner has ~14 GB
-    # free, so the preinstalled toolchains nobody here uses are removed first.
+    # ~0.5 GB of site, 5.8 GB of ETK, ~1.7 GB of ISTA and wiring, and a zip as
+    # big as the tree: the stock runner has ~21 GB free, so the preinstalled
+    # toolchains nobody here uses are removed first. That takes five minutes
+    # of unlinking, so it runs in the background from the first step; the ETK
+    # download is the step that needs the room and waits for it. The status
+    # file lives outside the workspace, which the checkout wipes.
     steps:
-      - name: Free runner disk
+      - name: Start freeing runner disk
         run: |
-          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
-            /opt/hostedtoolcache/CodeQL /usr/local/share/boost
-          df -h /
+          df -h / | tail -1
+          nohup bash -c '
+            for d in /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+                     /opt/hostedtoolcache/CodeQL /usr/local/share/boost; do
+              sudo rm -rf "$d" &
+            done
+            wait
+            echo 0 > /tmp/disk-free.status' > /tmp/disk-free.log 2>&1 &
+          disown
+          echo "disk free-up started in the background"
 
       - uses: actions/checkout@v4
 
@@ -138,23 +222,120 @@ jobs:
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
 
+      - name: Where the data comes from
+        if: steps.hf.outputs.ok == 'true'
+        id: src
+        run: |
+          rev() {
+            curl -fsS --max-time 20 "https://huggingface.co/api/datasets/$1" \
+              | python3 -c 'import json,sys; print(json.load(sys.stdin).get("sha","unknown"))' 2>/dev/null || echo unknown
+          }
+          echo "data=$(rev "$HF_DATA")" >> "$GITHUB_OUTPUT"
+          echo "files=$(rev "$HF_FILES")" >> "$GITHUB_OUTPUT"
+          cat "$GITHUB_OUTPUT"
+
+      - name: Restore the exported API tree
+        if: steps.hf.outputs.ok == 'true'
+        id: export-cache
+        uses: actions/cache@v4
+        with:
+          path: dist-web-export
+          key: export-v1-${{ hashFiles('scripts/setup/repo-data.sha256', 'tools/export/**', 'tools/sgbd/ecu_tree.py') }}
+
       - name: Build dist-web
         if: steps.hf.outputs.ok == 'true'
         run: scripts/build/ci-dist-web.sh
+        env:
+          EXPORT_DIR: dist-web-export
 
-      - name: Fault lookup data and the ETK parts tree
+      # These two are restore/save pairs rather than actions/cache: that saves
+      # when the job ends, and by then dist-web has been deleted to make room
+      # for the zip. Saving right after the fetch also keeps a set a failed
+      # packaging step paid for.
+      - name: Restore the ISTA data with the repair manual
+        if: steps.hf.outputs.ok == 'true'
+        id: ista-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: dist-web/data/ista
+          key: ista-all-v1-${{ steps.src.outputs.data }}-${{ hashFiles('scripts/build/fetch_ista.py', 'scripts/build/ci-fetch-hf-data.sh') }}
+
+      - name: Restore the wiring archives with photographs
+        if: steps.hf.outputs.ok == 'true'
+        id: wiring-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: dist-web/data/wiring
+          key: wiring-photos-v1-${{ steps.src.outputs.files }}-${{ hashFiles('scripts/build/fetch_wiring.py', 'scripts/build/ci-fetch-hf-data.sh') }}
+
+      # with the photographs: this build is for a machine with no internet
+      - name: Start the wiring fetch
+        if: steps.hf.outputs.ok == 'true' && steps.wiring-cache.outputs.cache-hit != 'true'
+        run: |
+          nohup bash -c 'scripts/build/ci-fetch-hf-data.sh wiring-photos; echo $? > wiring-fetch.status' \
+            > wiring-fetch.log 2>&1 &
+          disown
+          echo "wiring fetch started in the background"
+
+      - name: Fault lookup data and the XDF library
         if: steps.hf.outputs.ok == 'true'
         run: |
           scripts/build/ci-fetch-hf-data.sh faults
-          scripts/build/ci-fetch-hf-data.sh ista-all
           scripts/build/ci-fetch-hf-data.sh tuning
-          scripts/build/ci-fetch-hf-data.sh etk
-          df -h /
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
 
-      # with the photographs: this build is for a machine with no internet
+      - name: ISTA data with the repair manual
+        if: steps.hf.outputs.ok == 'true' && steps.ista-cache.outputs.cache-hit != 'true'
+        run: scripts/build/ci-fetch-hf-data.sh ista-all
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+
+      - name: Save the ISTA data
+        if: steps.hf.outputs.ok == 'true' && steps.ista-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: dist-web/data/ista
+          key: ${{ steps.ista-cache.outputs.cache-primary-key }}
+
+      - name: The ETK parts tree
+        if: steps.hf.outputs.ok == 'true'
+        run: |
+          set -euo pipefail
+          echo "waiting for the disk free-up..."
+          for i in $(seq 1 300); do [ -f /tmp/disk-free.status ] && break; sleep 2; done
+          cat /tmp/disk-free.log || true
+          test -f /tmp/disk-free.status || { echo "the disk free-up did not finish in time" >&2; exit 1; }
+          df -h / | tail -1
+          scripts/build/ci-fetch-hf-data.sh etk
+          df -h / | tail -1
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+
       - name: Wiring diagrams
         if: steps.hf.outputs.ok == 'true'
-        run: scripts/build/ci-fetch-hf-data.sh wiring-photos
+        run: |
+          set -euo pipefail
+          if [ "${{ steps.wiring-cache.outputs.cache-hit }}" != "true" ]; then
+            echo "waiting for the wiring fetch..."
+            for i in $(seq 1 240); do [ -f wiring-fetch.status ] && break; sleep 2; done
+            cat wiring-fetch.log || true
+            test -f wiring-fetch.status || { echo "the wiring fetch did not finish in time" >&2; exit 1; }
+            status=$(cat wiring-fetch.status)
+            test "$status" = "0" || { echo "the wiring fetch failed ($status)" >&2; exit 1; }
+          else
+            echo "wiring archives restored from the cache"
+          fi
+          n=$(find dist-web/data/wiring -name '*.wiring' | wc -l)
+          echo "wiring archives: $n"
+          test "$n" -ge 15   # one per covered chassis
+
+      - name: Save the wiring archives
+        if: steps.hf.outputs.ok == 'true' && steps.wiring-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: dist-web/data/wiring
+          key: ${{ steps.wiring-cache.outputs.cache-primary-key }}
 
       - name: Package the complete variant
         if: steps.hf.outputs.ok == 'true'

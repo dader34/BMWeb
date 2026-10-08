@@ -134,6 +134,21 @@ if (VARIANTS.some((v) => !v.dropParts)) {
 // app.js, same mechanism as version.js.
 const PARTS_OFF_JS = 'window.BMACW_NO_PARTS=true;\n';
 const OFFLINE_JS = 'window.BMACW_OFFLINE=true;\n';
+// what zip stores rather than deflates: the app's own archives and images
+const STORED_SUFFIXES =
+  '.etk:.ista:.wiring:.docs:.chassis:.gz:.zip:.jpg:.jpeg:.png:.gif:.webp:.woff2';
+
+/**
+ * Write a file in the stage, replacing rather than overwriting it. The stage
+ * is hard links to dist-web: writing through an existing name would change
+ * dist-web's file too, so the name is removed first.
+ * @param {string} path - the file to write
+ * @param {string} text - its new contents
+ */
+function writeFresh(path, text) {
+  rmSync(path, { force: true });
+  writeFileSync(path, text);
+}
 
 /**
  * A byte count as a short human-readable size ("1.5 MB").
@@ -178,9 +193,17 @@ for (const v of VARIANTS) {
   const stage = join(OUT, stageName);
   console.log(`\n==> building ${stageName}`);
   rmSync(stage, { recursive: true, force: true });
-  // copy the whole site, then prune per variant. cpSync is a plain recursive
-  // copy; the prune below removes the excluded trees before zipping.
-  cpSync(DIST, stage, { recursive: true });
+  // Stage the whole site, then prune per variant. The stage is HARD LINKS to
+  // dist-web, not a copy: the complete variant is ~8 GB, and copying it took
+  // longer than zipping it. Pruning unlinks only the stage's names, and the
+  // files edited below are replaced (unlinked, then written) rather than
+  // written in place, so dist-web is never touched. cp -l is GNU and BSD;
+  // a cp without it falls back to a plain copy.
+  try {
+    execFileSync('cp', ['-al', DIST, stage], { stdio: 'pipe' });
+  } catch {
+    cpSync(DIST, stage, { recursive: true });
+  }
 
   if (v.dropWiring) {
     const w = join(stage, 'data', 'wiring');
@@ -195,19 +218,19 @@ for (const v of VARIANTS) {
   // every offline variant carries the flag the app reads to drop features
   // that only make sense online (the remote session). Same mechanism as
   // version.js / no-parts.js: a tiny script before app.js.
-  writeFileSync(join(stage, 'offline.js'), OFFLINE_JS);
+  writeFresh(join(stage, 'offline.js'), OFFLINE_JS);
   if (!readFileSync(join(stage, 'index.html'), 'utf8').includes('offline.js')) {
     const html = readFileSync(join(stage, 'index.html'), 'utf8').replace(
       '<head>',
       '<head>\n  <script src="offline.js"></script>'
     );
-    writeFileSync(join(stage, 'index.html'), html);
+    writeFresh(join(stage, 'index.html'), html);
   }
 
   if (v.dropParts) {
     // The catalogue is 5.8 GB and lives only in the complete build; hide the
     // Parts entry here rather than offer a screen that would try the network.
-    writeFileSync(join(stage, 'no-parts.js'), PARTS_OFF_JS);
+    writeFresh(join(stage, 'no-parts.js'), PARTS_OFF_JS);
     if (
       !readFileSync(join(stage, 'index.html'), 'utf8').includes('no-parts.js')
     ) {
@@ -215,7 +238,7 @@ for (const v of VARIANTS) {
         '<head>',
         '<head>\n  <script src="no-parts.js"></script>'
       );
-      writeFileSync(join(stage, 'index.html'), html);
+      writeFresh(join(stage, 'index.html'), html);
     }
     const etk = join(stage, 'data', 'etk');
     if (existsSync(etk)) {
@@ -226,7 +249,7 @@ for (const v of VARIANTS) {
   }
 
   // a short readme so the download explains itself
-  writeFileSync(
+  writeFresh(
     join(stage, 'OFFLINE-README.txt'),
     `BMWeb ${VER} -- offline web build (offline${v.name})\n` +
       `${'='.repeat(48)}\n\n` +
@@ -262,11 +285,16 @@ for (const v of VARIANTS) {
   const zipPath = join(OUT, `${stageName}.zip`);
   rmSync(zipPath, { force: true });
   console.log(`    staged ${humanSize(size)}, zipping…`);
-  // zip from inside OUT so the archive holds "<stageName>/..." not the full path
-  execFileSync('zip', ['-r', '-q', '-1', basename(zipPath), stageName], {
-    cwd: OUT,
-    stdio: 'inherit',
-  });
+  // zip from inside OUT so the archive holds "<stageName>/..." not the full
+  // path. Most of the bytes are archives already (.etk, .ista, .wiring,
+  // .docs, .chassis, .gz) and photographs: deflating those again gains
+  // nothing and took eleven minutes on the complete variant, so -n stores
+  // them as they are and only the loose text is compressed.
+  execFileSync(
+    'zip',
+    ['-r', '-q', '-1', '-n', STORED_SUFFIXES, basename(zipPath), stageName],
+    { cwd: OUT, stdio: 'inherit' }
+  );
   rmSync(stage, { recursive: true, force: true }); // keep only the .zip
   const zsize = statSync(zipPath).size;
   console.log(`    -> ${basename(zipPath)} (${humanSize(zsize)})`);
