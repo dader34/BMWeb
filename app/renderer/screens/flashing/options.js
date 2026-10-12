@@ -287,7 +287,12 @@ function fbOptionsRefreshEwsGate() {
  */
 function fbProtectTesting() {
   const host = typeof location !== 'undefined' ? location.hostname : '';
-  return host === 'localhost' || host === '127.0.0.1' || host === '[::1]' || host.endsWith('.localhost');
+  return (
+    host === 'localhost' ||
+    host === '127.0.0.1' ||
+    host === '[::1]' ||
+    host.endsWith('.localhost')
+  );
 }
 
 /** Why the spark cut and the protection are not available, or null when they are. */
