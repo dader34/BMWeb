@@ -182,8 +182,8 @@ function fbOptionsWire() {
 function fbOptionsShowFor(module) {
   const tcu = module === 'tcu';
   fbEls['opt-ews-section'].hidden = tcu;
-  fbEls['opt-revcut-section'].hidden = tcu;
-  fbEls['opt-protect-section'].hidden = tcu;
+  fbEls['opt-revcut-section'].hidden = tcu || !fbProtectTesting();
+  fbEls['opt-protect-section'].hidden = tcu || !fbProtectTesting();
   fbEls['opt-ms-section'].hidden = tcu;
   fbEls['opt-upshift-section'].hidden = !tcu;
   if (tcu) fbOptionsRefreshUpshiftGate();
@@ -277,8 +277,22 @@ function fbOptionsRefreshEwsGate() {
 // the flashed program is to carry: undefined leaves the loaded program as it
 // is, null takes the gates out, a config builds them.
 
+/**
+ * Whether the spark cut and the engine protection are offered at all. They
+ * are still being proven on the car, so they are for testing only: a copy of
+ * the app served from this machine shows them, the public site and the
+ * packaged app do not, and can neither build them into a program nor take
+ * them out of one.
+ * @returns {boolean}
+ */
+function fbProtectTesting() {
+  const host = typeof location !== 'undefined' ? location.hostname : '';
+  return host === 'localhost' || host === '127.0.0.1' || host === '[::1]' || host.endsWith('.localhost');
+}
+
 /** Why the spark cut and the protection are not available, or null when they are. */
 function fbOptionsProtectBlockedReason() {
+  if (!fbProtectTesting()) return 'Not available yet.';
   const d = fbState.dme;
   if (!d) return 'Identify the DME first.';
   if (!d.fullBin)
