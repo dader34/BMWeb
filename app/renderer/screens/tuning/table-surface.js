@@ -1,14 +1,15 @@
 /**
- * @file Tuning screen: the table as a surface. A "3D" tick in the table
- * dialog opens a floating window that draws the map as a shaded sheet,
- * the way a map editor does: the grid shows the figures, the sheet shows
- * the shape -- a step, a hole or a ridge is plain there long before it is in
- * a column of numbers. Drag it to turn it. Under live mode the point the
- * DME is reading rides on it.
+ * @file Tuning screen: the table as a graph. A "Graph" list in the table
+ * dialog opens a floating window that draws the map one of two ways, the
+ * way a map editor does: the grid shows the figures, the graph shows the
+ * shape -- a step, a hole or a ridge is plain there long before it is in a
+ * column of numbers. Under live mode the point the DME is reading rides on
+ * it.
  *
- * Drawn on a plain canvas: each cell is a corner of the sheet, each patch
- * between four cells is filled with the heat colour of their mean and
- * painted back to front.
+ * 3D is a shaded sheet, turned by dragging: each cell is a corner, each
+ * patch between four cells is filled with the heat colour of their mean and
+ * painted back to front. 2D is one line per row over the column axis, on a
+ * dark plot. Both on a plain canvas.
  */
 /* exported tnSurfaceAttach, tnSurfaceDetach, tnSurfaceRequest */
 
@@ -17,7 +18,8 @@ const TN_SURFACE_W = 480;
 const TN_SURFACE_H = 440;
 /** How much of the pane's height the value axis takes at full swing. */
 const TN_SURFACE_Z = 0.55;
-/** Where the tick is remembered between tables and visits. */
+/** Where the choice is remembered between tables and visits: '2d', '3d',
+ *  or '0' for no graph ('1' is the 3D tick this list replaced). */
 const TN_SURFACE_KEY = 'bmweb.tuning.surface';
 /** Where the window was last left, so the next table's opens there too. */
 let tnSurfacePlace = null;
@@ -42,35 +44,43 @@ if (typeof document !== 'undefined' && document.addEventListener)
   );
 
 /**
- * Whether the surface was left on.
- * @returns {boolean}
+ * The graph that was left on.
+ * @returns {''|'2d'|'3d'}
  */
 function tnSurfaceWanted() {
   try {
-    return localStorage.getItem(TN_SURFACE_KEY) === '1';
+    const v = localStorage.getItem(TN_SURFACE_KEY);
+    return v === '2d' ? '2d' : v === '3d' || v === '1' ? '3d' : '';
   } catch (e) {
-    return false;
+    return '';
   }
 }
 
 /**
- * Add the 3D tick to a table dialog that has just been built, and the
+ * Add the Graph list to a table dialog that has just been built, and the
  * window it opens: a floating one of its own, moved by its title bar and
  * sized by its corner, so the grid keeps the dialog to itself. A curve (one
- * row or one column) has no surface and gets neither.
+ * row or one column) has no surface, so its list offers 2D alone; a single
+ * value has nothing to draw and gets no list.
  * @param {TableModal} m
  * @returns {void}
  */
 function tnSurfaceAttach(m) {
-  if (m.t.rows < 2 || m.t.cols < 2) return;
-  const label = document.createElement('label');
-  label.className = 'tn-tool-check';
-  label.title =
-    'Open the table as a surface in a window of its own (drag to turn it)';
-  const box = document.createElement('input');
-  box.type = 'checkbox';
-  label.append(box, ' 3D');
-  m.heatBox.closest('label').after(label);
+  if (m.t.rows < 2 && m.t.cols < 2) return;
+  const flat = m.t.rows < 2 || m.t.cols < 2;
+  const pick = document.createElement('span');
+  pick.className = 'tn-live-apps tn-graph-pick';
+  pick.innerHTML =
+    '<button type="button" class="btn tn-live-apps-btn" aria-haspopup="true" aria-expanded="false" title="Draw the table in a window of its own">Graph ▾</button>' +
+    '<div class="tn-live-apps-menu" hidden>' +
+    '<button type="button" class="tn-graph-opt" data-mode="2d" title="One line per row over the column axis">2D lines</button>' +
+    (flat
+      ? ''
+      : '<button type="button" class="tn-graph-opt" data-mode="3d" title="A shaded sheet: drag to turn it">3D surface</button>') +
+    '</div>';
+  const pickBtn = pick.querySelector('.tn-live-apps-btn');
+  const menu = pick.querySelector('.tn-live-apps-menu');
+  m.heatBox.closest('label').after(pick);
 
   const win = document.createElement('div');
   win.className = 'tn-surface-win';
@@ -97,7 +107,8 @@ function tnSurfaceAttach(m) {
   win.style.height = `${place.height}px`;
 
   const s = {
-    box,
+    mode: '',
+    shut: null,
     win,
     pane,
     canvas,
@@ -112,7 +123,7 @@ function tnSurfaceAttach(m) {
   m.surface = s;
 
   canvas.onmousedown = (e) => {
-    if (e.button !== 0) return;
+    if (e.button !== 0 || s.mode !== '3d') return; // only the sheet turns
     e.preventDefault();
     s.drag = {
       turn: true,
@@ -165,21 +176,45 @@ function tnSurfaceAttach(m) {
     s.sized.observe(pane);
   }
 
-  const set = (on) => {
-    box.checked = on;
+  const show = (mode) => {
+    s.mode = mode;
+    win.hidden = !mode;
+    pane.classList.toggle('tn-surface-flat', mode === '2d');
+    for (const o of menu.querySelectorAll('.tn-graph-opt'))
+      o.classList.toggle('on', o.dataset.mode === mode);
+    pickBtn.classList.toggle('on', !!mode);
+    if (mode) tnSurfaceRequest(m);
+  };
+  const set = (mode) => {
     try {
-      localStorage.setItem(TN_SURFACE_KEY, on ? '1' : '0');
+      localStorage.setItem(TN_SURFACE_KEY, mode || '0');
     } catch (e) {
       /* not remembered, still shown */
     }
-    win.hidden = !on;
-    if (on) tnSurfaceRequest(m);
+    show(mode);
   };
-  box.onchange = () => set(box.checked);
-  win.querySelector('.tn-surface-x').onclick = () => set(false);
-  box.checked = tnSurfaceWanted();
-  win.hidden = !box.checked;
-  if (box.checked) tnSurfaceRequest(m);
+  const openMenu = (on) => {
+    menu.hidden = !on;
+    pickBtn.setAttribute('aria-expanded', on ? 'true' : 'false');
+  };
+  pickBtn.onclick = () => openMenu(menu.hidden);
+  menu.onclick = (e) => {
+    const o = e.target.closest('.tn-graph-opt');
+    if (!o) return;
+    openMenu(false);
+    // the one that is showing, picked again, closes the window
+    set(o.dataset.mode === s.mode ? '' : o.dataset.mode);
+  };
+  // a press anywhere else puts the list away
+  s.shut = (e) => {
+    if (!menu.hidden && !pick.contains(e.target)) openMenu(false);
+  };
+  document.addEventListener('mousedown', s.shut);
+  win.querySelector('.tn-surface-x').onclick = () => set('');
+  // what was left on, where this table can draw it (shown, not re-stored: a
+  // curve opening as 2D must not turn the next map's 3D into 2D)
+  const wanted = tnSurfaceWanted();
+  show(flat && wanted ? '2d' : wanted);
 }
 
 /**
@@ -192,6 +227,7 @@ function tnSurfaceDetach(m) {
   if (!s) return;
   window.removeEventListener('mousemove', s.move);
   window.removeEventListener('mouseup', s.up);
+  if (s.shut) document.removeEventListener('mousedown', s.shut);
   if (s.sized) s.sized.disconnect();
   if (s.frame) cancelAnimationFrame(s.frame);
   s.win.remove();
@@ -209,22 +245,22 @@ function tnSurfaceRequest(m) {
   if (!s || s.win.hidden || s.frame) return;
   s.frame = requestAnimationFrame(() => {
     s.frame = 0;
-    if (m.surface === s) tnSurfaceDraw(m);
+    if (m.surface !== s) return;
+    if (s.mode === '2d') tnGraphDraw(m, s);
+    else tnSurfaceDraw(m);
   });
 }
 
 /**
- * Draw the table as a surface.
- * @param {TableModal} m
- * @param {{pane:HTMLElement, canvas:HTMLCanvasElement, yaw:number, pitch:number}} [s] -
- *   Where to draw and from what angle: the floating window's, or a chart's.
- * @returns {void}
+ * Size a pane's canvas to it at the screen's own resolution and clear it.
+ * @param {{pane:HTMLElement, canvas:HTMLCanvasElement}} s
+ * @returns {{g:CanvasRenderingContext2D, w:number, h:number}|null} null
+ *   while the pane is too small to draw in.
  */
-function tnSurfaceDraw(m, s = m.surface) {
-  const t = m.t;
+function tnSurfaceCanvas(s) {
   const w = s.pane.clientWidth;
   const h = s.pane.clientHeight;
-  if (w < 40 || h < 40) return;
+  if (w < 40 || h < 40) return null;
   const dpr = window.devicePixelRatio || 1;
   if (
     s.canvas.width !== Math.round(w * dpr) ||
@@ -238,6 +274,189 @@ function tnSurfaceDraw(m, s = m.surface) {
   const g = s.canvas.getContext('2d');
   g.setTransform(dpr, 0, 0, dpr, 0, 0);
   g.clearRect(0, 0, w, h);
+  return { g, w, h };
+}
+
+/**
+ * Round steps for an axis: about `n` of them across lo..hi.
+ * @param {number} lo
+ * @param {number} hi
+ * @param {number} n
+ * @returns {number[]} The values to mark, within lo..hi.
+ */
+function tnGraphTicks(lo, hi, n) {
+  const span = hi - lo;
+  if (!(span > 0)) return [lo];
+  const raw = span / Math.max(1, n);
+  const mag = 10 ** Math.floor(Math.log10(raw));
+  const step = [1, 2, 5, 10].map((k) => k * mag).find((k) => k >= raw);
+  const out = [];
+  for (let v = Math.ceil(lo / step) * step; v <= hi + step * 1e-6; v += step)
+    out.push(Math.abs(v) < step * 1e-6 ? 0 : v);
+  return out;
+}
+
+/**
+ * Draw the table as lines: one per row over the column axis (a table of one
+ * column is drawn as its one line over the row axis). The line of the row
+ * the DME is reading in is the bright one, with the point itself on it.
+ * @param {TableModal} m
+ * @param {{pane:HTMLElement, canvas:HTMLCanvasElement}} s
+ * @returns {void}
+ */
+function tnGraphDraw(m, s) {
+  const c = tnSurfaceCanvas(s);
+  if (!c) return;
+  const { g, w, h } = c;
+  const t = m.t;
+  // along: the axis under the plot; lines: one per step of the other
+  const upright = t.cols < 2;
+  const n = upright ? t.rows : t.cols;
+  const lines = upright ? 1 : t.rows;
+  const labels = upright ? m.yLabels : m.xLabels;
+  const axis = upright ? t.y : t.x;
+  const cell = (line, i) => (upright ? t.cells[i][0] : t.cells[line][i]);
+  const xs = [];
+  for (let i = 0; i < n; i++) xs.push(tnAxisPos(labels, i));
+  // break points that do not rise cannot be an axis: fall back to the index
+  if (xs.some((v, i) => i && v <= xs[i - 1]))
+    for (let i = 0; i < n; i++) xs[i] = i;
+  const { lo, span, count } = tnCellBounds(t.cells);
+  if (!count) return; // nothing read yet
+  const pad = span > 0 ? span * 0.06 : 1;
+  const y0 = lo - pad;
+  const y1 = lo + span + pad;
+
+  g.fillStyle = '#05070a';
+  g.fillRect(0, 0, w, h);
+  g.font = '10px ui-monospace, SFMono-Regular, Menlo, monospace';
+  const yTicks = tnGraphTicks(y0, y1, Math.max(2, Math.floor(h / 44)));
+  const left =
+    Math.max(...yTicks.map((v) => g.measureText(fmtNum(v, m.dp)).width)) + 14;
+  const box = { l: left, t: 12, r: w - 14, b: h - 34 };
+  if (box.r - box.l < 20 || box.b - box.t < 20) return;
+  const X = (v) =>
+    box.l + ((v - xs[0]) / (xs[n - 1] - xs[0] || 1)) * (box.r - box.l);
+  const Y = (v) => box.b - ((v - y0) / (y1 - y0)) * (box.b - box.t);
+
+  // ---- the grid and its figures --------------------------------------------
+  g.lineWidth = 1;
+  g.strokeStyle = 'rgba(138, 151, 163, 0.22)';
+  g.fillStyle = '#8a97a3';
+  g.textAlign = 'right';
+  g.textBaseline = 'middle';
+  for (const v of yTicks) {
+    const y = Math.round(Y(v)) + 0.5;
+    g.beginPath();
+    g.moveTo(box.l, y);
+    g.lineTo(box.r, y);
+    g.stroke();
+    g.fillText(fmtNum(v, m.dp), box.l - 6, y);
+  }
+  g.textAlign = 'center';
+  g.textBaseline = 'top';
+  const xTicks = tnGraphTicks(
+    xs[0],
+    xs[n - 1],
+    Math.max(2, Math.floor((box.r - box.l) / 64))
+  );
+  for (const v of xTicks) {
+    const x = Math.round(X(v)) + 0.5;
+    g.beginPath();
+    g.moveTo(x, box.t);
+    g.lineTo(x, box.b);
+    g.stroke();
+    g.fillText(String(Math.round(v * 1000) / 1000), x, box.b + 5);
+  }
+  g.strokeStyle = 'rgba(138, 151, 163, 0.5)';
+  g.strokeRect(box.l + 0.5, box.t + 0.5, box.r - box.l, box.b - box.t);
+  if (axis && axis.units)
+    g.fillText(axis.units, (box.l + box.r) / 2, box.b + 19);
+
+  // ---- the lines: the lowest row coolest, the live one last and brightest ---
+  const live = m.cursor && m.cursor.shown ? m.cursor.pos : null;
+  const across = live ? (upright ? live.row : live.col) : null;
+  // a table of one line has no second axis to be read on: its line is it
+  const down = lines === 1 ? { index: 0 } : live ? live.row : null;
+  const liveLine = across && down ? Math.round(down.index) : -1;
+  const order = [];
+  for (let k = 0; k < lines; k++) if (k !== liveLine) order.push(k);
+  if (liveLine >= 0 && liveLine < lines) order.push(liveLine);
+  for (const k of order) {
+    const isLive = k === liveLine;
+    const colour = isLive
+      ? '#ffffff'
+      : heatColor(lines > 1 ? k / (lines - 1) : 0.5).bg;
+    g.strokeStyle = colour;
+    g.fillStyle = '#05070a';
+    g.lineWidth = isLive ? 2 : 1.25;
+    g.globalAlpha = live && !isLive ? 0.55 : 1;
+    g.beginPath();
+    let pen = false;
+    const marks = [];
+    for (let i = 0; i < n; i++) {
+      const v = cell(k, i);
+      if (v == null || !Number.isFinite(v)) {
+        pen = false;
+        continue;
+      }
+      const x = X(xs[i]);
+      const y = Y(v);
+      if (pen) g.lineTo(x, y);
+      else g.moveTo(x, y);
+      pen = true;
+      marks.push([x, y]);
+    }
+    g.stroke();
+    // a square on every break point, where the space allows one
+    if ((box.r - box.l) / n > 9)
+      for (const [x, y] of marks) {
+        g.fillRect(x - 2.5, y - 2.5, 5, 5);
+        g.strokeRect(x - 2.5, y - 2.5, 5, 5);
+      }
+  }
+  g.globalAlpha = 1;
+
+  // ---- the live point: where along the axis, and the value read there ------
+  if (across) {
+    const i0 = Math.min(n - 1, Math.floor(across.index));
+    const i1 = Math.min(n - 1, i0 + 1);
+    const x = X(xs[i0] + (xs[i1] - xs[i0]) * (across.index - i0));
+    g.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+    g.lineWidth = 1;
+    g.beginPath();
+    g.moveTo(Math.round(x) + 0.5, box.t);
+    g.lineTo(Math.round(x) + 0.5, box.b);
+    g.stroke();
+    const v = !down
+      ? null
+      : upright
+        ? ltCursorCell(t.cells, across.index, 0)
+        : ltCursorCell(t.cells, down.index, across.index);
+    if (v != null) {
+      g.beginPath();
+      g.arc(x, Y(v), 4.5, 0, Math.PI * 2);
+      g.fillStyle = '#fff';
+      g.fill();
+      g.lineWidth = 2;
+      g.strokeStyle = '#2f6fed';
+      g.stroke();
+    }
+  }
+}
+
+/**
+ * Draw the table as a surface.
+ * @param {TableModal} m
+ * @param {{pane:HTMLElement, canvas:HTMLCanvasElement, yaw:number, pitch:number}} [s] -
+ *   Where to draw and from what angle: the floating window's, or a chart's.
+ * @returns {void}
+ */
+function tnSurfaceDraw(m, s = m.surface) {
+  const t = m.t;
+  const made = tnSurfaceCanvas(s);
+  if (!made) return;
+  const { g, w, h } = made;
 
   const { lo, span } = tnCellBounds(t.cells);
   const frac = (v) => (span > 0 ? (v - lo) / span : 0);

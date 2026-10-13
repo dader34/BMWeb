@@ -8933,6 +8933,38 @@ body.remote-helper::after {
 .log-search {
   width: 100%;
 }
+.log-mode {
+  display: flex;
+  margin-bottom: 8px;
+}
+.log-mode[hidden] {
+  display: none;
+}
+.log-mode .seg-btn {
+  flex: 1 1 0;
+  padding: 6px 10px;
+}
+.log-comfort-group {
+  padding: 10px 8px 4px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.log-comfort-group:first-child {
+  padding-top: 4px;
+}
+.log-comfort-row {
+  align-items: center;
+  padding: 4px 8px;
+}
+.log-comfort-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 12.5px;
+  color: var(--ink);
+}
 .log-tree {
   flex: 1 1 auto;
   overflow-y: auto;

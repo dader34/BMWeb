@@ -46,7 +46,7 @@ function fbBetaWarning() {
       '\u2022 Flash only files you understand: a tune or program for exactly this control unit and program version. Reading never hurts; writing does.\n' +
       '\u2022 Options such as EWS delete change how the car behaves and what it protects against. Know what they do before ticking them.',
     'I have read this. I will take a full read before I write anything, and I accept that what I flash is my responsibility.',
-    'Flashing/Tuning beta'
+    'Flashing/Tuning & Logging beta'
   );
 }
 
@@ -94,7 +94,7 @@ function fbDevUi() {
 /**
  * Render the Flashing/Tuning screen.
  * @param {string} [page] - The page to open on: 'tuning' for the editor,
- *   else the flashing page.
+ *   'logging' for the data logger, else the flashing page.
  * @returns {Promise<void>}
  */
 async function showFlashing(page) {
@@ -109,7 +109,7 @@ async function showFlashing(page) {
   setCrumbs([
     { label: 'Vehicles', fn: showChassis },
     { label: 'Apps', fn: showApps },
-    { label: 'Flashing/Tuning' },
+    { label: 'Flashing/Tuning & Logging' },
   ]);
   document.body.classList.add('apps-section');
   sbLeft.textContent = 'flashing';
@@ -143,6 +143,7 @@ async function showFlashing(page) {
     <div class="fb-rail">
       <button class="fb-rail-btn current" id="fb-rail-flashing" title="Flashing">&#x21AF;</button>
       <button class="fb-rail-btn" id="fb-rail-tuning" title="Tuning">&#x26C3;</button>
+      <button class="fb-rail-btn" id="fb-rail-logging" title="Data logging">&#x223F;</button>
       <button class="fb-rail-btn" id="fb-rail-history" title="History">&#x27F2;</button>
       <button class="fb-rail-btn" id="fb-rail-settings" title="Settings">&#x2699;&#xFE0E;</button>
     </div>
@@ -176,6 +177,8 @@ async function showFlashing(page) {
       </div>
 
       <div class="fb-page" id="fb-page-tuning" hidden></div>
+
+      <div class="fb-page fb-page-logging" id="fb-page-logging" hidden></div>
 
       <div class="fb-page" id="fb-page-history" hidden>
         <div class="fb-row">
@@ -230,6 +233,7 @@ async function showFlashing(page) {
 
   fbEls['rail-flashing'].onclick = () => fbShowPage('flashing');
   fbEls['rail-tuning'].onclick = () => fbShowPage('tuning');
+  fbEls['rail-logging'].onclick = () => fbShowPage('logging');
   fbEls['rail-history'].onclick = () => fbShowPage('history');
   fbEls['rail-settings'].onclick = () => fbShowPage('settings');
 
@@ -308,7 +312,7 @@ async function showFlashing(page) {
     };
     window.addEventListener('bmweb-cable', fbCableListener);
   }
-  if (page === 'tuning') fbShowPage('tuning');
+  if (page === 'tuning' || page === 'logging') fbShowPage(page);
 }
 
 /**
@@ -322,16 +326,25 @@ function fbShowPage(page) {
   fbState.page = page;
   // the address follows the page, so a reload stays on the tuning editor
   if (typeof routeSetFlashingPage === 'function') routeSetFlashingPage(page);
-  for (const p of ['flashing', 'tuning', 'history', 'settings']) {
+  for (const p of ['flashing', 'tuning', 'logging', 'history', 'settings']) {
     fbEls[`page-${p}`].hidden = p !== page;
     fbEls[`rail-${p}`].classList.toggle('current', p === page);
   }
   const tuning = page === 'tuning';
-  fbEls.topbar.hidden = tuning;
-  fbEls.statusbar.hidden = tuning;
+  const logging = page === 'logging';
+  // the editor and the logger bring their own bars: the control-unit bar and
+  // the status line make way for both
+  fbEls.topbar.hidden = tuning || logging;
+  fbEls.statusbar.hidden = tuning || logging;
   if (tuning && !fbState.tuningActions && typeof tnMount === 'function')
     fbState.tuningActions = tnMount(fbEls['page-tuning'], fbState.actions[0]);
+  // leaving the logger stops its run and hands the bus back
+  if (!logging && typeof logUnmount === 'function') logUnmount();
   setActions((tuning && fbState.tuningActions) || fbState.actions);
+  // the logger is built afresh each time its page is shown (it sets its own
+  // action bar, so this comes after the app's)
+  if (logging && typeof logMount === 'function')
+    logMount(fbEls['page-logging'], fbState.actions[0]);
   if (page === 'flashing') fbShowOptions(false);
   if (page === 'history') fbHistoryRefresh();
 }
@@ -486,7 +499,7 @@ function fbConfirm(message, title) {
  * @param {string} [title] - The dialog title.
  * @returns {Promise<void>}
  */
-async function fbMessage(message, title = 'Flashing/Tuning') {
+async function fbMessage(message, title = 'Flashing/Tuning & Logging') {
   await messageDialog({ title: esc(title), body: fbHtml(message) });
 }
 

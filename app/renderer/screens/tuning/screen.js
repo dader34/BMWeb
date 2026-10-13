@@ -81,12 +81,6 @@ function tnWorkspaceHtml() {
             <div class="tn-hex-window" id="tn-hex-window"></div>
           </div>
         </div>
-        <aside class="tn-insp" id="tn-insp">
-          <div class="tn-insp-head">
-            <span>Data inspector</span>
-          </div>
-          <div class="tn-insp-rows" id="tn-insp-rows"></div>
-        </aside>
       </div>
       <div class="tn-hex-status" id="tn-hex-status">
         <span class="tn-hs-cur" id="tn-hs-cur"></span>

@@ -101,6 +101,34 @@
   box-shadow: 0 0 0 3px var(--amber-glow);
 }
 
+.tn-defs-mode {
+  display: flex;
+  margin: 8px 12px 0;
+}
+.tn-defs-mode .seg-btn {
+  flex: 1 1 0;
+  padding: 6px 10px;
+}
+.tn-comfort-group-name {
+  padding: 10px 8px 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.tn-comfort-subject {
+  margin-left: 6px;
+}
+.tn-comfort-subject .tn-cat-name {
+  font-family: var(--display);
+  font-size: 12.5px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink-dim);
+}
+/* a plain name needs no address beside it: Expert shows where it lives */
+.tn-comfort-subject .tn-item-addr {
+  display: none;
+}
 .tn-defs-list {
   flex: 1;
   overflow-y: auto;
@@ -2175,13 +2203,7 @@ body.apps-section .view:has(.tn-workspace) > .tn-workspace {
   width: 72px;
   height: 8px;
   border-radius: 2px;
-  background: linear-gradient(
-    90deg,
-    #9cf2f2,
-    #b4c8ca,
-    #c8b2b2,
-    #ea7474
-  );
+  background: linear-gradient(90deg, #9cf2f2, #b4c8ca, #c8b2b2, #ea7474);
 }
 
 /* the modal chrome itself, quieter so the DATA is the loudest thing */
@@ -2339,8 +2361,7 @@ body.apps-section .view:has(.tn-workspace) > .tn-workspace {
   font-weight: inherit;
 }
 .tn-modal .tn-table.tn-heat-on td .tn-cell.tn-cell-oor.sel {
-  box-shadow:
-    inset 0 0 0 2px #2f6fed;
+  box-shadow: inset 0 0 0 2px #2f6fed;
 }
 
 /* ---- LIVE mode ------------------------------------------------------------
@@ -2580,6 +2601,45 @@ body.apps-section .view:has(.tn-workspace) > .tn-workspace {
 .tn-surface canvas {
   display: block;
 }
+/* the 2D plot does not turn: no hand on it */
+.tn-surface.tn-surface-flat,
+.tn-surface.tn-surface-flat:active {
+  cursor: default;
+}
+/* "Graph": the table's drawings, picked from a list under one button in the
+   table's own toolbar */
+.tn-graph-pick {
+  display: inline-block;
+}
+.tn-graph-pick .tn-live-apps-btn {
+  padding: 4px 10px;
+  font-family: var(--mono);
+  font-size: 11px;
+}
+.tn-graph-pick .tn-live-apps-btn.on {
+  color: var(--amber);
+  border-color: var(--amber);
+}
+.tn-graph-opt {
+  padding: 6px 8px;
+  border: 0;
+  background: none;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  text-align: left;
+  color: var(--ink-dim);
+  cursor: pointer;
+}
+.tn-graph-opt:hover {
+  background: var(--raised);
+  color: var(--ink);
+}
+.tn-graph-opt.on {
+  color: var(--amber);
+}
+.tn-graph-opt.on::before {
+  content: '✓ ';
+}
 
 /* The table editor docked in the right-hand pane: it replaces the hex view
    and the inspector while a table is open, instead of floating over the page. */
@@ -2613,8 +2673,16 @@ body.apps-section .view:has(.tn-workspace) > .tn-workspace {
      table read as a hole in the page */
   background-color: #eef1f3;
   background-image:
-    linear-gradient(to right, transparent calc(100% - 1px), #b9c1c8 calc(100% - 1px)),
-    linear-gradient(to bottom, transparent calc(100% - 1px), #b9c1c8 calc(100% - 1px));
+    linear-gradient(
+      to right,
+      transparent calc(100% - 1px),
+      #b9c1c8 calc(100% - 1px)
+    ),
+    linear-gradient(
+      to bottom,
+      transparent calc(100% - 1px),
+      #b9c1c8 calc(100% - 1px)
+    );
   background-size: var(--sheet-w) var(--sheet-h);
   background-position: var(--sheet-x) var(--sheet-y);
   background-attachment: local;
@@ -2809,6 +2877,38 @@ body.apps-section .view:has(.tn-workspace) > .tn-workspace {
 }
 .tn-faults-p {
   color: var(--ink-faint);
+}
+
+/* Data logging as a page of the Flashing/Tuning & Logging app: it scrolls
+   inside the page like the others. */
+.fb-page-logging {
+  padding: 10px 14px 12px;
+  overflow: auto;
+}
+/* its heading: one line, the car a choice in it */
+.log-pagehead {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.log-pagehead-t {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--amber);
+}
+.log-chassis {
+  flex: none;
+  min-width: 150px;
+}
+.log-pagehead-d {
+  font-size: 12px;
+  color: var(--ink-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* the LIVE connecting modal: spinner + a progress line */

@@ -557,14 +557,20 @@ function routeSetCarList(chassis) {
 // keeps, should come back to the editor and not to the flashing page.
 // replaceState: flipping between the pages is not a step Back should undo.
 /**
- * Set the hash to the Flashing/Tuning page that is showing: #apps/tuning for
- * the editor, #apps/flashing for the rest.
+ * Set the hash to the Flashing/Tuning & Logging page that is showing:
+ * #apps/tuning for the editor, #apps/logging for the logger, #apps/flashing
+ * for the rest.
  * @param {string} page - 'flashing', 'tuning', 'history' or 'settings'.
  * @returns {void}
  */
 function routeSetFlashingPage(page) {
   if (_routing) return;
-  const route = page === 'tuning' ? 'apps/tuning' : 'apps/flashing';
+  const route =
+    page === 'tuning'
+      ? 'apps/tuning'
+      : page === 'logging'
+        ? 'apps/logging'
+        : 'apps/flashing';
   if (currentRoute() === route) {
     _openRoute = route;
     return;

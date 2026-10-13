@@ -5,7 +5,7 @@
  * item's bytes, or open the item that owns a clicked byte.
  */
 
-/* exported tnRenderDefs, tnOpenItemAt, tnSpotlight */
+/* exported tnRenderDefs, tnOpenItemAt, tnSpotlight, tnDefsDeselect */
 
 /** Debounce for the tree filter box. */
 const TN_FILTER_DEBOUNCE_MS = 100;
@@ -18,6 +18,10 @@ const TN_FILTER_DEBOUNCE_MS = 100;
 function tnRenderDefs(ed) {
   const els = ed.els;
   const def = tuningState.def;
+  // a rebuild (an edit applied, a table closed, live mode changing) must not
+  // throw the reader back to the top of a list they had scrolled down
+  const was = els.defs.querySelector('.tn-defs-list');
+  const scrolled = was ? was.scrollTop : 0;
   els.defs.innerHTML = '';
   if (!def) {
     els.defs.appendChild(tnDefsEmptyState());
@@ -37,9 +41,46 @@ function tnRenderDefs(ed) {
   const listWrap = document.createElement('div');
   listWrap.className = 'tn-defs-list';
   const catName = tnCategoryNamer(def);
-  const renderList = () => tnRenderDefList(ed, listWrap, def, catName);
+  // the plain-named list, when this definition is one it describes. The
+  // "open on the ECU" filter always shows the full tree: what is open live
+  // need not be on the short list.
+  const comfort = tnComfortFor(def);
+  const comfortOn = () => !!comfort && tnComfortModeGet();
+  let kindBar = null;
+  const renderList = () => {
+    const short = comfortOn() && !tuningState.liveOnly;
+    if (kindBar) kindBar.style.display = short ? 'none' : '';
+    if (short) tnRenderComfortList(ed, listWrap, comfort);
+    else tnRenderDefList(ed, listWrap, def, catName);
+  };
 
-  const kindBar = tnRenderKindBar(def, renderList);
+  if (comfort) {
+    const mode = document.createElement('div');
+    mode.className = 'seg tn-defs-mode';
+    mode.innerHTML =
+      '<button type="button" class="seg-btn" data-mode="comfort">Comfort</button>' +
+      '<button type="button" class="seg-btn" data-mode="expert">Expert</button>';
+    const paintMode = () => {
+      for (const b of mode.querySelectorAll('.seg-btn'))
+        b.classList.toggle(
+          'active',
+          (b.dataset.mode === 'comfort') === comfortOn()
+        );
+    };
+    mode.onclick = (e) => {
+      const b = e.target.closest('.seg-btn');
+      if (!b) return;
+      tnComfortModeSet(b.dataset.mode === 'comfort');
+      // the two trees keep their open sections under different names
+      tuningState.openCats = null;
+      paintMode();
+      renderList();
+    };
+    paintMode();
+    els.defs.appendChild(mode);
+  }
+
+  kindBar = tnRenderKindBar(def, renderList);
   if (kindBar) els.defs.appendChild(kindBar);
   els.defs.appendChild(listWrap);
 
@@ -51,6 +92,7 @@ function tnRenderDefs(ed) {
   };
 
   renderList();
+  listWrap.scrollTop = scrolled;
 }
 
 /**
@@ -176,6 +218,8 @@ function tnBuildGroups(def, filter, catName) {
  * @returns {void}
  */
 function tnRenderDefList(ed, listWrap, def, catName) {
+  // rebuilt in place (a section opened or shut): stay where the reader was
+  const scrolled = listWrap.scrollTop;
   listWrap.innerHTML = '';
   const groups = tnBuildGroups(def, tuningState.filter, catName);
   if (!groups.size) {
@@ -237,7 +281,12 @@ function tnRenderDefList(ed, listWrap, def, catName) {
     cat.querySelector('.tn-cat-head').onclick = () => {
       // Toggle against whichever set governs the current mode, so the
       // click always visibly does something.
-      if (filtering) {
+      if (holdsSelected) {
+        // the open row was holding the section open: let go of it too
+        tnDefsDeselect(ed);
+        open.delete(name);
+        if (filtering) shut.add(name);
+      } else if (filtering) {
         if (shut.has(name)) shut.delete(name);
         else shut.add(name);
       } else if (open.has(name)) {
@@ -249,7 +298,21 @@ function tnRenderDefList(ed, listWrap, def, catName) {
     };
     listWrap.appendChild(cat);
   }
+  listWrap.scrollTop = scrolled;
   if (ed.els.hexMeta) ed.els.hexMeta.dataset.shown = String(shown);
+}
+
+/**
+ * Close the row that is open in the tree: nothing is selected, and its
+ * bytes are no longer picked out in the hex view. A table it opened in the
+ * right-hand pane stays open.
+ * @param {TuningEditor} ed
+ * @returns {void}
+ */
+function tnDefsDeselect(ed) {
+  tuningState.selectedId = null;
+  tuningState.highlight = null;
+  ed.hex.refresh();
 }
 
 /**
@@ -257,9 +320,11 @@ function tnRenderDefList(ed, listWrap, def, catName) {
  * the editor beneath it (accordion: one open row at a time).
  * @param {TuningEditor} ed
  * @param {XdfItem} item
+ * @param {string} [label] - A plainer name to show in place of the item's
+ *   own (Comfort mode); the item's own becomes the tooltip.
  * @returns {HTMLDivElement}
  */
-function tnRenderItemRow(ed, item) {
+function tnRenderItemRow(ed, item, label) {
   const row = document.createElement('div');
   row.className =
     'tn-item' + (tuningState.selectedId === item.key ? ' open' : '');
@@ -268,7 +333,7 @@ function tnRenderItemRow(ed, item) {
   row.innerHTML = `
       <button class="tn-item-head" type="button">
         <span class="tn-item-kind tn-kind-${item.kind}">${kindTag}</span>
-        <span class="tn-item-title">${esc(item.title || '(untitled)')}</span>
+        <span class="tn-item-title"${label ? ` title="${esc(item.title || '')}"` : ''}>${esc(label || item.title || '(untitled)')}</span>
         <span class="tn-item-addr">${addr != null ? '0x' + addr.toString(16).toUpperCase() : ''}</span>
       </button>
       <div class="tn-item-body"></div>`;
@@ -276,12 +341,20 @@ function tnRenderItemRow(ed, item) {
   const body = row.querySelector('.tn-item-body');
   headBtn.onclick = () => {
     const isOpen = tuningState.selectedId === item.key;
+    // closing an open row above this one takes its editor's height out of
+    // the list: hold the row that was pressed where it is on the screen
+    const list = row.closest('.tn-defs-list');
+    const before = headBtn.getBoundingClientRect().top;
+    const hold = () => {
+      if (list) list.scrollTop += headBtn.getBoundingClientRect().top - before;
+    };
     // close others (accordion)
     ed.els.defs.querySelectorAll('.tn-item.open').forEach((n) => {
       n.classList.remove('open');
       const b = n.querySelector('.tn-item-body');
       if (b) b.innerHTML = '';
     });
+    hold();
     if (isOpen) {
       tuningState.selectedId = null;
       tuningState.highlight = null;

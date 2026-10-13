@@ -116,8 +116,8 @@ const APP_REGISTRY = [
   {
     id: 'backup',
     icon: '↯',
-    title: 'Flashing/Tuning',
-    desc: 'Read, flash and tune the MS45 DME and the GS20 transmission: tunes, programs, EWS delete, map switch, and the BIN/XDF editor with live tuning',
+    title: 'Flashing/Tuning & Logging',
+    desc: 'Read, flash and tune the MS45 DME and the GS20 transmission: tunes, programs, EWS delete, map switch, the BIN/XDF editor with live tuning, and data logging of any module',
     tag: 'FLASH',
     open: () => (typeof showFlashing === 'function' ? showFlashing() : null),
     // the engines ship with the app shell; the car's SGBDs come with the ECU data
@@ -143,16 +143,6 @@ const APP_REGISTRY = [
         return false;
       }
     },
-  },
-  {
-    id: 'logging',
-    icon: '∿',
-    title: 'Data logging',
-    desc: 'Chart live readings from any module while you drive (read only)',
-    tag: 'LIVE',
-    open: () => (typeof showLogging === 'function' ? showLogging() : null),
-    // no data bundle of its own: it polls whatever modules this build ships
-    hasData: async () => typeof showLogging === 'function',
   },
   {
     id: 'script',

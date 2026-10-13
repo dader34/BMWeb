@@ -136,7 +136,7 @@ function appsTourSteps() {
     {
       screen: 'apps',
       sel: '.app-entry[data-app="backup"]:not(.app-absent)',
-      title: 'Flashing/Tuning',
+      title: 'Flashing/Tuning & Logging',
       body:
         'Read and flash the DME and transmission, and tune: its Tuning ' +
         'page opens a firmware BIN as raw hex, or a TunerPro .xdf to edit ' +

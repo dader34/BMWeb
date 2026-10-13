@@ -7,7 +7,7 @@
  * Apps hub name.
  */
 
-/* exported showLogging, showLoggingChassis, stopDataLogging */
+/* exported showLogging, showLoggingChassis, stopDataLogging, logMount, logUnmount */
 
 /**
  * The live run, while one exists. Module-level rather than per-screen so the
@@ -50,60 +50,66 @@ function stopDataLogging() {
 }
 
 /**
- * The Data logging app: pick a chassis, then what to log.
+ * Where logging draws, and the app's own Back: it is the Logging page of the
+ * Flashing/Tuning & Logging app (screens/flashing/), mounted by logMount.
+ * @type {{host: HTMLElement, back: object}|null}
+ */
+let logPage = null;
+
+/**
+ * Open Data logging: the Logging page of the Flashing/Tuning & Logging app.
+ * Kept under this name so every link and route to it still lands there.
  * @returns {Promise<void>}
  */
 async function showLogging() {
-  lastScreen = showLogging;
-  setCrumbs([
-    { label: 'Vehicles', fn: showChassis },
-    { label: 'Apps', fn: showApps },
-    { label: 'Data logging' },
-  ]);
-  // the reader may leave while this screen loads (screenOwner)
-  const _mine = screenOwner();
-  sbLeft.textContent = 'select chassis';
-  sbRight.textContent = '';
-  view.innerHTML = head(
-    'Data logging',
-    'Data logging',
-    'Poll read-only jobs and chart their values live.'
-  );
-  setActions([
-    {
-      key: 'Escape',
-      keyLabel: 'Esc',
-      label: 'Back',
-      kind: 'back',
-      fn: showApps,
-    },
-  ]);
-  const list = document.createElement('div');
-  list.className = 'chassis-grid stagger';
-  view.appendChild(list);
-  const ids = await tryApi(
-    '/api/chassis',
-    null,
-    view,
-    'failed to load vehicles'
-  );
-  if (!ids) return;
-  ids.forEach((id) => {
-    const card = document.createElement('button');
-    card.className = 'chassis-card';
-    // the same card the home grid and the wiring picker draw: the chassis
-    // name, then the model line it stands for (not the id twice)
-    const tag = (typeof CHASSIS_TAG === 'object' && CHASSIS_TAG[id]) || 'BMW';
-    card.innerHTML =
-      `<div class="chassis-code">${esc(dispChassis(id))}</div>` +
-      `<div class="chassis-tag">${esc(tag)}</div>` +
-      `<div class="chassis-arrow">→</div>`;
-    card.onclick = () => showLoggingChassis(id);
-    list.appendChild(card);
-  });
-  stagger(list);
-  if (!_mine()) return;
-  sbRight.textContent = `${ids.length} chassis`;
+  if (typeof showFlashing === 'function') return showFlashing('logging');
+}
+
+/**
+ * Open the logging workspace for one car, on that page.
+ * @param {string} chassis - The chassis id.
+ * @returns {Promise<void>}
+ */
+async function showLoggingChassis(chassis) {
+  if (typeof showFlashing !== 'function') return;
+  await showFlashing('logging');
+  if (logPage) await logShowChassis(chassis);
+}
+
+/**
+ * Fill the Logging page: called by the app each time the page is shown.
+ * @param {HTMLElement} host - The page.
+ * @param {object} back - The app's Back entry for the action bar.
+ * @returns {Promise<void>}
+ */
+async function logMount(host, back) {
+  logPage = { host, back };
+  await logShowChassis(logChassisGet());
+}
+
+/** Where the car last logged is kept, so the page opens on it. */
+const LOG_CHASSIS_KEY = 'bmweb.logging.chassis';
+
+/**
+ * The car the page opens on: the one logged last, else the E46 the rest of
+ * this app is for.
+ * @returns {string}
+ */
+function logChassisGet() {
+  try {
+    return localStorage.getItem(LOG_CHASSIS_KEY) || 'E46';
+  } catch (e) {
+    return 'E46';
+  }
+}
+
+/**
+ * The page is being left (another page, or the app): stop any run and let go.
+ * @returns {void}
+ */
+function logUnmount() {
+  stopDataLogging();
+  logPage = null;
 }
 
 /**
@@ -112,27 +118,51 @@ async function showLogging() {
  * @param {string} chassis - The chassis id.
  * @returns {Promise<void>}
  */
-async function showLoggingChassis(chassis) {
+async function logShowChassis(chassis) {
+  if (!logPage) return;
+  const view = logPage.host;
   const car = String(chassis).toUpperCase();
-  lastScreen = () => showLoggingChassis(car);
-  setCrumbs([
-    { label: 'Vehicles', fn: showChassis },
-    { label: 'Apps', fn: showApps },
-    { label: 'Data logging', fn: showLogging },
-    { label: dispChassis(car) },
-  ]);
   // the reader may leave while this screen loads (screenOwner)
   const _mine = screenOwner();
-  // setCrumbs syncs the hash off lastScreen's NAME, and this screen's
-  // lastScreen is a closure, so the chassis route is set explicitly
+  // the car is part of the address, so a reload comes back to it
   if (typeof history !== 'undefined' && history.replaceState)
     history.replaceState(null, '', `#apps/logging/${car}`);
   sbLeft.textContent = 'idle';
-  view.innerHTML = head(
-    dispChassis(car),
-    'Data logging',
-    'Pick modules, then the readings to chart. Only read-only jobs are offered.'
-  );
+  try {
+    localStorage.setItem(LOG_CHASSIS_KEY, car);
+  } catch (e) {
+    /* not remembered */
+  }
+  stopDataLogging(); // a run on the car this replaces
+  // A page of the app, so no screen-sized heading and no grid of every
+  // chassis: one line, with the car as a choice in it.
+  view.innerHTML = `
+    <div class="log-pagehead">
+      <span class="log-pagehead-t">Data logging</span>
+      <span class="log-chassis-slot"></span>
+      <span class="log-pagehead-d">Pick modules, then the readings to chart. Only read-only jobs are offered.</span>
+    </div>`;
+  // the car is picked in the app's own dropdown, the one the preset loader
+  // beside it and the fault lookup use (screens/lookup/filters.js)
+  const carRow = (id) => ({
+    val: id,
+    label: dispChassis(id),
+    meta: (typeof CHASSIS_TAG === 'object' && CHASSIS_TAG[id]) || '',
+  });
+  const pick = lookupDropdown('Chassis…', [carRow(car)], car, (id) => {
+    if (id && id !== car) logShowChassis(id);
+  });
+  pick.el.classList.add('log-chassis');
+  view.querySelector('.log-chassis-slot').replaceWith(pick.el);
+  api('/api/chassis')
+    .then((ids) => {
+      if (!Array.isArray(ids) || !pick.el.isConnected) return;
+      pick.setOptions(
+        (ids.includes(car) ? ids : [car, ...ids]).map(carRow),
+        car
+      );
+    })
+    .catch(() => {});
 
   const store = new LogStore();
   const selection = new LogSelection();
@@ -145,6 +175,10 @@ async function showLoggingChassis(chassis) {
   wrap.innerHTML = `
     <div class="log-side">
       <div class="log-side-head">
+        <div class="seg log-mode" hidden>
+          <button class="seg-btn" data-mode="comfort">Comfort</button>
+          <button class="seg-btn" data-mode="expert">Expert</button>
+        </div>
         <input class="log-search modal-input" type="text" placeholder="Search modules, jobs, keys…" />
       </div>
       <div class="log-tree"></div>
@@ -179,6 +213,10 @@ async function showLoggingChassis(chassis) {
     treeEl.innerHTML = errorBlock(e.message);
     return;
   }
+  // the reader may have left while the modules loaded: another screen, or
+  // another page of the app, or another car picked on this one
+  if (!_mine()) return;
+  if (!logPage || !wrap.isConnected) return;
 
   /**
    * The line under a summary row saying how the job's last run went: nothing
@@ -250,7 +288,12 @@ async function showLoggingChassis(chassis) {
 
   const syncCharts = () => {
     for (const it of selection.items.values())
-      store.declare(it.sgbd, it.job, it.key, humanizeKey(it.key));
+      store.declare(
+        it.sgbd,
+        it.job,
+        it.key,
+        logComfortLabel(it.sgbd, it.job, it.key) || humanizeKey(it.key)
+      );
     // a key that was deselected should lose its chart
     for (const id of [...store.meta.keys()]) {
       if (!selection.items.has(id)) {
@@ -270,6 +313,89 @@ async function showLoggingChassis(chassis) {
   /** @type {Map<string, Array<{name: string, comment: string, unit: string}>>} */
   const keyCache = new Map();
 
+  // the plain-named list, when one of this chassis's modules has one
+  const comfort = logComfortFor(modules);
+  let comfortOn = !!comfort && logComfortModeGet();
+  const modeEl = wrap.querySelector('.log-mode');
+
+  /**
+   * Build the comfort list: groups of plainly named readings, each a
+   * checkbox on the same selection the tree edits.
+   * @param {string} needle - The search text, trimmed and lower-cased.
+   * @returns {void}
+   */
+  const paintComfort = (needle) => {
+    treeEl.innerHTML = '';
+    for (const g of comfort.groups) {
+      const rows = g.rows.filter(
+        (r) =>
+          !needle ||
+          r.label.toLowerCase().includes(needle) ||
+          g.name.toLowerCase().includes(needle)
+      );
+      if (!rows.length) continue;
+      const head = document.createElement('div');
+      head.className = 'log-comfort-group';
+      head.textContent = g.name;
+      treeEl.appendChild(head);
+      for (const r of rows) {
+        const row = document.createElement('label');
+        row.className = 'log-key log-comfort-row';
+        row.title = `${r.job} · ${r.key}`;
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.dataset.series = logSeriesKey(comfort.mod.sgbd, r.job, r.key);
+        cb.checked = selection.has(comfort.mod.sgbd, r.job, r.key);
+        cb.onchange = () => {
+          selection.set(comfort.mod, r.job, r.key, cb.checked);
+          syncCharts();
+        };
+        row.appendChild(cb);
+        const name = document.createElement('span');
+        name.className = 'log-comfort-name';
+        name.textContent = r.label;
+        row.appendChild(name);
+        if (r.unit) {
+          const unit = document.createElement('span');
+          unit.className = 'log-key-unit';
+          unit.textContent = r.unit;
+          row.appendChild(unit);
+        }
+        treeEl.appendChild(row);
+      }
+    }
+    if (!treeEl.firstChild)
+      treeEl.innerHTML =
+        '<div class="log-sum-empty">No reading matches that.</div>';
+  };
+
+  /**
+   * Show which picker is up, on the switch and in the search box.
+   * @returns {void}
+   */
+  const paintMode = () => {
+    for (const b of modeEl.querySelectorAll('.seg-btn'))
+      b.classList.toggle(
+        'active',
+        (b.dataset.mode === 'comfort') === comfortOn
+      );
+    searchEl.placeholder = comfortOn
+      ? `Search ${comfort.title} readings…`
+      : 'Search modules, jobs, keys…';
+  };
+  if (comfort) {
+    modeEl.hidden = false;
+    modeEl.onclick = (e) => {
+      const b = e.target.closest('.seg-btn');
+      if (!b) return;
+      comfortOn = b.dataset.mode === 'comfort';
+      logComfortModeSet(comfortOn);
+      paintMode();
+      paintTree(searchEl.value);
+    };
+    paintMode();
+  }
+
   /**
    * Build the module list, filtered by the search box.
    * @param {string} q - The search text, lower-cased.
@@ -279,6 +405,7 @@ async function showLoggingChassis(chassis) {
     const needle = String(q || '')
       .trim()
       .toLowerCase();
+    if (comfort && comfortOn) return paintComfort(needle);
     const shown = modules.filter(
       (m) =>
         !needle ||
@@ -571,7 +698,7 @@ async function showLoggingChassis(chassis) {
         keyLabel: 'Esc',
         label: 'Back',
         kind: 'back',
-        fn: showLogging,
+        fn: logPage.back.fn,
       },
     ]);
   };

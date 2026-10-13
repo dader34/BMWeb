@@ -399,16 +399,10 @@ function tnLiveCursorReplan() {
  */
 function tnLiveCursorAttach(m) {
   tnLiveCursorDetach(tnCursor.m);
-  // a strip of its own over the grid: in the toolbar the figures were cut off
+  // the figures are kept but not shown: the shading on the grid is the
+  // whole display, and the gauges window carries the numbers
   const info = document.createElement('div');
-  info.className = 'tn-cursor-info';
   info.hidden = true;
-  // above the grid and the live column both
-  const row = m.gridWrap.parentElement;
-  (row && row.classList && row.classList.contains('tn-modal-body')
-    ? row
-    : m.gridWrap
-  ).before(info);
   const cells = [];
   for (const inp of m.gridWrap.querySelectorAll('.tn-cell')) {
     const r = +inp.dataset.r;
