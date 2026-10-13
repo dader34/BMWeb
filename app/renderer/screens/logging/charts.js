@@ -354,10 +354,16 @@ class LogChartGrid {
     }
 
     const shown = cursorVal != null ? cursorVal : stats.last;
-    card.read.innerHTML =
+    const html =
       `<span class="log-now">${esc(this._fmt(shown))}${esc(unit)}</span>` +
       `<span class="log-range">min ${esc(this._fmt(stats.min))} · ` +
       `max ${esc(this._fmt(stats.max))}</span>`;
+    // only when it reads differently: rebuilding these spans on every
+    // sample of every card is work, and layout, for nothing
+    if (card.readHtml !== html) {
+      card.readHtml = html;
+      card.read.innerHTML = html;
+    }
   }
 
   /**

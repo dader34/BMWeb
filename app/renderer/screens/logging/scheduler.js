@@ -145,6 +145,9 @@ class LogScheduler {
     this._loop = null;
     this.onState({ running: false });
     if (loop) await loop.catch(() => {});
+    // the DME's packet is not ours to keep once nothing is reading it
+    if (this.targets.some((t) => t.job === LOG_PACKET_JOB))
+      await logPacketRelease();
   }
 
   /**
@@ -173,6 +176,9 @@ class LogScheduler {
       // rather than spin an empty loop on the bus forever
       if (this.dead.length >= this.targets.length) {
         this.running = false;
+        // it stopped itself: the packet is let go as on a stop
+        if (this.targets.some((t) => t.job === LOG_PACKET_JOB))
+          await logPacketRelease();
         this.onState({
           running: false,
           error: 'No selected job returned data. Logging stopped.',
@@ -206,10 +212,15 @@ class LogScheduler {
     this._note(key, 'pending');
     try {
       const q = mod.group ? `?group=${encodeURIComponent(mod.group)}` : '';
-      const call = api(
-        `/api/ecu/${String(mod.sgbd).toLowerCase()}/run/${encodeURIComponent(j.job)}${q}`,
-        { method: 'POST' }
-      );
+      // the measurement values are not a job of the SGBD's: they come as
+      // one packet (packet.js), shaped into the result row a job gives
+      const packet = j.job === LOG_PACKET_JOB;
+      const call = packet
+        ? logPacketRead(mod.sgbd, j.keys).then((row) => ({ sets: [row] }))
+        : api(
+            `/api/ecu/${String(mod.sgbd).toLowerCase()}/run/${encodeURIComponent(j.job)}${q}`,
+            { method: 'POST' }
+          );
       // a hung job is reported, not waited on forever; the timer is cleared
       // on an answer so it cannot fire later as a stray rejection
       let timer = null;

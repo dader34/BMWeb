@@ -25,3 +25,4 @@ vendor/
 data/
 *.min.js
 app/renderer/core/ms45-cursor-map.js
+app/renderer/core/ms45-value-map.js

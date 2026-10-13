@@ -21,103 +21,52 @@
  * @property {string} label
  * @property {number} address - RAM.
  * @property {1|2} size
+ * @property {boolean} [signed] - The raw value is two's complement.
  * @property {number} a - value = a * raw + b
  * @property {number} b
  * @property {string} units
  * @property {number} dp - Decimal places shown.
  */
-/** @type {LiveGauge[]} */
-const TN_GAUGES = [
-  {
-    label: 'Engine speed',
-    address: 0x3fcc04,
-    size: 2,
-    a: 1,
-    b: 0,
-    units: 'rpm',
-    dp: 0,
-  },
-  {
-    label: 'Load',
-    address: 0x3fcab8,
-    size: 2,
-    a: 0.021195,
-    b: 0,
-    units: 'mg/stk',
-    dp: 1,
-  },
-  {
-    label: 'Air mass',
-    address: 0x3fcabe,
-    size: 2,
-    a: 0.03125,
-    b: 0,
-    units: 'kg/h',
-    dp: 1,
-  },
-  {
-    label: 'Pedal',
-    address: 0x3fd78e,
-    size: 1,
-    a: 0.390625,
-    b: 0,
-    units: '%',
-    dp: 1,
-  },
-  {
-    label: 'Vehicle speed',
-    address: 0x3fd85b,
-    size: 1,
-    a: 1,
-    b: 0,
-    units: 'km/h',
-    dp: 0,
-  },
-  {
-    label: 'Coolant',
-    address: 0x3fd7b8,
-    size: 1,
-    a: 0.75,
-    b: -48,
-    units: '°C',
-    dp: 0,
-  },
-  {
-    label: 'Oil',
-    address: 0x3fd7ca,
-    size: 1,
-    a: 1,
-    b: -40,
-    units: '°C',
-    dp: 0,
-  },
-  {
-    label: 'Intake air',
-    address: 0x3fd7c4,
-    size: 1,
-    a: 0.75,
-    b: -48,
-    units: '°C',
-    dp: 0,
-  },
-  {
-    label: 'Manifold pressure',
-    address: 0x3fcadc,
-    size: 2,
-    a: 0.082918,
-    b: 0,
-    units: 'hPa',
-    dp: 0,
-  },
-  {
-    label: 'Ambient pressure',
-    address: 0x3fcb18,
-    size: 2,
-    a: 0.082918,
-    b: 0,
-    units: 'hPa',
-    dp: 0,
-  },
+
+/**
+ * The values shown, by the DME's own identifier for each: where it lives
+ * and how its bytes scale come from the program's value table and the
+ * SGBD's (core/ms45-value-map.js), so the figure here is the one a BMW
+ * tester shows under that name. [identifier, label, units, decimals].
+ * Engine speed is first: the dial is drawn from it.
+ * @type {Array<[number, string, string, number]>}
+ */
+const TN_GAUGE_VALUES = [
+  [0x410c, 'Engine speed', 'rpm', 0],
+  [0x4119, 'Idle speed target', 'rpm', 0],
+  [0x4113, 'Engine load', '%', 1],
+  [0x4118, 'Air per stroke', 'mg/stk', 1],
+  [0x4112, 'Air mass', 'kg/h', 1],
+  [0x4114, 'Accelerator pedal', '%', 1],
+  [0x4158, 'Throttle position', '°', 1],
+  [0x410d, 'Vehicle speed', 'km/h', 0],
+  [0x411f, 'Coolant', '°C', 0],
+  [0x4120, 'Radiator outlet', '°C', 0],
+  [0x4122, 'Oil', '°C', 0],
+  [0x411e, 'Intake air', '°C', 0],
+  [0x4133, 'Manifold pressure', 'hPa', 0],
+  [0x4134, 'Ambient pressure', 'hPa', 0],
+  [0x4115, 'Injection time', 'ms', 2],
+  [0x4125, 'Ignition timing', '°', 1],
+  [0x4116, 'Lambda control, bank 1', '%', 1],
+  [0x4117, 'Lambda control, bank 2', '%', 1],
+  [0x411a, 'Intake camshaft', '°', 1],
+  [0x411c, 'Exhaust camshaft', '°', 1],
+  [0x413c, 'Battery voltage', 'V', 1],
+  [0x417f, 'Electric fan duty', '%', 0],
+];
+
+/**
+ * Values the DME works out in a routine instead of keeping in one variable,
+ * so its table gives no address for them: these were traced by hand.
+ * @type {LiveGauge[]}
+ */
+const TN_GAUGES_TRACED = [
   {
     label: 'Lambda setpoint',
     address: 0x3fcb9c,
@@ -128,63 +77,42 @@ const TN_GAUGES = [
     dp: 3,
   },
   // The DME's own misfire counters, one word a cylinder. They are what its
-  // diagnostic identifiers 41A3/41FD/41A9/41FE/41A4/41AA ("Anzahl Aussetzer
-  // Zylinder n") read -- the addresses were found by watching which word each
-  // identifier fetches -- and the 1/64 is that table's own scaling for a word.
-  {
-    label: 'Misfires cyl 1',
-    address: 0x3fcbcc,
-    size: 2,
-    a: 1 / 64,
-    b: 0,
-    units: '',
-    dp: 0,
-  },
-  {
-    label: 'Misfires cyl 2',
-    address: 0x3fcbd4,
-    size: 2,
-    a: 1 / 64,
-    b: 0,
-    units: '',
-    dp: 0,
-  },
-  {
-    label: 'Misfires cyl 3',
-    address: 0x3fcbd0,
-    size: 2,
-    a: 1 / 64,
-    b: 0,
-    units: '',
-    dp: 0,
-  },
-  {
-    label: 'Misfires cyl 4',
-    address: 0x3fcbd6,
-    size: 2,
-    a: 1 / 64,
-    b: 0,
-    units: '',
-    dp: 0,
-  },
-  {
-    label: 'Misfires cyl 5',
-    address: 0x3fcbce,
-    size: 2,
-    a: 1 / 64,
-    b: 0,
-    units: '',
-    dp: 0,
-  },
-  {
-    label: 'Misfires cyl 6',
-    address: 0x3fcbd2,
-    size: 2,
-    a: 1 / 64,
-    b: 0,
-    units: '',
-    dp: 0,
-  },
+  // identifiers 41A3/41FD/41A9/41FE/41A4/41AA ("Anzahl Aussetzer Zylinder n")
+  // read -- the addresses were found by watching which word each identifier
+  // fetches -- and the 1/64 is the SGBD's own scaling for that word.
+  ...[0x3fcbcc, 0x3fcbd4, 0x3fcbd0, 0x3fcbd6, 0x3fcbce, 0x3fcbd2].map(
+    (address, n) => ({
+      label: `Misfires cyl ${n + 1}`,
+      address,
+      size: /** @type {2} */ (2),
+      a: 1 / 64,
+      b: 0,
+      units: '',
+      dp: 0,
+    })
+  ),
+];
+
+/** @type {LiveGauge[]} */
+const TN_GAUGES = [
+  ...TN_GAUGE_VALUES.flatMap(([id, label, units, dp]) => {
+    const v =
+      typeof MS45_VALUE_MAP !== 'undefined' ? MS45_VALUE_MAP.values[id] : null;
+    if (!v) return []; // not a plain variable on this build: not shown
+    return [
+      {
+        label,
+        address: v[0],
+        size: /** @type {1|2} */ (v[1]),
+        signed: !!v[2],
+        a: v[3],
+        b: v[4],
+        units,
+        dp,
+      },
+    ];
+  }),
+  ...TN_GAUGES_TRACED,
 ];
 /** The dial: engine speed, to this. */
 const TN_GAUGE_DIAL_MAX = 7000;
@@ -459,7 +387,8 @@ async function tnGaugesTick() {
   let wait = TN_GAUGES_REST_MS;
   try {
     const table = typeof tnCursor !== 'undefined' && tnCursor.m;
-    if (table || document.hidden || tnLive.link === 'lost') wait = 1000;
+    if (table || document.hidden || tnLive.link === 'lost' || tnPacketLent())
+      wait = 1000;
     else if (tnLive.busy || tnLive.pumping || tnLive.pending.size) wait = 150;
     else if (!(await tnLiveCursorKnows(lt)))
       wait = 5000; // another program: the addresses mean nothing
@@ -494,7 +423,7 @@ function tnGaugesUpdate(blocks) {
   if (!tnGauges.dial) return;
   TN_GAUGES.forEach((g, i) => {
     const raw = ltCursorValue(
-      { address: g.address, size: g.size, signed: false },
+      { address: g.address, size: g.size, signed: !!g.signed },
       blocks
     );
     if (tnGauges.open.list) {
@@ -502,16 +431,17 @@ function tnGaugesUpdate(blocks) {
       if (tnGauges.list.cells[i].textContent !== text)
         tnGauges.list.cells[i].textContent = text;
     }
-    if (i === 0 && raw != null && raw !== tnGauges.rpm) {
-      tnGauges.rpm = raw;
+    const rpm = i === 0 && raw != null ? g.a * raw + g.b : null;
+    if (rpm != null && rpm !== tnGauges.rpm) {
+      tnGauges.rpm = rpm;
       if (tnGauges.open.dial) {
-        tnGaugeDial(tnGauges.dial.canvas, raw);
+        tnGaugeDial(tnGauges.dial.canvas, rpm);
         // the exact figure goes in the title bar: on the face it sat among
         // the scale's own numbers and read as a second 0
         const title =
           tnGauges.dial.win.querySelector &&
           tnGauges.dial.win.querySelector('.tn-surface-head span');
-        if (title) title.textContent = `Engine speed · ${Math.round(raw)} rpm`;
+        if (title) title.textContent = `Engine speed · ${Math.round(rpm)} rpm`;
       }
     }
   });

@@ -252,6 +252,8 @@ const flashHistory = {
             status: v.status,
             result: v.result,
             hasLog: !!v.log,
+            // a saved logging run (screens/logging/replay.js): opened, not downloaded
+            hasData: !!v.dataLog,
             fileCount: (v.files || []).length,
           });
           c.continue();
@@ -288,6 +290,29 @@ const flashHistory = {
     db.close();
     return row;
   },
+  /**
+   * Forget one session, with its log, files and data.
+   * @param {number} id - The entry's id.
+   * @returns {Promise<void>}
+   */
+  async remove(id) {
+    const db = await _flashDb();
+    if (db) {
+      await new Promise((resolve) => {
+        try {
+          const tx = db.transaction(FLASH_STORE, 'readwrite');
+          tx.objectStore(FLASH_STORE).delete(id);
+          tx.oncomplete = resolve;
+          tx.onerror = resolve;
+          tx.onabort = resolve;
+        } catch (e) {
+          resolve();
+        }
+      });
+      db.close();
+    }
+    flashHistory._notify();
+  },
   /** Forget every session. @returns {Promise<void>} */
   async clear() {
     const db = await _flashDb();
@@ -314,6 +339,8 @@ const flashHistory = {
    */
   describe(operation) {
     switch (operation) {
+      case 'data-log':
+        return 'Data log';
       case 'flash-tune':
         return 'Flash tune';
       case 'flash-program':

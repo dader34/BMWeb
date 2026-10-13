@@ -175,7 +175,9 @@ async function fbDmeIdentify(afterFlash = false) {
   d.aif = ident.aif || {};
   fbDmeLogAif(d.aif);
   if (ident.programmingStatus)
-    fbSetStatus(`Programming status: ${ident.programmingStatus}`);
+    fbSetStatus(
+      `Programming status: ${fbDmeProgrammingStatus(ident.programmingStatus)}`
+    );
   if (!ident.answered) {
     d.identified = false;
     fbSetStatus('No response from the DME');
@@ -187,14 +189,11 @@ async function fbDmeIdentify(afterFlash = false) {
   }
   d.identified = ident.type !== 'Unknown / Unsupported';
   fbSetEcuBox(`${ident.type}  ${ident.hwRef}  ·  ${ident.vin}`);
-  if (ident.diagProtocol) fbLog(`Diagnostic protocol: ${ident.diagProtocol}`);
-  else
+  if (!ident.diagProtocol)
     fbLog(
       `Diagnostic protocol not read (${ident.diagProblem || 'no answer'}); a read will unlock the DME as for KWP2000`
     );
-  await fbDmeReadCarImmobilizer();
-  await fbDmeReadCarMapSwitch();
-  await fbDmeReadCarRevLimit();
+  await fbDmeReadCar();
   fbRefreshAll();
   fbOptionsRefreshEwsGate();
   const summary = fbDmeImmobilizerSummary() + fbDmeMapSwitchSummary();
@@ -204,6 +203,93 @@ async function fbDmeIdentify(afterFlash = false) {
       `This DME (${ident.hwRef || 'no hardware reference'}) is not an MS45.0 / MS45.1, so the flashing tools stay shut.`,
       'Identify DME'
     );
+}
+
+/** The DME's programming status texts (the SGBD's own are German). */
+const FB_DME_PROGRAMMING_STATUS = {
+  Anlieferzustand: 'As delivered',
+  Normalbetrieb: 'Normal operation',
+  'nicht benutzt': 'Not used',
+  'Speicher gelöscht': 'Memory erased',
+  'Signaturprüfung PAF nicht durchgeführt': 'Program signature not checked',
+  'Signaturprüfung DAF nicht durchgeführt': 'Data signature not checked',
+  'Programmprogrammiersitzung aktiv': 'Program programming session active',
+  'Datenprogrammiersitzung aktiv': 'Data programming session active',
+  'Hardwarereferenzeintrag fehlerhaft': 'Hardware reference entry faulty',
+  'Programmreferenzeintrag fehlerhaft': 'Program reference entry faulty',
+  'Referenzierungsfehler Hardware -> Programm':
+    'Hardware and program references do not match',
+  'Programm nicht vorhanden oder nicht vollständig':
+    'Program missing or incomplete',
+  'Datenreferenzeintrag fehlerhaft': 'Data reference entry faulty',
+  'Referenzierungsfehler Programm -> Daten':
+    'Program and data references do not match',
+  'Daten nicht vorhanden oder nicht vollständig': 'Data missing or incomplete',
+  'Reserviert fuer BMW': 'Reserved for BMW',
+  'Reserviert fuer Zulieferer': 'Reserved for the supplier',
+  'unbekannter Programmierstatus': 'Unknown programming status',
+};
+
+/**
+ * A programming status in English; one the list does not know is shown as
+ * the DME's SGBD gave it.
+ * @param {string} text - FLASH_PROGRAMMIER_STATUS_TEXT.
+ * @returns {string}
+ */
+function fbDmeProgrammingStatus(text) {
+  return FB_DME_PROGRAMMING_STATUS[String(text).trim()] || text;
+}
+
+/** True while identify's reads run at the raised line rate. */
+let fbDmeFastReads = false;
+
+/**
+ * The protocol identify's memory reads go by. At the raised rate a short
+ * read must not go on to ask for security access (that has a rate change of
+ * its own), so the reads are told the protocol that never asks.
+ * @returns {string}
+ */
+function fbDmeReadProtocol() {
+  return fbDmeFastReads ? 'BMW-FAST' : fbState.dme.ident.diagProtocol;
+}
+
+/**
+ * What identify reads out of the car's memory: the immobilizer state, the
+ * map switch, the rev limit. Recognising the map switch alone is 3 KB of
+ * the MPC, most of identify's time at 9600 baud, so on the program these
+ * reads apply to the line rate goes up for them (ms45RaiseBaud) and back
+ * down after. If the fast pass could not read, they run again the slow way.
+ * @returns {Promise<void>}
+ */
+async function fbDmeReadCar() {
+  const d = fbState.dme;
+  const reads = async () => {
+    await fbDmeReadCarImmobilizer();
+    await fbDmeReadCarMapSwitch();
+    await fbDmeReadCarRevLimit();
+  };
+  const worthIt =
+    d.ident.hwRef === '0044570' &&
+    (d.ident.progRef || '').includes(mapSwitch.SUPPORTED_PROGRAM_VERSION) &&
+    typeof ms45RaiseBaud === 'function';
+  let baud = 9600;
+  if (worthIt) {
+    try {
+      baud = await ms45RaiseBaud();
+    } catch (e) {
+      baud = 9600;
+    }
+  }
+  if (baud === 9600) return reads();
+  fbDmeFastReads = true;
+  try {
+    await reads();
+  } finally {
+    fbDmeFastReads = false;
+    await ms45DefaultBaud();
+  }
+  // nothing came back at speed: as it was always done
+  if (d.carMapSwitch === null && d.carProgramEwsDeleted === null) await reads();
 }
 
 function fbDmeLogAif(aif) {
@@ -245,13 +331,13 @@ async function fbDmeReadCarImmobilizer() {
       ewsDelete.PROGRAM_STATE_OFFSET,
       ewsDelete.PROGRAM_MASK_OFFSET,
       'ROMX',
-      d.ident.diagProtocol
+      fbDmeReadProtocol()
     );
     const tune = await ms45ReadCarBytes(
       ewsDelete.CAL_FLAG2_OFFSET,
       ewsDelete.CAL_FLAG3_OFFSET,
       'ROMX',
-      d.ident.diagProtocol
+      fbDmeReadProtocol()
     );
     if (program)
       d.carProgramEwsDeleted = ewsDelete.programBytesAreDeleted(
@@ -284,14 +370,25 @@ async function fbDmeReadCarMapSwitch() {
   )
     return;
   try {
-    const free = await ms45ReadCarBytes(
-      mapSwitch.CAR_CHECK_OFFSET,
-      mapSwitch.CAR_CHECK_OFFSET + mapSwitch.CAR_CHECK_LENGTH - 1,
-      'LAR',
-      d.ident.diagProtocol
-    );
-    if (!free) return;
-    const s = mapSwitch.stateOnCar(free);
+    // the free area in pieces, stopping as soon as what has been read
+    // settles what is installed: all of it is 3 KB, and a build that is not
+    // one of the known ones shows itself in the first few hundred bytes
+    const piece = 254; // one memory read
+    const free = new Uint8Array(mapSwitch.CAR_CHECK_LENGTH);
+    let s = null;
+    for (let at = 0; at < free.length && !s; at += piece) {
+      const end = Math.min(free.length, at + piece);
+      const part = await ms45ReadCarBytes(
+        mapSwitch.CAR_CHECK_OFFSET + at,
+        mapSwitch.CAR_CHECK_OFFSET + end - 1,
+        'LAR',
+        fbDmeReadProtocol()
+      );
+      if (!part) return;
+      free.set(part, at);
+      s = mapSwitch.stateFromStart(free.subarray(0, end));
+    }
+    if (!s) return;
     d.carMapSwitch = s.state;
     d.carTrigger = s.trigger;
     d.carPresses = s.presses;
@@ -302,7 +399,7 @@ async function fbDmeReadCarMapSwitch() {
           mapSwitch.TABLES_OFFSET,
           mapSwitch.TABLES_OFFSET + 0x3f,
           'ROMX',
-          d.ident.diagProtocol
+          fbDmeReadProtocol()
         );
         d.carMapCount = mapSwitch.mapCountFrom(header);
       } else {
@@ -312,7 +409,7 @@ async function fbDmeReadCarMapSwitch() {
             mapSwitch.DATA_VERSION_LENGTH -
             1,
           'ROMX',
-          d.ident.diagProtocol
+          fbDmeReadProtocol()
         );
         d.carMapCount = mapSwitch.dataVersionFrom(field) ? 2 : null;
       }

@@ -57,7 +57,7 @@ function istaAdminRows() {
       key: 'inpaScreens',
       title: 'Screen layout',
       options: [
-        { val: 'on', label: 'INPA layout' },
+        { val: 'on', label: 'Classic' },
         { val: 'off', label: 'Modern' },
       ],
       now:

@@ -613,6 +613,8 @@ async function fbTcuWriteCal() {
         'The calibration was written and the transmission confirmed it.\n\nCycle the ignition, then check for stored faults before driving.',
         'Write Calibration'
       );
+    } else if (res.cancelled) {
+      fbSetStatus(res.status);
     } else {
       eraseStarted = !!res.eraseStarted;
       fbSetStatus(`Calibration write failed: ${res.status}`);
@@ -958,6 +960,8 @@ async function fbTcuWriteProgram() {
         'The program was written and the transmission confirmed it.\n\nCycle the ignition, then check for stored faults before driving.',
         'Write Program'
       );
+    } else if (res.cancelled) {
+      fbSetStatus(res.status);
     } else {
       erased = res.erasedSectors || 0;
       if (res.programWritten) {

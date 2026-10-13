@@ -184,12 +184,13 @@ async function showFlashing(page) {
         <div class="fb-row">
           <button class="btn" id="fb-history-log" disabled>Open Log</button>
           <button class="btn" id="fb-history-files" disabled>Save Files</button>
+          <button class="btn" id="fb-history-remove" disabled>Remove</button>
           <button class="btn danger" id="fb-history-clear">Clear History</button>
           <span class="fb-mono fb-dim" id="fb-history-count"></span>
         </div>
         <div class="fb-table-wrap">
           <table class="fb-table" id="fb-history-table">
-            <thead><tr><th>Date</th><th>Operation</th><th>Result</th><th>Car</th><th>Details</th></tr></thead>
+            <thead><tr><th>Date</th><th>Operation</th><th>Result</th><th>Car</th><th>Details</th><th></th></tr></thead>
             <tbody></tbody>
           </table>
         </div>
@@ -275,6 +276,7 @@ async function showFlashing(page) {
   fbEls['verify-program'].onclick = () => fbDmeVerifyProgramming();
 
   fbEls['history-clear'].onclick = () => fbHistoryClear();
+  fbEls['history-remove'].onclick = () => fbHistoryRemove();
   fbEls['history-log'].onclick = () => fbHistoryOpenLog();
   fbEls['history-files'].onclick = () => fbHistorySaveFiles();
   flashHistory.onChange(() => {
@@ -725,18 +727,50 @@ const FB_FLASH_OPERATION = {
   'tcu-full-read': 'tcu-full-read',
 };
 
+/** What a write that was not confirmed leaves as its status. */
+const FB_FLASH_CANCELLED = 'Cancelled: nothing was written';
+
+/**
+ * The last question before any write: which module is about to be
+ * written, and what must hold while it is. Every write passes through
+ * fbFlashRun, so every write asks this once.
+ * @param {string} op - The operation (one flashOps.writes() is true for).
+ * @returns {Promise<boolean>} True when the write was confirmed.
+ */
+function fbConfirmFlash(op) {
+  const label = flashOps.label(op);
+  const module = op.startsWith('tcu') ? 'transmission' : 'DME';
+  return confirmDialog({
+    title: esc(`${label}?`),
+    body: fbHtml(
+      `This will erase and rewrite part of the ${module}.\n\n` +
+        'Keep the ignition on, a charger on the battery and the cable plugged in until it has finished. ' +
+        `An interrupted write can leave the ${module} unable to run until it is written again.`
+    ),
+    confirmLabel: 'Flash',
+    cancelLabel: 'Cancel',
+    danger: true,
+  });
+}
+
 /**
  * Run a flashing operation (a write or a read, core/flash-ops.js): on this
  * machine's cable, or -- on a shared car -- by its owner, who gets the
  * prepared images once, is asked (for a write), runs the whole operation on
  * their cable and reports as it goes; what was read comes back once. Either
- * way the screen shows the stages and the session log gets the lines.
+ * way the screen shows the stages and the session log gets the lines. A
+ * write is confirmed in a modal first; declined, it resolves with
+ * `{ok: false, cancelled: true}` and nothing has been sent.
  * @param {string} op - The operation.
  * @param {object} payload - As the operation takes it.
  * @param {{stage?: (t: string) => void, progress?: (pct: number, what: string) => void}} [ui] - The screen's handlers.
  * @returns {Promise<object>} The operation's result ({ok, status, ...bytes}).
  */
 async function fbFlashRun(op, payload, ui = {}) {
+  if (flashOps.writes(op) && !(await fbConfirmFlash(op))) {
+    flashLog.note('Write not confirmed: nothing was sent to the car');
+    return { ok: false, cancelled: true, status: FB_FLASH_CANCELLED };
+  }
   const cb = {
     stage: ui.stage || fbSetStatus,
     progress:
@@ -1096,9 +1130,75 @@ async function fbWriteAif(progRef) {
 // ---- History ----------------------------------------------------------------------------------------
 let fbHistoryRows = [];
 let fbHistorySelected = null;
+/** The data-log viewer that is open under the table, if one is. */
+let fbHistoryReplay = null;
+
+/**
+ * Put the open data log away.
+ * @returns {void}
+ */
+function fbHistoryCloseReplay() {
+  const open = fbHistoryReplay;
+  fbHistoryReplay = null;
+  if (!open) return;
+  open.viewer.close();
+  document.removeEventListener('keydown', open.onKey);
+  open.overlay.remove();
+}
+
+/**
+ * Open a saved logging run in a dialog over the page: its readings over
+ * each other, a cursor to read them by, and playback
+ * (screens/logging/replay.js). Closed by its own button, Escape, or a press
+ * on the page behind it.
+ * @param {{id: number, started: number}} row
+ * @returns {Promise<void>}
+ */
+async function fbHistoryOpenReplay(row) {
+  fbHistoryCloseReplay();
+  if (typeof logReplayOpen !== 'function') return;
+  const full = await flashHistory.get(row.id);
+  // another row may have been picked while this one was fetched
+  if (!full || !full.dataLog || fbHistorySelected !== row) return;
+  const log = full.dataLog;
+  // a run saved under its registers' own names gets the plain ones it has
+  if (typeof logComfortLabel === 'function')
+    for (const s of log.series)
+      s.label = logComfortLabel(s.sgbd, s.job, s.key) || s.label;
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay show log-replay-overlay';
+  overlay.innerHTML = '<div class="log-replay-modal"></div>';
+  document.body.appendChild(overlay);
+  // pressed AND let go on the page behind: a drag that began on the plot
+  // and ended outside it is not a wish to close
+  let downOutside = false;
+  overlay.onmousedown = (e) => {
+    downOutside = e.target === overlay;
+  };
+  overlay.onclick = (e) => {
+    if (downOutside && e.target === overlay) fbHistoryCloseReplay();
+  };
+  const onKey = (e) => {
+    if (e.key === 'Escape') fbHistoryCloseReplay();
+  };
+  document.addEventListener('keydown', onKey);
+  const viewer = logReplayOpen(
+    overlay.querySelector('.log-replay-modal'),
+    log,
+    {
+      title: new Date(full.started).toLocaleString(),
+      save: fbSaveBytes,
+      onClose: () => {
+        if (fbHistoryReplay) fbHistoryCloseReplay();
+      },
+    }
+  );
+  fbHistoryReplay = { viewer, overlay, onKey };
+}
 
 async function fbHistoryRefresh() {
   if (!fbEls['history-table']) return;
+  fbHistoryCloseReplay();
   fbHistoryRows = await flashHistory.load();
   const tbody = fbEls['history-table'].querySelector('tbody');
   tbody.innerHTML = '';
@@ -1111,15 +1211,28 @@ async function fbHistoryRefresh() {
       `<td>${esc(flashHistory.describe(r.operation))}</td>` +
       `<td class="fb-result-${esc(r.result || 'ended')}">${esc(r.result || '')}</td>` +
       `<td class="fb-mono">${esc([r.vin, r.module].filter(Boolean).join(' '))}</td>` +
-      `<td class="fb-details">${esc(r.details || '')}</td>`;
+      `<td class="fb-details">${esc(r.details || '')}</td>` +
+      '<td class="fb-row-x"><button type="button" title="Remove this session" aria-label="Remove">×</button></td>';
+    tr.querySelector('.fb-row-x button').onclick = (e) => {
+      e.stopPropagation(); // removing a row is not selecting it
+      fbHistoryRemove(r);
+    };
     tr.onclick = () => {
       tbody.querySelectorAll('tr').forEach((x) => x.classList.remove('active'));
       tr.classList.add('active');
       fbHistorySelected = r;
       fbEls['history-status'].textContent =
         (r.status || '') + (r.seconds > 0 ? `  (${r.seconds} s)` : '');
-      fbEls['history-log'].disabled = !r.hasLog;
-      fbEls['history-files'].disabled = !r.fileCount;
+      // Open Log opens a flash session's log file, or a data log's viewer
+      fbEls['history-log'].disabled = !r.hasLog && !r.hasData;
+      // Save Files saves a flash session's kept images, or a data log as CSV
+      fbEls['history-files'].disabled = !r.fileCount && !r.hasData;
+      fbEls['history-remove'].disabled = false;
+    };
+    // a click only selects: a session opens on a double click (or Open Log)
+    tr.ondblclick = () => {
+      if (r.hasData) fbHistoryOpenReplay(r);
+      else if (r.hasLog) fbHistoryOpenLog();
     };
     tbody.appendChild(tr);
   }
@@ -1130,24 +1243,91 @@ async function fbHistoryRefresh() {
       : `${fbHistoryRows.length} sessions`;
   fbEls['history-log'].disabled = true;
   fbEls['history-files'].disabled = true;
+  fbEls['history-remove'].disabled = true;
   fbEls['history-status'].textContent = 'Select a session to see how it ended.';
 }
 
+/**
+ * Open Log: a data log in its viewer, a flash session's log as a picture of
+ * the session (screens/flashing/log-view.js) with the file a button away.
+ * @returns {Promise<void>}
+ */
 async function fbHistoryOpenLog() {
-  if (!fbHistorySelected) return;
-  const full = await flashHistory.get(fbHistorySelected.id);
-  if (!full || !full.log) return;
-  const d = new Date(full.started);
-  const p = (n) => String(n).padStart(2, '0');
-  const name = `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}_${full.operation}.log`;
-  fbSaveBytes(name, full.log);
+  const row = fbHistorySelected;
+  if (!row) return;
+  if (row.hasData) return fbHistoryOpenReplay(row);
+  const full = await flashHistory.get(row.id);
+  if (!full || !full.log || fbHistorySelected !== row) return;
+  const saveFile = () => {
+    const d = new Date(full.started);
+    const p = (n) => String(n).padStart(2, '0');
+    const name = `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}_${full.operation}.log`;
+    fbSaveBytes(name, full.log);
+  };
+  if (typeof fbLogOpen !== 'function') return saveFile();
+  fbHistoryCloseReplay();
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay show log-replay-overlay';
+  overlay.innerHTML = '<div class="log-replay-modal"></div>';
+  document.body.appendChild(overlay);
+  let downOutside = false;
+  overlay.onmousedown = (e) => {
+    downOutside = e.target === overlay;
+  };
+  overlay.onclick = (e) => {
+    if (downOutside && e.target === overlay) fbHistoryCloseReplay();
+  };
+  const onKey = (e) => {
+    if (e.key === 'Escape') fbHistoryCloseReplay();
+  };
+  document.addEventListener('keydown', onKey);
+  const viewer = fbLogOpen(overlay.querySelector('.log-replay-modal'), full, {
+    title: flashHistory.describe(full.operation),
+    saveFile,
+    onClose: () => {
+      if (fbHistoryReplay) fbHistoryCloseReplay();
+    },
+  });
+  fbHistoryReplay = { viewer, overlay, onKey };
 }
 
 async function fbHistorySaveFiles() {
   if (!fbHistorySelected) return;
   const full = await flashHistory.get(fbHistorySelected.id);
+  if (full && full.dataLog && typeof logReplayCsv === 'function') {
+    const log = full.dataLog;
+    // under the readings' plain names, as the viewer shows them
+    if (typeof logComfortLabel === 'function')
+      for (const s of log.series)
+        s.label = logComfortLabel(s.sgbd, s.job, s.key) || s.label;
+    const d = new Date(full.started);
+    const p = (n) => String(n).padStart(2, '0');
+    fbSaveBytes(
+      `datalog-${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}.csv`,
+      logReplayCsv(log)
+    );
+    return;
+  }
   if (!full || !full.files || !full.files.length) return;
   for (const f of full.files) fbSaveBytes(f.name, f.bytes);
+}
+
+/**
+ * Forget one session: the row's own button, or Remove for the selected row.
+ * @param {{id: number, operation: string, started: number}} [row]
+ * @returns {Promise<void>}
+ */
+async function fbHistoryRemove(row = fbHistorySelected) {
+  if (!row) return;
+  const what = `${flashHistory.describe(row.operation)} of ${new Date(row.started).toLocaleString()}`;
+  if (
+    !(await fbConfirm(
+      `Remove the ${what} from the history, with its log and anything saved with it?`,
+      'Remove'
+    ))
+  )
+    return;
+  await flashHistory.remove(row.id);
 }
 
 async function fbHistoryClear() {

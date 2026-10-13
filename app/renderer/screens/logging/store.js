@@ -257,11 +257,14 @@ class LogStore {
   declare(sgbd, job, key, label) {
     const id = logSeriesKey(sgbd, job, key);
     if (!this.series.has(id)) this.series.set(id, new LogRing(this.capMs));
+    // a sample coming in declares its series again, with no name: the name
+    // it was given when it was picked stays
+    const had = this.meta.get(id);
     this.meta.set(id, {
       sgbd: String(sgbd).toLowerCase(),
       job,
       key,
-      label: label || key,
+      label: label || (had && had.label) || key,
     });
     return id;
   }
@@ -393,7 +396,14 @@ function logCsv(store) {
   const q = (s) => `"${String(s).replace(/"/g, '""')}"`;
   const head = ['time', 'seconds'].concat(
     cols.map((c) =>
-      q(`${c.meta.sgbd} ${c.meta.key}${c.ring.unit ? ` [${c.ring.unit}]` : ''}`)
+      // the reading's plain name when it has one; a register's own name is
+      // told apart from another module's by the module it belongs to
+      q(
+        (c.meta.label && c.meta.label !== c.meta.key
+          ? c.meta.label
+          : `${c.meta.sgbd} ${c.meta.key}`) +
+          (c.ring.unit ? ` [${c.ring.unit}]` : '')
+      )
     )
   );
   const lines = [head.join(',')];

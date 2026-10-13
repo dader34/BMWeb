@@ -10,7 +10,7 @@
  * own packet (2C F0 names the pieces once, 21 F0 reads them all). Refreshes
  * are one at a time, a few a second, and always give way to an edit.
  */
-/* exported tnLiveCursorAttach, tnLiveCursorDetach, tnLiveCursorReplan */
+/* exported tnPacketLent, tnLiveCursorAttach, tnLiveCursorDetach, tnLiveCursorReplan */
 
 /** Rest between two refreshes, once one has finished. */
 const TN_CURSOR_REST_MS = 200;
@@ -235,6 +235,18 @@ function tnLiveCursorDraw(m, at, note) {
 }
 
 /**
+ * Whether data logging has the DME's packet just now. There is one packet,
+ * and logging on the Logging page reads its values through it; a cursor or
+ * a gauge that kept defining its own would take it back every round, each
+ * side then defining again -- seen as logging that stalled for a second
+ * every few. Logging is what the reader is looking at, so this side waits.
+ * @returns {boolean}
+ */
+function tnPacketLent() {
+  return typeof logPacket !== 'undefined' && !!logPacket.active;
+}
+
+/**
  * Fetch the table's variables. One exchange when the DME's packet can be
  * used: it is defined once per dialog (and again when the DME has forgotten
  * it, at a restart, or something else has defined its own in its place),
@@ -364,7 +376,10 @@ async function tnLiveCursorTick() {
     if (!lt) {
       tnLiveCursorDraw(m, null);
       wait = TN_CURSOR_BACKOFF_MS;
-    } else if (typeof document !== 'undefined' && document.hidden) {
+    } else if (
+      (typeof document !== 'undefined' && document.hidden) ||
+      tnPacketLent()
+    ) {
       wait = TN_CURSOR_BACKOFF_MS; // nobody is looking: leave the line alone
     } else if (tnLive.busy || tnLive.pumping || tnLive.pending.size) {
       wait = TN_CURSOR_YIELD_MS; // an edit is on its way: it goes first

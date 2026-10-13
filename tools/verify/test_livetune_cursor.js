@@ -345,6 +345,7 @@ function page({ program = MAP.program, vars, packets = true }) {
   vm.createContext(ctx);
   for (const f of [
     'core/livetune-cursor.js',
+    'core/ms45-value-map.js',
     'screens/tuning/live-gauges.js',
     'screens/tuning/live-cursor.js',
   ])
@@ -626,9 +627,11 @@ async function later() {
     const VARS = [
       [N, 2, 3100],
       [LOAD, 2, 17312],
-      [0x3fd7b8, 1, 184],
-      [0x3fd7ca, 1, 130],
-      [0x3fd78e, 1, 64],
+      // where the DME's own value table keeps each (core/ms45-value-map.js)
+      [0x3fd7b9, 1, 184],
+      [0x3fd7cb, 1, 130],
+      [0x3fd791, 1, 64],
+      [0x3fbe4e, 2, 0xff00],
     ];
 
     // a table open: one exchange for the table and every gauge
@@ -637,10 +640,11 @@ async function later() {
     await q.ctx.tnLiveCursorTick();
     assert.deepStrictEqual(q.sent, [['packet']]);
     assert.strictEqual(shown(q)['Engine speed'], '3100');
-    assert.strictEqual(shown(q).Load, '366.9'); // 17312 x 0.021195 mg/stk
+    assert.strictEqual(shown(q)['Air per stroke'], '366.9'); // 17312 x 0.021194 mg/stk
     assert.strictEqual(shown(q).Coolant, '90'); // 184 x 0.75 - 48
     assert.strictEqual(shown(q).Oil, '90'); // 130 - 40
-    assert.strictEqual(shown(q).Pedal, '25.0'); // 64 x 0.390625 %
+    assert.strictEqual(shown(q)['Accelerator pedal'], '25.0'); // 64 x 0.390625 %
+    assert.strictEqual(shown(q)['Lambda control, bank 1'], '-0.4'); // a signed word: -256 x 0.001526 %
     assert.strictEqual(q.drawn.length, 1, 'the dial drawn');
     await q.ctx.tnLiveCursorTick();
     assert.strictEqual(

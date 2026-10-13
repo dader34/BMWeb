@@ -3285,7 +3285,7 @@ function istaPageVinModern(host) {
     `<div class="ista-page"><h2 class="ista-page-title">New operation</h2>` +
     `<p class="ista-page-note">Pick the vehicle to work on.</p>` +
     `<div class="ista-none-box">Use the vehicle picker in the banner ` +
-    `above, or switch Settings to the INPA layout for the full start ` +
+    `above, or switch Settings to the Classic layout for the full start ` +
     `page.</div></div>`;
 }
 

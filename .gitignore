@@ -99,3 +99,7 @@ app/renderer/api/
 ios/build/
 ios/BMWeb/Web/
 xcuserdata/
+
+# Notes and write-ups stay local; the README is the one that is published.
+*.md
+!README.md

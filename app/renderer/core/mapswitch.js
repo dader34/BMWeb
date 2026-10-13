@@ -1165,13 +1165,18 @@ function msBranchesIntoFreeArea(mpc, at, link) {
  * Whether the free area begins with this module's lookup stubs, which every
  * build of a generation shares.
  */
-function msLooksLikeOurCode(freeArea) {
-  for (const sample of [
+/** One build of each generation: what "our code" is recognised by. */
+function msOurCodeSamples() {
+  return [
     msCurrentVersion('dsc'),
     msVersion('dsc', 'immediateLong', 'car', 'fullTune', 4, true, 5),
     msVersion('dsc', 'immediateLong', 'car', 'fullTune', 4, true, 4),
     msVersion('dsc', 'immediateLong', 'car', 'fullTune', 4, true, 3),
-  ]) {
+  ];
+}
+
+function msLooksLikeOurCode(freeArea) {
+  for (const sample of msOurCodeSamples()) {
     const built = msBuildCode(sample);
     const lookupBytes = built.tachStub - MAPSWITCH_FREE_START;
     if (freeArea.length < lookupBytes) continue;
@@ -2485,6 +2490,48 @@ const mapSwitch = {
     return {
       state: msIsCurrent(v) ? 'current' : 'earlier',
       ...msVersionSummary(v),
+    };
+  },
+  /**
+   * stateOnCar from the START of the free area, when that much already
+   * settles it: reading the area off a car is the slow part of recognising a
+   * build, and most of it is often not needed. Only the two answers that no
+   * later byte can change are given early -- bytes that are not blank and
+   * match no known build are 'earlier' or 'unrecognised' whatever follows.
+   * A blank start, or one a known build still fits, says nothing yet.
+   * @param {Uint8Array} start - The first bytes of the free area, any length.
+   * @returns {ReturnType<typeof mapSwitch.stateOnCar>|null} null while the
+   *   rest could still change the answer.
+   */
+  stateFromStart(start) {
+    if (start.length >= MS_CAR_CHECK_LENGTH)
+      return mapSwitch.stateOnCar(start.subarray(0, MS_CAR_CHECK_LENGTH));
+    if (start.every((b) => b === 0xff)) return null; // may yet be blank throughout
+    for (const v of MS_KNOWN_VERSIONS) {
+      const { code } = msBuildCode(v);
+      if (code.length > MS_CAR_CHECK_LENGTH) continue;
+      let fits = true;
+      for (let i = 0; i < start.length && fits; i++)
+        if (start[i] !== (i < code.length ? code[i] : 0xff)) fits = false;
+      if (fits) return null; // this build is still possible
+    }
+    // no known build: ours-but-changed or somebody else's, by the lookup
+    // stubs at the very start -- once enough of them has been read to tell
+    let ours = false;
+    for (const sample of msOurCodeSamples()) {
+      const built = msBuildCode(sample);
+      const lookupBytes = built.tachStub - MAPSWITCH_FREE_START;
+      let same = true;
+      for (let i = 0; i < Math.min(lookupBytes, start.length) && same; i++)
+        if (start[i] !== built.code[i]) same = false;
+      if (!same) continue;
+      if (start.length < lookupBytes) return null; // matches so far, not all read
+      ours = true;
+      break;
+    }
+    return {
+      state: ours ? 'earlier' : 'unrecognised',
+      ...msVersionSummary(null),
     };
   },
   /**

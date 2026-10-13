@@ -141,8 +141,10 @@ class LogSelection {
       this.items.delete(id);
       return;
     }
-    // a write must never enter the rotation, whatever called this
-    if (isWriteJob(job)) return;
+    // a write must never enter the rotation, whatever called this. The
+    // measurement values are no SGBD job at all (packet.js): a read of the
+    // DME's own value table, which the name-based guard cannot know.
+    if (job !== LOG_PACKET_JOB && isWriteJob(job)) return;
     this.items.set(id, {
       sgbd: mod.sgbd,
       label: mod.label || mod.sgbd,

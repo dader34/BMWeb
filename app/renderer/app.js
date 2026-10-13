@@ -95,7 +95,7 @@ function showSettings() {
         'INPA-style screens',
         'Lay out the ECU menu and fault memory exactly like the original INPA frontend.',
         [
-          { val: 'on', label: 'INPA layout' },
+          { val: 'on', label: 'Classic' },
           { val: 'off', label: 'Modern' },
         ],
         Settings.get('inpaScreens', 'on'),
@@ -115,7 +115,7 @@ function showSettings() {
       'Ask before firing activations',
       [
         { val: 'on', label: 'Ask first' },
-        { val: 'off', label: 'Send immediately (like INPA)' },
+        { val: 'off', label: 'Send immediately' },
       ],
       Settings.get('confirmActuators', 'on'),
       (v) => Settings.set('confirmActuators', v)

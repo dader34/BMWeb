@@ -2903,6 +2903,10 @@ body.apps-section .view:has(.tn-workspace) > .tn-workspace {
   flex: none;
   min-width: 150px;
 }
+.log-ecu-pick {
+  flex: none;
+  min-width: 190px;
+}
 .log-pagehead-d {
   font-size: 12px;
   color: var(--ink-dim);

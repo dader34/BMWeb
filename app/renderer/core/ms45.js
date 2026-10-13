@@ -717,9 +717,83 @@ function _ms45ArgSummary(arg) {
  * @returns {(sgbd: string, job: string, arg: string) => Promise<{sets?: object[]}>}
  */
 function _ms45Runner() {
+  // on this machine's own cable the job's telegrams go by _ms45Wire
+  if (
+    typeof webBus !== 'undefined' &&
+    typeof webRunJob === 'function' &&
+    typeof ifhError === 'function' &&
+    !(typeof webOnSharedCar === 'function' && webOnSharedCar())
+  )
+    return (sgbd, job, arg) =>
+      webRunJob(sgbd, job, arg, { exchange: _ms45Wire });
   return typeof webRunJobAnywhere === 'function'
     ? webRunJobAnywhere
     : webRunJob;
+}
+
+// THE FIRST TELEGRAM NOBODY ANSWERS. The SGBD's INITIALISIERUNG does not know
+// which protocol the DME speaks, so it asks in BMW-FAST first (concept 271:
+// 82 12 F1 1A 80 at 115200 baud) and, when that is met with silence, again
+// in KWP2000* at 9600, which a K-line MS45 answers. The silence is waited
+// out in full, twice (the retransmit), with the cable's rate changed for it
+// and changed back: over a second and a half at the start of every session,
+// and several on the emulator. Once a DME has been seen to stay silent in
+// BMW-FAST and answer in KWP2000*, that first question is answered here, as
+// the silence it would have been, without going to the wire.
+const MS45_CONCEPT_BMW_FAST = 271;
+const MS45_NOT_FAST_KEY = 'bmweb.ms45.notFast';
+/** This DME was seen to ignore BMW-FAST and answer KWP2000*. */
+let _ms45NotFast = (() => {
+  try {
+    return localStorage.getItem(MS45_NOT_FAST_KEY) === '1';
+  } catch (e) {
+    return false;
+  }
+})();
+/** A BMW-FAST telegram went unanswered and nothing has answered since. */
+let _ms45FastWentSilent = false;
+
+/**
+ * Remember (or forget) that the DME does not speak BMW-FAST.
+ * @param {boolean} on
+ * @returns {void}
+ */
+function _ms45SetNotFast(on) {
+  _ms45NotFast = on;
+  try {
+    if (on) localStorage.setItem(MS45_NOT_FAST_KEY, '1');
+    else localStorage.removeItem(MS45_NOT_FAST_KEY);
+  } catch (e) {
+    // a private window: remembered for as long as the page lives
+  }
+}
+
+/**
+ * One telegram of a job, to the wire -- except the BMW-FAST question to a
+ * DME known not to answer it.
+ * @param {number[]|Uint8Array} out - The telegram.
+ * @param {{concept?: number}} comm - The wire parameters it goes by.
+ * @returns {Promise<Uint8Array|number[]>}
+ */
+async function _ms45Wire(out, comm) {
+  const fast = !!comm && comm.concept === MS45_CONCEPT_BMW_FAST;
+  if (fast && _ms45NotFast)
+    throw ifhError('IFH-0009', 'not asked: this DME answers KWP2000*');
+  try {
+    const answer = await webBus.exchange(out, comm);
+    if (fast) {
+      _ms45FastWentSilent = false;
+    } else if (_ms45FastWentSilent) {
+      _ms45FastWentSilent = false;
+      _ms45SetNotFast(true);
+    }
+    return answer;
+  } catch (e) {
+    // silence, or an echo that did not come back clean at that rate
+    if (fast && e && (e.ifh === 'IFH-0009' || e.ifh === 'IFH-0003'))
+      _ms45FastWentSilent = true;
+    throw e;
+  }
 }
 
 async function ms45Job(job, arg) {
@@ -796,6 +870,13 @@ async function ms45Identify() {
   // restarting (seen: the AIF unanswered two seconds after the reset, read
   // fine on the next identify), so an unanswered first read is asked again
   let aifRes = await ms45Job('aif_lesen', '');
+  if (!aifRes.ok && _ms45NotFast) {
+    // the BMW-FAST question was skipped on what was learned from another
+    // DME, and this one said nothing: ask it properly, from the start
+    _ms45SetNotFast(false);
+    if (typeof webDropSession === 'function') webDropSession(MS45_SGBD);
+    aifRes = await ms45Job('aif_lesen', '');
+  }
   if (!aifRes.ok) {
     await new Promise((resolve) => setTimeout(resolve, 1500));
     aifRes = await ms45Job('aif_lesen', '');
@@ -1276,49 +1357,74 @@ if (typeof window !== 'undefined') {
  * The client's own ops are idempotent-safe against the exchange layer's one
  * retransmission except the save, whose silence IS the success signal; the
  * client treats a null answer there as "it saved and reset".
- * @returns {(data: number[]) => Promise<number[]|null>}
+ * @param {{waitMs?: number, wireMs?: number}} [timing] - Filled in for each
+ *   telegram: how long it waited for the bus, and how long the exchange took.
+ * @returns {(data: number[]) => Promise<number[]|Uint8Array|null>}
  */
-function ms45LiveTuneSender() {
+function ms45LiveTuneSender(timing) {
   if (
     typeof webBusRawExchange !== 'function' ||
     typeof withBusLock !== 'function'
   )
     throw new Error('the K-line bus is not available');
-  return (data) =>
-    withBusLock(async () => {
-      await switchSession(MS45_SGBD);
-      let comm = sessionFor(MS45_SGBD).comm;
-      if (!comm) {
-        // The wire parameters (framing, baud) live in the SGBD's
-        // INITIALISIERUNG, which only runs when a job does. Our raw
-        // telegrams bypass the job runner, so run one cheap real job to
-        // seed the session the first time, then read its comm back.
-        await webRunJob(MS45_SGBD, 'aif_lesen', '', {
-          exchange: (out, c) => webBusRawExchange(out, c),
-        });
-        comm = sessionFor(MS45_SGBD).comm;
+  return (data) => {
+    const askedAt = Date.now();
+    return withBusLock(async () => {
+      // where a slow telegram spent its time: queued behind someone else's
+      // use of the bus, or out on the wire
+      const gotBusAt = Date.now();
+      if (timing) {
+        timing.waitMs = gotBusAt - askedAt;
+        timing.wireMs = 0;
       }
-      if (!comm) throw new Error('the MS45 session has no wire parameters yet');
-      const out = [0xb8, 0x12, 0xf1, data.length, ...data];
-      // The save op (2C 6C 05) must NOT be retransmitted: its silence is the
-      // success signal (the DME folds and resets), and a resend is a second
-      // save at an already-rebooted DME with nothing open -- which resets it
-      // again and reverts the value (seen on a bench, 2026-10-11). Send it
-      // with retransmission disabled; every other op keeps the normal cover.
-      const isSave = data[0] === 0x2c && data[1] === 0x6c && data[2] === 0x05;
-      const txComm = isSave ? { ...comm, noRetransmit: true } : comm;
-      let frame;
       try {
-        frame = await webBusRawExchange(out, txComm);
-      } catch (e) {
-        if (e && e.ifh === 'IFH-0009') return null; // silence: the DME said nothing
-        throw e;
+        return await _ms45RawTelegram(data);
+      } finally {
+        if (timing) timing.wireMs = Date.now() - gotBusAt;
       }
-      if (!frame || frame.length < 5) return null;
-      // B8 F1 12 <len> <data...> <xor>: len at [3], data from [4], drop the xor
-      const len = frame[3];
-      return frame.slice(4, 4 + len);
     });
+  };
+}
+
+/**
+ * One raw telegram to the DME and its answer's data, on a bus this caller
+ * already holds.
+ * @param {number[]|Uint8Array} data - The service and its bytes.
+ * @returns {Promise<number[]|Uint8Array|null>} null when the DME said nothing.
+ */
+async function _ms45RawTelegram(data) {
+  await switchSession(MS45_SGBD);
+  let comm = sessionFor(MS45_SGBD).comm;
+  if (!comm) {
+    // The wire parameters (framing, baud) live in the SGBD's
+    // INITIALISIERUNG, which only runs when a job does. Our raw
+    // telegrams bypass the job runner, so run one cheap real job to
+    // seed the session the first time, then read its comm back.
+    await webRunJob(MS45_SGBD, 'aif_lesen', '', {
+      exchange: (out, c) => webBusRawExchange(out, c),
+    });
+    comm = sessionFor(MS45_SGBD).comm;
+  }
+  if (!comm) throw new Error('the MS45 session has no wire parameters yet');
+  const out = [0xb8, 0x12, 0xf1, data.length, ...data];
+  // The save op (2C 6C 05) must NOT be retransmitted: its silence is the
+  // success signal (the DME folds and resets), and a resend is a second
+  // save at an already-rebooted DME with nothing open -- which resets it
+  // again and reverts the value (seen on a bench, 2026-10-11). Send it
+  // with retransmission disabled; every other op keeps the normal cover.
+  const isSave = data[0] === 0x2c && data[1] === 0x6c && data[2] === 0x05;
+  const txComm = isSave ? { ...comm, noRetransmit: true } : comm;
+  let frame;
+  try {
+    frame = await webBusRawExchange(out, txComm);
+  } catch (e) {
+    if (e && e.ifh === 'IFH-0009') return null; // silence: the DME said nothing
+    throw e;
+  }
+  if (!frame || frame.length < 5) return null;
+  // B8 F1 12 <len> <data...> <xor>: len at [3], data from [4], drop the xor
+  const len = frame[3];
+  return frame.slice(4, 4 + len);
 }
 
 if (typeof module !== 'undefined' && module.exports) {

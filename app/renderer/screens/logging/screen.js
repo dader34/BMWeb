@@ -140,6 +140,10 @@ async function logShowChassis(chassis) {
     <div class="log-pagehead">
       <span class="log-pagehead-t">Data logging</span>
       <span class="log-chassis-slot"></span>
+      <span class="log-ecu" hidden>
+        <span class="log-ecu-slot"></span>
+        <span class="log-ecu-note"></span>
+      </span>
       <span class="log-pagehead-d">Pick modules, then the readings to chart. Only read-only jobs are offered.</span>
     </div>`;
   // the car is picked in the app's own dropdown, the one the preset loader
@@ -227,8 +231,9 @@ async function logShowChassis(chassis) {
    */
   const logJobNoteHtml = (st) => {
     if (!st || st.state === 'ok') return '';
-    if (st.state === 'pending')
-      return '<div class="log-sum-note">waiting for the answer…</div>';
+    // a job that is merely being asked says nothing: a line that came and
+    // went with every poll moved the whole panel up and down as it logged
+    if (st.state === 'pending') return '';
     const cls =
       st.state === 'error' ? 'log-sum-note-error' : 'log-sum-note-empty';
     const lead = st.state === 'error' ? 'dropped: ' : '';
@@ -252,10 +257,18 @@ async function logShowChassis(chassis) {
         const hz = rate ? `${rate.toFixed(rate < 10 ? 1 : 0)}/s` : '—';
         return (
           `<div class="log-sum-row"><span class="log-sum-job">${esc(t.label)} · ` +
-          `${esc(t.job)}</span><span class="log-sum-n">${t.keys.length} key${
+          `${esc(t.job === LOG_PACKET_JOB ? 'measurement values' : t.job)}</span><span class="log-sum-n">${t.keys.length} key${
             t.keys.length === 1 ? '' : 's'
           }</span><span class="log-sum-rate" title="achieved rounds per second">${esc(hz)}</span></div>` +
-          logJobNoteHtml(sched && sched.status.get(`${t.sgbd}/${t.job}`))
+          logJobNoteHtml(sched && sched.status.get(`${t.sgbd}/${t.job}`)) +
+          // the value list re-sent again and again: something else on the
+          // page keeps taking the DME's one packet, and each time costs a stall
+          (t.job === LOG_PACKET_JOB && logPacket.resent > 2
+            ? `<div class="log-sum-note log-sum-note-empty">value list re-sent ${logPacket.resent}×: something else is using the DME's packet</div>`
+            : '') +
+          (t.job === LOG_PACKET_JOB && logPacket.slow
+            ? `<div class="log-sum-note log-sum-note-empty">${esc(logPacket.slow)}</div>`
+            : '')
         );
       })
       .join('');
@@ -313,10 +326,36 @@ async function logShowChassis(chassis) {
   /** @type {Map<string, Array<{name: string, comment: string, unit: string}>>} */
   const keyCache = new Map();
 
-  // the plain-named list, when one of this chassis's modules has one
-  const comfort = logComfortFor(modules);
-  let comfortOn = !!comfort && logComfortModeGet();
+  // The plain-named lists. A chassis was built with more than one engine
+  // control unit and each has a list of its own, so which one is shown is
+  // never assumed: it is the one last picked for this chassis, or the one
+  // the car answers as, or none until the reader says.
+  const comfortLists = logComfortLists(modules);
+  /** @type {(typeof comfortLists)[number]|null} */
+  let comfort =
+    comfortLists.find((l) => l.sgbd === logComfortEcuGet(car)) ||
+    (comfortLists.length === 1 ? comfortLists[0] : null);
+  let comfortOn = comfortLists.length > 0 && logComfortModeGet();
   const modeEl = wrap.querySelector('.log-mode');
+  const ecuEl = view.querySelector('.log-ecu');
+  const ecuNote = view.querySelector('.log-ecu-note');
+
+  /**
+   * How many of the selected readings are measurement values of a control
+   * unit: one packet carries them all, and it has a limit.
+   * @param {string} sgbd
+   * @returns {number}
+   */
+  const packetCount = (sgbd) => {
+    let n = 0;
+    for (const it of selection.items.values())
+      if (
+        it.job === LOG_PACKET_JOB &&
+        String(it.sgbd).toLowerCase() === String(sgbd).toLowerCase()
+      )
+        n++;
+    return n;
+  };
 
   /**
    * Build the comfort list: groups of plainly named readings, each a
@@ -326,7 +365,13 @@ async function logShowChassis(chassis) {
    */
   const paintComfort = (needle) => {
     treeEl.innerHTML = '';
-    for (const g of comfort.groups) {
+    if (!comfort) {
+      treeEl.innerHTML =
+        '<div class="log-sum-empty">Pick the engine control unit above. With the cable connected it is read from the car.</div>';
+      return;
+    }
+    const list = comfort;
+    for (const g of list.groups) {
       const rows = g.rows.filter(
         (r) =>
           !needle ||
@@ -341,13 +386,25 @@ async function logShowChassis(chassis) {
       for (const r of rows) {
         const row = document.createElement('label');
         row.className = 'log-key log-comfort-row';
-        row.title = `${r.job} · ${r.key}`;
+        row.title = r.value
+          ? `measurement value ${r.value.id.toString(16).toUpperCase()}`
+          : `${r.job} · ${r.key}`;
         const cb = document.createElement('input');
         cb.type = 'checkbox';
-        cb.dataset.series = logSeriesKey(comfort.mod.sgbd, r.job, r.key);
-        cb.checked = selection.has(comfort.mod.sgbd, r.job, r.key);
+        cb.dataset.series = logSeriesKey(list.mod.sgbd, r.job, r.key);
+        cb.checked = selection.has(list.mod.sgbd, r.job, r.key);
         cb.onchange = () => {
-          selection.set(comfort.mod, r.job, r.key, cb.checked);
+          if (
+            cb.checked &&
+            r.value &&
+            packetCount(list.mod.sgbd) >= LOG_PACKET_MAX
+          ) {
+            // one exchange carries them all, and it is full
+            cb.checked = false;
+            sbLeft.textContent = `the ${list.title} sends at most ${LOG_PACKET_MAX} values at once: untick one first`;
+            return;
+          }
+          selection.set(list.mod, r.job, r.key, cb.checked);
           syncCharts();
         };
         row.appendChild(cb);
@@ -379,11 +436,14 @@ async function logShowChassis(chassis) {
         'active',
         (b.dataset.mode === 'comfort') === comfortOn
       );
-    searchEl.placeholder = comfortOn
-      ? `Search ${comfort.title} readings…`
-      : 'Search modules, jobs, keys…';
+    ecuEl.hidden = !comfortOn;
+    searchEl.placeholder = !comfortOn
+      ? 'Search modules, jobs, keys…'
+      : comfort
+        ? `Search ${comfort.title} readings…`
+        : 'Search readings…';
   };
-  if (comfort) {
+  if (comfortLists.length) {
     modeEl.hidden = false;
     modeEl.onclick = (e) => {
       const b = e.target.closest('.seg-btn');
@@ -393,6 +453,68 @@ async function logShowChassis(chassis) {
       paintMode();
       paintTree(searchEl.value);
     };
+    const ecuPick = lookupDropdown(
+      'Engine control unit…',
+      comfortLists.map((l) => ({
+        val: l.sgbd,
+        label: l.title,
+        meta: l.mod.label || '',
+      })),
+      comfort ? comfort.sgbd : '',
+      (sgbd) => showEcu(sgbd, '')
+    );
+    ecuPick.el.classList.add('log-ecu-pick');
+    view.querySelector('.log-ecu-slot').replaceWith(ecuPick.el);
+
+    /**
+     * Show one control unit's list.
+     * @param {string} sgbd
+     * @param {string} note - What to say under the dropdown.
+     * @returns {void}
+     */
+    const showEcu = (sgbd, note) => {
+      const list = comfortLists.find((l) => l.sgbd === sgbd);
+      if (!list) return;
+      comfort = list;
+      logComfortEcuSet(car, sgbd);
+      if (ecuPick.value() !== sgbd) ecuPick.set(sgbd);
+      ecuNote.textContent = note;
+      paintMode();
+      paintTree(searchEl.value);
+    };
+
+    // With a cable on, ask the car which engine control unit it has: the
+    // lists' modules share one diagnostic address, and its group file tells
+    // them apart. Quietly -- no cable, no answer or an engine without a list
+    // of its own leaves the dropdown to the reader.
+    (async () => {
+      if (
+        typeof webBus === 'undefined' ||
+        !webBus.connected ||
+        typeof webResolveVariant !== 'function' ||
+        (typeof webOnSharedCar === 'function' && webOnSharedCar())
+      )
+        return;
+      const groups = [
+        ...new Set(comfortLists.map((l) => l.mod.group).filter(Boolean)),
+      ];
+      for (const group of groups) {
+        let found = null;
+        try {
+          found = await webResolveVariant(group);
+        } catch (e) {
+          found = null;
+        }
+        if (!wrap.isConnected || !found) continue;
+        const sgbd = String(found).toLowerCase();
+        if (comfortLists.some((l) => l.sgbd === sgbd)) {
+          showEcu(sgbd, 'read from the car');
+        } else {
+          ecuNote.textContent = `the car answers as ${sgbd.toUpperCase()}, which has no Comfort list yet: use Expert`;
+        }
+        return;
+      }
+    })();
     paintMode();
   }
 
@@ -405,7 +527,7 @@ async function logShowChassis(chassis) {
     const needle = String(q || '')
       .trim()
       .toLowerCase();
-    if (comfort && comfortOn) return paintComfort(needle);
+    if (comfortOn) return paintComfort(needle);
     const shown = modules.filter(
       (m) =>
         !needle ||
@@ -612,9 +734,23 @@ async function logShowChassis(chassis) {
    * Start or pause the run.
    * @returns {void}
    */
-  const toggle = () => {
+  /** When the run in progress started: what a pause saves from. */
+  let runFrom = 0;
+  const toggle = async () => {
     if (sched && sched.running) {
-      sched.stop();
+      const from = runFrom;
+      await sched.stop();
+      // Paused: the run goes into the History whole, where it is looked at
+      // again with every reading on one time axis (replay.js).
+      const log = logSnapshot(store, from, Date.now());
+      if (log && log.series.some((s) => s.t.length > 1)) {
+        const mods = [...new Set(log.series.map((s) => s.sgbd.toUpperCase()))];
+        const saved = await logSaveToHistory(log, {
+          chassis: dispChassis(car),
+          module: mods.join(' '),
+        });
+        if (saved) sbLeft.textContent = 'paused · this run is in the History';
+      }
       return;
     }
     if (!selection.size) {
@@ -656,6 +792,7 @@ async function logShowChassis(chassis) {
       // own slow timer rather than on every sample
       timer: setInterval(paintSummary, 1000),
     };
+    runFrom = Date.now();
     sched.start();
   };
 
