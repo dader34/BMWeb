@@ -39,9 +39,15 @@ const API =
  */
 const Settings = {
   /** @type {AppSettings & Object<string, any>} */
+  // bmacw.settings is the key before the rename: read once, so nobody's
+  // settings reset; every write goes to the new key
   data:
-    (typeof window !== 'undefined' && window.__bmacwSettings) ||
-    JSON.parse(localStorage.getItem('bmacw.settings') || '{}'),
+    (typeof window !== 'undefined' && window.__bmwebSettings) ||
+    JSON.parse(
+      localStorage.getItem('bmweb.settings') ||
+        localStorage.getItem('bmacw.settings') ||
+        '{}'
+    ),
 
   /**
    * Read one setting.
@@ -64,9 +70,9 @@ const Settings = {
   set(key, val) {
     this.data[key] = val;
     const json = JSON.stringify(this.data);
-    localStorage.setItem('bmacw.settings', json);
-    if (window.bmacw && window.bmacw.saveSettings)
-      window.bmacw.saveSettings(json);
+    localStorage.setItem('bmweb.settings', json);
+    if (window.bmweb && window.bmweb.saveSettings)
+      window.bmweb.saveSettings(json);
   },
 };
 
@@ -116,8 +122,8 @@ function applyTheme(id) {
     /* bar not built yet */
   }
   // aero only: frameless + transparent window
-  if (window.bmacw && window.bmacw.setTranslucent) {
-    window.bmacw.setTranslucent(id === 'aero');
+  if (window.bmweb && window.bmweb.setTranslucent) {
+    window.bmweb.setTranslucent(id === 'aero');
   }
   applyAeroOpacity();
   setTimeout(updateDockIcon, DOCK_ICON_REPAINT_MS);
@@ -219,7 +225,7 @@ function logoSvg(size) {
  * @returns {void}
  */
 function updateDockIcon() {
-  const dock = window.bmacw && window.bmacw.setDockIcon;
+  const dock = window.bmweb && window.bmweb.setDockIcon;
   if (!dock && !IS_WEB) return;
   const resolvedSvg = logoSvg(LOGO_PNG_SIZE);
 
@@ -242,7 +248,7 @@ function updateDockIcon() {
     const ctx = canvas.getContext('2d');
     ctx.drawImage(img, 0, 0);
     const dataUrl = canvas.toDataURL('image/png');
-    if (dock) window.bmacw.setDockIcon(dataUrl).catch(console.error);
+    if (dock) window.bmweb.setDockIcon(dataUrl).catch(console.error);
     else setFavicon(dataUrl);
     URL.revokeObjectURL(url);
   };

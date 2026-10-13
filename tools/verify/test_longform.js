@@ -3,7 +3,7 @@
 // owns the short->long fallback.
 //
 // EVERY FIXTURE IS REAL WIRE DATA, captured by tracing EDIABAS itself against
-// the car (IfhTrace=3, tools/verify + BMACW_IFH_TRACE):
+// the car (IfhTrace=3, tools/verify + BMWEB_IFH_TRACE):
 //
 //   xsetpar 0x10F (BMW-FAST 115200)
 //   Send: 82 12 F1 1A 80 1F          -> echo, "*** No header received", IFH-0009

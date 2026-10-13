@@ -11,8 +11,14 @@
 
 /** Rows kept while verbose tracing is on (busTrace.start's default). */
 const BUS_TRACE_LIMIT = 400;
-/** Rows kept in the always-on ring buffer of recent wire activity. */
-const BUS_TRACE_RECENT_LIMIT = 60;
+/**
+ * Rows kept in the always-on ring buffer of recent wire activity. A beta
+ * report carries this ring, so it has to reach back past a whole read: a tune
+ * read is ~470 chunks of four rows each, and with 60 rows the report filed
+ * after one held nothing but its last fifteen chunks -- the security access
+ * that had failed before it was gone. ~2000 rows is under a megabyte of hex.
+ */
+const BUS_TRACE_RECENT_LIMIT = 2500;
 /** Job rows kept by the API-layer trace. */
 const API_TRACE_LIMIT = 500;
 

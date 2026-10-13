@@ -81,13 +81,16 @@ const Journal = {
    */
   testerId() {
     try {
-      let id = localStorage.getItem('bmacw.beta.id');
+      // bmacw.beta.id is the key before the rename: a tester keeps their id
+      let id =
+        localStorage.getItem('bmweb.beta.id') ||
+        localStorage.getItem('bmacw.beta.id');
       if (!id) {
         id = Array.from(crypto.getRandomValues(new Uint8Array(4)))
           .map((b) => b.toString(16).padStart(2, '0'))
           .join('');
-        localStorage.setItem('bmacw.beta.id', id);
       }
+      localStorage.setItem('bmweb.beta.id', id);
       return id;
     } catch (e) {
       return 'anon';
@@ -108,7 +111,7 @@ const Journal = {
         : null;
     return {
       v: 1,
-      app: (typeof BMACW_VERSION !== 'undefined' && BMACW_VERSION) || 'dev',
+      app: (typeof BMWEB_VERSION !== 'undefined' && BMWEB_VERSION) || 'dev',
       ts: new Date().toISOString(),
       tester: this.testerId(),
       desc: scrubVin(desc || ''),
@@ -164,7 +167,7 @@ const Journal = {
     // an offline build has no collector to talk to: no button, no auto
     // reports, no sends -- the journal itself still runs for the dialog-less
     // file save nothing ever triggers
-    if (typeof window !== 'undefined' && window.BMACW_OFFLINE) return '';
+    if (typeof window !== 'undefined' && window.BMWEB_OFFLINE) return '';
     return typeof Settings !== 'undefined'
       ? Settings.get('betaEndpoint', BETA_ENDPOINT_DEFAULT)
       : BETA_ENDPOINT_DEFAULT;
@@ -374,7 +377,7 @@ function _journalInstall() {
  * @returns {void}
  */
 function _journalButton() {
-  if (typeof window !== 'undefined' && window.BMACW_OFFLINE) return;
+  if (typeof window !== 'undefined' && window.BMWEB_OFFLINE) return;
   if (
     typeof Settings !== 'undefined' &&
     Settings.get('betaReports', true) === false
@@ -385,7 +388,6 @@ function _journalButton() {
   const b = document.createElement('button');
   b.className = 'icon-btn';
   b.id = 'beta-btn';
-  b.title = 'File a beta report (session log + wire trace)';
   b.innerHTML =
     '<span class="btn-text">Report</span>' +
     '<span class="btn-icon" aria-hidden="true">◉</span>';

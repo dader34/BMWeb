@@ -52,7 +52,7 @@ cd "$(dirname "$0")/.."
 
 # The .IPO compiler + constant editor round-trip against a committed corpus,
 # so this one runs BEFORE the vendor gate -- it needs no BMW originals. Point
-# BMACW_IPO_CORPUS at vendor/EC-APPS/INPA/SGDAT to run it over the real tree.
+# BMWEB_IPO_CORPUS at vendor/EC-APPS/INPA/SGDAT to run it over the real tree.
 echo "== .IPO compiler / editor round-trip =="
 python3 tools/verify/test_ipo_roundtrip.py
 echo
@@ -106,6 +106,13 @@ node tools/verify/test_ms45_flash.js || exit 1
 echo
 echo "== Map switch builder: byte-identical to the reference build, recognition, gates =="
 node tools/verify/test_mapswitch.js || exit 1
+
+echo
+echo "== Live-tune client: open/sync/save against a faithful DME-service stub =="
+node tools/verify/test_livetune.js || exit 1
+node tools/verify/test_livetune_cursor.js || exit 1
+node tools/verify/test_livetune_link.js || exit 1
+node tools/verify/test_livetune_faults.js || exit 1
 
 echo
 echo "== Engine protection builder: byte-identical to the emulator-tested build, gates, config =="
@@ -328,7 +335,9 @@ python3 tools/verify/test_techdata_extract.py || exit 1
 # Table completeness: the VM reaches tables the lifter never modelled, so a
 # shipped set that omits declared tables silently decodes lookups as "".
 # Needs a running app for the ECU table API; skipped otherwise.
-if [ -n "$BMACW_PORT" ] && [ -d data/sgbd-tables ]; then
+# BMACW_PORT is the name before the rename; it still works
+BMWEB_PORT="${BMWEB_PORT:-${BMACW_PORT:-}}"
+if [ -n "$BMWEB_PORT" ] && [ -d data/sgbd-tables ]; then
   echo
   echo "== shipped tables cover what the SGBDs declare =="
   python3 tools/export/sgbd_export.py --audit || exit 1

@@ -1,6 +1,6 @@
 # K+DCAN cable access without root, on Linux.
 #
-#   sudo cp 99-bmacw-kdcan.rules /etc/udev/rules.d/
+#   sudo cp 99-bmweb-kdcan.rules /etc/udev/rules.d/
 #   sudo udevadm control --reload-rules && sudo udevadm trigger
 #   (unplug and replug the cable)
 #

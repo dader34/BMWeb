@@ -51,6 +51,15 @@
  * @property {Date} [now] - fixed clock (determinism for the replay memo).
  * @property {DispatcherProgram|null} [dispatch] - the derived dispatcher, when shipped.
  * @property {DataOrg|null} [dataOrg] - the CABD's word width / byte order.
+ * @property {CabdLayout} [cabd] - the coding description (functions, groups,
+ *   coding indexes); the dispatcher path needs it.
+ * @property {string|ArrayLike<number>} [base] - the image the edits were made
+ *   on; what differs from it is what gets written.
+ * @property {(text: string) => void} [onStage] - told where the run is.
+ * @property {string} [vin] - the car's 17-character VIN; becomes the
+ *   FAHRGESTELL_NR (with its check character) a script may ask for.
+ * @property {Record<string, string>} [systemData] - anything else a script
+ *   asks for, or an override of the above.
  * @property {string} [jobname] - the dispatcher jobname (default SG_CODIEREN).
  */
 
@@ -76,7 +85,13 @@
  * @property {Array<[string, string]>} [sequence] - `[job, JOB_STATUS]` per step.
  * @property {WriteStrategy|'dispatch'} strategy - which path ran.
  * @property {WireLogEntry[]} [log] - the dispatcher's wire log.
- * @property {string} [note] - why nothing was transmitted / not re-read.
+ * @property {string} [note] - why nothing was transmitted.
+ * @property {number[]} [addrs] - dispatcher path: the byte addresses written,
+ *   `before` and `after` holding those bytes.
+ * @property {number[]} [edited] - dispatcher path: the addresses that were
+ *   being changed (the rest of `addrs` went back as read).
+ * @property {number[]} [moved] - dispatcher path: unedited addresses that
+ *   read back differently than written.
  */
 
 (function (root) {
@@ -403,6 +418,16 @@
 
     const jobs = opts.jobs || (opts.code && opts.code.jobs) || {};
     const strategy = codingWriteStrategy(sgbd, jobs);
+    // C_S_AUFTRAG does not take a coding image. Its argument is BMW's binary
+    // buffer -- 21 header bytes, a run of words, a closing 0x03 -- one run at
+    // a time, which only the module's dispatcher builds. Handed the bare
+    // image it would read the first 21 coding bytes as a header.
+    if (strategy === 'cfg-chunked') {
+      throw new Error(
+        `coding write refused: ${sgbd} is coded through its dispatcher ` +
+          '(C_S_AUFTRAG takes request buffers, not an image) and none is shipped for it'
+      );
+    }
     if (!strategy) {
       throw new Error(
         `coding write refused: ${sgbd} exposes no known coding ` +
@@ -471,41 +496,206 @@
 
   // ---- dispatcher-driven write --------------------------------------------
   //
-  // Run BMW's derived A_<cabd> dispatcher (opts.dispatch) to produce the write.
-  // We hand it the target netto as a slot table (one slot per byte address) and
-  // the data-org (word width / byte order) from the CABD's SPEICHERORG, then
-  // read back and prove equality. The dispatcher owns the job order and the
-  // wire-packet framing; we own the confirm gate, the slot/data-org seeding,
-  // and the prove-by-re-read.
+  // Run BMW's derived A_<cabd> dispatcher (opts.dispatch). It owns the job
+  // order and the request buffers; this owns what surrounds it:
+  //
+  //   1. READ the coding region, through the script's own CODIERDATEN_LESEN.
+  //      That is the same route the proof uses, so a module that cannot be
+  //      read back this way is refused BEFORE anything is sent.
+  //   2. WRITE the whole region -- every coding block, as the factory tool
+  //      does -- with what was just read and the edits laid on. What is not
+  //      being edited goes back as the module held it a moment ago, not as a
+  //      read from before the review dialog held it. The script still
+  //      decides what it leaves out (the VIN, the checksum, the service data).
+  //   3. PROVE: read it again; every edited byte must be as written.
+  /** Without the caller's own base image, more differing bytes than this is
+   *  taken for a wrong layout, not for an edit. */
+  const MAX_UNBASED_EDITS = 64;
+  /** The dispatcher jobname that reads the coding back. */
+  const READ_JOBNAME = 'CODIERDATEN_LESEN';
+
+  /**
+   * Every byte address the coding description gives a meaning to: its
+   * functions, and (for a read) its named blocks, which reach bytes no
+   * function names. The factory tool reads those too.
+   * @param {CabdLayout} cabd - the description.
+   * @param {number} size - the image size.
+   * @param {boolean} [blocks] - include the named blocks' whole ranges.
+   * @returns {number[]} the addresses, ascending.
+   */
+  function codedAddrs(cabd, size, blocks) {
+    const map = new Uint8Array(size);
+    for (const f of cabd.fields || []) {
+      const start = f.word | 0;
+      const end = start + Math.max(1, f.byte | 0);
+      for (let a = Math.max(0, start); a < end && a < size; a++) map[a] = 1;
+    }
+    for (const g of (blocks && cabd.groups) || []) {
+      const start = g.start | 0;
+      const end = start + Math.max(0, g.length | 0);
+      for (let a = Math.max(0, start); a < end && a < size; a++) map[a] = 1;
+    }
+    const out = [];
+    for (let a = 0; a < size; a++) if (map[a]) out.push(a);
+    return out;
+  }
+
+  /**
+   * How big a module's coding image is: up to the end of the last function
+   * or named block, in whole words.
+   * @param {CabdLayout} cabd - the coding description.
+   * @param {number} wb - word width in bytes.
+   * @returns {number} the size in bytes.
+   */
+  function imageSize(cabd, wb) {
+    let end = 0;
+    for (const f of cabd.fields || [])
+      end = Math.max(end, (f.word | 0) + Math.max(1, f.byte | 0));
+    for (const g of cabd.groups || [])
+      end = Math.max(end, (g.start | 0) + Math.max(0, g.length | 0));
+    return Math.ceil(end / wb) * wb;
+  }
+
+  /**
+   * Read a module's coding image through its own coding script: every byte
+   * the coding description gives a meaning to. This is what the coding
+   * screens show a module's settings from. Nothing can be written by it: the
+   * run's gate is shut.
+   * @param {string} sgbd - the coding SGBD.
+   * @param {WriteOptions} opts - `exchange`, `code`, `tables`, `dispatch`,
+   *   `cabd`, and `dataOrg` when the script file carries none.
+   * @returns {Promise<{netto: number[], read: number[], size: number,
+   *   log: WireLogEntry[]}>} the image, which addresses of it were read (the
+   *   rest are 0 and mean nothing), its size, and the jobs that ran.
+   * @throws {Error} when there is no script or description, or the read fails.
+   */
+  async function readCoding(sgbd, opts = /** @type {any} */ ({})) {
+    if (typeof opts.exchange !== 'function')
+      throw new Error('coding read refused: no bus exchange provided');
+    if (!opts.dispatch || typeof root.runCodingDispatch !== 'function')
+      throw new Error(`coding read refused: no coding script for ${sgbd}`);
+    const cabd = opts.cabd;
+    if (!cabd || !Array.isArray(cabd.fields) || !cabd.fields.length)
+      throw new Error('coding read refused: no coding description');
+    const org = opts.dataOrg || opts.dispatch.dataOrg || {};
+    const wb = org.wortBreite === 2 ? 2 : 1;
+    const size = imageSize(cabd, wb);
+    const baseCtx = {
+      Best2Vm: getVm(opts),
+      code: opts.code,
+      tables: opts.tables || (opts.code && opts.code.tables) || {},
+      exchange: opts.exchange,
+      session: opts.session || { shared: new Map(), inited: false, comm: null },
+      now: opts.now || null,
+    };
+    const r = await root.runCodingDispatch(opts.dispatch, {
+      sgbd,
+      cabd,
+      dataOrg: {
+        wortBreite: wb,
+        byteFolge: org.byteFolge === 1 ? 1 : 0,
+        adrMode: 0,
+      },
+      mode: 'read',
+      jobname: READ_JOBNAME,
+      netto: new Array(size).fill(0),
+      readAddrs: codedAddrs(cabd, size, true),
+      // read-only whatever the script asks for
+      runJob: async (jobSgbd, job, argText, o) =>
+        runJobOverBus(
+          { ...baseCtx, allowWrites: false },
+          jobSgbd || sgbd,
+          job,
+          o && o.binary
+            ? { bin: Array.from(argText, (c) => c.charCodeAt(0)) }
+            : argText
+        ),
+    });
+    if (!r.ok) {
+      throw new Error(
+        `coding read failed (${r.info || `error ${r.err}, return ${r.ret}`})`
+      );
+    }
+    return { netto: r.netto, read: r.read, size, log: r.log };
+  }
+
+  /**
+   * What a coding script may ask about the car and the place it is coded at.
+   * @param {WriteOptions} opts - `vin` and/or `systemData`.
+   * @returns {Record<string, string>} the system data for the run.
+   */
+  function systemDataFor(opts) {
+    // WERK_NR 0000 is "not a plant": the cluster's script resets the
+    // time-based service counter for a car on the line (any other number).
+    const data = { WERK_NR: '0000' };
+    // FAHRGESTELL_NR is the 17-character VIN and its check character. The
+    // cluster's script compares its last seven with the module's own to
+    // decide whether the VIN is to be written; the body module's passes it
+    // to a job that takes exactly 18 characters.
+    const vin = String(opts.vin || '')
+      .trim()
+      .toUpperCase();
+    const Encode =
+      typeof root !== 'undefined' && root.CodingEncode
+        ? root.CodingEncode
+        : typeof require !== 'undefined'
+          ? require('./encode.js')
+          : null;
+    if (/^[A-HJ-NPR-Z0-9]{17}$/.test(vin) && Encode)
+      data.FAHRGESTELL_NR = Encode.formatFahrgestellNr(vin);
+    return { ...data, ...(opts.systemData || {}) };
+  }
+
   /**
    * Write via the derived dispatcher, then prove by re-read.
    * @param {string} sgbd - the module.
-   * @param {number[]} want - the FULL netto to write.
+   * @param {number[]} want - the FULL image the module should hold.
    * @param {WriteContext} baseCtx - the runner context (gate closed).
-   * @param {WriteOptions} opts - the caller's options (dispatch, dataOrg, jobs).
+   * @param {WriteOptions} opts - the caller's options (dispatch, cabd, base,
+   *   dataOrg, systemData, jobname).
    * @returns {Promise<WriteResult>} the outcome.
-   * @throws {Error} ERROR_VERIFY when the dispatcher reports failure or the
-   *   re-read does not match.
+   * @throws {Error} a refusal before anything is sent (no coding description,
+   *   an edit outside it, a module that cannot be read back); ERROR_VERIFY
+   *   when the dispatcher reports failure or the re-read does not match.
    */
   async function writeViaDispatch(sgbd, want, baseCtx, opts) {
-    // data-org: word width (1 byte / 2 word), byte order (0 low-first).
-    // The CABD SPEICHERORG STRUKTUR: BYTE -> wb 1; WORDMSB/WORDLSB -> wb 2,
-    // byteFolge 0 (LSB) or 1 (MSB). Default byte mode when unspecified.
-    const org = opts.dataOrg || {};
+    const cabd = opts.cabd;
+    if (!cabd || !Array.isArray(cabd.fields) || !cabd.fields.length) {
+      throw new Error(
+        'coding write refused: the dispatcher needs the coding description ' +
+          'of the module (its functions and their addresses) to select from'
+      );
+    }
+    // data-org: word width (1 byte / 2 word), byte order (0 low-first), from
+    // the CABD's SPEICHERORG.
+    const org = opts.dataOrg || opts.dispatch.dataOrg || {};
     const wb = org.wortBreite === 2 ? 2 : 1;
-    const byteFolge = org.byteFolge === 1 ? 1 : 0;
-    // The netto to write as a byte-addressed slot table. The dispatcher's
-    // CDHGetApiJobData walks these in address order to build each chunk.
-    const slots = want.map((v, addr) => ({
-      addr,
-      value: v & 0xff,
-      mask: 0xff,
-      flags: 0,
-    }));
+    const dataOrg = {
+      wortBreite: wb,
+      byteFolge: org.byteFolge === 1 ? 1 : 0,
+      adrMode: 0,
+    };
+    if (want.length % wb) {
+      throw new Error(
+        `coding write refused: a ${want.length}-byte image for a module that stores ${wb}-byte words`
+      );
+    }
+    const coded = codedAddrs(cabd, want.length);
+    // the description's blocks, when it says which are coding data
+    const kinds = (cabd.groups || []).filter((g) => g.kind);
+    const isCoded = new Uint8Array(want.length);
+    for (const a of coded) isCoded[a] = 1;
 
-    // runJob for the dispatcher: the SAME memoised bus replay the strategy
-    // path uses, with allowWrites threaded per call. Reads (the dispatcher's
-    // own ident/index/current-netto) come with the gate closed.
+    // WHAT IS BEING EDITED: where the wanted image differs from the image the
+    // edits were made on (opts.base, the caller's own read). Without a base
+    // it is where it differs from the module, bounded.
+    const base = opts.base ? toBytes(opts.base) : null;
+    if (base && base.length !== want.length) {
+      throw new Error(
+        `coding write refused: the base image is ${base.length} bytes, the wanted one ${want.length}`
+      );
+    }
+
     /** @type {CdhRunJob} */
     const runJob = async (jobSgbd, job, argText, o) => {
       const ctx = { ...baseCtx, allowWrites: !!(o && o.allowWrites) };
@@ -515,62 +705,216 @@
           : argText;
       return runJobOverBus(ctx, jobSgbd || sgbd, job, arg);
     };
+    const common = { sgbd, cabd, dataOrg, confirmed: true, runJob };
 
-    // Seed data-org before the dispatcher runs (NCSEXPER's C layer does this at
-    // CABD load, before the IPO): the SGBD's len == 22 + N*wortBreite check
-    // fails if the width does not match, so a word-mode module (E46 KMB) needs
-    // wb 2 here.
-    const result = await root.runCodingDispatch(opts.dispatch, {
-      sgbd,
-      slots,
-      jobname: opts.jobname || DEFAULT_JOBNAME,
-      dataOrg: { wortBreite: wb, byteFolge, adrMode: 0 },
-      confirmed: true,
-      runJob,
-    });
-    if (!result.ok) {
-      throw errVerify(
-        `dispatcher reported failure (err ${result.err}, ` +
-          `ret ${result.ret})`
+    /**
+     * Read byte addresses through the script's own read route.
+     * @param {number[]} addrs - the addresses.
+     * @param {string} what - for the message ("before the write").
+     * @param {(msg: string) => Error} fail - how a failure is reported.
+     * @returns {Promise<number[]>} the image, filled at those addresses' words.
+     */
+    const readBack = async (addrs, what, fail) => {
+      const r = await root.runCodingDispatch(opts.dispatch, {
+        ...common,
+        mode: 'read',
+        jobname: READ_JOBNAME,
+        netto: new Array(want.length).fill(0),
+        readAddrs: addrs,
+      });
+      if (!r.ok) {
+        throw fail(
+          `the module could not be read ${what} (${r.info || `error ${r.err}, return ${r.ret}`})`
+        );
+      }
+      const got = new Set(r.read);
+      const missed = addrs.filter((a) => !got.has(a));
+      if (missed.length) {
+        throw fail(
+          `the read ${what} left ${missed.length} of ${addrs.length} bytes unanswered`
+        );
+      }
+      return r.netto;
+    };
+    const refuse = (msg) => new Error(`coding write refused: ${msg}`);
+
+    let edits;
+    if (base) {
+      edits = [];
+      for (let a = 0; a < want.length; a++)
+        if (want[a] !== base[a]) edits.push(a);
+    } else {
+      const now = await readBack(coded, 'to find what changes', refuse);
+      edits = coded.filter((a) => now[a] !== want[a]);
+      if (edits.length > MAX_UNBASED_EDITS) {
+        throw refuse(
+          `${edits.length} bytes differ from the module; that is not an edit ` +
+            '(a wrong coding index or image?)'
+        );
+      }
+    }
+    const stray = edits.filter((a) => !isCoded[a]);
+    if (stray.length) {
+      throw refuse(
+        `an edit at 0x${stray[0].toString(16)} is outside what the coding description covers`
       );
     }
-
-    // PROVE BY RE-READ, independent of the dispatcher's own verify. Use the
-    // SGBD's coding read job; compare to what we asked to write.
-    const jobs = opts.jobs || (opts.code && opts.code.jobs) || {};
-    const readJob =
-      readJobFor('codierdaten', jobs) || readJobFor('codierung', jobs);
-    const after = readJob ? await readNetto(baseCtx, sgbd, readJob) : null;
-    if (after == null) {
-      // No read job to verify with: the dispatcher's post-write C_CHECKSUM is
-      // the only proof. Report it but flag the missing independent re-read.
+    if (!edits.length) {
       return {
         ok: true,
         before: null,
         after: null,
         strategy: 'dispatch',
-        log: result.log,
-        note: 'no coding read job to prove by re-read',
+        log: [],
+        note: 'netto already matches; no write transmitted',
       };
     }
-    if (!bytesEqual(after, want)) {
-      throw errVerify(
-        `re-read does not match written netto ` +
-          `(wanted ${toHex(want)}, read back ${toHex(after)})`
+    // ONLY CODING DATA. A coding description sorts its blocks into coding
+    // data, manufacturer data and reserved data, and a module is reported to
+    // refuse its coding job on the last two (the job answers
+    // ERROR_ECU_PARAMETER). That refusal would come mid-run; knowing the
+    // blocks, it is said here instead, before anything is sent. A word that
+    // is only half coding data counts as not.
+    if (kinds.length) {
+      const codingData = new Uint8Array(want.length);
+      for (const g of kinds) {
+        if (g.kind !== 'coding') continue;
+        const end = (g.start | 0) + Math.max(0, g.length | 0);
+        for (let a = Math.max(0, g.start | 0); a < end && a < want.length; a++)
+          codingData[a] = 1;
+      }
+      const outside = edits.find((a) => {
+        const w = a - (a % wb);
+        for (let k = 0; k < wb; k++) if (!codingData[w + k]) return true;
+        return false;
+      });
+      if (outside != null) {
+        const block = kinds.find(
+          (g) => outside >= g.start && outside < g.start + g.length
+        );
+        throw refuse(
+          `the edit at 0x${outside.toString(16)} is not coding data` +
+            (block && block.kind !== 'coding'
+              ? ` (it is in the ${block.kind} block ${block.name})`
+              : ' (no coding block holds its whole word)')
+        );
+      }
+    }
+
+    // THE WHOLE CODING REGION GOES OUT, as the factory tool sends it: every
+    // word of the description's coding blocks, not just the ones an edit is
+    // in. (Without block kinds: every word a function lives in.) Only whole
+    // words count; a word half outside the region is not the coding job's.
+    const inRegion = new Uint8Array(want.length);
+    if (kinds.length) {
+      for (const g of kinds) {
+        if (g.kind !== 'coding') continue;
+        const end = (g.start | 0) + Math.max(0, g.length | 0);
+        for (let a = Math.max(0, g.start | 0); a < end && a < want.length; a++)
+          inRegion[a] = 1;
+      }
+    } else {
+      for (const a of coded) inRegion[a] = 1;
+    }
+    const region = [];
+    for (let w = 0; w + wb <= want.length; w += wb) {
+      let whole = true;
+      for (let k = 0; k < wb; k++) if (!inRegion[w + k]) whole = false;
+      if (whole) for (let k = 0; k < wb; k++) region.push(w + k);
+    }
+    const regionSet = new Set(region);
+    const lost = edits.find((a) => !regionSet.has(a));
+    if (lost != null) {
+      throw refuse(
+        `the edit at 0x${lost.toString(16)} is not in a whole word of the coding region`
       );
     }
+
+    // where the run is, for whoever is watching (it takes a while, and the
+    // module is being written for part of it)
+    const stage = (text) => {
+      if (typeof opts.onStage === 'function') opts.onStage(text);
+    };
+
+    // 1. the region, as the module holds it NOW
+    stage('Reading the module');
+    const before = await readBack(region, 'before the write', refuse);
+
+    // 2. the write: what was just read, with the edits laid on. Everything
+    // that is not being edited goes back exactly as it came, seconds old.
+    const image = want.slice();
+    for (const a of region) image[a] = before[a];
+    for (const a of edits) image[a] = want[a];
+    stage('Writing: do not disconnect or switch the ignition off');
+    const result = await root.runCodingDispatch(opts.dispatch, {
+      ...common,
+      mode: 'write',
+      jobname: opts.jobname || DEFAULT_JOBNAME,
+      netto: image,
+      changed: region,
+      held: before,
+      systemData: systemDataFor(opts),
+    });
+    const sent = new Set(result.written);
+    const unsent = edits.filter((a) => !sent.has(a));
+    if (!result.ok) {
+      throw errVerify(
+        `the coding run failed (${result.info || `error ${result.err}, return ${result.ret}`})` +
+          (sent.size
+            ? `; ${sent.size} bytes had already been sent`
+            : '; nothing was sent')
+      );
+    }
+    if (unsent.length) {
+      // the script switched the function off (it does that for the VIN, the
+      // checksum and the service data), or issued no write job at all
+      throw errVerify(
+        `the coding run ended without sending ${unsent.length} of ${edits.length} edited bytes ` +
+          `(first at 0x${unsent[0].toString(16)})`
+      );
+    }
+
+    // 3. PROVE BY RE-READ, on every byte a write job carried. An edited byte
+    // must read back as written. Another byte that reads back differently
+    // was written with what the module held a moment before and has since
+    // been changed by the module itself (each write job has already read its
+    // own telegram back): that is reported, not called a failed write.
+    const carried = result.written;
+    stage('Written. Reading it back to verify');
+    const after = await readBack(carried, 'back after the write', errVerify);
+    const edited = new Set(edits);
+    const wrong = carried.filter((a) => edited.has(a) && after[a] !== image[a]);
+    if (wrong.length) {
+      const a = wrong[0];
+      throw errVerify(
+        `re-read does not match at ${wrong.length} edited bytes (first at 0x${a.toString(16)}: ` +
+          `wrote ${toHex([image[a]])}, read back ${toHex([after[a]])})`
+      );
+    }
+    const moved = carried.filter(
+      (a) => !edited.has(a) && after[a] !== image[a]
+    );
     return {
       ok: true,
-      before: null,
-      after,
+      before: carried.map((a) => before[a] ?? null),
+      after: carried.map((a) => after[a]),
+      addrs: carried,
+      edited: edits,
+      moved,
       strategy: 'dispatch',
       log: result.log,
+      ...(moved.length
+        ? {
+            note: `${moved.length} bytes outside the edit read back differently than written (first at 0x${moved[0].toString(16)}): the module changed them itself`,
+          }
+        : {}),
     };
   }
 
   const api = {
     codingWriteStrategy,
     writeCoding,
+    readCoding,
     saveCodingBackup,
     listCodingBackups,
     // exposed for the UI/tests to introspect without running anything
@@ -580,11 +924,13 @@
     _toHex: toHex,
     _bytesToArgString: bytesToArgString,
     _extractNetto: extractNetto,
+    _systemDataFor: systemDataFor,
   };
 
   if (typeof root !== 'undefined') {
     root.codingWriteStrategy = codingWriteStrategy;
     root.writeCoding = writeCoding;
+    root.readCoding = readCoding;
     root.codingWrite = api;
   }
   if (typeof module !== 'undefined' && module.exports) {

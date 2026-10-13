@@ -148,7 +148,7 @@ def _export_tables_one(sgbd):
     tables as COLUMN0..n with the header as data row 0; it also missed
     tables the listing did not name. The container has the tables in full
     (_prg_tables is the same walk EdiabasNet.IndexTable does: row 0 is the
-    header), so it is the only source now -- no engine, no BMACW_PORT.
+    header), so it is the only source now -- no engine, no BMWEB_PORT.
     Written to data/ecu-src/<sgbd>.tables.json.gz, the committed source
     build_ecu_tree fans out. Returns (sgbd, listing_failed, table_failures)
     like before; both are 0 unless the .prg is missing or unreadable.
@@ -420,9 +420,9 @@ def audit_tables(targets):
     column decoding as "".
     """
     import urllib.request
-    port = os.environ.get("BMACW_PORT")
+    port = os.environ.get("BMWEB_PORT") or os.environ.get("BMACW_PORT")
     if not port:
-        print("audit needs BMACW_PORT")
+        print("audit needs BMWEB_PORT")
         return 1
     bad = 0
     tot_decl = tot_ship = 0
@@ -532,9 +532,9 @@ def coverage(targets):
 
 
 def all_chassis():
-    """The chassis ids the running app serves (needs BMACW_PORT)."""
+    """The chassis ids the running app serves (needs BMWEB_PORT)."""
     import urllib.request
-    port = os.environ.get("BMACW_PORT")
+    port = os.environ.get("BMWEB_PORT") or os.environ.get("BMACW_PORT")
     return json.load(urllib.request.urlopen(
         f"http://127.0.0.1:{port}/api/chassis", timeout=60))
 
@@ -542,7 +542,7 @@ def all_chassis():
 def chassis_sgbds(chassis):
     """The SGBDs one chassis' menu names, from the running app."""
     import urllib.request
-    port = os.environ.get("BMACW_PORT")
+    port = os.environ.get("BMWEB_PORT") or os.environ.get("BMACW_PORT")
     c = json.load(urllib.request.urlopen(
         f"http://127.0.0.1:{port}/api/chassis/{chassis}", timeout=300))
     return sorted({(e.get("sgbd") or "").lower()
@@ -567,9 +567,9 @@ def ship(chassis="E46"):
     the tree honest.
     """
     import urllib.request
-    port = os.environ.get("BMACW_PORT")
+    port = os.environ.get("BMWEB_PORT") or os.environ.get("BMACW_PORT")
     if not port:
-        raise SystemExit("--ship needs BMACW_PORT (chassis config API)")
+        raise SystemExit("--ship needs BMWEB_PORT (chassis config API)")
     cfg = json.load(urllib.request.urlopen(
         f"http://127.0.0.1:{port}/api/chassis/{chassis}", timeout=60))
     # fault maps self-declare the sgbd they cover

@@ -1129,4 +1129,47 @@ const notInstalled = {
   );
 }
 
-console.log(`\nmapswitch: ${passed} checks passed`);
+// ── Read Installed Maps on a car with seven maps ────────────────────────────
+// the real read (flash-ops) against the flash the builder lays out: the chunk
+// layout's tables are 1 KB a map, and read at the block layout's length maps
+// 3 to 7 came back built from tables of zeros -- wrong, without an error
+(async () => {
+  if (!fs.existsSync(stockFlash) || !fs.existsSync(stockMpc)) {
+    console.log('  skip  seven maps read back (set MS45_DIR to run this)');
+    return;
+  }
+  console.log('\nread installed maps');
+  const flash = new Uint8Array(fs.readFileSync(stockFlash));
+  const mpc = new Uint8Array(fs.readFileSync(stockMpc));
+  const extra = [];
+  for (let i = 0; i < 6; i++) {
+    const m = calOf(flash);
+    m[0x8f2c] = 0x10 + i;
+    m[0x10010 + i * 0x900] ^= 0x5a;
+    extra.push(m);
+  }
+  const car = mapSwitch.build(flash, mpc, null, extra, 'dsc').flash;
+  global.mapSwitch = mapSwitch;
+  global.ms45SecurityAccess = async () => true;
+  global.ms45LeaveProgrammingMode = async () => true;
+  global.ms45ReadMemory = async (start, end) =>
+    Uint8Array.from(car.subarray(start, end + 1));
+  const { flashOps } = require('../../app/renderer/core/flash-ops.js');
+  const r = await flashOps.run('dme-maps-read', {
+    diagProtocol: 'KWP-2000*',
+    layout: 'blocks',
+  });
+  assert.ok(r.ok, r.status);
+  assert.strictEqual(r.maps.length, 6);
+  r.maps.forEach((m, i) =>
+    assert.ok(sameCal(m, extra[i]), `map ${i + 2} reads back as built`)
+  );
+  ok(
+    'Read Installed Maps reads all seven maps of the current layout back whole'
+  );
+})()
+  .then(() => console.log(`\nmapswitch: ${passed} checks passed`))
+  .catch((e) => {
+    console.error('\nFAILED:', e.stack || e.message);
+    process.exit(1);
+  });

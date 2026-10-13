@@ -11,12 +11,8 @@ modules in front of you".
     python3 tools/decompile/ncs_sget.py --write         # -> data/ncs-sget.json
     python3 tools/decompile/ncs_sget.py --check         # invariants, exit 1 on fail
 
-CONTAINER. NOT the .C0x frame walker. ncs_daten.records() resyncs on a
-<len><seq><00><payload><xor> frame; SGET rows are not framed that way, and
-running that walker here finds only false positives inside the schema text.
-An SGET row is a flat run instead -- five NUL-terminated strings, a u8 length,
-then that many predicate bytes -- so this module walks the structure directly.
-ncs_daten is still imported for its schema()/strings() helpers.
+CONTAINER. The same frames as a .C0x file (ncs_daten.records()), in three
+row blocks of different shapes -- see parse_file().
 
 The `A` field also differs in meaning: in .C0x it is a CABD OPERATION list
 (fixed 5-byte entries), here it is the raw AUFTRAGSAUSDRUCK blob. ncs_daten's
@@ -33,6 +29,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # tools/
 from _cli import parse_args                                     # noqa: E402
+import ncs_daten as N                                           # noqa: E402
 
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..')
 DATEN = os.path.join(ROOT, 'vendor', 'EC-APPS', 'NCSEXPER', 'DATEN')
@@ -85,111 +82,101 @@ def refs_of(b):
     return out
 
 
+# The three row blocks of an SGET file and the strings each row opens with
+# (the file's own schema: SGAUSWAHL_VM is SSSSA.., _SGBD is SSSSSA.., _VMSGBD
+# is SSSSSSA..). After the strings comes the AUFTRAGSAUSDRUCK, a u8 length
+# and that many predicate bytes, then an optional INDEX.
+BLOCKS = (
+    ('SGAUSWAHL_VMSGBD', ('SGNAME', 'CBD', 'CABD', 'SGBD', 'UMRSG', 'VMG')),
+    ('SGAUSWAHL_SGBD', ('SGNAME', 'CBD', 'CABD', 'SGBD', 'UMRSG')),
+    ('SGAUSWAHL_VM', ('SGNAME', 'CBD', 'UMRSG', 'VMG')),
+)
+PREDICATE_BYTES = (0x53, 0x2b, 0x2c, 0x21, 0x28, 0x29, 0x5c)
+
+
+def _row(payload, columns):
+    """One framed row -> ({column: text}, predicate bytes), or None."""
+    i = 0
+    names = {}
+    for col in columns:
+        j = payload.find(0, i)
+        if j < 0:
+            return None
+        text = payload[i:j]
+        if not re.fullmatch(rb'[\x20-\x7e]*', text):
+            return None
+        names[col] = text.decode('latin1')
+        i = j + 1
+    if i >= len(payload) or not names.get('SGNAME'):
+        return None
+    ln = payload[i]
+    blob = bytes(payload[i + 1:i + 1 + ln])
+    if len(blob) != ln:
+        return None
+    # every byte of a predicate is a token or an 'S' operand
+    k = 0
+    while k < len(blob):
+        if blob[k] == 0x53:
+            k += 3
+        elif blob[k] in PREDICATE_BYTES:
+            k += 1
+        else:
+            return None
+    if k != len(blob):
+        return None
+    return names, blob
+
+
 def parse_file(path):
-    """One SGET file -> {chassis, rows:[...]}.
+    """One SGET file -> {'chassis', 'rows': [...], 'failed': n}.
 
-    STRUCTURAL WALK, not the .C0x frame walker. ncs_daten.records() resyncs on
-    a <len><seq><00>...<xor> frame; SGET's rows are not framed that way, and
-    running it here yields only false positives caught inside the schema text
-    (3-byte payloads like b'SGA'). A row is laid out flat instead:
+    THE FILE IS FRAMED like every other DATEN file -- <len><seq><00><payload>
+    <xor>, ncs_daten.records() -- and its rows come in three blocks that the
+    schema names and that DIFFER IN SHAPE:
 
-        <SGNAME\0><CBD\0><CABD\0><SGBD\0><UMRSG\0><u8 len><predicate bytes>
+        SGAUSWAHL_VM       SGNAME CBD UMRSG VMG                  (4 strings)
+        SGAUSWAHL_SGBD     SGNAME CBD CABD SGBD UMRSG            (5 strings)
+        SGAUSWAHL_VMSGBD   SGNAME CBD CABD SGBD UMRSG VMG        (6 strings)
 
-    verified against E46SGET.000, whose second row reads
-    MRS3/C31/A_MRS3/C_MRS3/ABG + "(S99,S92+S3,S287)+!S420".
+    An earlier reader took the rows for an unframed run of five strings and
+    looked for them by pattern. On the E46, whose rows are all of the middle
+    kind, that found 146 of 148 (it wanted a name to start with a capital,
+    and lost CVM_e46). On chassis that use the other two blocks the columns
+    came out shifted by one, or nothing was found at all (E32, E34).
 
-    The predicate must START with a predicate byte ('S', '!' or '(') -- that
-    single check is what separates real rows from the schema strings above
-    them, and it is why rows are counted, not assumed.
+    Each row keeps the columns its block has, with '' for the ones it lacks,
+    and says which block it came from in `kind`. verified against
+    E46SGET.000, whose MRS3 row reads MRS3/C31/A_MRS3/C_MRS3/ABG +
+    "(S99,S92+S3,S287)+!S420".
     """
     data = open(path, 'rb').read()
-    n = len(data)
-
-    def read_row(i):
-        """One row at offset `i`: five NUL-terminated names, a length byte and
-        the predicate blob; None when the bytes there do not form a row."""
-        names = []
-        for _ in range(5):
-            j = data.find(0, i)
-            if j < 0 or j - i < 1 or j - i > 40:
-                return None
-            s = data[i:j]
-            if not re.fullmatch(rb'[\x20-\x7e]+', s):
-                return None
-            names.append(s.decode('latin1'))
-            i = j + 1
-        if i >= n:
-            return None
-        ln = data[i]
-        i += 1
-        if ln == 0 or i + ln > n:
-            return None
-        blob = data[i:i + ln]
-        # a predicate opens with a ref, a NOT or a group -- nothing else
-        if blob[0] not in (0x53, 0x21, 0x28):
-            return None
-        # A NAME run that swallowed part of an expression leaves the length
-        # byte pointing mid-predicate, so `ln` overshoots into the row trailer
-        # (00 00 <u32>). Trust the token stream over the length: stop at the
-        # first byte that cannot appear in a predicate. A correctly-aligned
-        # row is unaffected -- every byte in its blob is a token.
-        TOK = (0x53, 0x2b, 0x2c, 0x21, 0x28, 0x29, 0x5c)
-        end = len(blob)
-        k = 0
-        while k < len(blob):
-            c = blob[k]
-            if c == 0x53:          # 'S' + u16 LE operand: skip the operand
-                k += 3
-                continue
-            if c in TOK:
-                k += 1
-                continue
-            end = k
-            break
-        blob = blob[:end]
-        if not blob:
-            return None
-        # PARENS MUST BALANCE. A name run that swallowed an opening '(' leaves
-        # a predicate that lexes but cannot parse ("S200),S84+..."). Those are
-        # misaligned reads, not BMW data -- drop them here so only expressions
-        # the evaluator can actually parse are ever shipped.
-        depth = 0
-        k = 0
-        while k < len(blob):
-            c = blob[k]
-            if c == 0x53:
-                k += 3
-                continue
-            if c == 0x28:
-                depth += 1
-            elif c == 0x29:
-                depth -= 1
-                if depth < 0:
-                    return None      # closed one that was never opened
-            k += 1
-        if depth != 0:
-            return None
-        return names, blob
-
-    rows, failed, seen_at = [], 0, set()
-    for m in re.finditer(rb'(?<=\x00)[A-Z][A-Z0-9_]{1,20}\x00', data):
-        if m.start() in seen_at:
+    secs = N.schema(data)
+    recs = N.records(data)
+    rows, failed = [], 0
+    for block, columns in BLOCKS:
+        sec = secs.get(block)
+        if not sec:
             continue
-        r = read_row(m.start())
-        if not r:
-            continue
-        names, blob = r
-        try:
-            text = expr_text(blob)
-        except ValueError:
-            failed += 1
-            continue
-        seen_at.add(m.start())
-        rows.append({
-            'SGNAME': names[0], 'CBD': names[1], 'CABD': names[2],
-            'SGBD': names[3], 'UMRSG': names[4],
-            'expr': text, 'exprHex': blob.hex().upper(), 'refs': refs_of(blob),
-        })
+        for seq, payload, _at in recs:
+            if seq != sec['seq']:
+                continue
+            got = _row(bytes(payload), columns)
+            if not got:
+                continue          # a stretch of the schema that framed by chance
+            names, blob = got
+            try:
+                text = expr_text(blob)
+            except ValueError:
+                failed += 1
+                continue
+            rows.append({
+                'SGNAME': names['SGNAME'], 'CBD': names['CBD'],
+                'CABD': names.get('CABD', ''), 'SGBD': names.get('SGBD', ''),
+                'UMRSG': names['UMRSG'], 'VMG': names.get('VMG', ''),
+                'kind': block[len('SGAUSWAHL_'):],
+                'expr': text, 'exprHex': blob.hex().upper(),
+                'refs': refs_of(blob),
+            })
 
     base = os.path.basename(path).upper()
     m = re.match(r'([A-Z0-9]+)SGET', base)

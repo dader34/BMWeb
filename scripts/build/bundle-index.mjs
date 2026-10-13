@@ -9,7 +9,7 @@
 // in <head>.
 //
 // version.js is left exactly where it is: it is injected into <head> to set
-// window.BMACW_VERSION before anything reads it, and it is NOT part of the
+// window.BMWEB_VERSION before anything reads it, and it is NOT part of the
 // concatenated bundle (bundle-renderer.mjs reads the source index.html, which
 // has no version.js). So this only collapses the renderer's own tags and never
 // touches version.js. Remote (https://) scripts are also left in place.

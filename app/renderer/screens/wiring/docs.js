@@ -142,7 +142,7 @@ async function loadDocs(chassisId) {
   const id = chassisId.toUpperCase();
   if (DOCS_CACHE.has(id)) return DOCS_CACHE.get(id);
   const inline =
-    typeof BMACW_DOCS === 'object' && BMACW_DOCS ? BMACW_DOCS[id] : null;
+    typeof BMWEB_DOCS === 'object' && BMWEB_DOCS ? BMWEB_DOCS[id] : null;
   const data = await wiringFetchArchive(
     `docs/${id}.docs`,
     inline,

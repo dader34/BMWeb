@@ -417,7 +417,7 @@ let logId = null;
  * @returns {void}
  */
 function stopLogging() {
-  if (logId && window.bmacw) window.bmacw.stopLog(logId);
+  if (logId && window.bmweb) window.bmweb.stopLog(logId);
   logId = null;
 }
 

@@ -13,7 +13,8 @@
  *                 -> NORMALER_DATENVERKEHR "JA" -> SG_RESET
  *                 (E46 body/others; netto as ASCII-hex string arg)
  *   codierung     CODIERUNG_SCHREIBEN <netto-hex>   (IHKA46 and kin)
- *   cfg-chunked   C_S_AUFTRAG <binbuf> loop -> C_CHECKSUM <binbuf>
+ *   cfg-chunked   C_S_AUFTRAG / C_CHECKSUM request buffers: the dispatcher's
+ *                 work, never sequenced by hand (writeSteps gives none)
  *                 (ZKE5/GM5; needs BINARY job args)
  */
 
@@ -138,18 +139,13 @@
     } else if (strategy === 'codierung') {
       steps = [{ job: 'CODIERUNG_SCHREIBEN', arg: hex, required: true }];
     } else if (strategy === 'cfg-chunked') {
-      // The SGBD's C_S_AUFTRAG takes the whole netto as a binary buffer and
-      // writes it into the coding region itself (it walks its own slot table
-      // internally, exactly as CDHGetApiJobData/CDHapiJobData feed it). We
-      // hand it the whole blob once; C_CHECKSUM then validates the region.
-      steps = [
-        {
-          job: 'C_S_AUFTRAG',
-          arg: { bin: nettoBytes.slice() },
-          required: true,
-        },
-        { job: 'C_CHECKSUM', arg: { bin: nettoBytes.slice() } },
-      ];
+      // No hand-made steps. C_S_AUFTRAG does not take the coding image: its
+      // argument is BMW's request buffer -- 21 header bytes, a run of words,
+      // a closing 0x03 -- one run at a time, and C_CHECKSUM takes one with
+      // the range to sum patched into its header. Only the module's own
+      // dispatcher builds those (core/coding/dispatch.js); writeCoding
+      // refuses such a module when none is shipped.
+      return null;
     } else {
       return null;
     }

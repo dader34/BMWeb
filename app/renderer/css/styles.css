@@ -4227,6 +4227,14 @@ html[data-theme='inpa'] .coding-tab.active {
   border-radius: 4px;
   padding: 1px 5px;
 }
+
+/* a function whose value was not read from the car, or is none of BMW's
+   listed values: said in words above its options */
+.tree-unread {
+  margin: 0 0 6px;
+  font-size: 12px;
+  color: var(--amber);
+}
 .tree-staged-dot {
   display: inline-block;
   width: 7px;
@@ -9845,7 +9853,7 @@ body.remote-helper::after {
   border-left-color: var(--red);
 }
 
-/* ---- Flashing/Backups (screens/flashing/) --------------------------------------
+/* ---- Flashing/Tuning (screens/flashing/) --------------------------------------
    Laid out like the BMWeb Flasher app: a rail of pages down the left, the
    control unit and Identify across the top, the log beside the actions, the
    Custom Options button pinned under them, the status line and progress bar

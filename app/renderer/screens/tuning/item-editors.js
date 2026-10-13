@@ -19,6 +19,19 @@ function tnRenderEditor(ed, item, container) {
     container.appendChild(makeNote('Load a BIN to edit this parameter.'));
     return;
   }
+  // LIVE mode: read this parameter's bytes from the ECU on demand (scalars
+  // and flags as well as tables), then re-render so the real value replaces
+  // the not-yet-read 0xFF. Guarded inside tnLiveFillTable to a no-op when the
+  // range is already read or live mode is off, so an ordinary edit session
+  // never re-renders in a loop.
+  if (typeof tnLiveFillTable === 'function' && tnLive && tnLive.armed) {
+    tnLiveFillTable(item).then((filled) => {
+      if (filled && container.isConnected) {
+        container.innerHTML = '';
+        tnRenderEditor(ed, item, container);
+      }
+    });
+  }
   if (item.description) {
     const d = document.createElement('div');
     d.className = 'tn-desc';

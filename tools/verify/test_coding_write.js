@@ -269,27 +269,41 @@ async function run() {
   }
 
   // -------------------------------------------------------------------------
-  console.log('5. cfg-chunked binary path round-trips through the arg string');
+  console.log('5. a C_S_AUFTRAG module is not handed a bare image');
   {
+    // C_S_AUFTRAG's argument is BMW's request buffer (21 header bytes, a run
+    // of words, a closing 0x03), which only the module's dispatcher builds.
+    // The bare image used to be passed instead; the job would have read its
+    // first 21 bytes as a header. tools/verify/test_coding_dispatch.js runs
+    // the real path, binary arguments included, end to end.
     const jobs = ['CODIERDATEN_LESEN', 'C_S_AUFTRAG', 'C_CHECKSUM'];
-    // bytes that stress the arg-string channel: 0x00, 0x3B (';' -- must NOT
-    // split for a binary blob), 0x80/0x9F (CP1252 high range), 0xFF.
-    const want = [0x00, 0x3b, 0x80, 0x9f, 0xff, 0x41];
     const stub = makeStub({ initialNetto: 'DEADBEEF', acceptWrite: true });
-    const r = await cw.writeCoding('zke5gm', want, {
-      confirmed: true,
-      jobs,
-      code: { jobs: {} },
-      tables: {},
-      exchange: noExchange,
-      Best2Vm: stub.StubVm,
-    });
+    let threw = null;
+    try {
+      await cw.writeCoding('zke5gm', [0x00, 0x3b, 0x80, 0x9f, 0xff, 0x41], {
+        confirmed: true,
+        jobs,
+        code: { jobs: {} },
+        tables: {},
+        exchange: noExchange,
+        Best2Vm: stub.StubVm,
+      });
+    } catch (e) {
+      threw = e;
+    }
     ok(
-      r.ok === true && toHex(r.after) === toHex(want),
-      `binary netto round-trips: wrote ${toHex(want)}, read ${toHex(r.after)}`
+      threw && /through its dispatcher/.test(threw.message),
+      'a module coded by C_S_AUFTRAG is refused without its dispatcher'
     );
-    const cs = stub.seen.find((s) => s.job === 'C_S_AUFTRAG');
-    ok(cs && cs.allowWrites === true, 'C_S_AUFTRAG got allowWrites:true');
+    ok(stub.seen.length === 0, 'and nothing ran: not even the read');
+    // the channel a binary argument rides on still carries every byte
+    const bytes = [0x00, 0x3b, 0x80, 0x9f, 0xff, 0x41];
+    const text = cw._bytesToArgString(bytes);
+    ok(
+      text.length === bytes.length &&
+        bytes.every((b, i) => text.charCodeAt(i) === b),
+      'a binary argument is a string whose char codes are the bytes (0x00, ";", 0x80..0xFF included)'
+    );
   }
 
   // -------------------------------------------------------------------------

@@ -247,7 +247,7 @@ async function exportFaults(ecu, view, opts = {}) {
   }
   // Web build has no savePdf bridge: print a clean sheet for this one module
   // through the shared helper instead (reuses the whole-car report builder).
-  if (!(window.bmacw && window.bmacw.savePdf)) {
+  if (!(window.bmweb && window.bmweb.savePdf)) {
     if (typeof printFaultReport === 'function') {
       const present = faults.filter(
         (c) => faultFields(c, ecu.sgbd).present
@@ -285,7 +285,7 @@ async function exportFaults(ecu, view, opts = {}) {
   const name = `${APP_NAME}-faults-${ecu.sgbd}-${now.toISOString().slice(0, 10)}.pdf`;
   sbLeft.textContent = 'saving…';
   try {
-    const res = await window.bmacw.savePdf(name, html);
+    const res = await window.bmweb.savePdf(name, html);
     sbLeft.textContent =
       res && res.ok
         ? `saved → ${res.path.split('/').pop()}`

@@ -6,7 +6,7 @@ Compiled .IPO files retain readable strings describing each screen: display
 labels, the EDIABAS result keys they bind to, the job + args producing them, the
 render type (analog gauge vs digital text), units, and input prompts.
 
-Reproduces INPA's on-screen layout deterministically (no LLM) so BMacW renders
+Reproduces INPA's on-screen layout deterministically (no LLM) so BMWeb renders
 the same labels/units/ranges and knows which functions need input.
 
 Usage:

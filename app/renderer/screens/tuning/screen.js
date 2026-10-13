@@ -5,7 +5,7 @@
  * recounting changes, and repainting the status line. Loads last.
  */
 
-/* exported showTuning, tnWriteBytes, tnRecountChanges, tnUpdateStatus, tnShowLoadedImage */
+/* exported showTuning, tnMount, tnWriteBytes, tnRecountChanges, tnUpdateStatus, tnShowLoadedImage */
 
 /**
  * The toolbar markup.
@@ -14,7 +14,7 @@
 function tnToolbarHtml() {
   return `
     <button class="btn tn-load-bin">Load BIN…</button>
-    <button class="btn tn-read-ecu">Read from ECU…</button>
+    <button class="btn tn-read-ecu" title="Read the DME's calibration and open it here">Read tune from ECU…</button>
     <button class="btn tn-load-xdf" disabled>Load .xdf…</button>
     <button class="btn tn-browse-xdf" title="Browse the shared community definition library">Browse XDFs…</button>
     <button class="btn primary tn-save" disabled>Save BIN…</button>
@@ -22,7 +22,8 @@ function tnToolbarHtml() {
     <span class="tn-file" id="tn-file"></span>
     <span class="tn-status" id="tn-status"></span>
     <input type="file" class="tn-file-input" id="tn-bin-input" hidden />
-    <input type="file" class="tn-file-input" id="tn-xdf-input" accept=".xdf,.xml" hidden />`;
+    <input type="file" class="tn-file-input" id="tn-xdf-input" accept=".xdf,.xml" hidden />
+    ${typeof tnLiveToolbarHtml === 'function' ? tnLiveToolbarHtml() : ''}`;
 }
 
 /**
@@ -159,6 +160,7 @@ function tnShowLoadedImage(ed) {
   els.loadXdf.disabled = false;
   els.save.disabled = false;
   els.file.textContent = `${tuningState.fileName} · ${fmtBytes(tuningState.bin.length)}`;
+  if (typeof tnLivePaint === 'function') tnLivePaint();
 }
 
 /**
@@ -232,6 +234,10 @@ function tnWriteBytes(ed, address, bytes) {
   tnRecountChanges();
   ed.hex.refresh();
   tnUpdateStatus(ed);
+  // LIVE mode: mirror a calibration edit onto a running ECU. Done after the
+  // local write so the editor never waits on the wire, and a live failure
+  // only shows in the live status line, never undoes the local edit.
+  if (typeof tnLiveOnWrite === 'function') tnLiveOnWrite(address, bytes.length);
   return true;
 }
 
@@ -309,53 +315,41 @@ function tnUpdateStatus(ed) {
 }
 
 /**
- * Enter the Tuning screen.
- * @returns {void}
+ * Open the tuning editor: the Tuning page of the Flashing/Tuning app.
+ * @returns {Promise<void>}
  */
 function showTuning() {
+  // the editor is a page of the Flashing/Tuning app (screens/flashing/)
+  return showFlashing('tuning');
+}
+
+/**
+ * Build the editor inside `host`, a page of the Flashing/Tuning app.
+ * @param {HTMLElement} host - The page to fill.
+ * @param {object} backAction - The app's Back entry for the action bar.
+ * @returns {Array<object>} The action bar's entries while this page shows.
+ */
+function tnMount(host, backAction) {
   if (typeof cancelSweep === 'function') cancelSweep();
-  lastScreen = showTuning;
-  setCrumbs([
-    { label: 'Vehicles', fn: showChassis },
-    { label: 'Apps', fn: showApps },
-    { label: 'Tuning' },
-  ]);
-  document.body.classList.add('apps-section');
-  sbLeft.textContent = 'tuning';
-
-  view.innerHTML = head(
-    'Tuning',
-    'ECU Firmware Editor',
-    'Load a firmware BIN and edit it as raw hex, or open a TunerPro .xdf to ' +
-      'tune named constants, flags and tables. Everything stays on this device.'
-  );
-
-  const backAction = {
-    key: 'Escape',
-    keyLabel: 'Esc',
-    label: 'Back',
-    kind: 'back',
-    fn: () => showApps(),
-  };
+  host.innerHTML = '';
 
   if (typeof window.XDF === 'undefined') {
-    view.insertAdjacentHTML(
+    host.insertAdjacentHTML(
       'beforeend',
       errorBlock('The XDF engine (core/xdf/) did not load.', 'red')
     );
-    setActions([backAction]);
-    return;
+    return [backAction];
   }
 
   const bar = document.createElement('div');
   bar.className = 'tn-bar';
   bar.innerHTML = tnToolbarHtml();
-  view.appendChild(bar);
+  host.appendChild(bar);
 
   const workspace = document.createElement('div');
   workspace.className = 'tn-workspace';
   workspace.innerHTML = tnWorkspaceHtml();
-  view.appendChild(workspace);
+  host.appendChild(workspace);
 
   const els = tnCollectEls(bar, workspace);
   /** @type {TuningEditor} */
@@ -382,9 +376,12 @@ function showTuning() {
     };
   }
 
-  els.readEcu.onclick = () => tnOpenReadFromEcu(ed);
+  els.readEcu.onclick = () => tnOpenReadTune(ed);
   els.loadBin.onclick = () => els.binInput.click();
   els.loadXdf.onclick = () => els.xdfInput.click();
+  // iOS turns the accept list into document types and greys out a .xdf it
+  // has no type for, so there the picker is left open to every file
+  if (fbIsIos()) els.xdfInput.removeAttribute('accept');
   els.browseXdf.onclick = () => tnOpenXdfBrowser(ed);
   els.binInput.onchange = () => {
     tnOnBinChosen(ed, els.binInput.files[0]);
@@ -396,7 +393,10 @@ function showTuning() {
   };
   if (els.clear) els.clear.onclick = () => tnClearEverything(ed);
 
-  tnRestoreSession(ed);
+  if (typeof tnLiveInit === 'function') tnLiveInit(ed);
+
+  // kept: live mode's rejoin waits for the saved session before it arms
+  ed.restored = tnRestoreSession(ed);
 
   els.save.onclick = () => tnSaveBin(ed);
 
@@ -418,18 +418,24 @@ function showTuning() {
   if (tuningState.def) tnRenderDefs(ed);
   tnUpdateStatus(ed);
 
-  setActions([
+  return [
     backAction,
-    { key: '1', label: 'Load BIN', fn: () => els.loadBin.click() },
+    // hidden while live mode is on (tnLivePaint): the image is the car's then
+    {
+      key: '1',
+      label: 'Load BIN',
+      fn: () => !els.loadBin.hidden && els.loadBin.click(),
+    },
     {
       key: '2',
       label: 'Load .xdf',
-      fn: () => !els.loadXdf.disabled && els.loadXdf.click(),
+      fn: () =>
+        !els.loadXdf.disabled && !els.loadXdf.hidden && els.loadXdf.click(),
     },
     {
       key: '3',
       label: 'Save',
       fn: () => !els.save.disabled && els.save.click(),
     },
-  ]);
+  ];
 }

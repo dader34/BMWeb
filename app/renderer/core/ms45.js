@@ -10,7 +10,7 @@
 //
 // MD5 and the modular exponentiation come from core/flasher.js (_md5,
 // _modPow, _bytesLEToBigInt, _bigIntToBytesLE), which loads first.
-/* exported MS45_SGBD, MS45_FULL_FLASH_LENGTH, MS45_MPC_LENGTH, MS45_CAL_START, MS45_CAL_LENGTH, MS45_PROGRAM_START, ms45Crc32, ms45Checksums, ewsDelete, ms45ExchangeFile, ms45Job, ms45SetJobTrace, ms45Identify, ms45ReadMemory, ms45ReadCarBytes, ms45SecurityAccess, ms45LeaveProgrammingMode, ms45FinishFlash, ms45Erase, ms45FlashBlock, ms45WriteAif, ms45AifFields, ms45ReadAscii, ms45VerifyParameterMatch, ms45VerifyProgramMatch, ms45VerifyFlashMpcMatch */
+/* exported MS45_SGBD, MS45_FULL_FLASH_LENGTH, MS45_MPC_LENGTH, MS45_CAL_START, MS45_CAL_LENGTH, MS45_PROGRAM_START, ms45Crc32, ms45Checksums, ewsDelete, ms45ExchangeFile, ms45Job, ms45SetJobTrace, ms45Identify, ms45ReadMemory, ms45ReadCarBytes, ms45SecurityAccess, ms45LeaveProgrammingMode, ms45RaiseBaud, ms45DefaultBaud, ms45FinishFlash, ms45Erase, ms45FlashBlock, ms45WriteAif, ms45AifFields, ms45ReadAscii, ms45VerifyParameterMatch, ms45VerifyProgramMatch, ms45VerifyFlashMpcMatch, ms45LiveTuneSender */
 
 /** The SGBD whose jobs drive the MS45 family. */
 const MS45_SGBD = 'ms450ds0';
@@ -915,13 +915,19 @@ async function ms45SecurityAccess(diagProtocol, onStage) {
   const stage = onStage || (() => {});
   stage('Requesting Security Access');
   const serialRes = await ms45Job('seriennummer_lesen', '');
-  if (!serialRes.ok) return false;
-  const serialReply = _ms45Bytes(serialRes.res, '_TEL_ANTWORT');
-  if (serialReply.length < 5) return false;
-  const serial = serialReply.subarray(
-    serialReply.length - 5,
-    serialReply.length - 1
+  if (!serialRes.ok) {
+    stage('Could not read the DME serial number');
+    return false;
+  }
+  // the last 4 bytes of the answer's payload, whatever shape the transport
+  // hands the telegram in (flasherSerialFromReply)
+  const serial = flasherSerialFromReply(
+    _ms45Bytes(serialRes.res, '_TEL_ANTWORT')
   );
+  if (serial.length !== 4) {
+    stage('Could not read the DME serial number');
+    return false;
+  }
   const userId = new Uint8Array(4);
   (globalThis.crypto || require('crypto').webcrypto).getRandomValues(userId);
   const userIdHex =
@@ -933,9 +939,11 @@ async function ms45SecurityAccess(diagProtocol, onStage) {
     'authentisierung_zufallszahl_lesen',
     `3;${userIdHex}`
   );
-  if (!seedRes.ok) return false;
-  const seed = _ms45Bytes(seedRes.res, 'ZUFALLSZAHL');
-  if (!seed.length) return false;
+  const seed = seedRes.ok ? _ms45Bytes(seedRes.res, 'ZUFALLSZAHL') : [];
+  if (!seed.length) {
+    stage('The DME gave no seed');
+    return false;
+  }
   if (
     !(
       await ms45Job(
@@ -943,8 +951,10 @@ async function ms45SecurityAccess(diagProtocol, onStage) {
         ms45Checksums.securityAccessMessage(userId, serial, seed)
       )
     ).ok
-  )
+  ) {
+    stage('The DME refused the key');
     return false;
+  }
   if (diagProtocol !== 'BMW-FAST') {
     for (const [job, arg] of [
       ['diagnose_mode', 'ECUPM;PC115200'],
@@ -952,12 +962,52 @@ async function ms45SecurityAccess(diagProtocol, onStage) {
       ['ACCESS_TIMING_PARAMETER', '00;120;24;240;00'],
       ['SET_PARAMETER', ';115200;;15'],
     ]) {
-      if (!(await ms45Job(job, arg)).ok) return false;
+      if (!(await ms45Job(job, flasherProgrammingArg(arg))).ok) {
+        stage(`Could not enter programming mode (${job} ${arg})`);
+        return false;
+      }
     }
   } else if (!(await ms45Job('diagnose_mode', 'ECUPM')).ok) {
+    stage('Could not enter programming mode');
     return false;
   }
   return true;
+}
+
+/**
+ * Raise the line rate of the DEFAULT session for a long read. The DME takes
+ * a rate with its session request (10 81 <rate>, no authentication) and
+ * keeps answering every default-session service at it, memory reads and the
+ * live-tune ops included; the calibration then reads in under a minute where
+ * 9600 baud takes three. The rate is the one the cable can carry
+ * (flasherProgrammingBaud: 115200, or 19200 on an adapter without parity at
+ * speed). Always paired with ms45DefaultBaud, in a finally.
+ * @returns {Promise<number>} The rate now in use; 9600 when it did not go up.
+ */
+async function ms45RaiseBaud() {
+  const baud =
+    typeof flasherProgrammingBaud === 'function'
+      ? flasherProgrammingBaud()
+      : 115200;
+  if (baud === 9600) return 9600;
+  if (!(await ms45Job('diagnose_mode', `DEFAULT;PC${baud}`)).ok) return 9600; // refused: nothing changed
+  if (!(await ms45Job('SET_PARAMETER', `;${baud}`)).ok) {
+    // the DME moved and this side did not: go and fetch it back
+    await ms45DefaultBaud();
+    return 9600;
+  }
+  return baud;
+}
+
+/**
+ * The default session back at 9600 baud, where every other part of the app
+ * expects to find the DME.
+ * @returns {Promise<boolean>}
+ */
+async function ms45DefaultBaud() {
+  const a = await ms45Job('diagnose_mode', 'DEFAULT;PC9600');
+  const b = await ms45Job('SET_PARAMETER', ';9600');
+  return a.ok && b.ok;
 }
 
 /**
@@ -1040,62 +1090,132 @@ async function ms45Erase(blockStart, blockLength) {
   return (await ms45Job('flash_loeschen', cmd)).ok;
 }
 
+/** The flash_schreiben segment: the most data one KWP telegram carries. */
+const MS45_FLASH_SEGMENT = 0xfd;
+
 /**
+ * The runs of a block worth sending: consecutive 0xFD-byte segments that are
+ * not all 0xFF. An erased sector reads 0xFF, and programming 0xFF over 0xFF
+ * changes nothing, so a blank segment is left out and the DME ends up with
+ * the same bytes as from a full write. Each run becomes its own
+ * flash_schreiben_adresse .. flash_schreiben_ende; the loader takes a
+ * download at any address, odd ones included, and the DME's own checksum
+ * and signature check judge the result (verified on the emulated loader).
+ * Runs are relative to `toFlash`, so none can reach past the block: the
+ * loader does NOT refuse a range that leaves the erased sector.
+ * @param {Uint8Array} toFlash - The block's bytes.
+ * @param {number} [seg=0xFD] - The segment the grid is laid on.
+ * @returns {{from: number, length: number}[]} In address order, never
+ *   overlapping; empty for an all-0xFF block.
+ */
+function ms45FlashRuns(toFlash, seg = MS45_FLASH_SEGMENT) {
+  const runs = [];
+  let run = null;
+  for (let at = 0; at < toFlash.length; at += seg) {
+    const end = Math.min(at + seg, toFlash.length);
+    let blank = true;
+    for (let i = at; i < end; i++) {
+      if (toFlash[i] !== 0xff) {
+        blank = false;
+        break;
+      }
+    }
+    if (blank) {
+      run = null;
+    } else if (run) {
+      run.length = end - run.from;
+    } else {
+      run = { from: at, length: end - at };
+      runs.push(run);
+    }
+  }
+  return runs;
+}
+
+/**
+ * The 22-byte argument of flash_schreiben_adresse / flash_schreiben_ende for
+ * one download range.
+ * @param {number} start - The DME address of the range's first byte.
+ * @param {number} length - The range's length.
+ * @returns {Uint8Array}
+ */
+function _ms45RangeArg(start, length) {
+  const arg = new Uint8Array(22);
+  arg[0] = 1;
+  arg[21] = 3;
+  arg.set(_ms45Le32(length), 13);
+  arg.set(_ms45Le32(start), 17);
+  return arg;
+}
+
+/**
+ * Write a block: for each run of non-blank segments (ms45FlashRuns),
  * flash_schreiben_adresse, then flash_schreiben in 0xFD-byte segments, then
- * flash_schreiben_ende. A failed segment resets the DME.
+ * flash_schreiben_ende. A failed segment resets the DME. Progress counts the
+ * skipped bytes as done.
  * @param {Uint8Array} toFlash - The bytes for [blockStart, blockEnd].
  * @param {number} blockStart - The DME address of the first byte.
  * @param {number} blockEnd - The DME address of the last byte.
- * @param {{onProgress?: (pct: number) => void, onStage?: (text: string) => void, abort?: AbortSignal}} [opts]
+ * @param {{onProgress?: (pct: number) => void, onStage?: (text: string) => void, onNote?: (text: string) => void, abort?: AbortSignal}} [opts]
  * @returns {Promise<boolean>}
  */
 async function ms45FlashBlock(toFlash, blockStart, blockEnd, opts = {}) {
   const stage = opts.onStage || (() => {});
-  const blockStartOrig = blockStart;
-  let blockLength = blockEnd - blockStart + 1;
-  const addressSet = new Uint8Array(22);
-  addressSet[0] = 1;
-  addressSet[21] = 3;
-  addressSet.set(_ms45Le32(blockLength), 13);
-  addressSet.set(_ms45Le32(blockStart), 17);
-  if (!(await ms45Job('flash_schreiben_adresse', addressSet)).ok) {
-    stage('Failed to set flash address');
+  const note = opts.onNote || (() => {});
+  const total = blockEnd - blockStart + 1;
+  if (toFlash.length < total) {
+    stage(`Flash image is ${toFlash.length} bytes for a ${total}-byte block`);
     return false;
   }
-  let seg = 0xfd;
-  while (blockLength > 0) {
-    if (opts.abort && opts.abort.aborted) throw new Error('cancelled');
-    if (blockLength < seg) seg = blockLength;
-    const header = new Uint8Array(21);
-    header[0] = 1;
-    header[13] = seg;
-    header.set(_ms45Le32(blockStart), 17);
-    const from = blockStart - blockStartOrig;
-    const telegram = _ms45Concat([
-      header,
-      toFlash.subarray(from, from + seg),
-      Uint8Array.from([3]),
-    ]);
-    if (!(await ms45Job('flash_schreiben', telegram)).ok) {
-      stage(
-        `Flash failed at 0x${blockStart.toString(16).toUpperCase()}. Resetting DME.`
-      );
-      if (!(await ms45Reset())) stage('Error Resetting ECU');
+  if (toFlash.length > total) toFlash = toFlash.subarray(0, total);
+  const progress = (done) => {
+    opts.onProgress &&
+      opts.onProgress(Math.floor((done * 100) / Math.max(1, total - 1)));
+  };
+  const runs = ms45FlashRuns(toFlash);
+  const sending = runs.reduce((n, r) => n + r.length, 0);
+  const skipped = Math.ceil((total - sending) / MS45_FLASH_SEGMENT);
+  if (skipped)
+    note(
+      `Skipping ${skipped} blank (0xFF) blocks of ${Math.ceil(total / MS45_FLASH_SEGMENT)}: ${runs.length} download range${runs.length === 1 ? '' : 's'}`
+    );
+  for (const run of runs) {
+    const rangeArg = _ms45RangeArg(blockStart + run.from, run.length);
+    if (!(await ms45Job('flash_schreiben_adresse', rangeArg)).ok) {
+      stage('Failed to set flash address');
       return false;
     }
-    blockStart += seg;
-    blockLength -= seg;
-    opts.onProgress &&
-      opts.onProgress(
-        Math.floor(
-          ((blockStart - blockStartOrig) * 100) / (blockEnd - blockStartOrig)
-        )
-      );
+    let at = run.from;
+    const runEnd = run.from + run.length;
+    while (at < runEnd) {
+      if (opts.abort && opts.abort.aborted) throw new Error('cancelled');
+      const seg = Math.min(MS45_FLASH_SEGMENT, runEnd - at);
+      const address = blockStart + at;
+      const header = new Uint8Array(21);
+      header[0] = 1;
+      header[13] = seg;
+      header.set(_ms45Le32(address), 17);
+      const telegram = _ms45Concat([
+        header,
+        toFlash.subarray(at, at + seg),
+        Uint8Array.from([3]),
+      ]);
+      if (!(await ms45Job('flash_schreiben', telegram)).ok) {
+        stage(
+          `Flash failed at 0x${address.toString(16).toUpperCase()}. Resetting DME.`
+        );
+        if (!(await ms45Reset())) stage('Error Resetting ECU');
+        return false;
+      }
+      at += seg;
+      progress(at);
+    }
+    if (!(await ms45Job('flash_schreiben_ende', rangeArg)).ok) {
+      stage('Failed to end flash job');
+      return false;
+    }
   }
-  if (!(await ms45Job('flash_schreiben_ende', addressSet)).ok) {
-    stage('Failed to end flash job');
-    return false;
-  }
+  progress(total - 1);
   return true;
 }
 
@@ -1137,6 +1257,7 @@ if (typeof window !== 'undefined') {
     ms45FinishFlash,
     ms45Erase,
     ms45FlashBlock,
+    ms45FlashRuns,
     ms45WriteAif,
     ms45AifFields,
     ms45ReadAscii,
@@ -1145,9 +1266,65 @@ if (typeof window !== 'undefined') {
     ms45VerifyFlashMpcMatch,
   });
 }
+/**
+ * A send-path for the live-tune client (core/livetune.js): takes a request's
+ * DATA bytes, frames them as a KWP2000* telegram (B8 12 F1 len data xor),
+ * runs it on the raw wire under the bus lock with the MS45 session's comm,
+ * and returns the answer's DATA bytes (the B8 F1 12 len header and the
+ * trailing checksum stripped), or null when the DME said nothing.
+ *
+ * The client's own ops are idempotent-safe against the exchange layer's one
+ * retransmission except the save, whose silence IS the success signal; the
+ * client treats a null answer there as "it saved and reset".
+ * @returns {(data: number[]) => Promise<number[]|null>}
+ */
+function ms45LiveTuneSender() {
+  if (
+    typeof webBusRawExchange !== 'function' ||
+    typeof withBusLock !== 'function'
+  )
+    throw new Error('the K-line bus is not available');
+  return (data) =>
+    withBusLock(async () => {
+      await switchSession(MS45_SGBD);
+      let comm = sessionFor(MS45_SGBD).comm;
+      if (!comm) {
+        // The wire parameters (framing, baud) live in the SGBD's
+        // INITIALISIERUNG, which only runs when a job does. Our raw
+        // telegrams bypass the job runner, so run one cheap real job to
+        // seed the session the first time, then read its comm back.
+        await webRunJob(MS45_SGBD, 'aif_lesen', '', {
+          exchange: (out, c) => webBusRawExchange(out, c),
+        });
+        comm = sessionFor(MS45_SGBD).comm;
+      }
+      if (!comm) throw new Error('the MS45 session has no wire parameters yet');
+      const out = [0xb8, 0x12, 0xf1, data.length, ...data];
+      // The save op (2C 6C 05) must NOT be retransmitted: its silence is the
+      // success signal (the DME folds and resets), and a resend is a second
+      // save at an already-rebooted DME with nothing open -- which resets it
+      // again and reverts the value (seen on a bench, 2026-10-11). Send it
+      // with retransmission disabled; every other op keeps the normal cover.
+      const isSave = data[0] === 0x2c && data[1] === 0x6c && data[2] === 0x05;
+      const txComm = isSave ? { ...comm, noRetransmit: true } : comm;
+      let frame;
+      try {
+        frame = await webBusRawExchange(out, txComm);
+      } catch (e) {
+        if (e && e.ifh === 'IFH-0009') return null; // silence: the DME said nothing
+        throw e;
+      }
+      if (!frame || frame.length < 5) return null;
+      // B8 F1 12 <len> <data...> <xor>: len at [3], data from [4], drop the xor
+      const len = frame[3];
+      return frame.slice(4, 4 + len);
+    });
+}
+
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     MS45_SGBD,
+    ms45LiveTuneSender,
     MS45_FULL_FLASH_LENGTH,
     MS45_MPC_LENGTH,
     MS45_CAL_START,
@@ -1167,6 +1344,7 @@ if (typeof module !== 'undefined' && module.exports) {
     ms45FinishFlash,
     ms45Erase,
     ms45FlashBlock,
+    ms45FlashRuns,
     ms45WriteAif,
     ms45AifFields,
     ms45ReadAscii,

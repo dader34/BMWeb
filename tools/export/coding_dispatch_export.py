@@ -115,11 +115,24 @@ def main(argv):
     """
     chassis = argv or sorted(NT.corpus().keys())
     os.makedirs(OUT, exist_ok=True)
-    written = {}      # cabd(lower) -> asw, so we build each CABD once
+    written = {}      # file key -> (asw, dataOrg)
+    scripts = {}      # dispatcher name (A_AKMB46) -> file key
     skipped = []
     for ch in chassis:
         for sg, asw, cabd in codable_units(ch):
+            if asw.upper() in scripts:
+                continue
+            # A file is keyed by the coding SGBD, as before -- but one coding
+            # SGBD can be driven by TWO dispatchers: the E46 cluster's
+            # C_KMB46 by A_KMB46 (a car coded by its central key) and by
+            # A_AKMB46 (one coded by its vehicle order), and they do not do
+            # the same things. Only the first used to be built. The second
+            # goes under its own name, and scripts.json says which file a
+            # dispatcher is in, so the runtime asks for the one the car's
+            # own selection row names.
             key = cabd.lower()
+            if key in written:
+                key = asw.lower()
             if key in written:
                 continue
             try:
@@ -134,10 +147,13 @@ def main(argv):
             with open(path, "w") as f:
                 json.dump(prog, f)
             written[key] = (asw, prog.get("dataOrg"))
+            scripts[asw.upper()] = key
     # a manifest so the renderer can tell "not built" from "not codable"
     manifest = sorted(written.keys())
     with open(os.path.join(OUT, "index.json"), "w") as f:
         json.dump(manifest, f)
+    with open(os.path.join(OUT, "scripts.json"), "w") as f:
+        json.dump(dict(sorted(scripts.items())), f)
     print(f"wrote {len(written)} coding dispatchers to data/coding-dispatch/")
     for key, (asw, org) in sorted(written.items()):
         print(f"  {key:14} <- {asw:12} dataOrg={org}")

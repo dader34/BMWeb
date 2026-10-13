@@ -43,7 +43,11 @@ function treeStagedEdits(built, state) {
       const s = state.get(`${m.sgbd}:${f.name}`);
       if (!s || s.staged == null) continue;
       if (!byMod.has(m.sgbd)) byMod.set(m.sgbd, []);
-      byMod.get(m.sgbd).push({ rule: f, value: parseInt(s.staged, 16) });
+      // the staged value is in the form the options are written in: the
+      // function's bytes in address order. It is written the same way, with
+      // no detour through a number (a two-byte value used to come out with
+      // its bytes swapped).
+      byMod.get(m.sgbd).push({ rule: f, hex: s.staged });
     }
   }
   return byMod;
@@ -81,43 +85,62 @@ function treeReviewRows(built, state, label) {
  * @param {BuiltModule} mod - the module.
  * @param {StagedEdit[]} edits - its staged edits.
  * @param {Map<string, FunctionState>} state - per-function state.
+ * @param {(text: string) => void} [onStage] - told where the write is.
  * @returns {Promise<WriteOutcome>} the outcome (never throws).
  */
-async function treeWriteModule(mod, edits, state) {
+async function treeWriteModule(mod, edits, state, onStage) {
   const sgbd = mod.sgbd;
   try {
     // The union view is a reference, not a write target -- refuse before
     // anything touches the wire.
     assertResolvedForWrite(sgbd, mod.fns, mod);
 
-    // Read current netto
-    const entry =
-      typeof codingFor === 'function' ? await codingFor(sgbd) : null;
-    if (!entry || !entry.read) {
-      return { sgbd, ok: false, err: 'No read job defined' };
+    // THE WAY IT WAS READ IS THE WAY IT IS WRITTEN: through the module's own
+    // coding script, on the coding SGBD the car's selection row names.
+    const src = mod.source;
+    if (!src || src.route !== 'script') {
+      return {
+        sgbd,
+        ok: false,
+        err:
+          src && src.route === 'blob'
+            ? 'This module numbers its coding blocks, and writing those is not supported yet'
+            : `No way to write this module${src && src.why ? ': ' + src.why : ''}`,
+      };
+    }
+    // Two scripts can drive one module (a car coded by its central key, and
+    // one coded by its vehicle order), and they do different things on a
+    // write. Unless the car's equipment or the table settled which, stop.
+    if (!src.decided) {
+      return {
+        sgbd,
+        ok: false,
+        err: "Could not tell which of the two coding scripts for this module is this car's",
+      };
+    }
+    if (
+      typeof webReadCoding !== 'function' ||
+      typeof webWriteCoding !== 'function'
+    ) {
+      return { sgbd, ok: false, err: 'The coding write path is not loaded' };
     }
 
-    const readRes = await api(`/api/ecu/${sgbd}/run/${entry.read}`, {
-      method: 'POST',
+    // Read the image again, now: the edits are laid onto what the module
+    // holds at this moment, not onto the scan's copy.
+    const fresh = await webReadCoding(src.sgbd, {
+      dispatchKey: src.dispatchKey,
+      cabd: src.cabd,
     });
-    const nettoHex = codingNettoOf(new Map(flatResults(readRes.sets)));
-    if (!nettoHex) {
-      return { sgbd, ok: false, err: 'Read did not return netto' };
-    }
-
-    // Build the new netto by splicing edits onto the read image
-    const netto = codingNettoBytes(nettoHex);
+    const nettoHex = codingNettoHex(fresh.netto);
     const CodingEncode =
       typeof window !== 'undefined' && window.CodingEncode
         ? window.CodingEncode
         : require('../../core/coding/encode.js');
-    const modified = CodingEncode.spliceEdits(new Uint8Array(netto), edits);
+    const modified = CodingEncode.spliceEdits(
+      Uint8Array.from(fresh.netto),
+      edits
+    );
     const modHex = codingNettoHex(modified);
-
-    // Write via webWriteCoding
-    if (typeof webWriteCoding !== 'function') {
-      return { sgbd, ok: false, err: 'webWriteCoding not available' };
-    }
 
     // BACKUP BEFORE TRANSMIT. nettoHex is what the ECU holds right now;
     // once the write lands it is unrecoverable. Persist it here, while it
@@ -127,11 +150,20 @@ async function treeWriteModule(mod, edits, state) {
         ? saveCodingBackup(sgbd, nettoHex, {
             chassis: mod.chassisId || null,
             ci: mod.fns ? mod.fns.codingIndex : null,
-            note: 'pre-write (coding)',
+            note: `pre-write (coding, ${src.sgbd} via ${src.script})`,
           })
         : null;
 
-    await webWriteCoding(sgbd, modHex, { confirmed: true });
+    // `base` is the image the edits were made on: what differs from it is
+    // what gets written. `cabd` is the module's coding description, which
+    // BMW's coding script selects from.
+    await webWriteCoding(src.sgbd, modHex, {
+      confirmed: true,
+      dispatchKey: src.dispatchKey,
+      base: nettoHex,
+      cabd: src.cabd,
+      onStage,
+    });
 
     // Update state: staged becomes current
     for (const f of mod.fns) {
@@ -158,8 +190,8 @@ function treeWriteResultsHtml(results) {
       const icon = r.ok ? '✓' : '✗';
       const msg = r.ok
         ? r.backup
-          ? 'Written and verified (previous coding backed up)'
-          : 'Written and verified — NO BACKUP SAVED'
+          ? 'Written and verified by reading it back (previous coding backed up)'
+          : 'Written and verified by reading it back — NO BACKUP SAVED'
         : `Failed: ${r.err}`;
       return (
         `<div class="cod-result-row">` +
@@ -199,23 +231,49 @@ async function treeReview(built, state, label) {
 
   if (!ok) return;
 
-  // Execute writes per module
+  // Execute writes per module, saying where each one is: a write takes ten
+  // seconds or more, the cluster resets at the end of its own, and with
+  // nothing on the screen in between it looked as if nothing was happening.
   /** @type {WriteOutcome[]} */
   const results = [];
-  for (const [sgbd, edits] of byMod.entries()) {
-    const mod = built.find((m) => m.sgbd === sgbd);
-    if (!mod) continue;
-    results.push(await treeWriteModule(mod, edits, state));
+  const progress =
+    typeof progressDialog === 'function'
+      ? progressDialog({
+          title: 'Writing coding',
+          text: 'Starting',
+          // the write is not interruptible: this only puts the popup away
+          cancelLabel: 'Hide',
+        })
+      : null;
+  try {
+    for (const [sgbd, edits] of byMod.entries()) {
+      const mod = built.find((m) => m.sgbd === sgbd);
+      if (!mod) continue;
+      const name = mod.label || sgbd;
+      results.push(
+        await treeWriteModule(mod, edits, state, (text) => {
+          if (progress) progress.update(`${name}: ${text}`);
+        })
+      );
+    }
+  } finally {
+    if (progress) progress.close();
   }
 
-  // Show results
-  const allOk = results.every((r) => r.ok);
-  await confirmDialog({
-    title: allOk ? 'Coding written' : 'Write completed with errors',
-    body: `<div class="cod-result-list">${treeWriteResultsHtml(results)}</div>`,
-    confirmLabel: 'OK',
-    cancelLabel: null,
-  });
+  // Show results: one message, one button
+  const allOk = results.length > 0 && results.every((r) => r.ok);
+  const title = allOk ? 'Coding written' : 'Write completed with errors';
+  const body = `<div class="cod-result-list">${treeWriteResultsHtml(results)}</div>`;
+  if (typeof messageDialog === 'function') {
+    await messageDialog({ title, body, danger: !allOk });
+  } else {
+    await confirmDialog({
+      title,
+      body,
+      confirmLabel: 'OK',
+      cancelLabel: 'Close',
+    });
+  }
 }
 
 // The pieces the other coding screens call; published explicitly so the shared surface is visible.

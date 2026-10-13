@@ -299,8 +299,8 @@ function ensurePrintCss() {
  * @returns {Promise<void>} Settles when the panel closes (native) or at once (web).
  */
 function triggerPrint() {
-  if (window.bmacw && typeof window.bmacw.printPage === 'function') {
-    return window.bmacw.printPage().catch(() => {});
+  if (window.bmweb && typeof window.bmweb.printPage === 'function') {
+    return window.bmweb.printPage().catch(() => {});
   }
   window.print();
   return Promise.resolve();

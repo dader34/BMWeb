@@ -717,6 +717,35 @@ const ax = (t, id) => t.axes.find((a) => a.id === id);
 // ============================================================================
 // report -- FAIL LOUDLY
 // ============================================================================
+// A definition with a BASEOFFSET (the MS45 1024K one: 0x40000): table cells
+// are placed from the resolved start, like axes and single values. The cells
+// used to ignore the base, so every table read and wrote that far too low.
+{
+  const based = Object.assign({}, def.header, {
+    baseOffset: { offset: 0x100, subtract: false },
+  });
+  const plain = XDF.decodeTable(fuel, BIN, def.header);
+  const shifted = new Uint8Array(BIN.length + 0x100);
+  shifted.set(BIN, 0x100);
+  const moved = XDF.decodeTable(fuel, shifted, based);
+  ok(
+    JSON.stringify(moved.cells) === JSON.stringify(plain.cells),
+    'base offset: a table decodes from base + address'
+  );
+  ok(
+    XDF.tableCellAddress(moved.embed, 0, 0) ===
+      XDF.tableCellAddress(plain.embed, 0, 0) + 0x100,
+    'base offset: the decoded table reports resolved cell addresses'
+  );
+  const a = XDF.encodeTableCell(fuel, def.header, 1, 2, 50);
+  const b = XDF.encodeTableCell(fuel, based, 1, 2, 50);
+  ok(
+    a && b && b.address === a.address + 0x100,
+    'base offset: a cell is written at base + address'
+  );
+}
+
+// ============================================================================
 if (fails.length) {
   console.error(`xdf: ${fails.length} FAILED`);
   for (const f of fails) console.error('  x ' + f);

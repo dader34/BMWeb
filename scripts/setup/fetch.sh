@@ -12,7 +12,7 @@
 #
 # WHAT YOU ACTUALLY NEED, which is less than people assume:
 #
-#   Running BMacW ............ NOTHING. The app is self-contained; the
+#   Running BMWeb ............ NOTHING. The app is self-contained; the
 #                              renderer reads static JSON out of dist-web/.
 #                              vendor/ is a BUILD input, not runtime data.
 #   Wiring diagrams .......... --wiring. Optional, per chassis, and the only
@@ -202,7 +202,7 @@ interactive() {
   echo "  5) Everything               ~7 GB"
   echo "  0) Nothing, just show me what is available"
   echo
-  echo "  (running BMacW itself needs none of these -- the app is self-contained)"
+  echo "  (running BMWeb itself needs none of these -- the app is self-contained)"
   echo
   printf 'choice [1]: '
   read -r choice

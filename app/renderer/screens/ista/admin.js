@@ -168,7 +168,7 @@ function istaAdminBody(tab, pending) {
   if (tab === 'version') {
     const app =
       (typeof window !== 'undefined' &&
-        ((window.bmacw && window.bmacw.version) || window.BMACW_VERSION)) ||
+        ((window.bmweb && window.bmweb.version) || window.BMWEB_VERSION)) ||
       '';
     const cache =
       typeof ISTA_ADMIN_DATA_VERSION === 'string'

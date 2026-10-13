@@ -175,13 +175,13 @@ function showSettings() {
     typeof showRemoteDialog === 'function' ? showRemoteDialog() : null;
   // not in the offline builds: a session needs the signaling worker and a
   // peer on the internet, which is what an offline copy is for not having
-  if (!(typeof window !== 'undefined' && window.BMACW_OFFLINE)) {
+  if (!(typeof window !== 'undefined' && window.BMWEB_OFFLINE)) {
     wrap.appendChild(remoteRow);
   }
 
   // offline builds have no collector: no beta row (journal.js drops the
   // button and the auto-reports on the same flag)
-  if (!(typeof window !== 'undefined' && window.BMACW_OFFLINE)) {
+  if (!(typeof window !== 'undefined' && window.BMWEB_OFFLINE)) {
     wrap.appendChild(betaRow);
   }
 
@@ -190,7 +190,7 @@ function showSettings() {
   const ver = document.createElement('div');
   ver.className = 'settings-version';
   ver.textContent =
-    `${APP_NAME} ${window.bmacw && window.bmacw.version ? 'v' + window.bmacw.version : window.BMACW_VERSION ? 'v' + window.BMACW_VERSION : ''}`.trim();
+    `${APP_NAME} ${window.bmweb && window.bmweb.version ? 'v' + window.bmweb.version : window.BMWEB_VERSION ? 'v' + window.BMWEB_VERSION : ''}`.trim();
   view.appendChild(ver);
 
   stagger(wrap, 40);
@@ -499,13 +499,13 @@ function setupMobileTabbar() {
     });
   }
   // custom window controls: absent on web and on Win/Linux (their own titlebar), so
-  // guard on the element too -- checking only window.bmacw threw on null and killed boot behind the splash
+  // guard on the element too -- checking only window.bmweb threw on null and killed boot behind the splash
   const winClose = document.getElementById('win-close');
-  if (window.bmacw && winClose) {
-    winClose.onclick = () => window.bmacw.winClose();
+  if (window.bmweb && winClose) {
+    winClose.onclick = () => window.bmweb.winClose();
     document.getElementById('win-min').onclick = () =>
-      window.bmacw.winMinimize();
-    document.getElementById('win-zoom').onclick = () => window.bmacw.winZoom();
+      window.bmweb.winMinimize();
+    document.getElementById('win-zoom').onclick = () => window.bmweb.winZoom();
   }
 
   // the status chip IS the connect control: Web Serial refuses its port picker outside a user gesture, so a click must start it
@@ -642,7 +642,7 @@ function setupMobileTabbar() {
       // never re-open a share there.
       if (
         typeof resumeRemoteShare === 'function' &&
-        !(typeof window !== 'undefined' && window.BMACW_OFFLINE)
+        !(typeof window !== 'undefined' && window.BMWEB_OFFLINE)
       ) {
         resumeRemoteShare();
       }

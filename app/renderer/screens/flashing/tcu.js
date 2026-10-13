@@ -1,4 +1,4 @@
-// Flashing/Backups: the transmission (GS20) side. Identify through BMW's own
+// Flashing/Tuning: the transmission (GS20) side. Identify through BMW's own
 // gs20.prg (IDENT + AIF_LESEN) with a raw probe for the read patch, then the
 // raw-DS2 engine for everything else: Read Calibration, Load / Write
 // Calibration (a 64 KB .bin or a BMW .0DA), Load / Write Program (256 KB,

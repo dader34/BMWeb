@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script>
+(function () {
+  var isStandalone = (window.navigator.standalone === true) ||
+                     (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+  if (isStandalone) {
+    var target = window.location.pathname.endsWith('install.html') ? 'index.html' : 'app.html';
+    window.location.replace(target + window.location.search + window.location.hash);
+  }
+})();
+</script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>BMWeb: BMW Web Diagnostics</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg%20width%3D%22100%22%20height%3D%22100%22%20viewBox%3D%220%200%20100%20100%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%20%3Ccircle%20cx%3D%2250%22%20cy%3D%2250%22%20r%3D%2248%22%20fill%3D%22%2311161c%22%20stroke%3D%22%239aa6b2%22%20stroke-width%3D%223%22%2F%3E%20%3CclipPath%20id%3D%22disc%22%3E%3Ccircle%20cx%3D%2250%22%20cy%3D%2250%22%20r%3D%2231%22%2F%3E%3C%2FclipPath%3E%20%3Cg%20clip-path%3D%22url%28%23disc%29%22%3E%20%3Crect%20x%3D%2219%22%20y%3D%2219%22%20width%3D%2231%22%20height%3D%2231%22%20fill%3D%22%23eef2f5%22%2F%3E%20%3Crect%20x%3D%2250%22%20y%3D%2250%22%20width%3D%2231%22%20height%3D%2231%22%20fill%3D%22%23eef2f5%22%2F%3E%20%3Crect%20x%3D%2250%22%20y%3D%2219%22%20width%3D%2231%22%20height%3D%2231%22%20fill%3D%22%23ff9e2c%22%2F%3E%20%3Crect%20x%3D%2219%22%20y%3D%2250%22%20width%3D%2231%22%20height%3D%2231%22%20fill%3D%22%23ff9e2c%22%2F%3E%20%3C%2Fg%3E%20%3Ccircle%20cx%3D%2250%22%20cy%3D%2250%22%20r%3D%2231%22%20fill%3D%22none%22%20stroke%3D%22%230a0d11%22%20stroke-width%3D%222%22%2F%3E%20%3C%2Fsvg%3E">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="BMWeb">
+  <meta name="theme-color" content="#f6f6f3">
+  <link rel="manifest" href="manifest.webmanifest">
+  <style>
+    /* Option B: the service manual. Printed-manual vernacular from the era
+       of these cars: paper, black type, hairline tables, numbered sections,
+       a technical line drawing with callouts, figures with captions. The
+       app's screens sit in it as figures. Self-contained; it does not load
+       site.css because the ground is paper, not the app's dark surface. */
+    :root {
+      --paper: #f6f6f3;
+      --ink: #000;
+      --mid: #4c4c4a;
+      --rule: #000;
+      --hair: #c9c9c4;
+      --amber: #e8891d;
+      --sans: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; }
+    body {
+      margin: 0; background: var(--paper); color: var(--ink);
+      font: 400 16px/1.5 var(--sans); -webkit-font-smoothing: antialiased;
+    }
+    a { color: inherit; }
+    :focus-visible { outline: 2px solid var(--amber); outline-offset: 3px; }
+    .wrap { width: 100%; max-width: 68rem; margin: 0 auto; padding: 0 24px; }
+
+    /* masthead: the document header of a manual, ruled top and bottom */
+    .masthead { border-bottom: 1.5px solid var(--rule); }
+    .masthead-in { display: flex; align-items: center; justify-content: space-between; padding: 18px 0; }
+    .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+    .logo { width: 26px; height: 26px; }
+    .logo .ring { fill: none; stroke: #000; stroke-width: 3; }
+    .logo .w { fill: #fff; } .logo .c { fill: var(--amber); }
+    .name { font-weight: 700; font-size: 17px; letter-spacing: -.01em; }
+    .nav { display: flex; gap: 22px; }
+    .nav a { text-decoration: none; font-size: 15px; color: var(--mid); }
+    .nav a:hover { color: var(--ink); }
+
+    /* the document strip: what this is, what it applies to */
+    .strip { display: grid; grid-template-columns: 1fr 1fr 1fr; border-bottom: 1px solid var(--rule); font-size: 13.5px; }
+    .strip div { padding: 9px 0; color: var(--mid); }
+    .strip div + div { padding-left: 18px; border-left: 1px solid var(--hair); }
+    .strip b { color: var(--ink); font-weight: 500; }
+
+    /* opening spread: title left, illustration right */
+    .open { display: grid; grid-template-columns: 1.05fr .95fr; gap: 56px; align-items: center; padding: clamp(36px, 6vw, 72px) 0; border-bottom: 1.5px solid var(--rule); }
+    h1 { margin: 0 0 18px; font-size: clamp(34px, 4.6vw, 52px); line-height: 1.04; letter-spacing: -.03em; font-weight: 700; text-wrap: balance; }
+    .lede { margin: 0 0 28px; max-width: 30em; font-size: 18px; line-height: 1.5; color: var(--mid); }
+    .lede b { color: var(--ink); font-weight: 500; }
+    .go {
+      display: inline-flex; align-items: center; padding: 13px 24px; background: var(--ink); color: #fff;
+      text-decoration: none; font-weight: 500; font-size: 16px; border-radius: 3px;
+    }
+    .go:hover { background: #222; }
+    .go-sub { display: block; margin-top: 12px; font-size: 14px; color: var(--mid); }
+
+    figure { margin: 0; }
+    .draw svg { display: block; width: 100%; height: auto; }
+    .draw .ln { fill: none; stroke: #000; stroke-width: 1.6; stroke-linejoin: round; stroke-linecap: round; }
+    .draw .thin { fill: none; stroke: #000; stroke-width: 1; }
+    .draw .fill { fill: #fff; }
+    .draw .pin { fill: #fff; stroke: #000; stroke-width: 1; }
+    .draw .pin.k { fill: var(--amber); }
+    .draw .no { fill: #000; }
+    .draw .no-t { fill: #fff; font: 700 11px var(--sans); text-anchor: middle; }
+    .draw .lead { fill: none; stroke: #000; stroke-width: 1; }
+    .key { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 18px; margin-top: 14px; font-size: 13.5px; line-height: 1.4; color: var(--mid); }
+    .key span { display: flex; gap: 8px; }
+    .key i {
+      flex: none; width: 18px; height: 18px; border-radius: 50%; background: #000; color: #fff;
+      font: 700 11px/18px var(--sans); text-align: center; font-style: normal; margin-top: 1px;
+    }
+
+    /* numbered sections, as a manual numbers them */
+    section { padding: clamp(32px, 5vw, 48px) 0; border-bottom: 1px solid var(--rule); }
+    section:last-of-type { border-bottom: 0; }
+    .sec { display: grid; grid-template-columns: 5.5rem 1fr; gap: 24px; }
+    .sec h2 { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -.02em; line-height: 1.2; }
+    .sec h2 small { display: block; font-size: 14px; font-weight: 400; color: var(--mid); letter-spacing: 0; }
+    .sec-body { min-width: 0; }
+
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; vertical-align: top; padding: 12px 0; border-top: 1px solid var(--hair); font-size: 15.5px; }
+    tr:last-child th, tr:last-child td { border-bottom: 1px solid var(--hair); }
+    th { font-weight: 500; width: 34%; padding-right: 24px; }
+    td { color: var(--mid); }
+    td em { color: var(--ink); font-style: normal; }
+
+    .steps { margin: 0; padding: 0; list-style: none; }
+    .steps li { display: grid; grid-template-columns: 3rem 1fr; gap: 12px; padding: 12px 0; border-top: 1px solid var(--hair); font-size: 15.5px; }
+    .steps li:last-child { border-bottom: 1px solid var(--hair); }
+    .steps li span:first-child { font-weight: 500; }
+    .steps b { display: block; font-weight: 500; }
+    .steps p { margin: 2px 0 0; color: var(--mid); }
+
+    /* figures: black hairline frame, caption underneath like a manual figure */
+    .figs { display: grid; grid-template-columns: 1fr 1fr; gap: 28px 24px; }
+    .figs figure { display: flex; flex-direction: column; }
+    .figs img {
+      display: block; width: 100%; height: auto; aspect-ratio: 1500 / 722; object-fit: cover; object-position: top center;
+      border: 1px solid #000; background: #0c1015;
+    }
+    .figs figcaption { margin-top: 8px; font-size: 13.5px; line-height: 1.45; color: var(--mid); }
+    .figs figcaption b { color: var(--ink); font-weight: 500; margin-right: 6px; }
+    .more { margin: 18px 0 0; font-size: 14.5px; }
+    .more a { color: var(--mid); text-underline-offset: 3px; }
+    .more a:hover { color: var(--ink); }
+
+    dl { margin: 0; }
+    dt { font-weight: 500; padding-top: 12px; border-top: 1px solid var(--hair); font-size: 15.5px; }
+    dd { margin: 3px 0 12px; color: var(--mid); font-size: 15.5px; max-width: 42em; }
+    dd a { color: var(--mid); text-underline-offset: 3px; }
+    dd a:hover { color: var(--ink); }
+
+    .foot { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding: 22px 0 44px; border-top: 1.5px solid var(--rule); font-size: 13.5px; color: var(--mid); }
+    .foot a { color: var(--mid); text-decoration: none; }
+    .foot a:hover { color: var(--ink); }
+
+    @media (max-width: 860px) {
+      .open { grid-template-columns: 1fr; gap: 32px; }
+      .strip { grid-template-columns: 1fr; }
+      .strip div + div { padding-left: 0; border-left: 0; border-top: 1px solid var(--hair); }
+      .sec { grid-template-columns: 1fr; gap: 12px; }
+      .figs { grid-template-columns: 1fr; }
+      .key { grid-template-columns: 1fr; gap: 8px; }
+      th { width: 40%; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="masthead">
+  <div class="wrap masthead-in">
+    <a class="brand" href="install.html">
+      <svg class="logo" viewBox="0 0 100 100" role="img" aria-label="BMWeb">
+        <circle class="ring" cx="50" cy="50" r="48"/>
+        <clipPath id="d1"><circle cx="50" cy="50" r="31"/></clipPath>
+        <g clip-path="url(#d1)">
+          <rect class="w" x="19" y="19" width="31" height="31"/><rect class="w" x="50" y="50" width="31" height="31"/>
+          <rect class="c" x="50" y="19" width="31" height="31"/><rect class="c" x="19" y="50" width="31" height="31"/>
+        </g>
+        <circle class="ring" cx="50" cy="50" r="31"/>
+      </svg>
+      <span class="name">BMWeb</span>
+    </a>
+    <nav class="nav">
+      <a href="docs.html">Docs</a>
+      <a href="demo.html">Photos</a>
+      <a href="app.html" data-applink>Open the app</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="strip">
+    <div><b>Getting started</b></div>
+    <div>Applies to <b>BMW models 1996 to 2006</b>, E36 through E90</div>
+    <div>Free and open source. <b>Nothing to install.</b></div>
+  </div>
+
+  <div class="open">
+    <div>
+      <h1>Diagnostics for your BMW, in a browser.</h1>
+      <p class="lede">Plug a cheap cable into the car, open BMWeb, and see what the dealer's
+      computer sees: fault codes in plain English, live engine data, and component tests.
+      <b>The same screens BMW technicians used.</b></p>
+      <a class="go" href="app.html" data-applink>Open BMWeb</a>
+      <span class="go-sub">Chrome or Edge on a computer. No Windows, no virtual machine.</span>
+    </div>
+
+    <figure class="draw">
+      <svg viewBox="0 0 560 300" role="img" aria-label="Line drawing: the OBD port in the car, a K+DCAN cable, and a laptop.">
+        <!-- laptop -->
+        <rect class="ln fill" x="332" y="96" width="196" height="132" rx="5"/>
+        <rect class="thin" x="345" y="109" width="170" height="106"/>
+        <path class="ln" d="M318 236h224l14 10H304z"/>
+        <!-- OBD-II socket, front view: trapezoid, two rows of eight pins -->
+        <path class="ln fill" d="M34 140h190l-16 66H50z"/>
+        <path class="thin" d="M48 150h162l-11 46H59z"/>
+        <g>
+          <rect class="pin" x="62" y="158" width="6" height="10"/><rect class="pin" x="80" y="158" width="6" height="10"/>
+          <rect class="pin" x="98" y="158" width="6" height="10"/><rect class="pin" x="116" y="158" width="6" height="10"/>
+          <rect class="pin" x="134" y="158" width="6" height="10"/><rect class="pin" x="152" y="158" width="6" height="10"/>
+          <rect class="pin k" x="170" y="158" width="6" height="10"/><rect class="pin" x="188" y="158" width="6" height="10"/>
+          <rect class="pin" x="66" y="178" width="6" height="10"/><rect class="pin" x="84" y="178" width="6" height="10"/>
+          <rect class="pin" x="102" y="178" width="6" height="10"/><rect class="pin" x="120" y="178" width="6" height="10"/>
+          <rect class="pin" x="138" y="178" width="6" height="10"/><rect class="pin" x="156" y="178" width="6" height="10"/>
+          <rect class="pin" x="174" y="178" width="6" height="10"/><rect class="pin" x="192" y="178" width="6" height="10"/>
+        </g>
+        <!-- cable from the socket to the laptop's side, USB plug at the end -->
+        <path class="ln" d="M224 172c30 0 40 22 76 22"/>
+        <rect class="ln fill" x="300" y="184" width="34" height="18" rx="2"/>
+        <rect class="thin" x="306" y="189" width="22" height="8"/>
+        <!-- callouts -->
+        <path class="lead" d="M126 138V96"/>
+        <circle class="no" cx="126" cy="86" r="10"/><text class="no-t" x="126" y="90">1</text>
+        <path class="lead" d="M262 182v-40"/>
+        <circle class="no" cx="262" cy="132" r="10"/><text class="no-t" x="262" y="136">2</text>
+        <path class="lead" d="M430 94V64"/>
+        <circle class="no" cx="430" cy="54" r="10"/><text class="no-t" x="430" y="58">3</text>
+        <path class="lead" d="M173 170l20 40h20"/>
+        <text x="216" y="214" font-size="11" fill="#4c4c4a" font-family="Helvetica Neue, Helvetica, Arial, sans-serif">pin 7, K-line</text>
+      </svg>
+      <figcaption class="key">
+        <span><i>1</i>OBD port in the driver's footwell, or the round port under the hood on older cars</span>
+        <span><i>2</i>K+DCAN cable, about $20 anywhere online</span>
+        <span><i>3</i>USB into any computer running Chrome or Edge</span>
+      </figcaption>
+    </figure>
+  </div>
+
+  <section>
+    <div class="sec">
+      <h2>1<small>What you need</small></h2>
+      <div class="sec-body">
+        <table>
+          <tr><th>K+DCAN cable</th><td>The common USB diagnostic cable for these BMWs. <em>About $20</em>, sold everywhere online. Nothing else to buy.</td></tr>
+          <tr><th>A BMW from 1996 to 2006</th><td>3, 5 and 7 Series, X3, X5, Z4, Z8, Mini and more. See the full list of chassis in the app.</td></tr>
+          <tr><th>Chrome or Edge on a computer</th><td>Any Mac, Windows or Linux machine. The browser talks to the cable directly; there is nothing to download or install.</td></tr>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec">
+      <h2>2<small>Connecting</small></h2>
+      <div class="sec-body">
+        <ol class="steps">
+          <li><span>2.1</span><div><b>Plug in the cable.</b><p>One end in the car, the other in your computer. Turn the ignition on.</p></div></li>
+          <li><span>2.2</span><div><b>Open BMWeb and pick your car.</b><p>Choose your model, and allow the cable when the browser asks.</p></div></li>
+          <li><span>2.3</span><div><b>Read your car.</b><p>Scan every module for faults, watch live data, or test components.</p></div></li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec">
+      <h2>3<small>The screens</small></h2>
+      <div class="sec-body">
+        <div class="figs">
+          <figure><img src="img/landing/02-modules.webp" width="1500" height="722" alt="An E46's control modules listed by system." loading="lazy"><figcaption><b>Fig. 1</b>An E46's control modules, by system.</figcaption></figure>
+          <figure><img src="img/landing/03-apps.webp" width="1500" height="722" alt="The Apps hub." loading="lazy"><figcaption><b>Fig. 2</b>Fault lookup, wiring diagrams, parts catalogue, Tool32 and tuning.</figcaption></figure>
+          <figure><img src="img/landing/05-connector-pins.webp" width="1500" height="722" alt="Connector pin assignments for an E46 General Module." loading="lazy"><figcaption><b>Fig. 3</b>Repair documents: connector locations and pin assignments.</figcaption></figure>
+          <figure><img src="img/landing/11-remote-connected.webp" width="1500" height="722" alt="A live remote session." loading="lazy"><figcaption><b>Fig. 4</b>Remote help: someone else drives the diagnostics, every write asks you first.</figcaption></figure>
+        </div>
+        <p class="more"><a href="demo.html">Every screen, in pictures</a></p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec">
+      <h2>4<small>Questions</small></h2>
+      <div class="sec-body">
+        <dl>
+          <dt>Is it safe to poke around?</dt>
+          <dd>Reading is completely safe, you're only listening. Anything that changes the car asks you first.</dd>
+          <dt>Does it cost anything?</dt>
+          <dd>No. BMWeb is free and open source. Your only cost is the cable.</dd>
+          <dt>Will it work on my phone?</dt>
+          <dd>For everything that does not touch the car. Download the <a href="https://github.com/dader34/BMWeb/releases">offline zip</a>
+            and open it in Microsoft Edge (iPhone and Android are both supported) for fault lookup, wiring diagrams, documents
+            and parts. Talking to the car needs the K+DCAN cable and a desktop browser with Web Serial, which phones do not have.</dd>
+          <dt>Do I need internet at the car?</dt>
+          <dd>Only the first time. Once BMWeb has loaded, it works offline, and there are
+            <a href="https://github.com/dader34/BMWeb/releases">offline downloads</a> too.</dd>
+        </dl>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="wrap">
+  <div class="foot">
+    <span>BMWeb, free and open source</span>
+    <span><a href="https://github.com/dader34/BMWeb">GitHub</a> &nbsp;&nbsp; <a href="https://github.com/dader34/BMWeb/releases">Offline downloads</a></span>
+  </div>
+</footer>
+
+<script>
+(function () {
+  if ('serviceWorker' in navigator) {
+    var reloading = false;
+    navigator.serviceWorker.addEventListener('controllerchange', function () {
+      if (reloading) return; reloading = true; location.reload();
+    });
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('./sw.js').then(function (reg) {
+        reg.update().catch(function () {});
+        function promote(w) {
+          if (w && w.state === 'installed' && navigator.serviceWorker.controller) w.postMessage('SKIP_WAITING');
+        }
+        if (reg.waiting) promote(reg.waiting);
+        reg.addEventListener('updatefound', function () {
+          var nw = reg.installing;
+          if (nw) nw.addEventListener('statechange', function () { promote(nw); });
+        });
+      }).catch(function () {});
+    });
+  }
+  var targetAppUrl = window.location.pathname.endsWith('install.html') ? 'index.html' : 'app.html';
+  document.querySelectorAll('[data-applink]').forEach(function (a) { a.href = targetAppUrl; });
+}());
+</script>
+</body>
+</html>

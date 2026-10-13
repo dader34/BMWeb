@@ -10,7 +10,7 @@
 /* exported NativeSerialBus */
 
 /**
- * The transport behind the macOS shell's `window.bmacw` serial bridge.
+ * The transport behind the macOS shell's `window.bmweb` serial bridge.
  * @extends SerialTransportBase
  */
 class NativeSerialBus extends SerialTransportBase {
@@ -32,7 +32,7 @@ class NativeSerialBus extends SerialTransportBase {
    * @returns {Promise<string>} The port label.
    */
   async connect() {
-    const r = await window.bmacw.serialOpen(null, KDCAN.baudRate, KDCAN.parity);
+    const r = await window.bmweb.serialOpen(null, KDCAN.baudRate, KDCAN.parity);
     this.path = (r && r.port) || 'serial';
     this.config = KDCAN;
     return this.portLabel();
@@ -46,7 +46,7 @@ class NativeSerialBus extends SerialTransportBase {
   /** Close the shell's port and forget it. */
   async disconnect() {
     try {
-      await window.bmacw.serialClose();
+      await window.bmweb.serialClose();
     } catch {
       /* already closed */
     }
@@ -66,7 +66,7 @@ class NativeSerialBus extends SerialTransportBase {
     // must be woken again. Without this a concept switch mid-job left
     // `inited` set and every following request went to a sleeping ECU.
     this._resetWakeState();
-    const r = await window.bmacw.serialOpen(
+    const r = await window.bmweb.serialOpen(
       this.path === 'serial' ? null : this.path,
       cfg.baudRate,
       cfg.parity
@@ -82,7 +82,7 @@ class NativeSerialBus extends SerialTransportBase {
    * Write one framed request through the shell and read its answer.
    *
    * NOTE: the K-line wake (fast init / slow init) lives on WebSerialBus,
-   * which owns the break and DTR lines. The native bridge (window.bmacw)
+   * which owns the break and DTR lines. The native bridge (window.bmweb)
    * exposes no setSignals equivalent yet, so a K-line ECU reached through
    * the desktop app still relies on the host side doing the wake.
    * @param {number[]|null} framed - The request with its checksum, or null
@@ -95,13 +95,13 @@ class NativeSerialBus extends SerialTransportBase {
     if (framed) {
       // A stale partial frame from a timed-out job would be read as this
       // job's answer, so start clean.
-      await window.bmacw.serialFlush();
-      await window.bmacw.serialWrite(framed);
+      await window.bmweb.serialFlush();
+      await window.bmweb.serialWrite(framed);
     }
     return readFrame(
       framed,
       timeoutMs,
-      async () => window.bmacw.serialRead(),
+      async () => window.bmweb.serialRead(),
       comm
     );
   }

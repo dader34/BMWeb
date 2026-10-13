@@ -120,6 +120,7 @@ async function flashDmeTune(p, c) {
   c.stage('Flashing ECU');
   const written = await ms45FlashBlock(toFlash, 0x2040000, 0x205cfff, {
     onStage: c.stage,
+    onNote: c.note,
     onProgress: (pct) => c.progress(pct, 'Flashing'),
   });
   if (!written) return { ok: false, status: 'Flash failed' };
@@ -165,6 +166,7 @@ async function flashDmeProgram(p, c) {
   if (
     !(await ms45FlashBlock(toFlash, 0x2060000, 0x20fff3f, {
       onStage: c.stage,
+      onNote: c.note,
       onProgress: progress('Flashing external'),
     }))
   )
@@ -175,6 +177,7 @@ async function flashDmeProgram(p, c) {
   c.stage('Flashing Internal Program');
   let ok = await ms45FlashBlock(p.mpc, 0, 0x6ffff, {
     onStage: c.stage,
+    onNote: c.note,
     onProgress: progress('Flashing MPC'),
   });
   if (ok && p.hasCal) {
@@ -192,6 +195,7 @@ async function flashDmeProgram(p, c) {
       c.stage('Flashing Calibration');
       ok = await ms45FlashBlock(calFlash, 0x2040000, 0x205cfff, {
         onStage: c.stage,
+        onNote: c.note,
         onProgress: progress('Flashing calibration'),
       });
     }
@@ -293,7 +297,7 @@ async function flashDmeRead(p, c) {
     p.diagProtocol !== 'BMW-FAST' &&
     !(await ms45SecurityAccess(p.diagProtocol, c.stage))
   )
-    c.stage('Security Access Denied');
+    return { ok: false, status: 'Security Access Denied' };
   const progress = (pct) => c.progress(pct, '');
   let flash;
   let mpc = null;
@@ -340,7 +344,7 @@ async function flashDmeMapsRead(p, c) {
     p.diagProtocol !== 'BMW-FAST' &&
     !(await ms45SecurityAccess(p.diagProtocol, c.stage))
   )
-    c.stage('Security Access Denied');
+    return { ok: false, status: 'Security Access Denied' };
   const read = async (start, end) => {
     const data = await ms45ReadMemory(start, end, 'ROMX', {
       onProgress: (pct) => c.progress(pct, ''),
@@ -360,10 +364,18 @@ async function flashDmeMapsRead(p, c) {
   const maps = [];
   let failed = false;
   if (p.layout === 'blocks') {
-    const area = await read(
+    // the header says which layout; the chunk layout's tables are 1 KB a
+    // map, four times the block layout's, and read short they gave maps 3
+    // to 7 tables of zeros: wrong maps, saved without a word
+    let area = await read(
       mapSwitch.TABLES_OFFSET,
       mapSwitch.TABLES_OFFSET + mapSwitch.TABLES_LENGTH - 1
     );
+    if (area && mapSwitch.isChunksLayout(area))
+      area = await read(
+        mapSwitch.TABLES_OFFSET,
+        mapSwitch.TABLES_OFFSET + mapSwitch.tablesLength('chunks') - 1
+      );
     const count = area ? mapSwitch.mapCountFrom(area) : null;
     for (let index = 1; count && index < count && !failed; index++) {
       c.stage(`Reading map ${index + 1}`);

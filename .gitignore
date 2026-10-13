@@ -93,3 +93,9 @@ app/renderer/bundle.js
 # where the app looks for them. Built from data/ by the packaging step in a
 # real build, so it does not belong in the tree.
 app/renderer/api/
+
+# iOS app: Xcode's build output, per-user state, and the packed copy of the
+# web app (ios/pack-web.sh makes it, generated data and all -- see above)
+ios/build/
+ios/BMWeb/Web/
+xcuserdata/

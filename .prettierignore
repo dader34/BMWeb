@@ -24,3 +24,4 @@ vendor/
 # data + generated assets
 data/
 *.min.js
+app/renderer/core/ms45-cursor-map.js

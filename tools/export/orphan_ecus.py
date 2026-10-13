@@ -19,7 +19,7 @@ three kinds are exactly what an owned SGBD carries:
     <sgbd>.tables.json.gz     SGBD tables         (_prg_tables off the .prg)
 
 Everything here is OFFLINE: the embedded engine reads the .prg from vendor/, no
-running app, no BMACW_PORT, no cable. web_export.py then packs the orphans into a
+running app, no BMWEB_PORT, no cable. web_export.py then packs the orphans into a
 synthetic "_SGBD" catch-all .chassis and indexes them, so loadEcu(any_shipped)
 resolves.
 

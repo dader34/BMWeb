@@ -54,7 +54,7 @@ def _port():
     """Base URL of the running engine, or None -- see _engine.find_base.
 
     Discovery lives in _engine; the copy this function used to carry had
-    drifted from the other tools' (BMACW_API vs BMACW_PORT, lsof-only vs
+    drifted from the other tools' (BMWEB_API vs BMWEB_PORT, lsof-only vs
     pgrep). Both env vars are honoured.
     """
     return _engine.find_base()
@@ -105,7 +105,7 @@ def harvest(base, sgbd):
 
 def main():
     """CLI entry: harvest one SGBD as JSON, or the whole corpus (``--write``
-    saves it). Needs the app or BMACW_PORT/BMACW_API.
+    saves it). Needs the app or BMWEB_PORT/BMWEB_API.
 
     Returns:
         The process exit code (2 without an engine, 1 for an unloadable SGBD).
@@ -118,7 +118,7 @@ def main():
     base = _port()
     if not base:
         print("the app is not running — start it so the EDIABAS engine can\n"
-              "answer _JOBS/_RESULTS offline, or set BMACW_PORT (or BMACW_API).",
+              "answer _JOBS/_RESULTS offline, or set BMWEB_PORT (or BMWEB_API).",
               file=sys.stderr)
         return 2
 

@@ -148,17 +148,16 @@ function tnFlash(el) {
 }
 
 /**
- * The table heat scale: the blue -> green -> yellow -> red ramp every map
- * editor uses, at full strength.
+ * The table heat scale: pale cyan for the low end, through grey, to a soft
+ * red for the high end. Light all the way, so every figure is dark ink on a
+ * tint and the numbers stay the loudest thing in the grid.
  * @type {number[][]}
  */
 const HEAT_STOPS = [
-  [0x24, 0x47, 0xa8],
-  [0x1e, 0x8f, 0x8a],
-  [0x4c, 0xaf, 0x50],
-  [0xe3, 0xc2, 0x3a],
-  [0xef, 0x7d, 0x2a],
-  [0xd6, 0x3a, 0x2f],
+  [0x9c, 0xf2, 0xf2],
+  [0xb4, 0xc8, 0xca],
+  [0xc8, 0xb2, 0xb2],
+  [0xea, 0x74, 0x74],
 ];
 
 /**

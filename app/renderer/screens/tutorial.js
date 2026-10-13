@@ -135,12 +135,12 @@ function appsTourSteps() {
     },
     {
       screen: 'apps',
-      sel: '.app-entry[data-app="tuning"]:not(.app-absent)',
-      title: 'Tuning',
+      sel: '.app-entry[data-app="backup"]:not(.app-absent)',
+      title: 'Flashing/Tuning',
       body:
-        'Open an ECU firmware BIN as raw hex, or load a TunerPro .xdf to ' +
-        'edit its constants, flags and maps by name. For reading and ' +
-        'understanding your tune.',
+        'Read and flash the DME and transmission, and tune: its Tuning ' +
+        'page opens a firmware BIN as raw hex, or a TunerPro .xdf to edit ' +
+        'constants, flags and maps by name.',
     },
     {
       screen: 'apps',
@@ -504,7 +504,7 @@ async function startTutorial(opts) {
  */
 function howItWorksSlides() {
   const ver =
-    window.bmacw && window.bmacw.version ? `v${window.bmacw.version}` : '';
+    window.bmweb && window.bmweb.version ? `v${window.bmweb.version}` : '';
   return [
     {
       icon: '🔌',

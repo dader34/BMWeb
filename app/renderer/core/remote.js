@@ -60,7 +60,7 @@ const REMOTE_APPROVAL_MS = 15 * 60 * 1000;
 // through the owner's shim, so both sides must speak the same routes, job
 // classifier and runtime; a helper on an older build could ask for things
 // the owner's build no longer means. The native shell injects
-// window.bmacw.version, a web build ships version.js (BMACW_VERSION), a dev
+// window.bmweb.version, a web build ships version.js (BMWEB_VERSION), a dev
 // checkout has neither and reports 'dev'.
 /**
  * The app version both ends of a session must share.
@@ -68,8 +68,8 @@ const REMOTE_APPROVAL_MS = 15 * 60 * 1000;
  */
 function remoteVersion() {
   if (typeof window === 'undefined') return 'dev';
-  if (window.bmacw && window.bmacw.version) return String(window.bmacw.version);
-  if (window.BMACW_VERSION) return String(window.BMACW_VERSION);
+  if (window.bmweb && window.bmweb.version) return String(window.bmweb.version);
+  if (window.BMWEB_VERSION) return String(window.BMWEB_VERSION);
   return 'dev';
 }
 

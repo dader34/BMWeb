@@ -528,6 +528,65 @@ function _resultBytes(res, field) {
   return new Uint8Array(0);
 }
 
+/**
+ * The ECU serial from the answer to the serial job: the last 4 bytes of the
+ * answer's PAYLOAD. _TEL_ANTWORT arrives in whatever shape the transport
+ * gives it -- the whole frame with its checksum (a cable through EDIABAS;
+ * the reference tool's Skip(len-5).Take(4) counts on that), the frame
+ * without it, or the bare payload -- and a fixed offset from the END picks
+ * the wrong bytes on one of them. A wrong serial is a wrong key, which the
+ * ECU refuses at once: security access failed over the WiFi adapter and
+ * worked on the cable. A frame names its own payload length: 0x80 | n in its
+ * first byte, then the two addresses; or, when the low six bits are zero or
+ * the format byte is the MS45's 0xB8, a length byte after the addresses.
+ * Reading 0xB8 as 0x80 | 56 fell through to the whole frame and keyed the
+ * checksum in as the serial's last byte.
+ * @param {Uint8Array} reply - _TEL_ANTWORT of the serial job.
+ * @returns {Uint8Array} The 4 serial bytes, or an empty array.
+ */
+function flasherSerialFromReply(reply) {
+  if (!reply || reply.length < 4) return new Uint8Array(0);
+  let payload = reply;
+  if ((reply[0] & 0x80) !== 0) {
+    const lengthByte = reply[0] === 0xb8 || (reply[0] & 0x3f) === 0;
+    const start = lengthByte ? 4 : 3;
+    const n = lengthByte ? reply[3] : reply[0] & 0x3f;
+    if (n >= 4 && start + n <= reply.length) {
+      payload = reply.subarray(start, start + n);
+    }
+  }
+  return payload.length >= 4
+    ? payload.subarray(payload.length - 4)
+    : new Uint8Array(0);
+}
+
+/**
+ * The programming session's baud rate. The DME runs it with even parity, and
+ * a Deep OBD style WiFi adapter (the THOR) does parity only up to 25 kBaud:
+ * its 115200 is BMW-FAST, no parity, so the DME's 115200 8E1 answers arrive
+ * torn (IFH-0019 on the access timing). 19200 is the fastest rate on the
+ * DME's list (BAUDRATE PC19200) the adapter carries, and the DME keeps it
+ * into its boot loader.
+ * @returns {number}
+ */
+function flasherProgrammingBaud() {
+  const url = typeof gatewaySetting === 'function' ? gatewaySetting() : '';
+  return typeof adapterSetting === 'function' && adapterSetting(url)
+    ? 19200
+    : 115200;
+}
+
+/**
+ * A programming-mode job argument with the session's rate in place of 115200
+ * (flasherProgrammingBaud).
+ * @param {string} arg - The argument as written for a cable.
+ * @returns {string}
+ */
+function flasherProgrammingArg(arg) {
+  const baud = flasherProgrammingBaud();
+  return baud === 115200 ? arg : String(arg).replace(/115200/g, String(baud));
+}
+
 // A binary job argument. The VM derives the arg bytes from the arg STRING via
 // CP1252 (Best2Vm.strBytes: char code <= 0xFF -> that byte), so a byte blob
 // is passed as a Latin-1 string, one char per byte -- NOT as hex text.
@@ -743,14 +802,11 @@ async function flashSecurityAccess(sgbd, profile, type, onStage, onOpened) {
     }
   }
   onStage && onStage('reading serial number');
-  // _TEL_ANTWORT is the raw answer telegram; the serial is its last 4 bytes
-  // before the checksum (FlashService: Skip(len-5).Take(4)).
-  const serBytes = _resultBytes(
-    await _runJobOk(sgbd, sec.serialJob[0], ''),
-    sec.serialJob[1]
+  // the serial is the last 4 bytes of the answer's payload (flasherSerialFromReply)
+  const serial = flasherSerialFromReply(
+    _resultBytes(await _runJobOk(sgbd, sec.serialJob[0], ''), sec.serialJob[1])
   );
-  if (serBytes.length < 5) throw new Error('could not read ECU serial');
-  const serial = serBytes.slice(serBytes.length - 5, serBytes.length - 1);
+  if (serial.length !== 4) throw new Error('could not read ECU serial');
 
   // a random 4-byte user id, sent big-endian as a hex literal (the reference
   // reverses the bytes then formats the uint as hex)
@@ -778,7 +834,7 @@ async function flashSecurityAccess(sgbd, profile, type, onStage, onOpened) {
 
   onStage && onStage('entering programming mode');
   for (const [job, arg] of sec.afterAuth || []) {
-    await _runJobOk(sgbd, job, arg);
+    await _runJobOk(sgbd, job, flasherProgrammingArg(arg));
   }
   return true;
 }
@@ -1047,5 +1103,7 @@ if (typeof module !== 'undefined' && module.exports) {
     _md5,
     _rsaSecurityMessage,
     _modPow,
+    flasherSerialFromReply,
+    flasherProgrammingArg,
   };
 }

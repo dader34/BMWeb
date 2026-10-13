@@ -167,6 +167,72 @@
     return out;
   }
 
+  // A row of the block that names only a variant (older chassis: E31, E32,
+  // E34, E36) carries no SGBD. The module to talk to is then the slot's own,
+  // from the chassis's family table (its C_SGBD column, kept under `cabd`).
+  /**
+   * The coding SGBD a row stands for.
+   * @param {string} chassisId - chassis id.
+   * @param {SgetRow} row - the row.
+   * @returns {string} lowercase, '' when neither the row nor the family
+   *   table names one.
+   */
+  function sgbdOfRow(chassisId, row) {
+    const own = String(row.SGBD || '').toLowerCase();
+    if (own) return own;
+    const tables = root.BMW_TABLES || {};
+    const ch = tables[String(chassisId || '').toUpperCase()];
+    const fam = (ch && ch.sgfam) || {};
+    for (const key of [row.UMRSG, row.SGNAME]) {
+      const hit = key && fam[String(key).toUpperCase()];
+      if (hit && hit.cabd) return String(hit.cabd).toLowerCase();
+    }
+    return '';
+  }
+
+  // WHAT A PREDICATE'S NUMBERS ARE. `S121` is entry 121 of the chassis's own
+  // keyword table (SWTASW): KMBI_CI_07 on the E46, whose cluster rows read
+  // "PU01 and KMBI_CI_07 and not (KMBI_CI_08 or S54B32)". They are NOT option
+  // catalogue numbers -- catalogue 205 is the automatic gearbox, S205 is
+  // PDC_CI_02, and the automatic is S37. So a car's equipment has to come to
+  // a predicate as keyword ids: the keywords its coding key decodes to, and
+  // the keywords the option catalogue (AT) gives for its catalogue numbers.
+  /**
+   * The car's equipment in the predicates' own numbering.
+   * @param {string} chassisId - chassis id.
+   * @param {Array<string|number>|null|undefined} saCodes - option catalogue numbers.
+   * @param {string[]|null|undefined} [keywords] - equipment keywords already
+   *   known (a coding key's, with its `*_CI_nn` stamps).
+   * @param {string|null|undefined} [time] - a vehicle order's time criterion
+   *   (`#0904` or `0904`): the option catalogue's row for it carries what no
+   *   option does -- the order-coding marker and the modules' revision
+   *   stamps.
+   * @returns {number[]|null} the keyword ids, or null when the chassis ships
+   *   no keyword table -- then nothing can be evaluated, which is not the
+   *   same as "the car has none of it".
+   */
+  function aswIds(chassisId, saCodes, keywords, time) {
+    const tables = root.BMW_TABLES || {};
+    const ch = tables[String(chassisId || '').toUpperCase()];
+    const asw = ch && ch.asw;
+    if (!asw) return null;
+    const ids = new Set();
+    const add = (kw) => {
+      const id = asw[String(kw || '').toUpperCase()];
+      if (id != null) ids.add(id);
+    };
+    for (const kw of keywords || []) add(kw);
+    const byTime = (ch.at && ch.at.time) || {};
+    const when = String(time || '').replace(/^#/, '');
+    for (const kw of byTime[when] || []) add(kw);
+    const bySa = (ch.at && ch.at.sa) || {};
+    for (const c of saCodes || []) {
+      const n = String(parseInt(String(c).trim(), 10));
+      for (const kw of bySa[n] || bySa[String(c).trim()] || []) add(kw);
+    }
+    return Array.from(ids).sort((x, y) => x - y);
+  }
+
   // `ambiguous` is the honest part. Rows differing only by coding index are
   // not a conflict -- the index picks between them later -- so ambiguity is
   // reported only when the applying rows disagree about WHICH MODULE to talk
@@ -185,13 +251,20 @@
     if (!rows.length) return null;
     const hits = rows.filter((r) => rowApplies(r, codes));
     if (!hits.length) return null;
-    const first = hits[0]; // NCS Expert: first match wins
+    // NCS Expert: first match wins. The rows arrive in the order the file's
+    // three blocks are consulted -- the ones naming a variant AND a module,
+    // then a module, then only a variant -- so the first hit is the right one
+    // across blocks too.
+    const first = hits[0];
     const sgbds = [];
     for (const h of hits) {
-      const s = String(h.SGBD || '').toLowerCase();
+      const s = sgbdOfRow(chassisId, h);
       if (s && !sgbds.includes(s)) sgbds.push(s);
     }
-    const chosen = String(first.SGBD || '').toLowerCase();
+    const chosen = sgbdOfRow(chassisId, first);
+    // A resolution must name a module to talk to. A row that names none and
+    // whose slot the family table does not know either is "no answer".
+    if (!chosen) return null;
     return {
       sgbd: chosen,
       cabd: first.CABD || null,
@@ -240,7 +313,8 @@
    * @template {{sgbd: string}} M
    * @param {string} chassisId - chassis id.
    * @param {M[]} mods - the configured modules.
-   * @param {EquipmentCodes|null|undefined} codes - the car's equipment codes.
+   * @param {EquipmentCodes|null|undefined} codes - the car's equipment as
+   *   KEYWORD IDS (see aswIds), not option catalogue numbers.
    * @returns {Array<M & {select?: SlotSelection}>} the modules, each with a
    *   `select` where SGET could decide; the input unchanged when there are no
    *   codes or no SGET rows.
@@ -256,6 +330,7 @@
   }
 
   const api = {
+    aswIds,
     rowApplies,
     rowsFor,
     candidatesForSlot,

@@ -26,5 +26,7 @@ if (typeof window !== 'undefined') {
   // The explicitly-confirmed coding write path (the UI's "code this module"
   // action). Gated on opts.confirmed and its own re-read proof; see coding.js.
   window.webWriteCoding = webWriteCoding;
+  // the read beside it: a module's coding image through its own script
+  window.webReadCoding = webReadCoding;
   installWebShim();
 }

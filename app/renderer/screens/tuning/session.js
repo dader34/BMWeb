@@ -170,6 +170,8 @@ async function tnClearEverything(ed) {
   }
   // memory first: any save scheduled after this point stores nothing
   tnResetState();
+  // and drop any live link: the image it was mirroring is gone
+  if (typeof tnLiveDisarm === 'function') tnLiveDisarm();
 
   try {
     await TuningStore.clearSession();
@@ -189,37 +191,41 @@ async function tnClearEverything(ed) {
 }
 
 /**
- * Save the edited image to disk, after saying plainly that the checksum
- * and signature are NOT corrected. Most flashing tools do that on write,
- * but a bin flashed by a tool that does not will be rejected by the ECU --
- * better said before every save than found out on a dead DME.
+ * Save the edited image to disk, as it is: the checksum and signature are
+ * NOT corrected here (a flashing tool does that on write).
  * @param {TuningEditor} ed
+ * @param {boolean} [fresh] - The image has just been read off the ECU for
+ *   this save: do not read it again.
  * @returns {Promise<void>}
  */
-async function tnSaveBin(ed) {
+async function tnSaveBin(ed, fresh = false) {
   const els = ed.els;
   if (!tuningState.bin) return;
 
-  const okToSave = await confirmDialog({
-    title: 'Save tuned BIN',
-    body:
-      `<p>This saves your edited image as-is. BMWeb does <b>not</b> correct ` +
-      `the checksum or firmware signature.</p>` +
-      `<p>Correct the checksum in your flashing tool before writing it to ` +
-      `the ECU. MS4X Flasher and WinKFP do this automatically; a tool that ` +
-      `does not will produce an image the ECU rejects.</p>`,
-    confirmLabel: 'Save anyway',
-    cancelLabel: 'Cancel',
-  });
-  if (!okToSave) return;
+  // LIVE: what is saved is what the ECU holds, read fresh every time -- the
+  // stored calibration with the open live tables laid over it. The editor's
+  // own image can be behind it (a restart dropped edits) or ahead of it
+  // (edits waiting for Apply), and with no file loaded it is mostly blank.
+  // The read hands back here with `fresh` set, so it is not asked for twice.
+  const liveNow = typeof tnLive !== 'undefined' && tnLive.armed;
+  const blank = typeof tnLiveBlankImage === 'function' && tnLiveBlankImage();
+  if (!fresh && (liveNow || blank) && typeof tnOpenReadTune === 'function') {
+    tnOpenReadTune(ed, () => {
+      // the image is the ECU's now: nothing is waiting, and an open table shows it
+      if (typeof tnLiveDropStaged === 'function') tnLiveDropStaged();
+      if (typeof tnTableRefreshOpen === 'function') tnTableRefreshOpen();
+      tnSaveBin(ed, true);
+    });
+    return;
+  }
 
   const name =
     tuningState.fileName.replace(/\.(bin|hex|ori|orig)$/i, '') + '-tuned.bin';
   try {
     // Prefer the host's real Save panel (macOS shell); fall back to a browser
     // download. Same pattern core/offline-export.js uses.
-    if (window.bmacw && typeof window.bmacw.saveFile === 'function') {
-      const r = await window.bmacw.saveFile(name, tuningState.bin);
+    if (window.bmweb && typeof window.bmweb.saveFile === 'function') {
+      const r = await window.bmweb.saveFile(name, tuningState.bin);
       if (r && r.cancelled) return;
     } else {
       const blob = new Blob([tuningState.bin], {

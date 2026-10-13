@@ -9,10 +9,11 @@
 //      checksummed and signed, byte-identical to what the Python builder
 //      writes, pinned by SHA-256.
 //   2. On a synthetic stock-like pair, always: the gates (program version,
-//      the three ignition calls, the free area), what a build changes and
+//      the scheduling routine's entry, the free area), what a build changes and
 //      what it leaves alone (the limiter's own code above all), that the
 //      config reads back out of a built pair, a rebuild with other numbers,
-//      removal, the config rules, and the stock limit read from a car's
+//      removal, an earlier version's three gated calls told apart and
+//      undone, the config rules, and the stock limit read from a car's
 //      tables.
 //   3. It stacks with the map switch in either order.
 //
@@ -89,39 +90,39 @@ const CASES = {
 // what ms45emu/protect.py builds from the same pair and the same numbers
 const PINNED = {
   defaults: {
-    flash: '605e3bee5f1fd2bba0fd0fd81d0c0e5784c353184fdebb2813c2ea6d0d4d65d3',
-    mpc: 'f1ee524874fa36f8395f7cba1909d80447de138c6b17d86a7880cf7a884c3c1d',
-    codeBytes: 348,
+    flash: 'ee5a04af51c5dc44d2a0a36af2efc79be6af71b70f72a658683b1e88a994cc85',
+    mpc: '1840c8a479cf90758b99a87a7043c8cc75c912dccec18ad2c023a5c56e2c8de1',
+    codeBytes: 120,
   },
   noSparkCut: {
-    flash: 'b411e6a82af8d75c579e3d886a3d2ddb5c8242efdbfc94adb765f4370fde4b10',
-    mpc: 'd8412edadc6a3545ab991dff341040c3ee0b60d72f0bebd40d20446803abc257',
-    codeBytes: 300,
+    flash: '033901a32f626df67f839fe25cb9a4308284a297207e9195dfd79f233fb060fe',
+    mpc: '1840c8a479cf90758b99a87a7043c8cc75c912dccec18ad2c023a5c56e2c8de1',
+    codeBytes: 104,
   },
   coldOnly: {
-    flash: '7e06294ab3e8e9310b188977d333175879fba0ade996fabebd72fc28b34735a3',
-    mpc: '3777ab0ed9d0495efc5cb5aec94abbedbaf51d2ca00a1c7c1393509d4a0af70f',
-    codeBytes: 132,
+    flash: 'c9ff510b5b024ea7d9ba56ae020ffc31826063b555e317aa652e3ba254d16e03',
+    mpc: '1840c8a479cf90758b99a87a7043c8cc75c912dccec18ad2c023a5c56e2c8de1',
+    codeBytes: 48,
   },
   custom: {
-    flash: 'a9d9bae4ca6a390e08ce1ff24b75b899c33bb16ba7b7eb1f100777aa1199ad0a',
-    mpc: 'f1ee524874fa36f8395f7cba1909d80447de138c6b17d86a7880cf7a884c3c1d',
-    codeBytes: 348,
+    flash: 'b8457b614b14e472198ebcb71e06bc8d77fb0c437b20e364d18f0f226f29e594',
+    mpc: '1840c8a479cf90758b99a87a7043c8cc75c912dccec18ad2c023a5c56e2c8de1',
+    codeBytes: 120,
   },
   oilCoolant: {
-    flash: '5e034428d19683395ded66921242e8e7d0003afcd0f71a5543b671bf45b88b5e',
-    mpc: 'e743bc746fc34ebfb9164500fdb0b1673108061f603a3d5011f319ba65b15dbf',
-    codeBytes: 228,
+    flash: '764a076eba924000866a5b327ec1a9a8744cbae30d862e1d8d83f2baf48b5c12',
+    mpc: '1840c8a479cf90758b99a87a7043c8cc75c912dccec18ad2c023a5c56e2c8de1',
+    codeBytes: 80,
   },
   sparkCutOnly: {
-    flash: 'c8dfd829632294821845b35cfe198b86e85f67e26a50005bc58035fe99d7f4a9',
-    mpc: 'd7a8e1526e817eff8ed6cc6a605d1b1a583daf7152d12b6be97239ccd9ff549a',
-    codeBytes: 108,
+    flash: '34bfbf09d1c9f5a4c435fbb5614230c89573a0c352a48e30edb79aebbb9efbc7',
+    mpc: '1840c8a479cf90758b99a87a7043c8cc75c912dccec18ad2c023a5c56e2c8de1',
+    codeBytes: 40,
   },
   sparkCutAndCold: {
-    flash: '9f82c23c25e4befcbd746c635903ba4b14f86dfd6e8e77703311705b6ae157e9',
-    mpc: '83d9982e24fbccad637f575be6d059fa6a1985fad814d052ed613aec37ffe941',
-    codeBytes: 180,
+    flash: '2808cf59ab58a67b6fea6355fdddab19726c568e498c7a864871a788e9c14c56',
+    mpc: '1840c8a479cf90758b99a87a7043c8cc75c912dccec18ad2c023a5c56e2c8de1',
+    codeBytes: 64,
   },
 };
 if (fs.existsSync(stockFlash) && fs.existsSync(stockMpc)) {
@@ -177,7 +178,10 @@ if (fs.existsSync(stockFlash) && fs.existsSync(stockMpc)) {
 
 // ── 2. a synthetic stock-like pair ─────────────────────────────────────────
 console.log('\nsynthetic pair');
+const ENTRY = 0x377a8; // the spark scheduling routine, and its first instruction
+const ENTRY_WORD = 0x7c0802a6;
 const SITES = [
+  // the calls an earlier version redirected
   [0x379cc, 0x377a8],
   [0x193c4, 0x1f938],
   [0x1976c, 0x1f938],
@@ -199,6 +203,7 @@ function syntheticPair() {
   const mpc = new Uint8Array(0x70000);
   for (let i = 0; i < mpc.length; i++) mpc[i] = (i * 13 + 5) & 0xff;
   for (const [site, original] of SITES) w32(mpc, site, bl(site, original));
+  w32(mpc, ENTRY, ENTRY_WORD);
   const flash = new Uint8Array(0x100000);
   for (let i = 0; i < flash.length; i++) flash[i] = (i * 7 + 1) & 0xff;
   flash.fill(0xff, CODE, 0xe0000);
@@ -236,50 +241,59 @@ function changed(a, b) {
   ok(
     'another program, a moved ignition call, a used free area and wrong sizes are refused'
   );
-
-  // the spark cut alone: three 9-word gates, only the ignition calls changed
-  const cut = ms45Protect.apply(flash, mpc, LIMITS_OFF);
-  assert.strictEqual(cut.codeBytes, 3 * 36);
-  assert.deepStrictEqual(
-    changed(cut.mpc, mpc),
-    SITES.map(([s]) => s).sort((a, b) => a - b)
+  const noEntry = Uint8Array.from(mpc);
+  w32(noEntry, ENTRY, 0x60000000);
+  assert.match(
+    ms45Protect.blockedReason(flash, noEntry),
+    /spark scheduling routine at 0x377A8/
   );
-  SITES.forEach(([site, original], i) => {
-    const gate = CODE + 36 * i;
-    assert.strictEqual(r32(cut.mpc, site), bl(site, (EXT + gate) | 0));
-    // li r12,0x7fff; lbz r11,limp(r13); cmpwi r11,0; bne +16 -> past the
-    // lhz; lhz r12,limit(r13); lhz r0,N(r13); cmplw r0,r12; bgelr; b stock
-    assert.deepStrictEqual(
-      [0, 4, 8, 12, 16, 20, 24, 28].map((o) => r32(cut.flash, gate + o)),
-      [
-        0x39807fff, 0x896dbf95, 0x2c0b0000, 0x40820008, 0xa18db42a, 0xa00db414,
-        0x7c006040, 0x4c800020,
-      ]
-    );
-    const tail = r32(cut.flash, gate + 32);
-    assert.strictEqual(
-      (EXT + gate + 32 + (((tail & 0x03fffffc) << 6) >> 6)) >>> 0,
-      original
-    );
-  });
+  assert.throws(() => ms45Protect.remove(flash, noEntry), /neither its own/);
+  ok('a scheduling routine that does not begin as expected is refused');
+
+  // the spark cut alone: one 10-word gate, only the routine's entry changed
+  const jump = (from, to) => ((18 << 26) | ((to - from) & 0x03fffffc)) >>> 0;
+  const cut = ms45Protect.apply(flash, mpc, LIMITS_OFF);
+  assert.strictEqual(cut.codeBytes, 40);
+  assert.deepStrictEqual(changed(cut.mpc, mpc), [ENTRY]);
+  assert.strictEqual(r32(cut.mpc, ENTRY), jump(ENTRY, (EXT + CODE) | 0));
+  // li r12,0x7fff; lbz r11,limp(r13); cmpwi r11,0; bne +8 -> past the lhz;
+  // lhz r12,limit(r13); lhz r0,N(r13); cmplw r0,r12; bgelr; mflr r0; b entry+4
+  assert.deepStrictEqual(
+    [0, 4, 8, 12, 16, 20, 24, 28, 32].map((o) => r32(cut.flash, CODE + o)),
+    [
+      0x39807fff,
+      0x896dbf95,
+      0x2c0b0000,
+      0x40820008,
+      0xa18db42a,
+      0xa00db414,
+      0x7c006040,
+      0x4c800020,
+      ENTRY_WORD,
+    ]
+  );
+  const tail = r32(cut.flash, CODE + 36);
+  assert.strictEqual(tail >>> 26, 18);
+  assert.strictEqual(tail & 3, 0);
+  assert.strictEqual(
+    (EXT + CODE + 36 + (((tail & 0x03fffffc) << 6) >> 6)) >>> 0,
+    ENTRY + 4
+  );
   for (const i of changed(cut.flash, flash))
-    assert.ok(i >= CODE && i < CODE + 108, i.toString(16));
+    assert.ok(i >= CODE && i < CODE + 40, i.toString(16));
   assert.strictEqual(
     r32(cut.flash, LIMIT_SITE),
     LIMIT_STORE,
     "the limiter's own store is never touched"
   );
   ok(
-    'the spark cut alone: three 36-byte gates reading the stored limit, with the limp-home stand-down'
+    "the spark cut alone: one 40-byte gate at the routine's entry, reading the stored limit, with the limp-home stand-down"
   );
 
-  // the temperature limits alone: gates still, no limp check, start from "no cut"
+  // the temperature limits alone: a gate still, no limp check, start from "no cut"
   const limits = ms45Protect.apply(flash, mpc, { sparkCut: false });
-  assert.strictEqual(limits.codeBytes, 3 * 100);
-  assert.deepStrictEqual(
-    changed(limits.mpc, mpc),
-    SITES.map(([s]) => s).sort((a, b) => a - b)
-  );
+  assert.strictEqual(limits.codeBytes, 104);
+  assert.deepStrictEqual(changed(limits.mpc, mpc), [ENTRY]);
   // li r12,0x7fff then straight into the cold block
   assert.strictEqual(r32(limits.flash, CODE), 0x39807fff);
   assert.strictEqual(r32(limits.flash, CODE + 4), 0x896dbfc8); // lbz r11,coolant(r13)
@@ -288,11 +302,12 @@ function changed(a, b) {
   assert.strictEqual(r32(limits.flash, CODE + 24), 0x39800dac); // li r12,3500
   assert.strictEqual(r32(limits.flash, LIMIT_SITE), LIMIT_STORE);
   ok(
-    'the temperature limits alone: three 100-byte gates, the limiter still untouched'
+    'the temperature limits alone: one 104-byte gate, the limiter still untouched'
   );
 
   const all = ms45Protect.apply(flash, mpc);
-  assert.strictEqual(all.codeBytes, 3 * 116);
+  assert.strictEqual(all.codeBytes, 120);
+  assert.ok(!ms45Protect.isOutdated(all.flash, all.mpc));
   assert.strictEqual(r32(all.flash, LIMIT_SITE), LIMIT_STORE);
   assert.deepStrictEqual(
     ms45Protect.installed(all.flash, all.mpc),
@@ -345,6 +360,33 @@ function changed(a, b) {
   assert.throws(() => ms45Protect.remove(odd, mpc), /neither stock nor/);
   ok("an earlier build's limiter hook is undone on removal and rebuild");
 
+  // a pair from the version before this one: the segment task's call and two
+  // channel set-up requests go to gates, the routine's entry is stock. On a
+  // car that cut nothing, so it is told apart, never read as ours, and
+  // replaced whole.
+  const three = { flash: Uint8Array.from(flash), mpc: Uint8Array.from(mpc) };
+  SITES.forEach(([site], i) => {
+    const gate = CODE + 0x74 * i;
+    w32(three.mpc, site, bl(site, (EXT + gate) | 0));
+    for (let o = 0; o < 0x74; o += 4) w32(three.flash, gate + o, 0x60000000);
+  });
+  assert.ok(ms45Protect.isApplied(three.flash, three.mpc));
+  assert.ok(ms45Protect.isOutdated(three.flash, three.mpc));
+  assert.ok(ms45Protect.isOutdated(earlier.flash, earlier.mpc));
+  assert.strictEqual(ms45Protect.installed(three.flash, three.mpc), null);
+  assert.strictEqual(ms45Protect.blockedReason(three.flash, three.mpc), null);
+  const plain = ms45Protect.remove(three.flash, three.mpc);
+  assert.deepStrictEqual(plain.flash, flash);
+  assert.deepStrictEqual(plain.mpc, mpc);
+  const renewed = ms45Protect.apply(three.flash, three.mpc);
+  assert.ok(renewed.replaced);
+  assert.deepStrictEqual(renewed.flash, all.flash);
+  assert.deepStrictEqual(renewed.mpc, all.mpc);
+  assert.ok(!ms45Protect.isOutdated(renewed.flash, renewed.mpc));
+  ok(
+    "the earlier version's three gated calls are told apart, undone on removal and replaced on a rebuild"
+  );
+
   const again = ms45Protect.apply(all.flash, all.mpc, { sparkCut: false });
   assert.ok(again.replaced);
   assert.deepStrictEqual(again.flash, limits.flash);
@@ -355,7 +397,7 @@ function changed(a, b) {
   assert.deepStrictEqual(ms45Protect.remove(flash, mpc).mpc, mpc);
   assert.throws(() => ms45Protect.remove(flash, moved), /neither stock nor/);
   ok(
-    'a rebuild with other numbers replaces the gates whole; removal restores the pair'
+    'a rebuild with other numbers replaces the gate whole; removal restores the pair'
   );
 
   assert.strictEqual(ms45Protect.configError({}), null);

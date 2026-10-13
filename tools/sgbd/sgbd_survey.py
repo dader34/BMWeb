@@ -397,7 +397,7 @@ def e46_sgbds():
     """sgbd names for the E46 set, via the resolved chassis config the app
     serves; fall back to scanning E46.ENG codes against the Ecu dir."""
     import urllib.request
-    port = os.environ.get("BMACW_PORT")
+    port = os.environ.get("BMWEB_PORT") or os.environ.get("BMACW_PORT")
     if port:
         try:
             # 60s, not 5: the app's FIRST /api/chassis call resolves every

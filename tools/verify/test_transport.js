@@ -30,6 +30,7 @@ vm.runInContext(
   exports.verifyChecksum = verifyChecksum;
   exports.portConfig = portConfig;
   exports.isResponsePending = isResponsePending;
+  exports.isBusyRepeat = isBusyRepeat;
   exports.assertReachable = assertReachable;
   exports.ifhError = ifhError;
   exports.runExchange = runExchange;`,
@@ -43,6 +44,7 @@ const {
   verifyChecksum,
   portConfig,
   isResponsePending,
+  isBusyRepeat,
   assertReachable,
 } = ctx.exports;
 
@@ -311,6 +313,17 @@ check(
     'a real answer is not mistaken for response-pending',
     isResponsePending(done, FAST) === false
   );
+  // 7F <service> 23 means "busy, re-send" -- a different action from 0x78.
+  const busy = [0x83, 0xf1, 0x12, 0x7f, 0x31, 0x23, 0x00];
+  check(
+    '7F..23 is recognised as busy-repeat',
+    isBusyRepeat(busy, FAST) === true
+  );
+  check(
+    'busy-repeat and response-pending are told apart',
+    isBusyRepeat(pend, FAST) === false &&
+      isResponsePending(busy, FAST) === false
+  );
 }
 
 // ---- the VM -> transport contract -------------------------------------
@@ -540,6 +553,165 @@ console.log('\nDS2 answer length without xawlen');
       'a cable fault is final whatever xreps says',
       r === 'IFH-0003' && bus.sent === 1
     );
+
+    // a flash block (TransferData) gets the programming session's P2max to
+    // be answered: the DME took ~670 ms over one block and a 500 ms budget
+    // stopped a program flash halfway. Other requests keep the SGBD's own.
+    {
+      const seen = [];
+      const timedBus = {
+        sent: 0,
+        lastResponseAt: 0,
+        sessionConcept: null,
+        ensureConfig: async () => {},
+        portHint: () => '',
+        exchangeRaw: async (out, ms) => {
+          seen.push(ms);
+          return [0xb8, 0xf1, 0x12, 0x02, 0x76, 0x01, 0x00];
+        },
+      };
+      const kwp = { concept: 0x10d, timeout: 500 };
+      await runExchange(
+        timedBus,
+        [0xb8, 0x12, 0xf1, 0x03, 0x36, 0xaa, 0xbb],
+        kwp
+      );
+      await runExchange(
+        timedBus,
+        [0xb8, 0x12, 0xf1, 0x03, 0x23, 0x00, 0x00],
+        kwp
+      );
+      check(
+        'a flash block waits up to 3 s for its answer, other requests the SGBD timeout',
+        seen[0] >= 3000 && seen[1] === 500
+      );
+    }
+
+    // the quiet gap before a flash block is the programming session's 12 ms
+    // P3min with a margin (14 ms), not the SGBD's 25 ms ParRegenTime; every
+    // other request keeps the 25. Measured from the last answer, as before.
+    // The emulated loader drops a request sent before 12 ms, so the cap must
+    // never go under it.
+    {
+      const sentAt = [];
+      const pacedBus = {
+        sent: 0,
+        lastResponseAt: 0,
+        sessionConcept: null,
+        ensureConfig: async () => {},
+        portHint: () => '',
+        exchangeRaw: async () => {
+          sentAt.push(Date.now());
+          return [0xb8, 0xf1, 0x12, 0x02, 0x76, 0x01, 0x00];
+        },
+      };
+      const paced = { concept: 0x10d, timeout: 500, regen: 25 };
+      const gapOf = async (req) => {
+        pacedBus.lastResponseAt = Date.now();
+        const t0 = pacedBus.lastResponseAt;
+        await runExchange(pacedBus, req, paced);
+        return sentAt[sentAt.length - 1] - t0;
+      };
+      const block = [0xb8, 0x12, 0xf1, 0x03, 0x36, 0xaa, 0xbb];
+      const other = [0xb8, 0x12, 0xf1, 0x03, 0x23, 0x00, 0x00];
+      const blockGaps = [];
+      for (let i = 0; i < 5; i++) blockGaps.push(await gapOf(block));
+      const otherGap = await gapOf(other);
+      check(
+        'a flash block goes out 14..24 ms after the last answer, other requests after the 25 ms ParRegenTime',
+        blockGaps.every((g) => g >= 14 && g < 25) && otherGap >= 25,
+        `blocks ${blockGaps.join(',')} other ${otherGap}`
+      );
+      // an SGBD that asks for LESS than the cap keeps its own gap
+      const quick = { concept: 0x10d, timeout: 500, regen: 5 };
+      pacedBus.lastResponseAt = Date.now();
+      const q0 = pacedBus.lastResponseAt;
+      await runExchange(pacedBus, block, quick);
+      const quickGap = sentAt[sentAt.length - 1] - q0;
+      check(
+        'the cap never lengthens a shorter ParRegenTime',
+        quickGap < 14,
+        `gap ${quickGap}`
+      );
+    }
+
+    // busy-repeat (7F 31 23): the DME answers busy to the security-access
+    // key while its RSA runs, then the real answer. runExchange must RE-SEND
+    // the request on each busy and return the positive frame, not hand the
+    // 7F..23 back as the answer (which read as "the DME refused the key").
+    // DS2 framing, as the xreps test above: the loop is protocol-independent.
+    // a step is a frame (returned), 'silent' (throws IFH-0009, the ECU still
+    // busy), or 'garble' (throws IFH-0019)
+    const scriptBus = (steps) => {
+      const bus = {
+        sent: 0,
+        lastResponseAt: 0,
+        sessionConcept: null,
+        ensureConfig: async () => {},
+        portHint: () => '',
+        exchangeRaw: async (out) => {
+          if (out) bus.sent++;
+          const s = steps.shift();
+          if (s === 'silent')
+            throw ifhError('IFH-0009', 'no answer from ECU (timeout)');
+          if (s === 'garble') throw ifhError('IFH-0019', 'checksum');
+          return s;
+        },
+      };
+      return bus;
+    };
+    // DS2 <addr> <len> <data...> <xor-sum>; the body is frame.slice(2)
+    const ds2 = (data) => {
+      const f = [0x44, data.length + 3, ...data];
+      f.push(f.reduce((s, b) => s ^ b, 0));
+      return f;
+    };
+    const KEY_REQ = [0x44, 0x05, 0x31, 0x08]; // request, sum appended by runExchange
+    const keyBusy = ds2([0x7f, 0x31, 0x23]);
+    const keyPend = ds2([0x7f, 0x31, 0x78]);
+    const keyOk = ds2([0x71, 0x08, 0x00]);
+    let sb = scriptBus([keyBusy, keyBusy, keyOk]);
+    let frame = await runExchange(sb, KEY_REQ, { concept: 6, timeout: 10 });
+    check(
+      'busy-repeat: the request is re-sent until the real answer',
+      frame[2] === 0x71 && sb.sent === 3
+    );
+    // a busy that answers response-pending before the real answer
+    sb = scriptBus([keyBusy, keyPend, keyOk]);
+    frame = await runExchange(sb, KEY_REQ, { concept: 6, timeout: 10 });
+    check(
+      'busy-repeat then response-pending both resolve to the answer',
+      frame[2] === 0x71
+    );
+    // THE REAL CASE: after saying busy the DME goes SILENT while it finishes
+    // the RSA, then answers. Silence during the busy wait must be re-asked,
+    // not failed (that was the intermittent "security access denied").
+    sb = scriptBus([keyBusy, 'silent', 'silent', keyOk]);
+    frame = await runExchange(sb, KEY_REQ, { concept: 6, timeout: 10 });
+    check(
+      'busy then silence is re-asked until the answer, not failed',
+      frame[2] === 0x71
+    );
+    // but an ECU that never stops saying busy fails cleanly (bounded), and
+    // the 7F..23 is NOT returned to the job as though it were an answer
+    sb = scriptBus(Array(40).fill(keyBusy));
+    let err = null;
+    try {
+      await runExchange(sb, KEY_REQ, { concept: 6, timeout: 10 });
+    } catch (e) {
+      err = e;
+    }
+    check('an ECU stuck busy fails, never returns the 7F..23', err !== null);
+    // a cable fault during the busy wait is a real error, not "still busy"
+    sb = scriptBus([keyBusy, 'garble', 'garble', 'garble', 'garble']);
+    err = null;
+    try {
+      await runExchange(sb, KEY_REQ, { concept: 6, timeout: 10, repeats: 0 });
+    } catch (e) {
+      err = e;
+    }
+    check('a garble during the busy wait still surfaces', err !== null);
+
     console.log(failures ? `\n${failures} FAILED` : '\ntransport holds');
     process.exit(failures ? 1 : 0);
   })();

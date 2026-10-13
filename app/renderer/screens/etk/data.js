@@ -163,7 +163,7 @@ async function etkFetchFirst(rel) {
 
 /**
  * Load (and cache) the parts archive of one chassis. An inline base64 copy
- * (the offline single-file export's BMACW_ETK) wins over any fetch.
+ * (the offline single-file export's BMWEB_ETK) wins over any fetch.
  * @param {string} chassisId - chassis code, any case
  * @param {EtkProgressFn} [onProgress] - called as the bundle downloads
  * @returns {Promise<EtkBundle>}
@@ -174,7 +174,7 @@ async function loadEtk(chassisId, onProgress) {
   if (ETK_CACHE.has(id)) return ETK_CACHE.get(id);
   let bytes;
   const inline =
-    typeof BMACW_ETK === 'object' && BMACW_ETK ? BMACW_ETK[id] : null;
+    typeof BMWEB_ETK === 'object' && BMWEB_ETK ? BMWEB_ETK[id] : null;
   if (inline) {
     const bin = atob(inline);
     bytes = new Uint8Array(bin.length);
@@ -306,8 +306,8 @@ async function readWithProgress(resp, onProgress) {
  */
 async function etkChassisList() {
   if (etkChassisIds) return etkChassisIds;
-  if (typeof BMACW_ETK === 'object' && BMACW_ETK) {
-    etkChassisIds = Object.keys(BMACW_ETK).sort();
+  if (typeof BMWEB_ETK === 'object' && BMWEB_ETK) {
+    etkChassisIds = Object.keys(BMWEB_ETK).sort();
     return etkChassisIds;
   }
   const real = etkFetch();

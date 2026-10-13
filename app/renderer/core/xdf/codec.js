@@ -388,12 +388,17 @@
     if (rows < 1) rows = 1;
     if (cols < 1) cols = 1;
     const spec = resolveEmbedded(embed, header.baseOffset, header.defaults);
+    // Cells are addressed from the RESOLVED start: tableCellAddress works
+    // from embed.address, and the raw one lacks BASEOFFSET, so a definition
+    // with a base (the MS45 1024K one: 0x40000) read and wrote every table
+    // that far too low while its axes and single values were right.
+    const placed = Object.assign({}, embed, { address: spec.address });
     const convert = convertOrRaw(z.mathEquation);
     const cells = [];
     for (let r = 0; r < rows; r++) {
       const rowArr = [];
       for (let c = 0; c < cols; c++) {
-        const addr = tableCellAddress(embed, r, c);
+        const addr = tableCellAddress(placed, r, c);
         let val = null;
         if (addr !== null) {
           const raw = readScalar(buffer, cellSpecAt(spec, addr));
@@ -403,7 +408,7 @@
       }
       cells.push(rowArr);
     }
-    return { rows, cols, cells, z, x, y, spec, embed };
+    return { rows, cols, cells, z, x, y, spec, embed: placed };
   }
 
   /**
@@ -437,7 +442,11 @@
     if (!z) return null;
     const embed = z.embed;
     const spec = resolveEmbedded(embed, header.baseOffset, header.defaults);
-    const addr = tableCellAddress(embed, row, col);
+    const addr = tableCellAddress(
+      Object.assign({}, embed, { address: spec.address }),
+      row,
+      col
+    );
     if (addr === null) return null;
     const inv = XDF.invertLinear(z.mathEquation);
     if (!inv) return null;

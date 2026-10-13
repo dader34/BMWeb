@@ -328,10 +328,10 @@ function offlineBase() {
 function offlineStamp() {
   const app = typeof APP_NAME === 'string' ? APP_NAME : 'BMWeb';
   const ver =
-    window.bmacw && window.bmacw.version
-      ? `v${window.bmacw.version}`
-      : window.BMACW_VERSION
-        ? `v${window.BMACW_VERSION}`
+    window.bmweb && window.bmweb.version
+      ? `v${window.bmweb.version}`
+      : window.BMWEB_VERSION
+        ? `v${window.BMWEB_VERSION}`
         : 'web';
   return `${app} ${ver} · exported ${new Date().toISOString()}`;
 }
@@ -635,7 +635,7 @@ async function offlineExport(
   files['data/inline.js'] = enc0.encode(
     `// ${stamp}\n` +
       `console.log(${JSON.stringify(`offline copy: ${stamp}`)});\n` +
-      `window.BMACW_OFFLINE=true;window.BMACW_INLINE=${JSON.stringify(inline)};`
+      `window.BMWEB_OFFLINE=true;window.BMWEB_INLINE=${JSON.stringify(inline)};`
   );
 
   // Wiring diagrams, inlined the same way. Absent for a car WDS never covered
@@ -656,7 +656,7 @@ async function offlineExport(
   }
   if (Object.keys(wiring).length) {
     files['data/wiring.js'] = enc0.encode(
-      `window.BMACW_WIRING=${JSON.stringify(wiring)};`
+      `window.BMWEB_WIRING=${JSON.stringify(wiring)};`
     );
   }
 
@@ -677,7 +677,7 @@ async function offlineExport(
   }
   if (Object.keys(docs).length) {
     files['data/docs.js'] = enc0.encode(
-      `window.BMACW_DOCS=${JSON.stringify(docs)};`
+      `window.BMWEB_DOCS=${JSON.stringify(docs)};`
     );
   }
 
@@ -713,8 +713,8 @@ async function offlineExport(
   // ASK WHERE, when the host can: the macOS shell opens a real Save panel
   // (a WKWebView download lands somewhere unchosen); the web falls back to a
   // browser download.
-  if (window.bmacw && typeof window.bmacw.saveFile === 'function') {
-    const r = await window.bmacw.saveFile(name, zipped);
+  if (window.bmweb && typeof window.bmweb.saveFile === 'function') {
+    const r = await window.bmweb.saveFile(name, zipped);
     if (r && r.cancelled) throw new Error('cancelled');
     offlineWarn(warnings);
     return zipped.length;
@@ -845,7 +845,7 @@ async function offlineSingleFile(
   );
 
   // Then the scripts, each in place, preserving load order. The car's data must
-  // be defined BEFORE the transport shim runs (it reads BMACW_INLINE), so the
+  // be defined BEFORE the transport shim runs (it reads BMWEB_INLINE), so the
   // shim's first piece (core/webshim/timers.js) is the anchor; a MARK sentinel
   // reserves the spot. The sentinel must not appear in source or prose or it
   // corrupts the output silently.
@@ -901,7 +901,7 @@ async function offlineSingleFile(
   // it holds the payload TWICE; "all cars" is 184 MB, so the peak hit ~700 MB
   // and iOS killed the tab (an OOM kill raises nothing to catch). Emit the
   // object literal as fragments: encode, append and drop each car before the next.
-  const dataParts = ['window.BMACW_OFFLINE=true;window.BMACW_INLINE={'];
+  const dataParts = ['window.BMWEB_OFFLINE=true;window.BMWEB_INLINE={'];
   let first = true;
   for (const id of ids) {
     say(`collecting ${id}`);
@@ -959,7 +959,7 @@ async function offlineSingleFile(
       }
     }
     if (parts.length) {
-      dataParts.push('\nwindow.BMACW_WIRING={', ...parts, '};');
+      dataParts.push('\nwindow.BMWEB_WIRING={', ...parts, '};');
     }
     // ISTA reference documents alongside wiring (same merged screen)
     const dparts = [];
@@ -978,7 +978,7 @@ async function offlineSingleFile(
       }
     }
     if (dparts.length) {
-      dataParts.push('\nwindow.BMACW_DOCS={', ...dparts, '};');
+      dataParts.push('\nwindow.BMWEB_DOCS={', ...dparts, '};');
     }
   }
   if (withFaults) {
@@ -1018,7 +1018,7 @@ async function offlineSingleFile(
     "  <script>window.__bmwebMark&&window.__bmwebMark('parsing car data');</script>\n" +
       `  <script>\n${dataJs.replace(/<\/script>/gi, '<\\/script>')}\n  </script>\n` +
       '  <script>window.__bmwebMark&&window.__bmwebMark(' +
-      "'car data parsed: '+(window.BMACW_INLINE?Object.keys(window.BMACW_INLINE).join(\",\"):'MISSING'));</script>\n"
+      "'car data parsed: '+(window.BMWEB_INLINE?Object.keys(window.BMWEB_INLINE).join(\",\"):'MISSING'));</script>\n"
   );
   if (html.includes(MARK)) {
     throw new Error('single-file: the data marker survived the build');
@@ -1028,9 +1028,9 @@ async function offlineSingleFile(
   const name = `bmweb-${chassis === '*' ? 'all' : chassis.toLowerCase()}.html`;
 
   // native shell wants bytes (one more full-size copy), so only encode when used
-  if (window.bmacw && typeof window.bmacw.saveFile === 'function') {
+  if (window.bmweb && typeof window.bmweb.saveFile === 'function') {
     const bytes = enc.encode(html);
-    const r = await window.bmacw.saveFile(name, bytes);
+    const r = await window.bmweb.saveFile(name, bytes);
     if (r && r.cancelled) throw new Error('cancelled');
     offlineWarn(warnings);
     return bytes.length;

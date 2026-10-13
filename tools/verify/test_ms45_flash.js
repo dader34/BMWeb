@@ -399,6 +399,321 @@ const eq = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
       'flash_schreiben: 0xFD-byte segments with the 21-byte header and trailing 3; a refusal resets; every job traced'
     );
     M.ms45SetJobTrace(null);
+
+    // ── blank (0xFF) segments are not sent ──────────────────────────────────
+    // An erased sector reads 0xFF, so a segment of 0xFF changes nothing. The
+    // emulated loader took downloads at any address, odd ones included, and
+    // its signature check passed on the result; it does NOT refuse a range
+    // that leaves the erased sector, so every run must stay inside the block.
+    {
+      const SEG = 0xfd;
+      const blank = (n) => new Uint8Array(n).fill(0xff);
+      const filled = (n, v) => new Uint8Array(n).fill(v);
+      const cat = (...parts) => {
+        const out = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));
+        let at = 0;
+        for (const p of parts) {
+          out.set(p, at);
+          at += p.length;
+        }
+        return out;
+      };
+      // runs on the 0xFD grid
+      assert.deepStrictEqual(
+        M.ms45FlashRuns(blank(SEG * 3)),
+        [],
+        'all blank: nothing'
+      );
+      assert.deepStrictEqual(M.ms45FlashRuns(filled(SEG * 3 + 10, 1)), [
+        { from: 0, length: SEG * 3 + 10 },
+      ]);
+      assert.deepStrictEqual(
+        M.ms45FlashRuns(cat(blank(SEG * 3), filled(SEG, 1))),
+        [{ from: SEG * 3, length: SEG }],
+        'leading blank: the run starts at an odd address'
+      );
+      assert.deepStrictEqual(
+        M.ms45FlashRuns(
+          cat(
+            filled(SEG, 1),
+            blank(SEG * 2),
+            filled(SEG, 2),
+            blank(SEG),
+            filled(10, 3)
+          )
+        ),
+        [
+          { from: 0, length: SEG },
+          { from: SEG * 3, length: SEG },
+          { from: SEG * 5, length: 10 },
+        ],
+        'interior gaps and a partial last segment'
+      );
+      const lone = blank(SEG * 3);
+      lone[SEG + 77] = 0x5a;
+      assert.deepStrictEqual(
+        M.ms45FlashRuns(lone),
+        [{ from: SEG, length: SEG }],
+        'one non-FF byte keeps its whole segment'
+      );
+      const tail = cat(filled(SEG, 1), blank(100));
+      assert.deepStrictEqual(
+        M.ms45FlashRuns(tail),
+        [{ from: 0, length: SEG }],
+        'a blank partial tail is skipped'
+      );
+      assert.deepStrictEqual(
+        M.ms45FlashRuns(cat(filled(SEG, 1), filled(100, 0xfe))),
+        [{ from: 0, length: SEG + 100 }],
+        'a non-blank partial tail joins the run'
+      );
+      ok(
+        'ms45FlashRuns: non-blank runs on the 0xFD grid; blank segments, partial tails and lone bytes handled'
+      );
+
+      // the writer: one address-set/end per run, segments only inside runs,
+      // the blank segments never on the wire, the whole image reproduced
+      calls.length = 0;
+      const img = cat(
+        blank(SEG * 2), // skipped: the first run starts at +0x1FA (odd)
+        filled(SEG, 0x11),
+        filled(SEG, 0x22),
+        blank(SEG), // skipped
+        filled(SEG, 0x33),
+        blank(SEG * 3), // skipped
+        filled(60, 0x44) // the partial last segment
+      );
+      const START = 0x2040000;
+      const pcts = [];
+      const notes = [];
+      global.webRunJob = async (sgbd, job, arg) => {
+        calls.push({ sgbd, job, arg });
+        return { sets: [{ JOB_STATUS: 'OKAY' }] };
+      };
+      assert.ok(
+        await M.ms45FlashBlock(img, START, START + img.length - 1, {
+          onProgress: (p) => pcts.push(p),
+          onNote: (t) => notes.push(t),
+        })
+      );
+      const bytesOf = (c) => Array.from(c.arg, (ch) => ch.charCodeAt(0));
+      const le32 = (b, at) =>
+        b[at] | (b[at + 1] << 8) | (b[at + 2] << 16) | (b[at + 3] << 24);
+      const ranges = calls
+        .filter((c) => c.job === 'flash_schreiben_adresse')
+        .map(bytesOf);
+      const ends = calls
+        .filter((c) => c.job === 'flash_schreiben_ende')
+        .map(bytesOf);
+      assert.strictEqual(ranges.length, 3, 'three download ranges');
+      assert.strictEqual(ends.length, 3, 'each closed');
+      assert.deepStrictEqual(
+        ranges.map((b) => [le32(b, 17) - START, le32(b, 13)]),
+        [
+          [SEG * 2, SEG * 2],
+          [SEG * 5, SEG],
+          [SEG * 9, 60],
+        ],
+        'ranges are the runs, at their own (odd) addresses'
+      );
+      for (const b of ranges) {
+        const from = le32(b, 17) - START;
+        assert.ok(
+          from >= 0 && from + le32(b, 13) <= img.length,
+          'no range leaves the block'
+        );
+      }
+      assert.deepStrictEqual(
+        ranges,
+        ends,
+        'flash_schreiben_ende repeats the range argument'
+      );
+      const segs = calls
+        .filter((c) => c.job === 'flash_schreiben')
+        .map(bytesOf);
+      assert.strictEqual(segs.length, 4, 'four segments sent of ten');
+      const rebuilt = blank(img.length);
+      for (const s of segs) {
+        const at = le32(s, 17) - START;
+        const n = s[13];
+        assert.strictEqual(s.length, 21 + n + 1);
+        assert.ok(
+          !s.slice(21, 21 + n).every((x) => x === 0xff),
+          'a blank segment was sent'
+        );
+        rebuilt.set(s.slice(21, 21 + n), at);
+      }
+      assert.ok(
+        eq(rebuilt, img),
+        'the erased sector plus the segments sent is the image'
+      );
+      // the order on the wire: address, segments, end, address, ...
+      assert.deepStrictEqual(
+        calls.map((c) => c.job),
+        [
+          'flash_schreiben_adresse',
+          'flash_schreiben',
+          'flash_schreiben',
+          'flash_schreiben_ende',
+          'flash_schreiben_adresse',
+          'flash_schreiben',
+          'flash_schreiben_ende',
+          'flash_schreiben_adresse',
+          'flash_schreiben',
+          'flash_schreiben_ende',
+        ]
+      );
+      assert.strictEqual(
+        pcts[pcts.length - 1],
+        100,
+        'progress reaches 100 with the skipped tail'
+      );
+      assert.ok(
+        pcts.every((p, i) => i === 0 || p >= pcts[i - 1]),
+        'progress never goes back'
+      );
+      assert.ok(
+        notes.length === 1 &&
+          /Skipping 6 blank/.test(notes[0]) &&
+          /3 download ranges/.test(notes[0]),
+        notes[0]
+      );
+      ok(
+        'ms45FlashBlock: downloads only the non-blank runs, closes each, reproduces the image, notes the skip'
+      );
+
+      // an all-blank block sends nothing and is not a failure; a block the
+      // image does not cover is refused before anything goes out
+      calls.length = 0;
+      assert.ok(
+        await M.ms45FlashBlock(blank(SEG * 4), START, START + SEG * 4 - 1, {})
+      );
+      assert.strictEqual(calls.length, 0, 'all blank: no job at all');
+      const stagesShort = [];
+      assert.ok(
+        !(await M.ms45FlashBlock(filled(10, 1), START, START + 99, {
+          onStage: (s) => stagesShort.push(s),
+        }))
+      );
+      assert.strictEqual(calls.length, 0);
+      assert.ok(/10 bytes for a 100-byte block/.test(stagesShort[0]));
+      // a longer image is cut to the block, as before
+      calls.length = 0;
+      assert.ok(
+        await M.ms45FlashBlock(filled(SEG * 2, 1), START, START + SEG - 1, {})
+      );
+      assert.strictEqual(
+        calls.filter((c) => c.job === 'flash_schreiben').length,
+        1
+      );
+      ok(
+        'ms45FlashBlock: an all-blank block is a no-op, a short image is refused, a long one is cut to the block'
+      );
+
+      // a refused segment inside a later run still resets the DME and stops
+      calls.length = 0;
+      global.webRunJob = async (sgbd, job, arg) => {
+        calls.push({ sgbd, job, arg });
+        if (
+          job === 'flash_schreiben' &&
+          calls.filter((c) => c.job === 'flash_schreiben').length === 3
+        )
+          return { sets: [{ JOB_STATUS: 'ERROR_ECU' }] };
+        return { sets: [{ JOB_STATUS: 'OKAY' }] };
+      };
+      const st = [];
+      assert.ok(
+        !(await M.ms45FlashBlock(img, START, START + img.length - 1, {
+          onStage: (s) => st.push(s),
+        }))
+      );
+      assert.strictEqual(calls[calls.length - 1].job, 'STEUERGERAETE_RESET');
+      assert.ok(
+        st.some((s) =>
+          new RegExp(
+            `Flash failed at 0x${(START + SEG * 5).toString(16).toUpperCase()}`
+          ).test(s)
+        ),
+        st.join(' | ')
+      );
+      assert.ok(
+        !calls.some(
+          (c) =>
+            c.job === 'flash_schreiben_ende' &&
+            calls.indexOf(c) >
+              calls.findIndex((x) => x.job === 'STEUERGERAETE_RESET')
+        )
+      );
+      ok(
+        'ms45FlashBlock: a refusal in the second run names its address, resets, and sends no more'
+      );
+
+      // every BMW .0PA on disk through the program path: no calibration, no
+      // boot area, a header gap, so the most to skip; the erased sector plus
+      // what went out must be the prepared image, byte for byte
+      const spDaten = path.join(dir, 'sp-daten', 'MDS451');
+      const pas = fs.existsSync(spDaten)
+        ? fs
+            .readdirSync(spDaten)
+            .filter((f) => /\.0pa$/i.test(f))
+            .sort()
+        : [];
+      if (pas.length) {
+        const through = async (image, start) => {
+          calls.length = 0;
+          global.webRunJob = async (sgbd, job, arg) => {
+            calls.push({ job, arg });
+            return { sets: [{ JOB_STATUS: 'OKAY' }] };
+          };
+          assert.ok(
+            await M.ms45FlashBlock(image, start, start + image.length - 1, {})
+          );
+          const rebuilt = blank(image.length);
+          let sent = 0;
+          for (const c of calls) {
+            const b = bytesOf(c);
+            if (c.job === 'flash_schreiben') {
+              const at = le32(b, 17) - start;
+              assert.ok(!b.slice(21, 21 + b[13]).every((x) => x === 0xff));
+              rebuilt.set(b.slice(21, 21 + b[13]), at);
+              sent++;
+            } else {
+              const from = le32(b, 17) - start;
+              assert.ok(
+                from >= 0 && from + le32(b, 13) <= image.length,
+                'a range left the block'
+              );
+            }
+          }
+          assert.ok(eq(rebuilt, image), 'erased + sent is not the image');
+          return sent;
+        };
+        let skipped = 0;
+        let total = 0;
+        for (const f of pas) {
+          const r = M.ms45ExchangeFile.decodeProgramText(
+            fs.readFileSync(path.join(spDaten, f), 'latin1')
+          );
+          const signed = M.ms45Checksums.signProgram(
+            M.ms45Checksums.correctProgramChecksums(r.flash, r.mpc),
+            r.mpc
+          );
+          const ext = signed.subarray(
+            M.MS45_PROGRAM_START,
+            M.MS45_PROGRAM_START + 0x9ff40
+          );
+          const n = (await through(ext, 0x2060000)) + (await through(r.mpc, 0));
+          const all =
+            Math.ceil(ext.length / SEG) + Math.ceil(r.mpc.length / SEG);
+          assert.ok(n < all * 0.9, `${f}: a .0PA skips at least a tenth`);
+          skipped += all - n;
+          total += all;
+        }
+        ok(
+          `${pas.length} .0PA programs: images reproduced from the erased sectors plus what was sent; ${skipped} of ${total} blocks skipped`
+        );
+      } else console.log('  skip  .0PA programs (set MS45_DIR to run this)');
+    }
     global.webRunJob = async () => {
       throw new Error('no cable');
     };

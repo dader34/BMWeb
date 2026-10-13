@@ -100,10 +100,10 @@ const APP_REGISTRY = [
     tag: 'ETK',
     open: () => (typeof showEtk === 'function' ? showEtk() : null),
     // present only if at least one chassis actually has an .etk bundle in this
-    // build. A "no-parts" offline build sets window.BMACW_NO_PARTS to hide the
+    // build. A "no-parts" offline build sets window.BMWEB_NO_PARTS to hide the
     // catalogue outright -- it ships without ETK support on purpose.
     hasData: async () => {
-      if (typeof window !== 'undefined' && window.BMACW_NO_PARTS) return false;
+      if (typeof window !== 'undefined' && window.BMWEB_NO_PARTS) return false;
       if (typeof showEtk !== 'function' || typeof etkChassisList !== 'function')
         return false;
       try {
@@ -116,8 +116,8 @@ const APP_REGISTRY = [
   {
     id: 'backup',
     icon: '↯',
-    title: 'Flashing/Backups',
-    desc: 'Read, flash and tune the MS45 DME and the GS20 transmission: tunes, programs, EWS delete, map switch',
+    title: 'Flashing/Tuning',
+    desc: 'Read, flash and tune the MS45 DME and the GS20 transmission: tunes, programs, EWS delete, map switch, and the BIN/XDF editor with live tuning',
     tag: 'FLASH',
     open: () => (typeof showFlashing === 'function' ? showFlashing() : null),
     // the engines ship with the app shell; the car's SGBDs come with the ECU data
@@ -143,17 +143,6 @@ const APP_REGISTRY = [
         return false;
       }
     },
-  },
-  {
-    id: 'tuning',
-    icon: '⛃',
-    title: 'Tuning',
-    desc: 'Edit ECU firmware BINs: raw hex plus TunerPro .xdf constants, flags and tables',
-    tag: 'XDF',
-    open: () => (typeof showTuning === 'function' ? showTuning() : null),
-    // pure client-side editor -- available whenever its code shipped (no data bundle)
-    hasData: async () =>
-      typeof showTuning === 'function' && typeof window.XDF !== 'undefined',
   },
   {
     id: 'logging',
@@ -186,10 +175,20 @@ const APP_REGISTRY = [
  * @param {AppEntry} app - the app
  * @returns {Promise<boolean>}
  */
+/**
+ * How long an availability probe may take before the card is drawn as
+ * absent. A probe that goes to the internet (the parts catalogue's) never
+ * answers on an adapter's own WiFi, and the hub must not wait on it.
+ */
+const APP_PROBE_MS = 2500;
+
 async function appIsReady(app) {
   if (typeof app.hasData !== 'function') return true;
   try {
-    return await app.hasData();
+    return await Promise.race([
+      app.hasData(),
+      new Promise((resolve) => setTimeout(() => resolve(false), APP_PROBE_MS)),
+    ]);
   } catch (e) {
     return false;
   }

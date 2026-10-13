@@ -24,6 +24,8 @@
  * @property {number} word - byte offset into the netto buffer (WORTADR).
  * @property {number} byte - field width in bytes (BYTEADR).
  * @property {number} mask - bit mask on the first byte (0xFF = whole byte).
+ * @property {number[]} [masks] - one mask per byte, when they are not all
+ *   0xFF; `mask` is then the first of them.
  * @property {number} shift - trailing-zero count of `mask`.
  * @property {Array<[string, string]>} values - `[pswName, hex]` pairs.
  * @property {string} [unit] - EINHEIT gloss: 'h' (default), 'd', 'a', 'A', 'b'.
@@ -38,8 +40,10 @@
  * A staged change: one field and the logical value to encode into it.
  * @typedef {Object} StagedEdit
  * @property {DatenField} rule - the field to write.
- * @property {number|string|ArrayLike<number>} value - the value to encode: a
+ * @property {number|string|ArrayLike<number>} [value] - the value to encode: a
  *   number for fields up to 4 bytes, a hex string or byte array for buffers.
+ * @property {string} [hex] - instead of `value`: the field's bytes as the
+ *   coding description writes a value (see fieldHex).
  */
 
 (function (root) {
@@ -241,6 +245,41 @@
     return rule.shift || 0;
   }
 
+  // BMW's MASKE is ONE MASK PER BYTE of a field, and each byte's value is
+  // stored shifted down to bit 0 of ITS mask. Most fields have one mask (their
+  // first byte's) or all 0xFF, and for those `mask`/`shift` say everything. A
+  // field that is not like that carries `masks`: a cluster's two-byte service
+  // limit is [0x0F, 0xFF] with another function in the first byte's high
+  // nibble, a word that only uses its second byte is [0x00, 0xFF], and two
+  // characteristic curves interleave as [0x00, 0xFF, ...] and [0xFF, 0x00,
+  // ...] over the same twelve bytes.
+  /**
+   * The mask of a field's byte.
+   * @param {DatenField} rule - the field.
+   * @param {number} i - which byte (0 = at `word`).
+   * @returns {number} the mask.
+   */
+  function maskAt(rule, i) {
+    if (Array.isArray(rule.masks) && i < rule.masks.length)
+      return rule.masks[i] & 0xff;
+    return i === 0 ? firstMask(rule) : 0xff;
+  }
+  /**
+   * How far a field's byte sits up inside its mask.
+   * @param {DatenField} rule - the field.
+   * @param {number} i - which byte.
+   * @returns {number} the shift count.
+   */
+  function shiftAt(rule, i) {
+    if (Array.isArray(rule.masks) && i < rule.masks.length) {
+      const m = rule.masks[i] & 0xff;
+      let sh = 0;
+      while (m && !((m >> sh) & 1)) sh++;
+      return sh;
+    }
+    return i === 0 ? firstShift(rule) : 0;
+  }
+
   // A JS number holds a coding value exactly only up to 32 bits. Fields wider
   // than 4 bytes are raw BUFFERS (calibration tables, 16-byte filter blocks,
   // VIN strings) -- the coding screens treat their `values` hex as an opaque
@@ -279,20 +318,23 @@
     const at = rule.word || 0;
 
     if (isBuffer(rule)) {
-      // raw buffer: address-order hex string, no mask/shift/ops (buffers ship
-      // mask 0xFF / shift 0 / no ops in the corpus)
+      // raw buffer: address-order hex string, each byte under its own mask,
+      // no ops (buffers ship none in the corpus). A buffer has no "first byte
+      // mask": without a per-byte list every byte is whole.
+      const listed = Array.isArray(rule.masks);
       let s = '';
-      for (let i = 0; i < width; i++) s += toHex(netto[at + i] & 0xff);
+      for (let i = 0; i < width; i++) {
+        const raw = netto[at + i] & 0xff;
+        s += toHex(listed ? (raw & maskAt(rule, i)) >>> shiftAt(rule, i) : raw);
+      }
       return s;
     }
 
-    const m0 = firstMask(rule);
-    const sh = firstShift(rule);
-    // per-position normalised bytes: byte 0 is masked+shifted, the rest raw
+    // per-position normalised bytes: each masked and shifted by its own mask
     const bytes = new Array(width);
     for (let i = 0; i < width; i++) {
       const raw = netto[at + i] & 0xff;
-      bytes[i] = i === 0 ? (raw & m0) >>> sh : raw;
+      bytes[i] = (raw & maskAt(rule, i)) >>> shiftAt(rule, i);
     }
 
     let value = einheitDecode(rule.unit, bytes);
@@ -326,12 +368,18 @@
       } else {
         bytes = Array.from(value, (b) => b & 0xff);
       }
-      for (let i = 0; i < width; i++) netto[at + i] = (bytes[i] || 0) & 0xff;
+      // A value shorter than the field is not padded with zeros: the bytes it
+      // does not name stay as they are. (A truncated value once meant the
+      // rest of a 31-byte block would have been zeroed.)
+      const listed = Array.isArray(rule.masks);
+      for (let i = 0; i < width && i < bytes.length; i++) {
+        const m = listed ? maskAt(rule, i) : 0xff;
+        const sh = listed ? shiftAt(rule, i) : 0;
+        netto[at + i] =
+          ((netto[at + i] & (~m & 0xff)) | ((bytes[i] << sh) & m)) & 0xff;
+      }
       return netto;
     }
-
-    const m0 = firstMask(rule);
-    const sh = firstShift(rule);
 
     // Stage 3: invert OPERATION list -- reverse order, each op inverted.
     let v = u32(/** @type {number} */ (value));
@@ -345,13 +393,91 @@
     // Stage 5: splice with mask+shift. Non-destructive: only the mask's bits of
     // each netto byte are touched, so a neighbour sharing the byte survives.
     for (let i = 0; i < width; i++) {
-      if (i === 0) {
-        const placed = (enc[0] << sh) & m0;
-        netto[at + i] = ((netto[at + i] & (~m0 & 0xff)) | placed) & 0xff;
-      } else {
-        // wider positions are always full bytes (mask 0xFF, shift 0)
-        netto[at + i] = enc[i] & 0xff;
-      }
+      const m = maskAt(rule, i);
+      const placed = (enc[i] << shiftAt(rule, i)) & m;
+      netto[at + i] = ((netto[at + i] & (~m & 0xff)) | placed) & 0xff;
+    }
+    return netto;
+  }
+
+  // ---- a field as BMW's files write it: bytes, in address order ------------
+  //
+  // A value in a coding description (a PSW's DATUM) is the field's bytes in
+  // ADDRESS order, each shifted down to bit 0 of its own mask: the cluster's
+  // "4912 imp/km" is 13 30 for the two bytes at 0x80 and 0x81. Comparing and
+  // writing in that form needs no opinion about byte order or number format,
+  // so it is what the coding screens use to say which option a module is set
+  // to, and to stage another: a field's hex here equals an option's hex or it
+  // does not.
+  /**
+   * The mask of a field's byte in the byte-domain view (a buffer without a
+   * per-byte list is whole bytes throughout).
+   * @param {DatenField} rule - the field.
+   * @param {number} i - which byte.
+   * @returns {number} the mask.
+   */
+  function byteMask(rule, i) {
+    if (Array.isArray(rule.masks)) return maskAt(rule, i);
+    return i === 0 && !isBuffer(rule) ? firstMask(rule) : 0xff;
+  }
+  /**
+   * How far that byte sits up inside its mask.
+   * @param {DatenField} rule - the field.
+   * @param {number} i - which byte.
+   * @returns {number} the shift count.
+   */
+  function byteShift(rule, i) {
+    if (Array.isArray(rule.masks)) return shiftAt(rule, i);
+    return i === 0 && !isBuffer(rule) ? firstShift(rule) : 0;
+  }
+  /**
+   * A field's value as its description writes values: lowercase hex of its
+   * bytes in address order, each under its own mask and shifted down.
+   * @param {DatenField} rule - the field.
+   * @param {ArrayLike<number>} netto - the coding image.
+   * @returns {string|null} the hex, or null when the field is not inside
+   *   the image.
+   */
+  function fieldHex(rule, netto) {
+    const width = rule.byte || 1;
+    const at = rule.word || 0;
+    if (at < 0 || at + width > netto.length) return null;
+    let s = '';
+    for (let i = 0; i < width; i++)
+      s += toHex(
+        (netto[at + i] & 0xff & byteMask(rule, i)) >>> byteShift(rule, i)
+      );
+    return s;
+  }
+  /**
+   * Write a value given in that form into an image IN PLACE, touching only
+   * the field's own bits. The exact inverse of fieldHex.
+   * @param {DatenField} rule - the field.
+   * @param {string} hex - the value: two hex digits per byte of the field.
+   * @param {Uint8Array|number[]} netto - the coding image, mutated.
+   * @returns {Uint8Array|number[]} the same `netto`.
+   * @throws {Error} when the value is not the field's width, a byte does not
+   *   fit its mask, or the field is not inside the image.
+   */
+  function encodeFieldHex(rule, hex, netto) {
+    const width = rule.byte || 1;
+    const at = rule.word || 0;
+    const text = String(hex).replace(/^0x/i, '');
+    if (!/^[0-9a-fA-F]*$/.test(text) || text.length !== width * 2)
+      throw new Error(
+        `${rule.name}: a value of ${text.length / 2} bytes for a ${width}-byte function`
+      );
+    if (at < 0 || at + width > netto.length)
+      throw new Error(`${rule.name}: outside the coding image`);
+    for (let i = 0; i < width; i++) {
+      const b = parseInt(text.substr(i * 2, 2), 16);
+      const m = byteMask(rule, i);
+      const sh = byteShift(rule, i);
+      if (b > m >>> sh)
+        throw new Error(
+          `${rule.name}: 0x${toHex(b)} does not fit mask 0x${toHex(m)}`
+        );
+      netto[at + i] = ((netto[at + i] & (~m & 0xff)) | ((b << sh) & m)) & 0xff;
     }
     return netto;
   }
@@ -367,7 +493,12 @@
   function spliceEdits(netto, edits) {
     const out = new Uint8Array(netto.length);
     out.set(netto);
-    for (const e of edits || []) encodeField(e.rule, e.value, out);
+    for (const e of edits || []) {
+      // `hex` is a value in the description's own form (an option's bytes);
+      // `value` a number or buffer through the unit and operation transform
+      if (e.hex != null) encodeFieldHex(e.rule, e.hex, out);
+      else encodeField(e.rule, e.value, out);
+    }
     return out;
   }
 
@@ -539,6 +670,8 @@
   const api = {
     encodeField,
     decodeField,
+    fieldHex,
+    encodeFieldHex,
     spliceEdits,
     applyOp,
     applyOpInverse,

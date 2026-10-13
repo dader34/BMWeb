@@ -2,7 +2,7 @@
 # Build the browser version: the same renderer, no server.
 #
 #   scripts/build/build-web.sh              -> dist-web/   (static, serve anywhere)
-#   BMACW_PORT=51234 scripts/build/build-web.sh
+#   BMWEB_PORT=51234 scripts/build/build-web.sh
 #
 # A browser has no server behind it, so the web build is two pieces:
 #
@@ -16,19 +16,21 @@
 #
 # No app is needed: web_export.py reads the fetched chassis-config cache
 # (data/chassis-config), the same way CI does (scripts/build/ci-dist-web.sh).
-# Set BMACW_PORT to freeze against a running engine instead, which also
+# Set BMWEB_PORT to freeze against a running engine instead, which also
 # refreshes that cache.
 set -euo pipefail
+# BMACW_PORT is the name before the rename; it still works
+BMWEB_PORT="${BMWEB_PORT:-${BMACW_PORT:-}}"
 
 cd "$(dirname "$0")/../.."
 ROOT="$PWD"
 OUT="dist-web"
 
-if [ -n "${BMACW_PORT:-}" ]; then
-  export BMACW_PORT
-  echo "==> using the engine on 127.0.0.1:$BMACW_PORT to resolve chassis config"
+if [ -n "${BMWEB_PORT:-}" ]; then
+  export BMWEB_PORT
+  echo "==> using the engine on 127.0.0.1:$BMWEB_PORT to resolve chassis config"
 else
-  echo "==> no BMACW_PORT: using the fetched chassis-config cache"
+  echo "==> no BMWEB_PORT: using the fetched chassis-config cache"
 fi
 
 rm -rf "$OUT"
@@ -40,11 +42,11 @@ python3 tools/export/web_export.py --out "$OUT" "$@"
 echo "==> copying the renderer"
 cp -R "$ROOT/app/renderer/." "$OUT/"
 
-# Stamp the version into the web build: index.html reads window.BMACW_VERSION
+# Stamp the version into the web build: index.html reads window.BMWEB_VERSION
 # and settings and the offline export both fall back to it. Read from
 # package.json so there is ONE version source.
 VERSION=$(node -p "require('$ROOT/package.json').version")
-printf 'window.BMACW_VERSION=%s;\n' "\"${VERSION:-web}\"" > "$OUT/version.js"
+printf 'window.BMWEB_VERSION=%s;\n' "\"${VERSION:-web}\"" > "$OUT/version.js"
 # load it before app.js reads it (right after the opening <head>, cheap + early)
 if ! grep -q 'version.js' "$OUT/index.html"; then
   # macOS/BSD sed: insert the tag after the first <head>

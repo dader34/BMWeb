@@ -333,9 +333,9 @@ def main():
                     flags={"--allow-partial": "ship without group resolution when data/groups is incomplete",
                            "--allow-stale": "accept a tree mixing fresh and cached chassis configs"},
                     options={"--out": ("DIR", "the output directory (default: dist-web)")})
-    port = os.environ.get("BMACW_PORT")
+    port = os.environ.get("BMWEB_PORT") or os.environ.get("BMACW_PORT")
     if not port:
-        print("  (no BMACW_PORT: using cached chassis config)")
+        print("  (no BMWEB_PORT: using cached chassis config)")
     out = ns.out or os.path.join(ROOT, "dist-web")
     api = os.path.join(out, "api")
     os.makedirs(api, exist_ok=True)
@@ -779,7 +779,7 @@ def main():
         # the api tree now mixes fresh and stale configs, which is the
         # dist-web regression this warning was written about. A WARNING
         # that exits 0 is how it shipped -- fail instead. (A run with no
-        # BMACW_PORT at all reads the cache uniformly and records no
+        # BMWEB_PORT at all reads the cache uniformly and records no
         # fallbacks, so the offline CI path is untouched.)
         if not ns.allow_stale:
             print("  exiting 1; pass --allow-stale to accept the mixed tree")

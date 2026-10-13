@@ -25,9 +25,13 @@
 /**
  * One netto byte (or word) the dispatcher will transmit.
  * @typedef {Object} NettoSlot
- * @property {number} addr - byte address in the coding region.
- * @property {number} value - the value to write (byte or word).
- * @property {number} mask - bit mask (0xFF for a whole byte).
+ * @property {number} addr - byte address of the word in the coding region.
+ * @property {number} value - unused (the data comes from the host's image).
+ * @property {number} mask - the mask of the word's first byte.
+ * @property {number[]} masks - one mask per byte of the word: which bits are
+ *   the selection's own (0xFF throughout for a whole word).
+ * @property {boolean[]} own - per byte of the word: selected itself, or only
+ *   riding along in a word a neighbour is selected in.
  * @property {number} flags - bit 1 (0x2) = consumed by CDHGetApiJobData.
  */
 
@@ -57,7 +61,9 @@
  * @property {string} job - the job name.
  * @property {string} sgbd - the module it ran against.
  * @property {'text'|'data'} kind - text-argument job or binary-buffer job.
- * @property {number} [bytes] - payload length for a `data` job.
+ * @property {number} [bytes] - buffer length for a `data` job.
+ * @property {number} [addr] - byte address of the request's first word.
+ * @property {number} [words] - how many words the request carries.
  */
 
 /**
@@ -148,7 +154,7 @@
 
   // ---- the binary buffer (BinBuf) -----------------------------------------
   // CDHBinBufCreate/WriteByte/WriteWord/ReadByte/ReadWord/ToStr and the packet
-  // the write job consumes. Word endianness follows the data-org byteFolge.
+  // the write job consumes.
   /**
    * A fresh, empty BinBuf.
    * @returns {BinBuf} the buffer.
@@ -244,29 +250,85 @@
   }
 
   // ---- the wire packet ----------------------------------------------------
-  /** Length of the request header CDHGetApiJobData builds; payload follows. */
-  const PACKET_HEADER_LEN = 21;
+  //
+  // The request a coding job takes is BMW's "binary buffer": 21 header bytes,
+  // the data, and a closing 0x03 -- 22 + N*wortBreite bytes in all. Checked by
+  // running the coding SGBDs' own jobs offline: C_S_LESEN and C_C_LESEN answer
+  // ERROR_BIN_BUFFER to a buffer one byte short, and the jobs read the byte
+  // count at 0x0D (body module) or the word count at 0x0F (cluster), the
+  // address at 0x11 and the data from 0x15.
+  /** Offset of the data in a request or answer buffer. */
+  const PACKET_DATA = 21;
+  /** Bytes around the data: the 21-byte header and the closing 0x03. */
+  const PACKET_OVERHEAD = 22;
+  /** The byte that closes a buffer. */
+  const PACKET_END = 0x03;
+  /** Header offset of the mask, one byte per byte of a word: which bits of
+   *  each word the request is about. */
+  const HDR_MASK = 9;
   /** Header offset of the byte count (u16 LE). */
   const HDR_BYTE_COUNT = 13;
   /** Header offset of the word count (u16 LE). */
   const HDR_WORD_COUNT = 15;
   /** Header offset of the wire address in WORD units (u16 LE). */
   const HDR_ADDR = 17;
-  /** BMW's record cap: at most this many slots per request chunk. */
+  /** The most records one request carries when the script names no limit. */
   const RECORD_CAP = 32;
   /** Slot flag: consumed by CDHGetApiJobData. */
   const SLOT_CONSUMED = 2;
+  /** CDH return value: fine. */
+  const CDH_OK = 0;
+  /** CDH return value: the coding description does not know that name. */
+  const CDH_UNKNOWN_NAME = 1;
+  /** CDH return value: the module's coding index is not this description's. */
+  const CDH_WRONG_INDEX = 2;
+  /** Jobs whose buffer is a request to READ, or to check: nothing is written. */
+  const NOT_A_WRITE = /LESEN|CHECKSUM|IDENT|STATUS/i;
+
+  /**
+   * The parts of a coding description (.Cxx) the script selects by name.
+   * @typedef {Object} CabdLayout
+   * @property {Array<{name: string, word: number, byte: number, block?: number}>} fields -
+   *   every function: its byte address and length.
+   * @property {Array<{name: string, start: number, length: number, block?: number}>} [groups] -
+   *   the named blocks (CODIERDATENBLOCK and its siblings).
+   * @property {number[]} [codingIndex] - the coding indexes this description serves.
+   * @property {'FREI'|'BLOCK'} [typ] - SPEICHERORG's TYP: one address space, or
+   *   numbered blocks each with their own.
+   */
 
   // ---- the CDH host -------------------------------------------------------
 
   /**
    * The state NCSEXPER's C layer held around a dispatch, plus the CDH_*
    * callbacks the dispatcher calls by name.
+   *
+   * WHAT GETS SENT. The script never names an address. It switches functions
+   * and groups on and off (CDHActivate*, CDHInactivate*) and then asks for
+   * "the data" -- all that is switched on (CDHGetNettoDataFromCbd), one
+   * function (CDHGetFswDataFromCbd) or one group (CDHGetGrpDataFromCbd) --
+   * which CDHGetApiJobData then deals out a request at a time. So the host
+   * holds the module's whole image and a per-byte "switched on" map:
+   *
+   *   - the image is what the module should hold afterwards: its coding
+   *     region as just read, with the user's edits laid on;
+   *   - "everything" (CDHActivateAllFsw) is the set of addresses the caller
+   *     hands in. For a write that is the whole coding region -- every
+   *     coding block of the description, as the factory tool sends it -- and
+   *     never the manufacturer or reserved blocks; for a read, what is to be
+   *     read. What the script then switches off is left out of it;
+   *   - a function asked for by name is sent as it stands, changed or not:
+   *     the cluster's script reads CODIERUNG_ERFOLGT and addresses its
+   *     checksum job that way.
    */
   class CdhHost {
     /**
-     * @param {{sgbd?: string, runJob: CdhRunJob, slots?: NettoSlot[]}} opts -
-     *   the coding SGBD, the job runner, and the netto slot table.
+     * @param {{sgbd?: string, runJob: CdhRunJob, netto?: ArrayLike<number>,
+     *   cabd?: CabdLayout, changed?: ArrayLike<number>, readAddrs?: ArrayLike<number>,
+     *   systemData?: Record<string, string>, mode?: 'write'|'read'}} opts -
+     *   the coding SGBD, the job runner, the image, the coding description,
+     *   the byte addresses a write may send (`changed`: the coding region)
+     *   or a read wants, and the system data the script asks for.
      */
     constructor(opts) {
       /** @type {string} the coding SGBD name */
@@ -275,8 +337,58 @@
       this.runJob = opts.runJob;
       /** @type {boolean} armed only for the write steps */
       this.allowWrites = false;
-      /** @type {NettoSlot[]} */
-      this.slots = (opts.slots || []).map((s) => ({ ...s }));
+      /** @type {'write'|'read'} */
+      this.mode = opts.mode === 'read' ? 'read' : 'write';
+      /** @type {Uint8Array} the module's image, one byte per address */
+      this.netto = Uint8Array.from(opts.netto || []);
+      /** @type {Uint8Array|null} what the module holds now, where known: a
+       *  byte that rides along in a word without being part of the
+       *  selection goes back as this, not as the edited image has it */
+      this.held = opts.held ? Uint8Array.from(opts.held) : null;
+      const size = this.netto.length;
+      /** @type {CabdLayout} */
+      this.cabd = opts.cabd || { fields: [] };
+      /** @type {Map<string, Array<[number, number]>>} function -> [start, end) ranges */
+      this.fieldRanges = new Map();
+      /** @type {Map<string, Array<{start: number, masks: number[]}>>} function -> its bits, byte by byte */
+      this.fieldMasks = new Map();
+      for (const f of this.cabd.fields || []) {
+        const key = String(f.name).toUpperCase();
+        if (!this.fieldRanges.has(key)) {
+          this.fieldRanges.set(key, []);
+          this.fieldMasks.set(key, []);
+        }
+        const width = Math.max(1, f.byte | 0);
+        this.fieldRanges.get(key).push([f.word | 0, (f.word | 0) + width]);
+        const masks = [];
+        for (let i = 0; i < width; i++) {
+          masks.push(
+            Array.isArray(f.masks) && i < f.masks.length
+              ? f.masks[i] & 0xff
+              : i === 0 && f.mask != null
+                ? f.mask & 0xff
+                : 0xff
+          );
+        }
+        this.fieldMasks.get(key).push({ start: f.word | 0, masks });
+      }
+      /** @type {Map<string, Array<[number, number]>>} group -> [start, end) ranges */
+      this.groupRanges = new Map();
+      for (const g of this.cabd.groups || []) {
+        const key = String(g.name).toUpperCase();
+        if (!this.groupRanges.has(key)) this.groupRanges.set(key, []);
+        this.groupRanges
+          .get(key)
+          .push([g.start | 0, (g.start | 0) + Math.max(0, g.length | 0)]);
+      }
+      /** @type {Uint8Array} what "everything" means: see the class note */
+      this.everything = new Uint8Array(size);
+      const all = this.mode === 'read' ? opts.readAddrs : opts.changed;
+      for (const a of all || []) if (a >= 0 && a < size) this.everything[a] = 1;
+      /** @type {Uint8Array} per byte: switched on? */
+      this.on = Uint8Array.from(this.everything);
+      /** @type {NettoSlot[]} the current selection, one slot per word */
+      this.slots = [];
       /** @type {number} word width in bytes */
       this.wortBreite = 1;
       /** @type {number} 0 = low byte first */
@@ -288,12 +400,18 @@
       this._nextBuf = 1;
       /** @type {Map<string, string>} CDHSetSystemData / GetSystemData */
       this.sys = new Map();
+      for (const [k, v] of Object.entries(opts.systemData || {}))
+        this.sys.set(k, String(v));
+      /** @type {Set<string>} what the caller supplied about this car */
+      this._given = new Set(this.sys.keys());
       /** @type {Map<string, string|number>} CDHSetCabdPar / GetCabdPar */
       this.cabdPar = new Map();
-      /** @type {Array<Record<string, string>>} last runJob result sets */
+      /** @type {Array<Record<string, unknown>>} last runJob result sets */
       this.lastSets = [];
       /** @type {number} error scratchpad */
       this.err = 0;
+      /** @type {string} the text recorded with the error */
+      this.errInfo = '';
       /** @type {number} CDHSetReturnVal */
       this.ret = 0;
       /** @type {WireLogEntry[]} ordered wire jobs, for the caller */
@@ -302,6 +420,10 @@
       this.cursor = 0;
       /** @type {{start: number, n: number}|undefined} the chunk in flight */
       this._pending = undefined;
+      /** @type {Set<number>} byte addresses a write job carried */
+      this._written = new Set();
+      /** @type {Set<number>} byte addresses a read filled in */
+      this._read = new Set();
     }
 
     /**
@@ -311,19 +433,34 @@
     lowFirst() {
       return this.byteFolge === 0;
     }
+    /** @returns {number[]} the byte addresses a write job carried, ascending. */
+    writtenAddrs() {
+      return Array.from(this._written).sort((x, y) => x - y);
+    }
+    /** @returns {number[]} the byte addresses a read filled in, ascending. */
+    readAddrs() {
+      return Array.from(this._read).sort((x, y) => x - y);
+    }
 
     // --- error scratchpad -------------------------------------------------
     /** Clear the error scratchpad. @returns {void} */
     CDHResetError() {
       this.err = 0;
+      this.errInfo = '';
     }
     /**
-     * Record an error number.
+     * Record an error: number, the script file, the proc, the line and a text.
      * @param {unknown} errNr - the error number.
+     * @param {unknown} [file] - the script's name.
+     * @param {unknown} [proc] - the procedure.
+     * @param {unknown} [line] - the line.
+     * @param {unknown} [info] - what failed ("C_KMB46, C_S_AUFTRAG: ERROR_VERIFY").
      * @returns {void}
      */
-    CDHSetError(errNr) {
-      this.err = asInt(errNr);
+    CDHSetError(errNr, file, proc, line, info) {
+      // a script that records "an error" with an unset number still failed
+      this.err = asInt(errNr) || -1;
+      this.errInfo = [asStr(proc), asStr(info)].filter(Boolean).join(': ');
     }
     /** @returns {number} the current error number (0 = none). */
     CDHTestError() {
@@ -335,7 +472,8 @@
      * @returns {void}
      */
     CDHSetReturnVal(v) {
-      this.ret = asInt(v);
+      // an unset variable arrives as a reference: that is not a 0
+      this.ret = isRef(v) ? -1 : asInt(v);
     }
 
     // --- param stores -----------------------------------------------------
@@ -345,8 +483,12 @@
      * @returns {number} 0.
      */
     CDHSetSystemData(name, val) {
-      this.sys.set(asStr(name), asStr(val));
-      return 0;
+      const key = asStr(name);
+      // What the caller supplied about THIS car outranks the script's
+      // placeholders (the cluster's script seeds the central coding keys with
+      // FFs before it asks for them).
+      if (!this._given.has(key)) this.sys.set(key, asStr(val));
+      return CDH_OK;
     }
     /**
      * @param {unknown} name - key.
@@ -362,7 +504,7 @@
      */
     CDHSetCabdPar(name, val) {
       this.cabdPar.set(asStr(name), asStr(val));
-      return 0;
+      return CDH_OK;
     }
     /**
      * @param {unknown} name - key.
@@ -378,7 +520,7 @@
      */
     CDHSetCabdWordPar(name, val) {
       this.cabdPar.set(asStr(name), asInt(val));
-      return 0;
+      return CDH_OK;
     }
     /**
      * @param {unknown} name - key.
@@ -404,10 +546,15 @@
       this.wortBreite = asInt(wb) || 1;
       this.byteFolge = asInt(bf);
       this.adrMode = asInt(am);
-      return 0;
+      return CDH_OK;
     }
 
     // --- BinBuf -----------------------------------------------------------
+    // A BinBuf is plain memory of the PC the tool ran on: its words are
+    // little-endian whatever the module's own byte order is. The cluster's
+    // script patches its checksum request with CDHBinBufWriteWord(buf, 56, 5)
+    // and (182, 7), and the job reads the low byte at 5 and 7 -- written
+    // high-byte-first, the job asked the cluster to sum from address 0.
     /** @returns {number} a new buffer handle. */
     CDHBinBufCreate() {
       const h = this._nextBuf++;
@@ -420,32 +567,31 @@
      */
     CDHBinBufDelete(h) {
       this.bufs.delete(asInt(h));
-      return 0;
+      return CDH_OK;
     }
     /**
      * @param {unknown} h - handle.
      * @param {unknown} val - byte.
      * @param {unknown} pos - position.
-     * @returns {number} 0.
+     * @returns {number} 0, or 1 for a bad handle.
      */
     CDHBinBufWriteByte(h, val, pos) {
-      binWriteByte(this.bufs.get(asInt(h)), asInt(pos), asInt(val));
-      return 0;
+      const buf = this.bufs.get(asInt(h));
+      if (!buf) return CDH_UNKNOWN_NAME;
+      binWriteByte(buf, asInt(pos), asInt(val));
+      return CDH_OK;
     }
     /**
      * @param {unknown} h - handle.
      * @param {unknown} val - word.
      * @param {unknown} pos - position.
-     * @returns {number} 0.
+     * @returns {number} 0, or 1 for a bad handle.
      */
     CDHBinBufWriteWord(h, val, pos) {
-      binWriteWord(
-        this.bufs.get(asInt(h)),
-        asInt(pos),
-        asInt(val),
-        this.lowFirst()
-      );
-      return 0;
+      const buf = this.bufs.get(asInt(h));
+      if (!buf) return CDH_UNKNOWN_NAME;
+      binWriteWord(buf, asInt(pos), asInt(val), true);
+      return CDH_OK;
     }
     /**
      * @param {unknown} h - handle.
@@ -453,7 +599,8 @@
      * @returns {number} the byte.
      */
     CDHBinBufReadByte(h, pos) {
-      return binReadByte(this.bufs.get(asInt(h)), asInt(pos));
+      const buf = this.bufs.get(asInt(h));
+      return buf ? binReadByte(buf, asInt(pos)) : 0;
     }
     /**
      * @param {unknown} h - handle.
@@ -461,7 +608,8 @@
      * @returns {number} the word.
      */
     CDHBinBufReadWord(h, pos) {
-      return binReadWord(this.bufs.get(asInt(h)), asInt(pos), this.lowFirst());
+      const buf = this.bufs.get(asInt(h));
+      return buf ? binReadWord(buf, asInt(pos), true) : 0;
     }
     /**
      * @param {unknown} h - handle.
@@ -477,110 +625,285 @@
         : '';
     }
 
+    // --- what is switched on ------------------------------------------------
+    /**
+     * Switch a set of byte ranges on or off.
+     * @param {Array<[number, number]>|undefined} ranges - [start, end) ranges.
+     * @param {boolean} on - on or off.
+     * @param {boolean} [whole] - on means "send as it stands" (a function
+     *   asked for by name), not "send where it differs".
+     * @returns {void}
+     */
+    _switch(ranges, on, whole) {
+      for (const [start, end] of ranges || []) {
+        for (let a = Math.max(0, start); a < end && a < this.on.length; a++)
+          this.on[a] = on ? (whole ? 1 : this.everything[a]) : 0;
+      }
+    }
+    /** Everything on (see the class note for what that is). @returns {number} 0. */
+    CDHActivateAllFsw() {
+      this.on = Uint8Array.from(this.everything);
+      return CDH_OK;
+    }
+    /** Everything off. @returns {number} 0. */
+    CDHInactivateAllFsw() {
+      this.on = new Uint8Array(this.on.length);
+      return CDH_OK;
+    }
+    // A name this coding index does not have is not an error here: one script
+    // serves every index of a module and names functions only some of them
+    // carry. The script asks CDHTestError afterwards, as BMW's does.
+    /**
+     * @param {unknown} name - the function.
+     * @returns {number} 0.
+     */
+    CDHActivateFsw(name) {
+      this._switch(this.fieldRanges.get(asStr(name).toUpperCase()), true);
+      return CDH_OK;
+    }
+    /**
+     * @param {unknown} name - the function.
+     * @returns {number} 0.
+     */
+    CDHInactivateFsw(name) {
+      this._switch(this.fieldRanges.get(asStr(name).toUpperCase()), false);
+      return CDH_OK;
+    }
+    /**
+     * @param {unknown} name - the group.
+     * @returns {number} 0.
+     */
+    CDHActivateGrp(name) {
+      this._switch(this.groupRanges.get(asStr(name).toUpperCase()), true);
+      return CDH_OK;
+    }
+    /**
+     * @param {unknown} name - the group.
+     * @returns {number} 0.
+     */
+    CDHInactivateGrp(name) {
+      this._switch(this.groupRanges.get(asStr(name).toUpperCase()), false);
+      return CDH_OK;
+    }
+
+    // --- loading a selection ----------------------------------------------
+    /**
+     * Make the slot table from a per-byte map: one slot per word that has a
+     * byte in it, in address order. In word mode the word goes as a whole --
+     * its other byte from the image, which holds what the module holds.
+     * @param {Uint8Array} map - per byte: wanted?
+     * @param {Uint8Array} [bits] - per byte: which bits are the selection's
+     *   own. Without it every word is whole (mask FF).
+     * @returns {void}
+     */
+    _select(map, bits) {
+      const wb = this.wortBreite;
+      const words = new Set();
+      for (let a = 0; a < map.length; a++) if (map[a]) words.add((a / wb) | 0);
+      this.slots = Array.from(words)
+        .sort((x, y) => x - y)
+        .filter((w) => (w + 1) * wb <= this.netto.length)
+        .map((w) => {
+          const masks = [];
+          const own = [];
+          for (let k = 0; k < wb; k++) {
+            masks.push(bits ? bits[w * wb + k] : 0xff);
+            own.push(!!map[w * wb + k]);
+          }
+          return {
+            addr: w * wb,
+            value: 0,
+            mask: masks[0],
+            masks,
+            own,
+            flags: 0,
+          };
+        });
+      this.cursor = 0;
+      this._pending = undefined;
+    }
+    /**
+     * Load everything that is switched on.
+     * @returns {number} 0.
+     */
+    CDHGetNettoDataFromCbd() {
+      this._select(this.on);
+      return CDH_OK;
+    }
+    /**
+     * Load what is switched on, to be READ (the script's CODIERDATEN_LESEN).
+     * @returns {number} 0.
+     */
+    CDHGetNettoMaskFromCbd() {
+      this._select(this.on);
+      return CDH_OK;
+    }
+    /**
+     * Load one function by name, as it stands.
+     * @param {unknown} name - the function.
+     * @returns {number} 0, or 1 when this coding index has no such function.
+     */
+    CDHGetFswDataFromCbd(name) {
+      if (!this.fieldMasks.has(asStr(name).toUpperCase())) {
+        this.errInfo = `no function ${asStr(name)} in this coding description`;
+        return CDH_UNKNOWN_NAME;
+      }
+      // The request then says which bits of each word are this function's
+      // (header 0x09). The cluster's checksum job stores its result through
+      // that mask: with the whole word claimed it overwrote the "coding done"
+      // flag that shares the checksum's word.
+      const map = new Uint8Array(this.netto.length);
+      const bits = new Uint8Array(this.netto.length);
+      for (const { start, masks } of this.fieldMasks.get(
+        asStr(name).toUpperCase()
+      )) {
+        for (let i = 0; i < masks.length && start + i < map.length; i++) {
+          map[start + i] = 1;
+          bits[start + i] |= masks[i];
+        }
+      }
+      this._select(map, bits);
+      return CDH_OK;
+    }
+    /**
+     * Load one group by name: as much of it as is in "everything" (see the
+     * class note).
+     * @param {unknown} name - the group.
+     * @returns {number} 0, or 1 when this coding index has no such group.
+     */
+    CDHGetGrpDataFromCbd(name) {
+      const ranges = this.groupRanges.get(asStr(name).toUpperCase());
+      if (!ranges) {
+        this.errInfo = `no group ${asStr(name)} in this coding description`;
+        return CDH_UNKNOWN_NAME;
+      }
+      const map = new Uint8Array(this.netto.length);
+      for (const [start, end] of ranges)
+        for (let a = start; a < end && a < map.length; a++)
+          map[a] = this.everything[a];
+      this._select(map);
+      return CDH_OK;
+    }
+    /**
+     * The module's coding index against the description's own list.
+     * @param {unknown} what - 'CODIERINDEX' (other checks pass).
+     * @param {unknown} value - what the module answered.
+     * @returns {number} 0, or 2 when the description is for another index.
+     */
+    CDHCheckIdent(what, value) {
+      const list = this.cabd.codingIndex;
+      if (asStr(what).toUpperCase() !== 'CODIERINDEX' || !list || !list.length)
+        return CDH_OK;
+      const text = asStr(value).trim();
+      const index = /^\d+$/.test(text) ? parseInt(text, 10) : NaN;
+      if (list.includes(index)) return CDH_OK;
+      this.errInfo = `the module's coding index is ${text || '(none)'}, this description is for ${list.join(', ')}`;
+      return CDH_WRONG_INDEX;
+    }
+
     // --- the netto data pump ----------------------------------------------
-    // CDHGetApiJobData builds ONE request chunk into a BinBuf: the 22-byte
-    // header (data type, word width, byte order, addr mode, the byte-count at
-    // 0x0D and word-count at 0x0F, the wire address in WORD units at 0x11) and
-    // the payload starting at 0x15. It advances the slot cursor and returns
-    // (bufSize, nrOfData) so the dispatcher's loop knows when the region is
-    // exhausted. Header layout is BMW's, reproduced faithfully so the SGBD's
-    // `len == 22 + N*wortBreite` check passes.
     /** Rewind the slot cursor. @returns {void} */
     CDHResetApiJobData() {
       this.cursor = 0;
+      for (const s of this.slots) s.flags &= ~SLOT_CONSUMED;
     }
     /**
-     * Build the next request chunk from the unconsumed slots.
-     * @param {unknown} maxData - the dispatcher's chunk cap (bounded by 32).
+     * Build the next request from the selection: a run of words at
+     * consecutive addresses, at most `maxData` of them.
+     * @param {unknown} maxData - the script's limit, in words.
      * @param {unknown} bufHandle - the BinBuf to build into.
-     * @returns {{bufSize: number, nrOfData: number}} packet length and slot
-     *   count; both 0 when the region is exhausted.
+     * @returns {{bufSize: number, nrOfData: number}} buffer length and word
+     *   count; both 0 when the selection is used up.
      */
     CDHGetApiJobData(maxData, bufHandle) {
       const buf = this.bufs.get(asInt(bufHandle));
+      this._pending = undefined;
       if (!buf) return { bufSize: 0, nrOfData: 0 };
       const wb = this.wortBreite;
-      const cap = Math.min(asInt(maxData) || RECORD_CAP, RECORD_CAP); // BMW's record cap
-      // gather up to `cap` consecutive unconsumed slots from the cursor
+      const cap = Math.max(1, asInt(maxData) || RECORD_CAP);
       const start = this.cursor;
       let n = 0;
       while (
         n < cap &&
         start + n < this.slots.length &&
-        !(this.slots[start + n].flags & SLOT_CONSUMED)
+        !(this.slots[start + n].flags & SLOT_CONSUMED) &&
+        this.slots[start + n].addr === this.slots[start].addr + n * wb &&
+        // one mask per request: a run ends where the mask changes
+        String(this.slots[start + n].masks) === String(this.slots[start].masks)
       )
         n++;
       if (n === 0) return { bufSize: 0, nrOfData: 0 };
       const startAddr = this.slots[start].addr;
       const payloadLen = n * wb;
-      // header
       buf.bytes = [];
       buf.size = 0;
+      for (let k = 0; k < PACKET_DATA; k++) binWriteByte(buf, k, 0);
       binWriteByte(buf, 0, 1); // data type
       binWriteByte(buf, 1, wb); // word width
       binWriteByte(buf, 2, this.byteFolge); // byte order
       binWriteByte(buf, 3, this.adrMode); // addr mode
-      for (let k = 4; k < HDR_BYTE_COUNT; k++) binWriteByte(buf, k, 0);
-      binWriteByte(buf, HDR_BYTE_COUNT, payloadLen & 0xff); // 0x0D byte count LE
-      binWriteByte(buf, HDR_BYTE_COUNT + 1, (payloadLen >> 8) & 0xff);
-      binWriteByte(buf, HDR_WORD_COUNT, n & 0xff); // 0x0F word count LE
-      binWriteByte(buf, HDR_WORD_COUNT + 1, (n >> 8) & 0xff);
-      const wireAddr = Math.floor(startAddr / wb); // WORD units on the wire
-      binWriteByte(buf, HDR_ADDR, wireAddr & 0xff); // 0x11 addr LE
-      binWriteByte(buf, HDR_ADDR + 1, (wireAddr >> 8) & 0xff);
-      binWriteByte(buf, HDR_ADDR + 2, 0);
-      binWriteByte(buf, HDR_ADDR + 3, 0);
-      // payload at 0x15
-      for (let k = 0; k < n; k++) {
-        const s = this.slots[start + k];
-        if (wb === 1) binWriteByte(buf, PACKET_HEADER_LEN + k, s.value & 0xff);
-        else
-          binWriteWord(
-            buf,
-            PACKET_HEADER_LEN + k * wb,
-            s.value & 0xffff,
-            this.lowFirst()
-          );
+      for (let k = 0; k < wb; k++)
+        binWriteByte(buf, HDR_MASK + k, this.slots[start].masks[k]);
+      binWriteWord(buf, HDR_BYTE_COUNT, payloadLen, true);
+      binWriteWord(buf, HDR_WORD_COUNT, n, true);
+      binWriteWord(buf, HDR_ADDR, (startAddr / wb) | 0, true); // WORD units
+      // The data: the image's bytes in address order. A word-organised module
+      // stores a word's bytes at consecutive addresses in its own order, so
+      // address order IS its byte order; the job sends them as they come.
+      // A byte that is in a selected word without being selected itself (the
+      // script switched its function off, its neighbour's not) goes as the
+      // module holds it.
+      for (let k = 0; k < payloadLen; k++) {
+        const slot = this.slots[start + ((k / wb) | 0)];
+        const a = startAddr + k;
+        binWriteByte(
+          buf,
+          PACKET_DATA + k,
+          slot.own[k % wb] || !this.held ? this.netto[a] : this.held[a]
+        );
       }
-      // mark consumed and record the distribution for the response
+      binWriteByte(buf, PACKET_DATA + payloadLen, PACKET_END);
       this._pending = { start, n };
       for (let k = 0; k < n; k++) this.slots[start + k].flags |= SLOT_CONSUMED;
       this.cursor = start + n;
-      return { bufSize: PACKET_HEADER_LEN + payloadLen, nrOfData: n };
+      return { bufSize: PACKET_OVERHEAD + payloadLen, nrOfData: n };
     }
-    /** @returns {number} 0 when every slot has been consumed, else 1. */
+    /** @returns {number} 0 when the whole selection has been dealt out, else 1. */
     CDHCheckDataUsed() {
-      return this.slots.every((s) => s.flags & SLOT_CONSUMED) ? 0 : 1;
+      return this.slots.every((s) => s.flags & SLOT_CONSUMED) ? CDH_OK : 1;
     }
     /**
-     * Response bytes (from a read job) back into the slot values, by index of
-     * the chunk in flight.
-     * @param {unknown} bufHandle - the BinBuf holding the response.
-     * @returns {number} 0.
+     * An answer buffer (from a read job) into the image, for the request in
+     * flight.
+     * @param {unknown} bufHandle - the BinBuf holding the answer.
+     * @returns {number} 0, or 1 when the answer is not the request's size.
      */
     CDHBinBufToNettoData(bufHandle) {
       const buf = this.bufs.get(asInt(bufHandle));
       const pend = this._pending;
-      if (!buf || !pend) return 0;
+      if (!buf || !pend) return 1;
       const wb = this.wortBreite;
-      for (let k = 0; k < pend.n; k++) {
-        const s = this.slots[pend.start + k];
-        s.value =
-          wb === 1
-            ? binReadByte(buf, PACKET_HEADER_LEN + k)
-            : binReadWord(buf, PACKET_HEADER_LEN + k * wb, this.lowFirst());
+      const want = pend.n * wb;
+      if (buf.size < PACKET_DATA + want) {
+        this.errInfo = `the answer holds ${Math.max(0, buf.size - PACKET_DATA)} data bytes, the request asked for ${want}`;
+        return 1;
       }
-      return 0;
+      const startAddr = this.slots[pend.start].addr;
+      for (let k = 0; k < want; k++) {
+        this.netto[startAddr + k] = binReadByte(buf, PACKET_DATA + k);
+        this._read.add(startAddr + k);
+      }
+      return CDH_OK;
     }
 
     // --- EDIABAS via CDH --------------------------------------------------
     /** @returns {number} 0. */
     CDHapiInit() {
-      return 0;
+      return CDH_OK;
     }
     /** @returns {number} 0. */
     CDHapiEnd() {
-      return 0;
+      return CDH_OK;
     }
     /**
      * Run a text-argument job.
@@ -595,44 +918,76 @@
         allowWrites: this.allowWrites,
       });
       this.log.push({ job: asStr(job), sgbd: sg, kind: 'text' });
-      return 0;
+      return CDH_OK;
     }
     /**
-     * Run a job whose argument is a BinBuf's bytes.
+     * Run a job whose argument is a BinBuf: its first `bufSize` bytes.
      * @param {unknown} ecu - module ('' = the coding SGBD).
      * @param {unknown} job - job name.
      * @param {unknown} bufHandle - the BinBuf to send.
+     * @param {unknown} bufSize - how much of it is the argument.
      * @returns {Promise<number>} 0.
      */
-    async CDHapiJobData(ecu, job, bufHandle) {
+    async CDHapiJobData(ecu, job, bufHandle, bufSize) {
       const sg = asStr(ecu) || this.sgbd;
+      const name = asStr(job);
       const buf = this.bufs.get(asInt(bufHandle));
-      const bytes = buf ? binToBytes(buf) : [];
-      const argText = bytesToArgString(bytes);
-      this.lastSets = await this.runJob(sg, asStr(job), argText, {
+      let bytes = buf ? binToBytes(buf) : [];
+      const size = isRef(bufSize) ? 0 : asInt(bufSize);
+      if (size > 0) {
+        bytes = bytes.slice(0, size);
+        while (bytes.length < size) bytes.push(0);
+      }
+      const pend = this._pending;
+      const carries = pend && !NOT_A_WRITE.test(name);
+      this.lastSets = await this.runJob(sg, name, bytesToArgString(bytes), {
         allowWrites: this.allowWrites,
         binary: true,
       });
+      if (carries) {
+        // only the selection's own bytes count as written: one that rode
+        // along went back as the module held it
+        const wb = this.wortBreite;
+        for (let i = 0; i < pend.n; i++) {
+          const slot = this.slots[pend.start + i];
+          for (let k = 0; k < wb; k++)
+            if (slot.own[k]) this._written.add(slot.addr + k);
+        }
+      }
       this.log.push({
-        job: asStr(job),
+        job: name,
         sgbd: sg,
         kind: 'data',
         bytes: bytes.length,
+        addr: pend ? this.slots[pend.start].addr : undefined,
+        words: pend ? pend.n : undefined,
       });
-      return 0;
+      return CDH_OK;
     }
     /** @returns {number} how many result sets the last job returned. */
     CDHapiResultSets() {
       return this.lastSets.length;
     }
     /**
+     * A result of the last job, from the set that carries it.
      * @param {unknown} res - result name.
-     * @param {unknown} set - 1-based set index (falls back to set 1).
+     * @param {unknown} set - 1-based set index (falls back to any set).
+     * @returns {unknown} the value, undefined when absent.
+     */
+    _result(res, set) {
+      const key = asStr(res);
+      const at = this.lastSets[asInt(set) - 1];
+      if (at && at[key] != null) return at[key];
+      for (const s of this.lastSets) if (s && s[key] != null) return s[key];
+      return undefined;
+    }
+    /**
+     * @param {unknown} res - result name.
+     * @param {unknown} set - 1-based set index.
      * @returns {string} the result text, '' when absent.
      */
     CDHapiResultText(res, set) {
-      const s = this.lastSets[asInt(set) - 1] || this.lastSets[0] || {};
-      return asStr(s[asStr(res)]);
+      return asStr(this._result(res, set));
     }
     /**
      * @param {unknown} res - result name.
@@ -640,68 +995,32 @@
      * @returns {number} the result as an integer.
      */
     CDHapiResultInt(res, set) {
-      return asInt(this.CDHapiResultText(res, set));
+      const v = this._result(res, set);
+      return typeof v === 'number' ? v | 0 : asInt(asStr(v));
     }
     /**
-     * Copy a result field's bytes into a buffer for a subsequent read/verify.
+     * Copy a binary result into a buffer.
      * @param {unknown} bufHandle - the target BinBuf.
      * @param {unknown} res - result name.
      * @param {unknown} set - 1-based set index.
-     * @returns {number} 0, or 1 for a bad handle.
+     * @returns {number} 0, or 1 for a bad handle or a missing result.
      */
     CDHapiResultBinary(bufHandle, res, set) {
       const buf = this.bufs.get(asInt(bufHandle));
       if (!buf) return 1;
-      const s = this.lastSets[asInt(set) - 1] || this.lastSets[0] || {};
-      const v = s[asStr(res)];
-      const bytes = decodeHexField(asStr(v)) || [];
+      const v = this._result(res, set);
+      // the VM hands a binary result over as its bytes; a text one is hex
+      const bytes =
+        v && typeof v === 'object' && typeof v.length === 'number'
+          ? Array.from(/** @type {ArrayLike<number>} */ (v), (b) => b & 0xff)
+          : decodeHexField(asStr(v));
+      if (!bytes) {
+        this.errInfo = `the job returned no ${asStr(res)}`;
+        return 1;
+      }
       buf.bytes = bytes.slice();
       buf.size = bytes.length;
-      return 0;
-    }
-
-    // --- CBD queries (data-driven; the caller preloads what the write needs)
-    /** @returns {number} 0. */
-    CDHCheckIdent() {
-      return 0;
-    }
-    /** Slots are supplied by the caller. @returns {number} 0. */
-    CDHGetNettoDataFromCbd() {
-      return 0;
-    }
-    /** @returns {number} 0. */
-    CDHGetFswDataFromCbd() {
-      return 0;
-    }
-    /** @returns {number} 0. */
-    CDHGetGrpDataFromCbd() {
-      return 0;
-    }
-
-    // --- coding worklist: netto is resolved host-side, so these no-op ------
-    /** @returns {number} 0. */
-    CDHActivateFsw() {
-      return 0;
-    }
-    /** @returns {number} 0. */
-    CDHInactivateFsw() {
-      return 0;
-    }
-    /** @returns {number} 0. */
-    CDHActivateGrp() {
-      return 0;
-    }
-    /** @returns {number} 0. */
-    CDHInactivateGrp() {
-      return 0;
-    }
-    /** @returns {number} 0. */
-    CDHActivateAllFsw() {
-      return 0;
-    }
-    /** @returns {number} 0. */
-    CDHInactivateAllFsw() {
-      return 0;
+      return CDH_OK;
     }
 
     // --- authentication: honest no-op (see the header note) ---------------
@@ -748,6 +1067,9 @@
     'CDHCheckDataUsed',
     'CDHBinBufCreate',
   ]);
+  // CDHapiResultInt(value, result, set) has ONE out, the value: it is covered
+  // by the single-out rule. CDHBinBufReadByte/ReadWord(buf, value, pos, ret)
+  // are in the list above so the value lands in the first out, ret reads 0.
 
   // Per-callback arg directions, from ipo_cdh's CABI.H signatures. Only the
   // callbacks a dispatcher actually calls need entries; the rest default to
@@ -787,6 +1109,7 @@
     CDHTestError: ['out'],
     CDHCheckIdent: ['in', 'in', 'in', 'out'],
     CDHGetNettoDataFromCbd: ['out'],
+    CDHGetNettoMaskFromCbd: ['out'],
     CDHGetFswDataFromCbd: ['in', 'out'],
     CDHGetGrpDataFromCbd: ['in', 'out'],
     CDHActivateFsw: ['in', 'out'],
@@ -828,6 +1151,9 @@
     OUT_MULTI,
     OUT_FIRST,
     CDH_SIG,
+    PACKET_DATA,
+    PACKET_OVERHEAD,
+    PACKET_END,
   };
   if (typeof root !== 'undefined') root.CodingDispatchHost = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

@@ -1,4 +1,4 @@
-// Flashing/Backups: the Custom Options view. It replaces the flashing
+// Flashing/Tuning: the Custom Options view. It replaces the flashing
 // controls on the same page rather than getting a page of its own. For the
 // DME: EWS delete, the spark cut rev limiter and engine protection (all three
 // applied to the loaded program on the way out) and the map switch (file
@@ -399,7 +399,9 @@ function fbProtectRefreshNotes() {
   fbProtectSetNotes(
     installed
       ? `The loaded program already carries: ${ms45Protect.describe(installed).join('; ')}. What is ticked here is what gets flashed.`
-      : 'The loaded program carries a spark cut or protection this version does not recognise. Ticking anything here replaces it.'
+      : ms45Protect.isOutdated(d.flash, d.mpc)
+        ? 'The loaded program carries an earlier version of the spark cut and protection, which does not cut the spark on a running engine. Ticking anything here replaces it.'
+        : 'The loaded program carries a spark cut or protection this version does not recognise. Ticking anything here replaces it.'
   );
 }
 

@@ -18,12 +18,32 @@
  * @returns {boolean} true when the key carries it.
  */
 function variantHasCI(key, n) {
+  // A coding file's extension is its index in HEX: LSZ.C34 serves index 52.
+  // (Read as decimal, every index from 10 up missed its file.)
   return String(key)
     .split('+')
     .some((k) => {
-      const m = /C0*(\d+)/i.exec(k);
-      return m && parseInt(m[1], 10) === n;
+      const m = /^C([0-9A-F]{2})$/i.exec(k.trim());
+      return !!m && parseInt(m[1], 16) === n;
     });
+}
+
+/**
+ * The variant of a module's coding description that serves a coding index:
+ * the one whose own list of indexes (the file's SGID_CODIERINDEX) holds it,
+ * or failing a list, whose file extension is that index.
+ * @param {DatenMapEntry} daten - the module's DATEN entry.
+ * @param {string} chKey - the chassis key inside it.
+ * @param {number} ci - the coding index.
+ * @returns {string[]} the variant keys (one, unless the data is ambiguous).
+ */
+function variantsForCI(daten, chKey, ci) {
+  const keys = Object.keys((daten.chassis && daten.chassis[chKey]) || {});
+  const lay = (daten.layout && daten.layout[chKey]) || {};
+  const listed = keys.filter(
+    (k) => lay[k] && Array.isArray(lay[k].index) && lay[k].index.includes(ci)
+  );
+  return listed.length ? listed : keys.filter((k) => variantHasCI(k, ci));
 }
 
 /**
@@ -80,6 +100,7 @@ async function moduleFunctions(chassisId, sgbd, ci = null, saCodes = null) {
   const byKey = new Map();
   let resolved = false; // did ci pick exactly the variants carrying it?
   let variants = []; // which variant keys the fields came from
+  let layout = null; // the variant's memory organisation and named blocks
 
   if (daten) {
     const chId = String(chassisId || '').toUpperCase();
@@ -87,13 +108,24 @@ async function moduleFunctions(chassisId, sgbd, ci = null, saCodes = null) {
       daten.chassis[chId] || daten.chassis[Object.keys(daten.chassis)[0]];
     if (chassis) {
       const keys = Object.keys(chassis);
-      const pick = ci != null ? keys.filter((k) => variantHasCI(k, ci)) : [];
+      const chKey = daten.chassis[chId] ? chId : Object.keys(daten.chassis)[0];
+      const pick = ci != null ? variantsForCI(daten, chKey, ci) : [];
       const use = pick.length ? pick : keys; // matched index, else all
       // Did the coding index actually resolve to ONE stamp? Only then are the
       // addresses below provably this ECU's. codingIsResolved is what the
       // write path gates on -- see assertResolvedForWrite().
       resolved = pick.length > 0;
       variants = use.slice();
+      // one variant, provably this module's: its layout rides along for the
+      // write (word width, the blocks BMW's coding script names, the coding
+      // indexes it serves)
+      if (resolved && use.length === 1) {
+        layout =
+          (daten.layout &&
+            daten.layout[chKey] &&
+            daten.layout[chKey][use[0]]) ||
+          null;
+      }
       for (const vk of use) {
         for (const f of chassis[vk]) {
           const key = `${f.block || 0}:${f.word || 0}:${f.byte || 0}:${f.mask || 0}`;
@@ -126,7 +158,63 @@ async function moduleFunctions(chassisId, sgbd, ci = null, saCodes = null) {
   Object.defineProperty(fns, 'codingIsResolved', { value: resolved });
   Object.defineProperty(fns, 'codingIndex', { value: ci });
   Object.defineProperty(fns, 'codingVariants', { value: variants });
+  Object.defineProperty(fns, 'codingLayout', { value: layout });
+  // Functions that are not coding data: the description sorts its blocks
+  // into coding, manufacturer and reserved data, and only the first is what
+  // a coding job writes. The others are shown, never offered for a change.
+  const locked = new Set();
+  const kinds = ((layout && layout.groups) || []).filter((g) => g[4]);
+  if (kinds.length) {
+    const coding = kinds.filter((g) => g[4] === 'coding');
+    for (const f of fns) {
+      if (f.custom) continue;
+      const start = f.word || 0;
+      const end = start + (f.byte || 1);
+      const inside = coding.some(
+        ([, at, len, block]) =>
+          (block || 0) === (f.block || 0) && start >= at && end <= at + len
+      );
+      if (!inside) locked.add(f.name);
+    }
+  }
+  Object.defineProperty(fns, 'codingLocked', { value: locked });
   return /** @type {FunctionList} */ (fns);
+}
+
+/**
+ * The coding description a dispatcher write selects from: the module's
+ * functions with their addresses, the named blocks, the coding indexes and
+ * how the memory is organised. Null when the list is not one resolved variant
+ * with a known layout -- the same condition under which a write is refused.
+ * @param {FunctionList} fns - a module's functions from moduleFunctions().
+ * @returns {{fields: object[], groups: object[], codingIndex: number[], typ: string}|null}
+ */
+function codingCabdOf(fns) {
+  const lay = fns && fns.codingLayout;
+  if (!lay || !fns.codingIsResolved) return null;
+  return {
+    // BMW's own rows only: a user-defined row is an overlay on the image, not
+    // a function the module's coding script knows by name
+    fields: fns
+      .filter((f) => !f.custom)
+      .map((f) => ({
+        name: f.name,
+        word: f.word || 0,
+        byte: f.byte || 1,
+        block: f.block || 0,
+        mask: f.mask,
+        masks: f.masks,
+      })),
+    groups: (lay.groups || []).map(([name, start, length, block, kind]) => ({
+      name,
+      start,
+      length,
+      block: block || 0,
+      kind: kind || null,
+    })),
+    codingIndex: lay.index || [],
+    typ: lay.typ || 'FREI',
+  };
 }
 
 // THE UNION IS NOT A WRITE TARGET. When the coding index did not resolve to a
@@ -151,13 +239,38 @@ function assertResolvedForWrite(sgbd, fns, mod) {
   // different axes and only one of them was ever guarded: a diagnostic
   // address is shared, and writing ews's map into an EWS3 changes bits nobody
   // chose. codingResolveVariants asks the group; if it could not, refuse.
-  if (mod && ['unverified', 'unbuilt'].includes(mod._codingVariant)) {
+  //
+  // Two outcomes of that question refuse a write:
+  //   unverified  the group did not identify itself: nothing is known;
+  //   unbuilt     the group named a variant this build has no map under
+  //               (the late E46 cluster answers as kombi46r, the map is
+  //               filed under kombi46).
+  // The second is settled when the coding itself is read through BMW's
+  // selection table: that table pairs the coding file with the coding SGBD
+  // to run it on, and if the SGBD it names IS the variant the bus named, two
+  // independent sources agree on what is fitted. Then the layout is this
+  // module's, and the write goes to it under its own name.
+  const variant = mod && mod._codingVariant;
+  const src = mod && mod.source;
+  const named = String((mod && mod._variantVia) || '').toLowerCase();
+  const agreed =
+    variant === 'unbuilt' &&
+    !!named &&
+    !!src &&
+    src.route === 'script' &&
+    String(src.sgbd || '').toLowerCase() === named;
+  if ((variant === 'unverified' || variant === 'unbuilt') && !agreed) {
     throw new Error(
       `refusing to write ${sgbd}: nothing confirmed this is the variant ` +
         `fitted. ${mod.label || sgbd} shares diagnostic address ` +
         `${mod.group || '?'} with other modules, and a coding write is a ` +
-        `delta against the layout of whichever one answers. Reconnect and ` +
-        `re-read so the address group can identify itself.`
+        `delta against the layout of whichever one answers. ` +
+        (variant === 'unbuilt'
+          ? `The car named ${named || 'another variant'}` +
+            (src && src.sgbd
+              ? `, but its coding is selected for ${src.sgbd}.`
+              : ', and no coding source for it is known.')
+          : `Reconnect and re-read so the address group can identify itself.`)
     );
   }
   if (fns && fns.codingIsResolved) return;
@@ -177,7 +290,9 @@ function assertResolvedForWrite(sgbd, fns, mod) {
 // The pieces the other coding screens call; published explicitly so the shared surface is visible.
 if (typeof window !== 'undefined') {
   window.variantHasCI = variantHasCI;
+  window.variantsForCI = variantsForCI;
   window.blockName = blockName;
   window.moduleFunctions = moduleFunctions;
+  window.codingCabdOf = codingCabdOf;
   window.assertResolvedForWrite = assertResolvedForWrite;
 }

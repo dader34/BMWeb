@@ -8,8 +8,8 @@ It lives here once so the list of directories cannot drift between copies.
 
 It also owns find_port()/find_base(): three scripts each carried their own
 copy of "where is the running engine listening?", and the copies had already
-drifted -- one probed `pgrep -f BMacW` and env BMACW_PORT while
-sgbd_harvest used `lsof -c InpaMac.A` and env BMACW_API, so a
+drifted -- one probed `pgrep -f BMWeb` and env BMWEB_PORT while
+sgbd_harvest used `lsof -c InpaMac.A` and env BMWEB_API, so a
 port that one tool found the next tool missed.
 """
 import os
@@ -29,22 +29,23 @@ def find_port():
 
     Order matters and each step is verified against what actually ships:
 
-      1. BMACW_PORT -- the canonical env var: tools/check.sh, tools/verify/*,
+      1. BMWEB_PORT (BMACW_PORT, its name before the rename, still works) --
+         the canonical env var: tools/check.sh, tools/verify/*,
          tools/export/* and scripts/build/build-web.sh all read or export it.
-      2. BMACW_API -- the older spelling sgbd_harvest grew, a full base URL
+      2. BMWEB_API (or BMACW_API) -- the older spelling sgbd_harvest grew, a full base URL
          rather than a port. Honoured so existing invocations keep working;
          the port is parsed out of it.
       3. Probe 8777, the dev-run default (InpaMac.Server).
       4. lsof by process name: `lsof -c` matches by prefix, so "InpaMac"
          catches the kernel-truncated name too.
-      5. pgrep -f BMacW + lsof on the pid -- covers a process whose command
-         name lsof -c cannot see (e.g. started via a wrapper) but whose .app
-         path still says BMacW.
+      5. pgrep for a BMWeb.app bundle + lsof on the pid -- covers a process
+         whose command name lsof -c cannot see (e.g. started via a wrapper)
+         but whose .app path says BMWeb.
     """
-    port = os.environ.get("BMACW_PORT")
+    port = os.environ.get("BMWEB_PORT") or os.environ.get("BMACW_PORT")
     if port:
         return port
-    api = os.environ.get("BMACW_API")
+    api = os.environ.get("BMWEB_API") or os.environ.get("BMACW_API")
     if api:
         m = re.search(r":(\d+)/?$", api)
         if m:
@@ -64,7 +65,7 @@ def find_port():
     except Exception:                       # noqa: BLE001
         pass
     try:
-        pid = subprocess.run(["pgrep", "-f", "BMacW"], capture_output=True,
+        pid = subprocess.run(["pgrep", "-f", "BMWeb.app/Contents/MacOS"], capture_output=True,
                              text=True).stdout.split()
         if pid:
             out = subprocess.run(["lsof", "-aPi", "-p", pid[0]],
@@ -82,10 +83,10 @@ def find_port():
 def find_base():
     """Base URL of the running engine ("http://127.0.0.1:<port>"), or None.
 
-    BMACW_API is returned verbatim when set -- it is already a base URL and
+    BMWEB_API is returned verbatim when set -- it is already a base URL and
     callers append paths to it directly.
     """
-    api = os.environ.get("BMACW_API")
+    api = os.environ.get("BMWEB_API") or os.environ.get("BMACW_API")
     if api:
         return api
     port = find_port()

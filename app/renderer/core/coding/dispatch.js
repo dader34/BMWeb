@@ -52,10 +52,20 @@
 /**
  * Options for runCodingDispatch.
  * @typedef {Object} DispatchOptions
- * @property {boolean} confirmed - REQUIRED true (the UI's write confirmation).
+ * @property {boolean} [confirmed] - REQUIRED true for a write (the UI's
+ *   confirmation); a read run does not need it.
  * @property {CdhRunJob} runJob - the bus job runner.
  * @property {string} [sgbd] - the coding SGBD name.
- * @property {NettoSlot[]} [slots] - the netto slot table to write.
+ * @property {ArrayLike<number>} [netto] - the module's full coding image.
+ * @property {CabdLayout} [cabd] - the coding description's functions, groups
+ *   and coding indexes, for the script's selections.
+ * @property {Record<string, string>} [systemData] - FAHRGESTELL_NR and the like.
+ * @property {'write'|'read'} [mode] - `read` fills the image from the module.
+ * @property {ArrayLike<number>} [changed] - write: the byte addresses the
+ *   run may send -- the module's coding region.
+ * @property {ArrayLike<number>} [held] - write: the image as the module
+ *   holds it, for bytes that ride along in a word without being selected.
+ * @property {ArrayLike<number>} [readAddrs] - read: the byte addresses wanted.
  * @property {string} [jobname] - which cabimain jobname to run (default SG_CODIEREN).
  * @property {DataOrg} [dataOrg] - overrides the program's own dataOrg.
  */
@@ -68,6 +78,10 @@
  * @property {number} ret - the dispatcher's return value.
  * @property {WireLogEntry[]} log - the wire jobs issued, in order.
  * @property {NettoSlot[]} slots - the slot table after the run.
+ * @property {string} info - the recorded error text, '' when none.
+ * @property {number[]} netto - the image after the run (read mode fills it).
+ * @property {number[]} written - byte addresses a write job carried.
+ * @property {number[]} read - byte addresses a read filled in.
  */
 
 (function (root) {
@@ -92,6 +106,44 @@
 
   /** Interpreter step budget: a runaway dispatcher stops here. */
   const STEP_BUDGET = 200000;
+
+  /**
+   * Thrown to unwind the whole run: the dispatcher's own `exit` (BMW's
+   * TestCDHFehler / TestApiFehler call it after recording the error, so a
+   * failed job stops the sequence instead of going on to the next write), or
+   * a call this host cannot serve.
+   */
+  class DispatchAbort extends Error {
+    /**
+     * @param {string} why - what stopped the run.
+     * @param {boolean} unsupported - true when a host call is not implemented.
+     */
+    constructor(why, unsupported) {
+      super(why);
+      this.dispatchAbort = true;
+      this.unsupported = !!unsupported;
+    }
+  }
+
+  /** The error number recorded when the run stops on an unserved host call. */
+  const ERR_UNSUPPORTED_CALL = 9001;
+
+  // The language's own library, which the dispatchers lean on: every error
+  // text is built with strcat, the coding index is padded by strlen, and the
+  // cluster decides whether to rewrite the VIN from midstr(FAHRGESTELL_NR).
+  // Each takes its destination as the first (out) argument.
+  /** @type {Record<string, {sig: Array<'in'|'out'>, fn: (...a: unknown[]) => unknown}>} */
+  const BUILTINS = {
+    strcat: { sig: ['out', 'in', 'in'], fn: (a, b) => asStr(a) + asStr(b) },
+    strlen: { sig: ['out', 'in'], fn: (a) => asStr(a).length },
+    // midstr(dest, source, start, count): start counts from 0
+    midstr: {
+      sig: ['out', 'in', 'in', 'in'],
+      fn: (src, start, count) =>
+        asStr(src).substr(Math.max(0, asInt(start)), Math.max(0, asInt(count))),
+    },
+    inttostring: { sig: ['in', 'out'], fn: (n) => String(asInt(n)) },
+  };
   /** The cabimain jobname that means "code the module". */
   const DEFAULT_JOBNAME = 'SG_CODIEREN';
 
@@ -136,7 +188,40 @@
     async run(proc) {
       const toks = this.procs[proc];
       if (!toks) throw new Error(`coding-dispatch: no proc ${proc}`);
-      await this._exec(toks, new Map());
+      await this._exec(toks, this._locals(toks, new Map()));
+    }
+
+    /**
+     * A proc opens with its local declarations: after `block`, one token per
+     * local in slot order behind the parameters -- a bare `decl`, or a `const`
+     * that is a local declared WITH its initial value -- closed by the first
+     * statement terminator. BMW's handlers carry real values there (the proc
+     * name for error texts, the loop flag, and MaxData: 30 for the body
+     * module, 12 for the cluster's write and 16 for its read), so dropping
+     * them sent 32 records where the script asks for 12.
+     * @param {DispatchToken[]} toks - the proc's tokens.
+     * @param {Map<number, unknown>} frame - the frame holding the parameters.
+     * @returns {Map<number, unknown>} the same frame, locals initialised.
+     */
+    _locals(toks, frame) {
+      let i = toks.length && toks[0].op === 'block' ? 1 : 0;
+      const header = [];
+      for (; i < toks.length; i++) {
+        const op = toks[i].op;
+        if (op === 'decl' || op === 'const') header.push(toks[i]);
+        else break;
+      }
+      // only a run of declarations CLOSED by a terminator is a header; a proc
+      // without locals starts straight into its first expression
+      if (i >= toks.length || toks[i].op !== 'ret') return frame;
+      if (!header.some((t) => t.op === 'decl' || t.op === 'const'))
+        return frame;
+      let slot = frame.size;
+      for (const t of header) {
+        if (t.op === 'const') frame.set(slot, t.v);
+        slot++;
+      }
+      return frame;
     }
 
     /**
@@ -217,9 +302,13 @@
           const val = stack.length ? stack.pop() : '';
           this._write(t.sc == null ? 0 : t.sc, t.n, frame, val);
         } else if (op === 'binop') {
-          const b = stack.pop(),
-            a = stack.pop();
-          stack.push(binop(t.name, a, b));
+          if (t.name === 'not') {
+            stack.push(truthy(stack.pop()) ? 0 : 1); // the one unary operator
+          } else {
+            const b = stack.pop(),
+              a = stack.pop();
+            stack.push(binop(t.name, a, b));
+          }
         } else if (op === 'jfalse') {
           const cond = stack.length ? stack.pop() : false;
           if (!truthy(cond)) {
@@ -265,7 +354,7 @@
       if (!name || !this.procs[name]) return;
       const frame = new Map();
       stack.forEach((v, i) => frame.set(i, v));
-      await this._exec(this.procs[name], frame);
+      await this._exec(this.procs[name], this._locals(this.procs[name], frame));
     }
 
     /**
@@ -279,8 +368,32 @@
     async _call(t, stack, frame) {
       const name = t.name;
       const host = this.host;
+      // `exit` ends the whole run, wherever it is called from. BMW's error
+      // checks record the failure and then call it, so nothing after a failed
+      // job is sent.
+      if (name === 'exit') throw new DispatchAbort('exit', false);
+      const builtin = BUILTINS[name];
+      if (builtin) {
+        const bsig = builtin.sig;
+        const bargs = stack.slice(-bsig.length);
+        const bins = [];
+        let dest = null;
+        bsig.forEach((dir, k) => {
+          if (dir === 'in') bins.push(bargs[k]);
+          else dest = bargs[k];
+        });
+        if (dest != null) this._writeRef(dest, frame, builtin.fn(...bins));
+        return;
+      }
       const fn = host[name];
-      if (typeof fn !== 'function') return; // unimplemented CDH slot: no-op
+      if (typeof fn !== 'function') {
+        // A call this host cannot serve must not be skipped: the script would
+        // carry on with whatever it was meant to set up missing. Stop the run
+        // and say which call it was.
+        host.err = ERR_UNSUPPORTED_CALL;
+        host.errInfo = `host call ${name} is not supported`;
+        throw new DispatchAbort(host.errInfo, true);
+      }
       // Split args into value-ins and out-refs by the CDH signature order.
       const sig = CDH_SIG[name] || [];
       // Args are the top `sig.length` stack entries in order.
@@ -390,7 +503,9 @@
    *   a coding dispatcher, or it has no cabimain/Cod entry proc.
    */
   async function runCodingDispatch(exec, opts = /** @type {any} */ ({})) {
-    if (!opts.confirmed) {
+    // A write needs the UI's confirmation. A read run does not: its gate is
+    // shut, so nothing it issues can be a write.
+    if (opts.mode !== 'read' && !opts.confirmed) {
       throw new Error('coding dispatch refused: opts.confirmed must be set');
     }
     if (typeof opts.runJob !== 'function') {
@@ -401,18 +516,41 @@
         'coding dispatch refused: not a coding-dispatcher program'
       );
     }
+    // A module whose coding description numbers its blocks (SPEICHERORG TYP
+    // BLOCK: the body module, the light module) is addressed by block, and its
+    // jobs disagree on how: the body module's read job puts the address on
+    // the wire as the block number, its write job divides the address by 20
+    // first. Which address the factory tool hands them is not known, so such
+    // a module is not written through here until it is.
+    const cabd = opts.cabd || null;
+    const blocked =
+      cabd &&
+      (cabd.typ === 'BLOCK' ||
+        (cabd.fields || []).some((f) => (f.block | 0) > 0) ||
+        (cabd.groups || []).some((g) => (g.block | 0) > 0));
+    if (blocked) {
+      throw new Error(
+        'coding dispatch refused: this module addresses its coding by block, ' +
+          'which the dispatcher path does not do yet'
+      );
+    }
+    const mode = opts.mode === 'read' ? 'read' : 'write';
     const host = new CdhHost({
       sgbd: opts.sgbd,
-      slots: opts.slots || [],
+      netto: opts.netto,
+      cabd: cabd || undefined,
+      changed: opts.changed,
+      held: opts.held,
+      readAddrs: opts.readAddrs,
+      systemData: opts.systemData,
+      mode,
       runJob: opts.runJob,
     });
-    // The dispatcher's Cod handler reads (ident, coding index, current netto)
-    // then writes. We arm the write gate for the whole handler: the read jobs
-    // it issues are not write jobs, so they transmit fine with the gate open,
-    // and only a write job (C_S_AUFTRAG / C_CHECKSUM / *_SCHREIBEN) is gated by
-    // bestvm's classifier anyway. The caller still gates the WHOLE dispatch on
-    // opts.confirmed above.
-    host.allowWrites = true;
+    // The write handler reads (ident, coding index, a status word) and then
+    // writes, so the gate is open for the whole handler; a read run keeps it
+    // shut, so nothing it issues can be a write. The caller still gates the
+    // WHOLE dispatch on opts.confirmed above.
+    host.allowWrites = mode === 'write';
     // Seed the data-org from the CABD SPEICHERORG (exec.dataOrg / opts.dataOrg):
     // NCSEXPER's C layer sets it at CABD load, before the IPO runs, and the
     // dispatcher only re-sets it if it wants to override. Without this, a
@@ -426,19 +564,40 @@
     const jobname = opts.jobname || DEFAULT_JOBNAME;
     host.CDHSetCabdPar('JOBNAME', jobname);
     host.sys.set('JOBNAME', jobname);
-    const entry = interp.procs.cabimain
-      ? 'cabimain'
-      : interp.procs.Cod
-        ? 'Cod'
-        : null;
+    // The file's own startup proc sets its globals -- the error numbers every
+    // check passes on and the module name -- and then calls cabimain itself.
+    // Starting at cabimain left them unset, so a failure was recorded as
+    // error 0, which reads as success.
+    const entry = interp.procs.__inpa_startup__
+      ? '__inpa_startup__'
+      : interp.procs.cabimain
+        ? 'cabimain'
+        : interp.procs.Cod
+          ? 'Cod'
+          : null;
     if (!entry) throw new Error('coding dispatch: no cabimain/Cod proc');
-    await interp.run(entry);
+    let aborted = null;
+    try {
+      await interp.run(entry);
+    } catch (e) {
+      if (!e || !e.dispatchAbort) throw e;
+      aborted = e;
+    }
+    // An `exit` after a clean handler is how some scripts end; what makes a
+    // run a failure is what was recorded before it: an error number, a
+    // non-zero return value, or a call this host could not serve.
+    const failed =
+      host.err !== 0 || host.ret !== 0 || !!(aborted && aborted.unsupported);
     return {
-      ok: host.err === 0 && host.ret === 0,
+      ok: !failed,
       err: host.err,
       ret: host.ret,
+      info: host.errInfo || '',
       log: host.log,
       slots: host.slots,
+      netto: Array.from(host.netto),
+      written: host.writtenAddrs(),
+      read: host.readAddrs(),
     };
   }
 
@@ -446,6 +605,8 @@
     runCodingDispatch,
     CdhHost,
     Interp,
+    DispatchAbort,
+    ERR_UNSUPPORTED_CALL,
     _makeBinBuf: Host.makeBinBuf,
     _bytesToArgString: Host.bytesToArgString,
     _binWriteWord: Host.binWriteWord,

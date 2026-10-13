@@ -16,11 +16,11 @@ construct (empty, if/else, while, a screen+menu, a state machine, a logic
 table, DLL import calls). So it exercises every block type and
 every opcode the format defines, and it is an INDEPENDENT check: our reader was
 written from the format spec, not from these bytes, yet must reproduce them to
-the byte. When BMW's SGDAT is present, point BMACW_IPO_CORPUS at it to run the
+the byte. When BMW's SGDAT is present, point BMWEB_IPO_CORPUS at it to run the
 same three checks over thousands of shipped .IPOs.
 
     python3 tools/verify/test_ipo_roundtrip.py
-    BMACW_IPO_CORPUS=vendor/EC-APPS/INPA/SGDAT python3 tools/verify/test_ipo_roundtrip.py
+    BMWEB_IPO_CORPUS=vendor/EC-APPS/INPA/SGDAT python3 tools/verify/test_ipo_roundtrip.py
 """
 import os
 import sys
@@ -38,8 +38,8 @@ FIXTURES = os.path.join(HERE, "fixtures", "ipo")
 
 
 def corpus():
-    """The .IPO files to round-trip: BMACW_IPO_CORPUS, else the fixtures."""
-    ext = os.environ.get("BMACW_IPO_CORPUS")
+    """The .IPO files to round-trip: BMWEB_IPO_CORPUS, else the fixtures."""
+    ext = os.environ.get("BMWEB_IPO_CORPUS") or os.environ.get("BMACW_IPO_CORPUS")
     if ext:
         files = sorted(glob.glob(os.path.join(ext, "*.IPO"))
                        + glob.glob(os.path.join(ext, "*.ipo")))
@@ -57,7 +57,7 @@ def main():
     files = corpus()
     if not files:
         print("no corpus found -- fixtures/ipo/ is empty and "
-              "BMACW_IPO_CORPUS is unset")
+              "BMWEB_IPO_CORPUS is unset")
         return 1
 
     failures = []

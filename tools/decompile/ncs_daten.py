@@ -496,6 +496,90 @@ def speicherorg(data):
     return {"wortBreite": 1, "byteFolge": 0}
 
 
+def _masks(masks, width):
+    """A row's MASKE list -> (first-byte mask, per-byte list or None).
+
+    MASKE is ONE MASK PER BYTE of the field. A cluster's two-byte service
+    limit is [0F, FF]: the low nibble of its first byte and all of its second,
+    the high nibble belonging to another function; a word field that uses only
+    its second byte is [00, FF]. OR-ing the list into one number (the earlier
+    reading) made both 0xFF, so the first read its neighbour's bits and wrote
+    over them, and the second read the wrong byte.
+
+    A single mask stands for the field's first byte, as before. The per-byte
+    list is returned only when the masks are not all 0xFF, which is the only
+    time a consumer has to care.
+    """
+    masks = list(masks or [])
+    if not masks:
+        return 0, None
+    if len(masks) > 1 and any(m != 0xFF for m in masks):
+        per = (masks + [0xFF] * width)[:max(width, len(masks))]
+        return masks[0], per
+    return masks[0], None
+
+
+def layout(data):
+    """What a dispatcher needs of the file besides its rows.
+
+    Returns ``{'typ', 'wortBreite', 'byteFolge', 'index', 'groups'}``:
+
+    typ      SPEICHERORG's TYP: 'FREI' (one address space) or 'BLOCK'
+             (numbered blocks, each addressed from 0).
+    index    the coding indexes the file serves (SGID_CODIERINDEX).
+    groups   every named block -- CODIERDATENBLOCK, HERSTELLERDATENBLOCK,
+             RESERVIERTDATENBLOCK -- as [name, start, length, blocknr, kind]
+             with kind 'coding', 'manufacturer' or 'reserved'. BMW's coding
+             scripts switch these on and off BY NAME ("ZCS",
+             "Var_Fahrzeugparameter"), so the names are an interface, not a
+             label; and only the first kind is coding data.
+    """
+    secs = schema(data)
+    recs = records(data)
+    out = dict(speicherorg(data), typ='FREI', index=[], groups=[])
+    sec = secs.get('SPEICHERORG')
+    if sec:
+        for seq, pay, _ in recs:
+            if seq != sec['seq']:
+                continue
+            try:
+                struktur, typ = parse_payload(sec['sig'] or 'SS', pay)
+            except (ValueError, IndexError):
+                continue
+            out['typ'] = str(typ).upper() or 'FREI'
+            break
+    sec = secs.get('SGID_CODIERINDEX')
+    if sec:
+        for seq, pay, _ in recs:
+            if seq != sec['seq'] or not pay:
+                continue
+            try:
+                wert, more = parse_payload(sec['sig'] or 'B(B)', pay)
+            except (ValueError, IndexError):
+                continue
+            for v in [wert] + list(more or []):
+                if v not in out['index']:
+                    out['index'].append(v)
+    for name in ('CODIERDATENBLOCK', 'HERSTELLERDATENBLOCK',
+                 'RESERVIERTDATENBLOCK'):
+        sec = secs.get(name)
+        if not sec:
+            continue
+        for seq, pay, _ in recs:
+            if seq != sec['seq']:
+                continue
+            try:
+                blk, wort, length, bez = parse_payload(sec['sig'] or '{L}LWS',
+                                                        pay)
+            except (ValueError, IndexError):
+                continue
+            if bez:
+                kind = {'C': 'coding', 'H': 'manufacturer',
+                        'R': 'reserved'}[name[0]]
+                out['groups'].append([str(bez), wort, length, blk or 0, kind])
+    return out
+
+
 def rows(data, kw=None, chassis=None):
     """The module's coding rows: block, word, bit, function and its values.
 
@@ -519,6 +603,9 @@ def rows(data, kw=None, chassis=None):
     psw_sec = secs.get('PARZUWEISUNG_PSW1')
     psw_seq = psw_sec['seq'] if psw_sec else None
     psw_sig = (psw_sec['sig'] or 'W(B)') if psw_sec else 'W(B)'
+    psw2_sec = secs.get('PARZUWEISUNG_PSW2')
+    psw2_seq = psw2_sec['seq'] if psw2_sec else None
+    psw2_sig = (psw2_sec['sig'] or '(B)') if psw2_sec else '(B)'
     # PARZUWEISUNG_DIR ("direkt") is a SEPARATE set of coding fields -- BMW's
     # directly-addressed diagnostic/manufacturer values (VIN across several
     # words, hardware/date stamps) that never appear in the FSW option menu,
@@ -535,6 +622,7 @@ def rows(data, kw=None, chassis=None):
     out = []
     dir_out = []
     cur = None
+    last_psw = None
     for seq, payload, at in records(data):
         if seq == fsw_seq:
             try:
@@ -542,35 +630,50 @@ def rows(data, kw=None, chassis=None):
                     parse_payload(fsw_sig, payload)
             except (ValueError, IndexError):
                 continue
-            mask = 0
-            for m in (masks or []):
-                mask |= m
+            mask, per_byte = _masks(masks, byte)
             cur = {'block': blk or 0, 'word': wort, 'byte': byte,
-                   'mask': mask, 'fsw': fsw, 'index': idx, 'unit': _unit(ein),
-                   'ops': [], 'name': None, 'psw': [], 'at': at}
+                   'mask': mask, 'masks': per_byte, 'fsw': fsw, 'index': idx,
+                   'unit': _unit(ein), 'ops': [], 'name': None, 'psw': [],
+                   'at': at}
             out.append(cur)
+            last_psw = None
         elif dir_seq is not None and seq == dir_seq:
             try:
                 blk, wort, byte, fsw, idx, masks, oplists, ein = \
                     parse_payload(dir_sig, payload)
             except (ValueError, IndexError):
                 continue
-            mask = 0
-            for m in (masks or []):
-                mask |= m
+            mask, per_byte = _masks(masks, byte)
             # (A) is a repeating field, so oplists is a list of A-buffers; a
             # DIR row carries at most one, each already a [(op, operand)] list
             ops = oplists[0] if oplists else []
             dir_out.append({'block': blk or 0, 'word': wort, 'byte': byte,
-                            'mask': mask, 'fsw': fsw, 'index': idx,
+                            'mask': mask, 'masks': per_byte, 'fsw': fsw,
+                            'index': idx,
                             'unit': _unit(ein), 'ops': ops, 'dir': True,
                             'name': None, 'psw': [], 'at': at})
         elif psw_seq is not None and seq == psw_seq and cur is not None:
             try:
                 psw, datum = parse_payload(psw_sig, payload)
             except (ValueError, IndexError):
+                last_psw = None
                 continue
-            cur['psw'].append((psw, bytes(datum or [])))
+            last_psw = [psw, bytearray(datum or [])]
+            cur['psw'].append(last_psw)
+        elif psw2_seq is not None and seq == psw2_seq:
+            # PARZUWEISUNG_PSW2 CONTINUES the value before it: a PSW1 record
+            # holds at most 15 data bytes, and a longer value (the light
+            # module's 31-byte program blocks, a seat module's curves) runs on
+            # through as many PSW2 records as it needs. Without them the value
+            # is only its first 15 bytes, and writing it would zero the rest.
+            if last_psw is None:
+                continue
+            try:
+                (more,) = parse_payload(psw2_sig, payload)
+            except (ValueError, IndexError):
+                last_psw = None
+                continue
+            last_psw[1] += bytes(more or [])
 
     if kw is not None:
         pick, table = kw, '01'
@@ -599,7 +702,7 @@ def rows(data, kw=None, chassis=None):
         r['table'] = table
         r['psw_table'] = ptable
         r['name'] = pick.get(r['fsw'])
-        r['psw'] = [(ptab.get(p, p), d.hex()) for p, d in r['psw']]
+        r['psw'] = [(ptab.get(p, p), bytes(d).hex()) for p, d in r['psw']]
     # DIR fields carry their transform (ops + display unit) but their ids are
     # a separate namespace that the FSW/PSW/ASW tables shipped with SP-Daten
     # do not name. Emit only the ones that DO resolve (rare) so the map gains

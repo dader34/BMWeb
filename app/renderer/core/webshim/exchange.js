@@ -26,12 +26,49 @@ const REGEN_MAX_MS = 1000;
 const NR78_MIN_MS = 5000;
 /** How many "response pending" polls a stuck ECU gets before it fails. */
 const MAX_PENDING_POLLS = 30;
+/** An answer slower than this is noted in the console, with the page's state. */
+const SLOW_ANSWER_MS = 200;
+/** What a page that is not in front adds to every telegram's budget: its own late wake-ups. */
+const HIDDEN_PAGE_ALLOWANCE_MS = 500;
 /** Send once, retransmit once: EDIABAS's single-glitch cover. */
 const EXCHANGE_ATTEMPTS = 2;
 /** KWP negative response service id. */
 const NEGATIVE_RESPONSE = 0x7f;
 /** The negative-response code meaning "still working, ask again". */
 const RESPONSE_PENDING = 0x78;
+/**
+ * The negative-response code meaning "busy, re-send the request". Unlike
+ * 0x78 (wait, the answer will arrive on its own) a 0x23 wants the TESTER to
+ * ask again. The MS45 DME answers 0x23 to the security-access key while its
+ * RSA check runs (~2 s): without this the key check saw 7F 31 23 as the
+ * final answer and reported the DME "refused the key", flakily, depending
+ * on whether a generic retransmit happened to re-fire in time.
+ */
+const BUSY_REPEAT = 0x23;
+/** How many times a "busy, ask again" is re-sent before it is given up on. */
+const MAX_BUSY_REPEATS = 30;
+/** KWP TransferData: one block of a flash write. */
+const TRANSFER_DATA = 0x36;
+/**
+ * The least a flash block gets to be answered: the P2max the flasher sets
+ * for its programming session (ACCESS_TIMING_PARAMETER, 83 03 00 78 = 120
+ * x 25 ms). The DME answers a block in ~60 ms of its own time, but now and
+ * then takes ~670 ms writing one; a 500 ms ParTimeoutStd called that DME
+ * silent in the middle of a program flash (block 0xBB, over the THOR) and
+ * the flash stopped with the program half written.
+ */
+const TRANSFER_ANSWER_MS = 3000;
+/**
+ * The quiet gap before a flash block (TransferData) instead of the SGBD's
+ * ParRegenTime. A TransferData only happens in a programming session, whose
+ * access timing the flasher negotiated: the MS45 loader's P3min is exactly
+ * 12 ms (its limits say so, and it refuses any other value), and a request
+ * sent sooner is silently dropped and only taken on the retransmit, a whole
+ * answer timeout later. 14 ms keeps a margin over the 12 for the cable's
+ * and the page's own lateness; the SGBD's 25 ms is 13 ms a block of nothing,
+ * a sixth of a flash. Measured on the emulated loader (ms45-emu).
+ */
+const TRANSFER_GAP_MS = 14;
 
 /**
  * Pull whatever the port has right now.
@@ -158,14 +195,30 @@ async function readFrame(sent, timeoutMs, pump, comm) {
  * @param {CommParams} comm - The request's wire parameters.
  * @returns {boolean} True when the ECU asked for more time.
  */
-function isResponsePending(frame, comm) {
+function negativeBody(frame, comm) {
   const c = conceptOf(comm);
-  let body;
-  if (isDs2(c)) body = frame.slice(2);
-  else if (c === 0x10d) body = frame.slice(4);
-  else if (frame[0] === 0xb8) body = frame.slice(4);
-  else body = frame[0] & 0x3f ? frame.slice(3) : frame.slice(4);
+  if (isDs2(c)) return frame.slice(2);
+  if (c === 0x10d) return frame.slice(4);
+  if (frame[0] === 0xb8) return frame.slice(4);
+  return frame[0] & 0x3f ? frame.slice(3) : frame.slice(4);
+}
+
+function isResponsePending(frame, comm) {
+  const body = negativeBody(frame, comm);
   return body[0] === NEGATIVE_RESPONSE && body[2] === RESPONSE_PENDING;
+}
+
+/**
+ * "Busy, ask again": the ECU answers 7F <service> 23 and expects the tester
+ * to RE-SEND the request (not wait, as for 0x78). Same framing rules as
+ * isResponsePending.
+ * @param {number[]} frame - A complete answer frame.
+ * @param {CommParams} comm - The request's wire parameters.
+ * @returns {boolean} True when the ECU wants the request re-sent.
+ */
+function isBusyRepeat(frame, comm) {
+  const body = negativeBody(frame, comm);
+  return body[0] === NEGATIVE_RESPONSE && body[2] === BUSY_REPEAT;
 }
 
 /**
@@ -194,14 +247,17 @@ function regenTimeOf(comm) {
  * answered.
  * @param {Transport} bus - The transport, for its lastResponseAt.
  * @param {CommParams} comm - The telegram's wire parameters.
+ * @param {number} [capMs] - A shorter gap this request is known to be
+ *   allowed (a flash block's TRANSFER_GAP_MS); never longer than the SGBD's.
  * @returns {Promise<void>}
  */
-async function paceBeforeWrite(bus, comm) {
+async function paceBeforeWrite(bus, comm, capMs) {
   // a `wait` in the SGBD paces the bus: honor it before writing
   if (comm && comm.waitMs) {
     await bmwSleep(Math.min(comm.waitMs, WAIT_CAP_MS));
   }
-  const regenMs = regenTimeOf(comm);
+  let regenMs = regenTimeOf(comm);
+  if (capMs != null && regenMs > capMs) regenMs = capMs;
   if (regenMs && bus.lastResponseAt) {
     const since = Date.now() - bus.lastResponseAt;
     if (since < regenMs) {
@@ -245,26 +301,61 @@ async function runExchange(bus, out, comm) {
   bus.sessionConcept = conceptOf(comm);
   await bus.ensureConfig(portConfig(comm));
   const framed = withChecksum(out, comm);
-  const timeoutMs = (comm && comm.timeout) || DEFAULT_TIMEOUT_MS;
+  // ParTimeoutStd is the ECU's budget to start answering. A page that is
+  // not in front gets its wake-ups (the port's next chunk, the worker's
+  // timers) delivered late: measured on a flash, +150..200 ms on every
+  // exchange, which turned a 340 ms answer into a miss of a 500 ms budget
+  // at random blocks. That lateness is the browser's, not the ECU's, so a
+  // hidden page waits that much longer before calling the ECU silent.
+  const hidden =
+    typeof document !== 'undefined' && document.visibilityState === 'hidden';
+  // an emulated DME (the gateway's or the adapter's emulator) runs slower
+  // than the real one and says so through its port: its telegrams get
+  // what it asks for on top, the car's none
+  const emulated = (bus.port && bus.port.timeoutAllowanceMs) || 0;
+  const transfer =
+    !isDs2(conceptOf(comm)) && negativeBody(framed, comm)[0] === TRANSFER_DATA;
+  const timeoutMs =
+    Math.max(
+      (comm && comm.timeout) || DEFAULT_TIMEOUT_MS,
+      transfer ? TRANSFER_ANSWER_MS : 0
+    ) +
+    (hidden ? HIDDEN_PAGE_ALLOWANCE_MS : 0) +
+    emulated;
   // xreps: the SGBD's own retransmit count (CommRepeats). The reference
   // sends a telegram repeats + 1 times, on silence as well as on a garbled
   // answer, and stops early only on a cable-level IFH-0003. A garbled
   // answer always gets the one retransmit it had before, even for an SGBD
   // that asked for none.
   const repeats = Math.max(0, (comm && comm.repeats) | 0);
-  const attempts = Math.max(EXCHANGE_ATTEMPTS, repeats + 1);
+  // A telegram may forbid retransmission entirely: the MS45 live-tune SAVE
+  // op is answered by SILENCE (the DME folds the calibration and resets), so
+  // a retransmit is a SECOND save fired at a DME that has already rebooted
+  // with nothing open -- seen on a bench to cause repeated resets and revert
+  // the saved value. Such a telegram gets exactly one attempt.
+  const attempts =
+    comm && comm.noRetransmit ? 1 : Math.max(EXCHANGE_ATTEMPTS, repeats + 1);
   let lastErr;
   for (let attempt = 0; attempt < attempts; attempt++) {
     // the retry is a pure retransmission after the regeneration wait,
-    // never a reinit
-    await paceBeforeWrite(bus, comm);
+    // never a reinit; a flash block gets the programming session's gap
+    await paceBeforeWrite(bus, comm, transfer ? TRANSFER_GAP_MS : undefined);
+    const sentAt = Date.now();
     try {
       busTrace.add(
         'tx',
         framed,
         `${attempt ? 'retransmit' : 'tx'} timeout=${timeoutMs}ms`
       );
+      const askedAt = Date.now();
       let frame = await bus.exchangeRaw(framed, timeoutMs, comm);
+      // the wall-clock side, for a flash that dies on one slow answer: an
+      // answer that took a good part of its budget is noted in the console
+      // with the page's state at the time
+      if (Date.now() - askedAt > SLOW_ANSWER_MS)
+        console.warn(
+          `[kline] ${out[0].toString(16).padStart(2, '0')} answered after ${Date.now() - askedAt} ms (budget ${timeoutMs} ms, attempt ${attempt + 1}/${attempts}, page ${typeof document !== 'undefined' ? document.visibilityState : '?'})`
+        );
       // keep reading while the ECU says "still working" -- bounded, so a
       // stuck ECU still fails instead of hanging the screen
       for (
@@ -279,12 +370,55 @@ async function runExchange(bus, out, comm) {
           comm
         );
       }
+      // "busy, ask again" (7F xx 23): re-SEND the request, not just read. The
+      // MS45 security-access key check answers busy for ~2 s while its RSA
+      // runs, and a key re-sent inside that window is answered with another
+      // busy OR with SILENCE -- the ECU is mid-computation and says nothing.
+      // Both mean "still working", so both are re-sent, bounded, as the
+      // reference tester does; only a cable fault or a garble is a real error.
+      // The re-send uses the ordinary timeout, not NR78: a silent one should
+      // come back quickly so the next ask lands as soon as the ECU is ready.
+      for (
+        let busy = 0;
+        busy < MAX_BUSY_REPEATS && isBusyRepeat(frame, comm);
+        busy++
+      ) {
+        await paceBeforeWrite(bus, comm);
+        busTrace.add('tx', framed, `busy, re-sending (${busy + 1})`);
+        try {
+          frame = await bus.exchangeRaw(framed, timeoutMs, comm);
+          for (
+            let pending = 0;
+            pending < MAX_PENDING_POLLS && isResponsePending(frame, comm);
+            pending++
+          ) {
+            frame = await bus.exchangeRaw(
+              null,
+              (comm && comm.timeoutNr78) || Math.max(timeoutMs, NR78_MIN_MS),
+              comm
+            );
+          }
+        } catch (e) {
+          // silence while the ECU is busy is not a failure: keep asking.
+          // `frame` still holds the last 7F..23, so the loop re-enters. A
+          // cable fault or a garbled answer is a real error -- let it out.
+          if (!e || e.ifh !== 'IFH-0009') throw e;
+          lastErr = e;
+        }
+      }
+      // ran out of re-sends with the ECU still saying busy: a real failure,
+      // not a 7F..23 handed back to the job as though it were the answer
+      if (isBusyRepeat(frame, comm))
+        throw lastErr || ifhError('IFH-0009', 'ECU stayed busy (no answer)');
       busTrace.add('rx', frame, 'OK');
       bus.lastResponseAt = Date.now();
       return frame;
     } catch (e) {
       lastErr = e;
       busTrace.add('err', null, `${e.ifh || ''} ${e.message}`.trim());
+      console.warn(
+        `[kline] ${out[0].toString(16).padStart(2, '0')} ${e && e.ifh ? e.ifh : 'failed'} after ${Date.now() - sentAt} ms (budget ${timeoutMs} ms, attempt ${attempt + 1}/${attempts}, page ${typeof document !== 'undefined' ? document.visibilityState : '?'}): ${e && e.message}`
+      );
       // The error carries its IFH code: a garbled answer is IFH-0019
       // (checksum / incomplete), a cable fault IFH-0003 (echo), silence
       // IFH-0009. A cable fault is final, as in the reference loop. A

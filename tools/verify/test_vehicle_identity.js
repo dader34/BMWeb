@@ -56,22 +56,28 @@ const VI = require('../../app/renderer/core/vehicle-identity/index.js');
   const m = VI.identityMasters('E46');
   const byName = Object.fromEntries(m.map((x) => [x.sg, x]));
   // Ground truth: vendor/EC-APPS/NCSEXPER/DATEN/E46/E46SGFAM.DAT, the file
-  // the chassis's own directory ships. Four masters, and the FA/ZCS split
-  // across them is the whole point -- KMB and EWS answer the order, AKMB and
-  // ALSZ answer the coding key.
+  // the chassis's own directory ships. Four masters, and the ZCS/FA split
+  // across them is the whole point. Its header names the columns --
+  // "; SG CABD C_SGBD ZCS FA" -- and its rows read
+  //     S AKMB  A_AKMB46 C_KMB46  0   1
+  //     S EWS   A_EWS3   C_EWS3   1   0
+  // so KMB and EWS hold the central coding key, and AKMB and ALSZ (added
+  // 12.02.01, with the vehicle order) hold the order. The flags used to be
+  // read the other way round. A second witness: AKMB's coding script is the
+  // one with FA_READ / FA_WRITE handlers.
   assert.deepStrictEqual(m.map((x) => x.sg).sort(), [
     'AKMB',
     'ALSZ',
     'EWS',
     'KMB',
   ]);
-  assert.strictEqual(byName.KMB.fa, true);
-  assert.strictEqual(byName.KMB.zcs, false);
-  assert.strictEqual(byName.EWS.fa, true);
-  assert.strictEqual(byName.EWS.zcs, false);
-  assert.strictEqual(byName.AKMB.zcs, true);
-  assert.strictEqual(byName.AKMB.fa, false);
-  assert.strictEqual(byName.ALSZ.zcs, true);
+  assert.strictEqual(byName.KMB.zcs, true);
+  assert.strictEqual(byName.KMB.fa, false);
+  assert.strictEqual(byName.EWS.zcs, true);
+  assert.strictEqual(byName.EWS.fa, false);
+  assert.strictEqual(byName.AKMB.fa, true);
+  assert.strictEqual(byName.AKMB.zcs, false);
+  assert.strictEqual(byName.ALSZ.fa, true);
   ok('SGFAM: E46 has 4 identity masters, FA/ZCS split as BMW ships it');
 }
 

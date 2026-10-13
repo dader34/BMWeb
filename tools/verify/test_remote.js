@@ -333,7 +333,7 @@ const ok = (m) => {
       return true;
     };
     Remote._rehost = async () => {};
-    global.window = { BMACW_VERSION: '1.2.3' };
+    global.window = { BMWEB_VERSION: '1.2.3' };
     await Remote._ownerAccept({ ua: 'x', v: '1.2.2' });
     const last = oreq.at(-1);
     assert.strictEqual(last.t, 'admit');

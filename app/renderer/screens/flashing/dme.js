@@ -1,4 +1,4 @@
-// Flashing/Backups: the DME (MS45) side. Identify, Read DME, the files to
+// Flashing/Tuning: the DME (MS45) side. Identify, Read DME, the files to
 // flash (raw binaries or BMW's .0PA / .0DA), Flash Tune, Flash Program,
 // Finish Programming, the immobilizer checks around every load, and the
 // programming-log entry after a flash. Every write asks before it starts and

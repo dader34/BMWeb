@@ -7,9 +7,13 @@
 /* exported tnTableBuildGrid, tnTableSelectRect, tnTablePaint, tnTableRefresh, tnTableFlashInfo, tnTableUpdateOpState */
 
 /** Data column width in the grid: seven tabular digits. */
-const TN_GRID_CELL_W = 72;
+const TN_GRID_CELL_W = 64;
+/** The widest a data column is let grow before the dialog stops widening. */
+const TN_GRID_CELL_COMFORT = 84;
+/** ...and docked in the page's right-hand pane, where there is more room. */
+const TN_GRID_CELL_DOCKED = 116;
 /** The row-axis column width. */
-const TN_GRID_ROWHEAD_W = 64;
+const TN_GRID_ROWHEAD_W = 60;
 /** How long a transient toolbar message stays before the count returns. */
 const TN_INFO_FLASH_MS = 1800;
 
@@ -68,6 +72,11 @@ function tnTableUpdateOpState(m) {
  */
 function tnTableRefresh(m) {
   m.t = window.XDF.decodeTable(m.item, tuningState.bin, m.h);
+  // the original moves too: live mode fills it in from the car after the
+  // table has opened, and Revert must not go back to what was there before
+  m.baseTable = tuningState.orig
+    ? window.XDF.decodeTable(m.item, tuningState.orig, m.h)
+    : null;
   m.xLabels = tnAxisLabels(m.t.x, m.t.cols, m.h);
   m.yLabels = tnAxisLabels(m.t.y, m.t.rows, m.h);
   for (const th of m.gridWrap.querySelectorAll('th[data-axis="x"]')) {
@@ -125,7 +134,7 @@ function tnPaintCellColour(m, inp, v, b0, mode) {
     // shape of the map is the thing you are judging, and a faint wash never
     // showed it. The ink flips to keep contrast on the bright middle of the
     // scale.
-    const hc = heatColor((v - mode.lo) / mode.span);
+    const hc = heatColor(mode.span > 0 ? (v - mode.lo) / mode.span : 0);
     inp.style.backgroundColor = hc.bg;
     inp.style.color = hc.ink;
   } else {
@@ -151,16 +160,27 @@ function tnTablePaint(m) {
   const dMax = cmp ? tnMaxDelta(t.cells, m.baseTable.cells, t.rows, t.cols) : 0;
   const focused = document.activeElement;
   const tableEl = m.gridWrap.querySelector('.tn-table');
-  const heatOn = !!(heat && !cmp && span > 0);
+  // a table of one value is still painted (all at the low end): a grid that
+  // went blank because its cells happened to be equal read as heat being off
+  const heatOn = !!(heat && !cmp);
   if (tableEl) tableEl.classList.toggle('tn-heat-on', heatOn);
   if (m.heatScale) {
-    m.heatScale.hidden = !heatOn;
+    m.heatScale.hidden = !heatOn || !(span > 0);
     if (heatOn) {
       m.heatLo.textContent = fmtNum(lo, m.dp);
       m.heatHi.textContent = fmtNum(lo + span, m.dp);
     }
   }
   const mode = { cmp, heatOn, lo, span, dMax };
+  // every cell outside the declared range is the definition being wrong about
+  // the table, not the table being wrong: marking them all says nothing
+  const allOor =
+    m.hasLimit &&
+    t.cells.every((row) =>
+      row.every(
+        (v) => v == null || !Number.isFinite(v) || !tnTableInRange(m, v)
+      )
+    );
   for (const inp of m.gridWrap.querySelectorAll('.tn-cell')) {
     const r = +inp.dataset.r,
       c = +inp.dataset.c;
@@ -177,7 +197,11 @@ function tnTablePaint(m) {
     // flagging even when we did not put it there
     inp.classList.toggle(
       'tn-cell-oor',
-      m.hasLimit && v != null && Number.isFinite(v) && !tnTableInRange(m, v)
+      m.hasLimit &&
+        !allOor &&
+        v != null &&
+        Number.isFinite(v) &&
+        !tnTableInRange(m, v)
     );
     if (cmp) {
       inp.title =
@@ -203,6 +227,7 @@ function tnTablePaint(m) {
   m.selInfo.textContent = m.sel.size
     ? `${m.sel.size} cell${m.sel.size === 1 ? '' : 's'} selected`
     : 'click, drag, or shift-click to select';
+  if (typeof tnSurfaceRequest === 'function') tnSurfaceRequest(m);
 }
 
 /**
@@ -376,16 +401,24 @@ function tnTableBuildGrid(m) {
   table.className = 'tn-table tn-table-modal';
   // Fixed layout: the only way an input can fill its cell exactly (see the
   // GEOMETRY note in tuning.css). The grid takes the full width of the
-  // dialog the way a map view does, the row-axis column stays 64px, the
-  // data columns share the rest equally and never drop under 72px (seven
-  // tabular digits) -- past that the pane scrolls sideways.
+  // dialog, the row-axis column keeps its width, the data columns share the
+  // rest equally and never drop under their own (seven tabular digits) --
+  // past that the pane scrolls sideways.
   table.style.tableLayout = 'fixed';
   table.style.width = '100%';
   const natural = TN_GRID_ROWHEAD_W + t.cols * TN_GRID_CELL_W;
   table.style.minWidth = `${natural}px`;
-  // a table wider than the toolbar widens the dialog to fit it, up to the
-  // viewport; beyond that the grid pane scrolls
-  m.box.style.minWidth = `min(96vw, max(560px, ${natural + 2}px))`;
+  // docked in the page the pane can be far wider than a small table wants:
+  // it stops growing at a comfortable column width and keeps to the left
+  const docked = m.back.classList.contains('tn-docked');
+  table.style.maxWidth = `${TN_GRID_ROWHEAD_W + t.cols * (docked ? TN_GRID_CELL_DOCKED : TN_GRID_CELL_COMFORT)}px`;
+  // The dialog is as wide as the table wants at a comfortable column width,
+  // and the toolbar wraps inside that: sized by its toolbar instead, a small
+  // table was stretched across the whole screen. A table too wide for the
+  // viewport scrolls in the grid pane.
+  const comfortable = TN_GRID_ROWHEAD_W + t.cols * TN_GRID_CELL_COMFORT + 2;
+  m.box.style.width = `min(96vw, max(560px, ${comfortable}px))`;
+  m.box.style.minWidth = '0';
   const cg = document.createElement('colgroup');
   const c0 = document.createElement('col');
   c0.style.width = `${TN_GRID_ROWHEAD_W}px`;

@@ -37,13 +37,15 @@ over the car's own ZCS keys and the keywords that hold when they match:
 The mask widths are 8/16/10 for all 276 E46 rows, matching the GM/SA/VN key
 widths core/coding/zcs.js already parses out of the 20-byte ZCS region.
 
-THE NUMBERING BRIDGE. SGET predicates test SA CATALOG NUMBERS (S205, S210);
-a ZCS key yields only BIT INDICES 0..63. Those are different namespaces, and
-comparing them directly is what made an equipment filter hide most of the car.
-ZST maps bits to keywords and AT maps keywords to catalog numbers, so the two
-files together are the missing translation:
+THE NUMBERING BRIDGE. There are three namespaces: a ZCS key yields BIT
+INDICES 0..63, the order and the option catalogue speak SA CATALOG NUMBERS
+(205 automatic), and an SGET predicate tests KEYWORD IDS of the chassis's
+SWTASW table (S37 is AUTOMATIK; see parse_asw). Keywords are the common
+ground: ZST maps key bits to them, AT maps catalogue numbers to them, and
+SWTASW numbers them for the predicates:
 
-    ZCS keys -> ZST mask match -> keywords -> AT -> SA numbers -> SGET
+    ZCS keys -> ZST mask match -> keywords -> SWTASW id -> SGET
+    order SA numbers -> AT -> keywords -> SWTASW id -> SGET
 
 Not every keyword crosses over -- of 76 E46 ZST keywords, 44 are in AT. The
 rest are body/market names (COUP, MEXICO) and `*_CI_nn` coding-index stamps
@@ -124,8 +126,15 @@ def keywords_from(parts):
 def parse_sgfam(path):
     """-> {SG: {asw, cabd, fa, zcs}}.
 
-    Rows are `S <SG> <ASW-SGBD> <CABD> <fa> <zcs>`. Rows with any other
-    leading token are metadata and skipped.
+    Rows are `S <SG> <CABD> <C_SGBD> <ZCS> <FA>` -- every chassis's file says
+    so in its own header line ("; SG CABD C_SGBD ZCS FA KOMMENTAR"). ZCS
+    comes FIRST: the flags were read the other way round, which made the
+    E46's old cluster (KMB, which holds the central coding key) an order
+    master and its newer one (AKMB, which holds the vehicle order) a key
+    master. Rows with any other leading token are metadata and skipped.
+
+    The keys keep their historical names: `asw` is the row's CABD column (the
+    A_<name> coding script) and `cabd` its C_SGBD column (the coding SGBD).
     """
     out = {}
     for ln in lines(path):
@@ -136,8 +145,8 @@ def parse_sgfam(path):
         # The flags are optional in some chassis files; absent means "not a
         # master", which is the safe reading -- it offers no identity read
         # rather than offering one that cannot work.
-        fa = len(p) > 4 and p[4] == '1'
-        zcs = len(p) > 5 and p[5] == '1'
+        zcs = len(p) > 4 and p[4] == '1'
+        fa = len(p) > 5 and p[5] == '1'
         out[sg] = {'asw': asw, 'cabd': cabd, 'fa': fa, 'zcs': zcs}
     return out
 
@@ -145,7 +154,19 @@ def parse_sgfam(path):
 # ---- AT: SA catalog number -> equipment keywords ---------------------------
 
 def parse_at(path):
-    """-> {'sa': {num: [keyword...]}, 'kw': {keyword: [num...]}}.
+    """-> {'sa': {num: [keyword...]}, 'kw': {keyword: [num...]},
+    'time': {mmyy: [keyword...]}}.
+
+    A row runs on over `>>>` lines: the keyword list of the row above,
+    continued. They used to be skipped, which cut every long row short.
+
+    `Z` and `A` rows are the TIME-CRITERION rows ("Zeitkriteriumzeilen" in
+    the file's own words), keyed `#MMYY`: what holds for a car built to the
+    state of that month. They are where a car coded by its vehicle order gets
+    the keywords no option carries -- PU01, and each module's revision stamps
+    (KMBI_CI_08, LSZ_CI_34 ...) -- and module selection is decided on exactly
+    those. Each row is complete in itself (the 09/04 row lists every earlier
+    state too), so a car's own criterion is looked up, not accumulated.
 
     `W` rows carry the SA number in field 1 and the keywords after it. A row
     may also carry a conditional (`=205+(EU31,EV91)`) saying the keyword only
@@ -153,9 +174,31 @@ def parse_at(path):
     the tokens are dropped and only plain keywords kept -- claiming an
     unconditional mapping we have not checked would be worse than omitting it.
     """
-    sa, kw = {}, {}
+    sa, kw, time = {}, {}, {}
+    into = None            # the keyword list a `>>>` line continues
     for ln in lines(path):
         p = ln.split()
+        if p and p[0] == '>>>':
+            if into is not None:
+                owner, key = into
+                for n in keywords_from(p[1:]):
+                    if n not in owner[key]:
+                        owner[key].append(n)
+                    if owner is sa:
+                        kw.setdefault(n, [])
+                        if key not in kw[n]:
+                            kw[n].append(key)
+            continue
+        into = None
+        if len(p) >= 2 and p[0] in ('Z', 'A') and \
+                re.fullmatch(r'#\d{4}', p[1]):
+            code = p[1][1:]
+            time.setdefault(code, [])
+            for n in keywords_from(p[2:]):
+                if n not in time[code]:
+                    time[code].append(n)
+            into = (time, code)
+            continue
         if len(p) < 2 or p[0] != 'W':
             continue
         num = p[1]
@@ -179,7 +222,8 @@ def parse_at(path):
             kw.setdefault(n, [])
             if num not in kw[n]:
                 kw[n].append(num)
-    return {'sa': sa, 'kw': kw}
+        into = (sa, num)
+    return {'sa': sa, 'kw': kw, 'time': time}
 
 
 # ---- ZST: ZCS key bits -> equipment keywords -------------------------------
@@ -399,12 +443,50 @@ def corpus():
     return found
 
 
+def parse_asw(chassis):
+    """-> {KEYWORD: id}: the chassis's own SWTASW table, or {}.
+
+    THIS is the namespace an SGET predicate is written in. `S121` in
+    E46SGET.000 is entry 121 of E46/SWTASW06.dat, KMBI_CI_07 -- the cluster's
+    rows read "PU01 and KMBI_CI_07 and not (KMBI_CI_08 or S54B32)" -- and all
+    145 numbers the E46 file uses resolve there. They are not SA catalogue
+    numbers: catalogue number 205 is AUTOMATIK in E46AT.000, while S205 is
+    PDC_CI_02 and AUTOMATIK is S37. A car's equipment reaches a predicate as
+    keywords (from its coding key through ZST, from its order through AT),
+    and the keyword's id here is what the predicate tests.
+    """
+    import glob as _glob
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import ncs_daten as N
+    out = {}
+    for path in sorted(_glob.glob(os.path.join(DATEN, chassis, '*'))):
+        if not re.fullmatch(r'SWTASW\d+\.dat', os.path.basename(path), re.I):
+            continue
+        data = open(path, 'rb').read()
+        sec = N.schema(data).get('SWT_EINTRAG')
+        if not sec:
+            continue
+        for seq, payload, _at in N.records(data):
+            if seq != sec['seq']:
+                continue
+            try:
+                keyid, keyword = N.parse_payload(sec['sig'] or 'WS', payload)
+            except (ValueError, IndexError):
+                continue
+            out[str(keyword).upper()] = keyid
+        break
+    return out
+
+
 def build():
-    """Every chassis' parsed tables: ``{chassis: {sgfam, at, zst, sabits}}``
-    (each key present only when that file exists for the chassis)."""
+    """Every chassis' parsed tables: ``{chassis: {sgfam, at, zst, sabits,
+    asw}}`` (each key present only when that file exists for the chassis)."""
     out = {}
     for ch, paths in sorted(corpus().items()):
         entry = {}
+        asw = parse_asw(ch)
+        if asw:
+            entry['asw'] = asw
         if 'sgfam' in paths:
             entry['sgfam'] = parse_sgfam(paths['sgfam'])
         if 'at' in paths:

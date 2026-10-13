@@ -10,7 +10,7 @@
  * @type {NativeSerialBus|WebSerialBus}
  */
 const webBus =
-  typeof window !== 'undefined' && window.bmacw && window.bmacw.serialOpen
+  typeof window !== 'undefined' && window.bmweb && window.bmweb.serialOpen
     ? new NativeSerialBus()
     : new WebSerialBus();
 

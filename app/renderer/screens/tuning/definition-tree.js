@@ -138,7 +138,13 @@ function tnCategoryNamer(def) {
 function tnBuildGroups(def, filter, catName) {
   const f = filter.trim().toLowerCase();
   const kinds = tuningState.kinds;
+  // LIVE mode's "open on the ECU" switch: only what is being edited live
+  const live =
+    tuningState.liveOnly && typeof tnLiveOpenItems === 'function'
+      ? tnLiveOpenItems()
+      : null;
   const match = (it) =>
+    (!live || live.has(it)) &&
     (!kinds || kinds.has(it.kind)) &&
     (!f ||
       (it.title || '').toLowerCase().includes(f) ||
@@ -173,7 +179,15 @@ function tnRenderDefList(ed, listWrap, def, catName) {
   listWrap.innerHTML = '';
   const groups = tnBuildGroups(def, tuningState.filter, catName);
   if (!groups.size) {
-    listWrap.appendChild(makeEmpty('⌕', 'No parameters match.', ''));
+    listWrap.appendChild(
+      makeEmpty(
+        '⌕',
+        tuningState.liveOnly
+          ? 'Nothing is open on the ECU.'
+          : 'No parameters match.',
+        ''
+      )
+    );
     return;
   }
   if (!tuningState.openCats) tuningState.openCats = new Set();
@@ -184,7 +198,10 @@ function tnRenderDefList(ed, listWrap, def, catName) {
   // making them open sections to find it. With no filter, only what they
   // opened -- plus whichever section holds the row they have selected, so
   // an open editor never hides itself.
-  const filtering = !!tuningState.filter.trim() || !!tuningState.kinds;
+  const filtering =
+    !!tuningState.filter.trim() ||
+    !!tuningState.kinds ||
+    !!tuningState.liveOnly;
 
   let shown = 0;
   for (const [name, items] of groups) {

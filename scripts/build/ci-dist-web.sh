@@ -62,7 +62,7 @@ rm -f dist-web/core/offline-export.js
 # one version source: package.json. Settings and OFFLINE-README both read it.
 VERSION=$(node -p "require('./package.json').version")
 test -n "$VERSION"
-printf 'window.BMACW_VERSION=%s;\n' "\"${VERSION}\"" > dist-web/version.js
+printf 'window.BMWEB_VERSION=%s;\n' "\"${VERSION}\"" > dist-web/version.js
 grep -q 'version.js' dist-web/index.html \
   || sed -i.bak 's#<head>#<head>\n  <script src="version.js"></script>#' dist-web/index.html
 rm -f dist-web/index.html.bak

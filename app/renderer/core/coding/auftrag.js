@@ -12,7 +12,7 @@
  * BYTE FORMAT (verified against vendor/EC-APPS/NCSEXPER/DATEN/E39/E46SGET.000
  * at 0x1df, whose 22-byte expression reads "(S99,S92+S3,S287)+!S420"):
  *
- *   0x53 'S' + u16 LE   an equipment-code reference; true iff that bit is set
+ *   0x53 'S' + u16 LE   an equipment keyword's id; true iff the car has it
  *   0x2b '+'            AND
  *   0x2c ','            OR
  *   0x21 '!'            NOT (prefix)
@@ -20,9 +20,14 @@
  *   0x5c '\'            continuation: the expression resumes in the next chunk
  *
  * GRAMMAR. Precedence, tightest first: NOT, then AND ('+'), then OR (','). So
- * "(S99,S92+S3,S287)+!S420" is ((99 OR 92) AND (3 OR 287)) AND NOT 420 -- note
+ * "(S99,S92+S3,S287)+!S420" is (99 OR (92 AND 3) OR 287) AND NOT 420 -- note
  * '+' binds TIGHTER than ',', which is the reverse of the C-like reading and
  * the easiest thing to get backwards here.
+ *
+ * WHAT AN ID IS. The u16 after 'S' is an entry of the chassis's own keyword
+ * table (SWTASW): on the E46, S37 is AUTOMATIK and S121 is KMBI_CI_07. It is
+ * not an option catalogue number. This module only evaluates; the caller
+ * brings the car's equipment in that numbering (CodingSelect.aswIds).
  *
  *   expr    ::= and ( ',' and )*        -- OR, loosest
  *   and     ::= unary ( '+' unary )*    -- AND

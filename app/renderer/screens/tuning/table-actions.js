@@ -246,6 +246,19 @@ function tnTableRevert(m, b) {
     tnTableFlashInfo(m, 'no original to revert to');
     return;
   }
+  // Live, with no file loaded, the original is what the DME's calibration
+  // holds, and until that has been read the snapshot is erased flash:
+  // reverting to it would write 0xFF.. into the cell -- and onto the car.
+  if (
+    typeof tnLiveBaselineKnown === 'function' &&
+    !tnLiveBaselineKnown(m.item)
+  ) {
+    tnTableFlashInfo(
+      m,
+      'the original values have not been read from the ECU yet'
+    );
+    return;
+  }
   const values = [];
   for (let r = b.r0; r <= b.r1; r++) {
     for (let c = b.c0; c <= b.c1; c++) {

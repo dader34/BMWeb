@@ -35,7 +35,7 @@
 /**
  * The scan result: sgbd -> its flattened read results, plus per-module
  * status and the RESOLVED module list every consumer works from.
- * @typedef {Map<string, Map<string, string>> & {status: Map<string, ModuleStatus>, mods: CodeableModule[]}} ScanCache
+ * @typedef {Map<string, Map<string, string>> & {status: Map<string, ModuleStatus>, mods: CodeableModule[], images: Map<string, CodingImage>, sources: Map<string, CodingSource>}} ScanCache
  */
 
 /**
@@ -96,7 +96,16 @@ async function codeableModules(chassisId, saCodes) {
   if (saCodes && saCodes.length && typeof CodingSelect !== 'undefined') {
     try {
       if (typeof loadSget === 'function') await loadSget();
-      out = CodingSelect.applySelection(id, out, saCodes);
+      if (typeof loadTables === 'function') await loadTables();
+      // the predicates are written in keyword ids, not catalogue numbers;
+      // with no keyword table for the chassis nothing is selected
+      const ids = CodingSelect.aswIds(
+        id,
+        saCodes,
+        saCodes.keywords,
+        saCodes.time
+      );
+      if (ids && ids.length) out = CodingSelect.applySelection(id, out, ids);
     } catch (e) {
       /* no SGET for this chassis: keep the config's names */
     }
@@ -290,11 +299,168 @@ function codingIndexFromScan(scan, sgbd) {
   if (!res) return null;
   for (const k of CI_RESULTS) {
     if (res.has(k)) {
-      const n = parseInt(String(res.get(k)).replace(/^0x/i, ''), 16);
+      // The result is an integer, and reads as one: 52 for the light
+      // module's index 0x34. (It used to be parsed as hex, which is the same
+      // thing up to 9 and a different index from 10 on.) Only text that says
+      // it is hex is taken as hex.
+      const text = String(res.get(k)).trim();
+      const n = /^0x[0-9a-f]+$/i.test(text)
+        ? parseInt(text.slice(2), 16)
+        : /^\d+$/.test(text)
+          ? parseInt(text, 10)
+          : NaN;
       if (Number.isFinite(n)) return n;
     }
   }
   return null;
+}
+
+// WHERE A MODULE'S CODING IS READ FROM, by BMW's own tables:
+//
+//   the coding description      which FILE (KMB_E46) and, by the module's
+//   (DATEN map)                 coding index, which variant of it (C08)
+//   the selection table (SGET)  for that file and variant, the CODING SGBD
+//                               to run jobs on (KOMBI46R -- not the one the
+//                               diagnostic side uses) and the coding SCRIPT
+//                               (A_KMB46 for a car coded by its central key,
+//                               A_AKMB46 for one coded by its vehicle order)
+//   the script index            which shipped file holds that script
+//
+// A module whose description numbers its blocks is not read through its
+// script (the address its jobs expect is not established); for those the raw
+// block a diagnostic read hands back is used, and it is block 0 only.
+/**
+ * How one module's coding image is obtained.
+ * @typedef {Object} CodingSource
+ * @property {'script'|'blob'} route - through the coding script, or the raw
+ *   block of the diagnostic read.
+ * @property {string} [sgbd] - script route: the coding SGBD.
+ * @property {string} [script] - script route: the script's name (A_KMB46).
+ * @property {string} [dispatchKey] - script route: the file it ships in.
+ * @property {object} [cabd] - script route: the coding description.
+ * @property {boolean} [decided] - script route: the car's equipment (or the
+ *   table itself) settled WHICH script is this car's. A read does not depend
+ *   on it; a write does.
+ * @property {string} [why] - when there is no source: the reason, for display.
+ */
+
+/** @type {Promise<Record<string, string>|null>|null} script name -> file key */
+let _codingScripts = null;
+/**
+ * The shipped coding scripts, by name.
+ * @returns {Promise<Record<string, string>>} name (uppercase) -> file key.
+ */
+function codingScriptIndex() {
+  if (!_codingScripts) {
+    _codingScripts = (
+      typeof webFetchJson === 'function'
+        ? webFetchJson('data/coding-dispatch/scripts.json')
+        : api('/data/coding-dispatch/scripts.json')
+    )
+      .then((d) => d || {})
+      .catch(() => ({}));
+  }
+  return _codingScripts;
+}
+
+/**
+ * Work out where a module's coding is read from.
+ * @param {string} chassisId - chassis id.
+ * @param {CodeableModule} m - the module (its diagnostic SGBD).
+ * @param {FunctionList} fns - its functions, resolved by coding index.
+ * @param {number[]|null} [equipment] - the car's equipment as keyword ids.
+ * @returns {Promise<CodingSource|{route: null, why: string}>} the source, or
+ *   why there is none.
+ */
+async function codingSourceOf(chassisId, m, fns, equipment) {
+  const none = (why) => ({ route: null, why });
+  const cabd = typeof codingCabdOf === 'function' ? codingCabdOf(fns) : null;
+  // The index did select a file, but this copy of the coding data has no
+  // layout for it: it is an older copy than the code (the data files are
+  // served cache-first and catch up on the next load).
+  if (!cabd && fns && fns.codingIsResolved)
+    return none(
+      'the coding data on this device is older than the app: reload the page to update it'
+    );
+  if (!cabd) return none('its coding index did not select one coding file');
+  const numbered =
+    cabd.typ === 'BLOCK' ||
+    cabd.fields.some((f) => f.block > 0) ||
+    cabd.groups.some((g) => g.block > 0);
+  if (numbered) return { route: 'blob' };
+  const daten = typeof datenFor === 'function' ? await datenFor(m.sgbd) : null;
+  const ci = fns.codingIndex;
+  const cbd = `C${ci.toString(16).padStart(2, '0')}`.toUpperCase();
+  const id = String(chassisId || '').toUpperCase();
+  if (typeof loadSget === 'function') await loadSget();
+  const all = (typeof window !== 'undefined' && window.BMW_SGET) || {};
+  const table = (all[id] && (all[id].rows || all[id])) || [];
+  const file = String((daten && daten.daten) || '').toUpperCase();
+  const rows = table.filter(
+    (r) =>
+      String(r.SGNAME || '').toUpperCase() === file &&
+      String(r.CBD || '').toUpperCase() === cbd &&
+      r.SGBD &&
+      r.CABD
+  );
+  if (!rows.length) return none(`the selection table has no ${file}.${cbd}`);
+  const sgbds = [...new Set(rows.map((r) => String(r.SGBD).toLowerCase()))];
+  if (sgbds.length !== 1)
+    return none(
+      `the selection table names ${sgbds.length} coding SGBDs for it`
+    );
+  // the rows the car's own equipment satisfies, when that is known
+  const applies =
+    equipment && typeof CodingSelect !== 'undefined'
+      ? rows.filter((r) => CodingSelect.rowApplies(r, equipment))
+      : [];
+  const candidates = applies.length ? applies : rows;
+  const names = [
+    ...new Set(candidates.map((r) => String(r.CABD).toUpperCase())),
+  ];
+  const scripts = await codingScriptIndex();
+  const script = names.find((n) => scripts[n]);
+  if (!script)
+    return none(`its coding script ${names.join(' / ')} is not shipped`);
+  return {
+    route: 'script',
+    sgbd: sgbds[0],
+    script,
+    dispatchKey: scripts[script],
+    cabd,
+    decided: names.length === 1,
+  };
+}
+
+/**
+ * Read one module's coding image from its source.
+ * @param {CodingSource|{route: null}} source - from codingSourceOf.
+ * @param {Map<string, string>|null} got - the module's diagnostic read, for
+ *   the raw-block route.
+ * @returns {Promise<CodingImage|null>} the image, or null when the source
+ *   yields none.
+ * @throws {Error} when a script read fails.
+ */
+async function codingReadImage(source, got) {
+  if (!source || !source.route) return null;
+  if (source.route === 'script') {
+    const r = await webReadCoding(source.sgbd, {
+      dispatchKey: source.dispatchKey,
+      cabd: source.cabd,
+    });
+    return {
+      bytes: r.netto,
+      known: new Set(r.read),
+      block: null,
+      route: 'script',
+    };
+  }
+  // the raw block a diagnostic read returns, under the three names the
+  // SGBDs use for it
+  const bytes = codBytesOf(
+    got && (got.get('COD_DATEN') ?? got.get('CODE') ?? got.get('CODIERDATEN'))
+  );
+  return bytes ? { bytes, known: null, block: 0, route: 'blob' } : null;
 }
 
 // THE CODING INDEX, WHICH THE READ JOB USUALLY DOES NOT RETURN. Only 3 of 29
@@ -355,6 +521,53 @@ async function scanCoding(chassisId, host, saCodes) {
   const cache = /** @type {ScanCache} */ (new Map());
   const status = new Map();
   cache.status = status;
+  // each module's coding image and where it came from: what the screens show
+  // every setting from (see codingImageValue)
+  cache.images = new Map();
+  cache.sources = new Map();
+  const chId = String(chassisId || '').toUpperCase();
+  let equipment = null;
+  if (saCodes && saCodes.length && typeof CodingSelect !== 'undefined') {
+    try {
+      if (typeof loadTables === 'function') await loadTables();
+      equipment = CodingSelect.aswIds(
+        chId,
+        saCodes,
+        saCodes.keywords,
+        saCodes.time
+      );
+    } catch {
+      equipment = null;
+    }
+  }
+  /**
+   * Read a module's coding image, recording the source and any failure.
+   * @param {CodeableModule} m - the module.
+   * @param {Map<string, string>} got - its diagnostic read.
+   * @returns {Promise<boolean>} true when an image was read.
+   */
+  const readImage = async (m, got) => {
+    let source;
+    try {
+      const fns = await moduleFunctions(
+        chassisId,
+        m.sgbd,
+        codingIndexFromScan(cache, m.sgbd)
+      );
+      source = await codingSourceOf(chassisId, m, fns, equipment);
+    } catch (e) {
+      source = { route: null, why: String((e && e.message) || e) };
+    }
+    cache.sources.set(m.sgbd, source);
+    try {
+      const image = await codingReadImage(source, got);
+      if (image) cache.images.set(m.sgbd, image);
+      return !!image;
+    } catch (e) {
+      source.why = String((e && e.message) || e);
+      return false;
+    }
+  };
   // the RESOLVED modules, so every consumer works from the variants the car
   // named rather than re-deriving the config's guess (see showExpertCoding)
   cache.mods = mods;
@@ -375,8 +588,23 @@ async function scanCoding(chassisId, host, saCodes) {
     const entry =
       typeof codingFor === 'function' ? await codingFor(m.sgbd) : null;
     if (!entry || !entry.read) {
-      // described by DATEN only: nothing to read, so nothing to stage against
-      status.set(m.sgbd, { state: 'noread' });
+      // No diagnostic coding read. Its coding script may still read it: the
+      // coding index comes from the module's identification, and a module
+      // that answers that way is present.
+      const got = new Map();
+      cache.set(m.sgbd, got);
+      let image;
+      try {
+        await scanCodingIndex(m.sgbd, got);
+        image = await readImage(m, got);
+      } catch {
+        image = false;
+      }
+      if (!image) cache.delete(m.sgbd);
+      status.set(
+        m.sgbd,
+        image ? { state: 'ok', fields: 0 } : { state: 'noread' }
+      );
       continue;
     }
     try {
@@ -387,8 +615,11 @@ async function scanCoding(chassisId, host, saCodes) {
       await scanCodingIndex(m.sgbd, got);
       const n = codingDecoded(entry, got);
       cache.set(m.sgbd, got);
+      const image = await readImage(m, got);
       status.set(m.sgbd, {
-        state: n ? 'ok' : 'raw',
+        // an image makes every function at a read address decodable; without
+        // one, only what the diagnostic read names
+        state: image || n ? 'ok' : 'raw',
         fields: n,
         // an ECU that answers a coding read with an error status is present but
         // refusing -- not the same as absent, and worth saying differently
@@ -409,8 +640,10 @@ async function scanCoding(chassisId, host, saCodes) {
   return cache;
 }
 
-// These are BMW's SA catalogue numbers (205 automatic, 210 DSC), the namespace
-// every SGET predicate is written against. Two sources, by generation:
+// These are BMW's SA catalogue numbers (205 automatic, 210 DSC). Module
+// selection does not test them directly: an SGET predicate is written in the
+// chassis's keyword ids, and CodingSelect.aswIds translates. Two sources, by
+// generation:
 //
 //   the vehicle order (FA)  E60+   its `$` tokens ARE catalogue numbers
 //   the coding key (ZCS)    older  bit indices, translated through BMW's own
@@ -432,7 +665,19 @@ async function readVehicleSaCodes(chassisId) {
     return [];
   try {
     const got = await readIdentityCodes(chassisId);
-    return (got && got.codes) || [];
+    const codes = ((got && got.codes) || []).slice();
+    // the keywords a coding key decodes to ride along (the module-revision
+    // stamps among them have no catalogue number, and module selection is
+    // decided on exactly those); not enumerable, so the list is still a list
+    Object.defineProperty(codes, 'keywords', {
+      value: (got && got.keywords) || [],
+    });
+    // a vehicle order's time criterion (#0904): the order table's row for it
+    // is where an order-coded car's revision stamps come from
+    Object.defineProperty(codes, 'time', {
+      value: (got && got.fa && got.fa.date) || null,
+    });
+    return codes;
   } catch (e) {
     return [];
   }
@@ -502,30 +747,22 @@ function extractSaCodesFromScan(scan) {
  * @returns {Promise<CodeableModule[]>} the modules to show.
  */
 async function filterModulesByFa(chassisId, mods, saCodes) {
-  // DISABLED PENDING THE ASW MAPPING -- do not turn on without it.
+  // STILL OFF, for a narrower reason than before.
   //
-  // The predicates are real and the evaluator is verified (439 SGET rows,
-  // 508/508 parse; test_coding_auftrag.js). What is missing is the NUMBERING
-  // BRIDGE between the two sides:
+  // The predicates are written in the ids of the chassis's own keyword table
+  // (S37 is AUTOMATIK on the E46), and that numbering is now available:
+  // CodingSelect.aswIds turns a car's equipment into it. What this function
+  // is HANDED is not that -- `saCodes` here are bit positions of the coding
+  // key's option field, 0..63 -- and compared directly, as the code below
+  // does, it once hid 37 of 44 modules on a real E46, DSC and the airbag
+  // among them.
   //
-  //   CodingZcs.extractSaCodes() yields BIT INDICES of the 64-bit ZCS SA
-  //   field -- 0..63, and only ever 0..63.
-  //   SGET predicates reference BMW's SA CATALOG numbers -- observed 2..512
-  //   across the shipped corpus, 304 distinct.
-  //
-  // Those are different numbering systems. Comparing them directly is not a
-  // near-miss, it is a category error: measured on real E46 data it hid 37 of
-  // 44 modules, including DSC and airbag. Failing open here costs nothing
-  // (the user sees the same list as before); failing closed silently removes
-  // real coding from a real car.
-  //
-  // To finish: BMW resolves codes through the chassis dictionaries
-  // (<BR>AT.000 / AT.M00 / ZST.000, which we DO ship -- see E46AT.000,
-  // E46ZST.*) in coapiGetAswFromAuftrag, building the ASW bit-vector the
-  // predicates are actually written against. Parse those into a
-  // bit-index -> SA-code map, map extractSaCodes() through it, then delete
-  // this early return and re-run the measurement above: a correct mapping
-  // should hide few modules on a well-equipped car, not most of them.
+  // To turn it on: take the equipment from the identity read (catalogue
+  // numbers and keywords), pass it through aswIds, evaluate with
+  // CodingSelect.rowApplies, and measure on a car before trusting it -- a
+  // right mapping hides few modules on a well-equipped car, not most.
+  // Failing open costs nothing; failing closed takes real coding away with
+  // no way to tell why.
   return mods;
 
   /* eslint-disable no-unreachable */
@@ -577,6 +814,8 @@ if (typeof window !== 'undefined') {
   window.codingPresent = codingPresent;
   window.codingJobNames = codingJobNames;
   window.codingIndexFromScan = codingIndexFromScan;
+  window.codingSourceOf = codingSourceOf;
+  window.codingReadImage = codingReadImage;
   window.scanCoding = scanCoding;
   window.readVehicleSaCodes = readVehicleSaCodes;
   window.extractSaCodesFromScan = extractSaCodesFromScan;

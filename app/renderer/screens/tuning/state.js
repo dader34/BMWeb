@@ -160,6 +160,8 @@ const tuningState = {
   changed: 0,
   highlight: null,
   filter: '',
+  /** LIVE mode: list only what is open on the DME. */
+  liveOnly: false,
   openCats: null,
   shutCats: null,
   cover: null,

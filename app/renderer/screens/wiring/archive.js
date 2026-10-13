@@ -87,7 +87,7 @@ function wiringDataUrl(path) {
 
 /**
  * Decode a base64 string into bytes. The offline export inlines archives this
- * way (window.BMACW_WIRING / BMACW_DOCS).
+ * way (window.BMWEB_WIRING / BMWEB_DOCS).
  * @param {string} b64 - base64 text
  * @returns {Uint8Array}
  */
@@ -144,7 +144,7 @@ async function loadWiring(chassisId) {
   const id = chassisId.toUpperCase();
   if (WIRING_CACHE.has(id)) return WIRING_CACHE.get(id);
   const inline =
-    typeof BMACW_WIRING === 'object' && BMACW_WIRING ? BMACW_WIRING[id] : null;
+    typeof BMWEB_WIRING === 'object' && BMWEB_WIRING ? BMWEB_WIRING[id] : null;
   const data = await wiringFetchArchive(
     `wiring/${id}.wiring`,
     inline,
@@ -162,8 +162,8 @@ async function loadWiring(chassisId) {
 async function hasWiring(chassisId) {
   const id = chassisId.toUpperCase();
   if (WIRING_CACHE.has(id)) return true;
-  if (typeof BMACW_WIRING === 'object' && BMACW_WIRING)
-    return !!BMACW_WIRING[id];
+  if (typeof BMWEB_WIRING === 'object' && BMWEB_WIRING)
+    return !!BMWEB_WIRING[id];
   return wiringDataExists(`wiring/${id}.wiring`);
 }
 
@@ -194,7 +194,9 @@ const WIRING_IMG_MIRRORS = [
   'https://huggingface.co/datasets/HarryG8/bmw-files/resolve/main/wiring/img/',
   'https://huggingface.co/datasets/VerilP0/bmw-files/resolve/main/wiring/img/',
 ];
-const WIRING_IMG_CACHE = 'bmacw-wiring-images-v4'; // bump when the layout changes
+const WIRING_IMG_CACHE = 'bmweb-wiring-images-v4'; // bump when the layout changes
+/** The same cache under the app's old name: dropped, its photos fetch again on view. */
+const WIRING_IMG_CACHE_OLD = 'bmacw-wiring-images-v4';
 
 /**
  * A blob URL per image, made once and kept: the same photo appears on many
@@ -234,6 +236,7 @@ async function wiringFetchImage(name) {
   let cache = null;
   try {
     cache = await caches.open(WIRING_IMG_CACHE);
+    caches.delete(WIRING_IMG_CACHE_OLD).catch(() => {});
     const hit = await cache.match(key);
     if (hit) return hit.blob();
   } catch {

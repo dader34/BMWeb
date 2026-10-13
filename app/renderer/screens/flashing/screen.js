@@ -1,8 +1,9 @@
-// Flashing/Backups: the BMWeb Flasher (the macOS app) as a screen of the web
+// Flashing/Tuning: the BMWeb Flasher (the macOS app) as a screen of the web
 // app, laid out the same way -- a rail of pages down the left, the control
 // unit and Identify across the top, the log in the middle with the actions
 // beside it, Custom Options pinned under them, and the status line with the
-// progress bar along the bottom.
+// progress bar along the bottom. The tuning editor (screens/tuning/) is one of
+// the rail's pages.
 //
 // This file is the frame: the layout, the shared state, the log and status
 // helpers, the dialogs the flows ask with, the module choice and Identify, and
@@ -11,7 +12,7 @@
 // upshift) in options.js. The engines underneath are core/ms45.js (the DME
 // over the SGBD's jobs), core/gs20.js + core/gs20-program.js (the
 // transmission over raw DS2), core/mapswitch.js and core/flash-history.js.
-/* exported showFlashing, fbState, fbEls, fbSetStatus, fbSetStage, fbSetStatusInPlace, fbLog, fbProgress, fbFlashingBar, fbBusy, fbConfirm, fbMessage, fbChoose, fbConfirmAck, fbPickFile, fbReadBytes, fbReadText, fbSaveBytes, fbEnsureCable, fbDescribeError, fbProgrammingCounter, fbRefreshCustomOptionsGate, fbShowOptions, fbAifArgs, fbOnSharedCar, fbRemoteAction, fbFlashRun, fbAifWanted, fbSetEcuBox, fbRefreshAll, fbDevUi, fbWriteAif, fbTesterSerial, fbSessionStart, fbSessionStop */
+/* exported showFlashing, fbState, fbEls, fbSetStatus, fbSetStage, fbSetStatusInPlace, fbLog, fbProgress, fbFlashingBar, fbBusy, fbConfirm, fbMessage, fbChoose, fbConfirmAck, fbPickFile, fbIsIos, fbReadBytes, fbReadText, fbSaveBytes, fbEnsureCable, fbDescribeError, fbProgrammingCounter, fbRefreshCustomOptionsGate, fbShowOptions, fbAifArgs, fbOnSharedCar, fbRemoteAction, fbFlashRun, fbAifWanted, fbSetEcuBox, fbRefreshAll, fbDevUi, fbWriteAif, fbTesterSerial, fbSessionStart, fbSessionStop */
 
 /**
  * Whether a flash writes a programming-log entry (AIF): a setting, off
@@ -31,7 +32,7 @@ function fbIsLiveSite() {
 }
 
 /**
- * The beta warning in front of the Flashing/Backups app: what it does, what
+ * The beta warning in front of the Flashing/Tuning app: what it does, what
  * can go wrong, and what to do first. Resolves true only when the reader
  * has ticked the acknowledgement and confirmed.
  * @returns {Promise<boolean>}
@@ -45,7 +46,7 @@ function fbBetaWarning() {
       '\u2022 Flash only files you understand: a tune or program for exactly this control unit and program version. Reading never hurts; writing does.\n' +
       '\u2022 Options such as EWS delete change how the car behaves and what it protects against. Know what they do before ticking them.',
     'I have read this. I will take a full read before I write anything, and I accept that what I flash is my responsibility.',
-    'Flashing/Backups beta'
+    'Flashing/Tuning beta'
   );
 }
 
@@ -63,6 +64,9 @@ const fbState = {
   /** True while anything talks to the car. */
   running: false,
   page: 'flashing',
+  /** The action bar's entries for the flashing pages, and for the tuning page once mounted. */
+  actions: [],
+  tuningActions: null,
   optionsOpen: false,
   log: [],
   lastInPlace: false,
@@ -88,10 +92,12 @@ function fbDevUi() {
 
 // ---- the screen ------------------------------------------------------------------------------
 /**
- * Render the Flashing/Backups screen.
+ * Render the Flashing/Tuning screen.
+ * @param {string} [page] - The page to open on: 'tuning' for the editor,
+ *   else the flashing page.
  * @returns {Promise<void>}
  */
-async function showFlashing() {
+async function showFlashing(page) {
   // BETA: this app writes to a car's control units. On the live site every
   // entry goes through the warning, every time, so nobody lands here on a
   // wrong click and nobody flashes without having read it.
@@ -103,11 +109,11 @@ async function showFlashing() {
   setCrumbs([
     { label: 'Vehicles', fn: showChassis },
     { label: 'Apps', fn: showApps },
-    { label: 'Flashing/Backups' },
+    { label: 'Flashing/Tuning' },
   ]);
   document.body.classList.add('apps-section');
   sbLeft.textContent = 'flashing';
-  setActions([
+  fbState.actions = [
     {
       key: 'Escape',
       keyLabel: 'Esc',
@@ -115,7 +121,9 @@ async function showFlashing() {
       kind: 'back',
       fn: showApps,
     },
-  ]);
+  ];
+  setActions(fbState.actions);
+  fbState.tuningActions = null; // the editor is mounted when its page is first shown
 
   fbState.module = null;
   fbState.running = false;
@@ -134,11 +142,12 @@ async function showFlashing() {
   wrap.innerHTML = `
     <div class="fb-rail">
       <button class="fb-rail-btn current" id="fb-rail-flashing" title="Flashing">&#x21AF;</button>
+      <button class="fb-rail-btn" id="fb-rail-tuning" title="Tuning">&#x26C3;</button>
       <button class="fb-rail-btn" id="fb-rail-history" title="History">&#x27F2;</button>
       <button class="fb-rail-btn" id="fb-rail-settings" title="Settings">&#x2699;&#xFE0E;</button>
     </div>
     <div class="fb-main">
-      <div class="fb-topbar">
+      <div class="fb-topbar" id="fb-topbar">
         <div class="fb-module" id="fb-module"></div>
         <div class="fb-ecu" id="fb-ecu">Select a control unit</div>
         <button class="btn primary fb-identify" id="fb-identify" disabled>Identify ECU</button>
@@ -165,6 +174,8 @@ async function showFlashing() {
           ${fbOptionsHtml()}
         </div>
       </div>
+
+      <div class="fb-page" id="fb-page-tuning" hidden></div>
 
       <div class="fb-page" id="fb-page-history" hidden>
         <div class="fb-row">
@@ -205,7 +216,7 @@ async function showFlashing() {
         </div>
       </div>
 
-      <div class="fb-statusbar">
+      <div class="fb-statusbar" id="fb-statusbar">
         <div class="fb-status" id="fb-status">ready</div>
         <div class="fb-bar"><span class="fb-bar-fill" id="fb-fill"></span></div>
       </div>
@@ -218,6 +229,7 @@ async function showFlashing() {
   });
 
   fbEls['rail-flashing'].onclick = () => fbShowPage('flashing');
+  fbEls['rail-tuning'].onclick = () => fbShowPage('tuning');
   fbEls['rail-history'].onclick = () => fbShowPage('history');
   fbEls['rail-settings'].onclick = () => fbShowPage('settings');
 
@@ -296,18 +308,30 @@ async function showFlashing() {
     };
     window.addEventListener('bmweb-cable', fbCableListener);
   }
+  if (page === 'tuning') fbShowPage('tuning');
 }
 
 /**
- * Show one page (flashing, history, settings) and light its rail glyph.
+ * Show one page (flashing, tuning, history, settings) and light its rail
+ * glyph. The tuning editor is built the first time its page is shown; it
+ * has its own toolbar and status, so the control-unit bar and the status
+ * line make way for it.
  * @param {string} page - The page.
  */
 function fbShowPage(page) {
   fbState.page = page;
-  for (const p of ['flashing', 'history', 'settings']) {
+  // the address follows the page, so a reload stays on the tuning editor
+  if (typeof routeSetFlashingPage === 'function') routeSetFlashingPage(page);
+  for (const p of ['flashing', 'tuning', 'history', 'settings']) {
     fbEls[`page-${p}`].hidden = p !== page;
     fbEls[`rail-${p}`].classList.toggle('current', p === page);
   }
+  const tuning = page === 'tuning';
+  fbEls.topbar.hidden = tuning;
+  fbEls.statusbar.hidden = tuning;
+  if (tuning && !fbState.tuningActions && typeof tnMount === 'function')
+    fbState.tuningActions = tnMount(fbEls['page-tuning'], fbState.actions[0]);
+  setActions((tuning && fbState.tuningActions) || fbState.actions);
   if (page === 'flashing') fbShowOptions(false);
   if (page === 'history') fbHistoryRefresh();
 }
@@ -462,7 +486,7 @@ function fbConfirm(message, title) {
  * @param {string} [title] - The dialog title.
  * @returns {Promise<void>}
  */
-async function fbMessage(message, title = 'Flashing/Backups') {
+async function fbMessage(message, title = 'Flashing/Tuning') {
   await messageDialog({ title: esc(title), body: fbHtml(message) });
 }
 
@@ -553,7 +577,10 @@ function fbPickFile(accept) {
   return new Promise((resolve) => {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = accept || '';
+    // iOS turns the accept list into document types, and a .bin/.0DA/.ori
+    // it has no type for is shown greyed out in the Files picker, so there
+    // the picker is left open to every file; the loaders check what they get.
+    input.accept = fbIsIos() ? '' : accept || '';
     input.hidden = true;
     document.body.appendChild(input);
     let done = false;
@@ -564,16 +591,30 @@ function fbPickFile(accept) {
       resolve(f || null);
     };
     input.onchange = () => finish(input.files && input.files[0]);
-    // a cancelled picker fires nothing in most browsers: catch the focus coming back
-    window.addEventListener(
-      'focus',
-      () => {
-        setTimeout(() => finish(input.files && input.files[0]), 400);
-      },
-      { once: true }
-    );
+    if ('oncancel' in input) {
+      // a cancelled picker says so (Safari 16.4, Chrome 113)
+      input.oncancel = () => finish(null);
+    } else {
+      // older browsers fire nothing: catch the focus coming back and give
+      // the change event a moment to arrive first
+      window.addEventListener(
+        'focus',
+        () => {
+          setTimeout(() => finish(input.files && input.files[0]), 1500);
+        },
+        { once: true }
+      );
+    }
     input.click();
   });
+}
+
+/** Whether this is an iPhone or iPad (iPadOS says it is a Mac, but a Mac has no touch screen). */
+function fbIsIos() {
+  return (
+    /iP(hone|ad|od)/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+  );
 }
 
 /**

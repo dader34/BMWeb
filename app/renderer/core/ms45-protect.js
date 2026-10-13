@@ -8,10 +8,11 @@
 // limiter's state and resets the DME when the two disagree, which is what an
 // earlier version that lowered the limiter's working value ran into.
 //
-// Each of the three places the program arms a coil (MPC 0x379CC, 0x193C4,
-// 0x1976C) calls a gate instead. The gate works out the lowest rpm at which
-// the spark should be cut from the current conditions, and returns without
-// arming the coil once engine speed (r13-0x4BEC, 1 rpm per count) is at or
+// The routine that schedules a cylinder's spark (MPC 0x377A8: it writes the
+// pulse into the cylinder's TPU channel and requests its service) begins with
+// a jump to a gate. The gate works out the lowest rpm at which the spark
+// should be cut from the current conditions, and returns to the caller with
+// nothing scheduled once engine speed (r13-0x4BEC, 1 rpm per count) is at or
 // above it:
 //
 //   - the spark cut: the program's own stored rev limit (r13-0x4BD6, read
@@ -25,9 +26,17 @@
 //   - the coolant limit while the coolant is at or above its temperature.
 //
 // Both temperatures are 8 bit, degrees C plus 40. Injection is another
-// routine and is never gated, so the fuel is kept. The gates live in the
+// routine and is never gated, so the fuel is kept. The gate lives in the
 // empty end of the external program area, from 0xDC860. The calibration is
 // not touched, so the limits are the same in both maps of a map switch build.
+//
+// The gate has to sit at the routine's entry because the routine has two
+// callers: the segment task (0x379CC), and a task per cylinder (0x37A30),
+// started by the TPU's interrupt when that cylinder's pulse is over. On a
+// running engine every spark schedules the next one. An earlier version
+// gated the segment task's call alone, and two channel set-up requests that
+// are not sparks, so on a car nothing was cut: isOutdated tells such a pair,
+// and remove and apply undo its three calls.
 //
 // Checksums and signatures are NOT computed here: the caller runs the pair
 // through ms45Checksums, as for any other program flash.
@@ -49,8 +58,10 @@ const MSP_VAR_LIMIT = -0x4bd6;
 const MSP_VAR_LIMP = -0x406b;
 const MSP_TEMP_OFFSET = 40;
 const MSP_NO_CUT = 0x7fff;
-/** [the call in the MPC, the routine it calls in a stock program] */
-const MSP_SITES = [
+const MSP_ENTRY = 0x377a8; // the spark scheduling routine
+const MSP_ENTRY_WORD = 0x7c0802a6; // its first instruction, mflr r0, which the gate does in its place
+/** The calls an earlier version redirected: [the call in the MPC, the routine it calls in a stock program] */
+const MSP_OLD_SITES = [
   [0x379cc, 0x377a8],
   [0x193c4, 0x1f938],
   [0x1976c, 0x1f938],
@@ -123,9 +134,18 @@ function mspInArea(address) {
     address < MSP_EXT + MSP_CODE_END
   );
 }
-/** The gate an ignition site calls, or null when the site does not call one. */
-function mspGateOf(mpc, site) {
+/** The gate one of an earlier version's sites calls, or null when it does not call one. */
+function mspOldGateOf(mpc, site) {
   const target = mspCallTarget(mspRead32(mpc, site), site);
+  return mspInArea(target) ? target : null;
+}
+/** The gate the scheduling routine begins with a jump to, or null. */
+function mspGateOf(mpc) {
+  const word = mspRead32(mpc, MSP_ENTRY);
+  if (word >>> 26 !== 18 || (word & 3) !== 0) return null;
+  let offset = word & 0x03fffffc;
+  if (offset & 0x02000000) offset -= 0x04000000;
+  const target = (MSP_ENTRY + offset) >>> 0;
   return mspInArea(target) ? target : null;
 }
 /** Whether an earlier version's call sits where the limiter stores its limit. */
@@ -150,12 +170,14 @@ function mspEnabled(cfg) {
 }
 
 /**
- * An ignition site's gate. r12 is the cut rpm: the stored rev limit when the
- * spark cut is on and the program is not in limp home, else "no cut";
- * lowered to each temperature limit in force. The coil is not armed once
- * engine speed is at the cut rpm. The stored limit is only ever read.
+ * The gate in front of the scheduling routine. r12 is the cut rpm: the
+ * stored rev limit when the spark cut is on and the program is not in limp
+ * home, else "no cut"; lowered to each temperature limit in force. Once
+ * engine speed is at the cut rpm it returns to the routine's caller with
+ * nothing scheduled; otherwise it does the routine's first instruction and
+ * goes on with the second. The stored limit is only ever read.
  */
-function mspGate(at, original, cfg) {
+function mspGate(at, cfg) {
   const items = [];
   const labels = new Map();
   let serial = 0;
@@ -199,8 +221,9 @@ function mspGate(at, original, cfg) {
     when(MSP_VAR_COOLANT, cfg.coolantC, MSP_BLT, cfg.coolantRpm);
   emit(mspD(40, 0, 13, MSP_VAR_ENGINE_SPEED)); // lhz r0,N(r13)
   emit(((31 << 26) | (0 << 16) | (12 << 11) | (32 << 1)) >>> 0); // cmplw r0,r12
-  emit(((19 << 26) | (MSP_BGE << 21) | (16 << 1)) >>> 0); // bgelr: the coil is not armed
-  items.push({ address: original }); // else fire
+  emit(((19 << 26) | (MSP_BGE << 21) | (16 << 1)) >>> 0); // bgelr: back to the caller, no spark scheduled
+  emit(MSP_ENTRY_WORD); // else the routine's own first instruction
+  items.push({ address: MSP_ENTRY + 4 }); // and on with the rest of it
 
   return items.map((it, i) => {
     const pc = at + 4 * i;
@@ -211,25 +234,18 @@ function mspGate(at, original, cfg) {
   });
 }
 
-/** The three gates, and where each one starts. */
+/** The gate's code, and where it starts (null when nothing is switched on). */
 function mspBuildCode(cfg) {
-  const words = [];
-  const gates = [];
-  if (mspEnabled(cfg)) {
-    for (const [site, original] of MSP_SITES) {
-      const at = MSP_EXT + MSP_CODE_START + 4 * words.length;
-      gates.push({ site, at });
-      words.push(...mspGate(at, original, cfg));
-    }
-  }
+  const gate = mspEnabled(cfg) ? MSP_EXT + MSP_CODE_START : null;
+  const words = gate == null ? [] : mspGate(gate, cfg);
   const code = new Uint8Array(4 * words.length);
   words.forEach((w, i) => mspWrite32(code, 4 * i, w));
   if (MSP_CODE_START + code.length > MSP_CODE_END)
     throw new Error('the code does not fit in the free flash area');
-  return { code, gates };
+  return { code, gate };
 }
 
-/** Read a config back out of the first gate's code, without checking it. */
+/** Read a config back out of the gate's code, without checking it. */
 function mspDecode(flash, mpc) {
   const cfg = {
     ...MSP_DEFAULTS,
@@ -238,7 +254,7 @@ function mspDecode(flash, mpc) {
     coolantC: null,
     coldWarmC: null,
   };
-  const gate = mspGateOf(mpc, MSP_SITES[0][0]);
+  const gate = mspGateOf(mpc);
   if (gate == null) return cfg;
   const imm = (w) => w & 0xffff;
   let at = gate - MSP_EXT + 4; // past li r12,NO_CUT
@@ -378,7 +394,7 @@ const ms45Protect = {
   },
 
   /**
-   * Whether the pair carries the patch: any ignition site calling a gate.
+   * Whether the pair carries the patch, this version's or an earlier one's.
    * @param {Uint8Array} flash
    * @param {Uint8Array} mpc
    * @returns {boolean}
@@ -386,9 +402,23 @@ const ms45Protect = {
   isApplied(flash, mpc) {
     if (!flash || flash.length !== MSP_FULL_FLASH_LENGTH) return false;
     if (!mpc || mpc.length !== MSP_MPC_LENGTH) return false;
+    return mspGateOf(mpc) != null || ms45Protect.isOutdated(flash, mpc);
+  },
+
+  /**
+   * Whether the pair carries an earlier version of the patch: the three
+   * gated calls, which cut nothing on a running engine, or the limiter hook,
+   * which reset the DME. Flashing it again from here replaces it.
+   * @param {Uint8Array} flash
+   * @param {Uint8Array} mpc
+   * @returns {boolean}
+   */
+  isOutdated(flash, mpc) {
+    if (!flash || flash.length !== MSP_FULL_FLASH_LENGTH) return false;
+    if (!mpc || mpc.length !== MSP_MPC_LENGTH) return false;
     return (
       mspLimitHooked(flash) ||
-      MSP_SITES.some(([site]) => mspGateOf(mpc, site) != null)
+      MSP_OLD_SITES.some(([site]) => mspOldGateOf(mpc, site) != null)
     );
   },
 
@@ -401,16 +431,14 @@ const ms45Protect = {
    */
   installed(flash, mpc) {
     if (!ms45Protect.isApplied(flash, mpc)) return null;
-    if (mspLimitHooked(flash)) return null; // an earlier version: not this builder's code
+    if (ms45Protect.isOutdated(flash, mpc)) return null; // an earlier version: not this builder's code
     const cfg = mspDecode(flash, mpc);
     if (ms45Protect.configError(cfg)) return null;
     const built = mspBuildCode(cfg);
     for (let i = 0; i < built.code.length; i++)
       if (flash[MSP_CODE_START + i] !== built.code[i]) return null;
-    for (const [site] of MSP_SITES) {
-      const gate = built.gates.find((g) => g.site === site);
-      if (mspRead32(mpc, site) !== mspBranch(site, gate.at, true)) return null;
-    }
+    if (mspRead32(mpc, MSP_ENTRY) !== mspBranch(MSP_ENTRY, built.gate, false))
+      return null;
     return cfg;
   },
 
@@ -431,9 +459,11 @@ const ms45Protect = {
       version += String.fromCharCode(flash[MSP_PROGRAM_VERSION_OFFSET + i]);
     if (version !== MSP_PROGRAM_VERSION)
       return `This is only built for program ${MSP_PROGRAM_VERSION}, and this image is another one.`;
-    for (const [site, original] of MSP_SITES) {
+    if (mspRead32(mpc, MSP_ENTRY) !== MSP_ENTRY_WORD && mspGateOf(mpc) == null)
+      return `The MPC does not carry the expected spark scheduling routine at ${mspHex(MSP_ENTRY)}.`;
+    for (const [site, original] of MSP_OLD_SITES) {
       const stock = mspRead32(mpc, site) === mspBranch(site, original, true);
-      if (!stock && mspGateOf(mpc, site) == null)
+      if (!stock && mspOldGateOf(mpc, site) == null)
         return `The MPC does not carry the expected ignition call at ${mspHex(site)}.`;
     }
     if (
@@ -452,18 +482,24 @@ const ms45Protect = {
   },
 
   /**
-   * Copies of the pair without the patch: the stock calls back, the code
-   * area empty.
+   * Copies of the pair without the patch: the routine's own first
+   * instruction back, an earlier version's calls back, the code area empty.
    * @param {Uint8Array} flash
    * @param {Uint8Array} mpc
    * @returns {{flash: Uint8Array, mpc: Uint8Array}}
    */
   remove(flash, mpc) {
     const out = { flash: Uint8Array.from(flash), mpc: Uint8Array.from(mpc) };
-    for (const [site, original] of MSP_SITES) {
+    if (mspGateOf(out.mpc) != null)
+      mspWrite32(out.mpc, MSP_ENTRY, MSP_ENTRY_WORD);
+    else if (mspRead32(out.mpc, MSP_ENTRY) !== MSP_ENTRY_WORD)
+      throw new Error(
+        `the routine at ${mspHex(MSP_ENTRY)} begins with neither its own instruction nor a protection gate`
+      );
+    for (const [site, original] of MSP_OLD_SITES) {
       const stock = mspBranch(site, original, true);
       if (mspRead32(out.mpc, site) === stock) continue;
-      if (mspGateOf(out.mpc, site) == null)
+      if (mspOldGateOf(out.mpc, site) == null)
         throw new Error(
           `the call at ${mspHex(site)} is neither stock nor a protection gate`
         );
@@ -497,7 +533,7 @@ const ms45Protect = {
     const out = replaced
       ? ms45Protect.remove(flash, mpc)
       : { flash: Uint8Array.from(flash), mpc: Uint8Array.from(mpc) };
-    const { code, gates } = mspBuildCode(cfg);
+    const { code, gate } = mspBuildCode(cfg);
     for (let i = 0; i < code.length; i++) {
       if (out.flash[MSP_CODE_START + i] !== 0xff)
         throw new Error(
@@ -505,10 +541,9 @@ const ms45Protect = {
         );
     }
     out.flash.set(code, MSP_CODE_START);
-    for (const { site, at } of gates)
-      mspWrite32(out.mpc, site, mspBranch(site, at, true));
+    mspWrite32(out.mpc, MSP_ENTRY, mspBranch(MSP_ENTRY, gate, false));
     const log = [
-      `Engine protection: ${replaced ? 'replaced; ' : ''}three ignition gates, ${code.length} bytes at external flash ${mspHex(MSP_CODE_START)}`,
+      `Engine protection: ${replaced ? 'replaced; ' : ''}a gate on the spark scheduling routine, ${code.length} bytes at external flash ${mspHex(MSP_CODE_START)}`,
       ...ms45Protect.describe(cfg).map((l) => `Engine protection: ${l}`),
     ];
     return { ...out, config: cfg, codeBytes: code.length, replaced, log };

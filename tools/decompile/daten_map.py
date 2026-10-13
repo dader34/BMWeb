@@ -148,6 +148,7 @@ def read_module(paths):
     than showing several.
     """
     out = {}
+    layouts = {}
     # BLOCKNR -> BMW's designation for that region, unioned across the
     # module's variants. Blocks are a property of the module's layout, not of
     # one variant, and neighbouring indices name them identically -- so this
@@ -176,6 +177,10 @@ def read_module(paths):
                 # is a whole buffer (a characteristic curve, say)
                 'values': [[n, v] for n, v in r['psw']],
             }
+            # one mask per byte, only when they are not all 0xFF (see
+            # ncs_daten._masks): 'mask' is then the first byte's
+            if r.get('masks'):
+                field['masks'] = r['masks']
             # EINHEIT: how the value reads -- 'd' decimal, 'a'/'A' ASCII text,
             # 'b' binary. Omitted when 'h' (hex, the default) to keep the map
             # small. Governs display, and inverted, encoding.
@@ -193,23 +198,36 @@ def read_module(paths):
             fields.append(field)
         if fields:
             out[os.path.basename(p).split('.')[-1]] = fields
+            layouts[os.path.basename(p).split('.')[-1]] = N.layout(raw)
 
     # FOLD IDENTICAL VARIANTS. A module ships one file per coding index and
     # neighbouring indices are usually the same sheet -- LCM's eleven come
     # to three distinct layouts. Keeping every copy tripled the payload for
     # nothing, so identical ones collapse to a single entry listing the
     # indices it serves. Distinct layouts are all still here.
+    # The layout (memory organisation, named blocks) folds with the fields:
+    # two indexes are one entry only when both agree. The coding indexes the
+    # folded files serve are listed together.
     folded = {}
     for var, fields in out.items():
-        key = json.dumps(fields, sort_keys=True)
+        lay = dict(layouts[var], index=None)
+        key = json.dumps([fields, lay], sort_keys=True)
         folded.setdefault(key, []).append(var)
-    variants = {'+'.join(sorted(v)): json.loads(k) for k, v in folded.items()}
-    return variants, blocks
+    variants = {}
+    lay_out = {}
+    for k, v in folded.items():
+        name = '+'.join(sorted(v))
+        variants[name] = json.loads(k)[0]
+        lay = dict(layouts[v[0]])
+        lay['index'] = sorted({i for var in v for i in layouts[var]['index']})
+        lay_out[name] = lay
+    return variants, blocks, lay_out
 
 
 def main():
     """CLI entry: build datenmap.js from every DATEN module the app ships an
-    SGBD for, and report what was covered. Run from the repository root."""
+    SGBD for, and report what was covered. Run from the repository root.
+    `--same-modules` keeps the module set of the map already on disk."""
     cm = {}
     try:
         cm = json.load(open('data/inpa-screens/_codingmap.json'))
@@ -247,9 +265,12 @@ def main():
         entry = out.setdefault(target, {'sgbd': target, 'daten': mod,
                                         'chassis': {}})
         for ch, paths in by_ch.items():
-            variants, blocks = read_module(paths)
+            variants, blocks, lay = read_module(paths)
             if variants:
                 entry['chassis'][ch] = variants
+                # beside the fields, not inside them: every reader of
+                # chassis[ch][variant] takes it for the list of functions
+                entry.setdefault('layout', {})[ch] = lay
                 # names are per-module; merge across chassis (identical where
                 # they overlap, and a chassis-specific block simply adds one)
                 if blocks:
@@ -257,6 +278,23 @@ def main():
                         {str(k): v for k, v in blocks.items()})
 
     out = {k: v for k, v in out.items() if v['chassis']}
+
+    # --same-modules: keep the set of modules the shipped map already has.
+    # data/ecu-src grows as SGBDs are exported, and every one that gains a
+    # DATEN description makes the lazy-loaded map bigger; a run that is about
+    # the CONTENT of the rows should not also change which modules ship.
+    if '--same-modules' in sys.argv[1:]:
+        try:
+            text = open(OUT).read()
+            head = text.index('window.BMW_DATEN_MAP=') + len('window.BMW_DATEN_MAP=')
+            have = set(json.JSONDecoder().raw_decode(text[head:])[0])
+        except (OSError, ValueError):
+            sys.exit(f'--same-modules: no readable {OUT} to take the set from')
+        dropped = sorted(set(out) - have)
+        out = {k: v for k, v in out.items() if k in have}
+        print(f'--same-modules: kept {len(out)}, left out {len(dropped)} '
+              f'newly coverable ({", ".join(dropped[:8])}'
+              f'{", ..." if len(dropped) > 8 else ""})')
 
     # English labels ride in the same file, keyed once by keyword rather
     # than repeated per row: the same FSW appears in dozens of variants

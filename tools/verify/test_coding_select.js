@@ -270,10 +270,12 @@ const S = require('../../app/renderer/core/coding/select.js');
       if (!satisfiable(r)) dead.push(`${ch} ${r.UMRSG} ${r.SGBD} ${r.expr}`);
     }
   }
+  // All ten: the E32 and E34 files hold rows too, in the block that names no
+  // SGBD (four strings a row), which a reader that expected five never found.
   assert.strictEqual(
     chassis,
-    8,
-    `expected 8 chassis with rows (E32 and E34 ship none), got ${chassis}`
+    10,
+    `expected every one of the 10 chassis to have rows, got ${chassis}`
   );
   assert.deepStrictEqual(
     dead,
@@ -299,6 +301,88 @@ const S = require('../../app/renderer/core/coding/select.js');
   }
   assert.ok(checked > 100, `only ${checked} resolutions exercised`);
   ok(`select: every resolution names a module (${checked} checked)`);
+}
+
+{
+  // THE PREDICATES' NUMBERS ARE KEYWORD IDS of the chassis's own table, not
+  // option catalogue numbers. Ground truth: E46/SWTASW06.dat, where every one
+  // of the numbers E46SGET.000 uses is an entry -- S26 PU01, S121 KMBI_CI_07,
+  // S195 KMBI_CI_08, S18 S54B32 -- and the cluster's rows read
+  //     KMB_E46.C06  C_KMB46   !S26+S194+!(S121,S18)
+  //     KMB_E46.C07  KOMBI46R  !S26+S121+!(S195,S18)
+  //     KMB_E46.C08  KOMBI46R  !S26+S195+!S18
+  const tablesJs = path.join(__dirname, '../../app/renderer/data/tables.js');
+  if (fs.existsSync(tablesJs)) {
+    new Function('window', fs.readFileSync(tablesJs, 'utf8'))(window);
+    const asw = window.BMW_TABLES.E46.asw;
+    assert.ok(asw, 'tables.js carries no E46 keyword table');
+    assert.strictEqual(asw.KMBI_CI_07, 121);
+    assert.strictEqual(asw.KMBI_CI_08, 195);
+    assert.strictEqual(asw.AUTOMATIK, 37);
+    const used = new Set();
+    for (const r of S.rowsFor('E46'))
+      for (const id of r.refs || []) used.add(id);
+    const known = new Set(Object.values(asw));
+    assert.deepStrictEqual(
+      [...used].filter((id) => !known.has(id)),
+      [],
+      'an E46 predicate uses a number the keyword table lacks'
+    );
+    // The cluster has two slots: KMB for a car coded by its central key
+    // (rows open with "not PU01") and AKMB for one coded by its vehicle
+    // order (rows open with PU01). The revision stamps are cumulative -- a
+    // late cluster carries every KMBI_CI_nn up to its own, and each row asks
+    // for its stamp and the absence of the next.
+    const stamps = (upTo) => {
+      const out = [];
+      for (let n = 3; n <= upTo; n++) out.push(`KMBI_CI_0${n}`);
+      return out;
+    };
+    const late = S.aswIds('E46', [], stamps(8));
+    assert.deepStrictEqual(late, [121, 191, 192, 193, 194, 195]);
+    const kmb = S.resolveSlot('E46', 'KMB', late);
+    assert.ok(kmb, 'the late cluster resolved to nothing');
+    assert.strictEqual(kmb.file, 'KMB_E46.C08');
+    assert.strictEqual(kmb.sgbd, 'kombi46r');
+    // one revision earlier, and the first
+    assert.strictEqual(
+      S.resolveSlot('E46', 'KMB', S.aswIds('E46', [], stamps(7))).file,
+      'KMB_E46.C07'
+    );
+    assert.strictEqual(
+      S.resolveSlot('E46', 'KMB', S.aswIds('E46', [], [])).file,
+      'KMB_E46.C02'
+    );
+    // the same hardware in an order-coded car is the other slot's row
+    const order = S.aswIds('E46', [], ['PU01', ...stamps(8)]);
+    assert.strictEqual(S.resolveSlot('E46', 'AKMB', order).file, 'KMB_E46.C08');
+    assert.strictEqual(
+      S.resolveSlot('E46', 'KMB', order),
+      null,
+      'an order-coded car matched a key-coded row'
+    );
+    // a catalogue number reaches a predicate through its keyword: 205 is the
+    // automatic gearbox, keyword AUTOMATIK, id 37 -- and never id 205, which
+    // is PDC_CI_02
+    const auto = S.aswIds('E46', ['205'], []);
+    assert.ok(auto.includes(37), 'catalogue 205 did not become AUTOMATIK (37)');
+    assert.ok(
+      !auto.includes(205),
+      'catalogue 205 was passed through as id 205'
+    );
+    // fed catalogue numbers as if they were ids, every car without those
+    // exact numbers lands on the first cluster row -- which is what used to
+    // happen
+    const blind = S.resolveSlot('E46', 'KMB', ['205', '210']);
+    assert.strictEqual(blind.file, 'KMB_E46.C02', 'the blind case moved');
+    assert.strictEqual(S.aswIds('E31', ['205'], []), null);
+    ok(
+      "select: predicates are evaluated in the keyword table's ids; a late cluster resolves to KMB_E46.C08 on KOMBI46R"
+    );
+  } else
+    console.log(
+      '  skip  keyword ids (app/renderer/data/tables.js not on disk)'
+    );
 }
 
 console.log(`coding-select: ${passed} tests passed`);

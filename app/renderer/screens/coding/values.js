@@ -8,8 +8,11 @@
 /**
  * Per-function edit state, keyed "sgbd:name".
  * @typedef {Object} FunctionState
- * @property {string} current - the hex byte the car holds (or a stable pick).
+ * @property {string|null} current - the value the car holds, as hex of the
+ *   function's bytes; null when it was not read.
  * @property {string|null} staged - the hex byte staged, or null when unchanged.
+ * @property {boolean} [locked] - not coding data (a manufacturer or reserved
+ *   block): shown, not changeable.
  */
 
 /**
@@ -131,24 +134,6 @@ function treeOptions(vals) {
   if (out.length < 2) return [];
   if (anyNumeric) out.sort(treeByValue);
   return out;
-}
-
-/**
- * Pair a DATEN function to its value in a module's coding read. The read
- * names results differently (COD_* / STAT_*), so match on shared tokens, then
- * reduce the answer to one of the function's known option hex values.
- * @param {string} kw - the DATEN keyword.
- * @param {TreeOption[]} opts - the function's options.
- * @param {Map<string, string>} read - the module's flattened coding read.
- * @returns {string|null} the matched hex value, or null.
- */
-function treeMatchRead(kw, opts, read) {
-  const num =
-    typeof codMatchRead === 'function' ? codMatchRead(kw, read) : null;
-  if (num == null) return null;
-  const hex = num.toString(16).padStart(2, '0');
-  // only accept if it is actually one of this function's options
-  return opts.some(([, v]) => String(v).toLowerCase() === hex) ? hex : null;
 }
 
 // Ops-carrying (DIR "property") fields keep the raw byte -- the transform
@@ -278,6 +263,27 @@ function treeValues(vals, label, fkey, state, f) {
     return treeStaticValues(vals, label, f);
   }
   const s = state.get(fkey); // {current, staged}
+  // NOT READ: the options are BMW's, shown for reference. None is marked and
+  // none can be picked -- which one the car holds is not known.
+  if (s.current == null) {
+    return (
+      `<div class="tree-unread">not read from the car</div>` +
+      treeStaticValues(vals, label, f)
+    );
+  }
+  // NOT CODING DATA: what the car holds is shown; a coding job does not
+  // write this block, so there is nothing to pick.
+  if (s.locked) {
+    const held = vals.find(
+      ([, v]) => String(v).toLowerCase() === String(s.current).toLowerCase()
+    );
+    return (
+      `<div class="tree-unread">manufacturer or reserved data, not coding ` +
+      `data: the car holds 0x${esc(s.current)}` +
+      `${held ? ` (${esc(label(held[0]))})` : ''}</div>` +
+      treeStaticValues(vals, label, f)
+    );
+  }
   const sel = s.staged != null ? s.staged : s.current;
   // a hand-typed value isn't among the shipped chips: show it as one
   if (
@@ -318,8 +324,16 @@ function treeValues(vals, label, fkey, state, f) {
   };
   const selIdx = firstAt(sel);
   const curIdx = firstAt(s.current);
+  // The car holds a value BMW lists no option for (a named function set to
+  // something else): say what it is instead of marking nothing.
+  const unlisted =
+    curIdx < 0
+      ? `<div class="tree-unread">the car holds 0x${esc(s.current)}, ` +
+        `which is none of the listed values</div>`
+      : '';
 
   return (
+    unlisted +
     `<div class="tree-opts" data-fkey="${esc(fkey)}">` +
     opts
       .map(([n, v, final], oi) => {
@@ -349,46 +363,59 @@ function treeValues(vals, label, fkey, state, f) {
 
 /**
  * Seed per-function state {current, staged} for one module's functions from
- * the scan. Every choosable function gets a current (the read value where the
- * scan named it, else a stable deterministic pick) so options render selected
- * from the first frame -- no Read buttons, same rule on desktop and mobile.
+ * its coding image. `current` is the value at the function's own address, in
+ * the form its options are written in -- or null when the image does not
+ * hold it, and then the function is UNREAD: it shows its options for
+ * reference and offers none to pick, because a change is staged against what
+ * the car holds and there is nothing to stage against.
  * @param {Map<string, FunctionState>} state - the state map, filled in place.
  * @param {string} sgbd - the module.
  * @param {DatenField[]} fns - its functions.
- * @param {Map<string, string>|null|undefined} read - its flattened coding read.
+ * @param {CodingImage|null|undefined} image - its coding image.
  * @returns {void}
  */
-function seedState(state, sgbd, fns, read) {
+function seedState(state, sgbd, fns, image) {
   for (const f of fns) {
     const vals = f.values || [];
-    const opts = treeOptions(vals);
     // numeric fields are choosable too, even with ONE shipped value: expert
     // mode lets any of them take a hand-typed byte (treeNumericField + the edit
     // chip), so they need a current like every other choice
-    const numeric = treeNumericField(vals);
-    if (!opts.length && !numeric) continue;
-    const fkey = `${sgbd}:${f.name}`;
-    let cur = read ? treeMatchRead(f.name, opts, read) : null;
-    if (cur == null && numeric && read) {
-      // a numeric field accepts ANY byte the read names, not just shipped ones
-      const num =
-        typeof codMatchRead === 'function' ? codMatchRead(f.name, read) : null;
-      const w = String(vals[0][1]).length;
-      if (num != null && num >= 0 && num <= parseInt('f'.repeat(w), 16)) {
-        cur = num.toString(16).padStart(w, '0');
-      }
-    }
-    if (cur == null) {
-      if (opts.length) {
-        let h = 0;
-        for (const c of f.name) h = (h * 31 + c.charCodeAt(0)) >>> 0;
-        cur = opts[h % opts.length][1];
-      } else {
-        cur = String(vals[0][1]).toLowerCase(); // the factory default
-      }
-    }
-    state.set(fkey, { current: cur, staged: null });
+    if (!treeOptions(vals).length && !treeNumericField(vals)) continue;
+    state.set(`${sgbd}:${f.name}`, {
+      current: codingImageValue(f, image),
+      staged: null,
+      // manufacturer or reserved data: shown, never offered for a change
+      locked: !!(fns.codingLocked && fns.codingLocked.has(f.name)),
+    });
   }
+}
+
+/**
+ * How much of a module was read, for its heading: nothing when every
+ * choosable function was, else how many were not and why.
+ * @param {Map<string, FunctionState>} state - per-function state.
+ * @param {{sgbd: string, fns: DatenField[], source?: {route: string|null, why?: string}|null}} m - the module.
+ * @returns {string} text to append, '' when all was read.
+ */
+function treeReadNote(state, m) {
+  let total = 0;
+  let unread = 0;
+  for (const f of m.fns) {
+    const s = state.get(`${m.sgbd}:${f.name}`);
+    if (!s) continue;
+    total++;
+    if (s.current == null) unread++;
+  }
+  if (!unread) return '';
+  const why =
+    m.source && m.source.why
+      ? ` (${m.source.why})`
+      : m.source && m.source.route === 'blob'
+        ? ' (only its first coding block is read)'
+        : '';
+  return unread === total
+    ? ` · not read${esc(why)}`
+    : ` · ${unread} of ${total} not read${esc(why)}`;
 }
 
 /**
@@ -473,10 +500,10 @@ if (typeof window !== 'undefined') {
   window.treeIsNumericName = treeIsNumericName;
   window.treeNumericField = treeNumericField;
   window.treeOptions = treeOptions;
-  window.treeMatchRead = treeMatchRead;
   window.treeFmt = treeFmt;
   window.treeValues = treeValues;
   window.seedState = seedState;
+  window.treeReadNote = treeReadNote;
   window.treeEditPrompt = treeEditPrompt;
   window.treeOptionClick = treeOptionClick;
   window.treeStagedDot = treeStagedDot;

@@ -552,6 +552,32 @@ function routeSetCarList(chassis) {
   }
 }
 
+// The Flashing/Tuning app is one screen with pages on a rail. The tuning
+// editor is the page worth a link of its own: a reload, or a link someone
+// keeps, should come back to the editor and not to the flashing page.
+// replaceState: flipping between the pages is not a step Back should undo.
+/**
+ * Set the hash to the Flashing/Tuning page that is showing: #apps/tuning for
+ * the editor, #apps/flashing for the rest.
+ * @param {string} page - 'flashing', 'tuning', 'history' or 'settings'.
+ * @returns {void}
+ */
+function routeSetFlashingPage(page) {
+  if (_routing) return;
+  const route = page === 'tuning' ? 'apps/tuning' : 'apps/flashing';
+  if (currentRoute() === route) {
+    _openRoute = route;
+    return;
+  }
+  _routing = true;
+  try {
+    history.replaceState(null, '', '#' + route);
+    _openRoute = route;
+  } finally {
+    _routing = false;
+  }
+}
+
 // The Job search app writes its query back into the hash as the user types,
 // so a search is a link someone can send. replaceState: a keystroke must not
 // stack a history entry, and Back should leave the app rather than step
@@ -751,5 +777,6 @@ if (typeof window !== 'undefined') {
   window.routeSetCarList = routeSetCarList;
   window.garageRouteSet = garageRouteSet;
   window.routeSetJobSearch = routeSetJobSearch;
+  window.routeSetFlashingPage = routeSetFlashingPage;
   window.routeSetService = routeSetService;
 }

@@ -64,13 +64,13 @@ if (!existsSync(join(DIST, 'index.html'))) {
 }
 
 /**
- * The version the web build stamped into version.js (window.BMACW_VERSION=...).
+ * The version the web build stamped into version.js (window.BMWEB_VERSION=...).
  * @returns {string} the version, or '0.0.0' when none was stamped
  */
 function readVersion() {
   try {
     const v = readFileSync(join(DIST, 'version.js'), 'utf8');
-    const m = v.match(/BMACW_VERSION\s*=\s*"([^"]+)"/);
+    const m = v.match(/BMWEB_VERSION\s*=\s*"([^"]+)"/);
     if (m && m[1] && m[1] !== 'web') return m[1];
   } catch {
     /* fall through */
@@ -132,8 +132,8 @@ if (VARIANTS.some((v) => !v.dropParts)) {
 // When parts are OFF: a tiny flag file the app reads to hide the parts-catalogue
 // (ETK) entry rather than offer a feature this build cannot serve. Loaded before
 // app.js, same mechanism as version.js.
-const PARTS_OFF_JS = 'window.BMACW_NO_PARTS=true;\n';
-const OFFLINE_JS = 'window.BMACW_OFFLINE=true;\n';
+const PARTS_OFF_JS = 'window.BMWEB_NO_PARTS=true;\n';
+const OFFLINE_JS = 'window.BMWEB_OFFLINE=true;\n';
 // What zip stores rather than deflates: the archives whose members are
 // deflated already and the images. Deflating these again gains 2-4 % at
 // ~45 MB/s. NOT the .etk, .chassis and .docs archives: those store their

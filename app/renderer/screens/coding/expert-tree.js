@@ -54,7 +54,15 @@ async function expertTree(chassisId, mods, cont, back, scan, reScan, showAll) {
       codingIndexFromScan(scan, m.sgbd),
       saCodes
     );
-    if (fns.length) built.push({ ...m, fns, chassisId });
+    if (fns.length)
+      built.push({
+        ...m,
+        fns,
+        chassisId,
+        // where this module's coding was read from: a write goes back the
+        // same way, or not at all
+        source: (scan && scan.sources && scan.sources.get(m.sgbd)) || null,
+      });
   }
 
   // Never filter silently: say what the car's equipment codes hid, and offer
@@ -81,7 +89,12 @@ async function expertTree(chassisId, mods, cont, back, scan, reScan, showAll) {
   const state = new Map();
   const fkeyOf = (sgbd, name) => `${sgbd}:${name}`;
   for (const m of built) {
-    seedState(state, m.sgbd, m.fns, scan && scan.get(m.sgbd));
+    seedState(
+      state,
+      m.sgbd,
+      m.fns,
+      scan && scan.images && scan.images.get(m.sgbd)
+    );
   }
 
   // which modules/functions are expanded, preserved across redraws
@@ -107,7 +120,8 @@ async function expertTree(chassisId, mods, cont, back, scan, reScan, showAll) {
       `<summary class="tree-mod-h">` +
       `<span class="tree-name">${esc(m.label)}</span>` +
       `<span class="tree-meta mono">${esc(m.sgbd)}.prg · ` +
-      `${shownFns.length} function${shownFns.length === 1 ? '' : 's'}</span>` +
+      `${shownFns.length} function${shownFns.length === 1 ? '' : 's'}` +
+      `${treeReadNote(state, m)}</span>` +
       `</summary>`;
     const body = document.createElement('div');
     body.className = 'tree-fns';

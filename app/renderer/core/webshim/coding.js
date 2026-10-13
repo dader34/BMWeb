@@ -16,15 +16,68 @@
  * It runs over the SAME bus lock as reads (withBusLock), so a coding sequence
  * cannot interleave with the topbar state poll or any job on the wire.
  */
-/* exported webWriteCoding */
+/* exported webWriteCoding, webReadCoding */
+
+/**
+ * A module's coding script, by the file it ships in.
+ * @param {string} key - the file key under data/coding-dispatch.
+ * @returns {Promise<object|null>} the script, or null when it is not one.
+ */
+async function webCodingScript(key) {
+  const d = await webFetchJson(
+    `data/coding-dispatch/${String(key).toLowerCase()}.json`
+  );
+  return d && d.coding && d.procs ? d : null;
+}
+
+/**
+ * Read a module's whole coding image through its own coding script
+ * (coding-write.js readCoding). A read: the run's write gate is shut, so it
+ * needs no confirmation.
+ * @param {string} sgbd - The CODING SGBD the car's selection row names.
+ * @param {{dispatchKey: string, cabd: object}} opts - which script file, and
+ *   the module's coding description.
+ * @returns {Promise<{netto: number[], read: number[], size: number}>} the
+ *   image and which of its addresses were read.
+ * @throws {Error} When no cable is connected, or the SGBD or its script is
+ *   not shipped, or the read fails.
+ */
+async function webReadCoding(sgbd, opts = {}) {
+  if (typeof window.readCoding !== 'function')
+    throw new Error('coding-write.js is not loaded');
+  if (!webBus.connected) throw new Error('no cable connected');
+  const key = String(sgbd).toLowerCase();
+  const code = await webFetchJson(`data/job-code/${key}.json`);
+  if (!code) throw new Error(`no job code shipped for ${sgbd}`);
+  const tables = (await webFetchJson(`data/sgbd-tables/${key}.json`)) || {};
+  const dispatch = await webCodingScript(opts.dispatchKey || key);
+  if (!dispatch) throw new Error(`no coding script shipped for ${sgbd}`);
+  await switchSession(sgbd);
+  const session = sessionFor(sgbd);
+  return withBusLock(() =>
+    window.readCoding(sgbd, {
+      code,
+      tables,
+      exchange: (out, comm) => webBusRawExchange(out, comm),
+      session,
+      dispatch,
+      dataOrg: dispatch.dataOrg || null,
+      cabd: opts.cabd,
+    })
+  );
+}
 
 /**
  * Write coding data to a module through coding-write.js's confirmed path.
  * @param {string} sgbd - The SGBD to code.
  * @param {string} nettoHex - The netto coding bytes as hex.
- * @param {{confirmed?: boolean, jobname?: string}} [opts] - `confirmed` must
- *   be true (the UI's explicit confirmation); `jobname` picks the dispatcher
- *   job when a derived dispatcher is shipped (default SG_CODIEREN).
+ * @param {{confirmed?: boolean, jobname?: string, dispatchKey?: string, base?: string, cabd?: object,
+ *   vin?: string, systemData?: Record<string, string>}} [opts] - `confirmed` must be true
+ *   (the UI's explicit confirmation); `jobname` picks the dispatcher job when
+ *   a derived dispatcher is shipped (default SG_CODIEREN). For that path:
+ *   `base` is the image the edits were made on, `cabd` the module's coding
+ *   description (its functions, named blocks and coding indexes), and
+ *   `vin` / `systemData` what the script may ask about the car.
  * @returns {Promise<any>} Whatever writeCoding resolves with.
  * @throws {Error} When coding-write.js is absent, the write is unconfirmed,
  *   no cable is connected, or no job code is shipped for the SGBD.
@@ -54,8 +107,11 @@ async function webWriteCoding(sgbd, nettoHex, opts = {}) {
   // exec ships next to the module's job-code as <sgbd>.ipoexec.json with a
   // "coding":true marker; opts.dataOrg carries the CABD word width. Absent, the
   // strategy path runs unchanged, so this is additive and safe.
-  const dispatch = await webFetchJson(`data/coding-dispatch/${key}.json`);
-  const dispatchOk = dispatch && dispatch.coding && dispatch.procs;
+  // opts.dispatchKey names the file when the script is not the one keyed by
+  // this SGBD: the car's selection row names both, and they differ (the late
+  // E46 cluster is KOMBI46R, coded by A_KMB46 or A_AKMB46).
+  const dispatch = await webCodingScript(opts.dispatchKey || key);
+  const dispatchOk = !!dispatch;
 
   // One SGBD is loaded at a time, exactly like a read: end the previous
   // session (its ENDE) before this one initialises, then run the whole write
@@ -77,6 +133,13 @@ async function webWriteCoding(sgbd, nettoHex, opts = {}) {
       dispatch: dispatchOk ? dispatch : null,
       dataOrg: dispatchOk ? dispatch.dataOrg || null : null,
       jobname: dispatchOk ? opts.jobname || 'SG_CODIEREN' : undefined,
+      // what the dispatcher path writes from; writeCoding refuses that path
+      // without the coding description rather than guess a selection
+      cabd: dispatchOk ? opts.cabd || null : undefined,
+      base: dispatchOk ? opts.base || null : undefined,
+      systemData: dispatchOk ? opts.systemData || undefined : undefined,
+      vin: dispatchOk ? opts.vin || undefined : undefined,
+      onStage: opts.onStage,
     })
   );
 }

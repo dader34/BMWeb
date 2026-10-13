@@ -78,6 +78,57 @@ for (let n = 0; n < 40; n++) {
 }
 ok('MD5 matches the RFC vectors and Node on 40 random binary inputs');
 
+// the serial answer as the MS45 sent it over the WiFi adapter: format byte
+// 0xB8 with a separate length byte. Read as 0x80 | 56 it keyed the checksum
+// in as the serial's last byte and the DME answered 71 08 00 (refused).
+{
+  const H = (s) => Uint8Array.from(s.split(' ').map((x) => parseInt(x, 16)));
+  const serial = '31 30 34 4D';
+  for (const shape of [
+    'B8 F1 12 0B 5A 89 35 30 33 31 30 31 30 34 4D CC',
+    'B8 F1 12 0B 5A 89 35 30 33 31 30 31 30 34 4D',
+    '8B F1 12 5A 89 35 30 33 31 30 31 30 34 4D CC',
+    '80 F1 12 0B 5A 89 35 30 33 31 30 31 30 34 4D CC',
+    '5A 89 35 30 33 31 30 31 30 34 4D',
+  ]) {
+    assert.strictEqual(
+      hex(F.flasherSerialFromReply(H(shape))),
+      serial.replace(/ /g, '').toLowerCase(),
+      `serial from ${shape}`
+    );
+  }
+}
+ok("the serial is the payload's last 4 bytes in every telegram shape");
+
+// the THOR does even parity only up to 25 kBaud: programming mode goes to
+// 19200 on it, and stays at 115200 on a cable
+{
+  const {
+    adapterSetting,
+  } = require('../../app/renderer/core/webshim/adapter-port.js');
+  global.adapterSetting = adapterSetting;
+  global.gatewaySetting = () => 'adapter://192.168.4.1:23';
+  assert.strictEqual(
+    F.flasherProgrammingArg('ECUPM;PC115200'),
+    'ECUPM;PC19200'
+  );
+  assert.strictEqual(F.flasherProgrammingArg(';115200;;15'), ';19200;;15');
+  assert.strictEqual(
+    F.flasherProgrammingArg('00;120;24;240;00'),
+    '00;120;24;240;00'
+  );
+  global.gatewaySetting = () => '';
+  assert.strictEqual(
+    F.flasherProgrammingArg('ECUPM;PC115200'),
+    'ECUPM;PC115200'
+  );
+  global.gatewaySetting = () => 'ws://192.168.1.5:8765';
+  assert.strictEqual(F.flasherProgrammingArg(';115200'), ';115200');
+  delete global.gatewaySetting;
+  delete global.adapterSetting;
+}
+ok('programming mode runs at 19200 over the WiFi adapter, 115200 on a cable');
+
 // ── 2. security-access message is byte-identical to the reference layout ─────
 console.log('\nsecurity-access message');
 // an independent transcription of the reference GetSecurityAccessMessage

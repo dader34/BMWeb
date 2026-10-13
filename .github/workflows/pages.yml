@@ -174,7 +174,7 @@ jobs:
         run: |
           set -euo pipefail
           # The exporter reads the fetched chassis-config cache here (no
-          # BMACW_PORT), so call the pieces directly.
+          # BMWEB_PORT), so call the pieces directly.
           mkdir -p dist-web-export
           python3 tools/export/web_export.py --out dist-web-export
 
@@ -197,10 +197,10 @@ jobs:
           grep -q 'core/webshim/' dist-web/index.html
           # Version stamp, exactly as build-web.sh does it. This step calls
           # the exporter directly and skipped the stamp, so the deployed app
-          # had no BMACW_VERSION and every beta report said app "dev".
+          # had no BMWEB_VERSION and every beta report said app "dev".
           VERSION=$(node -p "require('./package.json').version")
           test -n "$VERSION"
-          printf 'window.BMACW_VERSION="%s";\n' "$VERSION" > dist-web/version.js
+          printf 'window.BMWEB_VERSION="%s";\n' "$VERSION" > dist-web/version.js
           sed -i 's#<head>#<head>\n  <script src="version.js"></script>#' dist-web/index.html
           grep -q version.js dist-web/index.html
           echo "version: $VERSION"

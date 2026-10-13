@@ -78,8 +78,7 @@ async function expertModuleScreen(chassisId, m, back, scan) {
     typeof datLabel === 'function' ? datLabel(name) : name;
   /** @type {Map<string, FunctionState>} */
   const state = new Map();
-  const read = scan && scan.get(m.sgbd);
-  seedState(state, m.sgbd, fns, read);
+  seedState(state, m.sgbd, fns, scan && scan.images && scan.images.get(m.sgbd));
 
   // only functions that are a real multiple-choice show as editable groups;
   // the rest (numeric fields, buffers, defaults) render as static reference.
@@ -119,7 +118,16 @@ async function expertModuleScreen(chassisId, m, back, scan) {
   host.addEventListener('click', (e) => treeOptionClick(e, state, draw));
 
   /** @type {BuiltModule[]} */
-  const built = [{ ...m, fns: /** @type {FunctionList} */ (rows) }];
+  // the WHOLE list, with how it was resolved: the write gate asks it, and a
+  // filtered copy does not carry that
+  const built = [
+    {
+      ...m,
+      fns,
+      chassisId,
+      source: (scan && scan.sources && scan.sources.get(m.sgbd)) || null,
+    },
+  ];
   // No F-key bar on mobile (CSS hides it for .coding-panel); controls live in
   // the nav bar -- Back top-left, and once staged an Apply (Review) top-right.
   const updateBar = () => {

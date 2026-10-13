@@ -10,7 +10,7 @@
 const WEB_API_BASE = 'api';
 
 /**
- * WHERE THIS PAGE LIVES. A project site served from a subpath (/BMacW/), not
+ * WHERE THIS PAGE LIVES. A project site served from a subpath (/BMWeb/), not
  * the domain root, would resolve "/api/chassis" to the host's root -- off the
  * site entirely. Derive the base from the document's own URL and hang every
  * static path off it. Empty at a domain root and inside the macOS app, so
@@ -67,10 +67,10 @@ const ECU_CACHE = new Map();
  * A file:// page gets an opaque origin where fetch() is blocked, so the
  * exporter inlines each archive as base64 in a <script> instead -- which
  * file:// loads happily.
- * @returns {Record<string, any>|null} The BMACW_INLINE map, or null.
+ * @returns {Record<string, any>|null} The BMWEB_INLINE map, or null.
  */
 function inlineData() {
-  return typeof BMACW_INLINE === 'object' && BMACW_INLINE ? BMACW_INLINE : null;
+  return typeof BMWEB_INLINE === 'object' && BMWEB_INLINE ? BMWEB_INLINE : null;
 }
 
 /**

@@ -797,7 +797,7 @@ html[data-theme='gt1'] .btn.danger {
   border-color: #7a1e12 !important;
   color: #fff !important;
 }
-html[data-theme='gt1'] input[type='text'],
+html[data-theme='gt1'] input[type='text']:not(.tn-cell):not(.tn-axis-cell),
 html[data-theme='gt1'] input[type='search'],
 html[data-theme='gt1'] select,
 html[data-theme='gt1'] textarea {
@@ -807,7 +807,7 @@ html[data-theme='gt1'] textarea {
   color: var(--ink) !important;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08) inset !important;
 }
-html[data-theme='gt1'] input:focus,
+html[data-theme='gt1'] input:not(.tn-cell):not(.tn-axis-cell):focus,
 html[data-theme='gt1'] select:focus,
 html[data-theme='gt1'] textarea:focus {
   border-color: #8f7400 !important;
@@ -1084,8 +1084,10 @@ html[data-theme='brackets'] .sidebar {
   background: var(--panel-2);
   border-right: 1px solid var(--line);
 }
-/* clean flat inputs */
-html[data-theme='brackets'] input[type='text'],
+/* clean flat inputs. Not the tuning grid's cells: their colour IS the data
+   (the heat map is an inline background), and an !important skin colour
+   painted every table black. */
+html[data-theme='brackets'] input[type='text']:not(.tn-cell):not(.tn-axis-cell),
 html[data-theme='brackets'] input[type='search'],
 html[data-theme='brackets'] select,
 html[data-theme='brackets'] textarea {
@@ -1094,7 +1096,7 @@ html[data-theme='brackets'] textarea {
   border-radius: 0 !important;
   color: var(--ink) !important;
 }
-html[data-theme='brackets'] input[type='text']:focus,
+html[data-theme='brackets'] input[type='text']:not(.tn-cell):not(.tn-axis-cell):focus,
 html[data-theme='brackets'] input[type='search']:focus,
 html[data-theme='brackets'] select:focus,
 html[data-theme='brackets'] textarea:focus {
@@ -1272,7 +1274,7 @@ html[data-theme='gt1'] .btn.danger {
   border-color: #7a1e12 !important;
   color: #fff !important;
 }
-html[data-theme='gt1'] input[type='text'],
+html[data-theme='gt1'] input[type='text']:not(.tn-cell):not(.tn-axis-cell),
 html[data-theme='gt1'] input[type='search'],
 html[data-theme='gt1'] select,
 html[data-theme='gt1'] textarea {
@@ -1282,7 +1284,7 @@ html[data-theme='gt1'] textarea {
   color: var(--ink) !important;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08) inset !important;
 }
-html[data-theme='gt1'] input:focus,
+html[data-theme='gt1'] input:not(.tn-cell):not(.tn-axis-cell):focus,
 html[data-theme='gt1'] select:focus,
 html[data-theme='gt1'] textarea:focus {
   border-color: #8f7400 !important;
