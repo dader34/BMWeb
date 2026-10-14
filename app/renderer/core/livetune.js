@@ -46,9 +46,11 @@ const LT_POOLS = [
   [0x3f9e10, 0x3f9e74],
   [0x3f9894, 0x3f98b0],
 ];
+// 0x3f9b48-0x3f9c40 is free on paper but is where the DME keeps the value
+// list a tester defines (2C F0, up to 255 bytes from 0x3f9b43): a mirror
+// placed there is overwritten by the next define, so nothing goes there
 const LT_POOLS3 = [
   [0x3f9e98, 0x3fa0a0],
-  [0x3f9b48, 0x3f9c40],
   [0x3f9e10, 0x3f9e74],
   [0x3f9894, 0x3f98b0],
 ];

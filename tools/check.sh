@@ -111,10 +111,13 @@ echo
 echo "== Live-tune client: open/sync/save against a faithful DME-service stub =="
 node tools/verify/test_livetune.js || exit 1
 node tools/verify/test_livetune_cursor.js || exit 1
+node tools/verify/test_livetune_correct.js || exit 1
+node tools/verify/test_livetune_adapt.js || exit 1
 node tools/verify/test_livetune_link.js || exit 1
 node tools/verify/test_livetune_faults.js || exit 1
 node tools/verify/test_logging_comfort.js || exit 1
 node tools/verify/test_logging_replay.js || exit 1
+node tools/verify/test_logging_tracer.js || exit 1
 node tools/verify/test_flash_logview.js || exit 1
 
 echo

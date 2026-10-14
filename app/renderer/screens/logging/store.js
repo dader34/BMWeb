@@ -104,7 +104,9 @@ function logUnitFor(key, row) {
   }
   // no paired register: a unit written after the number in the value itself
   const raw = row && row[key] != null ? String(row[key]).trim() : '';
-  const tail = /^[+-]?[\d.,]+(?:[eE][+-]?\d+)?\s*(.+)$/.exec(raw);
+  // the unit must start with something that is not part of the number: a
+  // plain 1.92188 is a number, not 1.9218 with a unit of 8
+  const tail = /^[+-]?[\d.,]+(?:[eE][+-]?\d+)?\s*([^\d.,\s].*)$/.exec(raw);
   if (tail) {
     const u = tail[1].trim();
     // a trailing word is a unit only if it is short and not prose

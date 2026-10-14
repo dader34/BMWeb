@@ -10,7 +10,7 @@
  * own packet (2C F0 names the pieces once, 21 F0 reads them all). Refreshes
  * are one at a time, a few a second, and always give way to an edit.
  */
-/* exported tnPacketLent, tnLiveCursorAttach, tnLiveCursorDetach, tnLiveCursorReplan */
+/* exported tnPacketLent, tnLivePlan, tnLiveLineBusy, tnLiveCursorAttach, tnLiveCursorDetach, tnLiveCursorReplan */
 
 /** Rest between two refreshes, once one has finished. */
 const TN_CURSOR_REST_MS = 200;
@@ -30,9 +30,18 @@ const TN_CURSOR_STALE_MS = 1500;
 const tnCursor = { m: null, timer: null };
 
 /**
+ * What stays the same about an axis between refreshes, by the axis object:
+ * where each break point is stored and how to show a value. A dialog that
+ * decodes its table again gets new axis objects, so these go with the old.
+ * @type {WeakMap<XdfAxis, {specs:object[], top:number, show:(raw:number)=>string}|null>}
+ */
+const tnCursorAxes = new WeakMap();
+
+/**
  * An axis as the cursor needs it: where its break points are, what they are
  * (as stored, unsigned -- the DME compares them that way), and how to show a
- * value on it.
+ * value on it. The points are read again each time: one may just have been
+ * edited.
  * @param {TableModal} m
  * @param {XdfAxis|undefined} axis
  * @param {number} count - Break points the grid shows for it.
@@ -41,34 +50,44 @@ const tnCursor = { m: null, timer: null };
  */
 function tnLiveCursorAxis(m, axis, count) {
   if (!axis || !axis.embed || !axis.embed.address) return null;
-  const spec = window.XDF.resolveEmbedded(
-    axis.embed,
-    m.h.baseOffset,
-    m.h.defaults
-  );
-  if (spec.address < TN_CAL_START || spec.address >= TN_CAL_END) return null;
-  const bytes = Math.max(1, Math.ceil(spec.sizeBits / 8));
-  const top = 2 ** (8 * bytes);
-  const points = [];
-  for (let i = 0; i < count; i++) {
-    const raw = window.XDF.readScalar(
-      tuningState.bin,
-      Object.assign({}, spec, { address: spec.address + i * bytes })
+  let fixed = tnCursorAxes.get(axis);
+  if (fixed === undefined || (fixed && fixed.specs.length !== count)) {
+    fixed = null;
+    const spec = window.XDF.resolveEmbedded(
+      axis.embed,
+      m.h.baseOffset,
+      m.h.defaults
     );
-    points.push(raw == null ? NaN : raw < 0 ? raw + top : raw);
+    if (spec.address >= TN_CAL_START && spec.address < TN_CAL_END) {
+      const bytes = Math.max(1, Math.ceil(spec.sizeBits / 8));
+      let convert = (v) => v;
+      try {
+        convert = window.XDF.compileMath(axis.mathEquation);
+      } catch (e) {
+        /* shown as stored */
+      }
+      const dp =
+        axis.decimalpl != null ? axis.decimalpl : m.h.defaults.sigdigits;
+      fixed = {
+        specs: Array.from({ length: count }, (_, i) =>
+          Object.assign({}, spec, { address: spec.address + i * bytes })
+        ),
+        top: 2 ** (8 * bytes),
+        show: (raw) => fmtNum(convert(raw), dp),
+      };
+    }
+    tnCursorAxes.set(axis, fixed);
   }
-  let convert = (v) => v;
-  try {
-    convert = window.XDF.compileMath(axis.mathEquation);
-  } catch (e) {
-    /* shown as stored */
-  }
-  const dp = axis.decimalpl != null ? axis.decimalpl : m.h.defaults.sigdigits;
+  if (!fixed) return null;
+  const points = fixed.specs.map((spec) => {
+    const raw = window.XDF.readScalar(tuningState.bin, spec);
+    return raw == null ? NaN : raw < 0 ? raw + fixed.top : raw;
+  });
   return {
-    first: spec.address - TN_CAL_START,
+    first: fixed.specs[0].address - TN_CAL_START,
     points,
     units: axis.units || '',
-    show: (raw) => fmtNum(convert(raw), dp),
+    show: fixed.show,
   };
 }
 
@@ -93,26 +112,42 @@ function tnLiveCursorPlan(m) {
       y && m.t.rows > 1 ? y.first : null,
     ]);
   }
-  // each variable once, for the DME's packet (one request for all of them)
-  // ...with the gauges' variables beside the table's own, led by the canary
-  // that says the packet is still ours
+  // the gauges' variables ride beside the table's own
   const wanted = inputs
     .filter(Boolean)
     .map((v) => ({ address: v.address, size: v.size }));
   if (typeof tnGaugesPieces === 'function') wanted.push(...tnGaugesPieces());
+  m.cursorPlan = Object.assign({ inputs }, tnLivePlan(wanted));
+  return m.cursorPlan;
+}
+
+/**
+ * How to fetch a set of variables: as the DME's packet (each variable once,
+ * led by the canary that says the packet is still ours), or as reads by
+ * address when the packet cannot be had.
+ * @param {Array<{address:number, size:number}>} wanted
+ * @returns {{reads:Array<{address:number,length:number}>,
+ *   pieces:Array<{address:number,size:number}>, packet:LiveTune|false|undefined}}
+ *   `packet` is the connection the DME's packet is defined on, false when the
+ *   DME refused one, undefined when it has yet to be defined.
+ */
+function tnLivePlan(wanted) {
   const pieces = wanted.length
     ? [{ address: LT_CURSOR_CANARY.address, size: LT_CURSOR_CANARY.size }]
     : [];
   for (const v of wanted)
     if (!pieces.some((p) => p.address === v.address && p.size === v.size))
       pieces.push(v);
-  m.cursorPlan = {
-    inputs,
-    reads: ltCursorReads(wanted),
-    pieces,
-    packet: undefined,
-  };
-  return m.cursorPlan;
+  return { reads: ltCursorReads(wanted), pieces, packet: undefined };
+}
+
+/**
+ * Whether an edit is on the wire, or about to be: it goes first, and the
+ * cursor, the gauges and a fault scan all wait their turn.
+ * @returns {boolean}
+ */
+function tnLiveLineBusy() {
+  return tnLive.busy || tnLive.pumping || tnLive.pending.size > 0;
 }
 
 /**
@@ -341,6 +376,8 @@ async function tnLiveCursorRefresh(m, lt) {
     return p;
   });
   const [col, row] = pos;
+  if (typeof tnCorrectSample === 'function')
+    tnCorrectSample(m, col, row, blocks);
   const whole = (m.t.cols === 1 || col) && (m.t.rows === 1 || row);
   if (whole) {
     const v = ltCursorCell(m.t.cells, row ? row.index : 0, col ? col.index : 0);
@@ -381,7 +418,7 @@ async function tnLiveCursorTick() {
       tnPacketLent()
     ) {
       wait = TN_CURSOR_BACKOFF_MS; // nobody is looking: leave the line alone
-    } else if (tnLive.busy || tnLive.pumping || tnLive.pending.size) {
+    } else if (tnLiveLineBusy()) {
       wait = TN_CURSOR_YIELD_MS; // an edit is on its way: it goes first
     } else if (!(await tnLiveCursorRefresh(m, lt))) {
       wait = TN_CURSOR_BACKOFF_MS;

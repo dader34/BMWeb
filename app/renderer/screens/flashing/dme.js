@@ -267,6 +267,7 @@ async function fbDmeReadCar() {
     await fbDmeReadCarImmobilizer();
     await fbDmeReadCarMapSwitch();
     await fbDmeReadCarRevLimit();
+    await fbDmeReadCarResetRecord();
   };
   const worthIt =
     d.ident.hwRef === '0044570' &&
@@ -473,6 +474,26 @@ async function fbDmeReadCarRevLimit() {
     }
   }
   fbOptionsCarRevLimitRead();
+}
+
+/**
+ * A DME that fails one of its own checks resets itself and stores no fault,
+ * but keeps a count and the cause in RAM (core/ms45.js, ms45ReadResetRecord).
+ * Read on identify's session; a reset ordered from outside (the monitoring
+ * module's hardware line) leaves no record here.
+ */
+async function fbDmeReadCarResetRecord() {
+  const d = fbState.dme;
+  d.carResetRecord = null;
+  if (
+    d.ident.hwRef !== '0044570' ||
+    !(d.ident.progRef || '').includes(ms45Protect.SUPPORTED_PROGRAM_VERSION)
+  )
+    return;
+  const r = await ms45ReadResetRecord();
+  if (!r) return;
+  d.carResetRecord = r;
+  fbLog(`DME self-resets: ${ms45ResetRecordText(r)}`);
 }
 
 /**

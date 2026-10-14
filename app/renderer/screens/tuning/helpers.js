@@ -4,7 +4,7 @@
  * attention animations, and the table heat ramp.
  */
 
-/* exported fmtBytes, fmtNum, tnFmtAddr, tnHex2, tnHexOff, tnDefSizeLabel, makeEmpty, makeNote, tnDefsEmptyState, shake, tnFlash, heatColor */
+/* exported fmtBytes, fmtNum, tnFmtAddr, tnHex2, tnHexOff, tnDefSizeLabel, makeEmpty, makeNote, tnDefsEmptyState, shake, tnFlash, heatColor, heatColorBright */
 
 /** Bytes in a megabyte, for size labels. */
 const TN_MB = 1048576;
@@ -148,12 +148,24 @@ function tnFlash(el) {
 }
 
 /**
- * The table heat scale: pale cyan for the low end, through grey, to a soft
- * red for the high end. Light all the way, so every figure is dark ink on a
- * tint and the numbers stay the loudest thing in the grid.
+ * The table heat scale: deep teal for the low end, through slate, to a dark
+ * red for the high end. Dark all the way, like the rest of the app, so every
+ * figure is light ink on a tint and a table is not a white sheet in the
+ * middle of a dark page.
  * @type {number[][]}
  */
 const HEAT_STOPS = [
+  [0x0f, 0x55, 0x60],
+  [0x26, 0x3d, 0x45],
+  [0x4a, 0x33, 0x36],
+  [0x9a, 0x2c, 0x2c],
+];
+/**
+ * The same scale for lines and surfaces drawn on a dark plot, where a dark
+ * tint would not show: pale cyan through grey to a soft red.
+ * @type {number[][]}
+ */
+const HEAT_STOPS_BRIGHT = [
   [0x9c, 0xf2, 0xf2],
   [0xb4, 0xc8, 0xca],
   [0xc8, 0xb2, 0xb2],
@@ -161,21 +173,21 @@ const HEAT_STOPS = [
 ];
 
 /**
- * The fill for a 0..1 position on the heat ramp, and an ink that keeps
- * contrast on it (dark on the bright yellow/green middle, light on the deep
- * blue and red ends).
+ * The fill for a 0..1 position on a heat ramp, and an ink that keeps
+ * contrast on it.
  * @param {number} f - Position, clamped to 0..1.
+ * @param {number[][]} [stops] - The ramp: the cells' dark one unless given.
  * @returns {{ bg: string, ink: string }}
  */
-function heatColor(f) {
+function heatColor(f, stops = HEAT_STOPS) {
   if (!Number.isFinite(f)) f = 0;
   f = f < 0 ? 0 : f > 1 ? 1 : f;
-  const n = HEAT_STOPS.length - 1;
+  const n = stops.length - 1;
   const pos = f * n;
   const i = Math.min(n - 1, Math.floor(pos));
   const k = pos - i;
-  const a = HEAT_STOPS[i];
-  const b = HEAT_STOPS[i + 1];
+  const a = stops[i];
+  const b = stops[i + 1];
   const r = Math.round(a[0] + (b[0] - a[0]) * k);
   const g = Math.round(a[1] + (b[1] - a[1]) * k);
   const bl = Math.round(a[2] + (b[2] - a[2]) * k);
@@ -184,4 +196,13 @@ function heatColor(f) {
     bg: `rgb(${r}, ${g}, ${bl})`,
     ink: lum > 0.5 ? '#0b0f14' : '#f4f7fa',
   };
+}
+
+/**
+ * A heat colour for a graph: the bright ramp, to be seen on a dark plot.
+ * @param {number} f - Position, clamped to 0..1.
+ * @returns {{ bg: string, ink: string }}
+ */
+function heatColorBright(f) {
+  return heatColor(f, HEAT_STOPS_BRIGHT);
 }

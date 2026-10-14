@@ -1,558 +1,703 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>BMWeb</title>
-  <!-- The roundel, inlined. A data URI rather than a file so the
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
+    <title>BMWeb</title>
+    <!-- The roundel, inlined. A data URI rather than a file so the
        installer stays one self-contained page, and so a downloaded
        copy keeps its icon with no sibling to fetch. -->
-  <link rel="icon" href="data:image/svg+xml,%3Csvg%20width%3D%22100%22%20height%3D%22100%22%20viewBox%3D%220%200%20100%20100%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%20%3Ccircle%20cx%3D%2250%22%20cy%3D%2250%22%20r%3D%2248%22%20fill%3D%22%2311161c%22%20stroke%3D%22%239aa6b2%22%20stroke-width%3D%223%22%2F%3E%20%3CclipPath%20id%3D%22disc%22%3E%3Ccircle%20cx%3D%2250%22%20cy%3D%2250%22%20r%3D%2231%22%2F%3E%3C%2FclipPath%3E%20%3Cg%20clip-path%3D%22url%28%23disc%29%22%3E%20%3Crect%20x%3D%2219%22%20y%3D%2219%22%20width%3D%2231%22%20height%3D%2231%22%20fill%3D%22%23eef2f5%22%2F%3E%20%3Crect%20x%3D%2250%22%20y%3D%2250%22%20width%3D%2231%22%20height%3D%2231%22%20fill%3D%22%23eef2f5%22%2F%3E%20%3Crect%20x%3D%2250%22%20y%3D%2219%22%20width%3D%2231%22%20height%3D%2231%22%20fill%3D%22%23ff9e2c%22%2F%3E%20%3Crect%20x%3D%2219%22%20y%3D%2250%22%20width%3D%2231%22%20height%3D%2231%22%20fill%3D%22%23ff9e2c%22%2F%3E%20%3C%2Fg%3E%20%3Ccircle%20cx%3D%2250%22%20cy%3D%2250%22%20r%3D%2231%22%20fill%3D%22none%22%20stroke%3D%22%230a0d11%22%20stroke-width%3D%222%22%2F%3E%20%3C%2Fsvg%3E">
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="BMWeb" />
-  <meta name="theme-color" content="#ff9e2c" />
-  <link rel="manifest" href="manifest.webmanifest" />
-  <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg%20width%3D%22180%22%20height%3D%22180%22%20viewBox%3D%220%200%20100%20100%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Ccircle%20cx%3D%2250%22%20cy%3D%2250%22%20r%3D%2248%22%20fill%3D%22%2311161c%22%20stroke%3D%22%23ff9e2c%22%20stroke-width%3D%223%22%2F%3E%3CclipPath%20id%3D%22disc%22%3E%3Ccircle%20cx%3D%2250%22%20cy%3D%2250%22%20r%3D%2231%22%2F%3E%3C%2FclipPath%3E%3Cg%20clip-path%3D%22url%28%23disc%29%22%3E%3Crect%20x%3D%2219%22%20y%3D%2219%22%20width%3D%2231%22%20height%3D%2231%22%20fill%3D%22%23eef2f5%22%2F%3E%3Crect%20x%3D%2250%22%20y%3D%2250%22%20width%3D%2231%22%20height%3D%2231%22%20fill%3D%22%23eef2f5%22%2F%3E%3Crect%20x%3D%2250%22%20y%3D%2219%22%20width%3D%2231%22%20height%3D%2231%22%20fill%3D%22%23ff9e2c%22%2F%3E%3Crect%20x%3D%2219%22%20y%3D%2250%22%20width%3D%2231%22%20height%3D%2231%22%20fill%3D%22%23ff9e2c%22%2F%3E%3C%2Fg%3E%3Ccircle%20cx%3D%2250%22%20cy%3D%2250%22%20r%3D%2231%22%20fill%3D%22none%22%20stroke%3D%22%230a0d11%22%20stroke-width%3D%222%22%2F%3E%3C%2Fsvg%3E" />
-  <link rel="stylesheet" href="css/styles.css" />
-  <link rel="stylesheet" href="css/lookup.css" />
-  <link rel="stylesheet" href="css/tuning.css" />
-  <link rel="stylesheet" href="css/themes.css" />
-  <!-- The ISTA layout's chrome. Every rule is scoped under .ista-real, which
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg%20width%3D%22100%22%20height%3D%22100%22%20viewBox%3D%220%200%20100%20100%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%20%3Ccircle%20cx%3D%2250%22%20cy%3D%2250%22%20r%3D%2248%22%20fill%3D%22%2311161c%22%20stroke%3D%22%239aa6b2%22%20stroke-width%3D%223%22%2F%3E%20%3CclipPath%20id%3D%22disc%22%3E%3Ccircle%20cx%3D%2250%22%20cy%3D%2250%22%20r%3D%2231%22%2F%3E%3C%2FclipPath%3E%20%3Cg%20clip-path%3D%22url%28%23disc%29%22%3E%20%3Crect%20x%3D%2219%22%20y%3D%2219%22%20width%3D%2231%22%20height%3D%2231%22%20fill%3D%22%23eef2f5%22%2F%3E%20%3Crect%20x%3D%2250%22%20y%3D%2250%22%20width%3D%2231%22%20height%3D%2231%22%20fill%3D%22%23eef2f5%22%2F%3E%20%3Crect%20x%3D%2250%22%20y%3D%2219%22%20width%3D%2231%22%20height%3D%2231%22%20fill%3D%22%23ff9e2c%22%2F%3E%20%3Crect%20x%3D%2219%22%20y%3D%2250%22%20width%3D%2231%22%20height%3D%2231%22%20fill%3D%22%23ff9e2c%22%2F%3E%20%3C%2Fg%3E%20%3Ccircle%20cx%3D%2250%22%20cy%3D%2250%22%20r%3D%2231%22%20fill%3D%22none%22%20stroke%3D%22%230a0d11%22%20stroke-width%3D%222%22%2F%3E%20%3C%2Fsvg%3E"
+    />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta
+      name="apple-mobile-web-app-status-bar-style"
+      content="black-translucent"
+    />
+    <meta name="apple-mobile-web-app-title" content="BMWeb" />
+    <meta name="theme-color" content="#ff9e2c" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link
+      rel="apple-touch-icon"
+      href="data:image/svg+xml,%3Csvg%20width%3D%22180%22%20height%3D%22180%22%20viewBox%3D%220%200%20100%20100%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Ccircle%20cx%3D%2250%22%20cy%3D%2250%22%20r%3D%2248%22%20fill%3D%22%2311161c%22%20stroke%3D%22%23ff9e2c%22%20stroke-width%3D%223%22%2F%3E%3CclipPath%20id%3D%22disc%22%3E%3Ccircle%20cx%3D%2250%22%20cy%3D%2250%22%20r%3D%2231%22%2F%3E%3C%2FclipPath%3E%3Cg%20clip-path%3D%22url%28%23disc%29%22%3E%3Crect%20x%3D%2219%22%20y%3D%2219%22%20width%3D%2231%22%20height%3D%2231%22%20fill%3D%22%23eef2f5%22%2F%3E%3Crect%20x%3D%2250%22%20y%3D%2250%22%20width%3D%2231%22%20height%3D%2231%22%20fill%3D%22%23eef2f5%22%2F%3E%3Crect%20x%3D%2250%22%20y%3D%2219%22%20width%3D%2231%22%20height%3D%2231%22%20fill%3D%22%23ff9e2c%22%2F%3E%3Crect%20x%3D%2219%22%20y%3D%2250%22%20width%3D%2231%22%20height%3D%2231%22%20fill%3D%22%23ff9e2c%22%2F%3E%3C%2Fg%3E%3Ccircle%20cx%3D%2250%22%20cy%3D%2250%22%20r%3D%2231%22%20fill%3D%22none%22%20stroke%3D%22%230a0d11%22%20stroke-width%3D%222%22%2F%3E%3C%2Fsvg%3E"
+    />
+    <link rel="stylesheet" href="css/styles.css" />
+    <link rel="stylesheet" href="css/lookup.css" />
+    <link rel="stylesheet" href="css/tuning.css" />
+    <link rel="stylesheet" href="css/themes.css" />
+    <!-- The ISTA layout's chrome. Every rule is scoped under .ista-real, which
        the shell sets only while the INPA layout setting is on, so the Modern
        look and the rest of the app are untouched by it. -->
-  <link rel="stylesheet" href="css/ista-real.css" />
-</head>
-<body>
-  <!-- boot splash, dismissed once the sidecar answers. logo inherits theme vars -->
-  <div class="splash" id="splash" aria-hidden="true">
-    <div class="splash-inner">
-      <svg class="splash-logo" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="BMWeb">
-        <circle class="logo-ring" cx="50" cy="50" r="48" />
-        <clipPath id="splash-disc"><circle cx="50" cy="50" r="31"/></clipPath>
-        <g clip-path="url(#splash-disc)">
-          <rect class="logo-quad-white" x="19" y="19" width="31" height="31" />
-          <rect class="logo-quad-white" x="50" y="50" width="31" height="31" />
-          <rect class="logo-quad-color" x="50" y="19" width="31" height="31" />
-          <rect class="logo-quad-color" x="19" y="50" width="31" height="31" />
-        </g>
-        <circle class="logo-inner-ring" cx="50" cy="50" r="31" />
-      </svg>
-      <div class="splash-name">BMWeb</div>
-      <div class="splash-tag">BMW diagnostics in the browser</div>
-      <div class="splash-bar"><span class="splash-bar-fill" id="splash-bar-fill"></span></div>
-      <div class="splash-status" id="splash-status">starting engine</div>
+    <link rel="stylesheet" href="css/ista-real.css" />
+  </head>
+  <body>
+    <!-- boot splash, dismissed once the sidecar answers. logo inherits theme vars -->
+    <div class="splash" id="splash" aria-hidden="true">
+      <div class="splash-inner">
+        <svg
+          class="splash-logo"
+          viewBox="0 0 100 100"
+          xmlns="http://www.w3.org/2000/svg"
+          role="img"
+          aria-label="BMWeb"
+        >
+          <circle class="logo-ring" cx="50" cy="50" r="48" />
+          <clipPath id="splash-disc">
+            <circle cx="50" cy="50" r="31" />
+          </clipPath>
+          <g clip-path="url(#splash-disc)">
+            <rect
+              class="logo-quad-white"
+              x="19"
+              y="19"
+              width="31"
+              height="31"
+            />
+            <rect
+              class="logo-quad-white"
+              x="50"
+              y="50"
+              width="31"
+              height="31"
+            />
+            <rect
+              class="logo-quad-color"
+              x="50"
+              y="19"
+              width="31"
+              height="31"
+            />
+            <rect
+              class="logo-quad-color"
+              x="19"
+              y="50"
+              width="31"
+              height="31"
+            />
+          </g>
+          <circle class="logo-inner-ring" cx="50" cy="50" r="31" />
+        </svg>
+        <div class="splash-name">BMWeb</div>
+        <div class="splash-tag">BMW diagnostics in the browser</div>
+        <div class="splash-bar">
+          <span class="splash-bar-fill" id="splash-bar-fill"></span>
+        </div>
+        <div class="splash-status" id="splash-status">starting engine</div>
+      </div>
     </div>
-  </div>
 
-  <!-- grain + scanline overlay -->
-  <div class="grain" aria-hidden="true"></div>
+    <!-- grain + scanline overlay -->
+    <div class="grain" aria-hidden="true"></div>
 
-  <header class="topbar">
-    <!-- custom controls, window is frameless. macOS traffic-light layout -->
-    <div class="win-controls" id="win-controls">
-      <button class="win-dot win-close"  id="win-close"  title="Close" aria-label="Close"></button>
-      <button class="win-dot win-min"    id="win-min"    title="Minimize" aria-label="Minimize"></button>
-      <button class="win-dot win-zoom"   id="win-zoom"   title="Zoom" aria-label="Zoom"></button>
-    </div>
-    <!-- Back, for touch. A phone has no Esc key and the F10 slot sits off
+    <header class="topbar">
+      <!-- custom controls, window is frameless. macOS traffic-light layout -->
+      <div class="win-controls" id="win-controls">
+        <button
+          class="win-dot win-close"
+          id="win-close"
+          title="Close"
+          aria-label="Close"
+        ></button>
+        <button
+          class="win-dot win-min"
+          id="win-min"
+          title="Minimize"
+          aria-label="Minimize"
+        ></button>
+        <button
+          class="win-dot win-zoom"
+          id="win-zoom"
+          title="Zoom"
+          aria-label="Zoom"
+        ></button>
+      </div>
+      <!-- Back, for touch. A phone has no Esc key and the F10 slot sits off
          the right end of the scrolling F-key strip, so without this there
          is no way back up a screen. Hidden above 760px, where Esc and the
          F-key bar already do the job. -->
-    <button class="nav-back" id="nav-back" aria-label="Back"><span class="nav-back-label">Back</span></button>
-    <div class="brand">
-      <svg class="brand-logo" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="BMWeb logo">
-        <!-- outer ring -->
-        <circle class="logo-ring" cx="50" cy="50" r="48" />
-        <!-- inner quadrant disc -->
-        <clipPath id="disc"><circle cx="50" cy="50" r="31"/></clipPath>
-        <g clip-path="url(#disc)">
-          <!-- white quadrants: top-left, bottom-right -->
-          <rect class="logo-quad-white" x="19" y="19" width="31" height="31" />
-          <rect class="logo-quad-white" x="50" y="50" width="31" height="31" />
-          <!-- color quadrants: top-right, bottom-left -->
-          <rect class="logo-quad-color" x="50" y="19" width="31" height="31" />
-          <rect class="logo-quad-color" x="19" y="50" width="31" height="31" />
-        </g>
-        <circle class="logo-inner-ring" cx="50" cy="50" r="31" />
-      </svg>
-      <span class="brand-name">BMWeb</span>
-    </div>
-    <nav class="breadcrumbs" id="crumbs"></nav>
-    <!-- A screen's primary action, shown top-right on mobile the way the back
+      <button class="nav-back" id="nav-back" aria-label="Back">
+        <span class="nav-back-label">Back</span>
+      </button>
+      <div class="brand">
+        <svg
+          class="brand-logo"
+          viewBox="0 0 100 100"
+          xmlns="http://www.w3.org/2000/svg"
+          role="img"
+          aria-label="BMWeb logo"
+        >
+          <!-- outer ring -->
+          <circle class="logo-ring" cx="50" cy="50" r="48" />
+          <!-- inner quadrant disc -->
+          <clipPath id="disc"><circle cx="50" cy="50" r="31" /></clipPath>
+          <g clip-path="url(#disc)">
+            <!-- white quadrants: top-left, bottom-right -->
+            <rect
+              class="logo-quad-white"
+              x="19"
+              y="19"
+              width="31"
+              height="31"
+            />
+            <rect
+              class="logo-quad-white"
+              x="50"
+              y="50"
+              width="31"
+              height="31"
+            />
+            <!-- color quadrants: top-right, bottom-left -->
+            <rect
+              class="logo-quad-color"
+              x="50"
+              y="19"
+              width="31"
+              height="31"
+            />
+            <rect
+              class="logo-quad-color"
+              x="19"
+              y="50"
+              width="31"
+              height="31"
+            />
+          </g>
+          <circle class="logo-inner-ring" cx="50" cy="50" r="31" />
+        </svg>
+        <span class="brand-name">BMWeb</span>
+      </div>
+      <nav class="breadcrumbs" id="crumbs"></nav>
+      <!-- A screen's primary action, shown top-right on mobile the way the back
          arrow sits top-left. A screen registers it as an action with
          kind:'navAction' (e.g. the coding screen's Re-read); hidden when none.
          A direct topbar child so it survives .topbar-right being hidden on
          mobile. -->
-    <button class="nav-action" id="nav-action" hidden></button>
-    <!-- Functions sheet, mobile only. The F-key strip is hidden on a phone,
+      <button class="nav-action" id="nav-action" hidden></button>
+      <!-- Functions sheet, mobile only. The F-key strip is hidden on a phone,
          so a screen's remaining actions (Print, Clear filters, the shift row)
          had no home at all -- this lists them in a modal sheet. Back stays on
          the chevron; kind:'navAction' keeps its own dedicated button. -->
-    <button class="nav-fn" id="nav-fn" hidden aria-label="Functions" title="Functions">&#402;</button>
-    <div class="topbar-right">
-      <div class="status" id="link-status">
-        <span class="led" id="led"></span>
-        <span id="link-text">checking cable...</span>
-      </div>
-      <!-- The Garage: the owner's saved cars and scan history, one press
+      <button
+        class="nav-fn"
+        id="nav-fn"
+        hidden
+        aria-label="Functions"
+        title="Functions"
+      >
+        &#402;
+      </button>
+      <div class="topbar-right">
+        <div class="status" id="link-status">
+          <span class="led" id="led"></span>
+          <span id="link-text">checking cable...</span>
+        </div>
+        <!-- The Garage: the owner's saved cars and scan history, one press
            from any screen (screens/garage/screen.js wires it). -->
-      <button class="icon-btn" id="garage-btn"><span class="btn-text">Garage</span><span class="btn-icon" aria-hidden="true">⌂</span></button>
-      <!-- Workshop mode: the ISTA shell, one press from any screen
+        <button class="icon-btn" id="garage-btn">
+          <span class="btn-text">Garage</span
+          ><span class="btn-icon" aria-hidden="true">⌂</span>
+        </button>
+        <!-- Workshop mode: the ISTA shell, one press from any screen
            (screens/ista/screen.js wires it, as the Garage button is wired). -->
-      <button class="icon-btn" id="ista-btn"><span class="btn-text">ISTA</span><span class="btn-icon" aria-hidden="true">▤</span></button>
-      <button class="icon-btn" id="settings-btn"><span class="btn-text">Settings</span><span class="btn-icon" aria-hidden="true">⚙</span></button>
-    </div>
-  </header>
+        <button class="icon-btn" id="ista-btn">
+          <span class="btn-text">ISTA</span
+          ><span class="btn-icon" aria-hidden="true">▤</span>
+        </button>
+        <button class="icon-btn" id="settings-btn">
+          <span class="btn-text">Settings</span
+          ><span class="btn-icon" aria-hidden="true">⚙</span>
+        </button>
+      </div>
+    </header>
 
-  <main id="view" class="view"></main>
+    <main id="view" class="view"></main>
 
-  <footer class="fkeybar" id="fkeybar">
-    <!-- INPA prints a green RUNNING block at the far left of the bar and
+    <footer class="fkeybar" id="fkeybar">
+      <!-- INPA prints a green RUNNING block at the far left of the bar and
          centres "Select menu" over the keys. Both are chrome the INPA theme
          shows and every other theme hides. -->
-    <div class="fkeybar-run" aria-hidden="true"></div>
-    <div class="fkeys" id="fkeys"></div>
-    <div class="fkeybar-status"><span id="sb-left">ready</span><span id="sb-right"></span></div>
-  </footer>
+      <div class="fkeybar-run" aria-hidden="true"></div>
+      <div class="fkeys" id="fkeys"></div>
+      <div class="fkeybar-status">
+        <span id="sb-left">ready</span><span id="sb-right"></span>
+      </div>
+    </footer>
 
-  <!-- Mobile persistent bottom bar: Vehicles (car) · live battery voltage ·
+    <!-- Mobile persistent bottom bar: Vehicles (car) · live battery voltage ·
        Settings (gear). Hidden above 760px, where the F-key bar and top-bar
        status do the job. The status pieces are RELOCATED here from the top
        bar on mobile (app.js), so their live updaters keep working. -->
-  <nav class="mobile-tabbar" id="mobile-tabbar" aria-label="App">
-    <button class="mtab mtab-cars" id="mtab-cars" aria-label="Vehicles">
-      <!-- Material Icons "directions_car" (classic filled 24px), Apache-2.0 -->
-      <svg class="mtab-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-        <path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z"/>
-      </svg>
-    </button>
-    <div class="mtab-status" id="mtab-status"></div>
-    <button class="mtab mtab-settings" id="mtab-settings" aria-label="Settings">
-      <!-- Material Symbols "settings" (filled), Apache-2.0 -->
-      <svg class="mtab-icon" viewBox="0 -960 960 960" fill="currentColor" aria-hidden="true">
-        <path d="m370-80-16-128q-13-5-24.5-12T307-235l-119 50L78-375l103-78q-1-7-1-13.5v-27q0-6.5 1-13.5L78-585l110-190 119 50q11-8 23-15t24-12l16-128h220l16 128q13 5 24.5 12t22.5 15l119-50 110 190-103 78q1 7 1 13.5v27q0 6.5-2 13.5l103 78-110 190-118-50q-11 8-23 15t-24 12L590-80H370Zm112-260q58 0 99-41t41-99q0-58-41-99t-99-41q-59 0-99.5 41T342-480q0 58 40.5 99t99.5 41Z"/>
-      </svg>
-    </button>
-  </nav>
+    <nav class="mobile-tabbar" id="mobile-tabbar" aria-label="App">
+      <button class="mtab mtab-cars" id="mtab-cars" aria-label="Vehicles">
+        <!-- Material Icons "directions_car" (classic filled 24px), Apache-2.0 -->
+        <svg
+          class="mtab-icon"
+          viewBox="0 0 24 24"
+          fill="currentColor"
+          aria-hidden="true"
+        >
+          <path
+            d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z"
+          />
+        </svg>
+      </button>
+      <div class="mtab-status" id="mtab-status"></div>
+      <button
+        class="mtab mtab-settings"
+        id="mtab-settings"
+        aria-label="Settings"
+      >
+        <!-- Material Symbols "settings" (filled), Apache-2.0 -->
+        <svg
+          class="mtab-icon"
+          viewBox="0 -960 960 960"
+          fill="currentColor"
+          aria-hidden="true"
+        >
+          <path
+            d="m370-80-16-128q-13-5-24.5-12T307-235l-119 50L78-375l103-78q-1-7-1-13.5v-27q0-6.5 1-13.5L78-585l110-190 119 50q11-8 23-15t24-12l16-128h220l16 128q13 5 24.5 12t22.5 15l119-50 110 190-103 78q1 7 1 13.5v27q0 6.5-2 13.5l103 78-110 190-118-50q-11 8-23 15t-24 12L590-80H370Zm112-260q58 0 99-41t41-99q0-58-41-99t-99-41q-59 0-99.5 41T342-480q0 58 40.5 99t99.5 41Z"
+          />
+        </svg>
+      </button>
+    </nav>
 
-  <!-- Name the product BEFORE the browser's first paint. A native shell
+    <!-- Name the product BEFORE the browser's first paint. A native shell
        injects window.bmweb at document start, so its absence means the web
        build. This cannot wait for app.js: the parser stalls for seconds on
        the big scripts below (the offline copy embeds megabytes of data) and
        the browser paints the splash in the meantime. -->
-  <script>
-    // THE NAME AND THE CHROME ARE TWO QUESTIONS, not one.
-    //
-    // The app is BMWeb everywhere. A native host may still name itself
-    // (window.bmweb.appName); the browser, having no host at all, is BMWeb
-    // by definition.
-    //
-    // Window controls are a separate matter: only a host that hides the real
-    // titlebar wants the renderer to draw its own traffic lights. A browser
-    // has none to draw and a host that keeps its own titlebar says so
-    // (ownChrome: false), so both drop the renderer's set.
-    const IS_WEB = !window.bmweb;
-    const APP_NAME = IS_WEB ? 'BMWeb' : (window.bmweb.appName || 'BMWeb');
-    const OWN_CHROME = !IS_WEB && window.bmweb.ownChrome !== false;
-    // the static page is BMWeb (what the hosted site and every crawler
-    // sees); a native host renames itself on boot
-    if (APP_NAME !== 'BMWeb') {
-      document.title = APP_NAME;
-      document.querySelector('.splash-name').textContent = APP_NAME;
-      document.querySelector('.brand-name').textContent = APP_NAME;
-      document.querySelector('.splash-tag').textContent =
-        'BMW diagnostics';
-    }
-    if (!OWN_CHROME) {
-      // nothing for these to drive: the window's own chrome is showing
-      document.getElementById('win-controls').remove();
-      document.documentElement.classList.add('no-chrome');
-    }
-    // Paint in the saved skin from the first frame, same reason as above.
-    // core.js re-applies the full theme (translucency, dock icon) when it
-    // loads; this only sets what CSS needs.
-    try {
-      const early = window.__bmwebSettings ||
-        JSON.parse(localStorage.getItem('bmweb.settings') ||
-          localStorage.getItem('bmacw.settings') || '{}');
-      if (early.theme && early.theme !== 'instrument') {
-        document.documentElement.setAttribute('data-theme', early.theme);
+    <script>
+      // THE NAME AND THE CHROME ARE TWO QUESTIONS, not one.
+      //
+      // The app is BMWeb everywhere. A native host may still name itself
+      // (window.bmweb.appName); the browser, having no host at all, is BMWeb
+      // by definition.
+      //
+      // Window controls are a separate matter: only a host that hides the real
+      // titlebar wants the renderer to draw its own traffic lights. A browser
+      // has none to draw and a host that keeps its own titlebar says so
+      // (ownChrome: false), so both drop the renderer's set.
+      const IS_WEB = !window.bmweb;
+      const APP_NAME = IS_WEB ? 'BMWeb' : window.bmweb.appName || 'BMWeb';
+      const OWN_CHROME = !IS_WEB && window.bmweb.ownChrome !== false;
+      // the static page is BMWeb (what the hosted site and every crawler
+      // sees); a native host renames itself on boot
+      if (APP_NAME !== 'BMWeb') {
+        document.title = APP_NAME;
+        document.querySelector('.splash-name').textContent = APP_NAME;
+        document.querySelector('.brand-name').textContent = APP_NAME;
+        document.querySelector('.splash-tag').textContent = 'BMW diagnostics';
       }
-      document.documentElement.style.setProperty('--aero-opacity', '0.82');
-    } catch { /* file:// can refuse localStorage; default skin then */ }
-  </script>
+      if (!OWN_CHROME) {
+        // nothing for these to drive: the window's own chrome is showing
+        document.getElementById('win-controls').remove();
+        document.documentElement.classList.add('no-chrome');
+      }
+      // Paint in the saved skin from the first frame, same reason as above.
+      // core.js re-applies the full theme (translucency, dock icon) when it
+      // loads; this only sets what CSS needs.
+      try {
+        const early =
+          window.__bmwebSettings ||
+          JSON.parse(
+            localStorage.getItem('bmweb.settings') ||
+              localStorage.getItem('bmacw.settings') ||
+              '{}'
+          );
+        if (early.theme && early.theme !== 'instrument') {
+          document.documentElement.setAttribute('data-theme', early.theme);
+        }
+        document.documentElement.style.setProperty('--aero-opacity', '0.82');
+      } catch {
+        /* file:// can refuse localStorage; default skin then */
+      }
+    </script>
 
-  <!-- faultdb.js / faultmeta.js / faultinfo.js (generated, large) are injected
+    <!-- faultdb.js / faultmeta.js / faultinfo.js (generated, large) are injected
        lazily by loadFaultDb()/loadFaultMeta()/loadFaultInfo(). -->
-  <script src="vendor/fflate.min.js"></script>
-  <script src="core/offline-fs.js"></script>
-  <script src="core/webshim/timers.js"></script>
-  <script src="core/webshim/trace.js"></script>
-  <script src="core/webshim/framing.js"></script>
-  <script src="core/webshim/exchange.js"></script>
-  <script src="core/webshim/transport-base.js"></script>
-  <script src="core/webshim/native-bus.js"></script>
-  <script src="core/webshim/gateway-port.js"></script>
-  <script src="core/webshim/adapter-port.js"></script>
-  <script src="core/webshim/web-serial-bus.js"></script>
-  <script src="core/webshim/bus.js"></script>
-  <script src="core/webshim/ds2-wire.js"></script>
-  <script src="core/webshim/data-fetch.js"></script>
-  <script src="core/webshim/job-runner.js"></script>
-  <script src="core/webshim/variant-resolver.js"></script>
-  <script src="core/webshim/coding.js"></script>
-  <script src="core/webshim/api-router.js"></script>
-  <script src="core/webshim/install.js"></script>
-  <!-- the BEST2 job VM: one classic script per concern, in dependency order
+    <script src="vendor/fflate.min.js"></script>
+    <script src="core/offline-fs.js"></script>
+    <script src="core/webshim/timers.js"></script>
+    <script src="core/webshim/trace.js"></script>
+    <script src="core/webshim/framing.js"></script>
+    <script src="core/webshim/exchange.js"></script>
+    <script src="core/webshim/transport-base.js"></script>
+    <script src="core/webshim/native-bus.js"></script>
+    <script src="core/webshim/gateway-port.js"></script>
+    <script src="core/webshim/adapter-port.js"></script>
+    <script src="core/webshim/web-serial-bus.js"></script>
+    <script src="core/webshim/bus.js"></script>
+    <script src="core/webshim/ds2-wire.js"></script>
+    <script src="core/webshim/data-fetch.js"></script>
+    <script src="core/webshim/job-runner.js"></script>
+    <script src="core/webshim/variant-resolver.js"></script>
+    <script src="core/webshim/coding.js"></script>
+    <script src="core/webshim/api-router.js"></script>
+    <script src="core/webshim/install.js"></script>
+    <!-- the BEST2 job VM: one classic script per concern, in dependency order
        (the later pieces extend the class machine.js declares) -->
-  <script src="core/bestvm/write-guard.js"></script>
-  <script src="core/bestvm/codec.js"></script>
-  <script src="core/bestvm/machine.js"></script>
-  <script src="core/bestvm/registers.js"></script>
-  <script src="core/bestvm/operands.js"></script>
-  <script src="core/bestvm/environment.js"></script>
-  <script src="core/bestvm/executor.js"></script>
-  <script src="core/bestvm/index.js"></script>
-  <!-- The .IPO VM: values before the operators over them, the hosts and
+    <script src="core/bestvm/write-guard.js"></script>
+    <script src="core/bestvm/codec.js"></script>
+    <script src="core/bestvm/machine.js"></script>
+    <script src="core/bestvm/registers.js"></script>
+    <script src="core/bestvm/operands.js"></script>
+    <script src="core/bestvm/environment.js"></script>
+    <script src="core/bestvm/executor.js"></script>
+    <script src="core/bestvm/index.js"></script>
+    <!-- The .IPO VM: values before the operators over them, the hosts and
        emissions before the builtins that fill them, the builtin table after
        the builtins it names, the executor last (it exports the API). -->
-  <script src="core/ipovm/values.js"></script>
-  <script src="core/ipovm/operators.js"></script>
-  <script src="core/ipovm/hosts.js"></script>
-  <script src="core/ipovm/emissions.js"></script>
-  <script src="core/ipovm/tape.js"></script>
-  <script src="core/ipovm/builtin-helpers.js"></script>
-  <script src="core/ipovm/builtins-screen.js"></script>
-  <script src="core/ipovm/builtins-api.js"></script>
-  <script src="core/ipovm/builtins-text.js"></script>
-  <script src="core/ipovm/builtins-table.js"></script>
-  <script src="core/ipovm/structures.js"></script>
-  <script src="core/ipovm/suspensions.js"></script>
-  <script src="core/ipovm/vm.js"></script>
-  <!-- Reading an .IPO / .IPS the user supplies into the VM's own exec shape:
+    <script src="core/ipovm/values.js"></script>
+    <script src="core/ipovm/operators.js"></script>
+    <script src="core/ipovm/hosts.js"></script>
+    <script src="core/ipovm/emissions.js"></script>
+    <script src="core/ipovm/tape.js"></script>
+    <script src="core/ipovm/builtin-helpers.js"></script>
+    <script src="core/ipovm/builtins-screen.js"></script>
+    <script src="core/ipovm/builtins-api.js"></script>
+    <script src="core/ipovm/builtins-text.js"></script>
+    <script src="core/ipovm/builtins-table.js"></script>
+    <script src="core/ipovm/structures.js"></script>
+    <script src="core/ipovm/suspensions.js"></script>
+    <script src="core/ipovm/vm.js"></script>
+    <!-- Reading an .IPO / .IPS the user supplies into the VM's own exec shape:
        the pool before the declarations that index it, the walker before the
        assembler over it, the compiler last (it needs the walker's tables). -->
-  <script src="core/ipofile/pool.js"></script>
-  <script src="core/ipofile/decls.js"></script>
-  <script src="core/ipofile/walk.js"></script>
-  <script src="core/ipofile/exec.js"></script>
-  <script src="core/ipofile/encode.js"></script>
-  <script src="core/ipofile/lex.js"></script>
-  <script src="core/ipofile/parse.js"></script>
-  <script src="core/ipofile/emit.js"></script>
-  <script src="core/ipofile/compile.js"></script>
-  <script src="core/core/settings.js"></script>
-  <script src="core/core/ui.js"></script>
-  <script src="core/core/api.js"></script>
-  <script src="core/core/errors.js"></script>
-  <script src="core/core/actionbar.js"></script>
-  <script src="core/core/dialogs.js"></script>
-  <script src="core/journal.js"></script>
-  <script src="core/remote.js"></script>
-  <script src="core/remote-ui.js"></script>
-  <script src="core/print.js"></script>
-  <script src="core/router.js"></script>
-  <script src="core/translate.js"></script>
-  <script src="data/envmap.js"></script>
-  <script src="data/i18n-shared.js"></script>
-  <script src="core/nav.js"></script>
-  <script src="core/tuning-store.js"></script>
-  <!-- The XDF engine: six pieces that each add to window.XDF, in this order
+    <script src="core/ipofile/pool.js"></script>
+    <script src="core/ipofile/decls.js"></script>
+    <script src="core/ipofile/walk.js"></script>
+    <script src="core/ipofile/exec.js"></script>
+    <script src="core/ipofile/encode.js"></script>
+    <script src="core/ipofile/lex.js"></script>
+    <script src="core/ipofile/parse.js"></script>
+    <script src="core/ipofile/emit.js"></script>
+    <script src="core/ipofile/compile.js"></script>
+    <script src="core/core/settings.js"></script>
+    <script src="core/core/ui.js"></script>
+    <script src="core/core/api.js"></script>
+    <script src="core/core/errors.js"></script>
+    <script src="core/core/actionbar.js"></script>
+    <script src="core/core/dialogs.js"></script>
+    <script src="core/journal.js"></script>
+    <script src="core/remote.js"></script>
+    <script src="core/remote-ui.js"></script>
+    <script src="core/print.js"></script>
+    <script src="core/router.js"></script>
+    <script src="core/translate.js"></script>
+    <script src="data/envmap.js"></script>
+    <script src="data/i18n-shared.js"></script>
+    <script src="core/nav.js"></script>
+    <script src="core/tuning-store.js"></script>
+    <!-- The XDF engine: six pieces that each add to window.XDF, in this order
        (parser.js is last: it reads the others at load). -->
-  <script src="core/xdf/xml.js"></script>
-  <script src="core/xdf/math.js"></script>
-  <script src="core/xdf/codec.js"></script>
-  <script src="core/xdf/legacy.js"></script>
-  <script src="core/xdf/checksum.js"></script>
-  <script src="core/xdf/parser.js"></script>
-  <script src="core/flasher.js"></script>
-  <!-- Flashing/Tuning engines: the transmission over raw DS2, the DME over
+    <script src="core/xdf/xml.js"></script>
+    <script src="core/xdf/math.js"></script>
+    <script src="core/xdf/codec.js"></script>
+    <script src="core/xdf/legacy.js"></script>
+    <script src="core/xdf/checksum.js"></script>
+    <script src="core/xdf/parser.js"></script>
+    <script src="core/flasher.js"></script>
+    <!-- Flashing/Tuning engines: the transmission over raw DS2, the DME over
        its SGBD's jobs, the map switch builder, the session log and history. -->
-  <script src="core/gs20.js"></script>
-  <script src="core/gs20-program.js"></script>
-  <script src="core/ms45.js"></script>
-  <script src="core/livetune.js"></script>
-  <script src="core/ms45-cursor-map.js"></script>
-  <script src="core/ms45-value-map.js"></script>
-  <script src="core/livetune-cursor.js"></script>
-  <script src="core/mapswitch.js"></script>
-  <script src="core/ms45-protect.js"></script>
-  <script src="core/flash-ops.js"></script>
-  <script src="core/flash-history.js"></script>
-  <script src="ui/typed-block.js"></script>
-  <script src="ui/dropdown.js"></script>
-  <script src="ui/listbox.js"></script>
-  <script src="screens/sweep/plan.js"></script>
-  <script src="screens/sweep/resolve.js"></script>
-  <script src="screens/sweep/wire.js"></script>
-  <script src="screens/sweep/rows.js"></script>
-  <script src="screens/sweep/ident-sweep.js"></script>
-  <script src="screens/sweep/autoscan.js"></script>
-  <script src="screens/sweep/report.js"></script>
-  <script src="screens/ir.js"></script>
-  <!-- The live script runtime: the program driver, then the painters and
+    <script src="core/gs20.js"></script>
+    <script src="core/gs20-program.js"></script>
+    <script src="core/ms45.js"></script>
+    <script src="core/livetune.js"></script>
+    <script src="core/ms45-cursor-map.js"></script>
+    <script src="core/ms45-value-map.js"></script>
+    <script src="core/ms45-table-map.js"></script>
+    <script src="core/livetune-cursor.js"></script>
+    <script src="core/mapswitch.js"></script>
+    <script src="core/ms45-protect.js"></script>
+    <script src="core/flash-ops.js"></script>
+    <script src="core/flash-history.js"></script>
+    <script src="ui/typed-block.js"></script>
+    <script src="ui/dropdown.js"></script>
+    <script src="ui/listbox.js"></script>
+    <script src="screens/sweep/plan.js"></script>
+    <script src="screens/sweep/resolve.js"></script>
+    <script src="screens/sweep/wire.js"></script>
+    <script src="screens/sweep/rows.js"></script>
+    <script src="screens/sweep/ident-sweep.js"></script>
+    <script src="screens/sweep/autoscan.js"></script>
+    <script src="screens/sweep/report.js"></script>
+    <script src="screens/ir.js"></script>
+    <!-- The live script runtime: the program driver, then the painters and
        dialogs its UI adapter composes, then the entry point (it exports the
        API). -->
-  <script src="screens/ipo-runtime/script-scan.js"></script>
-  <script src="screens/ipo-runtime/translate-sets.js"></script>
-  <script src="screens/ipo-runtime/wire-policy.js"></script>
-  <script src="screens/ipo-runtime/program.js"></script>
-  <script src="screens/ipo-runtime/cells.js"></script>
-  <script src="screens/ipo-runtime/paint-modern.js"></script>
-  <script src="screens/ipo-runtime/paint-grid.js"></script>
-  <script src="screens/ipo-runtime/dialogs.js"></script>
-  <script src="screens/ipo-runtime/print.js"></script>
-  <script src="screens/ipo-runtime/protocol.js"></script>
-  <script src="screens/ipo-runtime/ui.js"></script>
-  <script src="screens/ipo-runtime/open.js"></script>
-  <script src="screens/ipo-runtime/home.js"></script>
-  <script src="screens/ecu.js"></script>
-  <script src="screens/activations.js"></script>
-  <!-- The coding codec/write stack (core/coding/). encode defines CodingEncode,
+    <script src="screens/ipo-runtime/script-scan.js"></script>
+    <script src="screens/ipo-runtime/translate-sets.js"></script>
+    <script src="screens/ipo-runtime/wire-policy.js"></script>
+    <script src="screens/ipo-runtime/program.js"></script>
+    <script src="screens/ipo-runtime/cells.js"></script>
+    <script src="screens/ipo-runtime/paint-modern.js"></script>
+    <script src="screens/ipo-runtime/paint-grid.js"></script>
+    <script src="screens/ipo-runtime/dialogs.js"></script>
+    <script src="screens/ipo-runtime/print.js"></script>
+    <script src="screens/ipo-runtime/protocol.js"></script>
+    <script src="screens/ipo-runtime/ui.js"></script>
+    <script src="screens/ipo-runtime/open.js"></script>
+    <script src="screens/ipo-runtime/home.js"></script>
+    <script src="screens/ecu.js"></script>
+    <script src="screens/activations.js"></script>
+    <!-- The coding codec/write stack (core/coding/). encode defines CodingEncode,
        which zcs reads at load; dispatch reads CodingDispatchHost; write reads
        CodingWriteStrategy and CodingBackup -- so ORDER MATTERS: codec pieces,
        then the dispatcher, then the write runner, then the screens
        (screens/coding/) that call them. Without these the write path is
        unreachable and webWriteCoding throws "not loaded". -->
-  <script src="core/coding/encode.js"></script>
-  <script src="core/coding/zcs.js"></script>
-  <script src="core/coding/auftrag.js"></script>
-  <script src="core/coding/custom.js"></script>
-  <script src="core/coding/select.js"></script>
-  <script src="core/vehicle-identity/tables.js"></script>
-  <script src="core/vehicle-identity/zcs.js"></script>
-  <script src="core/vehicle-identity/fa.js"></script>
-  <script src="core/vehicle-identity/sa-names.js"></script>
-  <script src="core/vehicle-identity/index.js"></script>
-  <script src="core/coding/dispatch-host.js"></script>
-  <script src="core/coding/dispatch.js"></script>
-  <script src="core/coding/write-strategy.js"></script>
-  <script src="core/coding/backup.js"></script>
-  <script src="core/coding/write.js"></script>
-  <script src="screens/coding/vocab.js"></script>
-  <script src="screens/coding/daten-read.js"></script>
-  <script src="screens/coding/review.js"></script>
-  <script src="screens/coding/curated.js"></script>
-  <script src="screens/coding/scan.js"></script>
-  <script src="screens/coding/functions.js"></script>
-  <script src="screens/coding/values.js"></script>
-  <script src="screens/coding/expert-tree.js"></script>
-  <script src="screens/coding/expert-mobile.js"></script>
-  <script src="screens/coding/write-review.js"></script>
-  <script src="screens/coding/hub.js"></script>
-  <script src="screens/coding/zcs-editor.js"></script>
-  <!-- The coding codec/write stack. coding-encode defines CodingEncode, which
+    <script src="core/coding/encode.js"></script>
+    <script src="core/coding/zcs.js"></script>
+    <script src="core/coding/auftrag.js"></script>
+    <script src="core/coding/custom.js"></script>
+    <script src="core/coding/select.js"></script>
+    <script src="core/vehicle-identity/tables.js"></script>
+    <script src="core/vehicle-identity/zcs.js"></script>
+    <script src="core/vehicle-identity/fa.js"></script>
+    <script src="core/vehicle-identity/sa-names.js"></script>
+    <script src="core/vehicle-identity/index.js"></script>
+    <script src="core/coding/dispatch-host.js"></script>
+    <script src="core/coding/dispatch.js"></script>
+    <script src="core/coding/write-strategy.js"></script>
+    <script src="core/coding/backup.js"></script>
+    <script src="core/coding/write.js"></script>
+    <script src="screens/coding/vocab.js"></script>
+    <script src="screens/coding/daten-read.js"></script>
+    <script src="screens/coding/review.js"></script>
+    <script src="screens/coding/curated.js"></script>
+    <script src="screens/coding/scan.js"></script>
+    <script src="screens/coding/functions.js"></script>
+    <script src="screens/coding/values.js"></script>
+    <script src="screens/coding/expert-tree.js"></script>
+    <script src="screens/coding/expert-mobile.js"></script>
+    <script src="screens/coding/write-review.js"></script>
+    <script src="screens/coding/hub.js"></script>
+    <script src="screens/coding/zcs-editor.js"></script>
+    <!-- The coding codec/write stack. coding-encode defines CodingEncode, which
        coding-zcs reads at load, so ORDER MATTERS: encode, then zcs, then the
        write dispatcher, then the screens that call them. Without these the
        write path is unreachable and webWriteCoding throws "not loaded". -->
-  <script src="screens/navlang.js"></script>
-  <script src="screens/identity.js"></script>
-  <script src="screens/vehicle-identity/discovery.js"></script>
-  <script src="screens/vehicle-identity/record.js"></script>
-  <script src="screens/vehicle-identity/codes.js"></script>
-  <script src="screens/vehicle-identity/column.js"></script>
-  <script src="screens/vehicle-identity/render.js"></script>
-  <script src="screens/vehicle-identity/detect.js"></script>
-  <script src="screens/vehicle-identity/screen.js"></script>
-  <script src="screens/special.js"></script>
-  <script src="screens/measurements.js"></script>
-  <script src="screens/live.js"></script>
-  <script src="screens/faults.js"></script>
-  <script src="screens/lookup/data.js"></script>
-  <script src="screens/lookup/search.js"></script>
-  <script src="screens/lookup/deeplink.js"></script>
-  <script src="screens/lookup/detail.js"></script>
-  <script src="screens/lookup/filters.js"></script>
-  <script src="screens/lookup/screen.js"></script>
-  <script src="screens/wiring/applicability.js"></script>
-  <script src="screens/wiring/archive.js"></script>
-  <script src="screens/wiring/docs.js"></script>
-  <script src="screens/wiring/vin.js"></script>
-  <script src="screens/wiring/tabs.js"></script>
-  <script src="screens/wiring/tree.js"></script>
-  <script src="screens/wiring/viewer.js"></script>
-  <script src="screens/wiring/document.js"></script>
-  <script src="screens/wiring/share-print.js"></script>
-  <script src="screens/wiring/picker.js"></script>
-  <script src="screens/wiring/screen.js"></script>
-  <script src="screens/etk/data.js"></script>
-  <script src="screens/etk/labels.js"></script>
-  <script src="screens/etk/select.js"></script>
-  <script src="screens/etk/series.js"></script>
-  <script src="screens/etk/vin.js"></script>
-  <script src="screens/etk/attributes.js"></script>
-  <script src="screens/etk/identify.js"></script>
-  <script src="screens/etk/catalogue.js"></script>
-  <script src="screens/etk/callouts.js"></script>
-  <script src="screens/etk/lines.js"></script>
-  <script src="screens/etk/diagram.js"></script>
-  <!-- The Garage (screens/garage/): saved cars and the scans kept against
+    <script src="screens/navlang.js"></script>
+    <script src="screens/identity.js"></script>
+    <script src="screens/vehicle-identity/discovery.js"></script>
+    <script src="screens/vehicle-identity/record.js"></script>
+    <script src="screens/vehicle-identity/codes.js"></script>
+    <script src="screens/vehicle-identity/column.js"></script>
+    <script src="screens/vehicle-identity/render.js"></script>
+    <script src="screens/vehicle-identity/detect.js"></script>
+    <script src="screens/vehicle-identity/screen.js"></script>
+    <script src="screens/special.js"></script>
+    <script src="screens/measurements.js"></script>
+    <script src="screens/live.js"></script>
+    <script src="screens/faults.js"></script>
+    <script src="screens/lookup/data.js"></script>
+    <script src="screens/lookup/search.js"></script>
+    <script src="screens/lookup/deeplink.js"></script>
+    <script src="screens/lookup/detail.js"></script>
+    <script src="screens/lookup/filters.js"></script>
+    <script src="screens/lookup/screen.js"></script>
+    <script src="screens/wiring/applicability.js"></script>
+    <script src="screens/wiring/archive.js"></script>
+    <script src="screens/wiring/docs.js"></script>
+    <script src="screens/wiring/vin.js"></script>
+    <script src="screens/wiring/tabs.js"></script>
+    <script src="screens/wiring/tree.js"></script>
+    <script src="screens/wiring/viewer.js"></script>
+    <script src="screens/wiring/document.js"></script>
+    <script src="screens/wiring/share-print.js"></script>
+    <script src="screens/wiring/picker.js"></script>
+    <script src="screens/wiring/screen.js"></script>
+    <script src="screens/etk/data.js"></script>
+    <script src="screens/etk/labels.js"></script>
+    <script src="screens/etk/select.js"></script>
+    <script src="screens/etk/series.js"></script>
+    <script src="screens/etk/vin.js"></script>
+    <script src="screens/etk/attributes.js"></script>
+    <script src="screens/etk/identify.js"></script>
+    <script src="screens/etk/catalogue.js"></script>
+    <script src="screens/etk/callouts.js"></script>
+    <script src="screens/etk/lines.js"></script>
+    <script src="screens/etk/diagram.js"></script>
+    <!-- The Garage (screens/garage/): saved cars and the scans kept against
        them. After the protocol renderer and the sweep rows it redraws stored
        reports with, and after the ETK VIN decoder it adds cars through. -->
-  <script src="screens/garage/store.js"></script>
-  <script src="screens/garage/diff.js"></script>
-  <script src="screens/garage/warn.js"></script>
-  <script src="screens/garage/env.js"></script>
-  <script src="screens/garage/screen.js"></script>
-  <script src="screens/garage/history.js"></script>
-  <script src="screens/garage/diff-screen.js"></script>
-  <script src="screens/garage/save.js"></script>
-  <script src="screens/garage/share.js"></script>
-  <!-- Job search (screens/search/): the Apps-hub app over every INPA key and
+    <script src="screens/garage/store.js"></script>
+    <script src="screens/garage/diff.js"></script>
+    <script src="screens/garage/warn.js"></script>
+    <script src="screens/garage/env.js"></script>
+    <script src="screens/garage/screen.js"></script>
+    <script src="screens/garage/history.js"></script>
+    <script src="screens/garage/diff-screen.js"></script>
+    <script src="screens/garage/save.js"></script>
+    <script src="screens/garage/share.js"></script>
+    <!-- Job search (screens/search/): the Apps-hub app over every INPA key and
        screen the build ships. data.js loads the exported index, match.js
        ranks against it, render.js draws, open.js turns a result into a
        vehicle deep link, screen.js is the app screen -- so it loads last. -->
-  <script src="screens/search/data.js"></script>
-  <script src="screens/search/match.js"></script>
-  <script src="screens/search/open.js"></script>
-  <script src="screens/search/render.js"></script>
-  <script src="screens/search/screen.js"></script>
-  <!-- Control unit tree (screens/tree/): ISTA's per-series bus topology,
+    <script src="screens/search/data.js"></script>
+    <script src="screens/search/match.js"></script>
+    <script src="screens/search/open.js"></script>
+    <script src="screens/search/render.js"></script>
+    <script src="screens/search/screen.js"></script>
+    <!-- Control unit tree (screens/tree/): ISTA's per-series bus topology,
        drawn as an SVG and coloured by the Garage's last fault scan. -->
-  <script src="screens/tree/data.js"></script>
-  <script src="screens/tree/layout.js"></script>
-  <script src="screens/tree/render.js"></script>
-  <script src="screens/tree/scan.js"></script>
-  <script src="screens/tree/treescan.js"></script>
-  <script src="screens/tree/screen.js"></script>
-  <!-- Service functions (screens/service/): the Apps-hub app that maps a
+    <script src="screens/tree/data.js"></script>
+    <script src="screens/tree/layout.js"></script>
+    <script src="screens/tree/render.js"></script>
+    <script src="screens/tree/scan.js"></script>
+    <script src="screens/tree/treescan.js"></script>
+    <script src="screens/tree/screen.js"></script>
+    <!-- Service functions (screens/service/): the Apps-hub app that maps a
        named service task (steering angle calibration, transmission
        adaptation reset) to the INPA key that performs it on the chosen car.
        data.js loads the exported mapping, open.js hands a resolved key to
        the live runtime, screen.js is the app screen -- so it loads last. -->
-  <script src="screens/service/data.js"></script>
-  <script src="screens/service/open.js"></script>
-  <script src="screens/service/screen.js"></script>
-  <script src="screens/tool32.js"></script>
-  <!-- Flashing/Tuning: the DME, transmission and Custom Options halves,
+    <script src="screens/service/data.js"></script>
+    <script src="screens/service/open.js"></script>
+    <script src="screens/service/screen.js"></script>
+    <script src="screens/tool32.js"></script>
+    <!-- Flashing/Tuning: the DME, transmission and Custom Options halves,
        then the frame that mounts them. -->
-  <script src="screens/flashing/dme.js"></script>
-  <script src="screens/flashing/tcu.js"></script>
-  <script src="screens/flashing/options.js"></script>
-  <script src="screens/flashing/log-view.js"></script>
-  <script src="screens/flashing/screen.js"></script>
-  <script src="screens/tuning/memory-spec.js"></script>
-  <script src="screens/tuning/memory-read.js"></script>
-  <!-- The Tuning screen, one piece per concern. state.js first (the shared
+    <script src="screens/flashing/dme.js"></script>
+    <script src="screens/flashing/tcu.js"></script>
+    <script src="screens/flashing/options.js"></script>
+    <script src="screens/flashing/log-view.js"></script>
+    <script src="screens/flashing/screen.js"></script>
+    <script src="screens/tuning/memory-spec.js"></script>
+    <script src="screens/tuning/memory-read.js"></script>
+    <!-- The Tuning screen, one piece per concern. state.js first (the shared
        state and constants), screen.js last (the entry point); nothing in
        between reads a later piece at load time. -->
-  <script src="screens/tuning/state.js"></script>
-  <script src="screens/tuning/helpers.js"></script>
-  <script src="screens/tuning/hex-find.js"></script>
-  <script src="screens/tuning/hex-inspector.js"></script>
-  <script src="screens/tuning/hex-view.js"></script>
-  <script src="screens/tuning/coverage.js"></script>
-  <script src="screens/tuning/table-ops.js"></script>
-  <script src="screens/tuning/edit-history.js"></script>
-  <script src="screens/tuning/item-editors.js"></script>
-  <script src="screens/tuning/comfort.js"></script>
-  <script src="screens/tuning/definition-tree.js"></script>
-  <script src="screens/tuning/table-grid.js"></script>
-  <script src="screens/tuning/table-surface.js"></script>
-  <script src="screens/tuning/table-actions.js"></script>
-  <script src="screens/tuning/table-editor.js"></script>
-  <script src="screens/tuning/xdf-library.js"></script>
-  <script src="screens/tuning/module-picker.js"></script>
-  <script src="screens/tuning/read-ecu-dialog.js"></script>
-  <script src="screens/tuning/session.js"></script>
-  <script src="screens/tuning/live-mode.js"></script>
-  <script src="screens/tuning/live-faults.js"></script>
-  <script src="screens/tuning/live-gauges.js"></script>
-  <script src="screens/tuning/live-cursor.js"></script>
-  <script src="screens/tuning/read-tune.js"></script>
-  <script src="screens/tuning/screen.js"></script>
-  <!-- Data logging, one piece per concern. store.js first (the buffers the
+    <script src="screens/tuning/state.js"></script>
+    <script src="screens/tuning/helpers.js"></script>
+    <script src="screens/tuning/hex-find.js"></script>
+    <script src="screens/tuning/hex-inspector.js"></script>
+    <script src="screens/tuning/hex-view.js"></script>
+    <script src="screens/tuning/coverage.js"></script>
+    <script src="screens/tuning/table-ops.js"></script>
+    <script src="screens/tuning/edit-history.js"></script>
+    <script src="screens/tuning/item-editors.js"></script>
+    <script src="screens/tuning/comfort.js"></script>
+    <script src="screens/tuning/definition-tree.js"></script>
+    <script src="screens/tuning/table-grid.js"></script>
+    <script src="screens/tuning/table-surface.js"></script>
+    <script src="screens/tuning/table-actions.js"></script>
+    <script src="screens/tuning/table-editor.js"></script>
+    <script src="screens/tuning/xdf-library.js"></script>
+    <script src="screens/tuning/module-picker.js"></script>
+    <script src="screens/tuning/read-ecu-dialog.js"></script>
+    <script src="screens/tuning/session.js"></script>
+    <script src="screens/tuning/live-mode.js"></script>
+    <script src="screens/tuning/live-faults.js"></script>
+    <script src="screens/tuning/live-gauges.js"></script>
+    <script src="screens/tuning/live-cursor.js"></script>
+    <script src="screens/tuning/live-correct.js"></script>
+    <script src="screens/tuning/table-uses.js"></script>
+    <script src="screens/tuning/live-adapt.js"></script>
+    <script src="screens/tuning/read-tune.js"></script>
+    <script src="screens/tuning/screen.js"></script>
+    <!-- Data logging, one piece per concern. store.js first (the buffers the
        rest read), screen.js last (the entry point the hub and router name). -->
-  <script src="screens/logging/store.js"></script>
-  <script src="screens/logging/scheduler.js"></script>
-  <script src="screens/logging/charts.js"></script>
-  <script src="screens/logging/picker.js"></script>
-  <script src="screens/logging/presets.js"></script>
-  <script src="screens/logging/packet.js"></script>
-  <script src="screens/logging/comfort.js"></script>
-  <script src="screens/logging/replay.js"></script>
-  <script src="screens/logging/screen.js"></script>
-  <!-- Script runner: the loader over core/ipofile, then the screen. -->
-  <script src="screens/script-runner/load.js"></script>
-  <script src="screens/script-runner/screen.js"></script>
-  <!-- Workshop reference documents (screens/techdata/): ISTA's technical
+    <script src="screens/logging/store.js"></script>
+    <script src="screens/logging/scheduler.js"></script>
+    <script src="screens/logging/charts.js"></script>
+    <script src="screens/logging/picker.js"></script>
+    <script src="screens/logging/presets.js"></script>
+    <script src="screens/logging/packet.js"></script>
+    <script src="screens/logging/comfort.js"></script>
+    <script src="screens/logging/tracer.js"></script>
+    <script src="screens/logging/replay.js"></script>
+    <script src="screens/logging/screen.js"></script>
+    <!-- Script runner: the loader over core/ipofile, then the screen. -->
+    <script src="screens/script-runner/load.js"></script>
+    <script src="screens/script-runner/screen.js"></script>
+    <!-- Workshop reference documents (screens/techdata/): ISTA's technical
        data, tightening torques, operating fluids and special tools. data.js
        loads the extract and evaluates each document's validity rule against
        the car, render.js draws the four body shapes, screen.js is the tab
        the ISTA shell opens -- so it loads last, and before the shell. -->
-  <script src="screens/techdata/data.js"></script>
-  <script src="screens/techdata/render.js"></script>
-  <script src="screens/techdata/screen.js"></script>
-  <!-- Repair instructions (screens/repair/): ISTA's repair manual. data.js
+    <script src="screens/techdata/data.js"></script>
+    <script src="screens/techdata/render.js"></script>
+    <script src="screens/techdata/screen.js"></script>
+    <!-- Repair instructions (screens/repair/): ISTA's repair manual. data.js
        loads the per-chassis extract (the car filter already ran, at extract
        time -- the corpus is far too big to filter in a browser), render.js
        draws the steps, hints, torques and pictures, browser.js is the
        reusable tree/list/document page (ISTA draws four of its structure
        pages this way), screen.js is the sub-tab the ISTA shell opens -- so
        it loads last, and before the shell. -->
-  <script src="screens/repair/data.js"></script>
-  <script src="screens/repair/render.js"></script>
-  <script src="screens/repair/browser.js"></script>
-  <script src="screens/repair/screen.js"></script>
-  <!-- The ISTA shell (screens/ista/): workshop mode -- a banner and tab bar
+    <script src="screens/repair/data.js"></script>
+    <script src="screens/repair/render.js"></script>
+    <script src="screens/repair/browser.js"></script>
+    <script src="screens/repair/screen.js"></script>
+    <!-- The ISTA shell (screens/ista/): workshop mode -- a banner and tab bar
        that stay up while the app's OWN screens render underneath them. It
        wraps them, it does not re-implement them, so it loads after every
        screen it opens. model.js is the pure half (tabs, routes, favourites),
        banner.js the chrome outside #view, details.js the two pages the app
        had no screen for, screen.js the entry point -- so it loads last. -->
-  <script src="screens/ista/model.js"></script>
-  <script src="screens/ista/banner.js"></script>
-  <script src="screens/ista/skin.js"></script>
-  <script src="screens/ista/admin.js"></script>
-  <script src="screens/ista/tables.js"></script>
-  <script src="screens/ista/faults.js"></script>
-  <script src="screens/ista/trees.js"></script>
-  <script src="screens/ista/basic.js"></script>
-  <script src="screens/ista/slots.js"></script>
-  <script src="screens/ista/ecuwin.js"></script>
-  <script src="screens/ista/details.js"></script>
-  <script src="screens/ista/pages.js"></script>
-  <!-- The test-module step player: core/abl/engine.js is the pure walker,
+    <script src="screens/ista/model.js"></script>
+    <script src="screens/ista/banner.js"></script>
+    <script src="screens/ista/skin.js"></script>
+    <script src="screens/ista/admin.js"></script>
+    <script src="screens/ista/tables.js"></script>
+    <script src="screens/ista/faults.js"></script>
+    <script src="screens/ista/trees.js"></script>
+    <script src="screens/ista/basic.js"></script>
+    <script src="screens/ista/slots.js"></script>
+    <script src="screens/ista/ecuwin.js"></script>
+    <script src="screens/ista/details.js"></script>
+    <script src="screens/ista/pages.js"></script>
+    <!-- The test-module step player: core/abl/engine.js is the pure walker,
        plan.js the per-car test plan store and the module loader, ablwin.js
        the window the frames show. screen.js calls all three, so they load
        ahead of it. -->
-  <script src="core/abl/engine.js"></script>
-  <script src="screens/ista/plan.js"></script>
-  <script src="screens/ista/ablwin.js"></script>
-  <script src="screens/ista/screen.js"></script>
-  <script src="screens/apps.js"></script>
-  <script src="screens/tutorial.js"></script>
-  <script src="app.js"></script>
-  <script>
-    // Service worker: register, and AUTO-UPDATE. A cache-first worker used to
-    // serve stale HTML/CSS until you force-quit the installed PWA twice --
-    // "it never refreshed". Now the worker is network-first for the app shell
-    // (see sw.js), and this drives the update handshake: when a new worker is
-    // found, tell it to activate immediately, and reload ONCE when it takes
-    // control so the fresh UI shows without any manual restart.
-    if ('serviceWorker' in navigator) {
-      let reloading = false;
-      navigator.serviceWorker.addEventListener('controllerchange', () => {
-        if (reloading) return;
-        reloading = true;
-        location.reload();
-      });
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js').then((reg) => {
-          // check for an update on every launch
-          reg.update().catch(() => {});
-          const promote = (w) => w && w.state === 'installed'
-            && navigator.serviceWorker.controller
-            && w.postMessage('SKIP_WAITING');
-          if (reg.waiting) promote(reg.waiting);
-          reg.addEventListener('updatefound', () => {
-            const nw = reg.installing;
-            if (nw) nw.addEventListener('statechange', () => promote(nw));
-          });
-        }).catch(() => {});
-      });
-    }
-  </script>
-</body>
+    <script src="core/abl/engine.js"></script>
+    <script src="screens/ista/plan.js"></script>
+    <script src="screens/ista/ablwin.js"></script>
+    <script src="screens/ista/screen.js"></script>
+    <script src="screens/apps.js"></script>
+    <script src="screens/tutorial.js"></script>
+    <script src="app.js"></script>
+    <script>
+      // Service worker: register, and AUTO-UPDATE. A cache-first worker used to
+      // serve stale HTML/CSS until you force-quit the installed PWA twice --
+      // "it never refreshed". Now the worker is network-first for the app shell
+      // (see sw.js), and this drives the update handshake: when a new worker is
+      // found, tell it to activate immediately, and reload ONCE when it takes
+      // control so the fresh UI shows without any manual restart.
+      if ('serviceWorker' in navigator) {
+        let reloading = false;
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+          if (reloading) return;
+          reloading = true;
+          location.reload();
+        });
+        window.addEventListener('load', () => {
+          navigator.serviceWorker
+            .register('./sw.js')
+            .then((reg) => {
+              // check for an update on every launch
+              reg.update().catch(() => {});
+              const promote = (w) =>
+                w &&
+                w.state === 'installed' &&
+                navigator.serviceWorker.controller &&
+                w.postMessage('SKIP_WAITING');
+              if (reg.waiting) promote(reg.waiting);
+              reg.addEventListener('updatefound', () => {
+                const nw = reg.installing;
+                if (nw) nw.addEventListener('statechange', () => promote(nw));
+              });
+            })
+            .catch(() => {});
+        });
+      }
+    </script>
+  </body>
 </html>

@@ -74,6 +74,41 @@ const ok = (m) => {
   assert.strictEqual(await R.logSaveToHistory(null), null);
   ok('saving writes one History entry carrying the run and what is in it');
 
+  const cut = R.logSnapshot(store, 1050, 1300);
+  const reset = await R.logSaveToHistory(cut, { chassis: 'E46', reset: 1200 });
+  assert.deepStrictEqual(cut.marks, [{ t: 1200, label: 'DME reset' }]);
+  assert.match(
+    reset.details,
+    /^DME reset at .*, 0 s before and 0 s after · 3 readings/
+  );
+  ok('a run cut around a reset carries the mark and says so');
+
+  // the black box: the running time falling back is a reset, once
+  const uptime = ring([], []);
+  const box = {
+    series: new Map([['u', uptime]]),
+    meta: new Map([['u', { label: 'Time since start' }]]),
+  };
+  const resets = [];
+  const watch = R.logResetWatch(box, (at) => resets.push(at));
+  const feed = (t, v) => {
+    uptime.t.push(t);
+    uptime.v.push(v);
+    watch();
+  };
+  feed(1000, 104.7);
+  feed(1200, 104.9);
+  assert.deepStrictEqual(resets, []);
+  feed(2400, 0.9); // restarted 0.9 s before this sample
+  assert.deepStrictEqual(resets, [1500]);
+  feed(2600, 1.1);
+  feed(2800, 0.2); // a wobble of the counter within the same restart: ignored
+  assert.deepStrictEqual(resets, [1500]);
+  feed(20000, 18.4);
+  feed(20200, 0.1);
+  assert.deepStrictEqual(resets, [1500, 20100]);
+  ok('the black box reports a reset once per restart, at the restart time');
+
   const a = log.series[0];
   assert.strictEqual(R.logReplayValueAt(a, 1100), 2);
   assert.strictEqual(R.logReplayValueAt(a, 1199), 2);
@@ -135,6 +170,21 @@ const ok = (m) => {
     [[1, 3], [4], [5]]
   );
   ok('Split gives a pane to each unit, and one each to channels without one');
+
+  assert.deepStrictEqual(R.logReplayPalette(['#f4d35e', '#5ec8f4'], false), [
+    '#f4d35e',
+    '#5ec8f4',
+  ]);
+  const dark = R.logReplayPalette(['#f4d35e', '#5ec8f4', '#e0e0e0'], true);
+  for (const c of dark) {
+    const n = parseInt(c.slice(1), 16);
+    const l =
+      (Math.max(n >> 16, (n >> 8) & 255, n & 255) +
+        Math.min(n >> 16, (n >> 8) & 255, n & 255)) /
+      510;
+    assert.ok(l <= 0.41, `${c} is still light`);
+  }
+  ok('a light page gets the traces darkened; a dark page keeps them');
 
   console.log(`\nlogging-replay: ${passed} checks passed`);
 })().catch((e) => {

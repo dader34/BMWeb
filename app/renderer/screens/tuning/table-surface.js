@@ -386,7 +386,7 @@ function tnGraphDraw(m, s) {
     const isLive = k === liveLine;
     const colour = isLive
       ? '#ffffff'
-      : heatColor(lines > 1 ? k / (lines - 1) : 0.5).bg;
+      : heatColorBright(lines > 1 ? k / (lines - 1) : 0.5).bg;
     g.strokeStyle = colour;
     g.fillStyle = '#05070a';
     g.lineWidth = isLive ? 2 : 1.25;
@@ -548,7 +548,7 @@ function tnSurfaceDraw(m, s = m.surface) {
   for (const p of patches) {
     // the patch the DME is reading in is the dark one
     g.fillStyle =
-      p.r === liveR && p.c === liveC ? '#0b2a6b' : heatColor(p.f).bg;
+      p.r === liveR && p.c === liveC ? '#0b2a6b' : heatColorBright(p.f).bg;
     g.beginPath();
     p.pts.forEach((k, i) => (i ? g.lineTo(k.x, k.y) : g.moveTo(k.x, k.y)));
     g.closePath();

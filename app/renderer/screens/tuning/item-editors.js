@@ -81,6 +81,7 @@ function tnRenderConstantEditor(ed, item, container) {
       </div>
       ${invertible ? '' : '<div class="tn-warn">This parameter’s MATH is not invertible; read-only.</div>'}`;
   container.appendChild(wrap);
+  if (typeof tnUsesRender === 'function') tnUsesRender(item, container);
 
   const numEl = wrap.querySelector('.tn-num');
   const applyBtn = wrap.querySelector('.tn-apply');

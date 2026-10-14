@@ -974,7 +974,39 @@
   color: var(--ink-dim);
   border-bottom: 1px solid var(--line);
 }
-.tn-modal-tools {
+/* what the program does with the item: its readers, their task, what they write */
+.tn-uses {
+  padding: 8px 14px;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--ink-dim);
+  border-bottom: 1px solid var(--line);
+  max-height: 120px;
+  overflow: auto;
+}
+.tn-edit + .tn-uses {
+  margin-top: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.tn-uses-none {
+  color: var(--ink-faint);
+}
+.tn-uses-row code {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--ink-faint);
+}
+.tn-uses-row i {
+  font-style: normal;
+  font-family: var(--mono);
+  color: var(--ink);
+}
+.tn-uses-task {
+  color: var(--amber);
+}
+.tn-modal-tools,
+.tn-correct-bar {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -982,6 +1014,27 @@
   padding: 9px 14px;
   border-bottom: 1px solid var(--line);
   background: var(--panel-2);
+}
+/* the correction bar: what the lambda control says each cell wants */
+.tn-correct-bar {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--ink-dim);
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+.tn-correct-bar[hidden] {
+  display: none;
+}
+.tn-correct-l {
+  color: var(--ink-faint);
+}
+.tn-correct-status {
+  color: var(--ink);
+}
+.tn-correct-apply {
+  color: var(--amber) !important;
+  font-weight: 600;
 }
 .tn-tool-check {
   display: inline-flex;
@@ -1031,6 +1084,106 @@
 .tn-modal-tools .btn {
   padding: 4px 10px;
   font-size: 11.5px;
+}
+/* ---- the dialog's controls: pills for the toggles, grouped segments for
+   the operations, one quiet height for all of them ---------------------- */
+.tn-modal-tools {
+  gap: 6px;
+  padding: 8px 14px;
+}
+.tn-pill {
+  height: 26px;
+  padding: 0 11px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--ink-dim);
+  cursor: pointer;
+  line-height: 1;
+  gap: 0;
+}
+.tn-pill input {
+  appearance: none;
+  width: 0;
+  height: 0;
+  margin: 0;
+  border: 0;
+}
+.tn-pill:hover {
+  color: var(--ink);
+  border-color: var(--line-bright, var(--line));
+}
+.tn-pill:has(input:checked),
+.tn-pill.active {
+  color: var(--amber);
+  border-color: var(--amber);
+}
+.tn-pill:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.tn-graph-pick .tn-live-apps-btn {
+  height: 26px;
+  padding: 0 11px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  line-height: 1;
+}
+.tn-group {
+  display: inline-flex;
+  align-items: stretch;
+  height: 26px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--bg);
+}
+.tn-group > button {
+  border: 0;
+  border-left: 1px solid var(--line);
+  background: transparent;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--ink-dim);
+  padding: 0 9px;
+  cursor: pointer;
+  line-height: 1;
+}
+.tn-group > :first-child {
+  border-left: 0;
+}
+.tn-group > button:hover {
+  color: var(--ink);
+  background: var(--raised);
+}
+.tn-group > button.on {
+  color: var(--amber);
+  background: var(--raised);
+}
+.tn-group > button:disabled {
+  opacity: 0.4;
+  cursor: default;
+  background: transparent;
+}
+.tn-group .tn-bulk-v {
+  width: 72px;
+  height: auto;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0 8px;
+  font-size: 11px;
+}
+.tn-group .tn-bulk-v:focus {
+  box-shadow: inset 0 -2px 0 var(--amber);
+}
+.tn-modal-foot .tn-sel-info {
+  width: auto;
+  min-width: 0;
+  flex: 1 1 16em;
+  text-align: right;
 }
 .tn-modal-grid {
   flex: 1;
@@ -1986,8 +2139,8 @@ body.apps-section .view:has(.tn-workspace) > .tn-workspace {
   border-bottom: 1px solid var(--line);
 }
 .tn-modal .tn-table th {
-  border-right-color: #a9b2ba;
-  border-bottom-color: #a9b2ba;
+  border-right-color: var(--line-bright, var(--line));
+  border-bottom-color: var(--line-bright, var(--line));
 }
 .tn-modal .tn-table tr > *:last-child {
   border-right: 0;
@@ -2000,7 +2153,7 @@ body.apps-section .view:has(.tn-workspace) > .tn-workspace {
 }
 /* with heat on, thin grey seams: a ruled sheet, each cell its own box */
 .tn-modal .tn-table.tn-heat-on td {
-  border-color: rgba(0, 0, 0, 0.28);
+  border-color: rgba(0, 0, 0, 0.5);
 }
 /* with heat off, zebra by row orients the eye across a wide table */
 .tn-modal .tn-table:not(.tn-heat-on) tbody tr:nth-child(even) td {
@@ -2012,8 +2165,8 @@ body.apps-section .view:has(.tn-workspace) > .tn-workspace {
 .tn-modal .tn-table .tn-rowhead {
   /* light strips with dark figures: the break points frame the map and
      are never mistaken for it */
-  background: #dfe4e8;
-  color: #10161c;
+  background: var(--panel-2);
+  color: var(--ink-dim);
   font-size: 12px;
   font-weight: 500;
   position: sticky;
@@ -2027,13 +2180,13 @@ body.apps-section .view:has(.tn-workspace) > .tn-workspace {
   top: 0;
   z-index: 2;
   text-align: center;
-  border-bottom: 1px solid #8b959e;
+  border-bottom: 1px solid var(--line-bright, var(--line));
 }
 .tn-modal .tn-table .tn-rowhead {
   left: 0;
   z-index: 1;
   text-align: right;
-  border-right: 1px solid #8b959e;
+  border-right: 1px solid var(--line-bright, var(--line));
 }
 .tn-modal .tn-table thead .tn-corner {
   z-index: 3;
@@ -2078,18 +2231,18 @@ body.apps-section .view:has(.tn-workspace) > .tn-workspace {
   text-align: right;
 }
 .tn-modal .tn-table th .tn-axis-cell:focus {
-  background: #fff;
-  color: #0b0f14;
+  background: var(--bg);
+  color: var(--ink);
   box-shadow: inset 0 0 0 2px #2f6fed;
 }
 .tn-modal .tn-table th .tn-axis-cell.tn-cell-edited {
-  color: #a35a00;
+  color: var(--amber);
   font-weight: 700;
 }
 /* the axis a selection sits on lights up: you always know where you are */
 .tn-modal .tn-table th.tn-ax-hl {
-  background: #f6e58d;
-  color: #10161c;
+  background: rgba(244, 211, 94, 0.22);
+  color: var(--ink);
 }
 
 /* the corner names both axes, the way a printed map does: row axis at the
@@ -2103,7 +2256,7 @@ body.apps-section .view:has(.tn-workspace) > .tn-workspace {
   overflow: hidden;
   font-size: 9px;
   letter-spacing: 0.04em;
-  color: #5a6570;
+  color: var(--ink-faint);
 }
 /* two short lines in the one header row: the units never fit side by side
    in the row-axis column, and wrapping made the header twice as tall */
@@ -2152,11 +2305,11 @@ body.apps-section .view:has(.tn-workspace) > .tn-workspace {
   box-shadow: inset 0 0 0 2px #2f6fed;
 }
 /* editing: the cell steps out of the map and becomes an input again */
-/* white, with dark figures: on a sheet of light tints a dark box read as a
-   hole, not as the cell being typed in */
+/* near black, with white figures and a ring: darker than any tint around
+   it, so the cell being typed in is unmistakable */
 .tn-modal .tn-table td .tn-cell:focus {
-  background: #fff !important;
-  color: #0b0f14 !important;
+  background: #05080b !important;
+  color: #ffffff !important;
   box-shadow: inset 0 0 0 2px #2f6fed;
 }
 /* changed: bold figure and a corner tick. Amber text when there is no heat
@@ -2203,7 +2356,7 @@ body.apps-section .view:has(.tn-workspace) > .tn-workspace {
   width: 72px;
   height: 8px;
   border-radius: 2px;
-  background: linear-gradient(90deg, #9cf2f2, #b4c8ca, #c8b2b2, #ea7474);
+  background: linear-gradient(90deg, #0f5560, #263d45, #4a3336, #9a2c2c);
 }
 
 /* the modal chrome itself, quieter so the DATA is the loudest thing */
@@ -2370,10 +2523,22 @@ body.apps-section .view:has(.tn-workspace) > .tn-workspace {
    armed, the way a record light does. */
 .tn-live {
   display: flex;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 10px;
   width: 100%;
   margin-top: 2px;
+}
+/* live mode's own things that hide and show (buttons, windows, menus,
+   the connecting line) each have a display of their own, which would beat
+   the attribute */
+.tn-live-open[hidden],
+.tn-live-apps[hidden],
+.tn-live-apps-menu[hidden],
+.tn-cursor-info[hidden],
+.tn-surface-win[hidden],
+.tn-live-connecting[hidden] {
+  display: none;
 }
 .tn-live-arm {
   font-family: var(--mono);
@@ -2391,13 +2556,11 @@ body.apps-section .view:has(.tn-workspace) > .tn-workspace {
 .tn-live .tn-live-save {
   margin-left: auto;
 }
-/* The live row at one height and one type size. Its buttons and ticks keep
-   their words on one line and never shrink; when the row runs out of room it
-   is the status sentence that gives way (it ellipsises), not the controls --
-   squeezed, every button had wrapped to two lines at a different size. */
-.tn-live {
-  flex-wrap: nowrap;
-}
+/* The live row (nowrap, above) at one height and one type size. Its buttons
+   and ticks keep their words on one line and never shrink; when the row runs
+   out of room it is the status sentence that gives way (it ellipsises), not
+   the controls -- squeezed, every button had wrapped to two lines at a
+   different size. */
 .tn-live > .btn,
 .tn-live .tn-live-apps-btn {
   flex: none;
@@ -2453,9 +2616,6 @@ body.apps-section .view:has(.tn-workspace) > .tn-workspace {
   color: #0b0f14;
   text-decoration: none;
 }
-.tn-live-open[hidden] {
-  display: none;
-}
 /* armed, but the ECU has stopped answering */
 .tn-live-arm.on.lost {
   background: transparent;
@@ -2474,8 +2634,8 @@ body.apps-section .view:has(.tn-workspace) > .tn-workspace {
 }
 
 /* The live cursor: the cell of the open table the DME is reading. */
-/* the cells the value is blended from: darkened by their share (--live-w,
-   set per cell), over whatever heat colour they carry. Shading only. */
+/* the cells the value is blended from: lit by their share (--live-w, set
+   per cell), over whatever heat colour they carry. Shading only. */
 .tn-modal .tn-table td .tn-cell.tn-cell-deep {
   color: #f4f7fa !important;
 }
@@ -2483,12 +2643,13 @@ body.apps-section .view:has(.tn-workspace) > .tn-workspace {
    specific shadow rules (a red edge, or none with heat on), and those wiped
    the shading off exactly those cells while their figures still went light */
 .tn-modal .tn-table td .tn-cell.tn-cell-near {
-  box-shadow: inset 0 0 0 100px rgba(11, 15, 20, var(--live-w, 0.2)) !important;
+  box-shadow: inset 0 0 0 100px
+    rgba(255, 255, 255, calc(var(--live-w, 0.2) * 0.42)) !important;
 }
 .tn-modal .tn-table td .tn-cell.tn-cell-near.sel {
   box-shadow:
     inset 0 0 0 2px #2f6fed,
-    inset 0 0 0 100px rgba(11, 15, 20, var(--live-w, 0.2)) !important;
+    inset 0 0 0 100px rgba(255, 255, 255, calc(var(--live-w, 0.2) * 0.42)) !important;
 }
 /* the live readout: a strip between the toolbar and the grid, one labelled
    figure per axis and the table's value there. Fixed-width figures, so the
@@ -2504,9 +2665,6 @@ body.apps-section .view:has(.tn-workspace) > .tn-workspace {
   font-family: var(--mono);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-}
-.tn-cursor-info[hidden] {
-  display: none;
 }
 .tn-cursor-tag {
   font-size: 10px;
@@ -2552,9 +2710,6 @@ body.apps-section .view:has(.tn-workspace) > .tn-workspace {
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
   resize: both;
   overflow: hidden;
-}
-.tn-surface-win[hidden] {
-  display: none;
 }
 .tn-surface-head {
   display: flex;
@@ -2669,19 +2824,19 @@ body.apps-section .view:has(.tn-workspace) > .tn-workspace {
    cells at the same pitch (measured off the real ones by the editor), so it
    reads as the filled corner of a sheet. The rules scroll with the table. */
 .tn-modal-back.tn-docked .tn-modal-grid.tn-sheet {
-  /* light, like the table's own header cells: dark blanks beside a light
-     table read as a hole in the page */
-  background-color: #eef1f3;
+  /* the page's own dark, ruled like the table: the filled corner of a
+     sheet, not a light panel beside it */
+  background-color: var(--bg);
   background-image:
     linear-gradient(
       to right,
       transparent calc(100% - 1px),
-      #b9c1c8 calc(100% - 1px)
+      var(--line) calc(100% - 1px)
     ),
     linear-gradient(
       to bottom,
       transparent calc(100% - 1px),
-      #b9c1c8 calc(100% - 1px)
+      var(--line) calc(100% - 1px)
     );
   background-size: var(--sheet-w) var(--sheet-h);
   background-position: var(--sheet-x) var(--sheet-y);
@@ -2690,14 +2845,14 @@ body.apps-section .view:has(.tn-workspace) > .tn-workspace {
 /* on a sheet the table's own outer edges are ruled too, or the blank cells
    next to it would have no line on that side */
 .tn-modal-back.tn-docked .tn-table tr > *:last-child {
-  border-right: 1px solid #a9b2ba;
+  border-right: 1px solid var(--line-bright, var(--line));
 }
 .tn-modal-back.tn-docked .tn-table tbody tr:last-child > * {
-  border-bottom: 1px solid #a9b2ba;
+  border-bottom: 1px solid var(--line-bright, var(--line));
 }
 .tn-modal-back.tn-docked .tn-table.tn-heat-on tr > td:last-child,
 .tn-modal-back.tn-docked .tn-table.tn-heat-on tbody tr:last-child > td {
-  border-color: rgba(0, 0, 0, 0.28);
+  border-color: rgba(0, 0, 0, 0.5);
 }
 /* the tools on one line: the hint gives way first */
 .tn-modal-back.tn-docked .tn-modal-tools {
@@ -2737,10 +2892,6 @@ body.apps-section .view:has(.tn-workspace) > .tn-workspace {
 /* "UI apps": the floating windows, picked from a list under one button */
 .tn-live-apps {
   position: relative;
-}
-.tn-live-apps[hidden],
-.tn-live-apps-menu[hidden] {
-  display: none;
 }
 .tn-live-apps-btn {
   font-size: 11.5px;
@@ -2922,11 +3073,6 @@ body.apps-section .view:has(.tn-workspace) > .tn-workspace {
   gap: 12px;
   padding: 4px 0;
 }
-/* hidden until there is progress to show: display:flex beat the attribute,
-   and a spinner turned in the dialog before anything had been started */
-.tn-live-connecting[hidden] {
-  display: none;
-}
 .tn-live-prog {
   font-family: var(--mono);
   font-size: 12px;
@@ -2948,4 +3094,86 @@ body.apps-section .view:has(.tn-workspace) > .tn-workspace {
   flex: 1;
   height: auto;
   min-height: 420px;
+}
+
+/* the adaptations window shares the fault window's bar and table */
+.tn-adapt-table td:last-child {
+  text-align: right;
+  white-space: nowrap;
+}
+.tn-adapt-group td {
+  padding-top: 8px;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.tn-adapt-clear-wrap {
+  position: relative;
+}
+.tn-adapt-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 190px;
+  padding: 6px;
+  border: 1px solid var(--line-bright, var(--line));
+  background: var(--panel-2);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55);
+}
+.tn-adapt-menu[hidden] {
+  display: none;
+}
+.tn-adapt-menu hr {
+  border: 0;
+  border-top: 1px solid var(--line);
+  margin: 4px 0;
+}
+.tn-adapt-menu-item {
+  text-align: left;
+  font: inherit;
+  font-size: 11.5px;
+  color: var(--ink);
+  background: none;
+  border: 0;
+  border-radius: 5px;
+  padding: 5px 8px;
+  cursor: pointer;
+}
+.tn-adapt-menu-item:hover {
+  background: var(--line);
+}
+.tn-adapt-group td:last-child {
+  text-align: right;
+}
+.tn-adapt-section-clear {
+  font: inherit;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 1px 6px;
+  cursor: pointer;
+}
+.tn-adapt-section-clear:hover {
+  color: var(--amber);
+  border-color: var(--amber);
+}
+
+/* the editor's floating windows are hidden with its page */
+body.tn-away .tn-gauge-win,
+body.tn-away .tn-surface-win {
+  display: none !important;
+}
+.tn-adapt-delta {
+  margin-right: 8px;
+  font-size: 10px;
+  color: var(--amber);
 }

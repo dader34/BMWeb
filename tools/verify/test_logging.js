@@ -97,6 +97,12 @@ assert.strictEqual(
   '',
   'a placeholder _EINH names no unit'
 );
+assert.strictEqual(logUnitFor('MW4189_WERT', { MW4189_WERT: 1.92188 }), '');
+assert.strictEqual(
+  logUnitFor('MW4189_WERT', { MW4189_WERT: '0.5 bar' }),
+  'bar'
+);
+ok('a bare number has no unit; a trailing word is one');
 assert.strictEqual(
   logUnitFor('STAT_SPANNUNG', { STAT_SPANNUNG: '13.8 V' }),
   'V',

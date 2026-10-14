@@ -87,12 +87,7 @@ function tnFaultsOpened(on) {
 /** Whether the line is free for a read: armed, connected, no edit waiting. */
 function tnFaultsMayRead() {
   return (
-    tnLive.armed &&
-    !!tnLive.lt &&
-    tnLive.link !== 'lost' &&
-    !tnLive.busy &&
-    !tnLive.pumping &&
-    !tnLive.pending.size
+    tnLive.armed && !!tnLive.lt && tnLive.link !== 'lost' && !tnLiveLineBusy()
   );
 }
 

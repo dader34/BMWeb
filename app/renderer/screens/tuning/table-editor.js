@@ -100,26 +100,48 @@ function tnTableModalHtml(item, t, m) {
       </div>
       ${item.description ? `<div class="tn-modal-desc">${esc(item.description)}</div>` : ''}
       <div class="tn-modal-tools">
-        <label class="tn-tool-check"><input type="checkbox" class="tn-heat" checked> heat</label>
-        <span class="tn-tool-sep"></span>
-        <span class="tn-sel-info">click, drag, or shift-click to select</span>
+        <label class="tn-tool-check tn-pill" title="Colour the cells by value"><input type="checkbox" class="tn-heat" checked> heat</label>
+        <label class="tn-tool-check tn-pill" title="Shade cells by how far they are from the loaded file"><input type="checkbox" class="tn-cmp"> vs original</label>
+        <button type="button" class="tn-pill tn-correct-toggle" title="Work out a correction for each cell from the lambda control while the cursor runs" ${ro}>correct</button>
         <span class="tn-tool-spacer"></span>
-        <input type="text" class="tn-bulk-v" placeholder="value" spellcheck="false"
-               ${ro} />
-        <button type="button" class="btn tn-bulk" data-op="set"   ${ro}>set</button>
-        <button type="button" class="btn tn-bulk" data-op="add"   ${ro}>+/−</button>
-        <button type="button" class="btn tn-bulk" data-op="scale" ${ro}>× %</button>
-        <span class="tn-tool-sep"></span>
-        <button type="button" class="btn tn-op" data-op="interp-h" title="Interpolate across the selection, left to right (Shift+H)" ${ro}>interp ↔</button>
-        <button type="button" class="btn tn-op" data-op="interp-v" title="Interpolate down the selection, top to bottom (Shift+V)" ${ro}>interp ↕</button>
-        <button type="button" class="btn tn-op" data-op="interp-2d" title="Interpolate both axes (Shift+I)" ${ro}>interp 2D</button>
-        <button type="button" class="btn tn-op" data-op="smooth" title="Smooth the selection (Shift+S)" ${ro}>smooth</button>
-        <span class="tn-tool-sep"></span>
-        <button type="button" class="btn tn-op" data-op="undo" title="Undo the last change (Cmd/Ctrl+Z)" ${ro}>undo</button>
-        <button type="button" class="btn tn-op" data-op="redo" title="Redo the change you undid (Cmd/Ctrl+Shift+Z)" ${ro}>redo</button>
-        <button type="button" class="btn tn-op" data-op="revert" title="Revert the selection to the values this file loaded with" ${ro}>revert</button>
-        <span class="tn-tool-sep"></span>
-        <label class="tn-tool-check"><input type="checkbox" class="tn-cmp"> vs original</label>
+        <span class="tn-group" title="Type a value, then set the selection to it, add it, or scale by it as a percentage">
+          <input type="text" class="tn-bulk-v" placeholder="value" spellcheck="false" ${ro} />
+          <button type="button" class="tn-bulk" data-op="set" title="Set the selection to the value" ${ro}>set</button>
+          <button type="button" class="tn-bulk" data-op="add" title="Add the value to the selection (negative subtracts)" ${ro}>+/−</button>
+          <button type="button" class="tn-bulk" data-op="scale" title="Scale the selection by the value, as a percentage" ${ro}>×%</button>
+        </span>
+        <span class="tn-group">
+          <button type="button" class="tn-op" data-op="interp-h" title="Interpolate across the selection, left to right (Shift+H)" ${ro}>interp ↔</button>
+          <button type="button" class="tn-op" data-op="interp-v" title="Interpolate down the selection, top to bottom (Shift+V)" ${ro}>↕</button>
+          <button type="button" class="tn-op" data-op="interp-2d" title="Interpolate both axes (Shift+I)" ${ro}>2D</button>
+          <button type="button" class="tn-op" data-op="smooth" title="Smooth the selection (Shift+S)" ${ro}>smooth</button>
+        </span>
+        <span class="tn-group">
+          <button type="button" class="tn-op" data-op="undo" title="Undo the last change (Cmd/Ctrl+Z)" ${ro}>undo</button>
+          <button type="button" class="tn-op" data-op="redo" title="Redo the change you undid (Cmd/Ctrl+Shift+Z)" ${ro}>redo</button>
+          <button type="button" class="tn-op" data-op="revert" title="Revert the selection to the values this file loaded with" ${ro}>revert</button>
+        </span>
+      </div>
+      <div class="tn-correct-bar" hidden>
+        <span class="tn-correct-status">off</span>
+        <span class="tn-tool-spacer"></span>
+        <span class="tn-correct-l">bank</span>
+        <span class="tn-group tn-correct-bank">
+          <button type="button" class="on" data-v="both">both</button>
+          <button type="button" data-v="1">1</button>
+          <button type="button" data-v="2">2</button>
+        </span>
+        <span class="tn-correct-l">apply</span>
+        <span class="tn-group tn-correct-factor">
+          <button type="button" data-v="0.25">25%</button>
+          <button type="button" class="on" data-v="0.5">50%</button>
+          <button type="button" data-v="1">100%</button>
+        </span>
+        <span class="tn-correct-l">of the mean trim</span>
+        <span class="tn-group">
+          <button type="button" class="tn-correct-clear">clear</button>
+          <button type="button" class="tn-correct-apply">Apply</button>
+        </span>
       </div>
       <div class="tn-modal-grid"></div>
       <div class="tn-modal-foot">
@@ -128,6 +150,7 @@ function tnTableModalHtml(item, t, m) {
     range +
     `${m.invertible ? '' : ' · read-only (MATH not invertible)'}</span>
         <span class="tn-heat-scale" hidden><b class="tn-hs-lo"></b><i></i><b class="tn-hs-hi"></b></span>
+        <span class="tn-sel-info">click, drag, or shift-click to select</span>
         <span class="tn-modal-keys">+/− step ${fmtNum(m.coarseStep, Math.max(dp, 2))} · [ ] fine ${fmtNum(m.fineStep, Math.max(dp, 2))} · ⇧H/⇧V/⇧I interp · ⇧S smooth · ⌘Z undo · ⇧⌘Z redo</span>
         <button type="button" class="btn tn-modal-done">Done</button>
       </div>`
@@ -321,6 +344,7 @@ function tnOpenTableModal(ed, item) {
 
   tnTableBuildGrid(m);
   tnTableWireTools(m);
+  if (typeof tnCorrectWire === 'function') tnCorrectWire(m);
   if (typeof tnSurfaceAttach === 'function') tnSurfaceAttach(m);
 
   const onKey = (e) => tnTableOnKey(m, e);

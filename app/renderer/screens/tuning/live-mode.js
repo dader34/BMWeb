@@ -17,7 +17,9 @@
 /** The calibration as an IMAGE offset: XDF BASEOFFSET is 0x40000, so a
  *  parameter's mmedaddress is also its offset into the DME's calibration. */
 const TN_CAL_START = 0x40000;
-const TN_CAL_END = TN_CAL_START + 0x1d000;
+/** Bytes in the calibration. */
+const TN_CAL_LENGTH = 0x1d000;
+const TN_CAL_END = TN_CAL_START + TN_CAL_LENGTH;
 /** The MS45 definition live mode auto-loads from the shared library (full 1 MB image). */
 const TN_LIVE_XDF = 'Siemens_MS451_457LO02S_1024K.xdf';
 /** Calibration offsets the DME's safety monitor sums against a stored value
@@ -78,7 +80,8 @@ function tnLiveBlankImage() {
 function tnLiveBaseline(start, stored) {
   if (!tnLiveBlankImage() || !tuningState.orig) return;
   tuningState.orig.set(stored, start);
-  for (let i = 0; i < stored.length; i++) tnLive.baseKnown.add(start + i);
+  const at = start - TN_CAL_START;
+  tnLive.baseKnown.fill(1, at, at + stored.length);
 }
 
 /**
@@ -102,7 +105,7 @@ function tnLiveBaselineKnown(item) {
     a < Math.min(TN_CAL_END, range.end);
     a++
   )
-    if (!tnLive.baseKnown.has(a)) return false;
+    if (!tnLive.baseKnown[a - TN_CAL_START]) return false;
   return true;
 }
 
@@ -146,7 +149,7 @@ const tnLive = {
   saveAsked: false, // the DME will save what is open at key-off (builds that save only on request)
   wholeRead: false, // the image is a whole tune read off the ECU: nothing to read on demand
   editedAt: 0, // when the last edit was made
-  baseKnown: new Set(), // image offsets whose original (the DME's stored value) has been read
+  baseKnown: new Uint8Array(TN_CAL_LENGTH), // 1 per calibration byte whose original (the DME's stored value) has been read
   link: 'up', // 'lost' while the DME is out of reach
   why: 'silent', // how: 'ignition' (the cable says KL15 is off), 'cable', or 'silent'
   probe: null, // the state read that is out, so a hung one is not piled onto
@@ -333,6 +336,30 @@ function tnLiveConnectingModal(title) {
 }
 
 /**
+ * Run a step that holds the wire, with the toolbar showing it: busy (and
+ * what it is doing) while `fn` runs, repainted before and after. The step's
+ * own error handling sets `tnLive.error`; this only clears it going in.
+ * @template T
+ * @param {string} progress - What the status line says meanwhile ('' for
+ *   the plain "syncing…").
+ * @param {() => Promise<T>} fn
+ * @returns {Promise<T>}
+ */
+async function tnLiveWhileBusy(progress, fn) {
+  tnLive.busy = true;
+  tnLive.error = null;
+  tnLive.progress = progress;
+  tnLivePaint();
+  try {
+    return await fn();
+  } finally {
+    tnLive.busy = false;
+    tnLive.progress = '';
+    tnLivePaint();
+  }
+}
+
+/**
  * Arm live mode. Shows a connecting modal while it initialises the MS45
  * session, probes for the live-tune build (op 04), and -- when no image is
  * loaded -- reads the calibration off the ECU and adopts it as the working
@@ -342,9 +369,15 @@ function tnLiveConnectingModal(title) {
  */
 async function tnLiveArm(rejoin = false) {
   if (tnLive.busy) return;
-  tnLive.busy = true;
-  tnLive.error = null;
-  tnLivePaint();
+  await tnLiveWhileBusy('', () => tnLiveConnect(rejoin));
+}
+
+/**
+ * The connecting step of `tnLiveArm`, behind its modal.
+ * @param {boolean} rejoin
+ * @returns {Promise<void>}
+ */
+async function tnLiveConnect(rejoin) {
   const modal = tnLiveConnectingModal(
     rejoin ? 'Reconnecting to the ECU' : 'Connecting to the ECU'
   );
@@ -395,7 +428,7 @@ async function tnLiveArm(rejoin = false) {
     // The one thing that still needs the whole read is a backup download, on
     // its own button.
     if (!tuningState.bin) {
-      const image = new Uint8Array(TN_CAL_START + 0x1d000);
+      const image = new Uint8Array(TN_CAL_END);
       image.fill(0xff, TN_CAL_START); // unread calibration reads as erased flash
       tnAdoptImage(image, TN_LIVE_IMAGE);
       tnLive.readOffsets = new Set(); // which cal offsets have been read in
@@ -421,7 +454,7 @@ async function tnLiveArm(rejoin = false) {
     tnLive.saveAsked = await lt.saveAsked();
     // what was read on demand before may have been saved over since
     if (tnLive.readOffsets) tnLive.readOffsets = new Set();
-    tnLive.baseKnown = new Set(); // the calibration may have been saved over: read the originals again
+    tnLive.baseKnown.fill(0); // the calibration may have been saved over: read the originals again
     tnLive.lt = lt;
     tnLive.note = '';
     tnLive.armed = true;
@@ -448,8 +481,6 @@ async function tnLiveArm(rejoin = false) {
         : (e && e.message) || String(e);
   } finally {
     modal.close();
-    tnLive.busy = false;
-    tnLivePaint();
   }
 }
 
@@ -484,38 +515,46 @@ async function tnLiveDisarm() {
  * single scalar or flag is a range too. Null when the byte is outside the
  * calibration, or the definition describes nothing there.
  * @param {number} address - An IMAGE offset.
+ * @param {Map<XdfItem,1|2>} [cells] - Cell widths already worked out, so a
+ *   bulk edit decodes each table once rather than once per byte.
  * @returns {{offset:number, length:number, cell:1|2}|null}
  */
-function tnLiveRangeAt(address) {
+function tnLiveRangeAt(address, cells) {
   if (address < TN_CAL_START || address >= TN_CAL_END) return null;
   const rec = tnOwnerRecordAt(address);
   if (!rec) return null;
   const start = Math.max(TN_CAL_START, rec.start);
   const end = Math.min(TN_CAL_END, rec.end);
   if (end <= start) return null;
-  // cell width, so sync never leaves a 16-bit cell half-written; tables
-  // carry a Z spec, scalars an embed size.
-  let cell = 1;
   const table = rec.item.kind === 'table';
+  let cell = cells && cells.get(rec.item);
+  if (!cell) {
+    cell = tnLiveCellWidth(rec.item);
+    if (cells) cells.set(rec.item, cell);
+  }
+  return { offset: start - TN_CAL_START, length: end - start, cell, table };
+}
+
+/**
+ * How wide an item's cells are on the wire, so sync never leaves a 16-bit
+ * cell half-written: tables carry a Z spec, scalars an embed size.
+ * @param {XdfItem} item
+ * @returns {1|2}
+ */
+function tnLiveCellWidth(item) {
   try {
-    const it = rec.item;
-    if (it.kind === 'table') {
+    if (item.kind === 'table') {
       const t = window.XDF.decodeTable(
-        it,
+        item,
         tuningState.bin,
         tuningState.def.header
       );
-      if (t) cell = Math.max(1, Math.ceil(t.spec.sizeBits / 8));
+      if (t && t.spec.sizeBits > 8) return 2;
     }
   } catch (e) {
-    cell = 1;
+    /* shown as single bytes */
   }
-  return {
-    offset: start - TN_CAL_START,
-    length: end - start,
-    cell: cell >= 2 ? 2 : 1,
-    table,
-  };
+  return 1;
 }
 
 /**
@@ -534,8 +573,9 @@ function tnLiveOnWrite(address, length) {
   tnLive.editedAt = Date.now(); // the live cursor keeps off the line for a while after
   // every byte of a bulk op may span several tables; collect the ranges hit
   const ranges = new Map();
+  const cells = new Map();
   for (let a = address; a < address + length; a++) {
-    const r = tnLiveRangeAt(a);
+    const r = tnLiveRangeAt(a, cells);
     if (r) ranges.set(r.offset, r);
   }
   if (!ranges.size) {
@@ -638,9 +678,19 @@ async function tnLivePump() {
  * @returns {Promise<void>}
  */
 async function tnLiveSync(ranges) {
-  tnLive.busy = true;
-  tnLive.error = null;
-  tnLivePaint();
+  await tnLiveWhileBusy('', () => tnLiveSend(ranges));
+  // the list is showing what is open, and that has just changed
+  if (tuningState.liveOnly && tnLive.ed && !tuningState.openTable)
+    tnRenderDefs(tnLive.ed);
+}
+
+/**
+ * The sending step of `tnLiveSync`: what it could not send is said in the
+ * toolbar, and a DME that went quiet or restarted is dealt with.
+ * @param {Array<{offset:number,length:number,cell:1|2}>} ranges
+ * @returns {Promise<void>}
+ */
+async function tnLiveSend(ranges) {
   try {
     for (const r of ranges) {
       const table = await tnLive.lt.open(r.offset, r.length);
@@ -683,13 +733,6 @@ async function tnLiveSync(ranges) {
       tnLive.armed = false;
       tnLive.lt = null;
     }
-  } finally {
-    tnLive.busy = false;
-    tnLive.progress = '';
-    tnLivePaint();
-    // the list is showing what is open, and that has just changed
-    if (tuningState.liveOnly && tnLive.ed && !tuningState.openTable)
-      tnRenderDefs(tnLive.ed);
   }
 }
 
@@ -745,42 +788,37 @@ async function tnLiveDiscard() {
     cancelLabel: 'Cancel',
   });
   if (!ok || tnLive.lt !== lt) return;
-  tnLive.busy = true;
-  tnLive.error = null;
-  tnLive.progress = 'discarding…';
-  tnLivePaint();
-  try {
-    tnLive.pending.clear();
-    tnLive.staged.clear();
-    await lt.closeAll();
-    if (tnLive.saveAsked) {
-      await lt.askSave(false);
-      tnLive.saveAsked = false;
-    }
-    tnLive.suppressWrite = true;
+  await tnLiveWhileBusy('discarding…', async () => {
     try {
-      for (const r of open) {
-        const stock = await lt.readCal(r.offset, r.length);
-        tuningState.bin.set(stock, TN_CAL_START + r.offset);
-        tnLiveBaseline(TN_CAL_START + r.offset, stock);
+      tnLive.pending.clear();
+      tnLive.staged.clear();
+      await lt.closeAll();
+      if (tnLive.saveAsked) {
+        await lt.askSave(false);
+        tnLive.saveAsked = false;
       }
+      tnLive.suppressWrite = true;
+      try {
+        for (const r of open) {
+          const stock = await lt.readCal(r.offset, r.length);
+          tuningState.bin.set(stock, TN_CAL_START + r.offset);
+          tnLiveBaseline(TN_CAL_START + r.offset, stock);
+        }
+      } finally {
+        tnLive.suppressWrite = false;
+      }
+      tnLive.note = '';
+    } catch (e) {
+      tnLive.error = `could not discard: ${(e && e.message) || e}`;
     } finally {
-      tnLive.suppressWrite = false;
+      if (tuningState.liveOnly) tuningState.liveOnly = false; // nothing is open any more
     }
-    tnLive.note = '';
-  } catch (e) {
-    tnLive.error = `could not discard: ${(e && e.message) || e}`;
-  } finally {
-    tnLive.busy = false;
-    tnLive.progress = '';
-    if (tuningState.liveOnly) tuningState.liveOnly = false; // nothing is open any more
-    tnLivePaint();
-    if (tnLive.ed) {
-      if (typeof tnRecountChanges === 'function') tnRecountChanges();
-      tnLive.ed.hex.refresh();
-      tnRenderDefs(tnLive.ed);
-      if (typeof tnTableRefreshOpen === 'function') tnTableRefreshOpen(); // a table left open shows them too
-    }
+  });
+  if (tnLive.ed) {
+    if (typeof tnRecountChanges === 'function') tnRecountChanges();
+    tnLive.ed.hex.refresh();
+    tnRenderDefs(tnLive.ed);
+    if (typeof tnTableRefreshOpen === 'function') tnTableRefreshOpen(); // a table left open shows them too
   }
 }
 
@@ -900,7 +938,7 @@ async function tnLiveRestarted() {
     await tnLive.lt.resync();
     tnLive.saveAsked = false;
     tnLive.readOffsets = new Set();
-    tnLive.baseKnown = new Set(); // the calibration may have been saved over: read the originals again
+    tnLive.baseKnown.fill(0); // the calibration may have been saved over: read the originals again
     tnLive.wholeRead = false;
     tnLive.pending.clear();
     tnLive.error = null; // nothing to tell: values are read again as they are opened
@@ -1002,8 +1040,24 @@ async function tnLiveFillRange(range) {
     }
   }
   if (!open && (tnLive.wholeRead || tnLive.readOffsets.has(key))) return false; // flash already read
-  tnLive.busy = true;
-  tnLivePaint();
+  // a read is not an edit: what the status line was saying stays
+  const error = tnLive.error;
+  return tnLiveWhileBusy('', () =>
+    tnLiveFillRead(open, start, end, key, error)
+  );
+}
+
+/**
+ * The reading step of `tnLiveFillRange`.
+ * @param {object|undefined} open - The open table holding the span, if any.
+ * @param {number} start - IMAGE offset.
+ * @param {number} end
+ * @param {string} key - The span's entry in `readOffsets`.
+ * @param {string|null} error - What the status line said before.
+ * @returns {Promise<boolean>} Whether image bytes changed.
+ */
+async function tnLiveFillRead(open, start, end, key, error) {
+  tnLive.error = error;
   let filled = false;
   try {
     let bytes;
@@ -1013,7 +1067,7 @@ async function tnLiveFillRange(range) {
       bytes = await tnLive.lt.readTable(open, rel, end - start);
       // the mirror is the edit; what the calibration itself holds is the
       // original, and on the blank image it has to be fetched as well
-      if (tnLiveBlankImage() && !tnLive.baseKnown.has(start))
+      if (tnLiveBlankImage() && !tnLive.baseKnown[start - TN_CAL_START])
         tnLiveBaseline(start, await ms45ReadMemory(start, end - 1, 'ROMX'));
     } else {
       // ROMX address == image offset for the calibration (both place it at
@@ -1046,9 +1100,6 @@ async function tnLiveFillRange(range) {
     }
   } catch (e) {
     tnLive.error = `could not read the map from the ECU: ${(e && e.message) || e}`;
-  } finally {
-    tnLive.busy = false;
-    tnLivePaint();
   }
   return filled;
 }
@@ -1094,18 +1145,14 @@ async function tnLiveSave() {
     // This build writes nothing now: it is told to keep the edits, and
     // folds them into the calibration itself at key-off. Unticking takes
     // the request back.
-    tnLive.busy = true;
-    tnLive.error = null;
-    tnLivePaint();
-    try {
-      await tnLive.lt.askSave(!tnLive.saveAsked);
-      tnLive.saveAsked = !tnLive.saveAsked;
-    } catch (e) {
-      tnLive.error = (e && e.message) || String(e);
-    } finally {
-      tnLive.busy = false;
-      tnLivePaint();
-    }
+    await tnLiveWhileBusy('', async () => {
+      try {
+        await tnLive.lt.askSave(!tnLive.saveAsked);
+        tnLive.saveAsked = !tnLive.saveAsked;
+      } catch (e) {
+        tnLive.error = (e && e.message) || String(e);
+      }
+    });
     return;
   }
   if (!tnLive.lt.tables.length) {
@@ -1120,32 +1167,28 @@ async function tnLiveSave() {
     cancelLabel: 'Cancel',
   });
   if (!ok) return;
-  tnLive.busy = true;
-  tnLive.error = null;
-  if (tnLive.els) tnLive.els.status.textContent = 'saving…';
-  tnLivePaint();
   const lt = tnLive.lt;
-  try {
-    await lt.save();
-  } catch (e) {
-    // TURNING / BIG are the only real refusals; everything else (silence,
-    // a dropped link from the reset) means it saved.
-    if (e instanceof LtError && (e.code === 'turning' || e.code === 'big')) {
-      tnLive.error = e.message;
-      tnLive.busy = false;
-      tnLivePaint();
-      return;
+  const refused = await tnLiveWhileBusy('saving…', async () => {
+    try {
+      await lt.save();
+    } catch (e) {
+      // TURNING / BIG are the only real refusals; everything else (silence,
+      // a dropped link from the reset) means it saved.
+      if (e instanceof LtError && (e.code === 'turning' || e.code === 'big')) {
+        tnLive.error = e.message;
+        return true;
+      }
     }
-  }
-  // Saved. The DME folds the calibration and resets, dropping the link.
-  tnLive.armed = false;
-  tnLive.lt = null;
-  tnLive.error = null;
-  tnLive.readOffsets = null;
-  tnLive.busy = false;
-  tnLivePaint(); // repaint the button/arm state first (it blanks the status)
+    // Saved. The DME folds the calibration and resets, dropping the link.
+    tnLive.armed = false;
+    tnLive.lt = null;
+    tnLive.readOffsets = null;
+    return false;
+  });
+  if (refused) return;
+  // the repaint on the way out blanked the status; the saved message goes
+  // in after it, so it cannot be clobbered
   if (tnLive.els) {
-    // ...then set the saved message, so the paint above cannot clobber it
     tnLive.els.status.textContent = 'saved';
     tnLive.els.status.className = 'tn-live-status on';
   }

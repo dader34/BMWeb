@@ -90,11 +90,19 @@ function world() {
     }),
   };
   vm.createContext(ctx);
+  // the cursor file carries the "is an edit on the wire" test the scan asks
   vm.runInContext(
     fs.readFileSync(
-      path.join(__dirname, '../../app/renderer/screens/tuning/live-faults.js'),
+      path.join(__dirname, '../../app/renderer/screens/tuning/live-cursor.js'),
       'utf8'
     ) +
+      fs.readFileSync(
+        path.join(
+          __dirname,
+          '../../app/renderer/screens/tuning/live-faults.js'
+        ),
+        'utf8'
+      ) +
       '\nthis.f = tnFaults; this.read = tnFaultsRead; this.clear = tnFaultsClear; this.csv = tnFaultsCsv; this.schedule = tnFaultsSchedule; this.build = tnFaultsBuild;',
     ctx,
     { filename: 'live-faults.js' }

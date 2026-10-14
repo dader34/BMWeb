@@ -104,6 +104,7 @@ class LogChartGrid {
     this.cards = new Map();
     /** @type {number|null} The cursor's instant, ms since epoch; null when not hovering. */
     this.cursorT = null;
+    this.cursorFrac = null;
     /** @type {number} The store revision last drawn, so a frame with no new data is skipped. */
     this._drawn = -1;
     /** @type {number|null} */
@@ -185,18 +186,20 @@ class LogChartGrid {
    * @returns {void}
    */
   _wireCursor(canvas) {
-    const toTime = (ev) => {
+    // Where across the plot the pointer is, not which moment it was over:
+    // while logging the window slides under a pointer that is not moving,
+    // and a cursor kept as a time slid away to the left with it.
+    const toFrac = (ev) => {
       const r = canvas.getBoundingClientRect();
-      const frac = Math.min(1, Math.max(0, (ev.clientX - r.left) / r.width));
-      const { from, to } = this.range();
-      return from + frac * (to - from);
+      return Math.min(1, Math.max(0, (ev.clientX - r.left) / r.width));
     };
     canvas.addEventListener('pointermove', (ev) => {
-      this.cursorT = toTime(ev);
+      this.cursorFrac = toFrac(ev);
       this._drawn = -1;
       this.draw();
     });
     canvas.addEventListener('pointerleave', () => {
+      this.cursorFrac = null;
       this.cursorT = null;
       this._drawn = -1;
       this.draw();
@@ -247,6 +250,9 @@ class LogChartGrid {
     }
     this._drawn = this.store.revision;
     const { from, to } = this.range();
+    // the cursor's moment follows from where the pointer is in this window
+    this.cursorT =
+      this.cursorFrac == null ? null : from + this.cursorFrac * (to - from);
     for (const [id, card] of this.cards) {
       const ring = this.store.series.get(id);
       if (ring) this._drawOne(card, ring, from, to);

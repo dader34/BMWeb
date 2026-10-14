@@ -129,11 +129,14 @@ const tnGauges = {
   dial: null, // {win, canvas}
   list: null, // {win, cells}
   faults: null, // {win}: the fault memory window (live-faults.js)
-  open: { dial: false, list: false, faults: false },
+  adapt: null, // {win}: the adaptations window (live-adapt.js)
+  open: { dial: false, list: false, faults: false, adapt: false },
   place: {},
   rpm: null,
   plan: null, // the packet read when the gauges read for themselves
   timer: null,
+  abort: null, // ends this build's window and document listeners when the screen is built again
+  watch: null, // the dial's size watcher, for the same
 };
 
 /**
@@ -148,6 +151,7 @@ function tnGaugesToolbarHtml() {
     '<label class="tn-tool-check" title="Engine speed on a dial, in a window of its own"><input type="checkbox" id="tn-live-gauge-box"> Gauge</label>' +
     '<label class="tn-tool-check" title="The engine\'s live values, in a window of their own"><input type="checkbox" id="tn-live-values-box"> Values</label>' +
     '<label class="tn-tool-check" title="The DME\'s fault memory: read, live scan, save, clear"><input type="checkbox" id="tn-live-faults-box"> Faults</label>' +
+    '<label class="tn-tool-check" title="What the DME has learned: mixture, idle, throttle and camshaft adaptations"><input type="checkbox" id="tn-live-adapt-box"> Adaptations</label>' +
     '</div></div>'
   );
 }
@@ -199,23 +203,34 @@ function tnGaugeWindow(which, title, bodyHtml, first) {
       top: win.offsetTop,
     };
   };
-  window.addEventListener('mousemove', (e) => {
-    if (!drag) return;
-    win.style.left = `${Math.max(40 - win.offsetWidth, Math.min(window.innerWidth - 40, drag.left + e.clientX - drag.x))}px`;
-    win.style.top = `${Math.max(0, Math.min(window.innerHeight - 28, drag.top + e.clientY - drag.y))}px`;
-  });
-  window.addEventListener('mouseup', () => {
-    drag = null;
-    if (!win.hidden) {
-      tnGauges.place[which] = {
-        left: win.offsetLeft,
-        top: win.offsetTop,
-        width: win.offsetWidth,
-        height: win.offsetHeight,
-      };
-      tnGaugesRemember();
-    }
-  });
+  // on the window, so a fast drag that leaves the title bar still follows;
+  // let go with the rest of this build's listeners when the screen is rebuilt
+  const until = { signal: tnGauges.abort.signal };
+  window.addEventListener(
+    'mousemove',
+    (e) => {
+      if (!drag) return;
+      win.style.left = `${Math.max(40 - win.offsetWidth, Math.min(window.innerWidth - 40, drag.left + e.clientX - drag.x))}px`;
+      win.style.top = `${Math.max(0, Math.min(window.innerHeight - 28, drag.top + e.clientY - drag.y))}px`;
+    },
+    until
+  );
+  window.addEventListener(
+    'mouseup',
+    () => {
+      drag = null;
+      if (!win.hidden) {
+        tnGauges.place[which] = {
+          left: win.offsetLeft,
+          top: win.offsetTop,
+          width: win.offsetWidth,
+          height: win.offsetHeight,
+        };
+        tnGaugesRemember();
+      }
+    },
+    until
+  );
   win.querySelector('.tn-surface-x').onclick = () => tnGaugesSet(which, false);
   return win;
 }
@@ -244,13 +259,20 @@ function tnGaugesInit() {
         dial: !!(saved.open && saved.open.dial),
         list: !!(saved.open && saved.open.list),
         faults: !!(saved.open && saved.open.faults),
+        adapt: !!(saved.open && saved.open.adapt),
       };
       tnGauges.place = saved.place || {};
     }
   } catch (e) {
     /* start closed */
   }
-  for (const old of document.querySelectorAll('.tn-gauge-win')) old.remove(); // a screen rebuilt
+  // a screen rebuilt: the last build's windows go, and the listeners and
+  // watcher that held on to them with it
+  for (const old of document.querySelectorAll('.tn-gauge-win')) old.remove();
+  if (tnGauges.abort) tnGauges.abort.abort();
+  if (tnGauges.watch) tnGauges.watch.disconnect();
+  tnGauges.abort = new AbortController();
+  const until = { signal: tnGauges.abort.signal };
   const right = window.innerWidth - 24;
   const dialWin = tnGaugeWindow(
     'dial',
@@ -280,13 +302,17 @@ function tnGaugesInit() {
     win: listWin,
     cells: [...listWin.querySelectorAll('.tn-gauge-value')],
   };
-  if (typeof ResizeObserver === 'function')
-    new ResizeObserver(() => {
+  if (typeof ResizeObserver === 'function') {
+    tnGauges.watch = new ResizeObserver(() => {
       if (tnGauges.rpm != null && !dialWin.hidden)
         tnGaugeDial(tnGauges.dial.canvas, tnGauges.rpm);
-    }).observe(dialWin);
+    });
+    tnGauges.watch.observe(dialWin);
+  }
   if (typeof tnFaultsBuild === 'function')
     tnGauges.faults = { win: tnFaultsBuild(tnGaugeWindow) };
+  if (typeof tnAdaptBuild === 'function')
+    tnGauges.adapt = { win: tnAdaptBuild(tnGaugeWindow) };
   const dialBox = document.getElementById('tn-live-gauge-box');
   const listBox = document.getElementById('tn-live-values-box');
   const faultsBox = document.getElementById('tn-live-faults-box');
@@ -294,6 +320,9 @@ function tnGaugesInit() {
   if (listBox) listBox.onchange = () => tnGaugesSet('list', listBox.checked);
   if (faultsBox)
     faultsBox.onchange = () => tnGaugesSet('faults', faultsBox.checked);
+  const adaptBox = document.getElementById('tn-live-adapt-box');
+  if (adaptBox)
+    adaptBox.onchange = () => tnGaugesSet('adapt', adaptBox.checked);
   // the list opens under its button and closes on a press anywhere else
   const apps = document.getElementById('tn-live-apps');
   const appsBtn = document.getElementById('tn-live-apps-btn');
@@ -304,12 +333,20 @@ function tnGaugesInit() {
       appsBtn.setAttribute('aria-expanded', on ? 'true' : 'false');
     };
     appsBtn.onclick = () => show(menu.hidden);
-    document.addEventListener('mousedown', (e) => {
-      if (!menu.hidden && !apps.contains(e.target)) show(false);
-    });
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && !menu.hidden) show(false);
-    });
+    document.addEventListener(
+      'mousedown',
+      (e) => {
+        if (!menu.hidden && !apps.contains(e.target)) show(false);
+      },
+      until
+    );
+    document.addEventListener(
+      'keydown',
+      (e) => {
+        if (e.key === 'Escape' && !menu.hidden) show(false);
+      },
+      until
+    );
   }
   tnGaugesSync();
 }
@@ -323,7 +360,7 @@ function tnGaugesInit() {
 function tnGaugesSet(which, on) {
   tnGauges.open[which] = on;
   tnGaugesRemember();
-  if (which !== 'faults') {
+  if (which !== 'faults' && which !== 'adapt') {
     tnGauges.plan = null; // the packet's pieces have changed
     if (typeof tnLiveCursorReplan === 'function') tnLiveCursorReplan();
   }
@@ -353,6 +390,7 @@ function tnGaugesSync() {
     ['tn-live-gauge-box', 'dial'],
     ['tn-live-values-box', 'list'],
     ['tn-live-faults-box', 'faults'],
+    ['tn-live-adapt-box', 'adapt'],
   ]) {
     const box = document.getElementById(id);
     if (box) box.checked = tnGauges.open[which];
@@ -368,6 +406,13 @@ function tnGaugesSync() {
     if (tnGauges.faults.win.hidden === show) {
       tnGauges.faults.win.hidden = !show;
       if (typeof tnFaultsOpened === 'function') tnFaultsOpened(show);
+    }
+  }
+  if (tnGauges.adapt) {
+    const show = armed && tnGauges.open.adapt;
+    if (tnGauges.adapt.win.hidden === show) {
+      tnGauges.adapt.win.hidden = !show;
+      if (typeof tnAdaptOpened === 'function') tnAdaptOpened(show);
     }
   }
   if (armed && (tnGauges.open.dial || tnGauges.open.list) && !tnGauges.timer)
@@ -389,21 +434,11 @@ async function tnGaugesTick() {
     const table = typeof tnCursor !== 'undefined' && tnCursor.m;
     if (table || document.hidden || tnLive.link === 'lost' || tnPacketLent())
       wait = 1000;
-    else if (tnLive.busy || tnLive.pumping || tnLive.pending.size) wait = 150;
+    else if (tnLiveLineBusy()) wait = 150;
     else if (!(await tnLiveCursorKnows(lt)))
       wait = 5000; // another program: the addresses mean nothing
     else {
-      if (!tnGauges.plan) {
-        const wanted = tnGaugesPieces();
-        tnGauges.plan = {
-          pieces: [
-            { address: LT_CURSOR_CANARY.address, size: LT_CURSOR_CANARY.size },
-            ...wanted,
-          ],
-          reads: ltCursorReads(wanted),
-          packet: undefined,
-        };
-      }
+      if (!tnGauges.plan) tnGauges.plan = tnLivePlan(tnGaugesPieces());
       tnGaugesUpdate(await tnLiveCursorFetch(tnGauges.plan, lt));
     }
   } catch (e) {

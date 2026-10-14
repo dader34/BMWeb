@@ -314,7 +314,8 @@ async function showFlashing(page) {
     };
     window.addEventListener('bmweb-cable', fbCableListener);
   }
-  if (page === 'tuning' || page === 'logging') fbShowPage(page);
+  // opened on one of its other pages (its address named it)
+  if (page && page !== 'flashing' && fbEls[`page-${page}`]) fbShowPage(page);
 }
 
 /**
@@ -334,6 +335,8 @@ function fbShowPage(page) {
   }
   const tuning = page === 'tuning';
   const logging = page === 'logging';
+  // the editor's floating windows (gauges, graphs, faults) go with its page
+  document.body.classList.toggle('tn-away', !tuning);
   // the editor and the logger bring their own bars: the control-unit bar and
   // the status line make way for both
   fbEls.topbar.hidden = tuning || logging;
@@ -1221,8 +1224,13 @@ async function fbHistoryRefresh() {
       tbody.querySelectorAll('tr').forEach((x) => x.classList.remove('active'));
       tr.classList.add('active');
       fbHistorySelected = r;
-      fbEls['history-status'].textContent =
-        (r.status || '') + (r.seconds > 0 ? `  (${r.seconds} s)` : '');
+      // a data log's status is its reading list, which the details column
+      // and the viewer already give: the line says how long it ran instead
+      fbEls['history-status'].textContent = r.hasData
+        ? r.seconds > 0
+          ? `Logged for ${r.seconds} s. Open Log plays it back.`
+          : 'Open Log plays it back.'
+        : (r.status || '') + (r.seconds > 0 ? `  (${r.seconds} s)` : '');
       // Open Log opens a flash session's log file, or a data log's viewer
       fbEls['history-log'].disabled = !r.hasLog && !r.hasData;
       // Save Files saves a flash session's kept images, or a data log as CSV

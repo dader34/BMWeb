@@ -15,7 +15,7 @@
  * in it and is tested on its own.
  */
 
-/* exported logReplayPanes, logReplayStats, logReplayTicks, logSnapshot, logSaveToHistory, logReplayOpen, logReplayCsv, logReplayValueAt, logReplayScales, logReplayClock */
+/* exported logReplayPanes, logReplayStats, logReplayTicks, logSnapshot, logSaveToHistory, logResetWatch, LOG_RESET_BEFORE_MS, LOG_RESET_AFTER_MS, logReplayOpen, logReplayCsv, logReplayValueAt, logReplayScales, logReplayClock */
 
 /**
  * @typedef {Object} ReplaySeries
@@ -32,6 +32,8 @@
  * @property {number} from - First sample's time.
  * @property {number} to - Last sample's time.
  * @property {ReplaySeries[]} series
+ * @property {{t: number, label: string}[]} [marks] - Moments worth a line on
+ *   the time axis: a DME reset the run caught.
  */
 
 /** The History's name for a saved logging run. */
@@ -51,6 +53,91 @@ const LOG_REPLAY_COLOURS = [
   '#e0e0e0',
   '#d98a6a',
 ];
+/**
+ * The viewer's colours from the page's theme, read once per open: it draws
+ * on a canvas, which sees no CSS. A light theme (the page's background
+ * brighter than its ink) gets the traces darkened so they read on it.
+ * @param {HTMLElement} host
+ * @returns {{light: boolean, bg: string, panel: string, line: string, ink: string, inkDim: string, grid: string, cursor: string}}
+ */
+function logReplayTheme(host) {
+  const css = getComputedStyle(host);
+  const v = (name, fallback) =>
+    (css.getPropertyValue(name) || '').trim() || fallback;
+  const bg = v('--bg', '#0a0d11');
+  const ink = v('--ink', '#e7edf2');
+  const lum = (hex) => {
+    const n = parseInt(hex.replace('#', ''), 16);
+    if (!Number.isFinite(n) || hex.length < 7) return 0;
+    return (
+      (0.2126 * (n >> 16) + 0.7152 * ((n >> 8) & 255) + 0.0722 * (n & 255)) /
+      255
+    );
+  };
+  const light = lum(bg) > lum(ink);
+  return {
+    light,
+    bg,
+    panel: v('--panel-2', light ? '#ffffff' : '#161d25'),
+    line: v('--line', light ? '#d7dde3' : '#263039'),
+    ink,
+    inkDim: v('--ink-dim', light ? '#5b6670' : '#8d9aa6'),
+    grid: light ? 'rgba(40, 50, 60, 0.12)' : 'rgba(138, 151, 163, 0.16)',
+    cursor: light ? 'rgba(20, 28, 36, 0.45)' : 'rgba(255, 255, 255, 0.5)',
+  };
+}
+
+/**
+ * The trace colours for a theme: as they are on a dark page, darkened and
+ * saturated a little for a light one, where a pale yellow is invisible.
+ * @param {string[]} base - Hex colours.
+ * @param {boolean} light
+ * @returns {string[]}
+ */
+function logReplayPalette(base, light) {
+  if (!light) return base;
+  return base.map((hex) => {
+    const n = parseInt(hex.slice(1), 16);
+    const r = (n >> 16) / 255;
+    const g = ((n >> 8) & 255) / 255;
+    const b = (n & 255) / 255;
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    let h = 0;
+    const l = (max + min) / 2;
+    const d = max - min;
+    let sat = d === 0 ? 0 : d / (1 - Math.abs(2 * l - 1));
+    if (d !== 0) {
+      if (max === r) h = ((g - b) / d) % 6;
+      else if (max === g) h = (b - r) / d + 2;
+      else h = (r - g) / d + 4;
+      h = (h * 60 + 360) % 360;
+    }
+    const lo = Math.min(l, 0.4);
+    sat = Math.min(1, sat * 1.15);
+    const c = (1 - Math.abs(2 * lo - 1)) * sat;
+    const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+    const m = lo - c / 2;
+    const [r1, g1, b1] =
+      h < 60
+        ? [c, x, 0]
+        : h < 120
+          ? [x, c, 0]
+          : h < 180
+            ? [0, c, x]
+            : h < 240
+              ? [0, x, c]
+              : h < 300
+                ? [x, 0, c]
+                : [c, 0, x];
+    const to = (q) =>
+      Math.round((q + m) * 255)
+        .toString(16)
+        .padStart(2, '0');
+    return `#${to(r1)}${to(g1)}${to(b1)}`;
+  });
+}
+
 /** Playback speeds offered. */
 const LOG_REPLAY_SPEEDS = [0.5, 1, 2, 4, 8];
 /** How much the view scales per unit the wheel turns (about 4% a notch). */
@@ -62,8 +149,11 @@ const LOG_REPLAY_MODES = [
   ['single', 'Single', 'Every channel on one plot'],
   ['split', 'Split', 'A pane a unit, on one time axis'],
   ['scatter', 'Scatter', 'One channel against another'],
+  ['map', 'Map', 'A table of the tune, with where the run spent its time'],
   ['raw', 'Raw', 'The samples as a table'],
 ];
+/** The least height a Split pane is drawn at; more panes than fit scroll. */
+const LOG_REPLAY_PANE_MIN = 120;
 /** The most rows the Raw table is built with: more are thinned. */
 const LOG_REPLAY_RAW_ROWS = 1500;
 /** The narrowest stretch of a log the time axis zooms in to. */
@@ -109,7 +199,9 @@ function logSnapshot(store, from, to) {
 /**
  * Keep a run in the History.
  * @param {ReplayLog} log
- * @param {{chassis?: string, module?: string}} [about]
+ * @param {{chassis?: string, module?: string, reset?: number, record?: object}} [about] -
+ *   `reset`: the run was cut out around a DME reset at that time (ms);
+ *   `record`: what the DME's own self-reset record said afterwards.
  * @returns {Promise<object|null>} The entry, or null when there is no History
  *   to keep it in.
  */
@@ -120,22 +212,81 @@ async function logSaveToHistory(log, about = {}) {
   // intervals, not samples: three samples span two of them
   const rate = seconds > 0 && samples > 1 ? (samples - 1) / seconds : 0;
   const names = log.series.map((s) => s.label);
+  let details =
+    `${log.series.length} reading${log.series.length === 1 ? '' : 's'}` +
+    (rate ? ` at ${rate.toFixed(rate < 10 ? 1 : 0)}/s` : '') +
+    `: ${names.slice(0, 4).join(', ')}${names.length > 4 ? ', …' : ''}`;
+  if (about.reset) {
+    log.marks = [{ t: about.reset, label: 'DME reset' }];
+    const before = Math.round((about.reset - log.from) / 1000);
+    const after = Math.round((log.to - about.reset) / 1000);
+    details = `DME reset at ${new Date(about.reset).toLocaleTimeString()}, ${before} s before and ${after} s after · ${details}`;
+    if (about.record && typeof ms45ResetRecordText === 'function')
+      details += ` · DME self-resets: ${ms45ResetRecordText(about.record)}`;
+  }
   const entry = {
     started: log.from,
     seconds,
     operation: LOG_HISTORY_OPERATION,
     vin: about.chassis || '',
     module: about.module || '',
-    details:
-      `${log.series.length} reading${log.series.length === 1 ? '' : 's'}` +
-      (rate ? ` at ${rate.toFixed(rate < 10 ? 1 : 0)}/s` : '') +
-      `: ${names.slice(0, 4).join(', ')}${names.length > 4 ? ', …' : ''}`,
-    status: names.join(' · '),
+    details,
+    status: `logged for ${seconds} s`,
     result: 'saved',
     dataLog: log,
   };
   await flashHistory._append(entry);
   return entry;
+}
+
+/** The reading that counts the DME's running time: it starts over at a reset. */
+const LOG_UPTIME_LABEL = /time since start|betriebszeit|laufzeit|uptime/i;
+/** How much of the run the black box keeps on either side of a reset, ms. */
+const LOG_RESET_BEFORE_MS = 30000;
+const LOG_RESET_AFTER_MS = 5000;
+/** A fall of the running time by at least this many seconds is a restart. */
+const LOG_RESET_DROP_S = 2;
+/** Two restarts closer than this are one: the counter settles after one. */
+const LOG_RESET_APART_MS = 10000;
+
+/**
+ * The black box: watch the run for a DME reset, which shows as the running
+ * time falling back towards zero, and say when one happened. Called after
+ * each answer is ingested; cheap when the run logs no running time.
+ * @param {{series: Map<string, {t: number[], v: number[]}>, meta: Map<string, {label: string}>}} store
+ * @param {(at: number) => void} onReset - Told the time (ms) of the reset.
+ * @returns {() => void} The check to run after every sample.
+ */
+function logResetWatch(store, onReset) {
+  let id = null;
+  let seen = 0; // samples of the running time looked at so far
+  let lastAt = 0;
+  return () => {
+    if (id == null || !store.series.has(id)) {
+      id = null;
+      seen = 0;
+      for (const [k, meta] of store.meta)
+        if (LOG_UPTIME_LABEL.test(meta.label || '')) {
+          id = k;
+          break;
+        }
+      if (id == null) return;
+    }
+    const ring = store.series.get(id);
+    const n = ring.t.length;
+    if (n < 2 || n === seen) return;
+    // the window may have been trimmed: only the newest pair matters
+    seen = n;
+    const prev = ring.v[n - 2];
+    const cur = ring.v[n - 1];
+    if (!(prev - cur >= LOG_RESET_DROP_S)) return;
+    // the reset fell between the two samples; the counter restarted `cur`
+    // seconds before the newer one
+    const at = Math.max(ring.t[n - 2], ring.t[n - 1] - cur * 1000);
+    if (lastAt && at - lastAt < LOG_RESET_APART_MS) return;
+    lastAt = at;
+    onReset(at);
+  };
 }
 
 /**
@@ -336,7 +487,9 @@ function logReplayOpen(host, log, opts = {}) {
     log.series.map((s) => ({ ...s, unit: '' }))
   );
   const whole = log.series.map((s) => logReplayStats(s, log.from, log.to));
-  const colour = (i) => LOG_REPLAY_COLOURS[i % LOG_REPLAY_COLOURS.length];
+  const theme = logReplayTheme(host);
+  const palette = logReplayPalette(LOG_REPLAY_COLOURS, theme.light);
+  const colour = (i) => palette[i % palette.length];
   const state = {
     mode: 'split',
     cursor: log.from,
@@ -352,6 +505,9 @@ function logReplayOpen(host, log, opts = {}) {
     drag: null, // {x0, x1, t0, pan, from, to} while the button is down on the plot
     rawKey: '', // what the Raw table was last built for
     closed: false,
+    // Map: the table (decoded), which channels drive its axes, which is
+    // averaged over it (-1: dwell), and the bins for the current window
+    map: { item: null, d: null, xi: -1, yi: -1, zi: -1, bins: null, key: '' },
   };
 
   host.innerHTML = `
@@ -379,6 +535,25 @@ function logReplayOpen(host, log, opts = {}) {
             <span class="log-replay-x-label">X axis</span>
             <span class="log-replay-x-slot"></span>
           </div>
+          <div class="log-replay-maprows" hidden>
+            <div class="log-replay-sidebar">
+              <span class="log-replay-x-label">Table</span>
+              <span class="log-replay-map-slot" data-pick="table"></span>
+            </div>
+            <div class="log-replay-sidebar">
+              <span class="log-replay-x-label">Across</span>
+              <span class="log-replay-map-slot" data-pick="x"></span>
+            </div>
+            <div class="log-replay-sidebar">
+              <span class="log-replay-x-label">Down</span>
+              <span class="log-replay-map-slot" data-pick="y"></span>
+            </div>
+            <div class="log-replay-sidebar">
+              <span class="log-replay-x-label">Colour</span>
+              <span class="log-replay-map-slot" data-pick="z"></span>
+            </div>
+            <div class="log-replay-map-note" hidden></div>
+          </div>
           <div class="log-replay-sidebar">
             <span class="log-replay-x-label">Channels</span>
             <span class="log-replay-fill"></span>
@@ -389,6 +564,7 @@ function logReplayOpen(host, log, opts = {}) {
         </div>
         <div class="log-replay-plot">
           <canvas></canvas>
+          <div class="log-replay-map tn-table-scroll" hidden></div>
           <div class="log-replay-raw" hidden></div>
           <div class="log-replay-tip" hidden></div>
           <div class="log-replay-hint">drag to zoom · ← → to slide</div>
@@ -481,6 +657,177 @@ function logReplayOpen(host, log, opts = {}) {
     q('.log-replay-x-slot').replaceWith(xPick.el);
   }
 
+  // ---- Map: the run over a table of the tune -----------------------------------
+  const mapRows = q('.log-replay-maprows');
+  const mapNote = q('.log-replay-map-note');
+  const mapEl = q('.log-replay-map');
+  const mapPicks = {};
+  let mapTables = null;
+  const mapRebin = () => {
+    state.map.key = '';
+    draw();
+  };
+  const mapChannels = (none) => [
+    { val: '-1', label: none, meta: '' },
+    ...log.series.map((s, i) => ({
+      val: String(i),
+      label: s.label,
+      meta: s.unit,
+    })),
+  ];
+  /** Fill the pickers the first time the view is opened. */
+  const mapSetup = async () => {
+    if (mapTables) return;
+    let ready = typeof logTracerReady === 'function' && logTracerReady();
+    if (!ready && typeof logTracerRestore === 'function') {
+      mapNote.hidden = false;
+      mapNote.textContent = 'loading the tune…';
+      if (await logTracerRestore()) ready = logTracerReady();
+      if (state.closed || state.mode !== 'map') return;
+    }
+    if (!ready) {
+      mapNote.hidden = false;
+      mapNote.textContent =
+        'Load a tune and its definition in Tuning, then come back: the tables come from there.';
+      return;
+    }
+    mapNote.hidden = true;
+    mapTables = logTracerTables(ready.def);
+    if (typeof lookupDropdown !== 'function') return;
+    const put = (name, dd) => {
+      dd.el.classList.add('log-replay-x');
+      q(`.log-replay-map-slot[data-pick="${name}"]`).replaceWith(dd.el);
+      mapPicks[name] = dd;
+    };
+    put(
+      'table',
+      lookupDropdown(
+        'Table…',
+        mapTables.map((t, i) => ({
+          val: String(i),
+          label: t.label,
+          meta: t.item.title !== t.label ? t.item.title : '',
+        })),
+        '',
+        (v) => {
+          if (v !== '') mapChoose(mapTables[Number(v)].item);
+        }
+      )
+    );
+    draw();
+    put(
+      'x',
+      lookupDropdown('Across…', mapChannels('one column'), '-1', (v) => {
+        state.map.xi = Number(v);
+        logTracerRemember(
+          state.map.d && state.map.d.offset,
+          'x',
+          state.map.xi >= 0 ? log.series[state.map.xi].key : null
+        );
+        mapRebin();
+      })
+    );
+    put(
+      'y',
+      lookupDropdown('Down…', mapChannels('one row'), '-1', (v) => {
+        state.map.yi = Number(v);
+        logTracerRemember(
+          state.map.d && state.map.d.offset,
+          'y',
+          state.map.yi >= 0 ? log.series[state.map.yi].key : null
+        );
+        mapRebin();
+      })
+    );
+    put(
+      'z',
+      lookupDropdown('Colour…', mapChannels('time spent'), '-1', (v) => {
+        state.map.zi = Number(v);
+        mapRebin();
+      })
+    );
+  };
+  /** A table picked: decode it and match its axes to the run's readings. */
+  const mapChoose = (item) => {
+    const m = state.map;
+    m.item = item;
+    m.d = logTracerDecode(item);
+    m.key = '';
+    if (!m.d) {
+      mapNote.hidden = false;
+      mapNote.textContent = 'This table has nothing to show.';
+      draw();
+      return;
+    }
+    const match = logTracerMatch(m.d, log);
+    // a pick made before for this table wins over the guess
+    const kept = logTracerRemembered(m.d.offset);
+    const byKey = (key) => log.series.findIndex((s) => s.key === key);
+    m.xi = m.d.x
+      ? kept.x && byKey(kept.x) >= 0
+        ? byKey(kept.x)
+        : match.x
+      : -1;
+    m.yi = m.d.y
+      ? kept.y && byKey(kept.y) >= 0
+        ? byKey(kept.y)
+        : match.y
+      : -1;
+    if (mapPicks.x) mapPicks.x.set(String(m.xi));
+    if (mapPicks.y) mapPicks.y.set(String(m.yi));
+    const missing = [];
+    if (m.d.x && match.x < 0)
+      missing.push(`across (${m.d.x.title || m.d.x.units})`);
+    if (m.d.y && match.y < 0)
+      missing.push(`down (${m.d.y.title || m.d.y.units})`);
+    mapNote.hidden = !missing.length;
+    mapNote.textContent = missing.length
+      ? `No logged reading matched the ${missing.join(' and ')} axis: pick one.`
+      : '';
+    draw();
+  };
+  const drawMap = () => {
+    const m = state.map;
+    if (!m.d) {
+      mapEl.dataset.for = '';
+      mapEl.innerHTML = `<div class="log-replay-map-empty">${
+        mapTables
+          ? 'pick a table'
+          : 'load a tune and its definition in Tuning first'
+      }</div>`;
+      return;
+    }
+    const key = `${m.xi}:${m.yi}:${m.zi}:${state.viewFrom}:${state.viewTo}`;
+    if (m.key !== key) {
+      m.bins = logTracerBins(
+        log,
+        m.d,
+        m.xi,
+        m.yi,
+        m.zi,
+        state.viewFrom,
+        state.viewTo
+      );
+      m.key = key;
+    }
+    logTracerRender(mapEl, m.d, m.bins, {
+      viewFrom: state.viewFrom,
+      viewTo: state.viewTo,
+      cursor: state.cursor,
+      mean: m.zi >= 0,
+      fmt,
+      // a cell pressed: go to the first moment the run was in it
+      onCell: (r, c) => {
+        const p =
+          m.bins &&
+          m.bins.path.find(
+            (q) => Math.round(q.row) === r && Math.round(q.col) === c
+          );
+        if (p) seek(p.t);
+      },
+    });
+  };
+
   // ---- which view --------------------------------------------------------------
   const modeBtns = [...host.querySelectorAll('.log-replay-modes .seg-btn')];
   const setMode = (mode) => {
@@ -488,7 +835,10 @@ function logReplayOpen(host, log, opts = {}) {
     for (const b of modeBtns)
       b.classList.toggle('active', b.dataset.mode === mode);
     xRow.hidden = mode !== 'scatter';
-    canvas.hidden = mode === 'raw';
+    mapRows.hidden = mode !== 'map';
+    mapEl.hidden = mode !== 'map';
+    if (mode === 'map') mapSetup();
+    canvas.hidden = mode === 'raw' || mode === 'map';
     rawEl.hidden = mode !== 'raw';
     tip.hidden = true;
     hint.textContent =
@@ -496,9 +846,11 @@ function logReplayOpen(host, log, opts = {}) {
         ? 'click a row to go to it'
         : mode === 'scatter'
           ? 'each dot a sample · click a name to plot it'
-          : mode === 'single'
-            ? 'drag to zoom · ← → to slide · click a name for its scale'
-            : 'drag to zoom · ← → to slide';
+          : mode === 'map'
+            ? 'the run over a table · scrub to follow it'
+            : mode === 'single'
+              ? 'drag to zoom · ← → to slide · click a name for its scale'
+              : 'drag to zoom · ← → to slide';
     state.rawKey = '';
     draw();
   };
@@ -528,8 +880,8 @@ function logReplayOpen(host, log, opts = {}) {
   const boxOf = (w, h) => ({ l: 58, r: w - 10, t: 10, b: h - 24 });
   const yOf = (pane, sc, v) =>
     pane.b - 4 - ((v - sc.lo) / (sc.hi - sc.lo)) * (pane.b - pane.t - 8);
-  const GRID = 'rgba(138, 151, 163, 0.16)';
-  const INK = '#8a97a3';
+  const GRID = theme.grid;
+  const INK = theme.inkDim;
 
   /**
    * The samples as a table: a row a moment in view, a column a shown channel.
@@ -634,10 +986,20 @@ function logReplayOpen(host, log, opts = {}) {
     if (scrub.value !== pos) scrub.value = pos;
     resetBtn.disabled = state.viewFrom <= log.from && state.viewTo >= log.to;
     if (state.mode === 'raw') return drawRaw();
+    if (state.mode === 'map') return drawMap();
 
     const w = plot.clientWidth;
-    const h = plot.clientHeight;
-    if (w < 80 || h < 60) return;
+    if (w < 80 || plot.clientHeight < 60) return;
+    // Split gives every pane room to be read: with many units on at once
+    // the panes do not shrink to slivers, the plot grows and scrolls
+    const paneCount =
+      state.mode === 'split'
+        ? logReplayPanes(log.series, state.shown).length
+        : 1;
+    const h = Math.max(
+      plot.clientHeight,
+      state.mode === 'split' ? paneCount * (LOG_REPLAY_PANE_MIN + 8) + 34 : 0
+    );
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     if (canvas.width !== Math.round(w * dpr))
       canvas.width = Math.round(w * dpr);
@@ -719,6 +1081,27 @@ function logReplayOpen(host, log, opts = {}) {
     const cxv = scatter ? logReplayValueAt(xs, state.cursor) : state.cursor;
     const cx = cxv == null ? null : X(cxv);
 
+    // a moment the run caught, a DME reset: a dashed line through every
+    // pane with its name at the top (on the time axis only)
+    if (!scatter && log.marks)
+      for (const m of log.marks) {
+        if (m.t < state.viewFrom || m.t > state.viewTo) continue;
+        const x = Math.round(X(m.t)) + 0.5;
+        g.save();
+        g.strokeStyle = 'rgba(255, 96, 64, 0.9)';
+        g.fillStyle = 'rgba(255, 96, 64, 0.9)';
+        g.setLineDash([4, 3]);
+        g.beginPath();
+        g.moveTo(x, box.t);
+        g.lineTo(x, box.b);
+        g.stroke();
+        g.setLineDash([]);
+        g.textAlign = 'left';
+        g.textBaseline = 'top';
+        g.fillText(m.label, x + 4, box.t + 2);
+        g.restore();
+      }
+
     for (const pane of panes) {
       // the pane's value axis: Split, the unit its channels share; else the
       // focused channel's, in its colour
@@ -735,7 +1118,7 @@ function logReplayOpen(host, log, opts = {}) {
         for (const v of logReplayTicks(
           sc.lo,
           sc.hi,
-          Math.max(1, Math.floor((pane.b - pane.t) / 46))
+          Math.max(2, Math.floor((pane.b - pane.t) / 40))
         )) {
           const y = Math.round(yOf(pane, sc, v)) + 0.5;
           if (y < pane.t + 2 || y > pane.b - 2) continue;
@@ -813,7 +1196,7 @@ function logReplayOpen(host, log, opts = {}) {
       // the crosshair, a dot on every trace where it crosses, and (Split)
       // each channel's name and value written beside it
       if (cx != null) {
-        g.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+        g.strokeStyle = theme.cursor;
         g.lineWidth = 1;
         g.beginPath();
         g.moveTo(Math.round(cx) + 0.5, pane.t);
@@ -826,7 +1209,7 @@ function logReplayOpen(host, log, opts = {}) {
           if (v == null) continue;
           const y = yOf(pane, scales[i], v);
           g.fillStyle = colour(i);
-          g.strokeStyle = '#0b0f14';
+          g.strokeStyle = theme.bg;
           g.lineWidth = 1.5;
           g.beginPath();
           g.arc(cx, y, 3.5, 0, Math.PI * 2);
@@ -834,32 +1217,59 @@ function logReplayOpen(host, log, opts = {}) {
           g.stroke();
           marks.push({ i, v });
         }
-        if (state.mode === 'split' && marks.length) {
-          g.font = '11px ui-sans-serif, system-ui, sans-serif';
-          const lineH = 15;
+        if (!scatter && marks.length) {
+          // the readout: the pane's channels at the cursor, in a quiet box
+          // pinned to the pane's top right corner, where it never covers
+          // the point being read and never jumps about with the cursor.
+          // More channels than the pane is tall go into further columns.
+          g.font = '10.5px ui-sans-serif, system-ui, sans-serif';
+          const lineH = 14;
+          const rowsFit = Math.max(
+            1,
+            Math.floor((pane.b - pane.t - 14) / lineH)
+          );
           const texts = marks.map(
             (m) =>
-              `${log.series[m.i].label}   ${fmt(m.v)}${log.series[m.i].unit ? ` ${log.series[m.i].unit}` : ''}`
+              `${log.series[m.i].label}  ${fmt(m.v)}${log.series[m.i].unit ? ` ${log.series[m.i].unit}` : ''}`
           );
-          const tw = Math.max(...texts.map((t) => g.measureText(t).width)) + 24;
-          const th = lineH * marks.length + 6;
-          const left = cx + 10 + tw > pane.r ? cx - 10 - tw : cx + 10;
-          const top = Math.max(
-            pane.t + 2,
-            Math.min(pane.b - th - 2, (pane.t + pane.b) / 2 - th / 2)
+          const colW =
+            Math.max(...texts.map((t) => g.measureText(t).width)) + 22;
+          const cols = Math.max(
+            1,
+            Math.min(
+              Math.ceil(texts.length / rowsFit),
+              Math.floor((pane.r - pane.l - 80) / colW)
+            )
           );
-          g.fillStyle = 'rgba(11, 15, 20, 0.88)';
-          g.fillRect(left, top, tw, th);
+          const rows = Math.ceil(texts.length / cols);
+          const tw = colW * cols;
+          const th = lineH * Math.min(rows, rowsFit) + 8;
+          const left = pane.r - tw - 6;
+          const top = pane.t + 5;
+          g.save();
+          g.globalAlpha = 0.92;
+          g.fillStyle = theme.panel;
+          g.strokeStyle = theme.line;
+          g.lineWidth = 1;
+          g.beginPath();
+          g.roundRect(left + 0.5, top + 0.5, tw, th, 4);
+          g.fill();
+          g.stroke();
+          g.restore();
           g.textAlign = 'left';
           g.textBaseline = 'middle';
           marks.forEach((m, k) => {
-            const y = top + 3 + lineH * k + lineH / 2;
+            const c = Math.floor(k / rows);
+            const r = k % rows;
+            if (r >= rowsFit) return; // a pane too short for even the columns: the list has it
+            const x = left + c * colW;
+            const y = top + 4 + lineH * r + lineH / 2;
             g.fillStyle = colour(m.i);
             g.beginPath();
-            g.arc(left + 9, y, 3, 0, Math.PI * 2);
+            g.arc(x + 9, y, 2.5, 0, Math.PI * 2);
             g.fill();
-            g.fillStyle = '#e8eef4';
-            g.fillText(texts[k], left + 17, y);
+            g.fillStyle = theme.ink;
+            g.fillText(texts[k], x + 16, y);
           });
           g.font = '10px ui-monospace, SFMono-Regular, Menlo, monospace';
         }
@@ -946,7 +1356,8 @@ function logReplayOpen(host, log, opts = {}) {
 
   // ---- the pointer on the plot ---------------------------------------------------
   /** Whether the bottom axis is time: what zooming and sliding work on. */
-  const timed = () => state.mode === 'single' || state.mode === 'split';
+  const timed = () =>
+    state.mode === 'single' || state.mode === 'split' || state.mode === 'map';
   const pointer = (ev) => {
     const r = canvas.getBoundingClientRect();
     const box = boxOf(r.width, r.height);
@@ -1110,7 +1521,9 @@ if (typeof module !== 'undefined' && module.exports) {
     LOG_HISTORY_OPERATION,
     logSnapshot,
     logSaveToHistory,
+    logResetWatch,
     logReplayValueAt,
+    logReplayPalette,
     logReplayScales,
     logReplayClock,
     logReplayCsv,

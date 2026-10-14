@@ -736,6 +736,40 @@ async function logShowChassis(chassis) {
    */
   /** When the run in progress started: what a pause saves from. */
   let runFrom = 0;
+  /**
+   * The black box: a DME reset caught in the run goes into the History on
+   * its own, the half minute before it and the seconds after, so the moment
+   * is kept whatever happens to the rest of the run.
+   */
+  const blackBox = logResetWatch(store, (at) => {
+    const when = new Date(at).toLocaleTimeString();
+    sbLeft.textContent = `DME reset at ${when} · keeping the moment`;
+    setTimeout(async () => {
+      // what the DME itself says, read once the logger is going again: a
+      // self-reset leaves a count and a cause, an outside one nothing
+      let record = null;
+      if (
+        typeof ms45ReadResetRecord === 'function' &&
+        [...store.meta.values()].some((m) => m.sgbd === 'ms450ds0')
+      )
+        record = await ms45ReadResetRecord().catch(() => null);
+      const log = logSnapshot(
+        store,
+        at - LOG_RESET_BEFORE_MS,
+        at + LOG_RESET_AFTER_MS
+      );
+      if (!log) return;
+      const mods = [...new Set(log.series.map((s) => s.sgbd.toUpperCase()))];
+      const saved = await logSaveToHistory(log, {
+        chassis: dispChassis(car),
+        module: mods.join(' '),
+        reset: at,
+        record,
+      });
+      if (saved)
+        sbLeft.textContent = `DME reset at ${when} · the moment is in the History`;
+    }, LOG_RESET_AFTER_MS + 500);
+  });
   const toggle = async () => {
     if (sched && sched.running) {
       const from = runFrom;
@@ -769,7 +803,10 @@ async function logShowChassis(chassis) {
         if (!s.running) grid.draw();
         paintActions();
       },
-      onSample: () => grid.schedule(),
+      onSample: () => {
+        grid.schedule();
+        blackBox();
+      },
       onJob: () => paintSummary(),
     });
     // the run is registered so the leave hook can stop it from anywhere

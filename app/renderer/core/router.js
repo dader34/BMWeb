@@ -39,6 +39,11 @@ const APPS_ROUTES = {
   'apps/flashing': () =>
     typeof showFlashing === 'function' ? showFlashing() : null,
   'apps/tuning': () => (typeof showTuning === 'function' ? showTuning() : null),
+  // the app's other two pages: its history of sessions, and its settings
+  'apps/history': () =>
+    typeof showFlashing === 'function' ? showFlashing('history') : null,
+  'apps/flashing-settings': () =>
+    typeof showFlashing === 'function' ? showFlashing('settings') : null,
   garage: () => (typeof showGarage === 'function' ? showGarage() : null),
   'apps/logging': () =>
     typeof showLogging === 'function' ? showLogging() : null,
@@ -552,25 +557,27 @@ function routeSetCarList(chassis) {
   }
 }
 
-// The Flashing/Tuning app is one screen with pages on a rail. The tuning
-// editor is the page worth a link of its own: a reload, or a link someone
-// keeps, should come back to the editor and not to the flashing page.
+// The Flashing/Tuning & Logging app is one screen with pages on a rail, and
+// every page has an address of its own: a reload, or a link someone keeps,
+// comes back to the page it was on and not to the flashing page.
 // replaceState: flipping between the pages is not a step Back should undo.
+/** The address of each page of the app. */
+const FLASHING_PAGE_ROUTES = {
+  flashing: 'apps/flashing',
+  tuning: 'apps/tuning',
+  logging: 'apps/logging',
+  history: 'apps/history',
+  settings: 'apps/flashing-settings',
+};
+
 /**
- * Set the hash to the Flashing/Tuning & Logging page that is showing:
- * #apps/tuning for the editor, #apps/logging for the logger, #apps/flashing
- * for the rest.
- * @param {string} page - 'flashing', 'tuning', 'history' or 'settings'.
+ * Set the hash to the Flashing/Tuning & Logging page that is showing.
+ * @param {string} page - 'flashing', 'tuning', 'logging', 'history' or 'settings'.
  * @returns {void}
  */
 function routeSetFlashingPage(page) {
   if (_routing) return;
-  const route =
-    page === 'tuning'
-      ? 'apps/tuning'
-      : page === 'logging'
-        ? 'apps/logging'
-        : 'apps/flashing';
+  const route = FLASHING_PAGE_ROUTES[page] || FLASHING_PAGE_ROUTES.flashing;
   if (currentRoute() === route) {
     _openRoute = route;
     return;

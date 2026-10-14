@@ -962,6 +962,63 @@ async function ms45ReadMemory(start, end, segment, opts = {}) {
   return out;
 }
 
+/** The DME's own record of its self-resets, in RAM: the count and the last cause. */
+const MS45_RESET_RECORD = {
+  start: 0x3fa0a2, // the cause code of the last self-reset
+  end: 0x3fa0b4, // the cause code plus 0x6d, which says the record is valid
+  count: 0x3fa0b2, // how many, plus 0x6d at the next byte
+  check: 0x6d,
+  causes: {
+    1: 'the monitoring module answered wrongly',
+    2: 'the monitoring module answered wrongly',
+    3: 'the monitoring module answered wrongly',
+    4: 'the monitoring module answered wrongly',
+    5: 'the monitoring module answered wrongly',
+    9: 'the monitoring level found the calibration checksum wrong',
+    10: 'a safety monitor check failed (torque or speed)',
+    11: 'the program checksum was wrong',
+    12: 'the RAM test at start failed',
+  },
+};
+
+/**
+ * Read the DME's self-reset record: a DME that fails one of its own checks
+ * resets itself (a deliberate machine check) and stores no fault, but
+ * counts the resets in RAM with the cause of the last one, and the count
+ * only decays slowly while the engine runs cleanly. A reset ordered from
+ * outside (the monitoring module's hardware line) leaves no record.
+ * @returns {Promise<{count: number, code?: number}|null>} null when the
+ *   bytes could not be read; count 0 when nothing valid is recorded.
+ */
+async function ms45ReadResetRecord() {
+  const r = MS45_RESET_RECORD;
+  let bytes;
+  try {
+    bytes = await ms45ReadMemory(r.start, r.end, 'LAR');
+  } catch (e) {
+    return null;
+  }
+  if (bytes.length !== r.end - r.start + 1) return null;
+  const at = (a) => bytes[a - r.start];
+  const count = at(r.count);
+  const code = at(r.start);
+  const valid =
+    at(r.count + 1) === (count + r.check) % 256 &&
+    at(r.end) === (code + r.check) % 256;
+  return valid && count ? { count, code } : { count: 0 };
+}
+
+/**
+ * The record in words.
+ * @param {{count: number, code?: number}} r
+ * @returns {string}
+ */
+function ms45ResetRecordText(r) {
+  if (!r.count) return 'none recorded';
+  const why = MS45_RESET_RECORD.causes[r.code] || `code ${r.code}`;
+  return `${r.count}${r.count >= 8 ? ' (the limit; the DME no longer resets for this)' : ''}, last because ${why}`;
+}
+
 /**
  * The bytes from start to end inclusive, or null when the read came back
  * short. Outside BMW-FAST a memory read needs security access first; it is
