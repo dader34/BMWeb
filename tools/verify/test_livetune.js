@@ -17,13 +17,13 @@
 //      LtError with the right code.
 //   5. save: engine turning refuses (turning); engine stopped, the stub goes
 //      silent and the client takes the null as a successful save+reset.
-//   6. On a version 2 build (the client places the mirrors, op 07, and can
+//   6. The client places the mirrors (op 07) and can
 //      program them into blank flash, op 06): RAM running out parks the table
 //      edited longest ago on the shelf and the DME still reads its edit;
 //      editing it again brings it back; a reloaded page takes shelved tables
 //      over; what an earlier session left on the shelf is never written over;
 //      a save folds shelved and RAM tables alike.
-//   7. On a version 3 build the single values are live: the client reads the
+//   7. The single values are live: the client reads the
 //      DME's table of them, edits a value that has RAM of its own in place,
 //      opens any other as a small mirror, never parks the first kind, and
 //      says which values still wait for a save.
@@ -35,8 +35,8 @@ const path = require('path');
 const vm = require('vm');
 const {
   LT_STATUS,
+  LT_VERSION,
   LT_POOLS,
-  LT_POOLS3,
   LT_SHELF,
   LT_SINGLES,
   LtError,
@@ -94,183 +94,18 @@ const POOLS = [
 
 // A tiny sparse memory: calibration (a known pattern) and the RAM the state
 // block, descriptors and mirrors live in.
-function makeDme(opts = {}) {
-  const ram = new Map(); // address -> byte
-  const rd = (a) => ram.get(a) || 0;
-  const wr = (a, v) => ram.set(a, v & 0xff);
-  const cal = (off) => (off * 7 + 0x11) & 0xff; // the calibration's bytes
-  const be32 = (a) =>
-    ((rd(a) << 24) | (rd(a + 1) << 16) | (rd(a + 2) << 8) | rd(a + 3)) >>> 0;
-  const putBe32 = (a, v) => {
-    wr(a, v >> 24);
-    wr(a + 1, v >> 16);
-    wr(a + 2, v >> 8);
-    wr(a + 3, v);
-  };
-  const dme = {
-    built: opts.built !== false,
-    turning: !!opts.turning,
-    saved: null, // the folded calibration a save produces
-    count: 0,
-    cursors: POOLS.map((p) => p[0]),
-    status: LT_STATUS.OK,
-    reset: false,
-  };
-
-  function initState() {
-    if (be32(STATE) === STATE_MAGIC) return;
-    putBe32(STATE, STATE_MAGIC);
-    putBe32(STATE + 4, LT_STATUS.OK);
-    putBe32(STATE + 8, 0);
-    dme.cursors.forEach((c, i) => putBe32(STATE + 12 + 4 * i, c));
-  }
-
-  function readByte(addr) {
-    // the descriptors/state are in RAM; a calibration address reads the pattern
-    if (addr >= CAL_BASE && addr < CAL_BASE + CAL_LENGTH && !ram.has(addr))
-      return cal(addr - CAL_BASE);
-    return rd(addr);
-  }
-
-  function finish(status) {
-    dme.status = status;
-    putBe32(STATE + 4, status);
-  }
-
-  // returns answer DATA bytes, or null for silence
-  dme.send = async (data) => {
-    if (dme.reset) {
-      dme.reset = false;
-      return null;
-    }
-    if (data[0] === 0x23) {
-      const addr = (data[1] << 16) | (data[2] << 8) | data[3];
-      const n = data[4];
-      // the state block is zero until the first 6C op initialises it, build
-      // or not -- exactly the DME's behaviour that made a bare readState a
-      // false "absent"
-      const out = [0x63];
-      for (let i = 0; i < n; i++) out.push(readByte(addr + i));
-      return out;
-    }
-    if (data[0] !== 0x2c || data[1] !== 0x6c) return [0x7f, 0x2c, 0x12];
-    if (!dme.built) return [0x7f, 0x2c, 0x12]; // acks, but leaves no magic
-    initState();
-    const op = data[2];
-    if (op === 0x01) {
-      const offset = (data[3] << 16) | (data[4] << 8) | data[5];
-      const length = (data[6] << 8) | data[7];
-      if (offset + length > CAL_LENGTH) {
-        finish(LT_STATUS.RANGE);
-        return [0x7f, 0x2c, 0x12];
-      }
-      if (dme.count >= 7) {
-        finish(LT_STATUS.FULL);
-        return [0x7f, 0x2c, 0x12];
-      }
-      let pool = -1;
-      for (let i = 0; i < POOLS.length; i++)
-        if (dme.cursors[i] + length <= POOLS[i][1]) {
-          pool = i;
-          break;
-        }
-      if (pool < 0) {
-        finish(LT_STATUS.ROOM);
-        return [0x7f, 0x2c, 0x12];
-      }
-      const mirror = dme.cursors[pool];
-      dme.cursors[pool] += length;
-      for (let i = 0; i < length; i++) wr(mirror + i, cal(offset + i));
-      const base = (CAL_BASE + offset) >>> 0;
-      putBe32(DESC, DESC_MAGIC);
-      putBe32(DESC + 4 + dme.count * 12, base);
-      putBe32(DESC + 4 + dme.count * 12 + 4, (base + length) >>> 0);
-      putBe32(DESC + 4 + dme.count * 12 + 8, (mirror - base) >>> 0);
-      dme.count++;
-      putBe32(STATE + 8, dme.count);
-      putBe32(STATE + 28, mirror);
-      dme.cursors.forEach((c, i) => putBe32(STATE + 12 + 4 * i, c));
-      finish(LT_STATUS.OK);
-      return [0x7f, 0x2c, 0x12];
-    }
-    if (op === 0x02) {
-      const slot = data[3];
-      const off = (data[4] << 8) | data[5];
-      const nn = data[6];
-      if (slot >= dme.count) {
-        finish(LT_STATUS.SLOT);
-        return [0x7f, 0x2c, 0x12];
-      }
-      const base = be32(DESC + 4 + slot * 12);
-      const end = be32(DESC + 4 + slot * 12 + 4);
-      const delta = be32(DESC + 4 + slot * 12 + 8);
-      if (base + off + nn > end) {
-        finish(LT_STATUS.RANGE);
-        return [0x7f, 0x2c, 0x12];
-      }
-      const mirror = (base + delta) >>> 0;
-      for (let i = 0; i < nn; i++) wr(mirror + off + i, data[7 + i]);
-      finish(LT_STATUS.OK);
-      return [0x7f, 0x2c, 0x12];
-    }
-    if (op === 0x03) {
-      putBe32(DESC, 0);
-      putBe32(DESC + 4, 0);
-      dme.count = 0;
-      putBe32(STATE + 8, 0);
-      dme.cursors = POOLS.map((p) => p[0]);
-      dme.cursors.forEach((c, i) => putBe32(STATE + 12 + 4 * i, c));
-      finish(LT_STATUS.OK);
-      return [0x7f, 0x2c, 0x12];
-    }
-    if (op === 0x04) {
-      finish(LT_STATUS.OK);
-      return [0x7f, 0x2c, 0x12];
-    }
-    if (op === 0x05) {
-      if (dme.turning) {
-        finish(LT_STATUS.TURNING);
-        return [0x7f, 0x2c, 0x12];
-      }
-      if (dme.count === 0) {
-        finish(LT_STATUS.OK);
-        return [0x7f, 0x2c, 0x12];
-      }
-      // fold each mirror into a saved calibration image, then go silent+reset
-      const img = new Uint8Array(CAL_LENGTH);
-      for (let i = 0; i < CAL_LENGTH; i++) img[i] = cal(i);
-      for (let s = 0; s < dme.count; s++) {
-        const base = be32(DESC + 4 + s * 12);
-        const end = be32(DESC + 4 + s * 12 + 4);
-        const delta = be32(DESC + 4 + s * 12 + 8);
-        const mirror = (base + delta) >>> 0;
-        for (let i = 0; i < end - base; i++)
-          img[base - CAL_BASE + i] = rd(mirror + i);
-      }
-      dme.saved = img;
-      dme.reset = false;
-      return null; // saving: silence
-    }
-    return [0x7f, 0x2c, 0x12];
-  };
-  return dme;
-}
-
-// ---- the version 2 DME stub -------------------------------------------------
-// ms45emu/transport.py as rebuilt: twenty slots at 0x3F9B48, no op 01, op 06
+// ms45emu/transport.py as built: thirty-six slots at 0x3F9C48, op 06
 // programs blank flash on the shelf (whole words, 32 bytes a request, only
 // over blank), op 07 places a slot's mirror in a RAM pool (seeding it from
 // where the range reads now) or on the shelf, op 02 refuses a shelved mirror.
-const DESC2 = 0x3f9b48;
-const SLOTS2 = 20;
 
 const SINGLES_POOL = [0x3ff580, 0x3ff900];
 
 function makeDme2(opts = {}) {
-  const V = opts.version || 2;
-  const DESC2 = V >= 3 ? 0x3f9c48 : 0x3f9b48; // shadows the version 2 address
-  const SLOTS2 = V >= 3 ? 36 : 20;
-  const POOLS = V >= 3 ? LT_POOLS3 : LT_POOLS;
+  const V = opts.version || LT_VERSION;
+  const DESC2 = 0x3f9c48;
+  const SLOTS2 = 36;
+  const POOLS = LT_POOLS;
   const ram = new Map();
   const flash = new Map(); // calibration offset -> programmed byte (the shelf)
   const rd = (a) => ram.get(a) || 0;
@@ -290,6 +125,7 @@ function makeDme2(opts = {}) {
     wr(a + 3, v);
   };
   const dme = {
+    built: opts.built !== false,
     turning: !!opts.turning,
     saved: null,
     count: 0,
@@ -297,7 +133,7 @@ function makeDme2(opts = {}) {
     programs: 0,
     ops: [],
   };
-  // version 3: the single-value table in the external flash, and the pool
+  // the single-value table in the external flash, and the pool
   // it describes, filled from the calibration as the DME does at start-up
   const table = [];
   const pooled = new Map(); // calibration offset -> [length, address]
@@ -393,6 +229,7 @@ function makeDme2(opts = {}) {
       return out;
     }
     if (data[0] !== 0x2c || data[1] !== 0x6c) return ACK;
+    if (!dme.built) return ACK; // acks, but leaves no magic
     if (be32(STATE) !== STATE_MAGIC) {
       putBe32(STATE, STATE_MAGIC);
       putBe32(STATE + 4, 0);
@@ -509,7 +346,7 @@ async function fill(lt, offset, length, value) {
 
   // 1. absent build
   {
-    const dme = makeDme({ built: false });
+    const dme = makeDme2({ built: false });
     const lt = new LiveTune(dme.send);
     let err = null;
     try {
@@ -527,9 +364,9 @@ async function fill(lt, offset, length, value) {
   // 1b. ping is the build probe: null on a fresh DME without the build,
   //     a state on a fresh build DME (whose block is zero until op 04 runs)
   {
-    const absent = new LiveTune(makeDme({ built: false }).send);
+    const absent = new LiveTune(makeDme2({ built: false }).send);
     assert.strictEqual(await absent.ping(), null, 'ping sees no build');
-    const built = new LiveTune(makeDme().send);
+    const built = new LiveTune(makeDme2().send);
     const st = await built.ping();
     assert(
       st && st.count === 0,
@@ -540,7 +377,7 @@ async function fill(lt, offset, length, value) {
 
   // 2. open seeds + found by base
   {
-    const dme = makeDme();
+    const dme = makeDme2();
     const lt = new LiveTune(dme.send);
     const t = await lt.open(0x4395, 16); // the odd-aligned byte curve the DME tests use
     assert.strictEqual(t.slot, 0);
@@ -566,7 +403,7 @@ async function fill(lt, offset, length, value) {
   // 2b. a range the DME already holds open is adopted, not opened twice:
   //     a second client (a reloaded page) lands on the same slot and mirror
   {
-    const dme = makeDme();
+    const dme = makeDme2();
     const first = await new LiveTune(dme.send).open(0x1624, 1);
     const again = new LiveTune(dme.send); // the page was reloaded
     const t = await again.open(0x1624, 1);
@@ -600,7 +437,7 @@ async function fill(lt, offset, length, value) {
 
   // 3. sync sends only diffs, cell-aligned
   {
-    const dme = makeDme();
+    const dme = makeDme2();
     const lt = new LiveTune(dme.send);
     const t = await lt.open(0x5000, 32);
     const want = t.shadow.slice();
@@ -624,7 +461,7 @@ async function fill(lt, offset, length, value) {
 
   // 4. refusals: write out of range, open with no room
   {
-    const dme = makeDme();
+    const dme = makeDme2();
     const lt = new LiveTune(dme.send);
     const t = await lt.open(0x6000, 16);
     let err = null;
@@ -643,16 +480,16 @@ async function fill(lt, offset, length, value) {
     );
     ok('a write past the table end is refused');
 
-    const dme2 = makeDme();
+    const dme2 = makeDme2();
     const lt2 = new LiveTune(dme2.send);
     await lt2.open(0, 520); // fills pool 0 exactly
-    await lt2.open(0x1000, 440); // fills pool 1 exactly
+    await lt2.open(0x1000, 100); // fills pool 1 exactly
     let err2 = null;
     try {
-      await lt2.open(0x2000, 300);
+      await lt2.open(0x2000, 600);
     } catch (e) {
       err2 = e;
-    } // 300 > 248 and 88
+    } // 600 is more than any pool holds: nothing to park for it
     assert(
       err2 instanceof LtError && err2.code === 'room',
       'no-room open refused'
@@ -662,7 +499,7 @@ async function fill(lt, offset, length, value) {
 
   // 5. save: turning refuses; stopped saves and resets
   {
-    const dme = makeDme({ turning: true });
+    const dme = makeDme2({ turning: true });
     const lt = new LiveTune(dme.send);
     const t = await lt.open(0x4395, 16);
     const want = t.shadow.slice();
@@ -714,11 +551,11 @@ async function fill(lt, offset, length, value) {
     ok('the send-path frames the request and strips the answer to data bytes');
   }
 
-  // 7. version 2: the client places the mirror, in RAM
+  // 7. the client places the mirror, in RAM
   {
     const dme = makeDme2();
     const lt = new LiveTune(dme.send);
-    assert.strictEqual((await lt.ping()).version, 2);
+    assert.strictEqual((await lt.ping()).version, LT_VERSION);
     const t = await fill(lt, 0x4395, 16, 0xa5);
     assert.strictEqual(t.slot, 0);
     assert.strictEqual(t.mirror, LT_POOLS[0][0], 'first fit in the first pool');
@@ -739,7 +576,7 @@ async function fill(lt, offset, length, value) {
       err instanceof LtError && err.code === 'room',
       'a table no pool holds is refused'
     );
-    ok('a version 2 build has its mirrors placed by the client');
+    ok('the mirrors are placed by the client');
   }
 
   // 8. RAM runs out: the table edited longest ago moves to the shelf, still
@@ -793,9 +630,9 @@ async function fill(lt, offset, length, value) {
   {
     const dme = makeDme2();
     const lt = new LiveTune(dme.send);
-    for (let i = 0; i < 20; i++) await fill(lt, 0x3000 + 0x40 * i, 0x40, i + 1); // 1280 B: more than RAM
-    assert.strictEqual(dme.count, 20);
-    for (let i = 0; i < 20; i++)
+    for (let i = 0; i < 36; i++) await fill(lt, 0x3000 + 0x40 * i, 0x40, i + 1); // 2304 B: more than RAM
+    assert.strictEqual(dme.count, 36);
+    for (let i = 0; i < 36; i++)
       assert.strictEqual(
         dme.lookup(0x3000 + 0x40 * i, 0x3f),
         i + 1,
@@ -813,9 +650,9 @@ async function fill(lt, offset, length, value) {
     }
     assert(
       err instanceof LtError && err.code === 'full',
-      'the twenty-first is refused'
+      'the thirty-seventh is refused'
     );
-    ok('twenty tables stay open in more bytes than RAM holds');
+    ok('thirty-six tables stay open in more bytes than RAM holds');
   }
 
   // 10. a reloaded page takes shelved tables over and shelves past them
@@ -932,7 +769,7 @@ async function fill(lt, offset, length, value) {
     ok('a full shelf is reported; a save folds everything and empties it');
   }
 
-  // 13. version 3: single values are live
+  // 13. single values are live
   {
     const singles = {
       pool: [
@@ -944,9 +781,9 @@ async function fill(lt, offset, length, value) {
         [0x5b40, 0x5b60],
       ], // where every reader is patched
     };
-    const dme = makeDme2({ version: 3, singles });
+    const dme = makeDme2({ singles });
     const lt = new LiveTune(dme.send);
-    assert.strictEqual((await lt.ping()).version, 3);
+    assert.strictEqual((await lt.ping()).version, LT_VERSION);
     assert.strictEqual(await lt.loadSingles(), true);
     assert.deepStrictEqual([...lt.singles.pool.keys()], [0x1944, 0x1950]);
     assert.strictEqual(
@@ -977,7 +814,7 @@ async function fill(lt, offset, length, value) {
     assert.strictEqual(dme.single(0x1944), 0xff, 'what the program reads');
     // another, read through the trap: a small mirror like any table
     const other = await lt.open(0x5b46, 2);
-    assert(!other.fixed && other.mirror === LT_POOLS3[0][0]);
+    assert(!other.fixed && other.mirror === LT_POOLS[0][0]);
     await lt.sync(other, Uint8Array.of(0x0b, 0xb8), 2);
     assert.strictEqual(
       (dme.single(0x5b46, 0) << 8) | dme.single(0x5b46, 1),
@@ -1010,7 +847,7 @@ async function fill(lt, offset, length, value) {
     );
 
     // thirty-six slots; and a DME without the table sends single values as before
-    const many = new LiveTune(makeDme2({ version: 3 }).send);
+    const many = new LiveTune(makeDme2().send);
     for (let i = 0; i < 36; i++) await many.open(0x3000 + 4 * i, 2);
     let err = null;
     try {
@@ -1022,16 +859,15 @@ async function fill(lt, offset, length, value) {
     assert.strictEqual(await many.loadSingles(), false);
     assert(!many.liveSingle(0x1944, 1));
     ok(
-      'a version 3 build edits single values live, in place where they have RAM of their own'
+      'single values are edited live, in place where they have RAM of their own'
     );
   }
 
-  // 14. version 4: the key-off keeps a tune only when asked
+  // 14. the key-off keeps a tune only when asked
   {
-    const dme = makeDme2({ version: 4 });
+    const dme = makeDme2();
     const lt = new LiveTune(dme.send);
-    assert.strictEqual((await lt.ping()).version, 4);
-    assert(lt.savesOnRequest());
+    assert.strictEqual((await lt.ping()).version, LT_VERSION);
     await fill(lt, 0x1000, 16, 0xaa);
     assert.strictEqual(
       await lt.saveAsked(),
@@ -1040,26 +876,46 @@ async function fill(lt, offset, length, value) {
     );
     await lt.askSave(true);
     assert.strictEqual(await lt.saveAsked(), true);
-    assert.strictEqual(await new LiveTune(dme.send).ping().then(() => 0), 0);
     const again = new LiveTune(dme.send); // a reloaded page reads the request back
     await again.ping();
     assert.strictEqual(await again.saveAsked(), true);
     await lt.askSave(false);
     assert.strictEqual(await lt.saveAsked(), false, 'and it can be taken back');
     assert.strictEqual(dme.count, 1, 'asking closes nothing');
-    const old = new LiveTune(makeDme2({ version: 3 }).send);
+    ok('the key-off saves only when asked, and the request can be taken back');
+  }
+
+  // 15. an earlier build is refused, not driven with the wrong layout
+  {
+    const old = new LiveTune(makeDme2({ version: 4 }).send);
     await old.ping();
+    assert.strictEqual(old.version, 4);
+    assert(!old.supported());
+    let err = null;
+    try {
+      await old.open(0x1000, 16);
+    } catch (e) {
+      err = e;
+    }
     assert(
-      !old.savesOnRequest() && (await old.saveAsked()) === false,
-      'an older build saves at every key-off'
+      err instanceof LtError &&
+        err.code === 'refused' &&
+        /build 4/.test(err.message),
+      'an old build is refused by name'
     );
-    assert(!lt.savesMonitorSum(), 'version 4 does not keep the monitor sum');
-    const five = new LiveTune(makeDme2({ version: 5 }).send);
-    await five.ping();
-    assert(
-      five.savesMonitorSum() && five.savesOnRequest() && five.version === 5
-    );
-    ok('a version 4 build saves at key-off only when asked');
+    ok('a DME on an earlier build is refused with its version');
+  }
+
+  // 16. no pool may overlap the DME's own buffers: the request buffer
+  //     (0x3F9A44-0x3F9B42) and the value-list store (0x3F9B43-0x3F9C42)
+  //     that a tester's 2C F0 define writes, which once smashed pool B
+  {
+    for (const [lo, hi] of LT_POOLS)
+      assert(
+        hi <= 0x3f9a44 || lo >= 0x3f9c43,
+        `pool ${lo.toString(16)}-${hi.toString(16)} overlaps the DME's buffers`
+      );
+    ok("no mirror pool overlaps the DME's request buffer or value-list store");
   }
 
   console.log(`\n${passed} passed\n`);

@@ -22,11 +22,6 @@ const TN_CAL_LENGTH = 0x1d000;
 const TN_CAL_END = TN_CAL_START + TN_CAL_LENGTH;
 /** The MS45 definition live mode auto-loads from the shared library (full 1 MB image). */
 const TN_LIVE_XDF = 'Siemens_MS451_457LO02S_1024K.xdf';
-/** Calibration offsets the DME's safety monitor sums against a stored value
- *  (cal 0x57DC). On a build whose save does not correct that sum, an edit in
- *  here would be saved into a calibration the monitor then rejects, so it is
- *  not sent; builds from version 5 keep the sum in step. */
-const TN_LIVE_MONITORED = [0x240, 0x7c8];
 /** The monitor's own stored sum and the byte that switches the monitor off:
  *  never sent live on any build. The program reads both through the live
  *  view, so an edit would trip the monitor, or silence it, at once. */
@@ -174,7 +169,6 @@ function tnLiveToolbarHtml() {
       <span class="tn-live-status" id="tn-live-rest"></span>
       ${typeof tnGaugesToolbarHtml === 'function' ? tnGaugesToolbarHtml() : ''}
       <!-- the save to the ECU sits apart, at the far right -->
-      <button class="btn tn-live-save" id="tn-live-save" hidden title="Fold the open tables into the calibration (engine off)">Save to ECU</button>
       <label class="tn-tool-check tn-live-keep" id="tn-live-keep" hidden title="Keep these edits: the ECU writes them into its calibration when the ignition is switched off"><input type="checkbox" id="tn-live-keep-box"> Save to ECU (on key off)</label>
     </div>`;
 }
@@ -223,12 +217,8 @@ function tnLivePaint() {
     : tnLive.armed
       ? '● LIVE ON'
       : '○ LIVE';
-  // A build that saves at key-off is only told whether to: a tick box, on
-  // or off. An older build folds the tables in there and then: a button.
-  const onRequest = !!(tnLive.lt && tnLive.lt.savesOnRequest());
-  e.save.hidden = !tnLive.armed || onRequest;
-  e.save.disabled = tnLive.busy || !(tnLive.lt && tnLive.lt.tables.length);
-  e.keep.hidden = !tnLive.armed || !onRequest;
+  // the build saves at key-off and is only told whether to: a tick box
+  e.keep.hidden = !tnLive.armed;
   e.keepBox.checked = tnLive.saveAsked;
   e.keepBox.disabled = tnLive.busy;
   const openCount = tnLive.armed && tnLive.lt ? tnLive.lt.tables.length : 0;
@@ -279,7 +269,7 @@ function tnLivePaint() {
  * @returns {string}
  */
 function tnLiveSaveNote(open) {
-  if (!open || !tnLive.lt || !tnLive.lt.savesOnRequest()) return '';
+  if (!open || !tnLive.lt) return '';
   return tnLive.saveAsked
     ? ' · will be saved when you switch the ignition off'
     : ' · not saved: lost at key-off unless you tick Save to ECU';
@@ -446,10 +436,8 @@ async function tnLiveConnect(rejoin) {
       tnLive.progress = text;
       tnLivePaint();
     };
-    if (lt.version >= 3) {
-      modal.say('reading which single values are live…');
-      await lt.loadSingles();
-    }
+    modal.say('reading which single values are live…');
+    await lt.loadSingles();
     await lt.adopt(); // what the DME already has open (from before a reload)
     tnLive.saveAsked = await lt.saveAsked();
     // what was read on demand before may have been saved over since
@@ -585,7 +573,6 @@ function tnLiveOnWrite(address, length) {
     }
     return;
   }
-  let held = false;
   let locked = false;
   for (const r of ranges.values()) {
     if (
@@ -597,12 +584,6 @@ function tnLiveOnWrite(address, length) {
       continue;
     }
     if (
-      !tnLive.lt.savesMonitorSum() &&
-      r.offset < TN_LIVE_MONITORED[1] &&
-      r.offset + r.length > TN_LIVE_MONITORED[0]
-    )
-      held = true;
-    else if (
       typeof tnTableStages === 'function' &&
       tnTableStages(TN_CAL_START + r.offset, r.length)
     )
@@ -612,10 +593,6 @@ function tnLiveOnWrite(address, length) {
   if (locked) {
     tnLive.error =
       'not sent: this is the safety monitor’s own checksum or its off switch, which live mode leaves alone';
-    tnLivePaint();
-  } else if (held) {
-    tnLive.error =
-      'not sent: this value is covered by the safety monitor’s checksum, which the program on this ECU does not update when it saves. Flash the newer live-tune build to edit it.';
     tnLivePaint();
   }
   tnLivePump();
@@ -1134,64 +1111,21 @@ async function tnLiveReadBack(table) {
 }
 
 /**
- * Save: fold the open tables into the DME's calibration. The engine must be
- * off; the DME refuses otherwise. On success the DME resets, so the link is
- * dropped and the user is told to let it restart.
+ * Tell the DME whether to keep the edits: it writes nothing now and folds
+ * the open tables into its calibration itself at key-off when asked.
+ * Unticking takes the request back.
  * @returns {Promise<void>}
  */
 async function tnLiveSave() {
   if (!tnLive.lt || tnLive.busy) return;
-  if (tnLive.lt.savesOnRequest()) {
-    // This build writes nothing now: it is told to keep the edits, and
-    // folds them into the calibration itself at key-off. Unticking takes
-    // the request back.
-    await tnLiveWhileBusy('', async () => {
-      try {
-        await tnLive.lt.askSave(!tnLive.saveAsked);
-        tnLive.saveAsked = !tnLive.saveAsked;
-      } catch (e) {
-        tnLive.error = (e && e.message) || String(e);
-      }
-    });
-    return;
-  }
-  if (!tnLive.lt.tables.length) {
-    tnLive.error = 'no edits have been made to save';
-    tnLivePaint();
-    return;
-  }
-  const ok = await confirmDialog({
-    title: 'Save tune to the ECU?',
-    body: `<p>Engine must be off, ignition on.</p>`,
-    confirmLabel: 'Save to ECU',
-    cancelLabel: 'Cancel',
-  });
-  if (!ok) return;
-  const lt = tnLive.lt;
-  const refused = await tnLiveWhileBusy('saving…', async () => {
+  await tnLiveWhileBusy('', async () => {
     try {
-      await lt.save();
+      await tnLive.lt.askSave(!tnLive.saveAsked);
+      tnLive.saveAsked = !tnLive.saveAsked;
     } catch (e) {
-      // TURNING / BIG are the only real refusals; everything else (silence,
-      // a dropped link from the reset) means it saved.
-      if (e instanceof LtError && (e.code === 'turning' || e.code === 'big')) {
-        tnLive.error = e.message;
-        return true;
-      }
+      tnLive.error = (e && e.message) || String(e);
     }
-    // Saved. The DME folds the calibration and resets, dropping the link.
-    tnLive.armed = false;
-    tnLive.lt = null;
-    tnLive.readOffsets = null;
-    return false;
   });
-  if (refused) return;
-  // the repaint on the way out blanked the status; the saved message goes
-  // in after it, so it cannot be clobbered
-  if (tnLive.els) {
-    tnLive.els.status.textContent = 'saved';
-    tnLive.els.status.className = 'tn-live-status on';
-  }
 }
 
 /**
@@ -1250,7 +1184,6 @@ function tnLiveInit(ed) {
   tnLive.els = {
     bar,
     arm: document.getElementById('tn-live-arm'),
-    save: document.getElementById('tn-live-save'),
     keep: document.getElementById('tn-live-keep'),
     keepBox: document.getElementById('tn-live-keep-box'),
     discard: document.getElementById('tn-live-discard'),
@@ -1261,7 +1194,6 @@ function tnLiveInit(ed) {
   tnLive.els.arm.onclick = () => (tnLive.armed ? tnLiveDisarm() : tnLiveArm());
   if (typeof tnGaugesInit === 'function') tnGaugesInit();
   tnLiveRejoin();
-  tnLive.els.save.onclick = () => tnLiveSave();
   // the box shows what the DME was told, so it only moves once that is known
   tnLive.els.keepBox.onchange = () => tnLiveSave();
   tnLive.els.discard.onclick = () => tnLiveDiscard();

@@ -6,56 +6,42 @@
  * runs. Its service rides the define-packet service (2C) under local id 6C.
  * See docs/livetune-design.md (ms45-emu) for the DME side.
  *
- * Two generations of the build exist. Version 1 places the mirrors itself
- * (op 01) and holds seven tables in 1.3 KB of RAM. Version 2 leaves the
- * placing to this client (op 07) and can program a mirror into the blank end
- * of the calibration sector (op 06), "the shelf": a table being edited sits
- * in RAM, and when RAM runs out the one edited longest ago is moved to the
- * shelf, where the DME reads it just the same. Twenty tables, 12 KB of shelf
- * between two saves. Version 3 adds the single values: the constants and
- * flags the program reads straight from the calibration are live too, each
- * opened as a mirror of a byte or two like a small table. The ones the
- * program reads often have RAM of their own on the DME, and their mirror is
- * placed on it; a table in the DME's flash says which, and which values are
- * live at all (`loadSingles`).
+ * The client speaks to the current build (version 5): the client places
+ * each mirror (op 07) in one of the DME's RAM pools or on "the shelf", the
+ * blank end of the calibration sector (op 06), moving the table edited
+ * longest ago out of RAM when it runs out; the single values the program
+ * reads straight from the calibration are live too, each a mirror of a
+ * byte or two, placed on the RAM the DME already keeps for the ones it
+ * reads often (`loadSingles`); the key-off saves what is open when asked
+ * (op 08) and keeps the safety monitor's sum in step. An earlier build
+ * answers the ping with its version and is refused.
  */
-/* exported LT_STATUS, LT_SLOTS, LT_POOLS, LT_POOLS3, LT_SHELF, LT_SINGLES, LtError, LiveTune */
+/* exported LT_STATUS, LT_VERSION, LT_POOLS, LT_SHELF, LT_SINGLES, LtError, LiveTune */
 
 const LT_LOCAL_ID = 0x6c;
 const LT_ACK = [0x7f, 0x2c, 0x12]; // every op, and a build-less DME, answer this
 const LT_CAL_BASE = 0xffe40000;
 const LT_DESC_MAGIC = 0x6c690000;
 const LT_PACKET = 0xf0; // the one local identifier the stock define-by-address accepts
-const LT_SLOTS = 7; // version 1
-// where each version keeps its descriptors: magic, then (base,end,delta) per
-// slot, a zero base ends them
-const LT_LAYOUT = {
-  1: { desc: 0x3f9e10, slots: 7 },
-  2: { desc: 0x3f9b48, slots: 20 },
-  3: { desc: 0x3f9c48, slots: 36 },
-  4: { desc: 0x3f9c48, slots: 36 }, // and the key-off saves only when asked (op 08)
-  5: { desc: 0x3f9c48, slots: 36 }, // and a save keeps the safety monitor's sum in step
-};
-const LT_SAVE_ARMED = 0x3f9892; // version 4: 0x5A here and the key-off saves
+/** The build this client is for; an earlier one is refused. */
+const LT_VERSION = 5;
+/** Where the build keeps its descriptors: magic, then (base,end,delta) per slot, a zero base ends them. */
+const LT_DESC = 0x3f9c48;
+const LT_DESC_SLOTS = 36;
+const LT_SAVE_ARMED = 0x3f9892; // 0x5A here and the key-off saves
 const LT_SAVE_ASKED = 0x5a;
-const LT_STATE = 0x3f9e74; // magic, status, count, version (v1: a pool cursor), .., last mirror
-// version 2: the RAM a mirror may live in, and the shelf (calibration offsets)
-const LT_POOLS = [
-  [0x3f9e98, 0x3fa0a0],
-  [0x3f9c48, 0x3f9e00],
-  [0x3f9e10, 0x3f9e74],
-  [0x3f9894, 0x3f98b0],
-];
+const LT_STATE = 0x3f9e74; // magic, status, count, version, .., last mirror
+// the RAM a mirror may live in, and the shelf (calibration offsets).
 // 0x3f9b48-0x3f9c40 is free on paper but is where the DME keeps the value
 // list a tester defines (2C F0, up to 255 bytes from 0x3f9b43): a mirror
 // placed there is overwritten by the next define, so nothing goes there
-const LT_POOLS3 = [
+const LT_POOLS = [
   [0x3f9e98, 0x3fa0a0],
   [0x3f9e10, 0x3f9e74],
   [0x3f9894, 0x3f98b0],
 ];
 const LT_SHELF = [0x1d000, 0x1ff80];
-const LT_SINGLES = 0xfa800; // version 3: the single-value table, in the external flash
+const LT_SINGLES = 0xfa800; // the single-value table, in the external flash
 const LT_SINGLES_MAGIC = 0x53564c31; // "SVL1"
 const LT_SHELF_MAX = 32; // bytes one shelf request programs
 const LT_SHELF_PROBE = 16; // bytes read to tell used shelf from blank
@@ -135,9 +121,14 @@ class LiveTune {
     this.singles = null;
   }
 
-  /** The RAM pools a mirror may be placed in, for this DME's version. */
+  /** The RAM pools a mirror may be placed in. */
   pools() {
-    return this.version >= 3 ? LT_POOLS3 : LT_POOLS;
+    return LT_POOLS;
+  }
+
+  /** Whether the DME runs a build this client can drive. */
+  supported() {
+    return this.version >= LT_VERSION;
   }
 
   /**
@@ -175,13 +166,13 @@ class LiveTune {
   }
 
   /**
-   * Read the DME's single-value table (version 3). Without it single values
+   * Read the DME's single-value table. Without it single values
    * are sent like before and take effect after a save.
    * @returns {Promise<boolean>} Whether the DME has one.
    */
   async loadSingles() {
     this.singles = null;
-    if (this.version < 3) return false;
+    if (!this.supported()) return false;
     const head = await this.readFlash(LT_SINGLES, 16);
     const w16 = (b, i) => (b[i] << 8) | b[i + 1];
     const w32 = (b, i) =>
@@ -378,9 +369,9 @@ class LiveTune {
     const w = (i) =>
       (b[i] << 24) | (b[i + 1] << 16) | (b[i + 2] << 8) | b[i + 3];
     if (w(0) >>> 0 !== LT_STATE_MAGIC) return null;
-    // version 1 keeps a RAM address in the version word
+    // the first build kept a RAM address in the version word
     const v = w(12) >>> 0;
-    this.version = v >= 2 && v <= 5 ? v : 1;
+    this.version = v >= 2 && v < 0x100 ? v : 1;
     return {
       status: w(4) >>> 0,
       count: w(8) >>> 0,
@@ -451,7 +442,8 @@ class LiveTune {
    * @returns {Promise<Array<{slot:number,offset:number,length:number,mirror:number}>>}
    */
   async descriptors() {
-    const { desc, slots } = LT_LAYOUT[this.version];
+    const desc = LT_DESC;
+    const slots = LT_DESC_SLOTS;
     const b = await this.readMemory(desc, 4 + slots * 12);
     const w = (i) =>
       ((b[i] << 24) | (b[i + 1] << 16) | (b[i + 2] << 8) | b[i + 3]) >>> 0;
@@ -518,17 +510,6 @@ class LiveTune {
       this.tables.push(t);
     }
     return this.tables.length;
-  }
-
-  /**
-   * The slot serving a calibration offset, or -1. The FIRST match, as the
-   * DME's own scan takes it.
-   * @param {number} offset - A calibration offset.
-   * @returns {Promise<number>}
-   */
-  async slotForOffset(offset) {
-    const d = (await this.descriptors()).find((t) => t.offset === offset);
-    return d ? d.slot : -1;
   }
 
   /**
@@ -715,29 +696,13 @@ class LiveTune {
       if (!(await this.readState())) await this.op([0x04]); // brings the block up, or says absent
       const open = await this.descriptors();
       let d = open.find(match);
-      if (!d && this.version === 1) {
-        const st = await this.op([
-          0x01,
-          (offset >> 16) & 0xff,
-          (offset >> 8) & 0xff,
-          offset & 0xff,
-          (length >> 8) & 0xff,
-          length & 0xff,
-        ]);
-        d = (await this.descriptors()).find(match);
-        if (!d) {
-          const code =
-            { [LT_STATUS.FULL]: 'full', [LT_STATUS.ROOM]: 'room' }[st.status] ||
-            'refused';
-          throw new LtError(
-            code,
-            LT_STATUS_TEXT[st.status] ||
-              'the DME acknowledged the open but the table is not in its descriptors'
-          );
-        }
-      }
+      if (!d && !this.supported())
+        throw new LtError(
+          'refused',
+          `this DME runs live tune build ${this.version}; flash the current one (${LT_VERSION}) to edit it live`
+        );
       if (!d) {
-        if (open.length >= LT_LAYOUT[this.version].slots)
+        if (open.length >= LT_DESC_SLOTS)
           throw new LtError('full', LT_STATUS_TEXT[LT_STATUS.FULL]);
         // a value with RAM of its own on the DME is edited there
         const own = this.pooled(offset, length);
@@ -848,26 +813,6 @@ class LiveTune {
   }
 
   /**
-   * Whether a save on this DME also rewrites the safety monitor's own sum
-   * over calibration 0x240-0x7C8. Where it does not, an edit saved in that
-   * range would leave a calibration the monitor rejects.
-   * @returns {boolean}
-   */
-  savesMonitorSum() {
-    return this.version >= 5;
-  }
-
-  /**
-   * Whether this DME keeps a tried-out tune only when asked: its key-off
-   * saves the open tables if `askSave` was sent, and drops them otherwise.
-   * Earlier builds save whatever is open at every key-off.
-   * @returns {boolean}
-   */
-  savesOnRequest() {
-    return this.version >= 4;
-  }
-
-  /**
    * Ask the DME to fold the open tables into the calibration when the
    * ignition is switched off, or take that back. Nothing is written now.
    * @param {boolean} on
@@ -888,7 +833,6 @@ class LiveTune {
    * @returns {Promise<boolean>}
    */
   async saveAsked() {
-    if (!this.savesOnRequest()) return false;
     return (await this.readMemory(LT_SAVE_ARMED, 1))[0] === LT_SAVE_ASKED;
   }
 
@@ -960,9 +904,8 @@ class LiveTune {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     LT_STATUS,
-    LT_SLOTS,
+    LT_VERSION,
     LT_POOLS,
-    LT_POOLS3,
     LT_SHELF,
     LT_SINGLES,
     LtError,

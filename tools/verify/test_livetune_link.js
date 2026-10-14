@@ -72,8 +72,6 @@ function world() {
     readCal: async (offset, length) => new Uint8Array(length).fill(0x19), // what the calibration holds
     readTable: async () => new Uint8Array(16),
     liveSingle: () => true,
-    savesOnRequest: () => true,
-    savesMonitorSum: () => true,
     singles: null,
   };
   const ctx = {

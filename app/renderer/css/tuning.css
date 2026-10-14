@@ -2552,8 +2552,7 @@ body.apps-section .view:has(.tn-workspace) > .tn-workspace {
 }
 /* the save to the ECU keeps to the far right of the live row, apart from
    the things that are safe to press */
-.tn-live .tn-live-keep,
-.tn-live .tn-live-save {
+.tn-live .tn-live-keep {
   margin-left: auto;
 }
 /* The live row (nowrap, above) at one height and one type size. Its buttons
