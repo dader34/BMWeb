@@ -6,37 +6,41 @@
  * runs. Its service rides the define-packet service (2C) under local id 6C.
  * See docs/livetune-design.md (ms45-emu) for the DME side.
  *
- * The client speaks to the current build (version 5): the client places
- * each mirror (op 07) in one of the DME's RAM pools or on "the shelf", the
- * blank end of the calibration sector (op 06), moving the table edited
- * longest ago out of RAM when it runs out; the single values the program
- * reads straight from the calibration are live too, each a mirror of a
- * byte or two, placed on the RAM the DME already keeps for the ones it
- * reads often (`loadSingles`); the key-off saves what is open when asked
- * (op 08) and keeps the safety monitor's sum in step. An earlier build
- * answers the ping with its version and is refused.
+ * The client speaks to builds 5 and 6: the client places each mirror (op
+ * 07) in one of the DME's RAM pools or on "the shelf", the blank end of the
+ * calibration sector (op 06), moving the table edited longest ago out of
+ * RAM when it runs out; the single values the program reads straight from
+ * the calibration are live too, each a mirror of a byte or two, placed on
+ * the RAM the DME already keeps for the ones it reads often
+ * (`loadSingles`); build 6 puts one more on the processor's data
+ * breakpoint (op 09), so the last single value edited is live wherever it
+ * is (`watch`); the key-off saves what is open when asked (op 08) and keeps
+ * the safety monitor's sum in step. An earlier build answers the ping with
+ * its version and is refused.
  */
-/* exported LT_STATUS, LT_VERSION, LT_POOLS, LT_SHELF, LT_SINGLES, LtError, LiveTune */
+/* exported LT_STATUS, LT_VERSION, LT_VERSION_MIN, LT_POOLS, LT_SHELF, LT_SINGLES, LtError, LiveTune */
 
 const LT_LOCAL_ID = 0x6c;
 const LT_ACK = [0x7f, 0x2c, 0x12]; // every op, and a build-less DME, answer this
 const LT_CAL_BASE = 0xffe40000;
 const LT_DESC_MAGIC = 0x6c690000;
 const LT_PACKET = 0xf0; // the one local identifier the stock define-by-address accepts
-/** The build this client is for; an earlier one is refused. */
-const LT_VERSION = 5;
+/** The current build, and the earliest this client still drives (without the watch). */
+const LT_VERSION = 6;
+const LT_VERSION_MIN = 5;
 /** Where the build keeps its descriptors: magic, then (base,end,delta) per slot, a zero base ends them. */
 const LT_DESC = 0x3f9c48;
 const LT_DESC_SLOTS = 36;
 const LT_SAVE_ARMED = 0x3f9892; // 0x5A here and the key-off saves
 const LT_SAVE_ASKED = 0x5a;
-const LT_STATE = 0x3f9e74; // magic, status, count, version, .., last mirror
+const LT_STATE = 0x3f9e74; // magic, status, count, version, .., last mirror, .., watched base, end, delta
+const LT_STATE_SIZE = 0x30;
 // the RAM a mirror may live in, and the shelf (calibration offsets).
 // 0x3f9b48-0x3f9c40 is free on paper but is where the DME keeps the value
 // list a tester defines (2C F0, up to 255 bytes from 0x3f9b43): a mirror
 // placed there is overwritten by the next define, so nothing goes there
 const LT_POOLS = [
-  [0x3f9e98, 0x3fa0a0],
+  [0x3f9ea4, 0x3fa0a0],
   [0x3f9e10, 0x3f9e74],
   [0x3f9894, 0x3f98b0],
 ];
@@ -119,6 +123,12 @@ class LiveTune {
      * @type {{pool:Map<number,{length:number,address:number}>,runs:number[][]}|null}
      */
     this.singles = null;
+    /**
+     * Build 6: the open table on the DME's data breakpoint, whose every
+     * read sees its mirror -- one at a time. Null when none is.
+     * @type {{slot:number,offset:number,length:number}|null}
+     */
+    this.watching = null;
   }
 
   /** The RAM pools a mirror may be placed in. */
@@ -128,6 +138,11 @@ class LiveTune {
 
   /** Whether the DME runs a build this client can drive. */
   supported() {
+    return this.version >= LT_VERSION_MIN;
+  }
+
+  /** Whether the build has the data breakpoint (`watch`). */
+  canWatch() {
     return this.version >= LT_VERSION;
   }
 
@@ -218,6 +233,8 @@ class LiveTune {
    * @returns {boolean}
    */
   liveSingle(offset, length) {
+    const w = this.watching;
+    if (w && w.offset === offset && w.length === length) return true;
     if (!this.singles) return false;
     if (this.pooled(offset, length)) return true;
     for (const [lo, e] of this.singles.pool)
@@ -365,18 +382,20 @@ class LiveTune {
    * @returns {Promise<{status:number,count:number,version:number,mirror:number}|null>}
    */
   async readState() {
-    const b = await this.readMemory(LT_STATE, 8 * 4);
+    const b = await this.readMemory(LT_STATE, LT_STATE_SIZE);
     const w = (i) =>
-      (b[i] << 24) | (b[i + 1] << 16) | (b[i + 2] << 8) | b[i + 3];
-    if (w(0) >>> 0 !== LT_STATE_MAGIC) return null;
+      ((b[i] << 24) | (b[i + 1] << 16) | (b[i + 2] << 8) | b[i + 3]) >>> 0;
+    if (w(0) !== LT_STATE_MAGIC) return null;
     // the first build kept a RAM address in the version word
-    const v = w(12) >>> 0;
+    const v = w(12);
     this.version = v >= 2 && v < 0x100 ? v : 1;
     return {
-      status: w(4) >>> 0,
-      count: w(8) >>> 0,
+      status: w(4),
+      count: w(8),
       version: this.version,
-      mirror: w(28) >>> 0,
+      mirror: w(28),
+      // build 6: the range on the data breakpoint, [base, end), or null
+      watch: this.canWatch() && w(40) ? [w(36), w(40)] : null,
     };
   }
 
@@ -509,6 +528,18 @@ class LiveTune {
       t.fixed = this.isFixed(t);
       this.tables.push(t);
     }
+    // and which of them the DME has on its data breakpoint
+    const st = await this.readState();
+    const w = st && st.watch;
+    const on =
+      w &&
+      this.tables.find(
+        (t) =>
+          (LT_CAL_BASE + t.offset) >>> 0 === w[0] && t.length === w[1] - w[0]
+      );
+    this.watching = on
+      ? { slot: on.slot, offset: on.offset, length: on.length }
+      : null;
     return this.tables.length;
   }
 
@@ -560,7 +591,13 @@ class LiveTune {
       length & 0xff,
       ...b3(mirror),
     ]);
-    if (st.status === LT_STATUS.OK) return;
+    if (st.status === LT_STATUS.OK) {
+      // the breakpoint keeps the mirror it was armed with: a watched table
+      // that moved (parked, or back from the shelf) is armed again
+      if (this.watching && this.watching.slot === slot)
+        await this.op([0x09, slot]);
+      return;
+    }
     const code =
       { [LT_STATUS.FULL]: 'full', [LT_STATUS.ROOM]: 'room' }[st.status] ||
       'refused';
@@ -844,7 +881,37 @@ class LiveTune {
    */
   async closeAll() {
     this.tables = [];
+    this.watching = null; // the DME takes the breakpoint off with the tables
     await this.op([0x03]);
+  }
+
+  /**
+   * Build 6: put an open table -- a single value no pool holds -- on the
+   * DME's data breakpoint, so every read of its range sees the mirror. One
+   * at a time: the one asked last, the one before is back to "after a save".
+   * @param {{slot:number,offset:number,length:number}} table
+   * @returns {Promise<void>}
+   * @throws {LtError} `refused`.
+   */
+  async watch(table) {
+    const st = await this.op([0x09, table.slot]);
+    if (st.status !== LT_STATUS.OK)
+      throw new LtError(
+        'refused',
+        LT_STATUS_TEXT[st.status] ||
+          `the DME refused to watch the value (status ${st.status})`
+      );
+    this.watching = {
+      slot: table.slot,
+      offset: table.offset,
+      length: table.length,
+    };
+  }
+
+  /** The data breakpoint off; the table stays open (live again after a save). */
+  async unwatch() {
+    await this.op([0x09, 0xff]);
+    this.watching = null;
   }
 
   /**
@@ -905,6 +972,7 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     LT_STATUS,
     LT_VERSION,
+    LT_VERSION_MIN,
     LT_POOLS,
     LT_SHELF,
     LT_SINGLES,

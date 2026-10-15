@@ -669,17 +669,26 @@ async function tnLiveSync(ranges) {
  */
 async function tnLiveSend(ranges) {
   try {
+    let moved = false;
     for (const r of ranges) {
-      const table = await tnLive.lt.open(r.offset, r.length);
+      const lt = tnLive.lt;
+      const table = await lt.open(r.offset, r.length);
       const want = tuningState.bin.slice(
         TN_CAL_START + r.offset,
         TN_CAL_START + r.offset + r.length
       );
-      await tnLive.lt.sync(table, want, r.cell);
+      await lt.sync(table, want, r.cell);
       // Read the mirror the DME is actually using back, so the grid shows
       // what LANDED, not just what we sent -- the live confirmation. The
       // mirror reflects the edit instantly (stock 23 reads RAM).
       await tnLiveReadBack(table);
+      // A single value no pool holds goes on the DME's data breakpoint
+      // (build 6): the last one edited is live, the one before it is not
+      if (!r.table && lt.canWatch() && !lt.liveSingle(r.offset, r.length)) {
+        const was = lt.watching;
+        await lt.watch(table);
+        if (was && was.offset !== r.offset) moved = true;
+      }
     }
     // Tables are read through the lookup library the build redirects. A
     // single value or a flag is read by the program straight from the
@@ -689,7 +698,9 @@ async function tnLiveSend(ranges) {
       (r) => !r.table && !tnLive.lt.liveSingle(r.offset, r.length)
     );
     tnLive.note = !later.length
-      ? ''
+      ? moved
+        ? ' · one single value at a time is live this way: this one now, the one before after a save'
+        : ''
       : later.length === ranges.filter((r) => !r.table).length &&
           !tnLive.lt.singles
         ? ' · single values and flags only take effect after a save'

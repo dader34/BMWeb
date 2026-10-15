@@ -132,6 +132,7 @@ function makeDme2(opts = {}) {
     flash,
     programs: 0,
     ops: [],
+    watch: null, // build 6: the range on the data breakpoint {base, end, mirror}
   };
   // the single-value table in the external flash, and the pool
   // it describes, filled from the calibration as the DME does at start-up
@@ -179,11 +180,20 @@ function makeDme2(opts = {}) {
       for (let i = 0; i < len; i++) wr(addr + i, ((off + i) * 7 + 0x11) & 0xff);
   };
   fillPool();
-  /** What an instruction that reads the single value at `offset` gets. */
-  dme.single = (offset, i = 0) =>
-    pooled.has(offset) ? rd(pooled.get(offset)[1] + i) : dme.lookup(offset, i);
   const ACK = [0x7f, 0x2c, 0x12];
   const any = (addr) => (addr >= CAL_BASE ? cal(addr - CAL_BASE) : rd(addr));
+  /** What an instruction that reads the single value at `offset` gets. */
+  dme.single = (offset, i = 0) => {
+    const w = dme.watch;
+    const a = (CAL_BASE + offset + i) >>> 0;
+    if (w && a >= w.base && a < w.end) return any(w.mirror + (a - w.base));
+    if (pooled.has(offset)) return rd(pooled.get(offset)[1] + i);
+    // in a run every reader goes through the mirrors; elsewhere it is flash
+    const runs = opts.singles ? opts.singles.runs : [];
+    return runs.some(([lo, hi]) => lo <= offset && offset + i < hi)
+      ? dme.lookup(offset, i)
+      : cal(offset + i);
+  };
   const slotAt = (s) => {
     const base = be32(DESC2 + 4 + s * 12);
     return {
@@ -249,15 +259,36 @@ function makeDme2(opts = {}) {
       for (let i = 0; i < nn; i++) wr(d.mirror + off + i, data[7 + i]);
       return finish(LT_STATUS.OK);
     }
+    const unwatch = () => {
+      dme.watch = null;
+      putBe32(STATE + 0x24, 0);
+      putBe32(STATE + 0x28, 0);
+    };
     if (op === 0x03) {
       putBe32(DESC2, 0);
       putBe32(DESC2 + 4, 0);
       dme.count = 0;
       putBe32(STATE + 8, 0);
       fillPool(); // a mirror placed on a value's own RAM left its edit there
+      if (V >= 6) unwatch();
       return finish(LT_STATUS.OK);
     }
     if (op === 0x04) return finish(LT_STATUS.OK);
+    if (op === 0x09 && V >= 6) {
+      // the slot's descriptor, as it is now, on the breakpoint; 0xFF takes it off
+      const slot = data[3];
+      if (slot === 0xff) {
+        unwatch();
+        return finish(LT_STATUS.OK);
+      }
+      if (slot >= dme.count) return finish(LT_STATUS.SLOT);
+      const d = slotAt(slot);
+      dme.watch = { base: d.base, end: d.end, mirror: d.mirror };
+      putBe32(STATE + 0x24, d.base);
+      putBe32(STATE + 0x28, d.end);
+      putBe32(STATE + 0x2c, (d.mirror - d.base) >>> 0);
+      return finish(LT_STATUS.OK);
+    }
     if (op === 0x08 && V >= 4) {
       wr(0x3f9892, data[3]); // 0x5A: the key-off saves
       return finish(LT_STATUS.OK);
@@ -482,7 +513,7 @@ async function fill(lt, offset, length, value) {
 
     const dme2 = makeDme2();
     const lt2 = new LiveTune(dme2.send);
-    await lt2.open(0, 520); // fills pool 0 exactly
+    await lt2.open(0, LT_POOLS[0][1] - LT_POOLS[0][0]); // fills pool 0 exactly
     await lt2.open(0x1000, 100); // fills pool 1 exactly
     let err2 = null;
     try {
@@ -860,6 +891,66 @@ async function fill(lt, offset, length, value) {
     assert(!many.liveSingle(0x1944, 1));
     ok(
       'single values are edited live, in place where they have RAM of their own'
+    );
+  }
+
+  // 13b. build 6: a single value no pool holds goes on the data breakpoint,
+  //      the last one edited; the one before it waits for a save again
+  {
+    const singles = { pool: [[0x1944, 1]], runs: [] };
+    const dme = makeDme2({ singles });
+    const lt = new LiveTune(dme.send);
+    await lt.ping();
+    await lt.loadSingles();
+    assert(lt.canWatch() && !lt.liveSingle(0x5b46, 2));
+    const a = await lt.open(0x5b46, 2);
+    await lt.sync(a, Uint8Array.of(0x0b, 0xb8), 2);
+    await lt.watch(a);
+    assert(lt.liveSingle(0x5b46, 2));
+    assert.deepStrictEqual((await lt.readState()).watch, [
+      (CAL_BASE + 0x5b46) >>> 0,
+      (CAL_BASE + 0x5b48) >>> 0,
+    ]);
+    assert.strictEqual(
+      (dme.single(0x5b46) << 8) | dme.single(0x5b46, 1),
+      3000,
+      'the program reads the mirror'
+    );
+    // another value takes the breakpoint over
+    const b = await lt.open(0x2000, 1);
+    await lt.sync(b, Uint8Array.of(0x42), 1);
+    await lt.watch(b);
+    assert(lt.liveSingle(0x2000, 1) && !lt.liveSingle(0x5b46, 2));
+    assert.strictEqual(dme.single(0x2000), 0x42);
+    assert.strictEqual(
+      dme.single(0x5b46),
+      (0x5b46 * 7 + 0x11) & 0xff,
+      'the first waits for a save'
+    );
+    // RAM filling up parks the watched value: the breakpoint follows it to the shelf
+    await fill(lt, 0x1000, 500, 0xaa);
+    await fill(lt, 0x2100, 500, 0xbb);
+    assert(lt.shelved(b) && dme.watch.mirror >= CAL_BASE);
+    assert.strictEqual(dme.single(0x2000), 0x42);
+    // a reloaded page knows which value is on the breakpoint
+    const again = new LiveTune(dme.send);
+    await again.ping();
+    await again.loadSingles();
+    await again.adopt();
+    assert(again.liveSingle(0x2000, 1) && !again.liveSingle(0x5b46, 2));
+    await lt.unwatch();
+    assert(!lt.liveSingle(0x2000, 1));
+    assert.strictEqual(dme.single(0x2000), (0x2000 * 7 + 0x11) & 0xff);
+    await lt.watch(b);
+    await lt.closeAll();
+    assert(!dme.watch && !lt.watching);
+    // a build-5 DME has no breakpoint: driven as before, nothing asked of it
+    const v5 = new LiveTune(makeDme2({ version: 5, singles }).send);
+    await v5.ping();
+    assert(v5.supported() && !v5.canWatch());
+    assert.strictEqual((await v5.readState()).watch, null);
+    ok(
+      'build 6 keeps the last single value edited live on the data breakpoint'
     );
   }
 
