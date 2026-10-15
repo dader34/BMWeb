@@ -11,7 +11,7 @@ const TN_COMFORT_LIVE = {
   program: "0044570LO02S",
   image: "session1.livetune7",
   name: 'Always live',
-  count: 543,
+  count: 596,
   subjects: [
   {
     "name": "Air mass",
@@ -182,6 +182,14 @@ const TN_COMFORT_LIVE = {
     "name": "Air temperature",
     "items": [
       [
+        "c_tia_thd_ebox_cfa",
+        "Control-unit box fan on, air temperature"
+      ],
+      [
+        "c_tia_hys_ebox_cfa",
+        "Control-unit box fan, air temperature hysteresis"
+      ],
+      [
         "c_tia_im_stnd",
         "Standard intake air temperature"
       ]
@@ -290,6 +298,10 @@ const TN_COMFORT_LIVE = {
     "name": "Coolant temperature",
     "items": [
       [
+        "c_tco_max_accin_hys",
+        "A/C cut by coolant temperature, hysteresis"
+      ],
+      [
         "c_tco_max_accin",
         "Coolant temperature above which the A/C is cut"
       ],
@@ -308,6 +320,14 @@ const TN_COMFORT_LIVE = {
       [
         "c_tco_dui_max_st",
         "Maximum coolant temperature for double injection at start"
+      ],
+      [
+        "c_tco_max_mpl_is",
+        "Maximum coolant temperature for multi-spark at idle"
+      ],
+      [
+        "c_tco_max_mpl_st",
+        "Maximum coolant temperature for multi-spark at start"
       ],
       [
         "c_tco_act_puc_min",
@@ -381,6 +401,39 @@ const TN_COMFORT_LIVE = {
     ]
   },
   {
+    "name": "Electric fan",
+    "items": [
+      [
+        "c_ecfpwm_inh_diag_ect_mec",
+        "Fan duty above which thermostat diagnosis stops"
+      ],
+      [
+        "c_ecfpwm_min_fb",
+        "Fan duty below which no feedback is expected"
+      ],
+      [
+        "c_ecfpwm_ecf_man",
+        "Fan duty override"
+      ],
+      [
+        "c_ecfpwm_ecf_sub_diag",
+        "Fan duty when the fan is in fault"
+      ],
+      [
+        "c_ecfpwm_max",
+        "Fan duty, highest"
+      ],
+      [
+        "c_ecfpwm_min",
+        "Fan duty, lowest"
+      ],
+      [
+        "c_ecfpwm_act_ecf",
+        "Fan duty, minimum from the speed stage"
+      ]
+    ]
+  },
+  {
     "name": "Engine speed thresholds",
     "items": [
       [
@@ -420,6 +473,14 @@ const TN_COMFORT_LIVE = {
         "DISA upper speed"
       ],
       [
+        "c_n_ecf_hys",
+        "Fan stage hysteresis"
+      ],
+      [
+        "c_n_perc_act_ecf",
+        "Fan stage setpoint"
+      ],
+      [
         "c_n_mis_ftp",
         "FTP-cycle speed threshold, misfire"
       ],
@@ -450,6 +511,14 @@ const TN_COMFORT_LIVE = {
       [
         "c_n_max_mis_at",
         "Maximum speed for misfire detection (automatic)"
+      ],
+      [
+        "c_n_max_mis_mt",
+        "Maximum speed for misfire detection (manual)"
+      ],
+      [
+        "c_n_max_ign_mpl",
+        "Maximum speed for multi-spark at idle"
       ],
       [
         "c_n_max_er",
@@ -544,8 +613,16 @@ const TN_COMFORT_LIVE = {
         "Purge valve frequency switch, speed hysteresis"
       ],
       [
+        "c_n_max_dri_rvl",
+        "Rev limit in reverse, automatic"
+      ],
+      [
         "c_nr_raf_chg_wait_lam_adj",
         "Rich/lean switches between adaptation cycles"
+      ],
+      [
+        "c_n_max_sa_act",
+        "Secondary air: speed to run again"
       ],
       [
         "c_n_32_cat_diag_deac_thd",
@@ -1194,8 +1271,20 @@ const TN_COMFORT_LIVE = {
     "name": "Oil temperature",
     "items": [
       [
+        "c_toil_max_accin_hys",
+        "A/C cut by oil temperature, hysteresis"
+      ],
+      [
+        "c_toil_max_ivvt_park",
+        "Maximum oil temperature for VANOS parking"
+      ],
+      [
         "c_toil_max_accin",
         "Oil temperature above which the A/C is cut"
+      ],
+      [
+        "c_toil_max_ect",
+        "Oil temperature for hot operation"
       ],
       [
         "c_toil_min_n_sp_at",
@@ -1251,6 +1340,14 @@ const TN_COMFORT_LIVE = {
         "Constant pedal counter limit"
       ],
       [
+        "c_tecu_thd_ebox_cfa",
+        "Control-unit box fan on, unit temperature"
+      ],
+      [
+        "c_tecu_hys_ebox_cfa",
+        "Control-unit box fan, unit temperature hysteresis"
+      ],
+      [
         "c_eff_scc_sp_hys",
         "Cut-off efficiency setpoint hysteresis"
       ],
@@ -1289,6 +1386,10 @@ const TN_COMFORT_LIVE = {
       [
         "c_td_as",
         "Dwell correction (application)"
+      ],
+      [
+        "c_td_ini",
+        "Dwell time, initial value"
       ],
       [
         "c_state_tq_dyn_lamb",
@@ -1504,6 +1605,10 @@ const TN_COMFORT_LIVE = {
         "Constant-pedal detection band"
       ],
       [
+        "c_pv_hys_ef",
+        "Exhaust flap pedal hysteresis"
+      ],
+      [
         "c_pv_av_ext_adj_min",
         "Minimum pedal for external adjustment"
       ],
@@ -1529,12 +1634,24 @@ const TN_COMFORT_LIVE = {
     "name": "Road speed",
     "items": [
       [
+        "c_vs_max_accin",
+        "A/C cut at high load above this road speed"
+      ],
+      [
         "c_vs_sp_cru_max_k",
         "Cruise control maximum speed (km/h)"
       ],
       [
         "c_vs_hys_n_sp_cs",
         "Drive-off support speed hysteresis"
+      ],
+      [
+        "c_vs_min_ef_at",
+        "Exhaust flap held open above this speed, automatic"
+      ],
+      [
+        "c_vs_min_ef_mt",
+        "Exhaust flap held open above this speed, manual"
       ],
       [
         "c_vs_max_n_sp_cs",
@@ -1549,6 +1666,10 @@ const TN_COMFORT_LIVE = {
         "Minimum cruise speed (km/h)"
       ],
       [
+        "c_vs_min_cru_m",
+        "Minimum cruise speed (mph)"
+      ],
+      [
         "c_vs_min_dt_fast",
         "Minimum speed for fast torque, open drivetrain"
       ],
@@ -1561,12 +1682,36 @@ const TN_COMFORT_LIVE = {
         "Minimum speed, catalyst diagnosis"
       ],
       [
+        "c_vs_thd_n_max_h_at",
+        "Road speed for the raised limit, automatic"
+      ],
+      [
+        "c_vs_thd_n_max_h_mt",
+        "Road speed for the raised limit, manual"
+      ],
+      [
+        "c_vs_thd_n_max_h_amt",
+        "Road speed for the raised limit, SMG"
+      ],
+      [
+        "c_vs_max_hys",
+        "Speed limit hysteresis"
+      ],
+      [
         "c_vs_min_plaus_cru",
         "Speed plausibility for cruise"
       ],
       [
         "c_vs_min_run",
         "Speed that counts as moving"
+      ],
+      [
+        "c_vs_max",
+        "Top speed limit"
+      ],
+      [
+        "c_vs_max_amt",
+        "Top speed limit, SMG"
       ]
     ]
   },
@@ -1606,6 +1751,10 @@ const TN_COMFORT_LIVE = {
         "Clutch minimum torque, extra losses"
       ],
       [
+        "lc_cru_req_swi",
+        "Cruise control from the steering lever"
+      ],
+      [
         "lc_eff_scc_sp_man",
         "Cut-off efficiency setpoint manual"
       ],
@@ -1626,12 +1775,20 @@ const TN_COMFORT_LIVE = {
         "Engine back-rotation detection by cam"
       ],
       [
+        "lc_msr_disable",
+        "Engine drag torque control off"
+      ],
+      [
         "lc_var_gs_eobd",
         "EOBD (1) or US (0) variant"
       ],
       [
         "lc_delta_lamb_i_ad_ext_adj",
         "External lambda shift adjustment"
+      ],
+      [
+        "lc_ecfpwm_ecf_man",
+        "Fan override switch"
       ],
       [
         "lc_tq_intv_inh_as",
@@ -1644,6 +1801,14 @@ const TN_COMFORT_LIVE = {
       [
         "lc_tq_dyn_driv",
         "Fast torque request enabled"
+      ],
+      [
+        "lc_lsh_up_1",
+        "Front O2 heater on, bank 1"
+      ],
+      [
+        "lc_lsh_up_2",
+        "Front O2 heater on, bank 2"
       ],
       [
         "lc_tq_scc_ena_man",
@@ -1786,6 +1951,14 @@ const TN_COMFORT_LIVE = {
         "No fuel cut at the rev limit"
       ],
       [
+        "lc_inh_fcut_gs",
+        "No fuel cut for gearshift intervention"
+      ],
+      [
+        "lc_inh_fcut_asr",
+        "No fuel cut for traction control"
+      ],
+      [
         "lc_tq_scc_inh_man",
         "No fuel cut from torque management"
       ],
@@ -1824,6 +1997,14 @@ const TN_COMFORT_LIVE = {
       [
         "lc_inh_ls_down_man_deac",
         "Rear O2 diagnosis off"
+      ],
+      [
+        "lc_lsh_down_1",
+        "Rear O2 heater on, bank 1"
+      ],
+      [
+        "lc_lsh_down_2",
+        "Rear O2 heater on, bank 2"
       ],
       [
         "lc_ar_red_isa_fil_ena",
@@ -1898,6 +2079,14 @@ const TN_COMFORT_LIVE = {
         "Steering rate correction by wheel state"
       ],
       [
+        "lc_n_ofs_kwp_disable",
+        "Tester idle offset disabled"
+      ],
+      [
+        "lc_ectpwm_man",
+        "Thermostat heater duty override switch"
+      ],
+      [
         "lc_tps_fil_ena",
         "Throttle setpoint filter"
       ],
@@ -1916,6 +2105,14 @@ const TN_COMFORT_LIVE = {
       [
         "lc_tq_lamb_ena_man",
         "Torque-based lambda setpoint on"
+      ],
+      [
+        "lc_asr_disable",
+        "Traction control interventions off"
+      ],
+      [
+        "lc_ena_ivvt_park",
+        "VANOS parking on"
       ],
       [
         "lc_lam_adj_ad_new",
@@ -1976,8 +2173,20 @@ const TN_COMFORT_LIVE = {
         "CAN timeout diagnosis minimum time"
       ],
       [
+        "c_t_ef_ast",
+        "Exhaust flap cranking time"
+      ],
+      [
         "c_t_lsh_up_max_step",
         "Front O2 heater voltage step time"
+      ],
+      [
+        "c_t_efp_prev",
+        "Fuel pump prime time after reset"
+      ],
+      [
+        "c_t_efp",
+        "Fuel pump run-on after key off"
       ],
       [
         "c_t_dly_fsd_pu",
@@ -2050,6 +2259,14 @@ const TN_COMFORT_LIVE = {
       [
         "c_t_drv2_zdly_er",
         "Roughness curvature delay after start"
+      ],
+      [
+        "c_t_dly_sap_off",
+        "Secondary air pump off delay"
+      ],
+      [
+        "c_t_dly_sap_on",
+        "Secondary air pump on delay"
       ],
       [
         "c_t_ena_dr_dmtl_max",
