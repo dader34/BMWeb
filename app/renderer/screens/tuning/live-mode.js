@@ -699,7 +699,7 @@ async function tnLiveSend(ranges) {
     );
     tnLive.note = !later.length
       ? moved
-        ? ' · one single value at a time is live this way: this one now, the one before after a save'
+        ? ' · only the last single value edited is live'
         : ''
       : later.length === ranges.filter((r) => !r.table).length &&
           !tnLive.lt.singles
