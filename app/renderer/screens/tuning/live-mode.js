@@ -183,6 +183,7 @@ function tnLivePaint() {
   e.bar.hidden = false; // with no BIN too: arming reads the maps off the ECU
   const lost = tnLive.armed && tnLive.link === 'lost';
   if (typeof tnGaugesSync === 'function') tnGaugesSync(); // the gauge windows follow live mode
+  if (typeof tnCanarySync === 'function') tnCanarySync();
   // While live, what is being edited is the car's own calibration: loading
   // another image or definition under it, or starting a whole read, has no
   // place, so those buttons step aside until live mode is off.
@@ -1204,6 +1205,7 @@ function tnLiveInit(ed) {
   };
   tnLive.els.arm.onclick = () => (tnLive.armed ? tnLiveDisarm() : tnLiveArm());
   if (typeof tnGaugesInit === 'function') tnGaugesInit();
+  if (typeof tnCanaryInit === 'function') tnCanaryInit(); // testing only: adds to the apps menu
   tnLiveRejoin();
   // the box shows what the DME was told, so it only moves once that is known
   tnLive.els.keepBox.onchange = () => tnLiveSave();

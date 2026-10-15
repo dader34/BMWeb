@@ -3145,3 +3145,41 @@ body.tn-away .tn-surface-win {
   font-size: 10px;
   color: var(--amber);
 }
+/* the RAM canary panel (testing only) */
+.tn-canary {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 60;
+  width: 420px;
+  max-height: 70vh;
+  overflow: auto;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 12px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+}
+.tn-canary-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.tn-canary-tools {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.tn-canary-note {
+  color: var(--ink-dim);
+}
+.tn-canary-report {
+  margin: 8px 0 0;
+  font-family: var(--mono);
+  font-size: 11px;
+  white-space: pre-wrap;
+  color: var(--ink);
+}

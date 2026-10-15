@@ -274,6 +274,14 @@ function makeDme2(opts = {}) {
       return finish(LT_STATUS.OK);
     }
     if (op === 0x04) return finish(LT_STATUS.OK);
+    if (op === 0x0a && V >= 6) {
+      const addr = (data[3] << 16) | (data[4] << 8) | data[5];
+      const nn = data[6];
+      if (!nn || addr < 0x3f9800 || addr + nn > 0x3ff900)
+        return finish(LT_STATUS.RANGE);
+      for (let i = 0; i < nn; i++) wr(addr + i, data[7]);
+      return finish(LT_STATUS.OK);
+    }
     if (op === 0x09 && V >= 6) {
       // the slot's descriptor, as it is now, on the breakpoint; 0xFF takes it off
       const slot = data[3];
@@ -951,6 +959,26 @@ async function fill(lt, offset, length, value) {
     assert.strictEqual((await v5.readState()).watch, null);
     ok(
       'build 6 keeps the last single value edited live on the data breakpoint'
+    );
+  }
+
+  // 13c. the canary: a stretch of RAM planted with a byte and read back
+  {
+    const dme = makeDme2();
+    const lt = new LiveTune(dme.send);
+    await lt.ping();
+    await lt.canary(0x3fa387, 200, 0xa5);
+    const back = await lt.readMemory(0x3fa387, 200);
+    assert(back.every((b) => b === 0xa5));
+    let err = null;
+    try {
+      await lt.canary(0x3ff8f0, 32, 0xa5); // into the stack
+    } catch (e) {
+      err = e;
+    }
+    assert(err instanceof LtError && err.code === 'refused');
+    ok(
+      'a canary is planted in RAM and refused where the DME must not be written'
     );
   }
 
