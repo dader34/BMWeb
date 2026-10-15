@@ -10669,6 +10669,7 @@ body.remote-helper::after {
 }
 .log-replay-x-label {
   flex: none;
+  width: 52px; /* the widest label (COLOUR): the controls line up down the side */
 }
 /* the dropdown has a width of its own elsewhere: here it takes the row */
 .log-replay-x {

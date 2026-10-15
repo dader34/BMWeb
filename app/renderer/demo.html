@@ -582,17 +582,35 @@
               </figure>
               <figure class="wide">
                 <img
-                  src="img/demo/data-logging.webp"
-                  alt="Data logging for an E46: the module tree with two oxygen sensor keys ticked under STATUS_L_SONDE, two chart cards beside it, and a summary of two readings on one job."
-                  width="1440"
-                  height="900"
+                  src="img/demo/logging-comfort.webp"
+                  alt="Data logging for an E46 MS45 in Comfort mode: plainly named readings ticked on the left, seven chart cards filling live on the right, the rate in the summary."
+                  width="1434"
+                  height="693"
                   loading="lazy"
                   decoding="async"
                 />
                 <figcaption>
-                  <b>Data logging.</b> Tick any readings from any modules and
-                  each gets its own chart, sampled while you drive and exported
-                  as CSV. Only read-only jobs are offered.
+                  <b>Data logging.</b> Comfort lists the readings that matter
+                  under plain names; tick them and each gets a chart, sampled
+                  while you drive, saved to History and exported as CSV. Expert
+                  offers every read-only job of every module.
+                </figcaption>
+              </figure>
+              <figure class="wide">
+                <img
+                  src="img/demo/logging-replay-map.webp"
+                  alt="A recorded run replayed in Map mode: the ignition table from the tune with the path the engine took drawn across its cells, the time spent in each cell, and the channel list with min, average and max."
+                  width="1434"
+                  height="693"
+                  loading="lazy"
+                  decoding="async"
+                />
+                <figcaption>
+                  <b>Replay and Map mode.</b> Play any recorded run back, scrub
+                  it, zoom; Map mode paints the path the engine took across a
+                  table from your tune, cell by cell, with the time spent in
+                  each. A DME reset during a run is kept on its own as a black
+                  box.
                 </figcaption>
               </figure>
             </div>
@@ -1064,7 +1082,9 @@
             <p class="section-note">
               Open a firmware image, add a definition file, and edit named
               constants and tables in engineering units, with the raw hex beside
-              them. Saving writes a file on your computer, never the car.
+              them. Saving writes a file on your computer, never the car. On an
+              MS45 running the live-tune program, edits go to the running engine
+              as you make them.
             </p>
             <div class="shots">
               <figure>
@@ -1095,6 +1115,42 @@
                   <b>Table editor.</b> Heat-coloured cells with the axis in real
                   units; set, scale, interpolate and smooth, with undo and a
                   diff against the original.
+                </figcaption>
+              </figure>
+              <figure class="wide">
+                <img
+                  src="img/demo/tuning-live.webp"
+                  alt="Live tuning on an MS45: the editor armed with LIVE ON, the Comfort tree's Always live group open on the electric fan values, and the ignition table open with the cells the engine is reading right now shaded."
+                  width="1434"
+                  height="693"
+                  loading="lazy"
+                  decoding="async"
+                />
+                <figcaption>
+                  <b>Live tuning.</b> With the live-tune program on the DME,
+                  LIVE ON mirrors every edit onto the running engine the moment
+                  you make it. The live cursor marks the cells being read; the
+                  Comfort tree's <i>Always live</i> group lists the single
+                  values that are live together, the fan, the limits and the
+                  switches among them. Tick <i>Save to ECU</i> and the DME keeps
+                  the tune at key-off.
+                </figcaption>
+              </figure>
+              <figure class="wide">
+                <img
+                  src="img/demo/tuning-live-windows.webp"
+                  alt="Four floating windows over the editor while live: the DME's fault memory with a live scan, its adaptations by section with a clear button each, a rev gauge, and the engine's live values."
+                  width="1434"
+                  height="693"
+                  loading="lazy"
+                  decoding="async"
+                />
+                <figcaption>
+                  <b>Live windows.</b> UI apps opens what you want beside the
+                  editor: the fault memory with read, live scan and clear, the
+                  adaptations the DME has learned (mixture, idle and throttle,
+                  camshafts), each clearable on its own, a rev gauge, and the
+                  live values.
                 </figcaption>
               </figure>
             </div>
