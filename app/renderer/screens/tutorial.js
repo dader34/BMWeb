@@ -336,6 +336,19 @@ async function startTutorial(opts) {
 }
 
 /**
+ * The step's target when it is drawn (a hidden control has no box: a step
+ * on it would ring the top-left corner), else null.
+ * @param {string} sel
+ * @returns {Element|null}
+ */
+function tourVisible(sel) {
+  const el = document.querySelector(sel);
+  if (!el) return null;
+  const r = el.getBoundingClientRect();
+  return r.width > 0 && r.height > 0 ? el : null;
+}
+
+/**
  * Wait for a selector to appear (a screen that builds itself asynchronously),
  * up to `ms`; resolves with the element or null.
  * @param {string} sel
@@ -346,7 +359,7 @@ function tourWaitFor(sel, ms) {
   return new Promise((resolve) => {
     const t0 = Date.now();
     const look = () => {
-      const el = document.querySelector(sel);
+      const el = tourVisible(sel);
       if (el || Date.now() - t0 > ms) resolve(el);
       else setTimeout(look, 60);
     };
@@ -433,12 +446,12 @@ async function runTour(initial, opts) {
         }
         navigating = false;
       }
-      if (document.querySelector(step.sel)) {
+      if (tourVisible(step.sel)) {
         i = n;
         place();
         return;
       }
-      n += dir; // target missing in this mode/screen: keep moving
+      n += dir; // target missing (or hidden) in this mode/screen: keep moving
     }
     end();
   }
@@ -446,7 +459,7 @@ async function runTour(initial, opts) {
   /** Put the ring around the current step's target and the tip beside it. */
   function place() {
     const step = steps[i];
-    const el = document.querySelector(step.sel);
+    const el = tourVisible(step.sel);
     if (!el) {
       show(i + 1, 1);
       return;

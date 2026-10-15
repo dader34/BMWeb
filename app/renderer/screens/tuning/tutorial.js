@@ -22,11 +22,22 @@ const TN_TOUR_SEEN_KEY = 'flashingTutorialSeen';
  * @returns {Promise<void>}
  */
 async function tnTourPage(page) {
-  if (!document.getElementById('fb-rail-' + page)) {
-    await showFlashing(page);
-    return;
+  if (!document.getElementById('fb-rail-' + page)) await showFlashing(page);
+  else fbShowPage(page);
+  // the flashing page draws its actions for the chosen control unit only:
+  // the walk picks the DME when nothing is chosen (offline it is all the
+  // same; the buttons wait for an identified unit)
+  if (
+    page === 'flashing' &&
+    typeof fbState !== 'undefined' &&
+    !fbState.module &&
+    typeof fbModuleDd !== 'undefined' &&
+    fbModuleDd
+  ) {
+    fbModuleDd.set('dme');
+    if (!fbState.module && typeof fbModuleChanged === 'function')
+      fbModuleChanged();
   }
-  fbShowPage(page);
 }
 
 /** @type {Record<string, () => Promise<void>>} */
