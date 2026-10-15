@@ -915,34 +915,6 @@ class LiveTune {
   }
 
   /**
-   * Build 6: fill RAM [addr, addr+length) with `byte` (op 0A), a canary in
-   * a stretch the emulator's survey calls free -- read back after a drive,
-   * what the DME overwrote was not free. The DME refuses the stack, its
-   * request buffer and the state block.
-   * @param {number} addr
-   * @param {number} length - 1..255
-   * @param {number} byte
-   * @returns {Promise<void>}
-   * @throws {LtError} `refused`.
-   */
-  async canary(addr, length, byte) {
-    const st = await this.op([
-      0x0a,
-      (addr >> 16) & 0xff,
-      (addr >> 8) & 0xff,
-      addr & 0xff,
-      length,
-      byte,
-    ]);
-    if (st.status !== LT_STATUS.OK)
-      throw new LtError(
-        'refused',
-        LT_STATUS_TEXT[st.status] ||
-          `the DME refused the canary (status ${st.status})`
-      );
-  }
-
-  /**
    * Fold the open tables into the calibration, engine stopped. The DME that
    * saves goes silent, rewrites its calibration sector and resets; it
    * answers (with nothing open) only when it did NOT save. So a null answer
