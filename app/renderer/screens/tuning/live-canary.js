@@ -70,7 +70,7 @@ function tnCanaryInit() {
     <div class="tn-canary-tools">
       <button type="button" class="btn tn-canary-plant">Plant</button>
       <button type="button" class="btn tn-canary-check">Check</button>
-      <span class="tn-canary-note">Plant parked, drive with everything exercised, then Check.</span>
+      <span class="tn-canary-note">Plant with the engine already running (a start or a reset re-initialises this RAM and wipes the pattern), drive with everything exercised, Check before switching off.</span>
     </div>
     <pre class="tn-canary-report"></pre>`;
   document.body.appendChild(panel);
@@ -146,12 +146,29 @@ async function tnCanaryRun(plant) {
     lines.push(`stopped: ${(e && e.message) || e}`);
   }
   const when = new Date().toLocaleString();
+  let plantedAt = null;
+  try {
+    plantedAt =
+      (JSON.parse(localStorage.getItem(TN_CANARY_KEY) || 'null') || {})
+        .plantedAt || null;
+  } catch (e) {
+    /* none remembered */
+  }
+  if (plant) plantedAt = when;
   const text = plant
-    ? `Planted ${planted} B in ${TN_CANARY.length} stretches at ${when}. Drive, then Check.`
-    : `Checked ${when}: ${intact} B intact of 1564.\n` + lines.join('\n');
+    ? `Planted ${planted} B in ${TN_CANARY.length} stretches at ${when}. Drive, then Check (before key-off).`
+    : `Checked ${when}${plantedAt ? ` (planted ${plantedAt})` : ' (nothing planted this browser session)'}: ${intact} B intact of 1564.` +
+      (intact === 0
+        ? ' Every byte changed: the DME reset (or restarted) since the plant and re-initialised this RAM.'
+        : '') +
+      '\n' +
+      lines.join('\n');
   out.textContent = text;
   try {
-    localStorage.setItem(TN_CANARY_KEY, JSON.stringify({ at: when, text }));
+    localStorage.setItem(
+      TN_CANARY_KEY,
+      JSON.stringify({ at: when, plantedAt, text })
+    );
   } catch (e) {
     /* not remembered */
   }
