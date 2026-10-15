@@ -27,3 +27,4 @@ data/
 app/renderer/core/ms45-cursor-map.js
 app/renderer/core/ms45-value-map.js
 app/renderer/core/ms45-table-map.js
+app/renderer/screens/tuning/comfort-live.js

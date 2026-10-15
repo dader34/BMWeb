@@ -455,22 +455,33 @@ function tnComfortFor(def) {
   for (const it of def.items)
     if (it.title && !byTitle.has(it.title)) byTitle.set(it.title, it);
   let found = 0;
-  const groups = [];
-  for (const g of TN_COMFORT_MS45) {
-    const subjects = [];
-    for (const s of g.subjects) {
+  const resolve = (subjects) => {
+    const out = [];
+    for (const s of subjects) {
       const rows = [];
       for (const [title, label] of s.items) {
         const item = byTitle.get(title);
         if (item) rows.push({ item, label });
       }
       found += rows.length;
-      if (rows.length) subjects.push({ name: s.name, rows });
+      if (rows.length) out.push({ name: s.name, rows });
     }
+    return out;
+  };
+  const groups = [];
+  for (const g of TN_COMFORT_MS45) {
+    const subjects = resolve(g.subjects);
     if (subjects.length) groups.push({ name: g.name, subjects });
   }
   // remembered on the definition: 5,700 titles are not indexed twice
   def.comfortList = found >= TN_COMFORT_MIN ? groups : null;
+  // the generated group last: the single values the live-tune build keeps
+  // in RAM of their own (screens/tuning/comfort-live.js), always live
+  if (def.comfortList && typeof TN_COMFORT_LIVE !== 'undefined') {
+    const subjects = resolve(TN_COMFORT_LIVE.subjects);
+    if (subjects.length)
+      def.comfortList.push({ name: TN_COMFORT_LIVE.name, subjects });
+  }
   return def.comfortList;
 }
 
