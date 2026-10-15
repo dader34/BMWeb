@@ -265,9 +265,6 @@ async function logShowChassis(chassis) {
           // page keeps taking the DME's one packet, and each time costs a stall
           (t.job === LOG_PACKET_JOB && logPacket.resent > 2
             ? `<div class="log-sum-note log-sum-note-empty">value list re-sent ${logPacket.resent}×: something else is using the DME's packet</div>`
-            : '') +
-          (t.job === LOG_PACKET_JOB && logPacket.slow
-            ? `<div class="log-sum-note log-sum-note-empty">${esc(logPacket.slow)}</div>`
             : '')
         );
       })

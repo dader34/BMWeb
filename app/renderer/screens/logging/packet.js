@@ -54,9 +54,6 @@ const logPacket = {
   wanted: '',
   /** What the sender says of its last telegram (ms45LiveTuneSender). */
   timing: { waitMs: 0, wireMs: 0 },
-  /** The last round that stalled, in words, and how many have. */
-  slow: '',
-  slowCount: 0,
 };
 
 /**
@@ -102,19 +99,7 @@ async function logPacketRead(sgbd, keys) {
   });
   logPacket.active = true;
   if (!logPacket.send) logPacket.send = ms45LiveTuneSender(logPacket.timing);
-  const startedAt = Date.now();
-  let waited = 0;
-  let onWire = 0;
-  let telegrams = 0;
-  const raw = logPacket.send;
-  // every telegram of this round, with where its time went
-  const send = async (data) => {
-    const r = await raw(data);
-    telegrams++;
-    waited += logPacket.timing.waitMs || 0;
-    onWire += logPacket.timing.wireMs || 0;
-    return r;
-  };
+  const send = logPacket.send;
   const want = `${sgbd}:${keys.join(',')}`;
   const size = 2 + 2 * values.length;
   let r = null;
@@ -134,7 +119,6 @@ async function logPacketRead(sgbd, keys) {
     r = null;
   }
   if (!r) throw new Error('the DME did not send the values back');
-  logPacketNoteSlow(Date.now() - startedAt, waited, onWire, telegrams);
   /** @type {Record<string, number|string>} */
   const row = {};
   values.forEach((v, i) => {
@@ -145,37 +129,6 @@ async function logPacketRead(sgbd, keys) {
     if (v.unit) row[keys[i].replace(/_WERT$/, '_EINH')] = v.unit;
   });
   return row;
-}
-
-/** A round longer than this is a stall worth explaining. */
-const LOG_PACKET_SLOW_MS = 400;
-
-/**
- * Keep an account of a round that stalled: how long, and whether the time
- * went waiting for the bus (something else on the page was talking to the
- * car) or out on the wire (the DME answered late, or had to be asked twice).
- * Shown in the summary, so a stutter explains itself.
- * @param {number} totalMs
- * @param {number} waitedMs
- * @param {number} wireMs
- * @param {number} telegrams
- * @returns {void}
- */
-function logPacketNoteSlow(totalMs, waitedMs, wireMs, telegrams) {
-  if (totalMs < LOG_PACKET_SLOW_MS) return;
-  logPacket.slowCount++;
-  const sec = (ms) => (ms / 1000).toFixed(1);
-  const who = [];
-  if (typeof tnLive !== 'undefined' && tnLive.armed) {
-    who.push(`live mode on, link ${tnLive.link}`);
-    if (tnLive.probe) who.push('link check out');
-    if (tnLive.busy) who.push('live busy');
-  }
-  if (typeof tnCursor !== 'undefined' && tnCursor.m) who.push('table open');
-  logPacket.slow =
-    `stall ${logPacket.slowCount}: ${sec(totalMs)} s for ${telegrams} telegram${telegrams === 1 ? '' : 's'} ` +
-    `(${sec(waitedMs)} s waiting for the bus, ${sec(wireMs)} s on the wire)` +
-    (who.length ? ` · ${who.join(', ')}` : '');
 }
 
 /**
@@ -189,8 +142,6 @@ async function logPacketRelease() {
   logPacket.active = false;
   logPacket.wanted = '';
   logPacket.resent = 0;
-  logPacket.slow = '';
-  logPacket.slowCount = 0;
   if (!was || !logPacket.send) return;
   try {
     await logPacket.send([0x2c, LOG_PACKET_ID, 0x04]);
