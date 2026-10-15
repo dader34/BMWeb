@@ -19,6 +19,7 @@ function tnToolbarHtml() {
     <button class="btn tn-browse-xdf" title="Browse the shared community definition library">Browse XDFs…</button>
     <button class="btn primary tn-save" disabled>Save BIN…</button>
     <button class="btn tn-clear" disabled title="Unload the firmware and definition, and forget the saved session">Clear</button>
+    <button class="btn tn-tour" title="A guided walk through the editor, flashing and data logging">Tutorial</button>
     <span class="tn-file" id="tn-file"></span>
     <span class="tn-status" id="tn-status"></span>
     <input type="file" class="tn-file-input" id="tn-bin-input" hidden />
@@ -103,6 +104,7 @@ function tnCollectEls(bar, workspace) {
     loadXdf: bar.querySelector('.tn-load-xdf'),
     browseXdf: bar.querySelector('.tn-browse-xdf'),
     clear: bar.querySelector('.tn-clear'),
+    tour: bar.querySelector('.tn-tour'),
     save: bar.querySelector('.tn-save'),
     file: bar.querySelector('#tn-file'),
     status: bar.querySelector('#tn-status'),
@@ -386,6 +388,9 @@ function tnMount(host, backAction) {
     els.xdfInput.value = '';
   };
   if (els.clear) els.clear.onclick = () => tnClearEverything(ed);
+  // the guided walk (screens/tuning/tutorial.js), replayed from the button
+  if (els.tour && typeof tnTutorialStart === 'function')
+    els.tour.onclick = () => tnTutorialStart();
 
   if (typeof tnLiveInit === 'function') tnLiveInit(ed);
 

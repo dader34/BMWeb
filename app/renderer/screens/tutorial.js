@@ -15,7 +15,7 @@
  * breaks the tour silently, because a missing target is simply skipped.
  */
 
-/* exported maybeOfferTutorial, startTutorial, showHowItWorks */
+/* exported maybeOfferTutorial, startTutorial, runTour, showHowItWorks */
 
 /**
  * One coach-mark step.
@@ -289,11 +289,88 @@ async function maybeOfferTutorial() {
  */
 async function startTutorial(opts) {
   opts = opts || {};
-  if (document.querySelector('.tour-overlay')) return; // one tour at a time
   // the base tour, or (when replayed with {full:true}) base + the apps walk
-  let steps = opts.full ? tourSteps().concat(appsTourSteps()) : tourSteps();
+  const steps = opts.full ? tourSteps().concat(appsTourSteps()) : tourSteps();
   const baseLen = tourSteps().length; // where the base tour ends / apps begin
   let offeredMore = opts.full; // don't re-offer once the apps tour is on
+  await runTour(steps, {
+    screens: TOUR_SCREENS,
+    /**
+     * At the end of the BASE tour, offer the extended Apps walk before
+     * finishing: "See more" appends the apps steps and continues, "I'll
+     * explore" ends. Once the apps tour is running (offeredMore), Next just
+     * advances/ends.
+     */
+    beforeNext: async (i) => {
+      if (offeredMore || i !== baseLen - 1) return null;
+      offeredMore = true;
+      const more = await confirmDialog({
+        title: 'Want the full tour?',
+        body:
+          'That covers live diagnostics. ' +
+          APP_NAME +
+          " also ports BMW's " +
+          'own reference tools -- fault plans, wiring diagrams, the parts ' +
+          'catalogue and more. Take a quick guided tour of them, or head ' +
+          'off on your own.',
+        confirmLabel: 'Show me more',
+        cancelLabel: "I'll explore on my own",
+      });
+      return more ? appsTourSteps() : false;
+    },
+    // "Next" still points forward at the base-tour boundary (there's the
+    // apps offer beyond it); only the true final step reads "Done"
+    isFinish: (i, n) => i === n - 1 && (offeredMore || i !== baseLen - 1),
+    // Don't strand the user mid-demo. If the apps tour ran, leave them on
+    // the Apps hub (they just explored it); otherwise return to the vehicle
+    // screen.
+    onEnd: (screen) => {
+      if (screen === 'apps') return;
+      if (screen !== 'home') {
+        try {
+          showChassis();
+        } catch {}
+      }
+    },
+  });
+}
+
+/**
+ * Wait for a selector to appear (a screen that builds itself asynchronously),
+ * up to `ms`; resolves with the element or null.
+ * @param {string} sel
+ * @param {number} ms
+ * @returns {Promise<Element|null>}
+ */
+function tourWaitFor(sel, ms) {
+  return new Promise((resolve) => {
+    const t0 = Date.now();
+    const look = () => {
+      const el = document.querySelector(sel);
+      if (el || Date.now() - t0 > ms) resolve(el);
+      else setTimeout(look, 60);
+    };
+    look();
+  });
+}
+
+/**
+ * The coach-mark driver: spotlight tour over the live UI. Esc/Skip ends it;
+ * left/right arrows and the buttons navigate (crossing screens when the step
+ * calls for it); the ring and tip track their target on window resize.
+ * @param {TourStep[]} initial - the steps; a step whose target is missing is skipped
+ * @param {object} opts
+ * @param {Record<string, () => Promise<void>|void>} opts.screens - how each step's screen is reached
+ * @param {(i: number) => Promise<TourStep[]|false|null>} [opts.beforeNext] - at step i's Next:
+ *   steps to append and continue with, false to end, null to just advance
+ * @param {(i: number, n: number) => boolean} [opts.isFinish] - whether step i of n is the last
+ * @param {(screen: string|null) => void} [opts.onEnd] - where to leave the user
+ * @returns {Promise<void>}
+ */
+async function runTour(initial, opts) {
+  if (document.querySelector('.tour-overlay')) return; // one tour at a time
+  let steps = initial.slice();
+  const screens = opts.screens;
   let currentScreen = null;
   let navigating = false;
 
@@ -348,8 +425,9 @@ async function startTutorial(opts) {
       if (step.screen && step.screen !== currentScreen) {
         navigating = true;
         try {
-          await TOUR_SCREENS[step.screen]();
+          await screens[step.screen]();
           currentScreen = step.screen;
+          await tourWaitFor(step.sel, 1500); // a page that builds itself async
         } catch {
           /* screen unavailable: skip past this step */
         }
@@ -384,10 +462,9 @@ async function startTutorial(opts) {
     overlay.querySelector('.tour-body').textContent = step.body;
     renderDots();
     backBtn.style.visibility = i === 0 ? 'hidden' : 'visible';
-    // "Next" still points forward at the base-tour boundary (there's the apps
-    // offer beyond it); only the true final step reads "Done".
-    const atFinish =
-      i === steps.length - 1 && (offeredMore || i !== baseLen - 1);
+    const atFinish = opts.isFinish
+      ? opts.isFinish(i, steps.length)
+      : i === steps.length - 1;
     nextBtn.textContent = atFinish ? 'Done' : 'Next';
 
     // tip below the target when there's room, else above; clamped to viewport
@@ -413,50 +490,28 @@ async function startTutorial(opts) {
     window.removeEventListener('resize', onResize);
     overlay.classList.remove('show');
     setTimeout(() => overlay.remove(), TOUR_FADE_MS);
-    // Don't strand the user mid-demo. If the apps tour ran, leave them on the
-    // Apps hub (they just explored it); otherwise return to the vehicle screen.
-    if (currentScreen === 'apps') {
-      /* stay on Apps */
-    } else if (currentScreen !== 'home') {
-      try {
-        showChassis();
-      } catch {}
-    }
+    if (opts.onEnd) opts.onEnd(currentScreen);
   }
 
-  /**
-   * Advance. At the end of the BASE tour, offer the extended Apps walk
-   * before finishing: "See more" appends the apps steps and continues, "I'll
-   * explore" ends. Once the apps tour is running (offeredMore), Next just
-   * advances/ends.
-   */
+  /** Advance: the caller may append steps or end the tour at this point. */
   async function next() {
-    if (!offeredMore && i === baseLen - 1) {
-      offeredMore = true;
-      overlay.classList.remove('show'); // hide the spotlight for the dialog
-      // stand our capturing key handler down so the dialog owns Enter/Esc
+    if (opts.beforeNext) {
+      overlay.classList.remove('show'); // hide the spotlight for a dialog
+      // stand our capturing key handler down so a dialog owns Enter/Esc
       window.removeEventListener('keydown', onKey, true);
-      const more = await confirmDialog({
-        title: 'Want the full tour?',
-        body:
-          'That covers live diagnostics. ' +
-          APP_NAME +
-          " also ports BMW's " +
-          'own reference tools -- fault plans, wiring diagrams, the parts ' +
-          'catalogue and more. Take a quick guided tour of them, or head ' +
-          'off on your own.',
-        confirmLabel: 'Show me more',
-        cancelLabel: "I'll explore on my own",
-      });
-      if (!more) {
-        end();
+      const more = await opts.beforeNext(i);
+      if (more === false) {
+        end(); // end() won't double-remove the listener
         return;
-      } // end() won't double-remove the listener
+      }
       window.addEventListener('keydown', onKey, true); // resume tour key control
-      steps = steps.concat(appsTourSteps()); // extend the tour in place
       overlay.classList.add('show');
-      show(baseLen, 1);
-      return;
+      if (more && more.length) {
+        const at = steps.length;
+        steps = steps.concat(more); // extend the tour in place
+        show(at, 1);
+        return;
+      }
     }
     if (i >= steps.length - 1) end();
     else show(i + 1, 1);
