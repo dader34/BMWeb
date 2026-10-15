@@ -214,11 +214,6 @@ async function showFlashing(page) {
           <div class="fb-dim">Runs the DME's program and calibration signature checks and resets it; nothing is written. For a DME left in the bootloader by a flash that stopped part-way. Needs an identified DME.</div>
         </div>
         <div class="fb-section">
-          <div class="fb-code">TUTORIAL</div>
-          <button class="btn" id="fb-tutorial">Replay the tutorial</button>
-          <div class="fb-dim">The guided walk through flashing, the tuning editor and data logging, offered the first time this app opened.</div>
-        </div>
-        <div class="fb-section">
           <div class="fb-code">DEVELOPMENT</div>
           <label class="fb-check"><input type="checkbox" id="fb-set-dev"> Allow loading files and Custom Options without an identified module</label>
           <div class="fb-dim">For building and checking files on the bench. Every write still needs the car identified.</div>
@@ -270,11 +265,6 @@ async function showFlashing(page) {
   fbEls['set-keep'].checked = !!Settings.get('flashKeepFiles', false);
   fbEls['set-aif'].checked = fbAifWanted();
   fbEls['set-dev'].checked = fbDevUi();
-  // the guided walk (screens/tuning/tutorial.js): offered once, on the
-  // app's first opening; replayed from here or the editor's Tutorial button
-  if (typeof tnTutorialStart === 'function')
-    fbEls.tutorial.onclick = () => tnTutorialStart();
-  if (typeof tnTutorialOffer === 'function') setTimeout(tnTutorialOffer, 700);
   fbEls['set-keep'].onchange = () =>
     Settings.set('flashKeepFiles', fbEls['set-keep'].checked);
   fbEls['set-aif'].onchange = () =>
