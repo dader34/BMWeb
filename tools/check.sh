@@ -91,6 +91,7 @@ run node tools/decompile/ipo_i18n.js --check
 echo
 echo "== offline export mirrors index.html =="
 run node tools/verify/test_offline_shell.js
+run node tools/verify/test_chunks.js
 
 echo
 echo "== freeze-frame (Umwelt) dictionary is a pure lookup =="

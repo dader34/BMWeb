@@ -1,0 +1,23 @@
+{
+  "flashing": {
+    "about": "Flashing/Tuning & Logging: loaded the first time the app is opened. tools/verify/test_chunks.js holds the rest of the app to reaching it only through the entries below.",
+    "include": [
+      "screens/flashing/",
+      "screens/tuning/",
+      "screens/logging/",
+      "core/xdf/",
+      "core/livetune.js",
+      "core/livetune-cursor.js",
+      "core/ms45-cursor-map.js",
+      "core/ms45-value-map.js",
+      "core/ms45-protect.js"
+    ],
+    "entries": {
+      "showFlashing": "load",
+      "showTuning": "load",
+      "showLogging": "load",
+      "showLoggingChassis": "load",
+      "stopDataLogging": "noop"
+    }
+  }
+}
