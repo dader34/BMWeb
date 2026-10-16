@@ -2,7 +2,7 @@
 // Offline MS45 firmware-image validation math: CRC-32/MPEG-2 + RSA firmware
 // signature + region/address math.
 //
-// The shipped flasher (app/renderer/core/flasher.js) is READ ONLY and carries
+// The shipped flasher (app/renderer/core/flash/flasher.js) is READ ONLY and carries
 // none of this: it backs up an ECU and never erases or writes one. This file
 // is the repo's only copy of the write-side validation math, kept pinned
 // against known-answer vectors so that if a write path is ever built, the CRC,

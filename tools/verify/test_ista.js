@@ -19,6 +19,21 @@ const path = require('path');
 const { loadClassic } = require('./lib/load_classic.js');
 
 const ROOT = path.join(__dirname, '..', '..');
+
+// screens/ista/screen.js was split into parts loaded in this order; read
+// together they are the one file these checks slice by function name
+const ISTA_SCREEN_PARTS = [
+  'screens/ista/screen.js',
+  'screens/ista/shell-chrome.js',
+  'screens/ista/ecu-windows.js',
+  'screens/ista/test-plans.js',
+  'screens/ista/wiring-docs.js',
+  'screens/ista/draw.js',
+];
+const istaScreenSource = () =>
+  ISTA_SCREEN_PARTS.map((p) =>
+    fs.readFileSync(path.join(ROOT, 'app', 'renderer', p), 'utf8')
+  ).join('\n');
 let passed = 0;
 const ok = (what) => {
   passed++;
@@ -749,7 +764,7 @@ const I = loadClassic('screens/ista/');
     'screens/ista/skin.js',
     'screens/ista/details.js',
     'screens/ista/pages.js',
-    'screens/ista/screen.js',
+    ...ISTA_SCREEN_PARTS,
   ]) {
     assert.ok(html.includes(f), `index.html loads ${f}`);
     assert.ok(off.includes(f), `OFFLINE_SHELL carries ${f}`);
@@ -1589,10 +1604,7 @@ const I = loadClassic('screens/ista/');
 // the lazily loaded English texts, so the page must wait for them as the
 // report views do, or it draws the raw German.
 {
-  const screen = fs.readFileSync(
-    path.join(ROOT, 'app', 'renderer', 'screens', 'ista', 'screen.js'),
-    'utf8'
-  );
+  const screen = istaScreenSource();
   const bar = screen.slice(
     screen.indexOf('function istaBottomBar('),
     screen.indexOf('function istaRealChromeBars(')
@@ -1616,10 +1628,7 @@ const I = loadClassic('screens/ista/');
 // repair branch never defined, so Product Structure showed a grey "not in
 // this build" over a browser that had shipped. Pin the real name.
 {
-  const screen = fs.readFileSync(
-    path.join(ROOT, 'app', 'renderer', 'screens', 'ista', 'screen.js'),
-    'utf8'
-  );
+  const screen = istaScreenSource();
   const branch = screen.slice(
     screen.indexOf("if (s.page === 'repair') {"),
     screen.indexOf("if (s.page === 'details') {")
@@ -1680,7 +1689,7 @@ const I = loadClassic('screens/ista/');
   // on this car" rather than "-", which would claim the module answered.
   //
   // faultFields and envPairs are the app's own projections of the raw wire
-  // row (screens/faults.js), which this test does not load; the stubs are
+  // row (screens/module/faults.js), which this test does not load; the stubs are
   // the shape they return, so what is under test is istaFaultRows' use of
   // them rather than a second copy of their logic.
   global.faultFields = (c) => ({
@@ -2043,10 +2052,7 @@ const I = loadClassic('screens/ista/');
     path.join(ROOT, 'app', 'renderer', 'screens', 'ista', 'model.js'),
     'utf8'
   );
-  const screen = fs.readFileSync(
-    path.join(ROOT, 'app', 'renderer', 'screens', 'ista', 'screen.js'),
-    'utf8'
-  );
+  const screen = istaScreenSource();
   assert.ok(
     /'fault-memory':[\s\S]*?id: 'calc-plan'/.test(model),
     'the fault page offers Calculate test plan'
@@ -2241,10 +2247,7 @@ const I = loadClassic('screens/ista/');
   // "2002-03", a string techDataCompare read as NaN, so every dated clause
   // was a decided false and the branches it guarded were pruned from the
   // tree -- the opposite of the keep-on-unknown policy the gate promises.
-  const screen = fs.readFileSync(
-    path.join(ROOT, 'app', 'renderer', 'screens', 'ista', 'screen.js'),
-    'utf8'
-  );
+  const screen = istaScreenSource();
   const diag = screen.slice(
     screen.indexOf('async function istaDiagLoad'),
     screen.indexOf('async function istaDiagBody')
@@ -2365,10 +2368,7 @@ const I = loadClassic('screens/ista/');
     'utf8'
   );
   assert.ok(tables.includes('data-slot="${esc(s.id'), 'rows carry the id');
-  const screen = fs.readFileSync(
-    path.join(ROOT, 'app', 'renderer', 'screens', 'ista', 'screen.js'),
-    'utf8'
-  );
+  const screen = istaScreenSource();
   const paint = screen.slice(
     screen.indexOf('function istaPaintStates'),
     screen.indexOf('async function showIsta')
@@ -2385,10 +2385,7 @@ const I = loadClassic('screens/ista/');
   // maps its verdict; the vehicle test runs the same modules after the
   // identification, with the module window's own runner, and keeps the
   // verdicts on the identification scan.
-  const screen = fs.readFileSync(
-    path.join(ROOT, 'app', 'renderer', 'screens', 'ista', 'screen.js'),
-    'utf8'
-  );
+  const screen = istaScreenSource();
   assert.ok(screen.includes('function istaAblRunner('), 'one runner');
   assert.ok(
     screen.includes('runner: fake || istaAblRunner(car, chassis, vehicleText)'),

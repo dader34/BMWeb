@@ -61,7 +61,7 @@
  * @property {string} defName - .xdf file name.
  * @property {string|null} defText - The .xdf SOURCE, kept so a reload can
  *   re-parse it (the parsed graph is too big to store, and re-parsing 4.7 MB
- *   costs ~290 ms -- see core/tuning-store.js).
+ *   costs ~290 ms -- see core/flash/tuning-store.js).
  * @property {string|null} selectedId - Stable key of the open item (XdfItem.key).
  * @property {string|null} openTable - Key of the table whose editor dialog is open, kept across reloads.
  * @property {HistoryEntry[]} history - Edit history for the loaded image,
@@ -143,7 +143,7 @@
 
 /**
  * Screen state. Persists within a visit so re-renders don't drop a loaded
- * image, and across reloads via core/tuning-store.js.
+ * image, and across reloads via core/flash/tuning-store.js.
  * @type {TuningState}
  */
 const tuningState = {

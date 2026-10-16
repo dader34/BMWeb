@@ -85,7 +85,7 @@ function logParseNumber(v) {
  * API serves. So the unit is read off the same answer the value came from,
  * and only falls back to a unit written inline in the value itself.
  *
- * normUnit (screens/measurements.js) does the spelling: the ECUs write
+ * normUnit (screens/module/measurements.js) does the spelling: the ECUs write
  * "Grad C" and "kgperh" where a chart wants "°C" and "kg/h".
  * @param {string} key - The value register's name.
  * @param {Object<string, *>} row - The flattened answer the value came from.

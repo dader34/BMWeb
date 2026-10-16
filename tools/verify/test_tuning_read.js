@@ -42,7 +42,7 @@ const has = (rel) => fs.existsSync(path.join(ROOT, rel));
 
 // --- the browser globals the module reaches for -----------------------------
 global.Settings = { get: () => '', set: () => {} };
-const F = require(path.join(ROOT, 'app/renderer/core/flasher.js'));
+const F = require(path.join(ROOT, 'app/renderer/core/flash/flasher.js'));
 const { loadBestvm } = require('./load_bestvm.js');
 const vmCtx = { module: { exports: {} }, console };
 vm.createContext(vmCtx);

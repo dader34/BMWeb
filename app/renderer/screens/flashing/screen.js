@@ -9,9 +9,9 @@
 // helpers, the dialogs the flows ask with, the module choice and Identify, and
 // the History and Settings pages. The DME flows live in dme.js, the
 // transmission's in tcu.js, Custom Options (EWS delete, map switch, no auto
-// upshift) in options.js. The engines underneath are core/ms45.js (the DME
-// over the SGBD's jobs), core/gs20.js + core/gs20-program.js (the
-// transmission over raw DS2), core/mapswitch.js and core/flash-history.js.
+// upshift) in options.js. The engines underneath are core/ms45/ms45.js (the DME
+// over the SGBD's jobs), core/flash/gs20.js + core/flash/gs20-program.js (the
+// transmission over raw DS2), core/flash/mapswitch.js and core/flash/flash-history.js.
 /* exported showFlashing, fbState, fbEls, fbSetStatus, fbSetStage, fbSetStatusInPlace, fbLog, fbProgress, fbFlashingBar, fbBusy, fbConfirm, fbMessage, fbChoose, fbConfirmAck, fbPickFile, fbIsIos, fbReadBytes, fbReadText, fbSaveBytes, fbEnsureCable, fbDescribeError, fbProgrammingCounter, fbRefreshCustomOptionsGate, fbShowOptions, fbAifArgs, fbOnSharedCar, fbRemoteAction, fbFlashRun, fbAifWanted, fbSetEcuBox, fbRefreshAll, fbDevUi, fbWriteAif, fbTesterSerial, fbSessionStart, fbSessionStop */
 
 /**
@@ -757,7 +757,7 @@ function fbConfirmFlash(op) {
 }
 
 /**
- * Run a flashing operation (a write or a read, core/flash-ops.js): on this
+ * Run a flashing operation (a write or a read, core/flash/flash-ops.js): on this
  * machine's cable, or -- on a shared car -- by its owner, who gets the
  * prepared images once, is asked (for a write), runs the whole operation on
  * their cable and reports as it goes; what was read comes back once. Either

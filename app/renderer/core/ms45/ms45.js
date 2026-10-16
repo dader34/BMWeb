@@ -8,7 +8,7 @@
 // reset. The screen (screens/flashing/) composes these into the Flash Tune
 // and Flash Program flows and asks every question; nothing here prompts.
 //
-// MD5 and the modular exponentiation come from core/flasher.js (_md5,
+// MD5 and the modular exponentiation come from core/flash/flasher.js (_md5,
 // _modPow, _bytesLEToBigInt, _bigIntToBytesLE), which loads first.
 /* exported MS45_SGBD, MS45_FULL_FLASH_LENGTH, MS45_MPC_LENGTH, MS45_CAL_START, MS45_CAL_LENGTH, MS45_PROGRAM_START, ms45Crc32, ms45Checksums, ewsDelete, ms45ExchangeFile, ms45Job, ms45SetJobTrace, ms45Identify, ms45ReadMemory, ms45ReadCarBytes, ms45SecurityAccess, ms45LeaveProgrammingMode, ms45RaiseBaud, ms45DefaultBaud, ms45FinishFlash, ms45Erase, ms45FlashBlock, ms45WriteAif, ms45AifFields, ms45ReadAscii, ms45VerifyParameterMatch, ms45VerifyProgramMatch, ms45VerifyFlashMpcMatch, ms45LiveTuneSender, ms45ReadResetRecord, ms45ResetRecordText */
 
@@ -1405,7 +1405,7 @@ if (typeof window !== 'undefined') {
   });
 }
 /**
- * A send-path for the live-tune client (core/livetune.js): takes a request's
+ * A send-path for the live-tune client (core/ms45/livetune.js): takes a request's
  * DATA bytes, frames them as a KWP2000* telegram (B8 12 F1 len data xor),
  * runs it on the raw wire under the bus lock with the MS45 session's comm,
  * and returns the answer's DATA bytes (the B8 F1 12 len header and the

@@ -853,7 +853,7 @@ function gs20WriteCalibration(calibration, opts = {}) {
           abort: opts.abort,
         });
         // the programming-log entry, written while the session is still
-        // unlocked (core/gs20-program.js adds writeAifRecord); never fatal
+        // unlocked (core/flash/gs20-program.js adds writeAifRecord); never fatal
         let aif = null;
         let aifError = null;
         if (opts.aifRecord && typeof writer.writeAifRecord === 'function') {

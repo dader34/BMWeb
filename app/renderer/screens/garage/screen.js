@@ -19,7 +19,7 @@ const GARAGE_SAVED_VINS_KEY = 'garageVins';
 
 /**
  * The Back action every Garage screen carries, in the shape the F-key bar
- * takes (core/core/actionbar.js).
+ * takes (core/actionbar.js).
  * @param {() => void} fn - where Back goes
  * @returns {object} the action
  */

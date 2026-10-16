@@ -3,7 +3,7 @@
  * scans kept against each. Pure data, no DOM -- the screens draw what these
  * return, and the node harness drives them directly.
  *
- * Two keys sit beside the app's other settings (core/core/settings.js writes
+ * Two keys sit beside the app's other settings (core/settings.js writes
  * the whole map to localStorage on every set):
  *
  *   bmweb.garage.cars   GarageCar[]                  the saved vehicles

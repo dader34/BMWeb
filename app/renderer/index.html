@@ -377,12 +377,12 @@
     <script src="core/ipofile/parse.js"></script>
     <script src="core/ipofile/emit.js"></script>
     <script src="core/ipofile/compile.js"></script>
-    <script src="core/core/settings.js"></script>
-    <script src="core/core/ui.js"></script>
-    <script src="core/core/api.js"></script>
-    <script src="core/core/errors.js"></script>
-    <script src="core/core/actionbar.js"></script>
-    <script src="core/core/dialogs.js"></script>
+    <script src="core/settings.js"></script>
+    <script src="core/ui.js"></script>
+    <script src="core/api.js"></script>
+    <script src="core/errors.js"></script>
+    <script src="core/actionbar.js"></script>
+    <script src="core/dialogs.js"></script>
     <script src="core/journal.js"></script>
     <script src="core/remote.js"></script>
     <script src="core/remote-ui.js"></script>
@@ -392,7 +392,7 @@
     <script src="data/envmap.js"></script>
     <script src="data/i18n-shared.js"></script>
     <script src="core/nav.js"></script>
-    <script src="core/tuning-store.js"></script>
+    <script src="core/flash/tuning-store.js"></script>
     <!-- The XDF engine: six pieces that each add to window.XDF, in this order
        (parser.js is last: it reads the others at load). -->
     <script src="core/xdf/xml.js"></script>
@@ -401,20 +401,24 @@
     <script src="core/xdf/legacy.js"></script>
     <script src="core/xdf/checksum.js"></script>
     <script src="core/xdf/parser.js"></script>
-    <script src="core/flasher.js"></script>
+    <script src="core/flash/flasher.js"></script>
     <!-- Flashing/Tuning engines: the transmission over raw DS2, the DME over
        its SGBD's jobs, the map switch builder, the session log and history. -->
-    <script src="core/gs20.js"></script>
-    <script src="core/gs20-program.js"></script>
-    <script src="core/ms45.js"></script>
-    <script src="core/livetune.js"></script>
-    <script src="core/ms45-cursor-map.js"></script>
-    <script src="core/ms45-value-map.js"></script>
-    <script src="core/livetune-cursor.js"></script>
-    <script src="core/mapswitch.js"></script>
-    <script src="core/ms45-protect.js"></script>
-    <script src="core/flash-ops.js"></script>
-    <script src="core/flash-history.js"></script>
+    <script src="core/flash/gs20.js"></script>
+    <script src="core/flash/gs20-program.js"></script>
+    <script src="core/ms45/ms45.js"></script>
+    <script src="core/ms45/livetune.js"></script>
+    <script src="core/ms45/ms45-cursor-map.js"></script>
+    <script src="core/ms45/ms45-value-map.js"></script>
+    <script src="core/ms45/livetune-cursor.js"></script>
+    <script src="core/flash/mapswitch/maps.js"></script>
+    <script src="core/flash/mapswitch/code.js"></script>
+    <script src="core/flash/mapswitch/inspect.js"></script>
+    <script src="core/flash/mapswitch/layout.js"></script>
+    <script src="core/flash/mapswitch/build.js"></script>
+    <script src="core/ms45/ms45-protect.js"></script>
+    <script src="core/flash/flash-ops.js"></script>
+    <script src="core/flash/flash-history.js"></script>
     <script src="ui/typed-block.js"></script>
     <script src="ui/dropdown.js"></script>
     <script src="ui/listbox.js"></script>
@@ -425,7 +429,7 @@
     <script src="screens/sweep/ident-sweep.js"></script>
     <script src="screens/sweep/autoscan.js"></script>
     <script src="screens/sweep/report.js"></script>
-    <script src="screens/ir.js"></script>
+    <script src="screens/module/ir.js"></script>
     <!-- The live script runtime: the program driver, then the painters and
        dialogs its UI adapter composes, then the entry point (it exports the
        API). -->
@@ -442,8 +446,8 @@
     <script src="screens/ipo-runtime/ui.js"></script>
     <script src="screens/ipo-runtime/open.js"></script>
     <script src="screens/ipo-runtime/home.js"></script>
-    <script src="screens/ecu.js"></script>
-    <script src="screens/activations.js"></script>
+    <script src="screens/module/ecu.js"></script>
+    <script src="screens/module/activations.js"></script>
     <!-- The coding codec/write stack (core/coding/). encode defines CodingEncode,
        which zcs reads at load; dispatch reads CodingDispatchHost; write reads
        CodingWriteStrategy and CodingBackup -- so ORDER MATTERS: codec pieces,
@@ -481,7 +485,7 @@
        coding-zcs reads at load, so ORDER MATTERS: encode, then zcs, then the
        write dispatcher, then the screens that call them. Without these the
        write path is unreachable and webWriteCoding throws "not loaded". -->
-    <script src="screens/identity.js"></script>
+    <script src="screens/module/identity.js"></script>
     <script src="screens/vehicle-identity/discovery.js"></script>
     <script src="screens/vehicle-identity/record.js"></script>
     <script src="screens/vehicle-identity/codes.js"></script>
@@ -489,10 +493,10 @@
     <script src="screens/vehicle-identity/render.js"></script>
     <script src="screens/vehicle-identity/detect.js"></script>
     <script src="screens/vehicle-identity/screen.js"></script>
-    <script src="screens/special.js"></script>
-    <script src="screens/measurements.js"></script>
-    <script src="screens/live.js"></script>
-    <script src="screens/faults.js"></script>
+    <script src="screens/module/special.js"></script>
+    <script src="screens/module/measurements.js"></script>
+    <script src="screens/module/live.js"></script>
+    <script src="screens/module/faults.js"></script>
     <script src="screens/lookup/data.js"></script>
     <script src="screens/lookup/search.js"></script>
     <script src="screens/lookup/deeplink.js"></script>
@@ -659,6 +663,11 @@
     <script src="screens/ista/plan.js"></script>
     <script src="screens/ista/ablwin.js"></script>
     <script src="screens/ista/screen.js"></script>
+    <script src="screens/ista/shell-chrome.js"></script>
+    <script src="screens/ista/ecu-windows.js"></script>
+    <script src="screens/ista/test-plans.js"></script>
+    <script src="screens/ista/wiring-docs.js"></script>
+    <script src="screens/ista/draw.js"></script>
     <script src="screens/apps.js"></script>
     <script src="screens/tutorial.js"></script>
     <script src="app.js"></script>

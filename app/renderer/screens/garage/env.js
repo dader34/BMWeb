@@ -8,7 +8,7 @@
  * the live protocol view and a stored scan, through the same call, so the two
  * never drift.
  *
- * The labels and values are formatted by screens/faults.js (envLabel,
+ * The labels and values are formatted by screens/module/faults.js (envLabel,
  * envValueText) -- the same helpers the module fault screen uses -- so a
  * freeze frame reads identically wherever it appears.
  */

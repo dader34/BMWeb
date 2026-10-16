@@ -553,7 +553,7 @@ export interface Runtime {
   garageFaultKeys(code: FaultCode): string[];
 }
 
-/** The app's engine client: a route in, its JSON out (core/core/api.js). */
+/** The app's engine client: a route in, its JSON out (core/api.js). */
 export type ApiFn = (path: string, opts?: RequestInit) => Promise<unknown>;
 
 /** The loaded runtime, once per process: a second load would redeclare. */
@@ -700,7 +700,7 @@ function hostGlobals(): Record<string, unknown> {
     BMW_FAULT_PHRASES: {},
     BMW_FAULT_DB: {},
     scopedFaultDb: (): null => null,
-    // a chassis id's display name (core/core/ui.js); the id is fine here
+    // a chassis id's display name (core/ui.js); the id is fine here
     dispChassis: (id: unknown): string => String(id || ''),
     // store.js persists through Settings and wire-policy.js reads the
     // confirmActuators preference; the CLI stores nothing and confirms
@@ -713,7 +713,7 @@ function hostGlobals(): Record<string, unknown> {
     // open.js's searchOpenHit assigns location.hash; api-router.js derives
     // WEB_BASE from the pathname (empty: paths hang off the site root)
     location: { hash: '', href: '', pathname: '/', search: '' },
-    // the engine client (core/core/api.js): a route in, its JSON out, the
+    // the engine client (core/api.js): a route in, its JSON out, the
     // server's `error` field as the thrown message. Routed through apiImpl
     // so a test can put a fake car behind the very same call.
     api: async (path: string, opts?: RequestInit): Promise<unknown> => {
@@ -726,7 +726,7 @@ function hostGlobals(): Record<string, unknown> {
       }
       return res.json();
     },
-    // the result-set projection (core/core/api.js): the engine's synthetic
+    // the result-set projection (core/api.js): the engine's synthetic
     // system set dropped when it leads
     dataSets: (sets: ResultSet[] | null | undefined): ResultSet[] => {
       const list = sets || [];

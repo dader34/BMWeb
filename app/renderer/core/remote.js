@@ -33,7 +33,7 @@
 const REMOTE_CAR_ROUTE =
   /\/api\/(ecu\/[^/]+\/(run|clear|write|flash)\/|port\b|state\b|flash\/)/;
 /**
- * A whole flashing OPERATION the owner runs for the helper (core/flash-ops.js
+ * A whole flashing OPERATION the owner runs for the helper (core/flash/flash-ops.js
  * registers them on window.flashOperations): the helper sends the
  * prepared images once instead of one job per 253-byte segment. Always
  * asked about, whatever the confirm setting.
@@ -690,7 +690,7 @@ const Remote = {
 
   /**
    * HELPER: ask the owner to run a whole flashing operation (the prepared
-   * images in `text`, as core/flash-ops.js encodes them) and report as it
+   * images in `text`, as core/flash/flash-ops.js encodes them) and report as it
    * goes. Resolves with a Response whose JSON is the operation's
    * {ok, status}; rejects when the owner falls silent for
    * REMOTE_OPERATION_IDLE_MS (its approval prompt counts as silence).

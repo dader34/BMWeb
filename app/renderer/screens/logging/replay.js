@@ -5,7 +5,7 @@
  * window that slides. What a log is FOR comes afterwards: putting two
  * readings over each other, finding the moment something happened, going
  * through it slowly. So a run that is paused is saved, whole, as an entry in
- * the app's History (core/flash-history.js), and opening it there gives the
+ * the app's History (core/flash/flash-history.js), and opening it there gives the
  * other view of it: every reading on one time axis, a cursor that reads all
  * of them at once, and playback.
  *

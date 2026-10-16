@@ -5,7 +5,7 @@
  * function is unit-tested in tools/verify/test_tuning_memory.js and
  * test_tuning_read.js. memory-read.js drives the bus with these.
  *
- * WHY THIS IS NOT screens/special.js. That one renders INPA's own "Read memory"
+ * WHY THIS IS NOT screens/module/special.js. That one renders INPA's own "Read memory"
  * screen: one 16-byte row at a time, and only for the 266 ECUs that declare
  * such a screen (tools/decompile/ipo_memory.py mined their region tables). Not
  * one E46 module does -- kombi46, zke5, lsz, ews3 all have NO mined regions --
@@ -13,7 +13,7 @@
  * as jobs. The capability is there; the screen BMW drew for it is not.
  *
  * WHERE A REGION COMES FROM, in order of trust:
- *   1. A flash profile (core/flasher.js FLASH_PROFILES): a sourced memory map
+ *   1. A flash profile (core/flash/flasher.js FLASH_PROFILES): a sourced memory map
  *      for a DME family (MS43 calibration at 0x70000, 512 KB AM29F400, ...).
  *   2. The job's OWN argument spec, arguments/<JOB>.json. Many jobs document
  *      their bounds there, e.g. kombi46:

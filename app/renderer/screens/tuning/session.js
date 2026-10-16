@@ -1,7 +1,7 @@
 /**
  * @file Tuning screen: session persistence and the Save / Clear actions.
  * Survive a reload with the files (and edits) intact through
- * core/tuning-store.js; save the edited BIN to disk; clear everything.
+ * core/flash/tuning-store.js; save the edited BIN to disk; clear everything.
  */
 
 /* exported tnSaveSoon, tnRestoreSession, tnClearEverything, tnSaveBin */
@@ -11,7 +11,7 @@ const TN_DOWNLOAD_URL_TTL_MS = 30000;
 
 /**
  * What is worth keeping. Derived state (parsed definition, coverage map) is
- * deliberately excluded and rebuilt on restore; see core/tuning-store.js.
+ * deliberately excluded and rebuilt on restore; see core/flash/tuning-store.js.
  * @returns {Object}
  */
 function tnSessionSnapshot() {

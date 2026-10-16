@@ -41,6 +41,7 @@ python3 tools/export/web_export.py --out "$OUT" "$@"
 
 echo "==> copying the renderer"
 cp -R "$ROOT/app/renderer/." "$OUT/"
+cp -R "$ROOT/app/site/." "$OUT/"   # the installer, docs and screenshots, beside the app
 
 # Stamp the version into the web build: index.html reads window.BMWEB_VERSION
 # and settings and the offline export both fall back to it. Read from

@@ -156,7 +156,7 @@ async function garagePickCar(ctx) {
 }
 
 /**
- * Pick one car from a list, in the app's modal (core/core/dialogs.js).
+ * Pick one car from a list, in the app's modal (core/dialogs.js).
  * @param {{value: string, label: string, note: string}[]} options - the choices
  * @returns {Promise<string|null>} the chosen value, or null when dismissed
  */

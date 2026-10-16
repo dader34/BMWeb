@@ -41,6 +41,7 @@ if [ -n "$EXPORT_DIR" ]; then cp -al "$EXPORT_DIR/." dist-web/; fi
 # has none of those and nothing is written through. (A dev tree with
 # app/renderer/data filled should not set EXPORT_DIR.)
 cp -R app/renderer/. dist-web/
+cp -R app/site/. dist-web/   # the installer, docs and screenshots, beside the app
 
 # WDS wiring VIN-applicability index (SP-doc -> chassis/engine, from ISTA). The
 # .wiring bundles it filters are downloaded into dist-web/data/wiring/ later by

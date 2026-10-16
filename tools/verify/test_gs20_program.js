@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// The GS20 beyond its calibration (app/renderer/core/gs20-program.js): the
+// The GS20 beyond its calibration (app/renderer/core/flash/gs20-program.js): the
 // program checksum, the AIF record, the no-upshift patch, BMW's .0DA / .0PA
 // decoder, the program writer's erase/write/commit sequence and the subcode-8
 // full reader, exercised offline against a simulated module at the frame
@@ -45,9 +45,9 @@ global.webBusRawExchange = () => {
 };
 const W = require('../../app/renderer/core/webshim/ds2-wire.js');
 Object.assign(global, W);
-const G = require('../../app/renderer/core/gs20.js');
+const G = require('../../app/renderer/core/flash/gs20.js');
 Object.assign(global, G);
-const P = require('../../app/renderer/core/gs20-program.js');
+const P = require('../../app/renderer/core/flash/gs20-program.js');
 
 let passed = 0;
 const ok = (m) => {

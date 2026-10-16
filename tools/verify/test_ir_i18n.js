@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Guard: captions translate through EXACT dictionaries only (screens/ir.js
+// Guard: captions translate through EXACT dictionaries only (screens/module/ir.js
 // irLabel): the ECU's own map from data/inpa-i18n/<ECU>.json, then the shared
 // INPA chrome table. No word rules -- a caption with no entry shows as BMW
 // wrote it, and strings BMW shipped in English are never touched.
@@ -26,7 +26,9 @@ global.window = {
 };
 // `function` declarations inside eval() stay local to this scope, which is
 // where the assertions run -- no copies of the code under test
-eval(fs.readFileSync(path.join(R, 'app/renderer/screens/ir.js'), 'utf8'));
+eval(
+  fs.readFileSync(path.join(R, 'app/renderer/screens/module/ir.js'), 'utf8')
+);
 
 const fails = [];
 const ok = (cond, msg) => {

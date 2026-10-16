@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Engine protection and the spark cut rev limiter
-// (app/renderer/core/ms45-protect.js), ported from ms45-emu's
+// (app/renderer/core/ms45/ms45-protect.js), ported from ms45-emu's
 // ms45emu/protect.py, whose code was run in the emulator.
 //
 // WHAT THIS PROVES
@@ -25,7 +25,7 @@ const fs = require('fs');
 const path = require('path');
 
 global.Settings = { get: () => 'no' };
-const F = require('../../app/renderer/core/flasher.js');
+const F = require('../../app/renderer/core/flash/flasher.js');
 global._md5 = F._md5;
 global._modPow = F._modPow;
 // flasher.js keeps these two private; the browser build shares them as globals
@@ -43,9 +43,12 @@ global._bigIntToBytesLE = (value, outLen) => {
   }
   return o;
 };
-const { ms45Checksums } = require('../../app/renderer/core/ms45.js');
-const { mapSwitch } = require('../../app/renderer/core/mapswitch.js');
-const { ms45Protect } = require('../../app/renderer/core/ms45-protect.js');
+const { ms45Checksums } = require('../../app/renderer/core/ms45/ms45.js');
+// the builder is a folder of classic scripts sharing one scope
+const { mapSwitch } = require('./lib/load_classic.js').loadClassic(
+  'core/flash/mapswitch/'
+);
+const { ms45Protect } = require('../../app/renderer/core/ms45/ms45-protect.js');
 
 let passed = 0;
 const ok = (m) => {

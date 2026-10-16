@@ -25,7 +25,7 @@ with a per-ECU dictionary beside them. A search for "fault memory" must find
 "Fehlerspeicher lesen", so both forms are indexed -- the German as written and
 its English through the same two-tier exact dictionary the renderer paints
 with (the ECU's own map, then the shared INPA chrome table), normalised the
-same way (irI18nKey in screens/ir.js).
+same way (irI18nKey in screens/module/ir.js).
 
 WRITE KEYS ARE MARKED, NOT HIDDEN. A key the IR flags `writeJob` still belongs
 in the index -- knowing where the clear-adaptations key lives is the point --
@@ -73,7 +73,7 @@ def i18n_key(s):
 
     The .IPO prints a caption padded to its column ("Drehzahl      :") and the
     same words appear elsewhere trimmed; both mean one thing. Mirrors
-    irI18nKey in app/renderer/screens/ir.js -- if the two disagree, the index
+    irI18nKey in app/renderer/screens/module/ir.js -- if the two disagree, the index
     finds a caption the screen does not show under that name.
 
     Args:

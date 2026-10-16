@@ -37,7 +37,7 @@ const FLASH_LABELS = {
 };
 /** The operations that write to the car; the others only read it. */
 const FLASH_WRITES = ['dme-tune', 'dme-program', 'tcu-cal', 'tcu-program'];
-/** The transmission's regions, as core/gs20.js and core/gs20-program.js read and write them. */
+/** The transmission's regions, as core/flash/gs20.js and core/flash/gs20-program.js read and write them. */
 const FLASH_TCU_CAL_LENGTH = 0x10000;
 const FLASH_TCU_PROGRAM_LENGTH = 0x40000;
 const FLASH_TCU_AIF_MAX = 256;
@@ -210,7 +210,7 @@ async function flashDmeProgram(p, c) {
 }
 
 // ---- the transmission ---------------------------------------------------------------------------------
-// core/gs20.js and core/gs20-program.js already run a whole write inside one
+// core/flash/gs20.js and core/flash/gs20-program.js already run a whole write inside one
 // bus lock and throw with the module's state on the error; here that
 // becomes a result the other end of a data channel can carry.
 
@@ -494,7 +494,7 @@ const flashOps = {
    */
   async run(op, p, cb) {
     // Hold the Web Lock and the screen Wake Lock for the whole operation
-    // (core/flasher.js's _runWithHold, which the DME read already used):
+    // (core/flash/flasher.js's _runWithHold, which the DME read already used):
     // a tab that is not in front has its wake-ups throttled, and a flash is
     // a long run of telegrams each with a ~500 ms answer budget, so the
     // first throttled wake-up past that budget read as a silent ECU and

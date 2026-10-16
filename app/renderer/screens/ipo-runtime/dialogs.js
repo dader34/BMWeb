@@ -1,7 +1,7 @@
 /**
  * @file The app's dialogs for INPA's own: the togglelist component picker,
  * the Select line picker, and the parked state machine's Continue/Stop
- * control. (The input prompts are irAskInput in screens/ir.js.)
+ * control. (The input prompts are irAskInput in screens/module/ir.js.)
  */
 
 /* exported ipoSaveFilePick, ipoSaveFileWrite */

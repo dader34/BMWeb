@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// The map switch builder (app/renderer/core/mapswitch.js), ported from the
+// The map switch builder (app/renderer/core/flash/mapswitch.js), ported from the
 // macOS flasher's MapSwitch.cs whose two-map build runs on the car, and
 // extended to several maps stored as the blocks that differ.
 //
@@ -27,7 +27,10 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 
-const { mapSwitch } = require('../../app/renderer/core/mapswitch.js');
+// the builder is a folder of classic scripts sharing one scope
+const { mapSwitch } = require('./lib/load_classic.js').loadClassic(
+  'core/flash/mapswitch/'
+);
 
 let passed = 0;
 const ok = (m) => {
@@ -1154,7 +1157,7 @@ const notInstalled = {
   global.ms45LeaveProgrammingMode = async () => true;
   global.ms45ReadMemory = async (start, end) =>
     Uint8Array.from(car.subarray(start, end + 1));
-  const { flashOps } = require('../../app/renderer/core/flash-ops.js');
+  const { flashOps } = require('../../app/renderer/core/flash/flash-ops.js');
   const r = await flashOps.run('dme-maps-read', {
     diagProtocol: 'KWP-2000*',
     layout: 'blocks',

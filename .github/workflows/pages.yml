@@ -31,6 +31,7 @@ on:
     branches: [main]
     paths:
       - 'app/renderer/**'
+      - 'app/site/**'
       - 'package.json'   # the version stamp: a bump alone must redeploy, or the site and the release disagree
       - 'scripts/setup/repo-data.sha256'
       - 'scripts/setup/fetch_repo_data.py'
@@ -194,6 +195,8 @@ jobs:
             echo "exported tree: $(du -sh dist-web-export | cut -f1), built"
           fi
           cp -R app/renderer/. dist-web/
+          # the site around the app (installer, docs, screenshots) sits beside it
+          cp -R app/site/. dist-web/
           # index.html already loads the transport shim (core/webshim/) --
           # both hosts need it.
           test -s dist-web/index.html

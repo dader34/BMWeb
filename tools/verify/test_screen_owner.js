@@ -20,7 +20,7 @@ const ok = (m) => {
 };
 
 // the guard itself, lifted out of ui.js (it leans on no DOM)
-const src = fs.readFileSync(R('core/core/ui.js'), 'utf8');
+const src = fs.readFileSync(R('core/ui.js'), 'utf8');
 const gen = src.match(/let _screenGen = 0;/);
 const fn = src.match(/function screenOwner\(\)[\s\S]*?\n}/);
 assert.ok(gen && fn, 'ui.js defines _screenGen and screenOwner()');

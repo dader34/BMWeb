@@ -26,6 +26,21 @@ const path = require('path');
 const vm = require('vm');
 
 const ROOT = path.join(__dirname, '..', '..');
+
+// screens/ista/screen.js was split into parts loaded in this order; read
+// together they are the one file these checks slice by function name
+const ISTA_SCREEN_PARTS = [
+  'screens/ista/screen.js',
+  'screens/ista/shell-chrome.js',
+  'screens/ista/ecu-windows.js',
+  'screens/ista/test-plans.js',
+  'screens/ista/wiring-docs.js',
+  'screens/ista/draw.js',
+];
+const istaScreenSource = () =>
+  ISTA_SCREEN_PARTS.map((p) =>
+    fs.readFileSync(path.join(ROOT, 'app', 'renderer', p), 'utf8')
+  ).join('\n');
 let passed = 0;
 const ok = (what) => {
   passed++;
@@ -39,10 +54,7 @@ function main() {
   // paints its boxes. An earlier version navigated to a progress page of
   // its own; that is the thing these checks exist to stop coming back.
   {
-    const src = fs.readFileSync(
-      path.join(ROOT, 'app', 'renderer', 'screens', 'ista', 'screen.js'),
-      'utf8'
-    );
+    const src = istaScreenSource();
     const fn = src.slice(
       src.indexOf('async function istaOpenVehicleTest'),
       src.indexOf('function istaTestPhase')
@@ -159,10 +171,7 @@ function main() {
 
   // ---- the buttons --------------------------------------------------------
   {
-    const src = fs.readFileSync(
-      path.join(ROOT, 'app', 'renderer', 'screens', 'ista', 'screen.js'),
-      'utf8'
-    );
+    const src = istaScreenSource();
     // the bug this whole file exists for: a button that navigates instead of
     // reading. Every vehicle-test button must call the test.
     const buttons = src.match(/'vehicle-test':[^,\n]*/g) || [];

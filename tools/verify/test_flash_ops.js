@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// The flash module (app/renderer/core/flash-ops.js) and the remote engine's
+// The flash module (app/renderer/core/flash/flash-ops.js) and the remote engine's
 // side of it: a whole flashing operation crosses to a shared car's owner as
 // one request, and the owner runs it on its own cable.
 //
@@ -165,7 +165,7 @@ global.flashLog = {
 const {
   flashOps,
   flashOperations,
-} = require('../../app/renderer/core/flash-ops.js');
+} = require('../../app/renderer/core/flash/flash-ops.js');
 
 (async () => {
   // ---- 1. payloads cross the channel whole, wrong ones are refused ----------

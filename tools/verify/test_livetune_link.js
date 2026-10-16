@@ -28,7 +28,7 @@ const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
-const { LtError } = require('../../app/renderer/core/livetune.js');
+const { LtError } = require('../../app/renderer/core/ms45/livetune.js');
 
 const ITEM = { key: 'id_n_max_at', kind: 'table' };
 const confirm = { answer: true };

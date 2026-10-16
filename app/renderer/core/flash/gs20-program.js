@@ -2,7 +2,7 @@
 // write, the patched firmware's full read, BMW's .0DA / .0PA exchange files,
 // the no-upshift calibration patch and the programming-log (AIF) entry.
 //
-// Everything here rides on core/gs20.js (the calibration engine, checksum and
+// Everything here rides on core/flash/gs20.js (the calibration engine, checksum and
 // Ds2Wire session) and core/webshim/ds2-wire.js. Ported from the macOS
 // flasher (BMWeb-Flasher: Gs20ProgramWriter, Gs20FullReader, Gs20DatenFile,
 // Gs20NoUpshift, Gs20Aif, Gs20ProgramChecksum), whose sequences were proven

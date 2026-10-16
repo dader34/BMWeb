@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// The GS20 calibration engine (app/renderer/core/gs20.js) and the raw DS2
+// The GS20 calibration engine (app/renderer/core/flash/gs20.js) and the raw DS2
 // wire under it (core/webshim/ds2-wire.js), exercised offline against a
 // simulated transmission that answers at the FRAME level -- address, length,
 // status, data, XOR checksum -- the way the real module does on the bus.
@@ -44,7 +44,7 @@ global.busTrace = {
 
 const W = require('../../app/renderer/core/webshim/ds2-wire.js');
 Object.assign(global, W); // Ds2Wire, DS2_ADDRESS, DS2_STATUS, ds2Status, ...
-const G = require('../../app/renderer/core/gs20.js');
+const G = require('../../app/renderer/core/flash/gs20.js');
 
 let passed = 0;
 const ok = (m) => {

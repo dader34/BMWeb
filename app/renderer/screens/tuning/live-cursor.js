@@ -5,7 +5,7 @@
  *
  * The position is worked out here, not on the DME: the variables behind the
  * table's axes are read off the car and searched against the break points
- * (core/livetune-cursor.js). A request costs the K line far more in
+ * (core/ms45/livetune-cursor.js). A request costs the K line far more in
  * turnaround than in bytes, so the variables are fetched in one: the DME's
  * own packet (2C F0 names the pieces once, 21 F0 reads them all). Refreshes
  * are one at a time, a few a second, and always give way to an edit.

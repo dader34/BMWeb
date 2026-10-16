@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// The live-tune client (app/renderer/core/livetune.js): the tester's side of
+// The live-tune client (app/renderer/core/ms45/livetune.js): the tester's side of
 // the MS45's own 2C-6C service, driven against a faithful stub of that
 // service. The stub models what ms45emu/transport.py does on the DME -- the
 // descriptor table at 0x3F9E10, the state block at 0x3F9E74, first-fit over
@@ -41,7 +41,7 @@ const {
   LT_SINGLES,
   LtError,
   LiveTune,
-} = require('../../app/renderer/core/livetune.js');
+} = require('../../app/renderer/core/ms45/livetune.js');
 
 // Load ms45.js's send-path in a context with the webshim globals it reaches,
 // so the one seam the client itself cannot see -- the KWP2000* framing -- is
@@ -62,7 +62,16 @@ function loadSender(onTx, answerData) {
     return f;
   };
   const src = fs.readFileSync(
-    path.join(__dirname, '..', '..', 'app', 'renderer', 'core', 'ms45.js'),
+    path.join(
+      __dirname,
+      '..',
+      '..',
+      'app',
+      'renderer',
+      'core',
+      'ms45',
+      'ms45.js'
+    ),
     'utf8'
   );
   vm.runInNewContext(

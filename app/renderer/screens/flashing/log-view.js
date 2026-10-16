@@ -1,7 +1,7 @@
 /**
  * @file Flashing/Backups: a session's log, looked at instead of read.
  *
- * A session log (core/flash-history.js) is a few thousand lines of
+ * A session log (core/flash/flash-history.js) is a few thousand lines of
  * timestamps, job names and hex. What somebody opening one wants to know is
  * short: what was done, how far it got, where it stopped and why. So Open
  * Log shows the log as a session: a timeline with every job on it (a failed

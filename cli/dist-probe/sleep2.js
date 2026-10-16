@@ -51,7 +51,7 @@ var runtime_files_default = [
   "core/ipofile/emit.js",
   "core/ipofile/compile.js",
   "core/translate.js",
-  "screens/ir.js",
+  "screens/module/ir.js",
   "screens/ipo-runtime/script-scan.js",
   "screens/ipo-runtime/translate-sets.js",
   "screens/ipo-runtime/wire-policy.js",
@@ -67,7 +67,7 @@ var runtime_files_default = [
   "screens/ipo-runtime/home.js",
   "home/bmweb-home.ips",
   "home/bmweb.h",
-  "screens/activations.js",
+  "screens/module/activations.js",
   "screens/garage/store.js",
   "screens/garage/diff.js",
   "screens/garage/share.js",
@@ -226,7 +226,7 @@ function hostGlobals() {
     BMW_FAULT_PHRASES: {},
     BMW_FAULT_DB: {},
     scopedFaultDb: () => null,
-    // a chassis id's display name (core/core/ui.js); the id is fine here
+    // a chassis id's display name (core/ui.js); the id is fine here
     dispChassis: (id) => String(id || ""),
     // store.js persists through Settings and wire-policy.js reads the
     // confirmActuators preference; the CLI stores nothing and confirms
@@ -239,7 +239,7 @@ function hostGlobals() {
     // open.js's searchOpenHit assigns location.hash; api-router.js derives
     // WEB_BASE from the pathname (empty: paths hang off the site root)
     location: { hash: "", href: "", pathname: "/", search: "" },
-    // the engine client (core/core/api.js): a route in, its JSON out, the
+    // the engine client (core/api.js): a route in, its JSON out, the
     // server's `error` field as the thrown message. Routed through apiImpl
     // so a test can put a fake car behind the very same call.
     api: async (path, opts) => {
@@ -252,7 +252,7 @@ function hostGlobals() {
       }
       return res.json();
     },
-    // the result-set projection (core/core/api.js): the engine's synthetic
+    // the result-set projection (core/api.js): the engine's synthetic
     // system set dropped when it leads
     dataSets: (sets) => {
       const list = sets || [];

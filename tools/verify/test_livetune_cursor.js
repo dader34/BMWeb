@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// The live cursor's arithmetic (app/renderer/core/livetune-cursor.js) and the
-// map it works from (core/ms45-cursor-map.js, generated in ms45-emu from the
+// The live cursor's arithmetic (app/renderer/core/ms45/livetune-cursor.js) and the
+// map it works from (core/ms45/ms45-cursor-map.js, generated in ms45-emu from the
 // emulator, where each variable was checked against every lookup made).
 //
 // WHAT THIS PROVES
@@ -25,7 +25,7 @@
 const assert = require('assert');
 const {
   MS45_CURSOR_MAP: MAP,
-} = require('../../app/renderer/core/ms45-cursor-map.js');
+} = require('../../app/renderer/core/ms45/ms45-cursor-map.js');
 const {
   LT_CURSOR_JOIN,
   ltCursorInputs,
@@ -33,7 +33,7 @@ const {
   ltCursorValue,
   ltAxisPosition,
   ltCursorCell,
-} = require('../../app/renderer/core/livetune-cursor.js');
+} = require('../../app/renderer/core/ms45/livetune-cursor.js');
 
 // The ignition base map (ip_iga_bas__n__maf): load across, engine speed down.
 const IGA = 0xad4c;
@@ -344,8 +344,8 @@ function page({ program = MAP.program, vars, packets = true }) {
   };
   vm.createContext(ctx);
   for (const f of [
-    'core/livetune-cursor.js',
-    'core/ms45-value-map.js',
+    'core/ms45/livetune-cursor.js',
+    'core/ms45/ms45-value-map.js',
     'screens/tuning/live-gauges.js',
     'screens/tuning/live-cursor.js',
   ])
@@ -627,7 +627,7 @@ async function later() {
     const VARS = [
       [N, 2, 3100],
       [LOAD, 2, 17312],
-      // where the DME's own value table keeps each (core/ms45-value-map.js)
+      // where the DME's own value table keeps each (core/ms45/ms45-value-map.js)
       [0x3fd7b9, 1, 184],
       [0x3fd7cb, 1, 130],
       [0x3fd791, 1, 64],
@@ -704,7 +704,7 @@ async function later() {
 
   // the client's side of the packet: the DME's own telegrams, byte for byte
   {
-    const { LiveTune } = require('../../app/renderer/core/livetune.js');
+    const { LiveTune } = require('../../app/renderer/core/ms45/livetune.js');
     const wire = [];
     const dme = new LiveTune(async (req) => {
       wire.push(req);

@@ -156,7 +156,7 @@ def row_script_stems(chassis_configs, packed_sgbds):
     and no real SGBD shares the code's name (a code that IS an SGBD already
     ships its own script under that stem). Its script is then packed under
     the code stem, per chassis, and the app loads the row's script from
-    there (screens/ecu.js, _irFrom)."""
+    there (screens/module/ecu.js, _irFrom)."""
     out = []
     for cid in sorted(chassis_configs):
         cfg = chassis_configs[cid]

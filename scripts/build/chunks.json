@@ -6,11 +6,11 @@
       "screens/tuning/",
       "screens/logging/",
       "core/xdf/",
-      "core/livetune.js",
-      "core/livetune-cursor.js",
-      "core/ms45-cursor-map.js",
-      "core/ms45-value-map.js",
-      "core/ms45-protect.js"
+      "core/ms45/livetune.js",
+      "core/ms45/livetune-cursor.js",
+      "core/ms45/ms45-cursor-map.js",
+      "core/ms45/ms45-value-map.js",
+      "core/ms45/ms45-protect.js"
     ],
     "entries": {
       "showFlashing": "load",

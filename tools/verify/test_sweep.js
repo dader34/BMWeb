@@ -47,7 +47,7 @@ const SRC = SWEEP_PIECES.map((p) =>
 // renderer gives it: set 0 is the EDIABAS system summary and is dropped
 // whenever there is anything else, and kept when it is all there is.
 const CORE = fs.readFileSync(
-  path.join(ROOT, 'app/renderer/core/core/api.js'),
+  path.join(ROOT, 'app/renderer/core/api.js'),
   'utf8'
 );
 // (dataSets recognises the system set by content through isSystemSet, so

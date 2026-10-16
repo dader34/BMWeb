@@ -478,7 +478,7 @@ async function fbDmeReadCarRevLimit() {
 
 /**
  * A DME that fails one of its own checks resets itself and stores no fault,
- * but keeps a count and the cause in RAM (core/ms45.js, ms45ReadResetRecord).
+ * but keeps a count and the cause in RAM (core/ms45/ms45.js, ms45ReadResetRecord).
  * Read on identify's session; a reset ordered from outside (the monitoring
  * module's hardware line) leaves no record here.
  */

@@ -6,7 +6,7 @@ const assert = require('assert');
 const path = require('path');
 
 const C = require(
-  path.join(__dirname, '../../app/renderer/core/livetune-cursor.js')
+  path.join(__dirname, '../../app/renderer/core/ms45/livetune-cursor.js')
 );
 const R = require(
   path.join(__dirname, '../../app/renderer/screens/logging/replay.js')

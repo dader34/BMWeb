@@ -3,7 +3,7 @@
  *
  * Nothing on the DME reports that. But every lookup searches an axis with a
  * value that comes straight out of one RAM variable, and which variable is
- * known per table and axis (core/ms45-cursor-map.js, traced in the emulator
+ * known per table and axis (core/ms45/ms45-cursor-map.js, traced in the emulator
  * and checked there against every lookup the program made). So: read the
  * variable with the stock read-by-address, search the axis the way the
  * lookup library does, and the cell is known -- on any live-tune build, with

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// The MS45 flashing engine (app/renderer/core/ms45.js): the checksums and
+// The MS45 flashing engine (app/renderer/core/ms45/ms45.js): the checksums and
 // RSA signatures a tune and a program must carry, the security-access
 // message, the EWS delete, BMW's .0PA / .0DA exchange files, and the job
 // plumbing (binary arguments, telegram shapes) over a stubbed job runner.
@@ -25,7 +25,7 @@ const fs = require('fs');
 const path = require('path');
 
 global.Settings = { get: () => 'no' };
-const F = require('../../app/renderer/core/flasher.js');
+const F = require('../../app/renderer/core/flash/flasher.js');
 global._md5 = F._md5;
 global._modPow = F._modPow;
 // flasher.js keeps these two private; the browser build shares them as globals
@@ -43,7 +43,7 @@ global._bigIntToBytesLE = (value, outLen) => {
   }
   return o;
 };
-const M = require('../../app/renderer/core/ms45.js');
+const M = require('../../app/renderer/core/ms45/ms45.js');
 
 let passed = 0;
 const ok = (m) => {

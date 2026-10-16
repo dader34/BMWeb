@@ -1,7 +1,7 @@
 /**
  * @file Formatting one stored fault for a table row.
  *
- * The app's faultFields (screens/faults.js) does this with the fault
+ * The app's faultFields (screens/module/faults.js) does this with the fault
  * dictionaries beside it (names, P-codes, the lookup). The CLI has no
  * dictionaries, so it prints what the report itself carries, choosing the
  * code the way the Garage diff identifies a fault: the DTC from F_HEX_CODE,

@@ -5,7 +5,7 @@
 // is translated when a dictionary carries it whole, else it shows as BMW
 // wrote it. Gated on Settings language (lang()==='orig' keeps German for
 // EDIABAS-faithful mode). Captions from the .IPO scripts are NOT handled here
-// -- each ECU carries its own map (data/inpa-i18n, irLabel in screens/ir.js).
+// -- each ECU carries its own map (data/inpa-i18n, irLabel in screens/module/ir.js).
 /**
  * Exact German -> English pairs for the fault texts the SGBD sends at runtime
  * (symptom, fault-type, presence, warning lamp, readiness). Order matters

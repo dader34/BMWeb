@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// The browser ECU-backup engine (app/renderer/core/flasher.js), exercised
+// The browser ECU-backup engine (app/renderer/core/flash/flasher.js), exercised
 // offline against simulated DMEs that answer the way the real SGBDs do.
 //
 // WHAT THIS PROVES. Things a real car can only prove slowly and expensively:
@@ -26,7 +26,7 @@ const crypto = require('crypto');
 // the engine's few browser globals
 global.Settings = { get: () => 'no' };
 
-const F = require('../../app/renderer/core/flasher.js');
+const F = require('../../app/renderer/core/flash/flasher.js');
 const byId = (id) => F.FLASH_PROFILES.find((p) => p.id === id);
 const MS45 = byId('MS45');
 const MSV70 = byId('MSV70');
