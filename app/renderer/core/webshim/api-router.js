@@ -666,10 +666,8 @@ function installWebShim() {
     }
     if (/^\/api\/state/.test(rel)) return routeState();
 
-    // --- job execution. The web build used to refuse the clear/write/flash
-    // jobs outright; lifted at the owner's request so actuator tests work
-    // (see the note on Best2Vm.allowWrites). They run through the VM's own
-    // gate, which is now permissive by default rather than absent.
+    // --- job execution. Clear/write/flash jobs run, so actuator tests work;
+    // they pass through the VM's own write gate (see Best2Vm.allowWrites).
     const run = /^\/api\/ecu\/([^/]+)\/run\/([^/?]+)/.exec(rel);
     if (run) return routeRun(rel, run[1], run[2]);
 

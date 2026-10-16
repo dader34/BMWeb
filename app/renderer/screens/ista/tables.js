@@ -2,12 +2,10 @@
  * @file The ISTA pages that are a TABLE: Operations Finished and Active, the
  * Control unit list, Repair history, and the Service plan's three lists.
  *
- * Every one of these used to open an app screen inside the workshop chrome,
- * which put a second tool's layout inside this one's frame. They are all the
- * same shape in ISTA -- a header row, rows the reader picks from, a status
- * line counting them and a bottom bar acting on the selection -- so they are
- * all drawn here from data the app already holds, and none of them reads the
- * car.
+ * They are all the same shape in ISTA -- a header row, rows the reader picks
+ * from, a status line counting them and a bottom bar acting on the
+ * selection -- so they are all drawn here from data the app already holds,
+ * and none of them reads the car.
  *
  * THE SERVICE PLAN IS NOT A SECOND FAULT LIST. Its rows are DOCUMENTS: the
  * procedures a stored fault points at, grouped under the fault that pointed

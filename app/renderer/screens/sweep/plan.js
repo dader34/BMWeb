@@ -17,10 +17,7 @@
  * name. So one probe per group answers "is anything here, and what is it",
  * and the read then targets what answered.
  *
- * What this replaces (2026-08-21): a hand-written VARIANT_GROUPS table that
- * covered E46 and E36 only, a chassis-config `variantGroups` array that was
- * derived by a weaker unvalidated rule, and a nav gate that hid Functional
- * Jobs entirely on every other car. All three are gone. The per-ECU `group`
+ * The per-ECU `group`
  * field written by tools/export/inpa_config.py (Resolver.group_file_for) is
  * the formula now, and it is validated at generation time against what the
  * group can actually identify -- T_GRTB (BMW's own variant->group table)

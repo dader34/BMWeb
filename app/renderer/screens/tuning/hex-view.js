@@ -382,12 +382,9 @@ function createHexView(els, hooks = {}) {
     dragging = false;
   });
 
-  // Click-to-open lives in the mousedown handler above. An earlier attempt
-  // was removed because the tree's spotlight scrolled via setCursor() and
-  // collapsed the freshly selected region back to one byte; the spotlight now
-  // goes through selectRegion() and leaves the selection alone on tree
-  // re-renders, so the two no longer fight. The right-click menu's "Open ..."
-  // is the same action, plus the table modal.
+  // Click-to-open lives in the mousedown handler above; the tree's spotlight
+  // goes through selectRegion(), so it leaves the selection alone. The
+  // right-click menu's "Open ..." is the same action, plus the table modal.
 
   // ---- context menu ---------------------------------------------------------
   //

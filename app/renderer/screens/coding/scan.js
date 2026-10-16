@@ -499,13 +499,11 @@ async function scanCodingIndex(sgbd, got) {
   }
 }
 
-// THE STATUS IS THE POINT. This used to swallow every failure and return only
-// what answered, so with no cable the cache came back EMPTY and the editor
-// still drew every toggle -- at library defaults, indistinguishable from the
-// car's real settings. Coding writes are a delta against what was read, so a
-// phantom baseline makes the diff meaningless. Now each module records whether
-// it answered, and with how many decodable fields, and the caller shows only
-// what the car really has.
+// THE STATUS IS THE POINT. Coding writes are a delta against what was read,
+// so a module that did not answer must not show library defaults as if
+// they were the car's settings. Each module records whether it answered,
+// and with how many decodable fields, and the caller shows only what the
+// car really has.
 /**
  * Scan the car's coding: read every codeable module's coding job once.
  * @param {string} chassisId - chassis id.

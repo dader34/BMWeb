@@ -754,20 +754,10 @@ class WebSerialBus extends SerialTransportBase {
   /**
    * Drain what is already buffered WITHOUT arming a new read.
    *
-   * THE BUG THIS FIXES: the old drain called readSome() with a 2 ms deadline.
-   * readSome keeps a timed-out read alive on this.pending (that is what stops
-   * bytes being lost), so the drain's last call left a live read armed. The
-   * write then went out and THAT read swallowed the first bytes of the echo --
-   * every answer arrived missing its head ("12 04 00 16" came back as
-   * "00 16"), which readFrame then failed to match.
-   *
-   * NEVER CREATE A READ HERE. An earlier version probed with
-   * this.reader.read() when nothing was outstanding; if the line was quiet
-   * that probe stayed armed, the telegram went out, and the probe swallowed
-   * the first bytes of the echo. The tell was unmistakable in a wire trace:
-   * the FIRST attempt of every exchange came back missing its head
-   * ("82 12 f1 1a 80 1f" as "12 f1 1a 80 1f") while the retry -- which found
-   * a pending read already in place and so created none -- was perfect.
+   * NEVER CREATE A READ HERE. A read left armed before the write swallows the
+   * first bytes of the echo, and every answer then arrives missing its head
+   * ("82 12 f1 1a 80 1f" as "12 f1 1a 80 1f") -- on the first attempt only,
+   * which is how it shows in a wire trace.
    *
    * Only an ALREADY-OUTSTANDING read is consumed, and only while it keeps
    * resolving immediately. A quiet line leaves this a no-op.
@@ -788,14 +778,10 @@ class WebSerialBus extends SerialTransportBase {
   /**
    * Read with a deadline, WITHOUT losing bytes to an abandoned read.
    *
-   * THE BUG THIS FIXES: racing reader.read() against a timeout and walking
-   * away leaves that read outstanding. Web Serial still delivers the next
-   * chunk to it, and because nothing held the promise those bytes were gone
-   * for good. The pre-write drain loop used to run with a 2 ms deadline and
-   * so ALWAYS ended by timing out -- meaning every exchange armed an orphaned
-   * read immediately before writing, which then swallowed the K-line echo.
-   * readFrame waited the full timeout for bytes already eaten and threw
-   * IFH-0003 "no echo from the cable" on a cable that echoes perfectly.
+   * Racing reader.read() against a timeout and walking away leaves that read
+   * outstanding: Web Serial hands it the next chunk, and with nothing holding
+   * the promise those bytes are gone -- readFrame then times out on a cable
+   * that echoes perfectly (IFH-0003).
    *
    * Keeping the single outstanding read on `this.pending` and awaiting that
    * same promise next time means a timed-out read is resumed, not discarded.

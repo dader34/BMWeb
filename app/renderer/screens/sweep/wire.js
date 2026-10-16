@@ -106,8 +106,7 @@ async function readFaults(sgbd) {
  * the bus was silent? A module answering "no faults" and a module that is
  * not there both produce a short reply, so the difference has to come from
  * the transport: api() throws on a wire failure and returns sets on an
- * answer. `count` (the old field read here) never existed outside the C#
- * server.
+ * answer.
  * @param {unknown} e - The thrown error.
  * @returns {boolean} True for a missing route or job.
  */

@@ -26,10 +26,8 @@
 /**
  * The two views, keyed by the LEVEL-3 TAB IDS the shell routes with.
  *
- * They used to have ids of their own ('structure', 'search') from when this
- * section drew its own view picker. The shell's level-3 strip is that picker
- * now, so a second set of names would be two vocabularies for one choice and
- * a deep link would have to be translated between them.
+ * The shell's level-3 strip is the view picker, so these are its ids: one
+ * vocabulary for one choice, and a deep link needs no translating.
  */
 /**
  * Whether the body-text index has loaded, so the "Search in document" box

@@ -181,20 +181,12 @@ class Best2Vm {
     // every job after the first, so the implicit init below is skipped --
     // which is both what the engine does and one less telegram per job.
     this._inited = !!opts.inited;
-    // Permission to transmit for a job that CHANGES the ECU. Off by
-    // default: a caller has to say so, and saying so is the point where a
-    // UI can put a confirmation in front of the user.
-    // WRITES ARE PERMITTED BY DEFAULT (owner's decision, 2026-08-19).
-    //
-    // This used to default to false, so actuator tests -- STEUERN_E_LUEFTER
-    // and friends -- never reached the wire: the fan screen's "Activate at
-    // 15%" appeared to do nothing while the readback sat at the DME's own 92.
-    // The classifier cannot tell a temporary actuator drive from a permanent
-    // EEPROM write (both are "write jobs"), so unblocking one unblocks both.
-    //
-    // What that means in practice: CODIERDATEN_SCHREIBEN, FS_LOESCHEN and the
-    // FLASH_* family now transmit. Those are unrecoverable on a real module.
-    // Pass {allowWrites: false} to restore the old refuse-everything behaviour.
+    // Permission to transmit for a job that CHANGES the ECU: ON unless a
+    // caller passes {allowWrites: false} (the owner's decision, 2026-08-19).
+    // The classifier cannot tell a temporary actuator drive (STEUERN_E_LUEFTER)
+    // from a permanent write (CODIERDATEN_SCHREIBEN, FS_LOESCHEN, FLASH_*), so
+    // actuator tests working means those transmit too. A caller that must
+    // not write passes false.
     this.allowWrites = opts.allowWrites !== false;
     // Wire parameters from xsetpar. Seeded from the SESSION: xsetpar lives
     // in INITIALISIERUNG, which runs once per session -- a fresh VM for a

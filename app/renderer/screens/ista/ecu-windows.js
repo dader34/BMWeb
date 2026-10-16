@@ -112,9 +112,7 @@ function istaBackAction() {
  *
  * The WHAT and the ORDER live in the model's ISTA_BOTTOM table; this is the
  * only place that knows what any of them does. So a page's row of buttons is
- * a fact about that page rather than a template every page inherits -- which
- * is what used to put the pair of nav arrows on pages the frames show
- * without them.
+ * a fact about that page rather than a template every page inherits.
  *
  * A button whose id has no action here draws greyed rather than dead: the
  * tool shows the control and refuses it, which is the honest shape.
@@ -424,12 +422,7 @@ async function istaOpenEcuWindow(slot, box, chassis) {
 /**
  * The Service plan's Test plan, for the car in front of the shell.
  *
- * It used to be a bare array in this scope, deliberately not persisted, on
- * the grounds that a plan outliving the car on the ramp is worse than no
- * plan. That is right about a plan following the WRONG car and wrong about
- * the same car tomorrow, so the store in plan.js keys the plan by the
- * Garage car id the way the scans are keyed, and a plan belongs to exactly
- * one car forever. This stays as the shell's reader of it.
+ * The plan is stored per car (plan.js); this is the shell's reader of it.
  * @param {object|null} [car] - the picked GarageCar; the shell's by default
  * @returns {object[]} the rows, in the tool's Priority order
  */

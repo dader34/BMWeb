@@ -10,12 +10,9 @@
 // truth is in the bytecode the IR already carries, so the ONE honest release
 // is: run the leaving menu's Back-item job, and only that.
 //
-// The old registry (activeTests / activeDrives / an "<arg>;0" off form
-// replayed on leave) invented releases INPA never sends and guessed the wrong
-// telegram when it did -- firing STEUERN_MIL?arg=0, itself a drive command,
-// on back-out. Gone. What a menu owes on the way out is what its Back key
-// runs; what it owes on ECU exit is inpaexit's DIAGNOSE_ENDE (registerSessionEnd
-// below), which is likewise read from the script, not made up.
+// Nothing is invented: what a menu owes on the way out is what its Back key
+// runs, and what it owes on ECU exit is inpaexit's DIAGNOSE_ENDE -- both
+// read from the script.
 
 // ---- the menu's on-leave job -----------------------------------------------
 //

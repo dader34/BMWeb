@@ -1,10 +1,8 @@
 /**
  * @file Troubleshooting / Fault memory, and the fault detail dialog.
  *
- * WHAT THIS REPLACES. The tab used to open INPA's whole-car script, which
- * put a black terminal with F-keys inside the workshop chrome -- a different
- * tool wearing this one's frame. ISTA shows a flat TABLE of every fault on
- * the car, whichever module it came from, and that is what this draws.
+ * ISTA shows a flat TABLE of every fault on the car, whichever module it
+ * came from, and that is what this draws.
  *
  * IT READS NOTHING. The table is built from the newest scan the Garage
  * already holds. A tab must never wake a car nobody asked it to touch, so

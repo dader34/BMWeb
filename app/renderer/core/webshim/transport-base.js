@@ -16,13 +16,9 @@
  *           so fast-init and the ISO 9141 slow-init live there alone; the
  *           native bridge has no setSignals.
  *
- * The native correspondence lives in C# (a different runtime, not unified
- * here): SerialProxy.cs is the byte-mover behind NativeSerialBus (open/write/
- * readAvailable/close/flush). Bytes cross that bridge as a JSON int[]
- * (the old macOS shell's bridge, AsNumberArray), NOT base64 -- base64 corrupted the
- * echo/checksum. The former C# engine (deleted with its InpaMac.Api server) was
- * reference for what JS reimplemented, not a transport, and was never part
- * of this interface.
+ * The native side is the macOS shell's SerialProxy.cs, the byte-mover behind
+ * NativeSerialBus (open/write/readAvailable/close/flush). Bytes cross that
+ * bridge as a JSON int[], NOT base64 -- base64 corrupted the echo/checksum.
  */
 /* exported SerialTransportBase */
 

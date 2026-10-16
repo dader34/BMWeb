@@ -6,14 +6,10 @@
 // The Test plan: what this car's diagnosis decided to test, and where the
 // procedures behind those rows come from.
 //
-// PER CAR, AND IT OUTLIVES THE SESSION. The plan the old shell held was a
-// bare array in module scope, deliberately not persisted -- a plan that
-// outlived the car on the ramp was reckoned worse than no plan. That is
-// right about a plan following the WRONG car and wrong about the same car
-// tomorrow: a technician who calculates a plan, drives the car onto the
-// ramp and comes back after lunch should find their plan. So the store is
-// keyed by the Garage car id, the way the scans are, and a plan belongs to
-// exactly one car forever.
+// PER CAR, AND IT OUTLIVES THE SESSION. A technician who calculates a plan,
+// drives the car onto the ramp and comes back after lunch should find it;
+// keyed by the Garage car id the way the scans are, a plan belongs to
+// exactly one car and never follows the wrong one.
 //
 // A ROW IS A POINTER, NOT A COPY. It carries the module's identifier, its
 // title, the component it sits under and its priority; the recovered graph

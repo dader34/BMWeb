@@ -148,9 +148,8 @@ async function autoScan(chassisId, ch) {
         sgbd = via;
         ecu = rowForVariant({ ecus: t.secEcus }, via) || t.ecus[0];
       } else {
-        // no runnable group: old behavior. the configured variants share one
-        // address, so try each in sequence and let the first non-throwing
-        // read win (this is what the old E46 trans flag did).
+        // no runnable group: the configured variants share one address, so try
+        // each in turn and let the first non-throwing read win
         for (const e of t.ecus) {
           try {
             faults = await readFaults(e.sgbd);

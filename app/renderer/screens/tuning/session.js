@@ -142,12 +142,9 @@ async function tnRestoreSession(ed) {
 /**
  * CLEAR: unload the session AND wipe the store.
  *
- * "forget" used to only delete the stored record, leaving the BIN and
- * definition loaded -- so the next edit re-saved them and a reload brought
- * everything back, which read as the button not working. Clearing has to
- * mean both: drop what is in memory, then drop what is on disk, in that
- * order so nothing can re-save in between. Unsaved edits are confirmed
- * first.
+ * Both, in that order, so nothing can re-save in between: clearing only the
+ * store would let the next edit save the loaded files again. Unsaved edits
+ * are confirmed first.
  * @param {TuningEditor} ed
  * @returns {Promise<void>}
  */

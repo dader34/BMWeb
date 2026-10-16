@@ -311,13 +311,7 @@ function printFaultTable(f, columns) {
  * bridge. One section per faulty module; a clean bill if none. Same
  * faultFields projection as on screen.
  *
- * Every module renders the same fixed 5-column grid from the ONE shared
- * faultColumns() definition -- Code / Description / Type / Count / State --
- * with an explicit <colgroup> and table-layout:fixed (in the pr-table CSS).
- * That pins Code/Type/Count/State to the same x-position in every module
- * block, so scanning the whole report the STATE column no longer wanders
- * block to block. A module with no detailed read leaves its Type/Count cells
- * blank rather than dropping the columns.
+ * Every module renders the same fixed 5-column grid from faultColumns().
  * @param {string} chassisId - Chassis id.
  * @param {FaultyModule[]} faulty - The modules with faults.
  * @param {SweepStats} stats - The sweep's tallies.

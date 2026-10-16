@@ -24,8 +24,7 @@ let busChain = Promise.resolve();
  * ONE EXCHANGE AT A TIME, BUS-WIDE. The K-line is half duplex: two
  * concurrent callers interleave writes and steal each other's answers -- the
  * 3-second topbar state poll was clobbering any job that took longer than a
- * second. The old C# engine held a bus lock server-side; the VM migration
- * lost it. Every entry point that can touch the wire queues here.
+ * second. Every entry point that can touch the wire queues here.
  * @template T
  * @param {() => Promise<T>|T} fn - The wire operation to run once the bus is free.
  * @returns {Promise<T>} Its result, settled when it has finished.

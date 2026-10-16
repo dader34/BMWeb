@@ -393,17 +393,11 @@ function showTool32() {
     if (!state.sgbd || !state.job) return;
     const name = state.job.name;
     const write = typeof isWriteJob === 'function' && isWriteJob(name);
-    // THIS WARNING USED TO BE A LIE. It said writes were "blocked in this
-    // build for safety" and offered "Run (will be refused)" -- text left over
-    // from when webRunJob passed allowWrites:false. It does not: the route was
-    // unblocked so actuator tests work, and Best2Vm defaults permissive
-    // (allowWrites: opts.allowWrites !== false). STEUERN_DIGITAL really does
-    // command the module, so telling the user it would harmlessly error was
-    // the most dangerous thing this dialog could say.
-    //
-    // It also ignored the user's own setting. Tool32 is the raw job runner --
-    // someone who turned actuator confirmations off has said what they want,
-    // and the same rule the IR screens follow applies here.
+    // Writes really run: Best2Vm is permissive by default, so STEUERN_DIGITAL
+    // commands the module. The warning says so plainly -- telling the user a
+    // write would harmlessly error is the most dangerous thing it could say --
+    // and it follows the user's own actuator-confirmation setting, as the IR
+    // screens do.
     if (
       write &&
       (typeof confirmActuators !== 'function' || confirmActuators())

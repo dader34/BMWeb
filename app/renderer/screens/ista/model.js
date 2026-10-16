@@ -377,15 +377,11 @@ const ISTA_TABS = [
 /**
  * The bottom button bar, per page.
  *
- * WHY THIS IS A TABLE. The bars used to be built inline at each call site
- * from one template, which is how every page ended up with the pair of nav
- * arrows. The frames are clear that most pages have no arrows at all: they
- * belong to the two-pane BROWSERS (Product Structure, Service Functions, the
- * Function and Component structures, the fault-pattern hit list) and to the
- * Service plan lists, because those are the pages you step through. A page
- * that is not a list of hits does not get them -- Vehicle details carries
- * four plain buttons, the VIN page carries Keyboard and Open operation, and
- * Fault memory carries its own six.
+ * WHY THIS IS A TABLE. Most pages have no nav arrows: they belong to the
+ * two-pane BROWSERS (Product Structure, Service Functions, the Function and
+ * Component structures, the fault-pattern hit list) and to the Service plan
+ * lists, the pages you step through. Vehicle details carries four plain
+ * buttons, the VIN page Keyboard and Open operation, Fault memory its own six.
  *
  * Each entry is a list of button descriptors, left to right:
  *   {id, label}      a button; the screen binds `id` to what it does

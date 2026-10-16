@@ -274,12 +274,9 @@ async function paceBeforeWrite(bus, comm, capMs) {
  * EVERY xsetpar RECONFIGURES THE WIRE. That is what the opcode is for, and
  * EDIABAS honours each one: tracing this car showed it set concept 0x10F at
  * 115200, send the short telegram, get silence, then set concept 0x10D at
- * 9600 and send the long one -- which is answered. An earlier revision here
- * pinned the wire to the FIRST concept of a session, so the second xsetpar
- * was ignored, the B8 telegram went out at 115200 instead of 9600, and the
- * DME never heard it. The VM had reached the right branch all along.
- * sessionConcept is still tracked, but only so the K-line wake knows it is
- * on a K-line module; it no longer overrides the telegram's own wire.
+ * 9600 and send the long one -- which is answered. So the wire follows each
+ * telegram's own xsetpar; sessionConcept is tracked only so the K-line wake
+ * knows it is on a K-line module.
  *
  * NO FRAMING FALLBACK HERE. The SGBD owns that: tracing EDIABAS showed
  * ms450ds0's INITIALISIERUNG hold BOTH telegrams as constants and try them

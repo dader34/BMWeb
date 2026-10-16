@@ -1,12 +1,10 @@
 /**
  * @file The Administration dialog: the wrench icon's window.
  *
- * WHY THIS IS NOT THE APP'S SETTINGS SCREEN. The wrench used to navigate to
- * the app's own Settings page, which tore the workshop chrome down and left
- * the reader somewhere else entirely -- the one thing the real tool never
- * does. In ISTA the wrench opens a WINDOW over the page you are on, you
- * change something, you press OK, and you are still on the same page. So
- * this is a modal, and leaving the ISTA page is not one of its outcomes.
+ * WHY THIS IS NOT THE APP'S SETTINGS SCREEN. In ISTA the wrench opens a
+ * WINDOW over the page you are on, you change something, you press OK, and
+ * you are still on the same page. So this is a modal, and leaving the ISTA
+ * page is not one of its outcomes.
  *
  * IT EDITS THE APP'S REAL SETTINGS. The rows are drawn in the tool's own
  * radio-grid language, but each one reads and writes the same Settings key

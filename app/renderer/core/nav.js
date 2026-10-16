@@ -329,9 +329,7 @@ async function showScriptSelection(chassisId, onAbort) {
   const items = overlay.querySelectorAll('.inpa-ss-item');
   // Functional Jobs works on any chassis whose config lists modules: the sweep
   // resolves each diagnostic-address group over the wire (sweep.js), so there
-  // is nothing per-chassis to know in advance. This used to be gated on a
-  // hand-written variant-group table that named E46 and E36 only, which hid
-  // whole-vehicle scanning on the other 24 shipped chassis.
+  // is nothing per-chassis to know in advance.
   const allowFunc = (ch.sections || []).some((s) => (s.ecus || []).length > 0);
 
   // chassis row selected: the "Functional jobs" header itself is the clickable entry
