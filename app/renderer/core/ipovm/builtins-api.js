@@ -4,6 +4,8 @@
  * dialogs, the component picker, files, timers and state-machine entry.
  */
 
+/* exported bStrArraySize, bViewopen, bCallStatemachine, bReturnStatemachine, bUnavailable */
+
 /** getinputstate's "confirmed" answer: the guard tests `== 0`. */
 const IPO_INPUT_CONFIRMED = 0;
 
@@ -355,7 +357,7 @@ function bBmwebPick(vm, stack) {
 function bBmwebStatus(vm, stack) {
   const table = typeof IPO_HOME_HOST !== 'undefined' ? IPO_HOME_HOST : null;
   const fn = (table && table.status) || (vm.host && vm.host.homeStatus);
-  let text = '';
+  let text;
   try {
     text = typeof fn === 'function' ? String(fn() || '') : '';
   } catch (e) {

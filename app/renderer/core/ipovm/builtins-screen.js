@@ -4,6 +4,8 @@
  * boxes, and the key actions (select, deselect, exit, print, scriptchange).
  */
 
+/* exported bUserboxOpen, bUserboxClose, bUserboxClear, bUserboxTextout, bClearRect, bFtextClear */
+
 /** A unit key: the *_EINH/*_EINHEIT result drawn beside a value. */
 const IPO_UNIT_KEY_RE = /(_EINH|_EINHEIT)$/;
 

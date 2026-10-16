@@ -111,7 +111,6 @@ function loadIstaTests() {
     typeof webRealFetch === 'function'
       ? webRealFetch
       : window.fetch.bind(window);
-  const base = typeof WEB_BASE === 'string' ? WEB_BASE : '';
   window.__istaTestsLoading = (async () => {
     // local copy first (if a build ever ships one), then Hugging Face
     for (const u of hfUrls('ista/faulttests.json')) {

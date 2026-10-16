@@ -6,6 +6,8 @@
  * original: what the car is, the coding record, and the decoded option list.
  */
 
+/* exported viEtkDecode, viColInfo, viZcsFmt, viNcsTable, viOptionsBox, viLoading, viSources */
+
 /**
  * The parts catalogue's decode of a VIN (screens/etk.js decodeVin), plus the
  * variant's gearbox from vehicles.json.

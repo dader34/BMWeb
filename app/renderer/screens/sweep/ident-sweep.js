@@ -5,6 +5,8 @@
  * Sixth piece of screens/sweep/.
  */
 
+/* exported quickIdentSweep */
+
 /**
  * One identified module, for the printable report.
  * @typedef {object} IdentFound

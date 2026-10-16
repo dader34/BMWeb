@@ -28,7 +28,7 @@ assert.ok(
   fs.existsSync(SGET),
   'data/sget.js missing -- run tools/decompile/ncs_sget.py --write'
 );
-// eslint-disable-next-line no-eval
+
 eval(fs.readFileSync(SGET, 'utf8'));
 assert.ok(window.BMW_SGET, 'sget.js did not set BMW_SGET');
 

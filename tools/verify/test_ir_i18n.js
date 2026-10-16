@@ -14,6 +14,8 @@ const load = (stem) =>
   JSON.parse(fs.readFileSync(path.join(IRDIR, `${stem}.json`), 'utf8'));
 
 let LANG = 'en';
+// read by the eval'd translate.js below, which eslint cannot see
+// eslint-disable-next-line no-unused-vars
 const lang = () => LANG;
 eval(fs.readFileSync(path.join(R, 'app/renderer/core/translate.js'), 'utf8'));
 // the shared caption table the app loads as a data script

@@ -1,3 +1,5 @@
+/* exported runJob, stopLive, stopLogging */
+
 // raw job runner: argument dialogs, runJob, generic result cards
 
 /**

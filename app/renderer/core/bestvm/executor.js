@@ -534,7 +534,7 @@ Object.assign(Best2Vm.prototype, {
       case 'fdiv': {
         const x = this.getReg(A[1]);
         const y = this.floatOf(B);
-        let r = x;
+        let r;
         if (name === 'fadd') r = x + y;
         else if (name === 'fsub') r = x - y;
         else if (name === 'fmul') r = x * y;

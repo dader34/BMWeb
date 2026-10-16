@@ -6,6 +6,8 @@
  * Second piece of screens/sweep/.
  */
 
+/* exported variantResolver, absentLabel, resolveTargetSafe */
+
 /**
  * The shipped-groups index (data/groups/index.json).
  * @typedef {object} GroupIndex

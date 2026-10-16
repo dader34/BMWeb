@@ -674,7 +674,7 @@ async function flashIdentify(sgbd) {
   };
   let seen = '';
   for (const p of flashProfilesForSgbd(sgbd)) {
-    let hw = '';
+    let hw;
     try {
       hw = await read(p.identJobs.hw);
     } catch (e) {

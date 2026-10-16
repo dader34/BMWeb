@@ -220,7 +220,7 @@ function checkNative(label, sgbd, codes) {
 }
 {
   ENV = new Map();
-  const withDetail = checkNative('ms450ds0', 'ms450ds0', detailFaults);
+  checkNative('ms450ds0', 'ms450ds0', detailFaults);
   const compact = checkNative('dsc_mk60', 'dsc_mk60', compactFaults);
   // the compact module still reserves Type/Count (blank), so STATE aligns
   assert.ok(

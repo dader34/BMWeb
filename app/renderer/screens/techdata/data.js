@@ -265,7 +265,7 @@ async function techDataReadModules(car, chassis) {
           if (!Object.prototype.hasOwnProperty.call(ffm, k)) ffm[k] = v;
     }
   if (typeof istaLoadSlots === 'function' && code) {
-    let slots = null;
+    let slots;
     try {
       slots = await istaLoadSlots(code, car);
     } catch {

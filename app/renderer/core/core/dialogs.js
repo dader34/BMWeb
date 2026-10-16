@@ -3,6 +3,8 @@
  * prompts built on it (confirm, message box, value input).
  */
 
+/* exported confirmDialog, progressDialog, messageDialog, inputDialog */
+
 /** How long the overlay's fade-out runs before the node is removed. */
 const MODAL_FADE_MS = 160;
 /** How long an empty input shakes when submitted. */

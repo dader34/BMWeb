@@ -481,7 +481,6 @@
        coding-zcs reads at load, so ORDER MATTERS: encode, then zcs, then the
        write dispatcher, then the screens that call them. Without these the
        write path is unreachable and webWriteCoding throws "not loaded". -->
-    <script src="screens/navlang.js"></script>
     <script src="screens/identity.js"></script>
     <script src="screens/vehicle-identity/discovery.js"></script>
     <script src="screens/vehicle-identity/record.js"></script>

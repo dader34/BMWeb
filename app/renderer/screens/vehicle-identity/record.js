@@ -7,6 +7,8 @@
  * plus viRunValues, the one way every read here drives a job.
  */
 
+/* exported viKeysFrom, viFaText, viVinBody, viTypeKey */
+
 /**
  * The coding keys as read off a reply.
  * @typedef {object} ViReadKeys

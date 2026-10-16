@@ -18,9 +18,7 @@
  * missing, so the flag is the honest failure.
  */
 
-/* exported repairIndex repairIndexPresent repairBody repairPicUrl repairPicShard
-   repairGroupTree repairDocsIn repairDocsUnder repairBrowserTree
-   repairSearch repairFindDoc repairDocNumber repairBodyIndex */
+/* exported repairIndex, repairIndexPresent, repairBody, repairPicUrl, repairPicShard, repairGroupTree, repairDocsIn, repairDocsUnder, repairBrowserTree, repairSearch, repairFindDoc, repairDocNumber, repairBodyIndex */
 
 /** Hosted copy, beside the other ISTA extracts. */
 

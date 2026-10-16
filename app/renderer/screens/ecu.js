@@ -1,3 +1,5 @@
+/* exported jobLabel, showEcuDeep, FKEY_SLOTS */
+
 // ECU menu: job labels, variant resolution, showEcu.
 
 /**

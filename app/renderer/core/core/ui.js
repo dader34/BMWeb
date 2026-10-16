@@ -3,6 +3,8 @@
  * escaping, the breadcrumb strip, headings, skeleton placeholders, tooltips.
  */
 
+/* exported view, led, linkText, sbLeft, sbRight, fkeysEl, dispChassis, CHASSIS_TAG, crumbs, hex, inpaMode, inpaTheme, screenOwner, setCrumbs, tipify, head, stagger, skeletonList */
+
 /** The screen body every show*() renders into. @type {HTMLElement} */
 const view = document.getElementById('view');
 /** The breadcrumb strip. @type {HTMLElement} */

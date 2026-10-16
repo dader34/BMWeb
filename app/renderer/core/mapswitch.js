@@ -189,7 +189,7 @@ const MS_CHUNK = 0x100;
 const MS_CHUNK_COUNT = MAPSWITCH_CAL_LENGTH / MS_CHUNK; // 464
 const MS_CHUNK_TABLE_STRIDE = 0x400; // one chunk table per map index, after the header
 const MS_CHUNK_TABLE_ENTRIES = MS_CHUNK_TABLE_STRIDE / 2;
-const MS_CHUNK_TABLES = MS_HEADER + MS_CHUNK_TABLE_STRIDE; // index 1's; index 0 is the header's own KB
+// index 1's; index 0 is the header's own KB
 const MS_CHUNK_TABLES_END =
   MS_HEADER + MS_CHUNK_TABLE_STRIDE * (MS_MAX_MAPS + 1); // 0xDEC00
 const MS_TABLE_REACH = 2; // chunks a table may run on past the one its pointer is in: the largest object is 512 bytes

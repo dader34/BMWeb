@@ -15,6 +15,8 @@
  * above the VM decides what a key does.
  */
 
+/* exported ipoMenuForScreen */
+
 /** F-key numbers above this are the shifted bank (Shift+F1 = 11). */
 const IPO_SHIFT_BASE = 10;
 

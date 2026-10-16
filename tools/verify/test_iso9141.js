@@ -141,12 +141,12 @@ console.log('\nthe 5-baud bit pattern');
 console.log('\nsession lifecycle');
 {
   ok(/this\.inited = null;/.test(src), 'inited is reset somewhere');
-  const wake = src.match(/_resetWakeState\(\) \{[\s\S]*?\n  \}/)[0];
+  const wake = src.match(/_resetWakeState\(\) \{[\s\S]*?\n {2}\}/)[0];
   ok(
     /this\.inited = null/.test(wake),
     'the wake-state reset clears the woken session'
   );
-  const ec = src.match(/async ensureConfig\(cfg\) \{[\s\S]*?\n  \}/)[0];
+  const ec = src.match(/async ensureConfig\(cfg\) \{[\s\S]*?\n {2}\}/)[0];
   ok(
     /this\._resetWakeState\(\)/.test(ec),
     'reopening the port for a new concept clears the woken session'
@@ -171,7 +171,7 @@ console.log('\nsession lifecycle');
 console.log('\nBMW K-line fast init (the wake that was missing)');
 {
   ok(/async fastInit\(comm\)/.test(src), 'fastInit exists');
-  const fi = src.match(/async fastInit\(comm\)[\s\S]*?\n  \}/)[0];
+  const fi = src.match(/async fastInit\(comm\)[\s\S]*?\n {2}\}/)[0];
   ok(
     /dataTerminalReady: true, break: true/.test(fi),
     'DTR is asserted together with the break (EdiabasLib SendWakeFastInit)'

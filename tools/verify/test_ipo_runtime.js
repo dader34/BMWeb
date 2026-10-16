@@ -120,7 +120,6 @@ global.irItemBodyJobs = (exec, toks, i0, end) => {
 const RT = loadClassic('screens/ipo-runtime/');
 const {
   IpoProgram,
-  ipoMenuItems,
   ipoWireTarget,
   ipoNeedsConfirm,
   ipoLineRows,
@@ -2801,7 +2800,7 @@ const sysSet = (sgbd) => ({
     const src = fs.readFileSync(R('screens/ipo-runtime/protocol.js'), 'utf8');
     const fn = src.match(/function ipoReportBeatsText[\s\S]*?\n}/);
     assert.ok(fn, 'ipoReportBeatsText is defined');
-    // eslint-disable-next-line no-eval
+
     eval(fn[0]);
     const one = (codes) => ({ modules: [{ codes }], silent: [] });
     const cases = [

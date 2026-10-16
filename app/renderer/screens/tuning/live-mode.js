@@ -88,7 +88,7 @@ function tnLiveBaseline(start, stored) {
  */
 function tnLiveBaselineKnown(item) {
   if (!tnLiveBlankImage()) return true;
-  let range = null;
+  let range;
   try {
     range = tnItemByteRange(item);
   } catch (e) {
@@ -1014,7 +1014,7 @@ async function tnLiveFillRange(range) {
   // a mirror is only worth reading if the DME still holds it: after a key
   // cycle its address is just whatever RAM has there
   if (open) {
-    let held = false;
+    let held;
     try {
       held = await tnLive.lt.inSync();
     } catch (e) {
@@ -1147,7 +1147,7 @@ async function tnLiveSave() {
  * @returns {Promise<void>}
  */
 async function tnLiveRejoin() {
-  let was = false;
+  let was;
   try {
     was = localStorage.getItem(TN_LIVE_KEY) === '1';
   } catch (e) {

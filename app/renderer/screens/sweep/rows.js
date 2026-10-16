@@ -6,6 +6,8 @@
  * Fourth piece of screens/sweep/.
  */
 
+/* exported sweepNeedsCable, sweepScreen, sweepBar, addSweepRow, setRowLabel, setRowNoResponse, appendFaultDetailRows */
+
 /**
  * A module with faults, as the error sweep collects it for the deep pass,
  * the clear buttons and the report.

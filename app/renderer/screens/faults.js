@@ -7,6 +7,8 @@
  * live in core/translate.js (loaded before this file).
  */
 
+/* exported renderFaults, loadFaultDb */
+
 /**
  * The fault projection shared by the screen rows and the printed reports:
  * one home for the "momentan vorhanden && !nicht vorhanden" logic.
@@ -185,117 +187,6 @@ function faultFields(c, sgbd) {
 }
 
 /**
- * The free-text note attached to the current fault read (INPA "Comment").
- * @type {string}
- */
-let faultComment = '';
-
-/**
- * INPA "Comment" (F7): attach a free-text note to the current fault read,
- * stored locally so it shows in the export/print.
- * @param {FaultEcu} ecu - The module.
- * @param {HTMLElement} container - The fault view, to show the note in.
- * @returns {Promise<void>} Resolves once the note is saved or cancelled.
- */
-async function addFaultComment(ecu, container) {
-  const note = await inputDialog({
-    title: 'Add comment',
-    kind: 'text',
-    body: 'Attach a note to this fault read (e.g. "replaced O2 sensor").',
-    example: 'replaced O2 sensor 2026-06',
-    confirmLabel: 'Save',
-  });
-  if (note == null) return;
-  faultComment = note;
-  const tag = container.querySelector('.fault-comment');
-  if (tag) tag.textContent = `Note: ${note}`;
-  else {
-    const d = document.createElement('div');
-    d.className = 'fault-comment';
-    d.textContent = `Note: ${note}`;
-    container.prepend(d);
-  }
-  sbLeft.textContent = 'comment saved';
-}
-
-/**
- * INPA "Printing" (F9): single-ECU fault report PDF from the last fault
- * read. Native saves through the bridge; the web build prints the shared
- * sheet.
- * @param {FaultEcu} ecu - The module.
- * @param {HTMLElement} view - The current view (unused; kept for the F-key
- *   handler signature).
- * @param {{ viaHotkey?: boolean }} [opts] - Set when Cmd/Ctrl+P routed here.
- * @returns {Promise<void>} Resolves once the export finishes or is refused.
- */
-async function exportFaults(ecu, view, opts = {}) {
-  const faults = lastFaultRead || [];
-  if (!faults.length) {
-    // Nothing read yet. An explicit Print (F-key / click) gets the hint; but
-    // Cmd+P is the OS print gesture and must never be swallowed into a no-op --
-    // the handler already suppressed the native dialog to route here, so hand
-    // the user a real print dialog of the current view instead of silence.
-    if (
-      (opts.viaHotkey || window.__printViaHotkey) &&
-      typeof window.print === 'function'
-    ) {
-      window.print();
-      return;
-    }
-    sbLeft.textContent = 'read codes first';
-    return;
-  }
-  // Web build has no savePdf bridge: print a clean sheet for this one module
-  // through the shared helper instead (reuses the whole-car report builder).
-  if (!(window.bmweb && window.bmweb.savePdf)) {
-    if (typeof printFaultReport === 'function') {
-      const present = faults.filter(
-        (c) => faultFields(c, ecu.sgbd).present
-      ).length;
-      printFaultReport(ecu.chassis || '', [{ ecu, codes: faults }], {
-        scanned: 1,
-        skipped: 0,
-        withFaults: 1,
-        present,
-      });
-    } else {
-      sbLeft.textContent = 'export unavailable';
-    }
-    return;
-  }
-
-  // load ISTA P-code / name data so the report shows P-codes
-  if (typeof loadFaultMeta === 'function') await loadFaultMeta();
-  if (typeof loadPcodes === 'function') await loadPcodes();
-
-  const now = new Date();
-  const present = faults.filter((c) => faultFields(c, ecu.sgbd).present).length;
-  const body = faultModuleBlock(ecu.label, ecu.sgbd, faults);
-  const rows = [
-    ['Generated', now.toLocaleString()],
-    ['Total faults', faults.length],
-    ['Present', present],
-  ];
-  const html = faultReportHtml(
-    `${ecu.label} · ${ecu.sgbd}.prg · fault memory`,
-    rows,
-    body
-  );
-
-  const name = `${APP_NAME}-faults-${ecu.sgbd}-${now.toISOString().slice(0, 10)}.pdf`;
-  sbLeft.textContent = 'saving…';
-  try {
-    const res = await window.bmweb.savePdf(name, html);
-    sbLeft.textContent =
-      res && res.ok
-        ? `saved → ${res.path.split('/').pop()}`
-        : 'export cancelled';
-  } catch (e) {
-    sbLeft.textContent = 'export failed';
-  }
-}
-
-/**
  * One freeze-frame value as shown: long decimals rounded
  * (13.1015625 -> 13.10), the unit appended unless it is the unitless
  * marker. String(): on web the VM hands back live numbers, and the
@@ -426,54 +317,6 @@ function renderFaultsInpa(codes, container, ecu) {
     .join('');
   container.innerHTML = `<div class="inpa-fault-title">${esc(ecu && ecu.sgbd ? ecu.sgbd.toUpperCase() : 'ECU')} error memory with environment</div>${blocks}`;
 }
-
-/**
- * INPA "Detail" (F2): normal read for every fault number, then
- * FS_LESEN_DETAIL per number, merging rich detail onto each. GOTCHA:
- * FS_LESEN_DETAIL needs the fault number as arg; with none it returns
- * nothing (hence "0 codes").
- * @param {FaultEcu} ecu - The module.
- * @param {HTMLElement} container - The view to draw into.
- * @returns {Promise<void>} Resolves once the view is drawn.
- */
-async function readFaultsDetailed(ecu, container) {
-  loadFaultDb(); // warm the name db while the bus works
-  container.className = 'results-panel';
-  container.innerHTML = `<div class="empty"><span class="loader"></span><span>Reading fault memory…</span></div>`;
-  try {
-    // normal read -> fault numbers (via the address group so EDIABAS picks the
-    // exact variant)
-    // the group AND the argument the module declares: lsz_2 stores faults in
-    // eight blocks and answers F_ZAHL 0 (blocks 1-3) unless asked ALL_BLOCKS
-    const gq = await faultReadQuery(ecu);
-    const base = await api(`/api/ecu/${ecu.sgbd}/run/FS_LESEN${gq}`, {
-      method: 'POST',
-    });
-    const faults = dataSets(base.sets).filter(
-      (c) => c.F_HEX_CODE || c.F_ORT_NR
-    );
-    if (!faults.length) {
-      renderFaults([], container, ecu);
-      sbLeft.textContent = '0 faults';
-      return;
-    }
-    // per-fault detail, merged onto the base entry
-    container.innerHTML = `<div class="empty"><span class="loader"></span><span>Reading detail for ${faults.length} fault(s)…</span></div>`;
-    await fillFaultDetail(ecu.sgbd, faults);
-    await loadFaultDb();
-    renderFaults(faults, container, ecu);
-    sbLeft.textContent = `${faults.length} fault(s) · detailed`;
-  } catch (e) {
-    container.innerHTML = errorBlock(e.message);
-    sbLeft.textContent = 'failed';
-  }
-}
-
-/**
- * The most recent fault list, for Comment/Print/export.
- * @type {FaultEntry[]}
- */
-let lastFaultRead = [];
 
 /**
  * Draw a fault list in the current UI mode. The UI mode is STYLE ONLY --

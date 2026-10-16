@@ -233,7 +233,7 @@ async function wiringFetchImage(name) {
   const rel = `${name.slice(0, 2).toLowerCase()}/${name}`;
   const key = WIRING_IMG_MIRRORS[0] + rel;
   /** @type {Cache | null} */
-  let cache = null;
+  let cache;
   try {
     cache = await caches.open(WIRING_IMG_CACHE);
     caches.delete(WIRING_IMG_CACHE_OLD).catch(() => {});

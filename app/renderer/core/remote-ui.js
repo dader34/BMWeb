@@ -1,3 +1,5 @@
+/* exported showRemoteBar */
+
 // Remote diagnostics -- the UI and the helper-side fetch shim. Split out of
 // remote.js, which keeps the core Remote engine (signaling, WebRTC, session
 // state and the owner-side security gate). This file is everything the user

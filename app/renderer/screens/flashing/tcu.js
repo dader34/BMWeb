@@ -577,7 +577,7 @@ async function fbTcuWriteCal() {
   }
   if (!(await fbProgrammingCounter(true))) return;
 
-  let eraseStarted = false;
+  let eraseStarted;
   fbFlashingBar(true);
   await fbSessionStart('tcu-cal-write', { module: 'GS20' });
   try {
@@ -897,7 +897,7 @@ async function fbTcuWriteProgram() {
   }
   if (!(await fbProgrammingCounter(true))) return;
 
-  let erased = 0;
+  let erased;
   fbFlashingBar(true);
   await fbSessionStart('tcu-program-write', { module: 'GS20' });
   try {

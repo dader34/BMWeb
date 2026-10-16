@@ -226,7 +226,7 @@ function ecuTreeWalkStart(chassis, hooks, deps) {
       const t = targets[i];
       const at = `${i + 1}/${targets.length}`;
       tick(`${at} ${t.label} (${t.group})`);
-      let sgbd = null;
+      let sgbd;
       try {
         sgbd = await D.resolve(t.group);
       } catch (e) {

@@ -88,6 +88,8 @@ ok(
 );
 
 // --- Original (EDIABAS) mode keeps German ------------------------------------
+// read by the eval'd envLabel, which eslint cannot see
+// eslint-disable-next-line no-unused-vars
 lang = () => 'orig';
 assert.strictEqual(
   envLabel('Batteriespannung'),
@@ -95,6 +97,5 @@ assert.strictEqual(
   'Original mode must keep the German label'
 );
 ok('envLabel keeps German in Original (EDIABAS) mode');
-lang = () => 'en';
 
 console.log(`\nenv-i18n: ${passed} checks passed`);

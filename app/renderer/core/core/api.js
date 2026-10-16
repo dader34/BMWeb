@@ -4,6 +4,8 @@
  * (native) or the in-page fetch shim (web).
  */
 
+/* exported tryApi, flatResults, flashing */
+
 /**
  * One EDIABAS result set: named registers plus the internal `_`-prefixed and
  * JOB_STATUS fields.
@@ -46,15 +48,6 @@ async function tryApi(path, opts, container, msg = 'failed') {
     return null;
   }
 }
-
-/**
- * `?group=` query for an ECU with a diagnostic-address group SGBD, so the
- * server (LoadForJob) lets EDIABAS pick the installed variant.
- * @param {{group?: string}|null|undefined} o - An ECU record.
- * @returns {string} The query string, or '' when ungrouped.
- */
-const groupQuery = (o) =>
-  o && o.group ? `?group=${encodeURIComponent(o.group)}` : '';
 
 // EDIABAS answers every job with a SYNTHETIC set 0 the runtime fills
 // (OBJECT, VARIANTE, JOBNAME, SAETZE) ahead of the data sets. The native
@@ -121,61 +114,3 @@ let flashing = false;
  * @property {'text'|'number'|'hex'} [kind] - Field kind for the dialog.
  * @property {string} [example] - Placeholder example.
  */
-
-/**
- * Prompt for a value, then run the job with it and render the result.
- * @param {{sgbd: string}} ecu - The target ECU.
- * @param {InputFunction} input - The function to run.
- * @param {HTMLElement} container - Where the result (or error) renders.
- * @returns {Promise<void>}
- */
-async function runInputFunction(ecu, input, container) {
-  // THE CANONICAL CLASSIFIER DECIDES, not a word list. The old regex looked
-  // for English write-words in the job name and prompt, so 1,029 of the
-  // corpus's 6,544 job names that isWriteJob() calls writes got the soft
-  // "Run" button instead of "Send" -- FS_LOESCHEN (clear fault memory, 364
-  // modules), FLASH_SCHREIBEN, PRUEFSTEMPEL_SCHREIBEN and INITIALISIERUNG
-  // among them, none of which contain an English verb. isWriteJob is
-  // token-based and default-deny, and is the same gate bestvm enforces
-  // before a job reaches the bus.
-  const danger =
-    typeof isWriteJob === 'function'
-      ? isWriteJob(input.job || '')
-      : // no classifier in scope: fall back to the prompt text rather than
-        // silently calling an unknown job safe
-        /steuern|command|throttle|setpoint|write|store|reset/i.test(
-          (input.field || '') + ' ' + (input.job || '')
-        );
-  const val = await inputDialog({
-    title: esc(
-      typeof jobLabel === 'function' ? jobLabel(input.job) : input.job
-    ),
-    // input.field is the entry instruction ("Enter as LABEL;VALUE1"), shown as the prompt
-    body:
-      `${input.field ? `<div>${esc(input.field)}</div>` : ''}` +
-      `${input.args_template ? `<span class="muted">${esc(input.args_template)}</span><br>` : ''}` +
-      `<span class="mono" style="font-size:11px;color:var(--ink-faint)">job: ${esc(input.job)}</span>`,
-    kind: input.kind || 'text',
-    example: input.example || '',
-    confirmLabel: danger ? 'Send' : 'Run',
-    danger,
-  });
-  if (val == null) {
-    sbLeft.textContent = 'cancelled';
-    return;
-  }
-
-  container.className = 'results-panel';
-  container.innerHTML = `<div class="empty"><span class="loader"></span><span>Running ${esc(input.field || input.job)}…</span></div>`;
-  try {
-    const data = await api(
-      `/api/ecu/${ecu.sgbd}/run/${input.job}?arg=${encodeURIComponent(val)}`,
-      { method: 'POST' }
-    );
-    renderResultSets(data.sets, container, input.job);
-    sbLeft.textContent = `${input.job} ${val} · done`;
-  } catch (e) {
-    container.innerHTML = errorBlock(e.message);
-    sbLeft.textContent = 'failed';
-  }
-}

@@ -10,7 +10,7 @@
 //
 // MD5 and the modular exponentiation come from core/flasher.js (_md5,
 // _modPow, _bytesLEToBigInt, _bigIntToBytesLE), which loads first.
-/* exported MS45_SGBD, MS45_FULL_FLASH_LENGTH, MS45_MPC_LENGTH, MS45_CAL_START, MS45_CAL_LENGTH, MS45_PROGRAM_START, ms45Crc32, ms45Checksums, ewsDelete, ms45ExchangeFile, ms45Job, ms45SetJobTrace, ms45Identify, ms45ReadMemory, ms45ReadCarBytes, ms45SecurityAccess, ms45LeaveProgrammingMode, ms45RaiseBaud, ms45DefaultBaud, ms45FinishFlash, ms45Erase, ms45FlashBlock, ms45WriteAif, ms45AifFields, ms45ReadAscii, ms45VerifyParameterMatch, ms45VerifyProgramMatch, ms45VerifyFlashMpcMatch, ms45LiveTuneSender */
+/* exported MS45_SGBD, MS45_FULL_FLASH_LENGTH, MS45_MPC_LENGTH, MS45_CAL_START, MS45_CAL_LENGTH, MS45_PROGRAM_START, ms45Crc32, ms45Checksums, ewsDelete, ms45ExchangeFile, ms45Job, ms45SetJobTrace, ms45Identify, ms45ReadMemory, ms45ReadCarBytes, ms45SecurityAccess, ms45LeaveProgrammingMode, ms45RaiseBaud, ms45DefaultBaud, ms45FinishFlash, ms45Erase, ms45FlashBlock, ms45WriteAif, ms45AifFields, ms45ReadAscii, ms45VerifyParameterMatch, ms45VerifyProgramMatch, ms45VerifyFlashMpcMatch, ms45LiveTuneSender, ms45ReadResetRecord, ms45ResetRecordText */
 
 /** The SGBD whose jobs drive the MS45 family. */
 const MS45_SGBD = 'ms450ds0';
@@ -803,7 +803,7 @@ async function ms45Job(job, arg) {
       : arg == null
         ? ''
         : String(arg);
-  let res = null;
+  let res;
   try {
     res = await _ms45Runner()(MS45_SGBD, job, text);
   } catch (e) {

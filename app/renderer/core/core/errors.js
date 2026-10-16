@@ -4,6 +4,8 @@
  * titles and phrases, so the strings are load-bearing.
  */
 
+/* exported errorBlock */
+
 /**
  * A user-facing explanation of an error.
  * @typedef {Object} ErrorExplanation

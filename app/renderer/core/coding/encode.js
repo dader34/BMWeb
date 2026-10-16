@@ -659,7 +659,7 @@
     // VN: 5 body bytes + 1 check
     const vn = packNibbles(vnBody, ZCS_VN_BYTES);
     for (let i = 0; i < ZCS_VN_BYTES; i++) region[p++] = vn[i];
-    region[p++] = mod36('C3', vnBody).charCodeAt(0);
+    region[p] = mod36('C3', vnBody).charCodeAt(0);
     // splice the 20 bytes at baseAddr
     for (let i = 0; i < ZCS_REGION_LEN; i++)
       netto[baseAddr + i] = region[i] & 0xff;

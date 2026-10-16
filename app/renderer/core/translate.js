@@ -1,3 +1,5 @@
+/* exported phraseText, envLabel, ortNrCode, pCode, ortNrFull, loadPcodes, loadFaultMeta, loadFaultInfo, loadCodingMap, loadDatenMap, loadSget, loadTables, loadSaNames, variantsForHex, faultInfoFor, pcodeForHex, hexForPcode */
+
 // Exact-match English lookups for text the SGBD sends at runtime, plus the
 // fault-code helpers. Pure lookup, no DOM, no word-level rewriting: a string
 // is translated when a dictionary carries it whole, else it shows as BMW
@@ -511,19 +513,6 @@ function pcodesForHex(code) {
 // SEVERAL SAE P-codes gated by ECU variant; guessing the first misleads, so
 // offline we return one ONLY when the code has exactly one. A live read's own
 // F_PCODE_STRING is exact and always preferred.
-/**
- * The one unambiguous offline P-code for a hex code, or null when the code
- * maps to several.
- * @param {string|null|undefined} code - The hex code.
- * @param {string} [sgbd] - The reading ECU (reserved for a variant-scoped lookup).
- * @returns {string|null}
- */
-function pcodeForHexSgbd(code, sgbd) {
-  if (!code) return null;
-  const list = pcodesForHex(code);
-  return list.length === 1 ? list[0] : null;
-}
-
 // primary P-code for a bare BMW hex code ("27C3" -> "P0456"), or null.
 /**
  * The primary P-code for a BMW hex code.

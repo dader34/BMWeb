@@ -9,7 +9,6 @@
 //   node tools/verify/test_tree_scan.js
 
 const assert = require('assert');
-const path = require('path');
 const { loadClassic } = require('./lib/load_classic.js');
 
 let passed = 0;

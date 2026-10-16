@@ -1,7 +1,7 @@
 /* exported istaPlanRows istaPlanAdd istaPlanSet istaPlanSetState
    istaPlanClear istaPlanGroupRows istaPlanSort ISTA_PLAN_KEY istaAblIndex
    istaAblLoad istaAblUrls istaPlanStateFor */
-/* global Settings WEB_BASE webRealFetch */
+/* global Settings webRealFetch */
 
 // The Test plan: what this car's diagnosis decided to test, and where the
 // procedures behind those rows come from.

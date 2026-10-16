@@ -81,16 +81,9 @@ const ok = (m) => {
 // ---- the DME stub ----------------------------------------------------------
 const CAL_BASE = 0xffe40000;
 const CAL_LENGTH = 0x1d000;
-const DESC = 0x3f9e10;
 const DESC_MAGIC = 0x6c690000;
 const STATE = 0x3f9e74;
 const STATE_MAGIC = 0x4c54554e;
-const POOLS = [
-  [0x3f9e94, 0x3fa0a0],
-  [0x3f9c48, 0x3f9e00],
-  [0x3f9b48, 0x3f9c40],
-  [0x3f9858, 0x3f98b0],
-];
 
 // A tiny sparse memory: calibration (a known pattern) and the RAM the state
 // block, descriptors and mirrors live in.

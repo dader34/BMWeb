@@ -9,6 +9,8 @@
  * on-screen rows.
  */
 
+/* exported printIdentReport */
+
 /**
  * One column of the fault table, the ONE definition both report paths
  * render from.

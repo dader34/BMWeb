@@ -1,3 +1,5 @@
+/* exported showTool32 */
+
 // Tool32: the raw SGBD job runner. INPA's screens are a curated frontend over
 // EDIABAS; Tool32 is the opposite -- pick any SGBD, run any job it declares,
 // and read the full result register set with no screen definition in between.

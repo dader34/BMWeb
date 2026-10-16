@@ -11,8 +11,6 @@
 // C# code left the repo in 2026-09 together with the .NET reference engine.)
 //
 // Cross-checked against terraphantm/MS45-Flasher (Checksums_Signatures.cs).
-const fs = require('fs');
-const path = require('path');
 const crypto = require('crypto');
 
 let failures = 0;

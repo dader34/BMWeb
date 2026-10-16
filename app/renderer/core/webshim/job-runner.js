@@ -2,7 +2,7 @@
  * @file EDIABAS's session model and the job runner: run a job the way the
  * server's /run endpoint did, but in the VM, over the live bus.
  */
-/* exported sessionFor, switchSession, forgetSessions, newTally, driveJobOverBus, webRunJob, webRunJobAnywhere, webSetRemoteAction */
+/* exported sessionFor, switchSession, forgetSessions, newTally, driveJobOverBus, webRunJob, webRunJobAnywhere, webSetRemoteAction, webDropSession */
 
 /**
  * How many telegram exchanges a single job may need before it is declared

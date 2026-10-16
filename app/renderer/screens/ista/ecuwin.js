@@ -533,7 +533,7 @@ function istaEcuWindow(ctx) {
     if (typeof ctx.run !== 'function') return;
     results = [['Reading...', '']];
     paint();
-    let rows = [];
+    let rows;
     try {
       rows = (await ctx.run(screen)) || [];
     } catch (e) {

@@ -7,6 +7,8 @@
  * with faults.js and the background scan.
  */
 
+/* exported readFaults, isMissingJob, cancelSweep, claimSweep, fillFaultDetail */
+
 /**
  * One fault entry as FS_LESEN answers it (a data set), optionally enriched
  * by FS_LESEN_DETAIL. Only the fields the sweep and the fault views read
@@ -170,7 +172,7 @@ async function fillFaultDetail(sgbd, faults) {
       );
       const dset = matchDetail(det.sets, f.F_ORT_NR);
       if (dset) {
-        const { F_HEX_CODE, F_ORT_TEXT, ...rich } = dset;
+        const { F_HEX_CODE: _hex, F_ORT_TEXT: _ort, ...rich } = dset;
         Object.assign(f, rich);
       }
     } catch {

@@ -8,6 +8,8 @@
  * table.
  */
 
+/* exported ipoReportBeatsText, ipoProtocolRender */
+
 /** the fault-memory reads a whole-vehicle script sends per module */
 const IPO_FAULT_READ_RE = /^(FS|IS)_LESEN$/;
 /** the per-fault detail read the same script sends afterwards */
@@ -173,7 +175,7 @@ function ipoProtocolReport(reads, lines) {
       if (det) {
         // the detail's own hex/text never replace the memory's (wire.js
         // keeps them the same way)
-        const { F_HEX_CODE, F_ORT_TEXT, ...rich } = det;
+        const { F_HEX_CODE: _hex, F_ORT_TEXT: _ort, ...rich } = det;
         Object.assign(code, rich);
       }
     }

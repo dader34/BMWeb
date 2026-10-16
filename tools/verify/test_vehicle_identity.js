@@ -44,7 +44,7 @@ assert.ok(
   fs.existsSync(TABLES),
   'data/tables.js missing -- run tools/decompile/ncs_tables.py --write'
 );
-// eslint-disable-next-line no-eval
+
 eval(fs.readFileSync(TABLES, 'utf8'));
 assert.ok(window.BMW_TABLES, 'tables.js did not set BMW_TABLES');
 
@@ -498,7 +498,7 @@ const FA = 'E46_#0303*BW32%0A08&N6TT|7531125$205$210$880';
     fs.existsSync(SA),
     'data/sanames.js missing -- run tools/etk_sa_names.py --db etk.sqlite'
   );
-  // eslint-disable-next-line no-eval
+
   eval(fs.readFileSync(SA, 'utf8'));
   assert.ok(window.BMW_SA_NAMES, 'sanames.js did not set BMW_SA_NAMES');
   assert.strictEqual(VI.saName('0530', 20010100), 'Air conditioning');

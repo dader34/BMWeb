@@ -30,6 +30,8 @@
  * so the strict path is available on every car, not two.
  */
 
+/* exported sweepPlan, targetLabel, nameFor, rowForVariant */
+
 /**
  * One ECU row of a chassis config.
  * @typedef {object} ConfigEcu

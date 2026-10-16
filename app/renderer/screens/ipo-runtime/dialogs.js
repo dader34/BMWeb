@@ -4,6 +4,8 @@
  * control. (The input prompts are irAskInput in screens/ir.js.)
  */
 
+/* exported ipoSaveFilePick, ipoSaveFileWrite */
+
 /** A picker with more rows than this scrolls and says so. */
 const IPO_PICK_LONG = 12;
 

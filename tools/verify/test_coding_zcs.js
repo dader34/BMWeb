@@ -30,18 +30,6 @@ function assertEq(a, b, msg) {
   }
 }
 
-function assertDeepEq(a, b, msg) {
-  const aStr = JSON.stringify(a);
-  const bStr = JSON.stringify(b);
-  if (aStr === bStr) {
-    pass++;
-    console.log('  ok   ', msg);
-  } else {
-    fail++;
-    console.log('  FAIL ', msg, `(expected ${bStr}, got ${aStr})`);
-  }
-}
-
 console.log('\n== ZCS validation ==');
 
 assertEq(CodingZcs.validateGm('61630000'), null, 'valid GM 8 hex chars');

@@ -496,7 +496,7 @@ async function logShowChassis(chassis) {
         ...new Set(comfortLists.map((l) => l.mod.group).filter(Boolean)),
       ];
       for (const group of groups) {
-        let found = null;
+        let found;
         try {
           found = await webResolveVariant(group);
         } catch (e) {

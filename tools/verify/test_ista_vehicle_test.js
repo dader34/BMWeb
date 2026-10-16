@@ -32,68 +32,6 @@ const ok = (what) => {
   if (process.env.V) console.log('  ok', what);
 };
 
-/**
- * The renderer's classic scripts in one context, with the pieces the shell
- * leans on faked. Only what the vehicle test touches is real.
- * @param {object} over - overrides merged into the sandbox
- * @returns {object} the context
- */
-function load(over) {
-  const calls = { go: [], saved: [], bars: [] };
-  const host = { isConnected: true, innerHTML: '' };
-  const ctx = {
-    console,
-    setTimeout,
-    clearTimeout,
-    setInterval,
-    clearInterval,
-    document: {
-      getElementById: () => host,
-      createElement: () => ({ classList: { add() {}, remove() {} } }),
-    },
-    window: {},
-    esc: (x) => String(x == null ? '' : x),
-    istaProbe: async (fn) => {
-      try {
-        return await fn();
-      } catch (e) {
-        return null;
-      }
-    },
-    istaChassis: () => 'E46',
-    istaState: { car: { id: 'car1' }, tested: false },
-    istaGo: async (tab, sub) => {
-      calls.go.push(`${tab}/${sub}`);
-    },
-    istaRealStatus: () => {},
-    istaBottomBar: (id, acts) => {
-      calls.bars.push({ id, acts: Object.keys(acts || {}) });
-    },
-    garageAddScan: (id, payload, meta) => {
-      calls.saved.push({ id, payload, meta });
-    },
-    ...over,
-  };
-  ctx.window = ctx;
-  vm.createContext(ctx);
-  const src = fs.readFileSync(
-    path.join(ROOT, 'app', 'renderer', 'screens', 'ista', 'pages.js'),
-    'utf8'
-  );
-  // pages.js is a classic script; take just the renderer under test
-  const start = src.indexOf('function istaPageVehicleTest');
-  const end = src.indexOf('\n}', src.indexOf('host.innerHTML', start)) + 2;
-  vm.runInContext(src.slice(start, end), ctx);
-  ctx.calls = calls;
-  ctx.host = host;
-  return ctx;
-}
-
-/** @returns {object} a report in the shape ipoProtocolReport really returns */
-function report(modules, silent) {
-  return { kind: 'faults', modules: modules || [], silent: silent || [] };
-}
-
 function main() {
   // ---- the read paints the screen it was started from ----------------------
   // THE TEST DOES NOT OPEN A PAGE. The tool colours the control units in

@@ -5,6 +5,8 @@
  * row while held. Screens call the global setActions().
  */
 
+/* exported setActions */
+
 /**
  * One F-key action. `key` is the binding ('1'..'9', '0', 'Escape', a letter);
  * `keyLabel` is only a caption and never moves a key out of its slot.
@@ -328,15 +330,6 @@ const actionBar = new ActionBar();
  */
 function setActions(actions, shifted) {
   actionBar.set(actions, shifted);
-}
-
-/**
- * Global delegator: fire an action the way a key press would.
- * @param {BarAction} a - The action.
- * @returns {void}
- */
-function fireAction(a) {
-  actionBar.fire(a);
 }
 
 // activations.js reads the live row through this global.

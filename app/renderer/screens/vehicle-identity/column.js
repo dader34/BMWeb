@@ -10,6 +10,8 @@
  * first-answer-wins page can never show.
  */
 
+/* exported viFamilyName, viReadColumn */
+
 /**
  * One entry of the source strip: which ECU answered, and how.
  * @typedef {object} ViSource

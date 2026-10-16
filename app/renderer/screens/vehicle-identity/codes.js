@@ -7,6 +7,8 @@
  * discovery, same job, same decoding, no DOM.
  */
 
+/* exported readIdentityCodes */
+
 /**
  * The car's equipment as data.
  * @typedef {object} ViIdentityCodes

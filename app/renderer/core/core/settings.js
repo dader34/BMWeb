@@ -6,6 +6,8 @@
  * declared inline in index.html so the name lands before first paint.
  */
 
+/* exported API, THEMES, itemLabel */
+
 /**
  * Base URL of the diagnostic engine. The native shell runs a local sidecar;
  * the web build's fetch shim answers the same routes in-page, so the value is

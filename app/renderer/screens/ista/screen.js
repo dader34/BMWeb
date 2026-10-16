@@ -1483,7 +1483,6 @@ async function istaDiagFetch(rel) {
     );
     if (hit) return hit;
   }
-  const base = typeof WEB_BASE === 'string' && WEB_BASE ? WEB_BASE : '.';
   const real =
     typeof webRealFetch === 'function'
       ? webRealFetch
@@ -2292,34 +2291,6 @@ async function istaWiringIndex(chassis) {
   });
   istaWiringIndexes.set(code, out || null);
   return out || null;
-}
-
-/**
- * The document a module's request resolves to, or null.
- *
- * A module never names a document and nothing here matches on a name: the
- * diagnosis object the module belongs to carries its documents, and the
- * extract keeps that link on the module's index entry. So the request's
- * CLASS picks among the documents that link already named. When a module
- * has several diagrams the request's format preference is the tie-break,
- * and failing that the first the link listed, which is the order the tool
- * itself stores them in.
- * @param {object[]} documents - the module's linked documents
- * @param {string} label - which pane is asking
- * @returns {object|null}
- */
-function istaWiringPick(documents, label) {
-  // a caller that hands this anything but the row's list is a wiring bug,
-  // and a pane stuck on "Loading..." is how it showed: say so in the log
-  // rather than throwing inside a promise the pane never awaits
-  if (documents && !Array.isArray(documents)) {
-    console.warn('istaWiringPick: expected the row documents, got', documents);
-    return null;
-  }
-  const docs = documents || [];
-  if (!docs.length) return null;
-  const want = /Wiring/i.test(label) ? 'diagram' : 'function';
-  return docs.find((d) => d && d.type === want) || null;
 }
 
 /**

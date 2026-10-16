@@ -210,6 +210,10 @@ jobs:
           node scripts/build/bundle-renderer.mjs dist-web dist-web/bundle.js
           node scripts/build/bundle-index.mjs dist-web/index.html
           grep -q bundle.js dist-web/index.html
+          # Name the worker's shell cache after this commit: each release
+          # drops the previous release's cached shell.
+          sed -i "s/const SHELL_CACHE = '[^']*'/const SHELL_CACHE = 'bmweb-shell-${GITHUB_SHA::8}'/" dist-web/sw.js
+          grep -q "bmweb-shell-${GITHUB_SHA::8}" dist-web/sw.js
           # A build that exported nothing must FAIL here, not deploy a shell
           # of a site: an earlier run shipped 63 files and looked green, and a
           # later one shipped archives that were present but hollow. Check

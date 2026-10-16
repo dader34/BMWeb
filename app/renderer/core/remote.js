@@ -325,7 +325,7 @@ const Remote = {
         this.log(`under your approval "${under.label}": ${sgbd} ${job}`);
       } else {
         this.log(`awaiting your approval: ${sgbd} ${job || verb}`);
-        let ok = false;
+        let ok;
         try {
           ok = await this.onGate({
             sgbd,
@@ -351,8 +351,7 @@ const Remote = {
     // this machine's cable; the helper's line is the whole round trip.
     this.log(`job ${sgbd || ''} ${job || verb} · running…`);
     const t0 = Date.now();
-    let status = 200,
-      body;
+    let status, body;
     try {
       const res = await window.fetch(rel, msg.init || undefined);
       status = res.status;
@@ -410,7 +409,7 @@ const Remote = {
           error: 'remote: this owner cannot approve a flash',
         });
       this.log(`awaiting your approval: ${handler.label} — ${what}`);
-      let ok = false;
+      let ok;
       try {
         ok = await this.onGate({
           sgbd: /transmission/.test(handler.label) ? 'GS20' : 'DME',
@@ -959,7 +958,7 @@ const Remote = {
       at: Date.now(),
       ip: (hello && hello.ip) || this._peerIp || null,
     };
-    let ok = false;
+    let ok;
     if (typeof this.onAccept === 'function') {
       try {
         ok = await this.onAccept(this.peerInfo);

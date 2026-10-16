@@ -179,13 +179,13 @@ const gz = (name) => {
   ok('the words are scaled as the SGBD scales them, units beside them');
 
   sent.length = 0;
-  row = await P.logPacketRead('ms450ds0', keys);
+  await P.logPacketRead('ms450ds0', keys);
   assert.deepStrictEqual(sent, [[0x21, 0xf0]]);
   ok('every later round is one exchange');
 
   sent.length = 0;
   held = null; // the DME restarted
-  row = await P.logPacketRead('ms450ds0', keys);
+  await P.logPacketRead('ms450ds0', keys);
   assert.ok(near(row[keys[2]], 44.25));
   assert.strictEqual(sent.filter((t) => t[0] === 0x21).length, 2);
   ok('a DME that lost the packet is given it again, and read');

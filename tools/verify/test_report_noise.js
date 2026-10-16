@@ -10,7 +10,6 @@
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
-const vm = require('vm');
 
 const ROOT = path.join(__dirname, '..', '..');
 let passed = 0;
@@ -31,7 +30,7 @@ function expectedWireRe() {
   );
   const m = /const BETA_EXPECTED_WIRE = (\/.*?\/);/.exec(src);
   assert.ok(m, 'BETA_EXPECTED_WIRE is defined in journal.js');
-  // eslint-disable-next-line no-eval
+
   return { re: eval(m[1]), src };
 }
 

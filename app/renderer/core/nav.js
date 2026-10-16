@@ -4,6 +4,8 @@
  * screens/sweep/.
  */
 
+/* exported backToModules */
+
 /**
  * One control module as the chassis config lists it.
  * @typedef {Object} EcuRecord

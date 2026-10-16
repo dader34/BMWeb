@@ -78,15 +78,6 @@ async function ecuTreeIndex() {
 }
 
 /**
- * Whether the trees are reachable at all (the hub card asks).
- * @returns {Promise<boolean>}
- */
-async function ecuTreeIndexPresent() {
-  const idx = await ecuTreeIndex().catch(() => null);
-  return !!(idx && idx.trees && Object.keys(idx.trees).length);
-}
-
-/**
  * The tree name a chassis draws with, or null when ISTA has none for it.
  * @param {string} chassis - the chassis id
  * @returns {Promise<string|null>}

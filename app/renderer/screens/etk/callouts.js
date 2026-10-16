@@ -15,7 +15,7 @@
  * of one position), so every operation here is many-to-many.
  */
 
-/* exported etkScaleHotspot, etkPosRowIndex, etkHotspotName, etkAttachHotspots */
+/* exported etkScaleHotspot, etkPosRowIndex, etkHotspotName, etkAttachHotspots, etkLoupeMarks */
 
 /**
  * A rectangle placed in the rendered image's coordinates, ready to be styled.

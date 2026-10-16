@@ -6,6 +6,8 @@
  * group gate and the wire helpers with the two foreground sweeps.
  */
 
+/* exported stateSgbd, setStateSgbd, autoScan, dismissAttention */
+
 /**
  * One module the background scan found faults on.
  * @typedef {object} AutoScanFinding

@@ -31,7 +31,7 @@ const ok = (cond, msg) => {
   }
 };
 
-const { Best2Vm, VmError, isWriteJob } = require(
+const { Best2Vm, isWriteJob } = require(
   path.join(ROOT, 'app/renderer/core/bestvm/index.js')
 );
 

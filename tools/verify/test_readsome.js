@@ -29,7 +29,7 @@ if (!m) {
   console.error('TIMED_OUT sentinel missing -- was the fix reverted?');
   process.exit(1);
 }
-const body = src.match(/async readSome\(deadline\) \{[\s\S]*?\n  \}/);
+const body = src.match(/async readSome\(deadline\) \{[\s\S]*?\n {2}\}/);
 if (!body) {
   console.error('readSome not found');
   process.exit(1);

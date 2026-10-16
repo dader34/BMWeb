@@ -10,6 +10,8 @@
  * address or variant list of its own.
  */
 
+/* exported viDetectCar */
+
 /**
  * The identified car.
  * @typedef {object} ViDetectedCar

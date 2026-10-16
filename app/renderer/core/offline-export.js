@@ -164,7 +164,6 @@ const OFFLINE_SHELL = [
   'screens/coding/write-review.js',
   'screens/coding/hub.js',
   'screens/coding/zcs-editor.js',
-  'screens/navlang.js',
   'screens/identity.js',
   'screens/vehicle-identity/discovery.js',
   'screens/vehicle-identity/record.js',
@@ -245,6 +244,7 @@ const OFFLINE_SHELL = [
   'screens/tuning/table-ops.js',
   'screens/tuning/edit-history.js',
   'screens/tuning/item-editors.js',
+  'screens/tuning/comfort-live.js',
   'screens/tuning/comfort.js',
   'screens/tuning/definition-tree.js',
   'screens/tuning/table-grid.js',
@@ -259,6 +259,8 @@ const OFFLINE_SHELL = [
   'screens/tuning/live-faults.js',
   'screens/tuning/live-gauges.js',
   'screens/tuning/live-cursor.js',
+  'screens/tuning/live-correct.js',
+  'screens/tuning/live-adapt.js',
   'screens/tuning/read-tune.js',
   'screens/tuning/screen.js',
   'screens/logging/store.js',
@@ -268,6 +270,7 @@ const OFFLINE_SHELL = [
   'screens/logging/presets.js',
   'screens/logging/packet.js',
   'screens/logging/comfort.js',
+  'screens/logging/tracer.js',
   'screens/logging/replay.js',
   'screens/logging/screen.js',
   'screens/script-runner/load.js',
@@ -1058,6 +1061,8 @@ async function offlineSingleFile(
   // a Blob takes PARTS, so the doc never exists as string AND bytes at once
   const size = html.length;
   const blob = new Blob([html], { type: 'text/html' });
+  // drop the string: the blob holds the bytes now
+  // eslint-disable-next-line no-useless-assignment
   html = '';
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');

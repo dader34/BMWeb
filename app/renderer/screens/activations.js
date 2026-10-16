@@ -1,3 +1,5 @@
+/* exported registerMenuLeave, markEnergized, runMenuLeave, endActivationSession, keepActivationsDuring, activationsHeld */
+
 // Actuator release, INPA's way: we do NOT synthesize a stop telegram.
 //
 // An actuator menu in the .IPO releases (or does not) through its OWN keys.
@@ -86,19 +88,6 @@ let compEcu = null,
   compArg = null;
 
 /**
- * Register a composite actuator word's neutral form, re-sent on leave.
- * @param {{sgbd: string}|null} ecu - The ECU.
- * @param {string|null} job - The composite job.
- * @param {string} neutralArg - The argument that commands every output to neutral.
- * @returns {void}
- */
-function registerCompositeNeutral(ecu, job, neutralArg) {
-  compEcu = ecu || null;
-  compJob = job || null;
-  compArg = neutralArg;
-}
-
-/**
  * Forget the registered composite word.
  * @returns {void}
  */
@@ -167,19 +156,6 @@ let sessionEndEcu = null;
 let sessionEndJob = null;
 /** An end deferred to the microtask, so a submenu hop can cancel it. @type {{ecu: {sgbd: string}, job: string}|null} */
 let _pendingEnd = null;
-
-/**
- * Register the ECU's session-end job on ENTRY, so it fires however the user
- * leaves.
- * @param {{sgbd: string}|null} ecu - The ECU.
- * @param {string|null} job - The session-end job.
- * @returns {void}
- */
-function registerSessionEnd(ecu, job) {
-  if (!ecu || !job) return;
-  sessionEndEcu = ecu;
-  sessionEndJob = job;
-}
 
 /**
  * Send the registered session-end job, deferred one microtask so a submenu

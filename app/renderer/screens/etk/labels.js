@@ -4,7 +4,7 @@
  * and BMW's grouped 11-digit part-number layout.
  */
 
-/* exported bodyLabel, etkSteerAbbrev, etkSteerLabel, etkGearLabel, etkYearMonth, etkVariantLabel, fmtSachnr */
+/* exported bodyLabel, etkSteerAbbrev, etkSteerLabel, etkGearLabel, etkYearMonth, etkVariantLabel, fmtSachnr, etkCarLabel */
 
 /** Body code -> readable (Lim = Sedan, Tou = Touring, Cou = Coupé, Cab = Convertible...). */
 const ETK_BODY_LABELS = {

@@ -30,6 +30,8 @@
  * So the keys are matched by POSITION IN THE DECLARATION, not by name.
  */
 
+/* exported viIdentityModulesCached, chassisHasIdentity */
+
 /**
  * A job as the runtime's job list names it.
  * @typedef {object} ViJob
@@ -397,27 +399,6 @@ async function viProbeEcu(e, chassisId) {
     };
   }
   return null;
-}
-
-/**
- * WHICH CONTROL UNITS HOLD THE IDENTITY, ASKED OF THE MODULES THEMSELVES.
- *
- * BMW's SGFAM table also flags this, but its logical names are not the SGBDs
- * we address: E46's table says KMB and the shipped module is `kombi46`, says
- * ALSZ where nothing by that name ships at all. Rather than invent a name
- * transform, the question is put to the modules -- an ECU that declares a job
- * returning the coding keys or the vehicle order IS an identity master.
- *
- * This lands on the same answer SGFAM gives (E46: the cluster and EWS) and
- * keeps working where the naming does not line up. SGFAM is still used, for
- * the human-readable family name in the source strip.
- * @param {string|null|undefined} chassisId - Chassis id, any case.
- * @returns {Promise<ViIdentityModule[]>} The masters, in chassis-config order.
- */
-async function viIdentityModules(chassisId) {
-  const probes = await viIdentityProbes(chassisId);
-  const probed = await Promise.all(probes);
-  return probed.filter(Boolean);
 }
 
 /**

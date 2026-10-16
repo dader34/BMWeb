@@ -10,11 +10,7 @@
 // where each frame ends. Get any of it wrong and every request is silently
 // discarded by the ECU -- which is exactly the bug this file was written
 // after.
-const fs = require('fs');
-const path = require('path');
 const vm = require('vm');
-
-const ROOT = path.join(__dirname, '..', '..');
 
 // The shim (core/webshim/, joined in load order) is browser code: it ends by
 // touching `window`. Take the pure helpers, which is everything above the
