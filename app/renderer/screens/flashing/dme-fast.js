@@ -144,6 +144,22 @@ async function fbDmeFastFlash(spec) {
         Number(Settings.get('fastLineBest', 0)) || 0
       );
       ui.stage(`Line at ${rate} baud`);
+      // a line that garbles replies steps down one rate, once, and the
+      // next session starts from there
+      client.stepDown = async () => {
+        const lines = fastFlashWire.FAST_LINES.filter(([r]) => r < rate);
+        const [lower, scbr] = lines.length
+          ? lines[0]
+          : [fastFlashWire.BAUD, 11];
+        flashLog.note(
+          `Garbled replies at ${rate} baud: stepping the line down to ${lower}`
+        );
+        await client.setBaud(scbr);
+        await link.rebaud(lower, { patience: 15000 });
+        await client.setBaud(scbr);
+        Settings.set('fastLineBest', lower);
+        ui.stage(`Line at ${lower} baud`);
+      };
     }
     const cb = {
       stage: (s) => ui.stage(s),

@@ -537,10 +537,56 @@ const be32 = (b, at) =>
     );
     assert.strictEqual(
       calls.filter((c) => c[0] === 'chunk' && c[1] === 0x10000).length,
-      6
+      20
     );
     ok(
       'baud test: dead rates reported with no HELLO and the fallback waited for, live rates proven by HELLOs, 4 KB frames and a CRC, 115200 restored after each; best = first OK'
+    );
+  }
+
+  // ---- 4d. a garbled reply is asked for once more ------------------------------
+  console.log('\ngarbled replies');
+  {
+    const ack = (svc) => {
+      const f = [0x04, 0x12, 0xf1, svc | 0x40];
+      f.push(f.slice(1).reduce((a, b) => (a + b) & 0xff, 0));
+      return Uint8Array.from(f);
+    };
+    let n = 0;
+    const link = {
+      async exchange() {
+        n++;
+        const f = ack(0x00);
+        if (n === 1 || n === 3) f[4] ^= 1; // a byte the line mangled
+        return f;
+      },
+    };
+    const client = new W.Client(link);
+    let stepped = 0;
+    client.stepDown = async () => {
+      stepped++;
+    };
+    await client.hello();
+    assert.strictEqual(n, 2);
+    assert.strictEqual(client.lineErrors, 1);
+    await client.hello();
+    assert.strictEqual(n, 4);
+    assert.strictEqual(client.lineErrors, 2);
+    assert.strictEqual(stepped, 1, 'the line steps down at the second error');
+    assert.strictEqual(client.stepDown, null, 'and only once');
+    n = 0;
+    const bad = {
+      async exchange() {
+        n++;
+        const f = ack(0x00);
+        f[4] ^= 1;
+        return f;
+      },
+    };
+    await assert.rejects(() => new W.Client(bad).hello(), /checksum/);
+    assert.strictEqual(n, 2, 'two tries, then the error');
+    ok(
+      'a garbled reply is asked for once more; two of them step the line down once; a line that garbles every reply still fails'
     );
   }
 

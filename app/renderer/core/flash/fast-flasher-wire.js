@@ -94,6 +94,12 @@ const FF_LINE_TEST_RATES = [
   [208333, 6],
   [156250, 8],
 ];
+/** Garbled replies in a session before the line is stepped down a rate. */
+const FF_LINE_ERRORS_STEP = 2;
+/** The Baud Test's soak at each rate: replies that must all come back clean. */
+const FF_TEST_HELLOS = 20;
+const FF_TEST_FRAMES = 10;
+const FF_TEST_CRCS = 5;
 /** How long the body's own fallback to 115200 is waited for after a dead rate. */
 const FF_FALLBACK_PATIENCE_MS = 15000;
 /** The MPC's 448 KB in 32 KB blocks; a pageset is one 64-byte page per block. */
@@ -300,6 +306,10 @@ class FastFlashClient {
     this.trace = opts.trace || null;
     this.codec =
       typeof nrv2b !== 'undefined' ? nrv2b : require('./nrv2b.js').nrv2b;
+    /** Garbled replies so far (a marginal line shows here first). */
+    this.lineErrors = 0;
+    /** Set by the session: moves the line down a rate; called once at FF_LINE_ERRORS_STEP. */
+    this.stepDown = null;
   }
 
   /**
@@ -310,13 +320,35 @@ class FastFlashClient {
    */
   async call(svc, data, timeoutMs) {
     const frame = ffFrame(svc, data);
-    const t0 = Date.now();
     let reply = null;
-    try {
-      reply = ffParse(await this.link.exchange(frame, timeoutMs));
-    } finally {
+    for (let attempt = 1; ; attempt++) {
+      const t0 = Date.now();
+      let err = null;
+      try {
+        reply = ffParse(await this.link.exchange(frame, timeoutMs));
+      } catch (e) {
+        err = e;
+      }
+      // a reply that arrived garbled (a bad checksum, a span that is not
+      // one): the DME did the command and answered, the line mangled a
+      // byte -- every service but RESET is idempotent, so once more. The
+      // first program push at 312500 died of two such bytes in 300 replies.
+      const garbled =
+        err && /checksum|frame is not one/.test(err.message || '');
+      const again = garbled && svc !== FF_SVC.RESET && attempt === 1;
       if (this.trace)
-        this.trace(_ffTraceLine(svc, data, reply, Date.now() - t0));
+        this.trace(
+          _ffTraceLine(svc, data, reply, Date.now() - t0) +
+            (again ? ' -- garbled, once more' : '')
+        );
+      if (!err) break;
+      if (!again) throw err;
+      this.lineErrors++;
+      if (this.lineErrors >= FF_LINE_ERRORS_STEP && this.stepDown) {
+        const down = this.stepDown;
+        this.stepDown = null;
+        await down();
+      }
     }
     if (!reply)
       throw new Error(`fast flasher: no reply to ${FF_SVC_NAME[svc]}`);
@@ -529,7 +561,9 @@ async function ffLineTest(
       }
       continue;
     }
-    for (let i = 0; i < 5; i++) {
+    // a soak, not a probe: the first program push at 312500 passed five
+    // HELLOs and died of two garbled bytes in 300 replies
+    for (let i = 0; i < FF_TEST_HELLOS; i++) {
       try {
         if (same(await client.hello(), stamp)) r.hellos++;
       } catch (e) {
@@ -538,12 +572,13 @@ async function ffLineTest(
     }
     const t0 = Date.now();
     try {
-      await client.sectorQuery(FF_CAL_SECTOR, 0x10000);
-      r.queryMs = Date.now() - t0;
+      for (let i = 0; i < FF_TEST_CRCS; i++)
+        await client.sectorQuery(FF_CAL_SECTOR, 0x10000);
+      r.queryMs = Math.round((Date.now() - t0) / FF_TEST_CRCS);
     } catch (e) {
       r.why = `64 KB CRC: ${e.message}`;
     }
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < FF_TEST_FRAMES; i++) {
       try {
         await client.chunk(0x10000, longFrame);
         r.why = 'a CHUNK below 0x40000 was accepted';
@@ -551,11 +586,14 @@ async function ffLineTest(
         if (e instanceof FastFlashNak && e.reason === 1) r.frames++;
       }
     }
-    r.ok = r.hellos === 5 && r.frames === 3 && r.queryMs !== null;
+    r.ok =
+      r.hellos === FF_TEST_HELLOS &&
+      r.frames === FF_TEST_FRAMES &&
+      r.queryMs !== null;
     if (!r.ok && !r.why)
-      r.why = `HELLO ${r.hellos}/5, 4 KB frames ${r.frames}/3`;
+      r.why = `HELLO ${r.hellos}/${FF_TEST_HELLOS}, 4 KB frames ${r.frames}/${FF_TEST_FRAMES}`;
     note(
-      `${rate} baud: HELLO ${r.hellos}/5, 4 KB frames ${r.frames}/3, 64 KB CRC ${r.queryMs === null ? 'no answer' : `${r.queryMs} ms`} -- ${r.ok ? 'OK' : 'FAILED'}`
+      `${rate} baud: HELLO ${r.hellos}/${FF_TEST_HELLOS}, 4 KB frames ${r.frames}/${FF_TEST_FRAMES}, 64 KB CRC x${FF_TEST_CRCS} ${r.queryMs === null ? 'no answer' : `${r.queryMs} ms each`} -- ${r.ok ? 'OK' : 'FAILED'}`
     );
     let setOk = true;
     try {
@@ -1234,17 +1272,28 @@ function ffWebLink(bus, opts = {}) {
      * @returns {Promise<Uint8Array>} The stamp it echoed.
      */
     async resume() {
-      await bus.reopen({
-        baudRate: FF_BAUD,
-        dataBits: 8,
-        stopBits: 1,
-        parity: 'even',
-      });
-      rx = [];
-      heard = [];
-      const hello = await askHello(this);
-      learn(hello);
-      return hello.data;
+      // the body may be holding a confirmed faster line from the session
+      // that was cut short: 115200 first, then each rate it could be on
+      let last = null;
+      for (const rate of [FF_BAUD].concat(FF_LINE_TEST_RATES.map(([r]) => r))) {
+        await bus.reopen({
+          baudRate: rate,
+          dataBits: 8,
+          stopBits: 1,
+          parity: 'even',
+        });
+        rx = [];
+        heard = [];
+        try {
+          const hello = await askHello(this);
+          learn(hello);
+          step(`The flasher answered at ${rate} baud`);
+          return hello.data;
+        } catch (e) {
+          last = e;
+        }
+      }
+      throw last || new Error('fast flasher: no HELLO at any rate');
     },
     /**
      * v8: the port to another rate mid-session (after SET_BAUD), then the
