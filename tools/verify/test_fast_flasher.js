@@ -499,7 +499,7 @@ const be32 = (b, at) =>
     };
     const link = {
       async rebaud(rate, opts = {}) {
-        calls.push(['rebaud', rate, opts.settle || 0]);
+        calls.push(['rebaud', rate, opts.patience || 0]);
         if (dead.has(rate)) throw new Error('no HELLO');
         return stamp;
       },
@@ -525,11 +525,11 @@ const be32 = (b, at) =>
     const rb = calls.filter((c) => c[0] === 'rebaud');
     assert.deepStrictEqual(rb.slice(0, 2), [
       ['rebaud', 312500, 0],
-      ['rebaud', 115200, 3000],
+      ['rebaud', 115200, 15000],
     ]);
     assert.deepStrictEqual(rb.slice(-2), [
       ['rebaud', 156250, 0],
-      ['rebaud', 115200, 0],
+      ['rebaud', 115200, 2000],
     ]);
     assert.strictEqual(
       calls.filter((c) => c[0] === 'setBaud' && c[1] === 11).length,

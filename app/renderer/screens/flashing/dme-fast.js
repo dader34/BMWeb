@@ -74,6 +74,15 @@ async function fbDmeFastBaudTest() {
       const r = await fastFlashWire.lineTest(client, p.link, (s) =>
         cb.stage(s)
       );
+      if (r.lost) {
+        fbDmeSetFastLive(false);
+        return {
+          ok: true,
+          skipped: false,
+          summary: `${r.summary} -- the DME stayed on a rate the line does not carry: switch the ignition off for ten seconds and back on, then Identify`,
+          best: r.best,
+        };
+      }
       cb.stage('Restarting the DME');
       await client.reset();
       // the fastest rate that passed is what the next fast flash asks for first

@@ -94,6 +94,8 @@ const FF_LINE_TEST_RATES = [
   [208333, 6],
   [156250, 8],
 ];
+/** How long the body's own fallback to 115200 is waited for after a dead rate. */
+const FF_FALLBACK_PATIENCE_MS = 15000;
 /** The MPC's 448 KB in 32 KB blocks; a pageset is one 64-byte page per block. */
 const FF_MPC_BLOCKS = 14;
 const FF_PAGE = 64;
@@ -489,6 +491,7 @@ async function ffLineTest(
   for (let i = 0; i < longFrame.length; i++)
     longFrame[i] = (i * 7919 + 13) & 0xff;
   const results = [];
+  let lost = false;
   for (const [rate, scbr] of rates) {
     const r = {
       rate,
@@ -513,9 +516,16 @@ async function ffLineTest(
     } catch (e) {
       r.why = 'no HELLO';
       note(
-        `${rate} baud: no HELLO (${e.message}); back to ${FF_BAUD} after the body's fallback`
+        `${rate} baud: no HELLO (${e.message}); waiting for the body's fallback to ${FF_BAUD}`
       );
-      await link.rebaud(FF_BAUD, { settle: 3000 });
+      try {
+        await link.rebaud(FF_BAUD, { patience: FF_FALLBACK_PATIENCE_MS });
+      } catch (e2) {
+        r.why = `no HELLO, and the DME did not come back to ${FF_BAUD} within ${FF_FALLBACK_PATIENCE_MS / 1000} s`;
+        note(`${rate} baud: ${r.why} (${e2.message})`);
+        lost = true;
+        break;
+      }
       continue;
     }
     for (let i = 0; i < 5; i++) {
@@ -552,13 +562,21 @@ async function ffLineTest(
     } catch (e) {
       setOk = false;
     }
-    await link.rebaud(FF_BAUD, { settle: setOk ? 0 : 3000 });
+    try {
+      await link.rebaud(FF_BAUD, {
+        patience: setOk ? 2000 : FF_FALLBACK_PATIENCE_MS,
+      });
+    } catch (e) {
+      note(`back to ${FF_BAUD}: the DME did not answer (${e.message})`);
+      lost = true;
+      break;
+    }
   }
   const summary = results
     .map((r) => `${r.rate}: ${r.ok ? 'OK' : r.why || 'failed'}`)
     .join(' · ');
   const best = (results.find((r) => r.ok) || { rate: FF_BAUD }).rate;
-  return { results, summary, best };
+  return { results, summary, best, lost };
 }
 
 async function ffFasterLine(client, link, note = () => {}, preferred = 0) {
@@ -583,7 +601,7 @@ async function ffFasterLine(client, link, note = () => {}, preferred = 0) {
       return rate;
     } catch (e) {
       note(`No HELLO at ${rate} baud (${e.message}); back to ${FF_BAUD}`);
-      await link.rebaud(FF_BAUD, { settle: 3000 });
+      await link.rebaud(FF_BAUD, { patience: FF_FALLBACK_PATIENCE_MS });
     }
   }
   note(`Line stays at ${FF_BAUD} baud`);
@@ -1226,10 +1244,13 @@ function ffWebLink(bus, opts = {}) {
     },
     /**
      * v8: the port to another rate mid-session (after SET_BAUD), then the
-     * flasher asked for its HELLO there. `settle` waits first -- for the
-     * body's own fallback to 115200 after a rate that carried nothing.
+     * flasher asked for its HELLO there. `settle` waits first and
+     * `patience` keeps asking for that long -- for the body's own fallback
+     * to 115200 after a rate that carried nothing: ~2.4 s of its rx
+     * timeouts in the emulator, longer on silicon (the first car test gave
+     * up after 3 s and lost the DME to its dead rate).
      * @param {number} baudRate
-     * @param {{settle?: number}} [opts]
+     * @param {{settle?: number, patience?: number}} [opts]
      * @returns {Promise<Uint8Array>} The stamp it echoed.
      */
     async rebaud(baudRate, opts = {}) {
@@ -1242,9 +1263,19 @@ function ffWebLink(bus, opts = {}) {
       rx = [];
       heard = [];
       if (opts.settle) await sleep(opts.settle);
-      const hello = await askHello(this);
-      learn(hello);
-      return hello.data;
+      const deadline = Date.now() + (opts.patience || 0);
+      for (;;) {
+        try {
+          const hello = await askHello(this);
+          learn(hello);
+          return hello.data;
+        } catch (e) {
+          if (Date.now() >= deadline) throw e;
+          rx = [];
+          heard = [];
+          await sleep(500);
+        }
+      }
     },
     async exchange(frame, timeoutMs) {
       // DTR stays low. The bus raises it around every K-line write (the
