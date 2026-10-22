@@ -53,9 +53,9 @@ async function fbDmeFastBaudTest() {
   if (!d.identified) return;
   if (!(await fbDmeFastFlasherAvailable('Baud Test', { upgrade: true })))
     return;
-  if (!d.fastFlasher.pagesets) {
+  if (!d.fastFlasher.fastLine) {
     await fbMessage(
-      `The fast flasher on the DME is v${d.fastFlasher.version}, which cannot change its line speed (SET_BAUD came with v8). Run Fast Flash Program once to upgrade it, then test.`,
+      `The fast flasher on the DME is v${d.fastFlasher.version}; a line-speed change that cannot strand the DME came with v${fastFlasher.LINE_FROM}. Run Fast Flash Program once to upgrade it, then test.`,
       'Baud Test'
     );
     return;
@@ -135,7 +135,7 @@ async function fbDmeFastFlash(spec) {
     prepared.link = link;
     // v8: the fastest line the cable and the K-line carry (the body falls
     // back to 115200 by itself when a rate carries nothing)
-    if (d.fastFlasher && d.fastFlasher.pagesets && !spec.noFasterLine) {
+    if (d.fastFlasher && d.fastFlasher.fastLine && !spec.noFasterLine) {
       ui.stage('Trying a faster line');
       const rate = await fastFlashWire.fasterLine(
         client,

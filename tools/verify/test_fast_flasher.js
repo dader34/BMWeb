@@ -533,7 +533,7 @@ const be32 = (b, at) =>
     ]);
     assert.strictEqual(
       calls.filter((c) => c[0] === 'setBaud' && c[1] === 11).length,
-      2
+      4
     );
     assert.strictEqual(
       calls.filter((c) => c[0] === 'chunk' && c[1] === 0x10000).length,
@@ -549,15 +549,28 @@ const be32 = (b, at) =>
   {
     const hook = (w) =>
       Uint8Array.from([w >>> 24, (w >>> 16) & 255, (w >>> 8) & 255, w & 255]);
-    const stamp = Buffer.from('4d53343551460801ffffd300ffffd400', 'hex');
+    const stamp = Buffer.from('4d53343551460901ffffd300ffffd400', 'hex');
     const det = fastFlasher.parseDetection(
       hook(fastFlasherBlob.hookWord),
       stamp
     );
-    assert(det && det.ready && det.version === 8 && det.mpc && !det.outdated);
+    assert(det && det.ready && det.version === 9 && det.mpc && !det.outdated);
     assert(det.mpcSafe, "v8 writes the MPC through the loader's driver");
-    assert.strictEqual(fastFlasher.describe(det), 'Fast flasher v8 present');
-    assert(det.pagesets, 'v8 has the pageset / mask-erase / SET_BAUD wire');
+    assert.strictEqual(fastFlasher.describe(det), 'Fast flasher v9 present');
+    assert(det.pagesets && det.fastLine, 'v9: pagesets and a safe SET_BAUD');
+    const v8 = Buffer.from(stamp);
+    v8[6] = 8;
+    const eight = fastFlasher.parseDetection(
+      hook(fastFlasherBlob.hookWord),
+      v8
+    );
+    assert(
+      eight &&
+        eight.pagesets &&
+        !eight.fastLine &&
+        eight.outdated &&
+        eight.upgradable
+    );
     const v7 = Buffer.from(stamp);
     v7[6] = 7;
     const seven = fastFlasher.parseDetection(
@@ -609,7 +622,7 @@ const be32 = (b, at) =>
     assert(orphan && !orphan.hooked && !orphan.ready);
     assert.throws(() => fastFlasher.assertReady(orphan), /no longer leads/);
     const newer = Buffer.from(stamp);
-    newer[6] = 9;
+    newer[6] = 10;
     assert(
       !fastFlasher.parseDetection(hook(fastFlasherBlob.hookWord), newer)
         .supported

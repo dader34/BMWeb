@@ -29,7 +29,7 @@ const FAST_FLASHER_MAGIC = 'MS45QF';
 const FAST_FLASHER_HOOK_AT = 0x8; // MPC, the loader's reset word
 const FAST_FLASHER_STOCK_HOOK = 0x4bf717b6; // `ba 0xFFF717B4`
 const FAST_FLASHER_EXT_CPU = 0xfff00000; // where the external chip is mapped
-const FAST_FLASHER_VERSION = 8; // the highest stamp version this app speaks
+const FAST_FLASHER_VERSION = 9; // the highest stamp version this app speaks
 /**
  * The first body whose MPC (internal flash) writes go through the boot
  * loader's own CMF driver. v2-v6 carried a hand-written sequence that read
@@ -46,6 +46,14 @@ const FAST_FLASHER_MPC_WRITES_FROM = 7;
  * and the table CRC. Older bodies get the sequential push at 115200.
  */
 const FAST_FLASHER_PAGESETS_FROM = 8;
+/**
+ * The first body whose SET_BAUD is safe on a one-way line: it holds a new
+ * rate only once the tester confirms (a SET_BAUD naming that rate) that it
+ * HEARD an answer there, else falls back to 115200 by itself. v8 held any
+ * rate it could read telegrams at, and a rate the cable drove into the DME
+ * but whose answers came back garbled stranded the car (2026-10-21).
+ */
+const FAST_FLASHER_LINE_FROM = 9;
 /**
  * The oldest body a Fast Flash Program may run on to replace itself: v5 is
  * the first that works on a real cable (the link pauses after each reply for
@@ -85,6 +93,7 @@ const fastFlasher = {
   VERSION: FAST_FLASHER_VERSION,
   MPC_WRITES_FROM: FAST_FLASHER_MPC_WRITES_FROM,
   PAGESETS_FROM: FAST_FLASHER_PAGESETS_FROM,
+  LINE_FROM: FAST_FLASHER_LINE_FROM,
   CHUNK: FAST_FLASHER_CHUNK,
 
   /**
@@ -137,8 +146,10 @@ const fastFlasher = {
       mpcSafe:
         version >= FAST_FLASHER_MPC_WRITES_FROM &&
         (version >= 2 || (flags & FAST_FLASHER_FLAG_MPC) !== 0),
-      // pagesets, mask erase, SET_BAUD: the v8 wire
+      // pagesets, mask erase: the v8 wire
       pagesets: version >= FAST_FLASHER_PAGESETS_FROM,
+      // a line-speed change that cannot strand the DME: v9
+      fastLine: version >= FAST_FLASHER_LINE_FROM,
       ready: hooked && supported && !outdated,
       // an outdated body that can still carry the program push which
       // replaces it (Fast Flash Program splices the current body in)

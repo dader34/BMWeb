@@ -513,6 +513,7 @@ async function ffLineTest(
     }
     try {
       await link.rebaud(rate);
+      await client.setBaud(scbr); // heard: the body may keep the rate
     } catch (e) {
       r.why = 'no HELLO';
       note(
@@ -566,6 +567,7 @@ async function ffLineTest(
       await link.rebaud(FF_BAUD, {
         patience: setOk ? 2000 : FF_FALLBACK_PATIENCE_MS,
       });
+      await client.setBaud(11); // confirmed at 115200
     } catch (e) {
       note(`back to ${FF_BAUD}: the DME did not answer (${e.message})`);
       lost = true;
@@ -597,11 +599,13 @@ async function ffFasterLine(client, link, note = () => {}, preferred = 0) {
     }
     try {
       await link.rebaud(rate);
+      await client.setBaud(scbr); // heard: the body may keep the rate
       note(`Line at ${rate} baud (SCBR ${scbr})`);
       return rate;
     } catch (e) {
       note(`No HELLO at ${rate} baud (${e.message}); back to ${FF_BAUD}`);
       await link.rebaud(FF_BAUD, { patience: FF_FALLBACK_PATIENCE_MS });
+      await client.setBaud(11); // confirmed at 115200
     }
   }
   note(`Line stays at ${FF_BAUD} baud`);
