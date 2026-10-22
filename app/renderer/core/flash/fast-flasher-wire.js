@@ -72,12 +72,16 @@ const FF_TIMEOUT = {
 /**
  * The faster lines a v8 body is asked for after the probe, in order: the
  * DME's SCI makes 40 MHz / (32 x SCBR) exactly, and an FTDI cable makes
- * these from its 3 MHz clock exactly too. A rate the K-line cannot carry
- * costs one try: the body falls back to 115200 by itself when nothing it
- * can parse arrives within ~2.4 s.
+ * these from its 3 MHz clock (exactly, or within 0.2 %). A rate the K-line
+ * cannot carry costs one try: the body falls back to 115200 by itself when
+ * nothing it can parse arrives within ~2.4 s. What the line carries is the
+ * transceivers' edge rate into the harness capacitance: an Si9241-class
+ * driver is "typically 200 kBaud" with a short bus (<= 1.3 nF, 510 ohm),
+ * 10.4 kBaud at ISO's 10 nF worst case -- so 250 k is a try, 156 k likely.
  */
 const FF_FAST_LINES = [
   [250000, 5],
+  [208333, 6],
   [156250, 8],
 ];
 /** The MPC's 448 KB in 32 KB blocks; a pageset is one 64-byte page per block. */
