@@ -80,12 +80,15 @@ const FF_TIMEOUT = {
  * 10.4 kBaud at ISO's 10 nF worst case -- so 250 k is a try, 156 k likely.
  */
 const FF_FAST_LINES = [
+  [312500, 4],
   [250000, 5],
   [208333, 6],
   [156250, 8],
 ];
 /** The rates the Baud Test tries, fastest first (all exact for the DME, exact or within 0.2 % for an FTDI cable). */
 const FF_LINE_TEST_RATES = [
+  [625000, 2],
+  [416667, 3],
   [312500, 4],
   [250000, 5],
   [208333, 6],
@@ -558,9 +561,14 @@ async function ffLineTest(
   return { results, summary, best };
 }
 
-async function ffFasterLine(client, link, note = () => {}) {
+async function ffFasterLine(client, link, note = () => {}, preferred = 0) {
   if (!link || !link.rebaud) return FF_BAUD;
-  for (const [rate, scbr] of FF_FAST_LINES) {
+  // the rate the last Baud Test on this DME passed goes first; the list
+  // follows for anything it did not cover
+  const lines = FF_LINE_TEST_RATES.filter(([r]) => r === preferred).concat(
+    FF_FAST_LINES.filter(([r]) => r !== preferred)
+  );
+  for (const [rate, scbr] of lines) {
     try {
       await client.setBaud(scbr);
     } catch (e) {

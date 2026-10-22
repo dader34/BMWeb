@@ -504,7 +504,12 @@ const be32 = (b, at) =>
         return stamp;
       },
     };
-    const r = await W.lineTest(client, link, () => {});
+    const r = await W.lineTest(client, link, () => {}, [
+      [312500, 4],
+      [250000, 5],
+      [208333, 6],
+      [156250, 8],
+    ]);
     assert.strictEqual(r.best, 208333);
     assert.deepStrictEqual(
       r.results.map((x) => [x.rate, x.ok, x.why]),

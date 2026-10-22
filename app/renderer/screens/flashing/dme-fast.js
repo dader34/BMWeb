@@ -76,6 +76,9 @@ async function fbDmeFastBaudTest() {
       );
       cb.stage('Restarting the DME');
       await client.reset();
+      // the fastest rate that passed is what the next fast flash asks for first
+      Settings.set('fastLineBest', r.best);
+      flashLog.note(`Fast flashes will ask for ${r.best} baud first`);
       return { ok: true, skipped: false, summary: r.summary, best: r.best };
     },
   });
@@ -125,8 +128,11 @@ async function fbDmeFastFlash(spec) {
     // back to 115200 by itself when a rate carries nothing)
     if (d.fastFlasher && d.fastFlasher.pagesets && !spec.noFasterLine) {
       ui.stage('Trying a faster line');
-      const rate = await fastFlashWire.fasterLine(client, link, (s) =>
-        flashLog.note(s)
+      const rate = await fastFlashWire.fasterLine(
+        client,
+        link,
+        (s) => flashLog.note(s),
+        Number(Settings.get('fastLineBest', 0)) || 0
       );
       ui.stage(`Line at ${rate} baud`);
     }
