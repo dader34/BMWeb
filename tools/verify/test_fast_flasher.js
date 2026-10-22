@@ -315,19 +315,193 @@ const be32 = (b, at) =>
     ok('wrong image sizes are refused before anything is sent');
   }
 
+  // ---- 4b. the v8 MPC push: pagesets over the blocks that differ -------------
+  console.log('\nMPC pagesets');
+  {
+    const BLOCK = 0x8000;
+    const WIN = 0x80000000;
+    const mpcChip = (ext, mpc0) => {
+      const mem = Uint8Array.from(ext);
+      const mpc = Uint8Array.from(mpc0);
+      const events = [];
+      const isMpc = (off) => off >= WIN;
+      const client = {
+        async sectorQuery(off, len) {
+          events.push(['query', off]);
+          const a = isMpc(off)
+            ? mpc.subarray(off - WIN, off - WIN + len)
+            : mem.subarray(off, off + len);
+          return W.crc32(a);
+        },
+        async erase(off) {
+          events.push(['erase', off]);
+          if (isMpc(off)) mpc.fill(0xff, off - WIN, off - WIN + BLOCK);
+          else
+            mem.fill(
+              0xff,
+              off,
+              off +
+                { 0x60000: 0x20000, 0x80000: 0x40000, 0xc0000: 0x40000 }[off]
+            );
+        },
+        async eraseBlocks(mask) {
+          events.push(['eraseBlocks', mask]);
+          for (let b = 0; b < 14; b++)
+            if ((mask >> b) & 1) mpc.fill(0xff, b * BLOCK, (b + 1) * BLOCK);
+        },
+        async chunk(off, plain) {
+          events.push(['chunk', off]);
+          if (isMpc(off)) {
+            for (let i = 0; i < plain.length; i++)
+              mpc[off - WIN + i] &= plain[i];
+          } else mem.set(plain, off);
+          return plain.length;
+        },
+        async chunkSet(mask, offset, pagesets, plain) {
+          events.push(['chunkSet', mask, offset, pagesets]);
+          const blocks = [];
+          for (let b = 0; b < 14; b++) if ((mask >> b) & 1) blocks.push(b);
+          assert.strictEqual(
+            plain.length,
+            pagesets * blocks.length * 64,
+            'declen'
+          );
+          assert(
+            offset % 64 === 0 && offset + pagesets * 64 <= BLOCK,
+            'offset'
+          );
+          let at = 0;
+          for (let p = 0; p < pagesets; p++)
+            for (const b of blocks) {
+              const a = b * BLOCK + offset + p * 64;
+              for (let i = 0; i < 64; i++) mpc[a + i] &= plain[at + i];
+              at += 64;
+            }
+          return plain.length;
+        },
+        async verify(off, len, crc) {
+          events.push(['verify', off]);
+          const a = isMpc(off)
+            ? mpc.subarray(off - WIN, off - WIN + len)
+            : mem.subarray(off, off + len);
+          assert.strictEqual(
+            W.crc32(a),
+            crc,
+            `verify CRC at ${off.toString(16)}`
+          );
+        },
+        async marks(which) {
+          events.push(['marks', which]);
+          for (const [at, w] of [
+            [0xfff80, 0x42902448],
+            [0xfffc0, 0x42244890],
+          ])
+            mem.set([w >>> 24, (w >>> 16) & 255, (w >>> 8) & 255, w & 255], at);
+        },
+        async reset() {
+          events.push(['reset']);
+        },
+      };
+      return { mem, mpc, events, client };
+    };
+    const target = image(7);
+    const ext = new Uint8Array(0x100000).fill(0xff);
+    ext.set(W.programAreaImage(target), 0x60000);
+    let x = 99;
+    const rnd = () => ((x = (x * 1103515245 + 12345) >>> 0) >>> 16) & 0xff;
+    const mpcTarget = new Uint8Array(0x70000);
+    for (let i = 0; i < mpcTarget.length; i++)
+      mpcTarget[i] = i % 4096 < 3000 ? rnd() : 0xff;
+    const mpcOnChip = Uint8Array.from(mpcTarget);
+    for (const b of [0, 3, 5, 12]) mpcOnChip[b * BLOCK + 17] ^= 0x80; // four blocks differ
+    // v8: blocks 3, 5, 12 as pagesets in one erase; block 0 alone, last
+    let c = mpcChip(ext, mpcOnChip);
+    let r = await W.pushProgram(
+      c.client,
+      target,
+      {},
+      { mpc: mpcTarget, pagesets: true }
+    );
+    assert.strictEqual(r.mpcBlocksWritten, 4);
+    assert(Buffer.from(c.mpc).equals(Buffer.from(mpcTarget)), 'MPC == target');
+    const eb = c.events.filter((e) => e[0] === 'eraseBlocks');
+    assert.strictEqual(eb.length, 1);
+    assert.strictEqual(eb[0][1], (1 << 3) | (1 << 5) | (1 << 12));
+    const cs = c.events.filter((e) => e[0] === 'chunkSet');
+    assert(
+      cs.length > 0 &&
+        cs.every(
+          (e, i) =>
+            e[1] === eb[0][1] &&
+            (e[3] === 21 ||
+              (i === cs.length - 1 && e[3] === (0x8000 / 64) % 21))
+        ),
+      '21 pagesets of 3 blocks per CHUNK_SET'
+    );
+    assert(
+      cs.every((e, i) => !i || e[2] > cs[i - 1][2]),
+      'offsets ascend'
+    );
+    const kinds = c.events.map((e) => e[0]);
+    const lastErase = kinds.lastIndexOf('erase');
+    assert.strictEqual(
+      c.events[lastErase][1],
+      WIN >>> 0,
+      'block 0 erased on its own, after the pagesets'
+    );
+    assert(
+      lastErase > kinds.lastIndexOf('chunkSet'),
+      'block 0 after the pagesets'
+    );
+    assert.deepStrictEqual(kinds.slice(-2), ['marks', 'reset']);
+    // the sequential wire (pagesets off): the same four blocks one by one
+    c = mpcChip(ext, mpcOnChip);
+    r = await W.pushProgram(
+      c.client,
+      target,
+      {},
+      { mpc: mpcTarget, pagesets: false }
+    );
+    assert(Buffer.from(c.mpc).equals(Buffer.from(mpcTarget)));
+    assert(
+      !c.events.some((e) => e[0] === 'eraseBlocks' || e[0] === 'chunkSet')
+    );
+    assert.strictEqual(
+      c.events.filter((e) => e[0] === 'erase' && e[1] >= WIN).length,
+      4
+    );
+    ok(
+      'v8 push: the differing MPC blocks bar 0 erased in one job and written as pagesets, block 0 alone and last; the v7 wire still sequential; chip == target both ways'
+    );
+  }
+
   // ---- 5. detection ----------------------------------------------------------
   console.log('\ndetection');
   {
     const hook = (w) =>
       Uint8Array.from([w >>> 24, (w >>> 16) & 255, (w >>> 8) & 255, w & 255]);
-    const stamp = Buffer.from('4d53343551460701ffffd300ffffd400', 'hex');
+    const stamp = Buffer.from('4d53343551460801ffffd300ffffd400', 'hex');
     const det = fastFlasher.parseDetection(
       hook(fastFlasherBlob.hookWord),
       stamp
     );
-    assert(det && det.ready && det.version === 7 && det.mpc && !det.outdated);
-    assert(det.mpcSafe, "v7 writes the MPC through the loader's driver");
-    assert.strictEqual(fastFlasher.describe(det), 'Fast flasher v7 present');
+    assert(det && det.ready && det.version === 8 && det.mpc && !det.outdated);
+    assert(det.mpcSafe, "v8 writes the MPC through the loader's driver");
+    assert.strictEqual(fastFlasher.describe(det), 'Fast flasher v8 present');
+    assert(det.pagesets, 'v8 has the pageset / mask-erase / SET_BAUD wire');
+    const v7 = Buffer.from(stamp);
+    v7[6] = 7;
+    const seven = fastFlasher.parseDetection(
+      hook(fastFlasherBlob.hookWord),
+      v7
+    );
+    assert(
+      seven &&
+        seven.mpcSafe &&
+        !seven.pagesets &&
+        seven.outdated &&
+        seven.upgradable
+    );
     // v6 is MPC-capable on paper but its own CMF sequence reset the car:
     // it is upgraded, never asked to write the MPC
     const v6 = Buffer.from(stamp);

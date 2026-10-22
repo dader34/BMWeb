@@ -29,7 +29,7 @@ const FAST_FLASHER_MAGIC = 'MS45QF';
 const FAST_FLASHER_HOOK_AT = 0x8; // MPC, the loader's reset word
 const FAST_FLASHER_STOCK_HOOK = 0x4bf717b6; // `ba 0xFFF717B4`
 const FAST_FLASHER_EXT_CPU = 0xfff00000; // where the external chip is mapped
-const FAST_FLASHER_VERSION = 7; // the highest stamp version this app speaks
+const FAST_FLASHER_VERSION = 8; // the highest stamp version this app speaks
 /**
  * The first body whose MPC (internal flash) writes go through the boot
  * loader's own CMF driver. v2-v6 carried a hand-written sequence that read
@@ -39,6 +39,13 @@ const FAST_FLASHER_VERSION = 7; // the highest stamp version this app speaks
  * itself stays external-only.
  */
 const FAST_FLASHER_MPC_WRITES_FROM = 7;
+/**
+ * The first body with the v8 services: CHUNK_SET (pagesets -- one page in
+ * each of up to fourteen MPC blocks per pulse sequence), ERASE with a block
+ * mask, SET_BAUD (a faster line, with the body's own fallback to 115200)
+ * and the table CRC. Older bodies get the sequential push at 115200.
+ */
+const FAST_FLASHER_PAGESETS_FROM = 8;
 /**
  * The oldest body a Fast Flash Program may run on to replace itself: v5 is
  * the first that works on a real cable (the link pauses after each reply for
@@ -77,6 +84,7 @@ const fastFlasher = {
   STOCK_HOOK: FAST_FLASHER_STOCK_HOOK,
   VERSION: FAST_FLASHER_VERSION,
   MPC_WRITES_FROM: FAST_FLASHER_MPC_WRITES_FROM,
+  PAGESETS_FROM: FAST_FLASHER_PAGESETS_FROM,
   CHUNK: FAST_FLASHER_CHUNK,
 
   /**
@@ -129,6 +137,8 @@ const fastFlasher = {
       mpcSafe:
         version >= FAST_FLASHER_MPC_WRITES_FROM &&
         (version >= 2 || (flags & FAST_FLASHER_FLAG_MPC) !== 0),
+      // pagesets, mask erase, SET_BAUD: the v8 wire
+      pagesets: version >= FAST_FLASHER_PAGESETS_FROM,
       ready: hooked && supported && !outdated,
       // an outdated body that can still carry the program push which
       // replaces it (Fast Flash Program splices the current body in)

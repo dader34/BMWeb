@@ -79,6 +79,15 @@ async function fbDmeFastFlash(spec) {
       trace: (t) => flashLog.trace(t),
     });
     await fbDmeFastProbe(client, ui);
+    // v8: the fastest line the cable and the K-line carry (the body falls
+    // back to 115200 by itself when a rate carries nothing)
+    if (d.fastFlasher && d.fastFlasher.pagesets) {
+      ui.stage('Trying a faster line');
+      const rate = await fastFlashWire.fasterLine(client, link, (s) =>
+        flashLog.note(s)
+      );
+      ui.stage(`Line at ${rate} baud`);
+    }
     const cb = {
       stage: (s) => ui.stage(s),
       progress: (pct) => ui.push(pct),
@@ -695,6 +704,7 @@ async function fbDmeFastFlashProgram() {
     push: (client, cb) =>
       fastFlashWire.pushProgram(client, chipImage, cb, {
         mpc: writesMpc ? mpc : null,
+        pagesets: !!d.fastFlasher.pagesets,
       }),
   });
 }

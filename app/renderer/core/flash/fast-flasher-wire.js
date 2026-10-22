@@ -40,6 +40,8 @@ const FF_SVC = {
   VERIFY: 0x04,
   MARKS: 0x05,
   RESET: 0x06,
+  SET_BAUD: 0x07, // v8: u16 SCBR; the body answers at the old rate, then switches
+  CHUNK_SET: 0x08, // v8: pagesets over several MPC blocks at once
 };
 const FF_SVC_NAME = Object.fromEntries(
   Object.entries(FF_SVC).map(([k, v]) => [v, k])
@@ -64,7 +66,23 @@ const FF_TIMEOUT = {
   CHUNK: 3000,
   MARKS: 2000,
   RESET: 1000,
+  SET_BAUD: 2000,
+  CHUNK_SET: 3000,
 };
+/**
+ * The faster lines a v8 body is asked for after the probe, in order: the
+ * DME's SCI makes 40 MHz / (32 x SCBR) exactly, and an FTDI cable makes
+ * these from its 3 MHz clock exactly too. A rate the K-line cannot carry
+ * costs one try: the body falls back to 115200 by itself when nothing it
+ * can parse arrives within ~2.4 s.
+ */
+const FF_FAST_LINES = [
+  [250000, 5],
+  [156250, 8],
+];
+/** The MPC's 448 KB in 32 KB blocks; a pageset is one 64-byte page per block. */
+const FF_MPC_BLOCKS = 14;
+const FF_PAGE = 64;
 /** SECTOR_QUERY / VERIFY: a base plus this per 64 KB read back. */
 const FF_READ_BASE_MS = 2000;
 // the body's CRC is bitwise and runs from SRAM on a chip with no
@@ -81,7 +99,7 @@ const FF_EMULATOR_SCALE = 20;
 /** How long the break is held across the DME's reboot, ms. */
 const FF_BREAK_MS = 1500;
 /** How many times HELLO is asked after the break, and the pause between, ms. */
-const FF_HELLO_ASKS = 4;
+const FF_HELLO_ASKS = 2; // a missed entry is retried whole anyway (reset + break)
 /**
  * After each reply, this long per reply byte before the next command. The
  * body sends a whole reply and only then reads back its echo, one byte per
@@ -359,6 +377,97 @@ class FastFlashClient {
   async reset() {
     await this.call(FF_SVC.RESET, [], FF_TIMEOUT.RESET);
   }
+
+  /**
+   * v8: ask the body to switch its line to 40 MHz / (32 x scbr) once it has
+   * answered this (at the old rate). The caller re-opens its own port after.
+   * @param {number} scbr
+   */
+  async setBaud(scbr) {
+    await this.call(FF_SVC.SET_BAUD, _ffU16(scbr), FF_TIMEOUT.SET_BAUD);
+  }
+
+  /**
+   * v8: erase several MPC blocks in ONE job (the CMF pulses every selected
+   * block together, so fourteen cost what one does).
+   * @param {number} mask - Bit n = block n, 14 bits.
+   */
+  async eraseBlocks(mask) {
+    const first = Math.log2(mask & -mask);
+    await this.call(
+      FF_SVC.ERASE,
+      [
+        ..._ffU32((FF_MPC_WINDOW | (first * FF_MPC_BLOCK)) >>> 0),
+        ..._ffU16(mask),
+      ],
+      FF_TIMEOUT.ERASE
+    );
+  }
+
+  /**
+   * v8: `pagesets` pagesets starting at `offset` within the block: each is
+   * the 64-byte page of every block in `mask`, ascending -- one pulse
+   * sequence programs a whole pageset.
+   * @param {number} mask - Bit n = block n.
+   * @param {number} offset - Within the block, 64-aligned.
+   * @param {number} pagesets
+   * @param {Uint8Array} plain - pagesets x blocks x 64 bytes, <= 4 KB.
+   * @returns {Promise<number>} The packed size sent.
+   */
+  async chunkSet(mask, offset, pagesets, plain) {
+    const packed = this.codec.encode(plain);
+    await this.call(
+      FF_SVC.CHUNK_SET,
+      [
+        ..._ffU16(mask),
+        ..._ffU16(offset),
+        ..._ffU16(plain.length),
+        ..._ffU16(packed.length),
+        ..._ffU32(ffCrc32(packed)),
+        pagesets,
+        0,
+        0,
+        0,
+        ...packed,
+      ],
+      FF_TIMEOUT.CHUNK_SET
+    );
+    return packed.length;
+  }
+}
+
+/**
+ * Move an open v8 session to the fastest line the cable and the K-line
+ * carry (FF_FAST_LINES, in order), or leave it at 115200. A rate that does
+ * not answer HELLO is given up: the port goes back to 115200 and the body is
+ * asked again once its own ~2.4 s fallback has run.
+ * @param {FastFlashClient} client
+ * @param {{rebaud?: (baudRate: number) => Promise<Uint8Array>}} link
+ * @param {(s: string) => void} [note]
+ * @returns {Promise<number>} The rate the session is on.
+ */
+async function ffFasterLine(client, link, note = () => {}) {
+  if (!link || !link.rebaud) return FF_BAUD;
+  for (const [rate, scbr] of FF_FAST_LINES) {
+    try {
+      await client.setBaud(scbr);
+    } catch (e) {
+      note(
+        `The body refused SET_BAUD ${scbr} (${e.message}); staying at ${FF_BAUD}`
+      );
+      return FF_BAUD;
+    }
+    try {
+      await link.rebaud(rate);
+      note(`Line at ${rate} baud (SCBR ${scbr})`);
+      return rate;
+    } catch (e) {
+      note(`No HELLO at ${rate} baud (${e.message}); back to ${FF_BAUD}`);
+      await link.rebaud(FF_BAUD, { settle: 3000 });
+    }
+  }
+  note(`Line stays at ${FF_BAUD} baud`);
+  return FF_BAUD;
 }
 
 /**
@@ -638,6 +747,35 @@ async function ffPushProgram(client, signedFull, cb = {}, opts = {}) {
   const order = todo.filter((u) => u !== marksUnit);
   let sent = 0;
   let chunks = 0;
+  // v8: the MPC blocks that differ, bar block 0, go as pagesets -- erased in
+  // one job and programmed a page in every block per pulse sequence (the
+  // CMF's own parallelism; on the car a sequential block was ~16 s, a
+  // pageset of thirteen pages costs what one page did). Block 0 keeps its
+  // own erase and write, last: the word that boots the DME stays until then.
+  const blockOf = (u) => (u.addr - FF_MPC_WINDOW) / FF_MPC_BLOCK;
+  const parallel =
+    opts.pagesets && opts.mpc
+      ? order.filter((u) => u.addr >= FF_MPC_WINDOW && blockOf(u) !== 0)
+      : [];
+  const sequential = order.filter((u) => !parallel.includes(u));
+  const pagesets = parallel.length
+    ? Math.max(1, Math.min(64, Math.floor(4096 / (FF_PAGE * parallel.length))))
+    : 0;
+  const seconds =
+    sequential.reduce(
+      (n, u) =>
+        n +
+        (u.addr >= FF_MPC_WINDOW
+          ? 1 + 8 * 1.9
+          : 2.5 + 0.35 * slotsOf(u.bytes.length)),
+      0
+    ) +
+    (parallel.length
+      ? 1 + (FF_MPC_BLOCK / FF_PAGE / pagesets) * (0.35 + 0.025 * pagesets)
+      : 0);
+  note(
+    `Estimated write time ~${Math.round(seconds)} s at 115200 (the car's measured rates${parallel.length ? `; ${parallel.length} MPC blocks as pagesets` : ''})`
+  );
   const writeUnit = async (u, which) => {
     stage(`Writing ${which}`);
     const slots = slotsOf(u.write.length);
@@ -663,12 +801,62 @@ async function ffPushProgram(client, signedFull, cb = {}, opts = {}) {
     await client.erase(marksUnit.addr);
     track.add(U.ERASE, `Erased ${marksUnit.name}`);
   }
-  for (const [n, u] of order.entries()) {
-    const which = `${u.name} (${n + 1} of ${total})`;
+  let n = 0;
+  for (const u of sequential) {
+    if (parallel.length && u.addr >= FF_MPC_WINDOW && blockOf(u) === 0) break;
+    n++;
+    const which = `${u.name} (${n} of ${total})`;
     stage(`Erasing ${which}`);
     await client.erase(u.addr);
     track.add(U.ERASE, `Erased ${which}`);
     await writeUnit(u, which);
+  }
+  if (parallel.length) {
+    const blocks = parallel.map(blockOf).sort((a, b) => a - b);
+    const mask = blocks.reduce((m, b) => m | (1 << b), 0);
+    const which = `MPC blocks ${blocks.join(', ')} (${n + 1}-${n + blocks.length} of ${total}, as pagesets)`;
+    stage(`Erasing ${which}`);
+    await client.eraseBlocks(mask);
+    track.add(U.ERASE * blocks.length, `Erased ${which}`);
+    stage(`Writing ${which}`);
+    const span = pagesets * FF_PAGE;
+    const steps = Math.ceil(FF_MPC_BLOCK / span);
+    for (let i = 0; i < steps; i++) {
+      const off = i * span;
+      // the last set is shorter when the pagesets do not divide the block
+      const ps = Math.min(pagesets, (FF_MPC_BLOCK - off) / FF_PAGE);
+      const plain = new Uint8Array(ps * FF_PAGE * blocks.length);
+      let at = 0;
+      for (let p = 0; p < ps; p++)
+        for (const b of blocks) {
+          const from = b * FF_MPC_BLOCK + off + p * FF_PAGE;
+          plain.set(opts.mpc.subarray(from, from + FF_PAGE), at);
+          at += FF_PAGE;
+        }
+      if (!plain.every((x) => x === 0xff)) {
+        sent += await client.chunkSet(mask, off, ps, plain);
+        chunks++;
+      }
+      track.add(
+        (U.CHUNK * ps * FF_PAGE * blocks.length) / 0x1000,
+        `Writing ${which}, pageset ${i + 1} of ${steps}`
+      );
+    }
+    for (const u of parallel) {
+      stage(`Verifying ${u.name}`);
+      await client.verify(u.addr, u.write.length, ffCrc32(u.write));
+      track.add(U.VERIFY, `Verified ${u.name}`);
+    }
+    n += blocks.length;
+    for (const u of sequential) {
+      if (!(u.addr >= FF_MPC_WINDOW && blockOf(u) === 0)) continue;
+      n++;
+      const last = `${u.name} (${n} of ${total})`;
+      stage(`Erasing ${last}`);
+      await client.erase(u.addr);
+      track.add(U.ERASE, `Erased ${last}`);
+      await writeUnit(u, last);
+    }
   }
   if (marksUnit)
     await writeUnit(
@@ -916,6 +1104,28 @@ function ffWebLink(bus, opts = {}) {
       learn(hello);
       return hello.data;
     },
+    /**
+     * v8: the port to another rate mid-session (after SET_BAUD), then the
+     * flasher asked for its HELLO there. `settle` waits first -- for the
+     * body's own fallback to 115200 after a rate that carried nothing.
+     * @param {number} baudRate
+     * @param {{settle?: number}} [opts]
+     * @returns {Promise<Uint8Array>} The stamp it echoed.
+     */
+    async rebaud(baudRate, opts = {}) {
+      await bus.reopen({
+        baudRate,
+        dataBits: 8,
+        stopBits: 1,
+        parity: 'even',
+      });
+      rx = [];
+      heard = [];
+      if (opts.settle) await sleep(opts.settle);
+      const hello = await askHello(this);
+      learn(hello);
+      return hello.data;
+    },
     async exchange(frame, timeoutMs) {
       // DTR stays low. The bus raises it around every K-line write (the
       // reference's transmit enable), but on the car a break with DTR low
@@ -963,6 +1173,8 @@ const fastFlashWire = {
   programUnits: ffProgramUnits,
   MPC_WINDOW: FF_MPC_WINDOW,
   pushProgram: ffPushProgram,
+  fasterLine: ffFasterLine,
+  FAST_LINES: FF_FAST_LINES,
   webLink: ffWebLink,
 };
 
