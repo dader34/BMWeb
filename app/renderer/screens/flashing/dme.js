@@ -227,6 +227,12 @@ async function fbDmeIdentify(afterFlash = false) {
   }
   if (!ident.answered) {
     if (ident.baud > 9600) await ms45DefaultBaud();
+    // a fast flash cut short leaves the flasher running in the DME's RAM,
+    // where it answers HELLO and nothing of KWP: that is an identified DME
+    // whose push can be resumed, not a silent one
+    // (not gated on the live flag: an incognito window closed in between
+    // loses it, the flasher in the DME does not)
+    if (await fbDmeIdentifyThroughFlasher()) return;
     d.identified = false;
     fbSetStatus('No response from the DME');
     await fbMessage(
@@ -265,6 +271,70 @@ async function fbDmeIdentify(afterFlash = false) {
       `This DME (${ident.hwRef || 'no hardware reference'}) is not an MS45.0 / MS45.1, so the flashing tools stay shut.`,
       'Identify DME'
     );
+}
+
+/**
+ * Identify a DME whose fast flasher is running (a push cut short): ask it
+ * for HELLO at every rate it could be holding and take its stamp as the
+ * detection. The KWP identity is not readable there, so the last one this
+ * screen saw stands in, marked as such; Fast Flash Program then reconnects
+ * and finishes the push.
+ * @returns {Promise<boolean>} Whether the flasher answered.
+ */
+async function fbDmeIdentifyThroughFlasher() {
+  const d = fbState.dme;
+  let claim = null;
+  let link = null;
+  try {
+    claim = await webClaimBus('Identify');
+    link = fastFlashWire.webLink(webBus, { onStep: (s) => fbLog(s) });
+    const stamp = await link.resume();
+    if (String.fromCharCode(...stamp.subarray(0, 6)) !== 'MS45QF') return false;
+    const gate =
+      ((stamp[8] << 24) | (stamp[9] << 16) | (stamp[10] << 8) | stamp[11]) >>>
+      0;
+    const hookWord = (0x48000002 | (gate & 0x03fffffc)) >>> 0; // `ba gate`
+    d.fastFlasher = fastFlasher.parseDetection(
+      Uint8Array.from([
+        hookWord >>> 24,
+        (hookWord >>> 16) & 255,
+        (hookWord >>> 8) & 255,
+        hookWord & 255,
+      ]),
+      stamp
+    );
+    d.identified = true;
+    d.ident = {
+      ...d.ident,
+      answered: true,
+      type: 'MS45.1',
+      hwRef: d.ident.hwRef || '0044570',
+      vin: d.ident.vin || '',
+      progRef: d.ident.progRef || '',
+      inFlasher: true,
+    };
+    fbSetEcuBox(`MS45.1  ${d.ident.hwRef}  ·  in the fast flasher`);
+    fbLog(
+      `The DME is in its fast flasher (${fastFlasher.describe(d.fastFlasher)}): a push cut short can be finished -- load the same files and run the same fast flash; it reconnects. Nothing of KWP answers until a flash completes or the ignition is cycled.`
+    );
+    fbSetStatus(
+      'The DME is in its fast flasher: run the same fast flash to finish'
+    );
+    fbRefreshAll();
+    return true;
+  } catch (e) {
+    fbLog(`No fast flasher answered either (${e.message})`);
+    return false;
+  } finally {
+    if (link) {
+      try {
+        await link.leave();
+      } catch (e) {
+        /* the port is reset by the next job */
+      }
+    }
+    if (claim) claim.release();
+  }
 }
 
 /** Whether the identified DME is the MS45.1 (hardware reference 0044570), the one every patch here is built for. */
