@@ -1,0 +1,974 @@
+// The resident fast flasher's wire protocol, the app's end. The DME's end is
+// ms45-emu's flasher body (docs/fast-flasher.md there); both implement the
+// same frozen contract:
+//
+//   frame     [n][tgt][src][svc][data...][cksum]   n = bytes after itself
+//             (tgt..cksum); n == 0 escapes to a u16be length right after it
+//             for frames longer than 255 (a CHUNK carries up to ~4.1 KB).
+//             cksum = sum(tgt..last data byte) & 0xFF. App -> DME is 12 F1,
+//             the DME answers F1 12 (either order is accepted on receive).
+//   line      115200 8E1, stop-and-wait: exactly one reply per command. A
+//             wired K line echoes every byte the app writes; the link drops
+//             it by count before parsing.
+//   replies   ACK = svc | 0x40 + payload; NAK = 7F svc reason.
+//
+//   HELLO        00                                -> 40 + the 16-byte stamp
+//   SECTOR_QUERY 01 off:u32 len:u32                -> 41 crc:u32
+//   ERASE        02 off:u32  (the one sector holding off)
+//   CHUNK        03 off:u32 declen:u16 clen:u16 crc:u32 <clen NRV2B bytes>
+//                (crc over the COMPRESSED bytes)
+//   VERIFY       04 off:u32 len:u32 crc:u32
+//   MARKS        05 which:u8  (0 cal 0x5FF80/0x5FFC0, 1 program) -- the
+//                commit point, always last before RESET
+//   RESET        06  (the reply goes out, then a watchdog reset)
+//
+// Offsets are ext offsets; the DME refuses anything below 0x40000 or past
+// the chip. CRCs are CRC-32/MPEG-2 (poly 04C11DB7, init FFFFFFFF, no
+// reflection, no xorout) -- the program checksums' CRC.
+//
+// Session entry: the DME's gate listens ~600 us after reset for the line
+// held low. The app resets the DME (STEUERGERAETE_RESET), holds a break
+// across the reboot, releases it, reopens at 115200 8E1 and waits for the
+// flasher's unprompted HELLO ack.
+/* exported fastFlashWire */
+
+const FF_SVC = {
+  HELLO: 0x00,
+  SECTOR_QUERY: 0x01,
+  ERASE: 0x02,
+  CHUNK: 0x03,
+  VERIFY: 0x04,
+  MARKS: 0x05,
+  RESET: 0x06,
+};
+const FF_SVC_NAME = Object.fromEntries(
+  Object.entries(FF_SVC).map(([k, v]) => [v, k])
+);
+const FF_NAK_REASON = {
+  1: 'address not permitted',
+  2: 'chunk CRC mismatch',
+  3: 'chunk did not decompress',
+  4: 'read-back mismatch',
+  5: 'verify mismatch',
+  6: 'malformed command',
+  7: 'CMF driver missing or refused',
+};
+const FF_TGT = 0x12;
+const FF_SRC = 0xf1;
+const FF_BAUD = 115200;
+
+/** Per-command answer budgets, ms (an Am29BL802C sector erase can run seconds). */
+const FF_TIMEOUT = {
+  HELLO: 2000,
+  ERASE: 20000,
+  CHUNK: 3000,
+  MARKS: 2000,
+  RESET: 1000,
+};
+/** SECTOR_QUERY / VERIFY: a base plus this per 64 KB read back. */
+const FF_READ_BASE_MS = 2000;
+// the body's CRC is bitwise and runs from SRAM on a chip with no
+// instruction cache, a flash read and a watchdog service every byte: the
+// car's speed is not measured yet, so the budget is generous (an early
+// answer costs nothing)
+const FF_READ_PER_64K_MS = 4000;
+/**
+ * Every budget is stretched this much on the emulator (the gateway reports
+ * device 'ms45-emu'): it runs the flasher's loops many times slower than the
+ * MPC555 -- a whole cal session took ~257 s of wall clock there.
+ */
+const FF_EMULATOR_SCALE = 20;
+/** How long the break is held across the DME's reboot, ms. */
+const FF_BREAK_MS = 1500;
+/** How many times HELLO is asked after the break, and the pause between, ms. */
+const FF_HELLO_ASKS = 4;
+/**
+ * After each reply, this long per reply byte before the next command. The
+ * body sends a whole reply and only then reads back its echo, one byte per
+ * byte sent; on the real SCI all but ~2 echoes overrun, and it waits its
+ * ~20 ms inter-byte timeout for each missing one -- a request sent inside
+ * that drain is eaten as echo (the car answered a HELLO sent after a pause
+ * and nothing sent right after a reply). The emulator never overruns.
+ */
+const FF_ECHO_DRAIN_MS = 150; // the real chip's timeout runs longer than its 20 ms nominal
+/** The first body that reads each echo as it sends: no pause needed. */
+const FF_ECHO_AS_SENT_VERSION = 6;
+const FF_HELLO_GAP_MS = 250;
+
+/** The cal sector, and what of it a calibration write fills. */
+const FF_CAL_SECTOR = 0x40000;
+const FF_CAL_SECTOR_SIZE = 0x20000;
+const FF_CAL_LENGTH = 0x1d000;
+/** The loader's two cal valid marks (measured on the emulator), sector-relative. */
+const FF_CAL_MARKS = [
+  [0x1ff80, 0x48249042],
+  [0x1ffc0, 0x90482442],
+];
+
+/** The external program's three sectors, [start, size] (the loader's erase units). */
+const FF_PROGRAM_SECTORS = [
+  [0x60000, 0x20000],
+  [0x80000, 0x40000],
+  [0xc0000, 0x40000],
+];
+/** What a program flash writes of the external chip; blank above, bar the marks. */
+const FF_PROGRAM_START = 0x60000;
+const FF_PROGRAM_END = 0xfff40;
+/** The loader's two program valid marks (measured on the emulator), absolute. */
+const FF_PROGRAM_MARKS = [
+  [0xfff80, 0x42902448],
+  [0xfffc0, 0x42244890],
+];
+
+/** CRC-32/MPEG-2's table, built once. */
+const FF_CRC_TABLE = (() => {
+  const t = new Uint32Array(256);
+  for (let i = 0; i < 256; i++) {
+    let c = i << 24;
+    for (let k = 0; k < 8; k++)
+      c = c & 0x80000000 ? (c << 1) ^ 0x04c11db7 : c << 1;
+    t[i] = c >>> 0;
+  }
+  return t;
+})();
+
+/**
+ * CRC-32/MPEG-2 of a byte span.
+ * @param {Uint8Array} bytes
+ * @returns {number}
+ */
+function ffCrc32(bytes) {
+  let crc = 0xffffffff;
+  for (let i = 0; i < bytes.length; i++)
+    crc = ((crc << 8) ^ FF_CRC_TABLE[((crc >>> 24) ^ bytes[i]) & 0xff]) >>> 0;
+  return crc >>> 0;
+}
+
+/** @param {number} v @returns {number[]} */
+function _ffU32(v) {
+  return [(v >>> 24) & 0xff, (v >>> 16) & 0xff, (v >>> 8) & 0xff, v & 0xff];
+}
+
+/** @param {number} v @returns {number[]} */
+function _ffU16(v) {
+  return [(v >>> 8) & 0xff, v & 0xff];
+}
+
+/** @param {ArrayLike<number>} b @param {number} at @returns {number} */
+function _ffBe32(b, at) {
+  return (
+    ((b[at] << 24) | (b[at + 1] << 16) | (b[at + 2] << 8) | b[at + 3]) >>> 0
+  );
+}
+
+/**
+ * One frame on the wire.
+ * @param {number} svc
+ * @param {ArrayLike<number>} [data]
+ * @param {number} [tgt]
+ * @param {number} [src]
+ * @returns {Uint8Array}
+ */
+function ffFrame(svc, data, tgt = FF_TGT, src = FF_SRC) {
+  const body = [tgt, src, svc, ...(data || [])];
+  let sum = 0;
+  for (const b of body) sum = (sum + b) & 0xff;
+  const span = body.length + 1;
+  const head = span > 0xff ? [0x00, ..._ffU16(span)] : [span];
+  return Uint8Array.from([...head, ...body, sum]);
+}
+
+/**
+ * The first whole frame at the head of a buffer.
+ * @param {ArrayLike<number>} buf
+ * @returns {{tgt: number, src: number, svc: number, data: Uint8Array,
+ *   used: number}|null} null while incomplete.
+ * @throws {Error} On a checksum that does not add up.
+ */
+function ffParse(buf) {
+  if (!buf.length) return null;
+  let span = buf[0];
+  let at = 1;
+  if (span === 0) {
+    if (buf.length < 3) return null;
+    span = (buf[1] << 8) | buf[2];
+    at = 3;
+  }
+  if (span < 4)
+    throw new Error(`fast flasher: a ${span}-byte frame is not one`);
+  if (buf.length < at + span) return null;
+  let sum = 0;
+  for (let i = at; i < at + span - 1; i++) sum = (sum + buf[i]) & 0xff;
+  if (sum !== buf[at + span - 1])
+    throw new Error('fast flasher: reply checksum does not add up');
+  return {
+    tgt: buf[at],
+    src: buf[at + 1],
+    svc: buf[at + 2],
+    data: Uint8Array.from(
+      Array.prototype.slice.call(buf, at + 3, at + span - 1)
+    ),
+    used: at + span,
+  };
+}
+
+/**
+ * One session-log line for a command and its reply: "CHUNK 0x40000 4096B
+ * (2459B packed) -> ACK 220 ms", "ERASE 0x40000 -> NAK address not
+ * permitted 12 ms", "VERIFY ... -> no reply 3000 ms".
+ */
+function _ffTraceLine(svc, data, reply, ms) {
+  const name = FF_SVC_NAME[svc] || `svc ${svc}`;
+  let what = '';
+  if (svc === FF_SVC.SECTOR_QUERY || svc === FF_SVC.VERIFY)
+    what = ` 0x${_ffBe32(data, 0).toString(16).toUpperCase()} ${_ffBe32(data, 4)}B`;
+  else if (svc === FF_SVC.ERASE)
+    what = ` 0x${_ffBe32(data, 0).toString(16).toUpperCase()}`;
+  else if (svc === FF_SVC.CHUNK)
+    what = ` 0x${_ffBe32(data, 0).toString(16).toUpperCase()} ${(data[4] << 8) | data[5]}B (${(data[6] << 8) | data[7]}B packed)`;
+  else if (svc === FF_SVC.MARKS) what = data[0] ? ' program' : ' cal';
+  let got = 'no reply';
+  if (reply && reply.svc === 0x7f)
+    got = `NAK ${FF_NAK_REASON[reply.data[1]] || `reason ${reply.data[1]}`}`;
+  else if (reply)
+    got = `ACK${reply.data.length ? ` ${reply.data.length}B` : ''}`;
+  return `FF ${name}${what} -> ${got} ${ms} ms`;
+}
+
+/** A refusal from the flasher, with its reason. */
+class FastFlashNak extends Error {
+  /** @param {number} svc @param {number} reason */
+  constructor(svc, reason) {
+    super(
+      `the flasher refused ${FF_SVC_NAME[svc] || svc}: ${FF_NAK_REASON[reason] || `reason ${reason}`}`
+    );
+    this.svc = svc;
+    this.reason = reason;
+  }
+}
+
+/**
+ * The command side over any link: one frame out, one frame back.
+ *
+ * A link is {exchange(frame, timeoutMs) -> reply frame bytes} -- the Web
+ * Serial one below, or a simulated DME in a test.
+ */
+class FastFlashClient {
+  /** @param {{exchange: (frame: Uint8Array, timeoutMs: number) => Promise<Uint8Array>}} link */
+  /**
+   * @param {{exchange: Function}} link
+   * @param {{trace?: (line: string) => void}} [opts] - trace gets one line per
+   *   command: service, address, sizes, the reply and its round-trip time --
+   *   what the session log keeps for a diagnosis.
+   */
+  constructor(link, opts = {}) {
+    this.link = link;
+    this.trace = opts.trace || null;
+    this.codec =
+      typeof nrv2b !== 'undefined' ? nrv2b : require('./nrv2b.js').nrv2b;
+  }
+
+  /**
+   * @param {number} svc
+   * @param {number[]} data
+   * @param {number} timeoutMs
+   * @returns {Promise<Uint8Array>} The ACK's payload.
+   */
+  async call(svc, data, timeoutMs) {
+    const frame = ffFrame(svc, data);
+    const t0 = Date.now();
+    let reply = null;
+    try {
+      reply = ffParse(await this.link.exchange(frame, timeoutMs));
+    } finally {
+      if (this.trace)
+        this.trace(_ffTraceLine(svc, data, reply, Date.now() - t0));
+    }
+    if (!reply)
+      throw new Error(`fast flasher: no reply to ${FF_SVC_NAME[svc]}`);
+    if (reply.svc === 0x7f)
+      throw new FastFlashNak(reply.data[0], reply.data[1]);
+    if (reply.svc !== (svc | 0x40))
+      throw new Error(
+        `fast flasher: ${FF_SVC_NAME[svc]} answered with service ${reply.svc.toString(16)}`
+      );
+    return reply.data;
+  }
+
+  /** @param {number} len @returns {number} */
+  _readMs(len) {
+    return FF_READ_BASE_MS + Math.ceil(len / 0x10000) * FF_READ_PER_64K_MS;
+  }
+
+  /** @returns {Promise<Uint8Array>} The stamp the flasher echoes. */
+  async hello() {
+    return this.call(FF_SVC.HELLO, [], FF_TIMEOUT.HELLO);
+  }
+
+  /** @param {number} off @param {number} len @returns {Promise<number>} */
+  async sectorQuery(off, len) {
+    const d = await this.call(
+      FF_SVC.SECTOR_QUERY,
+      [..._ffU32(off), ..._ffU32(len)],
+      this._readMs(len)
+    );
+    return _ffBe32(d, 0);
+  }
+
+  /** @param {number} off */
+  async erase(off) {
+    await this.call(FF_SVC.ERASE, _ffU32(off), FF_TIMEOUT.ERASE);
+  }
+
+  /**
+   * One chunk: packed here, unpacked and programmed there.
+   * @param {number} off
+   * @param {Uint8Array} plain - Up to 4 KB.
+   * @returns {Promise<number>} The packed size sent.
+   */
+  async chunk(off, plain) {
+    const packed = this.codec.encode(plain);
+    await this.call(
+      FF_SVC.CHUNK,
+      [
+        ..._ffU32(off),
+        ..._ffU16(plain.length),
+        ..._ffU16(packed.length),
+        ..._ffU32(ffCrc32(packed)),
+        ...packed,
+      ],
+      FF_TIMEOUT.CHUNK
+    );
+    return packed.length;
+  }
+
+  /** @param {number} off @param {number} len @param {number} crc */
+  async verify(off, len, crc) {
+    await this.call(
+      FF_SVC.VERIFY,
+      [..._ffU32(off), ..._ffU32(len), ..._ffU32(crc)],
+      this._readMs(len)
+    );
+  }
+
+  /** @param {0|1} which - 0 the cal marks, 1 the program's. */
+  async marks(which) {
+    await this.call(FF_SVC.MARKS, [which], FF_TIMEOUT.MARKS);
+  }
+
+  async reset() {
+    await this.call(FF_SVC.RESET, [], FF_TIMEOUT.RESET);
+  }
+}
+
+/**
+ * The cal sector as the chip holds it after a push: the signed calibration,
+ * blank, and the two marks MARKS 0 writes.
+ * @param {Uint8Array} signedCal - 0x1D000 bytes, checksummed and signed.
+ * @returns {Uint8Array} 0x20000 bytes.
+ */
+function ffCalSectorImage(signedCal) {
+  const s = new Uint8Array(FF_CAL_SECTOR_SIZE).fill(0xff);
+  s.set(signedCal, 0);
+  for (const [at, word] of FF_CAL_MARKS) s.set(_ffU32(word), at);
+  return s;
+}
+
+/**
+ * Push a calibration through an open flasher session: compare, erase,
+ * chunks, verify, marks, reset. Nothing past ERASE is skipped on a failure
+ * -- a failed push leaves the cal sector without its marks, which the
+ * loader treats as no calibration (the DME stays in the loader until a
+ * flash completes, through this or the stock path).
+ * @param {FastFlashClient} client
+ * @param {Uint8Array} signedCal
+ * @param {{stage?: (s: string) => void, progress?: (pct: number, what: string) => void,
+ *   note?: (s: string) => void}} [cb]
+ * @returns {Promise<{ok: true, skipped: boolean, sent: number, chunks: number}>}
+ */
+/**
+ * Rough work units per step, so one progress bar covers a whole push --
+ * the compare, the erases and the verifies as well as the chunks (an erase
+ * is the longest single wait; a chunk is the unit).
+ */
+const FF_UNITS = {
+  QUERY: 2,
+  ERASE: 6,
+  CHUNK: 1,
+  VERIFY: 2,
+  MARKS: 1,
+  RESET: 1,
+};
+
+/**
+ * A progress counter over work units: each finished step adds its units
+ * and reports the overall percent with the step's name.
+ * @param {(pct: number, what: string) => void} progress
+ * @param {number} total - Units expected; may be raised once known.
+ */
+function _ffTracker(progress, total) {
+  let done = 0;
+  return {
+    setTotal(t) {
+      total = t;
+    },
+    add(units, what) {
+      done += units;
+      progress(
+        Math.min(100, Math.round((done * 100) / Math.max(1, total))),
+        what
+      );
+    },
+  };
+}
+
+async function ffPushCal(client, signedCal, cb = {}) {
+  const stage = cb.stage || (() => {});
+  const note = cb.note || (() => {});
+  if (!signedCal || signedCal.length !== FF_CAL_LENGTH)
+    throw new Error('fast flasher: the calibration is not 0x1D000 bytes');
+  const target = ffCalSectorImage(signedCal);
+  const slots = Math.ceil(FF_CAL_LENGTH / 0x1000);
+  const U = FF_UNITS;
+  const track = _ffTracker(
+    cb.progress || (() => {}),
+    U.QUERY + U.ERASE + slots * U.CHUNK + U.VERIFY + U.MARKS + U.RESET
+  );
+  stage('Comparing the calibration on the DME');
+  const onChip = await client.sectorQuery(FF_CAL_SECTOR, FF_CAL_SECTOR_SIZE);
+  if (onChip === ffCrc32(target)) {
+    note('The DME already holds exactly this calibration; nothing written');
+    track.setTotal(U.QUERY + U.RESET);
+    track.add(U.QUERY, 'Compared');
+    stage('Restarting the DME');
+    await client.reset();
+    track.add(U.RESET, 'Done');
+    return { ok: true, skipped: true, sent: 0, chunks: 0 };
+  }
+  track.add(U.QUERY, 'Compared');
+  stage('Erasing the calibration sector');
+  await client.erase(FF_CAL_SECTOR);
+  track.add(U.ERASE, 'Erased');
+  stage('Writing the calibration');
+  let sent = 0;
+  let chunks = 0;
+  for (let i = 0; i < slots; i++) {
+    const at = i * 0x1000;
+    const plain = signedCal.subarray(at, Math.min(FF_CAL_LENGTH, at + 0x1000));
+    // the erase left it blank already
+    if (!plain.every((b) => b === 0xff)) {
+      sent += await client.chunk(FF_CAL_SECTOR + at, plain);
+      chunks++;
+    }
+    track.add(U.CHUNK, `Writing chunk ${i + 1} of ${slots}`);
+  }
+  stage('Verifying');
+  await client.verify(FF_CAL_SECTOR, FF_CAL_LENGTH, ffCrc32(signedCal));
+  track.add(U.VERIFY, 'Verified');
+  stage('Marking the calibration valid');
+  await client.marks(0);
+  track.add(U.MARKS, 'Marked valid');
+  stage('Restarting the DME');
+  await client.reset();
+  track.add(U.RESET, 'Done');
+  note(
+    `Fast flash: ${chunks} chunks, ${sent} bytes on the wire for ${FF_CAL_LENGTH} (${Math.round((sent * 100) / FF_CAL_LENGTH)}%)`
+  );
+  return { ok: true, skipped: false, sent, chunks };
+}
+
+/**
+ * The external program area [0x60000,0x100000) as the chip holds it after a
+ * full program flash: the signed program to 0xFFF40, blank to the two
+ * program marks, blank after. The CRC a SECTOR_QUERY reads back is taken
+ * against this, so untouched sectors compare equal and are skipped.
+ * @param {Uint8Array} signedFull - The signed 1 MB external image.
+ * @returns {Uint8Array} The 0xA0000 bytes from 0x60000 to 0x100000.
+ */
+function ffProgramAreaImage(signedFull) {
+  const area = new Uint8Array(0x100000 - FF_PROGRAM_START).fill(0xff);
+  area.set(signedFull.subarray(FF_PROGRAM_START, FF_PROGRAM_END), 0);
+  for (const [at, word] of FF_PROGRAM_MARKS)
+    area.set(_ffU32(word), at - FF_PROGRAM_START);
+  return area;
+}
+
+/**
+ * The internal (MPC) flash as write units for a v2 flasher: 14 blocks of
+ * 32 KB. PROVISIONAL until projects-4c freezes the MPC window -- the wire
+ * address of MPC offset o is FF_MPC_WINDOW | o.
+ */
+const FF_MPC_WINDOW = 0x80000000;
+const FF_MPC_BLOCK = 0x8000;
+const FF_MPC_SIZE = 0x70000;
+
+/**
+ * The write units of a program push, in send order. The external program's
+ * three sectors, then -- when the flasher can write the MPC -- its blocks
+ * from the top down with block 0 (the reset word at 0x8) last, so an
+ * interruption leaves the block that boots the DME untouched for as long as
+ * possible.
+ * @param {Uint8Array} signedFull - The signed 1 MB external image.
+ * @param {Uint8Array|null} mpc - The MPC image (signed against), or null.
+ * @returns {Array<{name: string, addr: number, bytes: Uint8Array}>}
+ */
+function ffProgramUnits(signedFull, mpc) {
+  const area = ffProgramAreaImage(signedFull);
+  // what is written: the same, with the valid marks left blank -- only MARKS
+  // burns them, as the very last step
+  const written = Uint8Array.from(area);
+  for (const [at] of FF_PROGRAM_MARKS)
+    written.fill(0xff, at - FF_PROGRAM_START, at - FF_PROGRAM_START + 4);
+  const units = FF_PROGRAM_SECTORS.map(([start, size]) => {
+    const from = start - FF_PROGRAM_START;
+    return {
+      name: `program sector 0x${start.toString(16).toUpperCase()}`,
+      addr: start,
+      bytes: area.subarray(from, from + size),
+      write: written.subarray(from, from + size),
+      holdsMarks: FF_PROGRAM_MARKS.some(
+        ([at]) => at >= start && at < start + size
+      ),
+    };
+  });
+  if (mpc) {
+    if (mpc.length !== FF_MPC_SIZE)
+      throw new Error('fast flasher: the MPC image is not 448 KB');
+    for (let at = FF_MPC_SIZE - FF_MPC_BLOCK; at >= 0; at -= FF_MPC_BLOCK)
+      units.push({
+        name: `MPC block ${at / FF_MPC_BLOCK}`,
+        addr: (FF_MPC_WINDOW | at) >>> 0,
+        bytes: mpc.subarray(at, at + FF_MPC_BLOCK),
+        write: mpc.subarray(at, at + FF_MPC_BLOCK),
+        holdsMarks: false,
+      });
+  }
+  return units;
+}
+
+/**
+ * Push the program through an open flasher session: per unit (the external
+ * program's sectors, and the MPC's blocks when `opts.mpc` is given), compare
+ * its CRC and skip it when it already matches, else erase and rewrite it
+ * compressed, verifying each as soon as it is written; then mark the program
+ * valid. Without `opts.mpc` the MPC is left alone, so the caller must have
+ * checked the DME's MPC is the one `signedFull` was signed against (the
+ * signature covers MPC segments).
+ *
+ * The marks are the commit point: a push that fails before MARKS leaves the
+ * program without its valid marks, which the loader treats as no program --
+ * the DME stays in the loader (recoverable by a full flash) rather than
+ * booting a half-written program.
+ * @param {FastFlashClient} client
+ * @param {Uint8Array} signedFull - The signed 1 MB external image.
+ * @param {{stage?: Function, progress?: Function, note?: Function}} [cb]
+ * @param {{mpc?: Uint8Array}} [opts] - mpc: also write the MPC (a v2 flasher).
+ * @returns {Promise<{ok: true, skipped: boolean, sent: number,
+ *   chunks: number, sectorsWritten: number, mpcBlocksWritten: number}>}
+ */
+async function ffPushProgram(client, signedFull, cb = {}, opts = {}) {
+  const stage = cb.stage || (() => {});
+  const note = cb.note || (() => {});
+  if (!signedFull || signedFull.length !== 0x100000)
+    throw new Error('fast flasher: the external image is not 1 MB');
+  const units = ffProgramUnits(signedFull, opts.mpc || null);
+  const U = FF_UNITS;
+  const slotsOf = (size) => Math.ceil(size / 0x1000);
+  const unitWork = (u) =>
+    U.ERASE + slotsOf(u.bytes.length) * U.CHUNK + U.VERIFY;
+  // until the compare says which units differ, assume all of them do
+  const track = _ffTracker(
+    cb.progress || (() => {}),
+    units.length * U.QUERY +
+      units.reduce((n, u) => n + unitWork(u), 0) +
+      U.MARKS +
+      U.RESET
+  );
+
+  // which units differ: a read-back CRC per unit, the true diff
+  const todo = [];
+  for (const [i, u] of units.entries()) {
+    stage(`Comparing ${u.name} (${i + 1} of ${units.length})`);
+    const have = await client.sectorQuery(u.addr, u.bytes.length);
+    if (have !== ffCrc32(u.bytes)) todo.push(u);
+    track.add(U.QUERY, `Compared ${u.name}`);
+  }
+  if (!todo.length) {
+    note('The DME already holds exactly this program; nothing written');
+    track.setTotal(units.length * U.QUERY + U.RESET);
+    stage('Restarting the DME');
+    await client.reset();
+    track.add(U.RESET, 'Done');
+    return {
+      ok: true,
+      skipped: true,
+      sent: 0,
+      chunks: 0,
+      sectorsWritten: 0,
+      mpcBlocksWritten: 0,
+    };
+  }
+  note(
+    `${todo.length} of ${units.length} units differ: ${todo.map((u) => u.name).join(', ')}`
+  );
+  track.setTotal(
+    units.length * U.QUERY +
+      todo.reduce((n, u) => n + unitWork(u), 0) +
+      U.MARKS +
+      U.RESET
+  );
+
+  // The program's valid marks share the top sector with the end of the
+  // program and the flasher's own copy. They go FIRST -- that sector is
+  // erased before anything else is touched -- and come back LAST: an
+  // interruption anywhere in between, even a power loss, leaves the loader
+  // finding no marks, parking and answering "program missing", the state a
+  // standard Flash Program recovers. Written early, they would let the
+  // loader start a half-written program instead.
+  const marksUnit = units.find((u) => u.holdsMarks);
+  if (marksUnit && !todo.includes(marksUnit)) {
+    todo.push(marksUnit);
+    track.setTotal(
+      units.length * U.QUERY +
+        todo.reduce((n, u) => n + unitWork(u), 0) +
+        U.MARKS +
+        U.RESET
+    );
+  }
+  const order = todo.filter((u) => u !== marksUnit);
+  let sent = 0;
+  let chunks = 0;
+  const writeUnit = async (u, which) => {
+    stage(`Writing ${which}`);
+    const slots = slotsOf(u.write.length);
+    for (let i = 0; i < slots; i++) {
+      const plain = u.write.subarray(i * 0x1000, (i + 1) * 0x1000);
+      // the erase left it blank; an all-FF chunk needs no write
+      if (!plain.every((b) => b === 0xff)) {
+        sent += await client.chunk((u.addr + i * 0x1000) >>> 0, plain);
+        chunks++;
+      }
+      track.add(U.CHUNK, `Writing ${which}, chunk ${i + 1} of ${slots}`);
+    }
+    // verified as soon as it is written: a failure names its unit
+    stage(`Verifying ${which}`);
+    await client.verify(u.addr, u.write.length, ffCrc32(u.write));
+    track.add(U.VERIFY, `Verified ${which}`);
+  };
+  const total = todo.length;
+  if (marksUnit) {
+    stage(
+      `Erasing ${marksUnit.name} first: the program's valid marks go until the end`
+    );
+    await client.erase(marksUnit.addr);
+    track.add(U.ERASE, `Erased ${marksUnit.name}`);
+  }
+  for (const [n, u] of order.entries()) {
+    const which = `${u.name} (${n + 1} of ${total})`;
+    stage(`Erasing ${which}`);
+    await client.erase(u.addr);
+    track.add(U.ERASE, `Erased ${which}`);
+    await writeUnit(u, which);
+  }
+  if (marksUnit)
+    await writeUnit(
+      marksUnit,
+      `${marksUnit.name} (${total} of ${total}, last)`
+    );
+  stage('Marking the program valid');
+  await client.marks(1);
+  track.add(U.MARKS, 'Marked valid');
+  stage('Restarting the DME');
+  await client.reset();
+  track.add(U.RESET, 'Done');
+  const mpcBlocksWritten = todo.filter((u) => u.addr >= FF_MPC_WINDOW).length;
+  note(
+    `Fast flash (program): ${todo.length - mpcBlocksWritten} external sectors, ${mpcBlocksWritten} MPC blocks, ${chunks} chunks, ${sent} bytes on the wire`
+  );
+  return {
+    ok: true,
+    skipped: false,
+    sent,
+    chunks,
+    sectorsWritten: todo.length - mpcBlocksWritten,
+    mpcBlocksWritten,
+  };
+}
+
+/**
+ * The link over the browser's own cable (WebSerialBus, a local port or a
+ * gateway): it talks below the job runner, on the bus's port and reader,
+ * while the caller holds the cable claim. The macOS shell's native bridge
+ * has no break line here and is refused.
+ * @param {object} bus - webBus.
+ * @param {{onStep?: (what: string) => void}} [opts] - onStep names each
+ *   part of the entry (the break, the speed change, the wait for HELLO).
+ * @returns {{enter: () => Promise<Uint8Array>,
+ *   exchange: (frame: Uint8Array, timeoutMs: number) => Promise<Uint8Array>,
+ *   leave: () => Promise<void>}}
+ */
+function ffWebLink(bus, opts = {}) {
+  const step = opts.onStep || (() => {});
+  if (!bus || !bus.port || !bus.port.setSignals || !bus.readSome)
+    throw new Error(
+      'Fast flash needs a cable with a break line (Web Serial or a gateway)'
+    );
+  let rx = [];
+  // the pause after each reply, per byte: until a HELLO says the body is v6+,
+  // assume the old drain (a v5 on the car needs it to be answered at all)
+  let drainMs = bus.port.device === 'ms45-emu' ? 0 : FF_ECHO_DRAIN_MS;
+  const learn = (hello) => {
+    if (hello && hello.data && hello.data[6] >= FF_ECHO_AS_SENT_VERSION)
+      drainMs = 0;
+  };
+  // every byte the cable heard since the last reopen, for the failure text:
+  // on a real cable "no answer" and "garbage" need telling apart
+  let heard = [];
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const heardText = () =>
+    heard.length
+      ? `${heard.length} byte(s) heard: ${heard
+          .slice(0, 32)
+          .map((b) => b.toString(16).padStart(2, '0'))
+          .join(' ')}${heard.length > 32 ? ' …' : ''}`
+      : 'nothing heard';
+  const scale = bus.port.device === 'ms45-emu' ? FF_EMULATOR_SCALE : 1;
+
+  /** Read until one whole frame (after `skip` echo bytes) is in. */
+  async function readFrame(timeoutMs, echo) {
+    const deadline = Date.now() + timeoutMs * scale;
+    for (;;) {
+      if (echo) {
+        // the echo is exactly what was written; anything before it is
+        // stale noise from the line
+        const at = _ffFind(rx, echo);
+        if (at >= 0) {
+          rx = rx.slice(at + echo.length);
+          echo = null;
+        }
+      }
+      if (!echo) {
+        const f = ffParse(rx);
+        if (f) {
+          const bytes = rx.slice(0, f.used);
+          rx = rx.slice(f.used);
+          return Uint8Array.from(bytes);
+        }
+      }
+      if (Date.now() >= deadline)
+        throw new Error(
+          echo
+            ? 'fast flasher: no echo from the cable'
+            : `fast flasher: the DME did not answer (${
+                rx.length
+                  ? `after the echo: ${rx
+                      .slice(0, 32)
+                      .map((b) => b.toString(16).padStart(2, '0'))
+                      .join(' ')}`
+                  : 'nothing after the echo'
+              })`
+        );
+      const { value, done } = await bus.readSome(deadline);
+      if (done) throw new Error('fast flasher: the port closed');
+      if (value && value.length) {
+        rx.push(...value);
+        if (heard.length < 256) heard.push(...value);
+      }
+    }
+  }
+
+  /**
+   * Ask for HELLO up to FF_HELLO_ASKS times. On a real cable the first ask
+   * can be lost (the reopen's line glitch, the transmit-enable timing), and
+   * an unanswered ask costs nothing: the flasher only ever answers.
+   */
+  async function askHello(self) {
+    let last = null;
+    for (let i = 1; i <= FF_HELLO_ASKS; i++) {
+      step(`Asking the flasher for its HELLO${i > 1 ? ` (try ${i})` : ''}`);
+      try {
+        const hello = ffParse(
+          await self.exchange(ffFrame(FF_SVC.HELLO, []), FF_TIMEOUT.HELLO)
+        );
+        if (hello && hello.svc === (FF_SVC.HELLO | 0x40)) return hello;
+        last = new Error('fast flasher: an answer that was not a HELLO');
+      } catch (e) {
+        last = e;
+      }
+      rx = [];
+      await sleep(FF_HELLO_GAP_MS);
+    }
+    throw new Error(`${last ? last.message : 'no HELLO'} (${heardText()})`);
+  }
+
+  /**
+   * Hold the K-line low until `until` settles, reading what the cable hears
+   * meanwhile. DTR is the cable's K-line transmit enable (the bus's fastInit
+   * raises it with its break the same way): a break with DTR low never
+   * reaches the line. A line that really went low comes back through the
+   * echo as a break error or zero bytes; silence means it never did.
+   * @param {Promise<unknown>} until
+   * @returns {Promise<{low: boolean, text: string}>}
+   */
+  async function holdLow(until) {
+    // the break FIRST and alone: after a reset the gate listens for well
+    // under a millisecond, and a combined call (DTR, then the break -- two
+    // USB control transfers) landed late enough that every reset entry
+    // missed on the car. The break alone reaches this cable's line; DTR
+    // follows for the long key-on hold.
+    await bus.port.setSignals({ break: true });
+    await bus.port.setSignals({ dataTerminalReady: true });
+    let over = false;
+    const settled = until.then(
+      () => (over = true),
+      () => (over = true)
+    );
+    let bytes = 0;
+    let zeros = 0;
+    let error = null;
+    while (!over && !error) {
+      try {
+        const { value, done } = await bus.readSome(Date.now() + 50);
+        if (done) break;
+        if (value && value.length) {
+          bytes += value.length;
+          zeros += value.filter((b) => b === 0).length;
+        }
+      } catch (e) {
+        // the reader is gone until the reopen; the hold goes on regardless
+        error = (e && (e.name || e.message)) || 'read error';
+      }
+    }
+    await settled;
+    await until;
+    const low = error === 'BreakError' || zeros > 0;
+    const text = error
+      ? `the cable reported ${error}${bytes ? ` after ${bytes} byte(s)` : ''}`
+      : bytes
+        ? `${bytes} byte(s) heard, ${zeros} of them zero`
+        : 'nothing heard';
+    return { low, text };
+  }
+
+  return {
+    /**
+     * Hold the line low across the DME's reboot and take the flasher's
+     * HELLO. The caller has just reset the DME, or (holdUntil) the line is
+     * held while the ignition is switched off and on.
+     * @param {{holdUntil?: Promise<unknown>,
+     *   onLine?: (line: {low: boolean, text: string}) => void}} [opts]
+     * @returns {Promise<Uint8Array>} The stamp it echoed.
+     */
+    async enter(opts = {}) {
+      step('Holding the K-line low across the reboot');
+      const line = await holdLow(opts.holdUntil || sleep(FF_BREAK_MS));
+      if (opts.onLine) opts.onLine(line);
+      step('Switching the cable to 115200');
+      // the port goes to 115200 WHILE the break is still held: the flasher
+      // answers HELLO ~5 ms after it sees the line released, at 115200, and
+      // bytes heard at any other rate are lost. (A real cable may drop the
+      // break when the port closes for the reopen; the flasher then speaks a
+      // little early, and the asked-for HELLO below covers that.)
+      await bus.reopen({
+        baudRate: FF_BAUD,
+        dataBits: 8,
+        stopBits: 1,
+        parity: 'even',
+      });
+      rx = [];
+      heard = [];
+      // the reopen already put DTR back at its idle level; say both anyway,
+      // so the line is released whatever the platform did on close
+      await bus.port.setSignals({ break: false, dataTerminalReady: false });
+      step('Waiting for the flasher to answer');
+      let hello;
+      try {
+        const unprompted = await readFrame(FF_TIMEOUT.HELLO, null);
+        hello = ffParse(unprompted);
+        learn(hello);
+        await sleep(unprompted.length * drainMs);
+      } catch (e) {
+        // missed the unprompted one: ask
+        rx = [];
+        hello = await askHello(this);
+      }
+      learn(hello);
+      if (!hello || hello.svc !== (FF_SVC.HELLO | 0x40))
+        throw new Error(`fast flasher: no HELLO from the DME (${heardText()})`);
+      return hello.data;
+    },
+    /**
+     * Pick up a flasher that is already running (a session cut short): no
+     * reset and no break -- the port goes to 115200 and the flasher is asked
+     * for its HELLO.
+     * @returns {Promise<Uint8Array>} The stamp it echoed.
+     */
+    async resume() {
+      await bus.reopen({
+        baudRate: FF_BAUD,
+        dataBits: 8,
+        stopBits: 1,
+        parity: 'even',
+      });
+      rx = [];
+      heard = [];
+      const hello = await askHello(this);
+      learn(hello);
+      return hello.data;
+    },
+    async exchange(frame, timeoutMs) {
+      // DTR stays low. The bus raises it around every K-line write (the
+      // reference's transmit enable), but on the car a break with DTR low
+      // reached the line, and with the DTR toggle the flasher answered
+      // HELLO (5 bytes, DTR held 1 ms) and never a QUERY (13 bytes, 2 ms):
+      // the drop's USB transfer lands as the reply starts. Without DTR a
+      // cable that needed it would give no echo -- an error that says so.
+      await bus.writer.write(frame);
+      const reply = await readFrame(timeoutMs, Array.from(frame));
+      if (drainMs) await sleep(reply.length * drainMs);
+      return reply;
+    },
+    /** Back to the job runner's world: the next job reopens at its own rate. */
+    async leave() {
+      rx = [];
+      if (bus._resetWireState) bus._resetWireState();
+      bus.config = null;
+    },
+  };
+}
+
+/** @param {number[]} hay @param {number[]} needle @returns {number} */
+function _ffFind(hay, needle) {
+  outer: for (let i = 0; i + needle.length <= hay.length; i++) {
+    for (let k = 0; k < needle.length; k++)
+      if (hay[i + k] !== needle[k]) continue outer;
+    return i;
+  }
+  return -1;
+}
+
+const fastFlashWire = {
+  SVC: FF_SVC,
+  BAUD: FF_BAUD,
+  CAL_SECTOR: FF_CAL_SECTOR,
+  CAL_LENGTH: FF_CAL_LENGTH,
+  crc32: ffCrc32,
+  frame: ffFrame,
+  parse: ffParse,
+  Client: FastFlashClient,
+  Nak: FastFlashNak,
+  calSectorImage: ffCalSectorImage,
+  programAreaImage: ffProgramAreaImage,
+  pushCal: ffPushCal,
+  programUnits: ffProgramUnits,
+  MPC_WINDOW: FF_MPC_WINDOW,
+  pushProgram: ffPushProgram,
+  webLink: ffWebLink,
+};
+
+if (typeof window !== 'undefined') {
+  window.fastFlashWire = fastFlashWire;
+}
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { fastFlashWire };
+}
