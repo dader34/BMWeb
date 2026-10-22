@@ -51,7 +51,15 @@ async function fbDmeFastBaudTest() {
   const d = fbState.dme;
   if (!fbProtectTesting()) return;
   if (!d.identified) return;
-  if (!(await fbDmeFastFlasherAvailable('Baud Test'))) return;
+  if (!(await fbDmeFastFlasherAvailable('Baud Test', { upgrade: true })))
+    return;
+  if (!d.fastFlasher.pagesets) {
+    await fbMessage(
+      `The fast flasher on the DME is v${d.fastFlasher.version}, which cannot change its line speed (SET_BAUD came with v8). Run Fast Flash Program once to upgrade it, then test.`,
+      'Baud Test'
+    );
+    return;
+  }
   const rates = fastFlashWire.LINE_TEST_RATES.map(([r]) => r).join(', ');
   await fbDmeFastFlash({
     title: 'Baud Test',

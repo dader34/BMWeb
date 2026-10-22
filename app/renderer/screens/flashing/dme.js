@@ -152,8 +152,9 @@ function fbDmeRefresh() {
     d.flash &&
     d.mpc
   );
-  // the line-speed test: a v8 body (SET_BAUD) on the DME, nothing to load
-  fbEls['dme-baud-test'].hidden = !(fastReady && d.fastFlasher.pagesets);
+  // the line-speed test: any flasher on the DME, nothing to load (a body
+  // older than v8 has no SET_BAUD and the test says so)
+  fbEls['dme-baud-test'].hidden = !(fastReady || fastUpgrade);
   fbEls['dme-baud-test'].disabled = !d.identified;
   fbEls['dme-flash-tune'].hidden = full;
   const noTune = d.exchangeKind === '0PA' && !d.exchangeTuneLoaded;
