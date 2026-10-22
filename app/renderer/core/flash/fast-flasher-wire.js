@@ -84,6 +84,13 @@ const FF_FAST_LINES = [
   [208333, 6],
   [156250, 8],
 ];
+/** The rates the Baud Test tries, fastest first (all exact for the DME, exact or within 0.2 % for an FTDI cable). */
+const FF_LINE_TEST_RATES = [
+  [312500, 4],
+  [250000, 5],
+  [208333, 6],
+  [156250, 8],
+];
 /** The MPC's 448 KB in 32 KB blocks; a pageset is one 64-byte page per block. */
 const FF_MPC_BLOCKS = 14;
 const FF_PAGE = 64;
@@ -450,6 +457,107 @@ class FastFlashClient {
  * @param {(s: string) => void} [note]
  * @returns {Promise<number>} The rate the session is on.
  */
+/**
+ * The Baud Test: try each rate in turn on an open v8 session and report
+ * what the cable and the K-line carry. At each rate: the HELLO that
+ * rebaud() asks, then five HELLOs whose stamp must match, a 64 KB CRC
+ * (timed), and three 4 KB CHUNKs to a read-only offset -- the body checks
+ * the frame's checksum and the permission before anything else, so NAK 1
+ * (perm) proves a long tester-to-DME frame arrived intact, and nothing is
+ * written. Between rates the session goes back to 115200 (by SET_BAUD, or
+ * by the body's own fallback when the rate garbled it). Writes nothing.
+ * @param {FastFlashClient} client
+ * @param {{rebaud: (baudRate: number, opts?: object) => Promise<Uint8Array>}} link
+ * @param {(s: string) => void} [note]
+ * @param {Array<[number, number]>} [rates] - [baud, SCBR] pairs.
+ * @returns {Promise<{results: Array<object>, summary: string, best: number}>}
+ */
+async function ffLineTest(
+  client,
+  link,
+  note = () => {},
+  rates = FF_LINE_TEST_RATES
+) {
+  if (!link || !link.rebaud)
+    throw new Error('fast flasher: this link cannot change its rate');
+  const stamp = await client.hello();
+  const same = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
+  const longFrame = new Uint8Array(4096);
+  for (let i = 0; i < longFrame.length; i++)
+    longFrame[i] = (i * 7919 + 13) & 0xff;
+  const results = [];
+  for (const [rate, scbr] of rates) {
+    const r = {
+      rate,
+      scbr,
+      hellos: 0,
+      frames: 0,
+      queryMs: null,
+      ok: false,
+      why: '',
+    };
+    results.push(r);
+    note(`Testing ${rate} baud (SCBR ${scbr})`);
+    try {
+      await client.setBaud(scbr);
+    } catch (e) {
+      r.why = `SET_BAUD refused (${e.message})`;
+      note(`${rate} baud: ${r.why}`);
+      break;
+    }
+    try {
+      await link.rebaud(rate);
+    } catch (e) {
+      r.why = 'no HELLO';
+      note(
+        `${rate} baud: no HELLO (${e.message}); back to ${FF_BAUD} after the body's fallback`
+      );
+      await link.rebaud(FF_BAUD, { settle: 3000 });
+      continue;
+    }
+    for (let i = 0; i < 5; i++) {
+      try {
+        if (same(await client.hello(), stamp)) r.hellos++;
+      } catch (e) {
+        /* a miss: counted by its absence */
+      }
+    }
+    const t0 = Date.now();
+    try {
+      await client.sectorQuery(FF_CAL_SECTOR, 0x10000);
+      r.queryMs = Date.now() - t0;
+    } catch (e) {
+      r.why = `64 KB CRC: ${e.message}`;
+    }
+    for (let i = 0; i < 3; i++) {
+      try {
+        await client.chunk(0x10000, longFrame);
+        r.why = 'a CHUNK below 0x40000 was accepted';
+      } catch (e) {
+        if (e instanceof FastFlashNak && e.reason === 1) r.frames++;
+      }
+    }
+    r.ok = r.hellos === 5 && r.frames === 3 && r.queryMs !== null;
+    if (!r.ok && !r.why)
+      r.why = `HELLO ${r.hellos}/5, 4 KB frames ${r.frames}/3`;
+    note(
+      `${rate} baud: HELLO ${r.hellos}/5, 4 KB frames ${r.frames}/3, 64 KB CRC ${r.queryMs === null ? 'no answer' : `${r.queryMs} ms`} -- ${r.ok ? 'OK' : 'FAILED'}`
+    );
+    let setOk = true;
+    try {
+      await client.setBaud(11);
+    } catch (e) {
+      setOk = false;
+    }
+    await link.rebaud(FF_BAUD, { settle: setOk ? 0 : 3000 });
+  }
+  const summary = results
+    .map((r) => `${r.rate}: ${r.ok ? 'OK' : r.why || 'failed'}`)
+    .join(' · ');
+  const best = (results.find((r) => r.ok) || { rate: FF_BAUD }).rate;
+  return { results, summary, best };
+}
+
 async function ffFasterLine(client, link, note = () => {}) {
   if (!link || !link.rebaud) return FF_BAUD;
   for (const [rate, scbr] of FF_FAST_LINES) {
@@ -1179,6 +1287,8 @@ const fastFlashWire = {
   pushProgram: ffPushProgram,
   fasterLine: ffFasterLine,
   FAST_LINES: FF_FAST_LINES,
+  lineTest: ffLineTest,
+  LINE_TEST_RATES: FF_LINE_TEST_RATES,
   webLink: ffWebLink,
 };
 

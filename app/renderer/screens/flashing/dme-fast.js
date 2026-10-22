@@ -41,6 +41,39 @@ async function fbDmeFastFlashTune() {
 }
 
 /**
+ * Baud Test: into the fast flasher, then each faster line speed in turn
+ * (fast-flasher-wire.js FF_LINE_TEST_RATES) with HELLOs, 4 KB frames and a
+ * 64 KB CRC at each, back to 115200 between them, and the DME restarted on
+ * its program. Nothing is written. The verdict per rate goes to the status
+ * line and the session log. Testing-only.
+ */
+async function fbDmeFastBaudTest() {
+  const d = fbState.dme;
+  if (!fbProtectTesting()) return;
+  if (!d.identified) return;
+  if (!(await fbDmeFastFlasherAvailable('Baud Test'))) return;
+  const rates = fastFlashWire.LINE_TEST_RATES.map(([r]) => r).join(', ');
+  await fbDmeFastFlash({
+    title: 'Baud Test',
+    operation: 'fast-baud-test',
+    what: 'line',
+    noFasterLine: true,
+    confirm:
+      `Baud Test resets the DME into its fast flasher and tries faster line speeds one by one (${rates} baud): at each, five HELLOs, three 4 KB frames and a 64 KB CRC. Nothing is written, and the DME is restarted on its program afterwards. A speed the line cannot carry costs a few seconds.\n\n` +
+      'Run the test?',
+    note: `DME ${d.ident.hwRef} / prog ${d.ident.progRef} / fast flasher v${d.fastFlasher.version} / baud test`,
+    push: async (client, cb, p) => {
+      const r = await fastFlashWire.lineTest(client, p.link, (s) =>
+        cb.stage(s)
+      );
+      cb.stage('Restarting the DME');
+      await client.reset();
+      return { ok: true, skipped: false, summary: r.summary, best: r.best };
+    },
+  });
+}
+
+/**
  * One fast-flasher session, shared by Fast Flash Tune and Fast Flash Program:
  * the confirmation, the session log, `prepare` (what to send, built before
  * the car is touched -- its own prompts and reads happen here), the cable
@@ -79,9 +112,10 @@ async function fbDmeFastFlash(spec) {
       trace: (t) => flashLog.trace(t),
     });
     await fbDmeFastProbe(client, ui);
+    prepared.link = link;
     // v8: the fastest line the cable and the K-line carry (the body falls
     // back to 115200 by itself when a rate carries nothing)
-    if (d.fastFlasher && d.fastFlasher.pagesets) {
+    if (d.fastFlasher && d.fastFlasher.pagesets && !spec.noFasterLine) {
       ui.stage('Trying a faster line');
       const rate = await fastFlashWire.fasterLine(client, link, (s) =>
         flashLog.note(s)
@@ -99,9 +133,11 @@ async function fbDmeFastFlash(spec) {
     ok = true;
     ui.stop();
     fbSetStatus(
-      r.skipped
-        ? `${spec.title}: the DME already held this ${spec.what}; nothing written (${ui.elapsed()}s)`
-        : `${spec.title} successful in ${ui.elapsed()}s`
+      r.summary
+        ? `${spec.title}: ${r.summary} (${ui.elapsed()}s)`
+        : r.skipped
+          ? `${spec.title}: the DME already held this ${spec.what}; nothing written (${ui.elapsed()}s)`
+          : `${spec.title} successful in ${ui.elapsed()}s`
     );
   } catch (e) {
     ui.stop();
@@ -198,13 +234,15 @@ function fbDmeFastUi(title) {
   const phaseOf = (s) =>
     /^Compar/.test(s)
       ? 'comparing'
-      : /^(Eras|Writ)/.test(s)
-        ? 'writing'
-        : /^Verif/.test(s)
-          ? 'verifying'
-          : /^(Mark|Restart)/.test(s)
-            ? 'finishing'
-            : null;
+      : /^Test/.test(s)
+        ? 'testing the line'
+        : /^(Eras|Writ)/.test(s)
+          ? 'writing'
+          : /^Verif/.test(s)
+            ? 'verifying'
+            : /^(Mark|Restart)/.test(s)
+              ? 'finishing'
+              : null;
   const timer = setInterval(paint, 1000);
   return {
     stage(s) {

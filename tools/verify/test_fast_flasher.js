@@ -475,6 +475,70 @@ const be32 = (b, at) =>
     );
   }
 
+  // ---- 4c. the Baud Test over a mock link ------------------------------------
+  console.log('\nbaud test');
+  {
+    const stamp = Uint8Array.from([0x4d, 0x53, 0x34, 0x35, 0x51, 0x46, 8, 1]);
+    const dead = new Set([312500, 250000]); // rates the "line" does not carry
+    const calls = [];
+    const client = {
+      async setBaud(scbr) {
+        calls.push(['setBaud', scbr]);
+      },
+      async hello() {
+        return Uint8Array.from(stamp);
+      },
+      async sectorQuery() {
+        return 0;
+      },
+      async chunk(off) {
+        calls.push(['chunk', off]);
+        throw new W.Nak(0x03, 1);
+      },
+      async reset() {},
+    };
+    const link = {
+      async rebaud(rate, opts = {}) {
+        calls.push(['rebaud', rate, opts.settle || 0]);
+        if (dead.has(rate)) throw new Error('no HELLO');
+        return stamp;
+      },
+    };
+    const r = await W.lineTest(client, link, () => {});
+    assert.strictEqual(r.best, 208333);
+    assert.deepStrictEqual(
+      r.results.map((x) => [x.rate, x.ok, x.why]),
+      [
+        [312500, false, 'no HELLO'],
+        [250000, false, 'no HELLO'],
+        [208333, true, ''],
+        [156250, true, ''],
+      ]
+    );
+    assert(/208333: OK/.test(r.summary) && /250000: no HELLO/.test(r.summary));
+    // a dead rate waits for the body's fallback; a live one sets 115200 itself
+    const rb = calls.filter((c) => c[0] === 'rebaud');
+    assert.deepStrictEqual(rb.slice(0, 2), [
+      ['rebaud', 312500, 0],
+      ['rebaud', 115200, 3000],
+    ]);
+    assert.deepStrictEqual(rb.slice(-2), [
+      ['rebaud', 156250, 0],
+      ['rebaud', 115200, 0],
+    ]);
+    assert.strictEqual(
+      calls.filter((c) => c[0] === 'setBaud' && c[1] === 11).length,
+      2
+    );
+    assert.strictEqual(
+      calls.filter((c) => c[0] === 'chunk' && c[1] === 0x10000).length,
+      6
+    );
+    ok(
+      'baud test: dead rates reported with no HELLO and the fallback waited for, live rates proven by HELLOs, 4 KB frames and a CRC, 115200 restored after each; best = first OK'
+    );
+  }
+
   // ---- 5. detection ----------------------------------------------------------
   console.log('\ndetection');
   {
