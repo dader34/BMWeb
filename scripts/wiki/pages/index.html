@@ -1,0 +1,82 @@
+<!--
+title: BMWeb Wiki
+nav: Main page
+toc: no
+-->
+<div class="mp-welcome">
+  <h2>Welcome to BMWeb Wiki</h2>
+  <p>
+    What we learned about E46-era BMW control units while building BMWeb:
+    memory maps, CAN messages, programming sessions and the checks behind fault
+    codes, each with where the fact comes from.
+  </p>
+</div>
+
+<div class="mp-cols">
+  <div class="mp-box">
+    <h2>Control units</h2>
+    <div>
+      <dl>
+        <dt><a href="ms45.html">Siemens MS45.1 DME</a></dt>
+        <dd>MPC555 and external flash map, the boot loader's programming session, what makes a flash valid, line speeds.</dd>
+        <dt><a href="ms43.html">Siemens MS43 DME</a></dt>
+        <dd>Fault 134 and the 0x43D gearbox frame: every STATE_ERR_AMT value, the checksum, the idle and shift frames.</dd>
+        <dt><a href="smg2.html">Getrag SMG2 (E46 M3)</a></dt>
+        <dd>The gearbox bus, what fault 128 really checks, the 0x31x alive counters and checksums.</dd>
+        <dt><a href="gs20.html">GS20 automatic gearbox</a></dt>
+        <dd>C167 layout, identification, the programming session and why a bad program boot-loops.</dd>
+      </dl>
+    </div>
+  </div>
+  <div class="mp-box">
+    <h2>Topics</h2>
+    <div>
+      <dl>
+        <dt><a href="diagnostics.html">Diagnostics and the K line</a></dt>
+        <dd>DS2 and KWP2000 telegrams, answer codes, timing, and what cables and adapters can carry.</dd>
+        <dt><a href="coding.html">Coding</a></dt>
+        <dd>How the factory coding jobs talk to an E46 cluster, and the traps in coding files.</dd>
+        <dt><a href="category-gearbox-swaps.html">Gearbox swaps</a></dt>
+        <dd>Everything about running an SMG2 behind an engine computer it did not come with.</dd>
+      </dl>
+    </div>
+  </div>
+</div>
+
+<section id="evidence">
+  <h2>Where the facts come from</h2>
+  <p>
+    Every claim carries a tag saying how it was established. Where two sources
+    disagree, the higher one in this list wins.
+  </p>
+  <table>
+    <thead><tr><th scope="col">Tag</th><th scope="col">Means</th></tr></thead>
+    <tbody>
+      <tr><th scope="row"><span class="ev car">car</span></th><td>Seen on a real car or module, usually in a wire log.</td></tr>
+      <tr><th scope="row"><span class="ev emu">emulator</span></th><td>Measured by running the unit's own firmware in an emulator, against BMWeb or a scripted tester.</td></tr>
+      <tr><th scope="row"><span class="ev code">firmware</span></th><td>Read from the disassembly of the named software release, not yet seen on a car.</td></tr>
+      <tr><th scope="row"><span class="ev data">BMW data</span></th><td>Read from BMW's own data files: the diagnostic descriptions (SGBD), coding files and scripts, run offline where they are programs.</td></tr>
+      <tr><th scope="row"><span class="ev field">field report</span></th><td>Reported by another owner testing on their car. Plausible, not reproduced by us.</td></tr>
+    </tbody>
+  </table>
+  <p>
+    Byte numbers count from 0, and bit 0 is the least significant bit. A
+    telegram is written as hex bytes as they go on the wire.
+  </p>
+</section>
+
+<section id="safety">
+  <h2>Before you use any of this</h2>
+  <div class="callout">
+    <p>
+      These pages describe how the units behave, not a procedure that is safe on
+      your car. A write to a control unit can leave it unable to start. Read the
+      unit's own data back before you change it, keep a copy, and expect that a
+      software release other than the one named may differ.
+    </p>
+  </div>
+  <p>
+    What BMWeb itself will and will not write is in the
+    <a href="../docs.html#safety">documentation</a>.
+  </p>
+</section>
