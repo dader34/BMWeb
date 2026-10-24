@@ -300,7 +300,7 @@ async function showEcu(
   view.innerHTML = head(
     `${sectionName} · ${ecu.code}`,
     ecu.label,
-    `SGBD ${ecu.sgbd}.prg · running INPA's script`
+    `SGBD ${ecu.sgbd}.prg`
   );
 
   const grid = document.createElement('div');
@@ -324,7 +324,7 @@ async function showEcu(
     if (sub) {
       sub.textContent =
         `SGBD ${ecu.sgbd}.prg · identified by the car ` +
-        `(configured ${ecu._sgbdBase}) · running INPA's script`;
+        `(configured ${ecu._sgbdBase})`;
     }
   }
   // THE SGBD IS WHAT WE TALK TO; THE SCRIPT IS WHAT DRAWS. INPA loads ONE
