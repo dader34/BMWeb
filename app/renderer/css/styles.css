@@ -259,21 +259,18 @@ html.no-chrome .topbar {
   height: 22px;
   display: block;
 }
-.brand-logo .logo-ring {
+/* the bolt B on its tile, in the theme's four logo colours (the roles the
+   roundel's ring, disc and quadrants had): ground, border, accent, white */
+.brand-logo .logo-tile {
   fill: var(--logo-bg);
   stroke: var(--logo-border);
   stroke-width: 3px;
 }
-.brand-logo .logo-quad-white {
-  fill: var(--logo-quad-1);
-}
-.brand-logo .logo-quad-color {
+.brand-logo .logo-b {
   fill: var(--logo-quad-2);
 }
-.brand-logo .logo-inner-ring {
-  fill: none;
-  stroke: var(--logo-inner-border);
-  stroke-width: 2px;
+.brand-logo .logo-bolt {
+  fill: var(--logo-quad-1);
 }
 .brand-name {
   font-weight: 900;
@@ -319,21 +316,18 @@ html.no-chrome .topbar {
   filter: drop-shadow(0 14px 30px rgba(0, 0, 0, 0.55));
   animation: splash-pop 0.6s cubic-bezier(0.2, 0.9, 0.25, 1.1) both;
 }
-.splash-logo .logo-ring {
+/* the bolt B on its tile, in the theme's four logo colours (the roles the
+   roundel's ring, disc and quadrants had): ground, border, accent, white */
+.splash-logo .logo-tile {
   fill: var(--logo-bg);
   stroke: var(--logo-border);
   stroke-width: 3px;
 }
-.splash-logo .logo-quad-white {
-  fill: var(--logo-quad-1);
-}
-.splash-logo .logo-quad-color {
+.splash-logo .logo-b {
   fill: var(--logo-quad-2);
 }
-.splash-logo .logo-inner-ring {
-  fill: none;
-  stroke: var(--logo-inner-border);
-  stroke-width: 2px;
+.splash-logo .logo-bolt {
+  fill: var(--logo-quad-1);
 }
 .splash-name {
   font-family: var(--display);

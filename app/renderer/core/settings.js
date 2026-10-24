@@ -201,22 +201,15 @@ function setFavicon(dataUrl) {
  */
 function logoSvg(size) {
   const styles = getComputedStyle(document.documentElement);
+  // the bolt B in the theme's four logo colours: ground, border, accent, white
   const bg = styles.getPropertyValue('--logo-bg').trim() || '#11161c';
   const border = styles.getPropertyValue('--logo-border').trim() || '#9aa6b2';
   const q1 = styles.getPropertyValue('--logo-quad-1').trim() || '#eef2f5';
   const q2 = styles.getPropertyValue('--logo-quad-2').trim() || '#ff9e2c';
-  const ib = styles.getPropertyValue('--logo-inner-border').trim() || '#0a0d11';
   return (
     `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 100 100">` +
-    `<circle cx="50" cy="50" r="48" fill="${bg}" stroke="${border}" stroke-width="3"/>` +
-    `<clipPath id="disc"><circle cx="50" cy="50" r="31"/></clipPath>` +
-    `<g clip-path="url(#disc)">` +
-    `<rect x="19" y="19" width="31" height="31" fill="${q1}"/>` +
-    `<rect x="50" y="50" width="31" height="31" fill="${q1}"/>` +
-    `<rect x="50" y="19" width="31" height="31" fill="${q2}"/>` +
-    `<rect x="19" y="50" width="31" height="31" fill="${q2}"/>` +
-    `</g>` +
-    `<circle cx="50" cy="50" r="31" fill="none" stroke="${ib}" stroke-width="2"/>` +
+    `<rect x="1.5" y="1.5" width="97" height="97" rx="21" fill="${bg}" stroke="${border}" stroke-width="3"/>` +
+    `<g transform="translate(17 18.5) scale(0.126)"><path fill="${q2}" d="M88 0 H400 C470 0 520 40 516 100 C512 160 480 196 432 214 C488 236 512 290 500 352 C486 440 420 490 320 490 H0 Z"/><path fill="${q1}" d="M318 26 L128 262 L230 262 L176 452 L384 210 L282 210 Z"/></g>` +
     `</svg>`
   );
 }
