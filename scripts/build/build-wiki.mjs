@@ -168,7 +168,7 @@ ${items.map((p) => li(`${p.slug}.html`, p.nav, p.slug === here)).join('\n')}
         <div class="side-top">
           <a class="logo-link" href="index.html">
             ${logo}
-            <span class="wm">BMWeb Wiki<small>What we learned</small></span>
+            <span class="wm">BMWeb Wiki</span>
           </a>
           <button class="menu-btn" type="button" aria-controls="side" aria-expanded="false">Menu</button>
         </div>
