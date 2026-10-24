@@ -4,159 +4,273 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>BMWeb: Documentation</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg%20width%3D%22100%22%20height%3D%22100%22%20viewBox%3D%220%200%20100%20100%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%20%3Ccircle%20cx%3D%2250%22%20cy%3D%2250%22%20r%3D%2248%22%20fill%3D%22%2311161c%22%20stroke%3D%22%239aa6b2%22%20stroke-width%3D%223%22%2F%3E%20%3CclipPath%20id%3D%22disc%22%3E%3Ccircle%20cx%3D%2250%22%20cy%3D%2250%22%20r%3D%2231%22%2F%3E%3C%2FclipPath%3E%20%3Cg%20clip-path%3D%22url%28%23disc%29%22%3E%20%3Crect%20x%3D%2219%22%20y%3D%2219%22%20width%3D%2231%22%20height%3D%2231%22%20fill%3D%22%23eef2f5%22%2F%3E%20%3Crect%20x%3D%2250%22%20y%3D%2250%22%20width%3D%2231%22%20height%3D%2231%22%20fill%3D%22%23eef2f5%22%2F%3E%20%3Crect%20x%3D%2250%22%20y%3D%2219%22%20width%3D%2231%22%20height%3D%2231%22%20fill%3D%22%23ff9e2c%22%2F%3E%20%3Crect%20x%3D%2219%22%20y%3D%2250%22%20width%3D%2231%22%20height%3D%2231%22%20fill%3D%22%23ff9e2c%22%2F%3E%20%3C%2Fg%3E%20%3Ccircle%20cx%3D%2250%22%20cy%3D%2250%22%20r%3D%2231%22%20fill%3D%22none%22%20stroke%3D%22%230a0d11%22%20stroke-width%3D%222%22%2F%3E%20%3C%2Fsvg%3E">
-  <meta name="theme-color" content="#0d1217">
-
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="site.css">
-  <style>
-    /* Page-specific: the two-column doc shell (sticky contents rail + prose)
-       and the prose rhythm. Shared chrome comes from site.css. */
-
-    .doc-grid { display: block; }
-    @media (min-width: 900px) {
-      .doc-grid {
-        display: grid;
-        grid-template-columns: 13rem minmax(0, 1fr);
-        gap: 56px;
-        align-items: start;
-      }
-    }
-
-    /* Contents rail */
-    .toc { display: none; }
-    @media (min-width: 900px) {
-      .toc {
-        display: block; position: sticky; top: 28px;
-        padding-bottom: 40px;
-      }
-    }
-    .toc-label {
-      font-size: 12px; font-weight: 600; color: var(--faint);
-      letter-spacing: .02em; margin: 0 0 12px; padding-left: 10px;
-    }
-    .toc a {
-      display: block; padding: 6px 10px; border-radius: 6px;
-      color: var(--dim); font-size: 13.5px; text-decoration: none;
-      transition: color .14s ease, background-color .14s ease;
-    }
-    .toc a:hover { color: var(--ink); background: var(--surface); }
-    .toc a.current { color: var(--amber); background: rgba(255,158,44,.08); }
-
-    /* Prose */
-    .doc { min-width: 0; padding-bottom: 40px; }
-    .doc section { padding-bottom: 44px; scroll-margin-top: 24px; }
-    .doc h2 {
-      margin: 0 0 6px; font-size: 22px; font-weight: 600; letter-spacing: -.022em;
-    }
-    .doc .section-note { margin: 0 0 20px; color: var(--faint); font-size: 14px; }
-    .doc h3 {
-      margin: 28px 0 10px; font-size: 15.5px; font-weight: 600; letter-spacing: -.012em;
-    }
-    .doc p { margin: 0 0 14px; color: var(--dim); font-size: 15px; line-height: 1.68; }
-    .doc p:last-child { margin-bottom: 0; }
-    .doc b, .doc strong { color: var(--ink); font-weight: 500; }
-    .doc a:not(.btn):not(.nav-btn) {
-      color: var(--dim); text-decoration: underline;
-      text-underline-offset: 3px; text-decoration-color: var(--faint);
-    }
-    .doc a:not(.btn):not(.nav-btn):hover { color: var(--amber); text-decoration-color: var(--amber); }
-    .doc code {
-      font-family: var(--mono); font-size: 13px; color: var(--ink);
-      background: var(--surface); border-radius: 5px; padding: 2px 6px;
-    }
-    .doc ul, .doc ol { margin: 0 0 14px; padding-left: 20px; color: var(--dim); font-size: 15px; line-height: 1.68; }
-    .doc li { margin-bottom: 7px; }
-    .doc li:last-child { margin-bottom: 0; }
-
-    /* Numbered setup steps */
-    .steps { margin: 0 0 16px; padding: 0; list-style: none; counter-reset: s; }
-    .steps li {
-      display: flex; gap: 14px; align-items: baseline;
-      padding: 11px 0; counter-increment: s;
-      border-bottom: 1px solid var(--line);
-    }
-    .steps li:last-child { border-bottom: 0; }
-    .steps li::before {
-      content: counter(s);
-      flex: none; width: 21px; height: 21px; border-radius: 50%;
-      background: rgba(255,255,255,.07); color: var(--dim);
-      font-size: 11.5px; font-weight: 500;
-      display: flex; align-items: center; justify-content: center;
-      align-self: flex-start;
-    }
-    .steps div { min-width: 0; }
-    .steps b { display: block; color: var(--ink); font-size: 14.5px; font-weight: 500; margin-bottom: 3px; }
-    .steps span { display: block; color: var(--dim); font-size: 14px; line-height: 1.6; }
-
-    /* Callout: one amber edge, used only where getting it wrong costs money. */
-    .callout {
-      background: var(--surface); border-radius: var(--r);
-      border-left: 2px solid var(--amber);
-      padding: 16px 20px; margin: 0 0 18px;
-    }
-    .callout.plain { border-left-color: var(--line); }
-    .callout h4 { margin: 0 0 6px; font-size: 14.5px; font-weight: 600; color: var(--ink); }
-    .callout p { margin: 0 0 10px; font-size: 14px; line-height: 1.62; }
-    .callout p:last-child { margin-bottom: 0; }
-
-    /* Feature list */
-    .feature-list { display: grid; grid-template-columns: 1fr; gap: 1px; background: var(--line);
-      border-radius: var(--r); overflow: hidden; margin-bottom: 18px; }
-    @media (min-width: 620px) { .feature-list { grid-template-columns: 1fr 1fr; } }
-    .feature {
-      background: var(--surface); padding: 16px 18px;
-    }
-    .feature h4 { margin: 0 0 4px; font-size: 14.5px; font-weight: 600; color: var(--ink); }
-    .feature p { margin: 0; font-size: 13.5px; line-height: 1.55; color: var(--dim); }
-
-    /* Chassis chips */
-    .chips { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 16px; }
-    .chip {
-      background: var(--surface); border-radius: 6px;
-      padding: 5px 10px; font-family: var(--mono); font-size: 12.5px; color: var(--dim);
-    }
-
-    /* Troubleshooting */
-    .fault { border-bottom: 1px solid var(--line); padding: 16px 0; }
-    .fault:first-of-type { padding-top: 0; }
-    .fault:last-of-type { border-bottom: 0; }
-    .fault h4 { margin: 0 0 5px; font-size: 14.5px; font-weight: 600; color: var(--ink); }
-    .fault p { margin: 0; font-size: 14px; line-height: 1.6; }
-    .fault .code {
-      font-family: var(--mono); font-size: 12px; color: var(--faint);
-      display: block; margin-bottom: 4px;
-    }
-  </style>
-
+<meta name="description" content="How to connect a cable to BMWeb, what each part of it does, and what it will and will not write to your car.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20width%3D%22100%22%20height%3D%22100%22%20viewBox%3D%220%200%20100%20100%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%20%3Ccircle%20cx%3D%2250%22%20cy%3D%2250%22%20r%3D%2248%22%20fill%3D%22%2311161c%22%20stroke%3D%22%239aa6b2%22%20stroke-width%3D%223%22%2F%3E%20%3CclipPath%20id%3D%22disc%22%3E%3Ccircle%20cx%3D%2250%22%20cy%3D%2250%22%20r%3D%2231%22%2F%3E%3C%2FclipPath%3E%20%3Cg%20clip-path%3D%22url%28%23disc%29%22%3E%20%3Crect%20x%3D%2219%22%20y%3D%2219%22%20width%3D%2231%22%20height%3D%2231%22%20fill%3D%22%23eef2f5%22%2F%3E%20%3Crect%20x%3D%2250%22%20y%3D%2250%22%20width%3D%2231%22%20height%3D%2231%22%20fill%3D%22%23eef2f5%22%2F%3E%20%3Crect%20x%3D%2250%22%20y%3D%2219%22%20width%3D%2231%22%20height%3D%2231%22%20fill%3D%22%23ff9e2c%22%2F%3E%20%3Crect%20x%3D%2219%22%20y%3D%2250%22%20width%3D%2231%22%20height%3D%2231%22%20fill%3D%22%23ff9e2c%22%2F%3E%20%3C%2Fg%3E%20%3Ccircle%20cx%3D%2250%22%20cy%3D%2250%22%20r%3D%2231%22%20fill%3D%22none%22%20stroke%3D%22%230a0d11%22%20stroke-width%3D%222%22%2F%3E%20%3C%2Fsvg%3E">
+<meta name="theme-color" content="#0b0f14">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script>
 // The Pages build renames index.html -> app.html and install.html ->
-// index.html, so the same href cannot be right in both layouts. This page is
-// not renamed either way, so the path cannot tell us which layout we are in:
-// ask the server whether app.html exists instead. Links are written with the
-// local layout and rewritten only once app.html is confirmed, so a failed
-// probe leaves the working local hrefs untouched.
-(function () {
-  fetch('app.html', { method: 'HEAD' }).then(function (r) {
+// index.html, so the same href cannot be right in both layouts. Links are
+// written for the local layout and rewritten only once app.html is
+// confirmed, so a failed probe leaves the working local hrefs alone.
+fetch('app.html', { method: 'HEAD' })
+  .then(function (r) {
     if (!r.ok) return;
-    function set(sel, url) {
-      Array.prototype.forEach.call(
-        document.querySelectorAll(sel), function (a) { a.href = url; });
-    }
-    set('[data-link="app"]', 'app.html');
-    set('[data-link="home"]', './');
-  }).catch(function () {});
-}());
+    document.querySelectorAll('[data-link="app"]').forEach(function (a) { a.href = 'app.html'; });
+    document.querySelectorAll('[data-link="home"]').forEach(function (a) { a.href = './'; });
+  })
+  .catch(function () {});
 </script>
+<style>
+  /* The documentation's own theme: a top bar with search, a grouped sidebar,
+     the article, and an "On this page" rail. Light and dark follow the
+     system. */
+  :root {
+    --bg: #ffffff;
+    --bg-side: #f7f8fa;
+    --bg-code: #f1f3f6;
+    --ink: #161b22;
+    --text: #374151;
+    --dim: #6b7280;
+    --line: #e5e7eb;
+    --accent: #c86a00;
+    --accent-ink: #a35600;
+    --accent-soft: rgba(255, 158, 44, .12);
+    --btn: #ff9e2c;
+    --btn-ink: #1a1206;
+    --note: #2563eb;
+    --note-soft: rgba(37, 99, 235, .07);
+    --warn: #d97706;
+    --warn-soft: rgba(217, 119, 6, .08);
+    --ring: #8a96a3;
+    --q-white: #eef2f5;
+    --q-color: #ff9e2c;
+    --sans: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+    --top: 60px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0b0f14;
+      --bg-side: #0e1319;
+      --bg-code: #161d25;
+      --ink: #eef2f6;
+      --text: #b8c2cc;
+      --dim: #7d8a97;
+      --line: #1d2630;
+      --accent: #ffad4d;
+      --accent-ink: #ffbe70;
+      --accent-soft: rgba(255, 158, 44, .1);
+      --note: #6ea8ff;
+      --note-soft: rgba(110, 168, 255, .07);
+      --warn: #ffb24a;
+      --warn-soft: rgba(255, 178, 74, .07);
+      --ring: #9aa6b2;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-padding-top: calc(var(--top) + 20px); -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 15.5px/1.7 var(--sans); -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--accent-ink); text-decoration: none; }
+  a:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+  /* Logo */
+  .logo { width: 28px; height: 28px; flex: none; }
+  .logo-ring { fill: none; stroke: var(--ring); stroke-width: 3; }
+  .q-white { fill: var(--q-white); }
+  .q-color { fill: var(--q-color); }
+
+  /* Top bar */
+  .topbar {
+    position: sticky; top: 0; z-index: 30; height: var(--top);
+    display: flex; align-items: center; gap: 20px; padding: 0 20px;
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    backdrop-filter: saturate(1.4) blur(10px); -webkit-backdrop-filter: saturate(1.4) blur(10px);
+    border-bottom: 1px solid var(--line);
+  }
+  .brand { display: flex; align-items: center; gap: 10px; color: var(--ink); font-weight: 600; font-size: 16px; }
+  .brand:hover { text-decoration: none; }
+  .brand .tag {
+    font-size: 12px; font-weight: 500; color: var(--dim); border: 1px solid var(--line);
+    border-radius: 999px; padding: 1px 9px; margin-left: 2px;
+  }
+  .search { position: relative; flex: 1; max-width: 420px; margin-left: 12px; }
+  .search input {
+    width: 100%; height: 36px; border-radius: 8px; border: 1px solid var(--line);
+    background: var(--bg-side); color: var(--ink); font: inherit; font-size: 14px;
+    padding: 0 40px 0 34px; outline: none;
+  }
+  .search input:focus { border-color: var(--accent); }
+  .search svg { position: absolute; left: 11px; top: 10px; width: 16px; height: 16px; stroke: var(--dim); fill: none; stroke-width: 2; }
+  .search kbd {
+    position: absolute; right: 9px; top: 8px; font: 11px var(--mono); color: var(--dim);
+    border: 1px solid var(--line); border-radius: 4px; padding: 1px 6px;
+  }
+  .search input:focus ~ kbd, .search input:not(:placeholder-shown) ~ kbd { display: none; }
+  .results {
+    display: none; position: absolute; top: 42px; left: 0; right: 0; max-height: 60vh; overflow: auto;
+    background: var(--bg); border: 1px solid var(--line); border-radius: 10px;
+    box-shadow: 0 12px 32px rgba(0,0,0,.18); padding: 6px;
+  }
+  .results.open { display: block; }
+  .results a { display: block; padding: 8px 10px; border-radius: 6px; color: var(--text); font-size: 13.5px; line-height: 1.45; }
+  .results a b { display: block; color: var(--ink); font-weight: 600; }
+  .results a span { color: var(--dim); }
+  .results a:hover, .results a.sel { background: var(--accent-soft); text-decoration: none; }
+  .results .none { padding: 10px; color: var(--dim); font-size: 13.5px; }
+  .toplinks { margin-left: auto; display: flex; align-items: center; gap: 22px; font-size: 14px; }
+  .toplinks a { color: var(--text); }
+  .toplinks a:hover { color: var(--ink); text-decoration: none; }
+  .toplinks .app {
+    background: var(--btn); color: var(--btn-ink); font-weight: 600;
+    padding: 7px 14px; border-radius: 8px;
+  }
+  .toplinks .app:hover { color: var(--btn-ink); filter: brightness(1.06); }
+  .menu-btn {
+    display: none; border: 1px solid var(--line); background: none; color: var(--ink);
+    font: inherit; font-size: 13.5px; border-radius: 8px; height: 34px; padding: 0 12px;
+  }
+
+  /* Three columns */
+  .layout {
+    display: grid; grid-template-columns: 260px minmax(0, 1fr) 220px;
+    max-width: 1440px; margin: 0 auto;
+  }
+  .sidebar {
+    position: sticky; top: var(--top); height: calc(100vh - var(--top)); overflow: auto;
+    padding: 28px 16px 40px 24px; border-right: 1px solid var(--line); background: var(--bg-side);
+  }
+  .sidebar h4 {
+    margin: 22px 0 6px; padding-left: 10px; font-size: 12px; font-weight: 600;
+    letter-spacing: .06em; text-transform: uppercase; color: var(--dim);
+  }
+  .sidebar h4:first-child { margin-top: 0; }
+  .sidebar ul { list-style: none; margin: 0; padding: 0; }
+  .sidebar a {
+    display: block; padding: 5px 10px; border-radius: 6px; font-size: 14px; color: var(--text);
+    border-left: 2px solid transparent;
+  }
+  .sidebar a:hover { background: var(--accent-soft); color: var(--ink); text-decoration: none; }
+  .sidebar a.on { color: var(--accent-ink); background: var(--accent-soft); font-weight: 500; }
+
+  .article { padding: 36px 56px 80px; min-width: 0; max-width: 860px; }
+  .crumbs { font-size: 13px; color: var(--dim); margin-bottom: 10px; }
+  .crumbs a { color: var(--dim); }
+  .article h1 { margin: 0 0 12px; color: var(--ink); font-size: 34px; line-height: 1.2; letter-spacing: -.025em; font-weight: 700; }
+  .article .lead { font-size: 17.5px; line-height: 1.65; color: var(--text); margin: 0 0 28px; }
+  .facts {
+    display: flex; flex-wrap: wrap; border: 1px solid var(--line); border-radius: 10px;
+    overflow: hidden; margin: 0 0 40px;
+  }
+  .facts div { flex: 1 1 140px; padding: 12px 14px; box-shadow: 0 0 0 .5px var(--line); }
+  .facts dt { font-size: 12px; color: var(--dim); }
+  .facts dd { margin: 2px 0 0; color: var(--ink); font-weight: 600; font-size: 14.5px; }
+
+  .article section { padding-top: 8px; margin-bottom: 44px; }
+  .article section + section { border-top: 1px solid var(--line); padding-top: 36px; }
+  .article h2 { margin: 0 0 14px; color: var(--ink); font-size: 25px; letter-spacing: -.018em; font-weight: 650; line-height: 1.3; }
+  .article h3 { margin: 30px 0 10px; color: var(--ink); font-size: 18px; font-weight: 600; letter-spacing: -.01em; }
+  .article h2, .article h3 { position: relative; }
+  .anchor { margin-left: 8px; color: var(--dim); opacity: 0; font-weight: 400; }
+  h2:hover .anchor, h3:hover .anchor, .anchor:focus { opacity: 1; text-decoration: none; }
+  .article p { margin: 0 0 16px; }
+  .article b, .article strong { color: var(--ink); font-weight: 600; }
+  .article ul, .article ol { margin: 0 0 16px; padding-left: 22px; }
+  .article li { margin-bottom: 6px; }
+  .article code {
+    font: 13px var(--mono); background: var(--bg-code); color: var(--ink);
+    border: 1px solid var(--line); border-radius: 5px; padding: 1px 6px; white-space: nowrap;
+  }
+
+  /* Numbered steps with a rail */
+  .article ol.steps { list-style: none; padding: 0; counter-reset: step; margin: 0 0 20px; }
+  .article ol.steps li {
+    counter-increment: step; position: relative; padding: 0 0 18px 46px; margin: 0;
+  }
+  .article ol.steps li::before {
+    content: counter(step); position: absolute; left: 0; top: 0;
+    width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center;
+    background: var(--bg-code); border: 1px solid var(--line); color: var(--ink);
+    font-size: 13px; font-weight: 600;
+  }
+  .article ol.steps li::after {
+    content: ''; position: absolute; left: 14px; top: 32px; bottom: 2px; width: 1px; background: var(--line);
+  }
+  .article ol.steps li:last-child::after { display: none; }
+
+  /* Callouts */
+  .callout {
+    border: 1px solid var(--line); border-left: 3px solid var(--note);
+    background: var(--note-soft); border-radius: 8px; padding: 14px 18px; margin: 0 0 22px;
+  }
+  .callout.warn { border-left-color: var(--warn); background: var(--warn-soft); }
+  .callout h4 {
+    margin: 0 0 6px; color: var(--ink); font-size: 14.5px; font-weight: 600;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .callout h4::before {
+    content: 'i'; width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center;
+    background: var(--note); color: var(--bg); font: 700 12px/1 var(--sans);
+  }
+  .callout.warn h4::before { content: '!'; background: var(--warn); }
+  .callout p { margin: 0 0 8px; font-size: 14.5px; }
+  .callout p:last-child { margin-bottom: 0; }
+
+  /* Tables */
+  .table { overflow-x: auto; margin: 0 0 20px; border: 1px solid var(--line); border-radius: 10px; }
+  .article table { width: 100%; border-collapse: collapse; font-size: 14.5px; line-height: 1.55; }
+  .article th, .article td { text-align: left; vertical-align: top; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+  .article tr:last-child > * { border-bottom: 0; }
+  .article thead th {
+    background: var(--bg-side); color: var(--dim); font-size: 12px; font-weight: 600;
+    letter-spacing: .04em; text-transform: uppercase;
+  }
+  .article tbody th { color: var(--ink); font-weight: 600; width: 32%; }
+
+  .pager { display: flex; justify-content: space-between; gap: 16px; border-top: 1px solid var(--line); padding-top: 24px; font-size: 14px; color: var(--dim); }
+
+  /* On this page */
+  .onpage { position: sticky; top: var(--top); height: calc(100vh - var(--top)); overflow: auto; padding: 36px 20px 40px 8px; }
+  .onpage h4 { margin: 0 0 10px; font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--dim); }
+  .onpage ul { list-style: none; margin: 0; padding: 0; border-left: 1px solid var(--line); }
+  .onpage a { display: block; padding: 4px 0 4px 14px; margin-left: -1px; border-left: 1px solid transparent; font-size: 13px; color: var(--dim); line-height: 1.45; }
+  .onpage a:hover { color: var(--ink); text-decoration: none; }
+  .onpage a.on { color: var(--accent-ink); border-left-color: var(--accent); }
+
+  @media (max-width: 1180px) {
+    .layout { grid-template-columns: 240px minmax(0, 1fr); }
+    .onpage { display: none; }
+  }
+  @media (max-width: 860px) {
+    .layout { display: block; }
+    .menu-btn { display: inline-block; }
+    .sidebar {
+      display: none; position: fixed; inset: var(--top) 0 0 0; z-index: 25; height: auto;
+      border-right: 0;
+    }
+    .sidebar.open { display: block; }
+    .article { padding: 24px 16px 60px; }
+    .article h1 { font-size: 28px; }
+    .toplinks a:not(.app) { display: none; }
+    .search { margin-left: 0; }
+    .search kbd { display: none; }
+    .topbar { gap: 10px; padding: 0 12px; }
+    .brand .tag, .brand .word { display: none; }
+    .article tbody th { width: auto; }
+  }
+</style>
 </head>
 <body>
 
-<header class="masthead">
-  <div class="wrap wrap-wide masthead-in">
-    <a class="brand" href="index.html" data-link="app">
-      <svg class="logo" viewBox="0 0 100 100" role="img" aria-label="BMWeb">
+<header class="topbar">
+  <a class="brand" href="install.html" data-link="home" aria-label="BMWeb home">
+    <svg class="logo" viewBox="0 0 100 100" role="img" aria-label="BMWeb">
         <circle class="logo-ring" cx="50" cy="50" r="48"/>
         <clipPath id="d"><circle cx="50" cy="50" r="31"/></clipPath>
         <g clip-path="url(#d)">
@@ -167,357 +281,466 @@
         </g>
         <circle class="logo-ring" cx="50" cy="50" r="31"/>
       </svg>
-      <span class="name">BMWeb <span style="color:var(--faint);font-weight:400">Docs</span></span>
-    </a>
-    <nav class="nav-links">
-      <a href="docs.html" class="nav-btn" aria-current="page">Docs</a>
-      <a href="wiki/index.html" class="nav-btn">Wiki</a>
-      <a href="demo.html" class="nav-btn">Photos</a>
-      <a href="index.html" class="nav-btn" data-link="app">Get the app</a>
-    </nav>
+    <span class="word">BMWeb</span><span class="tag">Docs</span>
+  </a>
+  <div class="search" role="search">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+    <input id="q" type="search" placeholder="Search the docs" autocomplete="off" aria-label="Search the docs">
+    <kbd>/</kbd>
+    <div class="results" id="results" role="listbox"></div>
   </div>
+  <nav class="toplinks">
+    <a href="wiki/index.html">Wiki</a>
+    <a href="demo.html">Photos</a>
+    <a class="app" href="index.html" data-link="app">Open the app</a>
+  </nav>
+  <button class="menu-btn" type="button" aria-controls="sidebar" aria-expanded="false">Menu</button>
 </header>
 
-<main class="wrap wrap-wide">
-  <div class="page-head">
-    <h1>Documentation</h1>
-    <p>How to connect a cable, what each screen does, and what the app will and
-      will not write to your car.</p>
-  </div>
+<div class="layout">
+  <aside class="sidebar" id="sidebar">
+    <nav aria-label="Documentation">
+      <h4>Get started</h4>
+      <ul>
+        <li><a href="#start">Getting connected</a></li>
+        <li><a href="#cable">The cable</a></li>
+      </ul>
+      <h4>Using BMWeb</h4>
+      <ul>
+        <li><a href="#car">On the car</a></li>
+        <li><a href="#reference">Without a car</a></li>
+        <li><a href="#flashing">Flashing, tuning and logging</a></li>
+      </ul>
+      <h4>Reference</h4>
+      <ul>
+        <li><a href="#coverage">Supported cars</a></li>
+        <li><a href="#safety">Writing and safety</a></li>
+        <li><a href="#offline">Working offline</a></li>
+        <li><a href="#trouble">Troubleshooting</a></li>
+        <li><a href="#limits">Limitations</a></li>
+      </ul>
+    </nav>
+  </aside>
 
-  <div class="doc-grid">
-    <aside class="toc">
-      <p class="toc-label">Contents</p>
-      <nav id="toc-nav">
-        <a href="#start">Getting connected</a>
-        <a href="#hardware">The cable</a>
-        <a href="#features">What you can do</a>
-        <a href="#coverage">Supported cars</a>
-        <a href="#safety">Writing and safety</a>
-        <a href="#offline">Working offline</a>
-        <a href="#trouble">Troubleshooting</a>
-        <a href="#limits">Limitations</a>
-      </nav>
-    </aside>
+  <main class="article">
+    <div class="crumbs"><a href="install.html" data-link="home">BMWeb</a> / Documentation</div>
+    <h1>BMWeb documentation</h1>
+    <p class="lead"><b>BMWeb</b> is a free BMW diagnostic tool that runs in the browser. It reads fault memory, live values and coding from BMWs of the INPA era, E31 to early F series, through a K+DCAN cable, drives components for testing, flashes and tunes the MS45 engine computer and the GS20 gearbox, and carries BMW's fault codes, wiring diagrams, repair manual and parts catalogue for use without a car. This page covers connecting, what each part does, and what it will and will not write to a car.</p>
+    <dl class="facts">
+      <div><dt>Runs in</dt><dd>Chrome or Edge</dd></div>
+      <div><dt>Cable</dt><dd>K+DCAN USB</dd></div>
+      <div><dt>Diagnostics</dt><dd>26 chassis</dd></div>
+      <div><dt>Fault codes</dt><dd>51,484</dd></div>
+      <div><dt>Price</dt><dd>Free, open source</dd></div>
+    </dl>
+    <section id="start">
+      <h2>Getting connected</h2>
+      <div class="callout">
+        <h4>Before you plug anything in</h4>
+        <p>
+          Put the ignition in <b>position 2</b> with the <b>engine off</b>, and make
+          sure the battery is healthy. Most "the ECU rejected the request" errors
+          are really a car that is not in the right state, or a battery sagging
+          under load.
+        </p>
+      </div>
+      <p>
+        The app talks to the cable through Web Serial, which only
+        <b>Chrome and Edge on a computer</b> have. Safari and Firefox do not, so on
+        a Mac use Chrome or Edge.
+      </p>
+      <ol class="steps">
+        <li><b>Plug the cable in directly</b>, into the car's diagnostic port and into the computer. Avoid USB hubs.</li>
+        <li><b>Click the cable chip in the top bar.</b> The browser only opens its port picker after a click, so the first connect is always yours.</li>
+        <li><b>Choose your port.</b> On macOS it starts with <code>cu.usbserial</code>, <code>cu.usbmodem</code>, <code>cu.SLAB</code> or <code>cu.wchusbserial</code>; on Linux, <code>ttyUSB</code> or <code>ttyACM</code>. The browser remembers it, and the app reopens the cable on every load after that.</li>
+        <li><b>Pick the car, then a module.</b> Each chassis lists its modules by system. Opening one brings up the module's own menu, with the F-keys along the bottom.</li>
+      </ol>
+      <h3>Settings</h3>
+      <p>
+        Settings switches between the classic text layout and a modern one with the
+        same keys and screens, picks one of six skins, shows English or BMW's
+        original job names, and decides whether activations ask first.
+      </p>
+    </section>
 
-    <article class="doc">
+    <section id="cable">
+      <h2>The cable</h2>
+      <p>
+        One kind is supported: the standard <b>K+DCAN USB cable</b>. An ELM327 is
+        not it. The app sets the line up for each module by itself:
+      </p>
+      <div class="table"><table>
+        <thead><tr><th scope="col">Modules</th><th scope="col">Line</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">DS2 and KWP2000</th><td><code>9600 8E1</code></td></tr>
+          <tr><th scope="row">BMW-FAST and D-CAN</th><td><code>115200 8N1</code></td></tr>
+          <tr><th scope="row">Older modules that sleep until addressed</th><td>The 5-baud wake-up first</td></tr>
+        </tbody>
+      </table></div>
+      <h3>FTDI latency</h3>
+      <p>
+        If your cable has an FTDI chip, set its latency timer to <b>1 ms</b>. The
+        app cannot change it; it tells you when the symptoms look like a slow
+        timer. On macOS the driver's default can be high enough that the cable
+        misses its own echo, which shows as <code>IFH-0003</code>.
+      </p>
+      <h3>Where it works</h3>
+      <div class="table"><table>
+        <thead><tr><th scope="col">Where</th><th scope="col">What works</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Chrome or Edge on Windows, macOS, Linux or ChromeOS</th><td>Everything, with the cable</td></tr>
+          <tr><th scope="row">Safari, Firefox, phones and tablets</th><td>Everything that needs no car: fault lookup, wiring, parts, tuning files. A phone cannot reach a USB cable from the browser.</td></tr>
+        </tbody>
+      </table></div>
+    </section>
 
-      <section id="start">
-        <h2>Getting connected</h2>
-        <p class="section-note">A K+DCAN cable and a desktop browser with Web Serial.</p>
+    <section id="car">
+      <h2>On the car</h2>
+      <p>
+        Every module screen is BMW's own INPA screen, decompiled and drawn as the
+        dealer tool drew it. A module BMW never drew a screen for says so instead
+        of guessing.
+      </p>
+      <div class="table"><table>
+        <thead><tr><th scope="col">Feature</th><th scope="col">What it does</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Fault memory</th><td>Stored faults in the module's own wording with their status flags, the conditions recorded when each was set, and clearing.</td></tr>
+          <tr><th scope="row">Live values</th><td>Switch positions, sensor readings and measurement blocks, refreshed while the screen is open, with the module's own scales and limits.</td></tr>
+          <tr><th scope="row">Activations</th><td>Drive injectors, fans, pumps and valves from the keyboard. Each one names the exact job before it is sent.</td></tr>
+          <tr><th scope="row">Coding</th><td>Read a module's coding, change functions by name and write them back through the car's own coding scripts. See <a href="#safety-coding">Coding</a> below.</td></tr>
+          <tr><th scope="row">Vehicle identity</th><td>The build record as each module stores it, side by side: VIN, odometer, order date, paint, trim and the option codes in words. Copies that disagree stand out.</td></tr>
+          <tr><th scope="row">Whole-car fault report</th><td>Every module's fault memory in one pass, as a clean sheet to print or save as PDF.</td></tr>
+          <tr><th scope="row">ISTA view</th><td>The workshop tool's tabs over the app's own reads: the control unit tree, per-module functions, fault detail, BMW's fault patterns, the repair manual and a search of the service data.</td></tr>
+          <tr><th scope="row">Garage</th><td>Save a car once and every scan of it is kept with it, with notes. Two reads side by side show what is new, what was cleared and what is still there.</td></tr>
+          <tr><th scope="row">Remote sessions</th><td>Share your cabled car with someone who can help, read-only or read and write. You get a short code, admit them, and approve every write before it goes to the car.</td></tr>
+          <tr><th scope="row">Guided tour</th><td>A short walk through the interface and how it all works, from the Apps hub.</td></tr>
+        </tbody>
+      </table></div>
+    </section>
 
-        <div class="callout plain">
-          <h4>Before you plug anything in</h4>
-          <p>Put the ignition in <b>position 2</b> with the <b>engine off</b>, and make sure
-            the battery is healthy. Most "the ECU rejected the request" errors are really a
-            car that is not in the right state, or a battery sagging under load.</p>
-        </div>
+    <section id="reference">
+      <h2>Without a car</h2>
+      <p>
+        The reference material from the dealer software, in the Apps hub. None of
+        it needs a cable.
+      </p>
+      <div class="table"><table>
+        <thead><tr><th scope="col">App</th><th scope="col">What it does</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Fault codes and diagnostic plans</th><td>Search 51,484 fault codes by code or words across every chassis and module, with BMW's service data and test procedures where they exist.</td></tr>
+          <tr><th scope="row">Job search</th><td>Every screen and key in every module script, searchable by what it does, in English or German. Screens that write are marked.</td></tr>
+          <tr><th scope="row">Wiring and documents</th><td>BMW's wiring diagrams as vectors, component locations, pin assignments, technical data and repair steps. Scroll to zoom, drag to pan.</td></tr>
+          <tr><th scope="row">Parts catalogue</th><td>Part numbers, exploded diagrams with a magnifier, supersessions and a VIN decoder. Pick your exact build to see only its parts.</td></tr>
+          <tr><th scope="row">Tool32</th><td>Run any job of any module definition by name, with an argument, and read the raw results. Jobs that write are marked.</td></tr>
+          <tr><th scope="row">Script runner</th><td>Run your own INPA script: a compiled <code>.IPO</code>, or <code>.IPS</code> / <code>.SRC</code> source compiled in the browser. It goes through the same write checks as the shipped scripts.</td></tr>
+        </tbody>
+      </table></div>
+    </section>
 
-        <h3>Any desktop, with a USB cable in the browser</h3>
-        <p>The web app drives a K+DCAN cable through Web Serial, which only
-          <b>Chrome and Edge on the desktop</b> implement. Safari has no Web Serial at all,
-          so on a Mac with a USB cable use Chrome or Edge.</p>
-        <ol class="steps">
-          <li><div><b>Plug the cable in directly</b><span>Into the car's OBD-II port and into the machine. Avoid USB hubs.</span></div></li>
-          <li><div><b>Click the cable chip in the top bar</b><span>The chip is the connect control. Web Serial refuses to open its port picker unless a click asks for it, so the first connect is always yours.</span></div></li>
-          <li><div><b>Choose your port</b><span>On macOS it starts with cu.usbserial, cu.usbmodem, cu.SLAB or cu.wchusbserial. On Linux, ttyUSB or ttyACM. The browser remembers the choice, and from then on the app reopens the cable on every load with no picker.</span></div></li>
-        </ol>
+    <section id="flashing">
+      <h2>Flashing, tuning and logging</h2>
+      <p>
+        One app in the hub for the Siemens MS45 engine computer and the GS20
+        automatic gearbox. It is a beta and says so before it opens.
+      </p>
+      <h3>Flashing</h3>
+      <div class="table"><table>
+        <thead><tr><th scope="col">Module</th><th scope="col">Reads</th><th scope="col">Writes</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">MS45 DME</th><td>The tune, the full module, the installed maps</td><td>A tune or a whole program. A program can be built with EWS delete, and with a map switch that carries two tunes.</td></tr>
+          <tr><th scope="row">GS20 gearbox</th><td>The calibration; the full 512 KB module once its read patch is installed</td><td>The calibration, with remove auto upshift as an option, or a program</td></tr>
+        </tbody>
+      </table></div>
+      <p>
+        Checksums are corrected for you, and every write is logged in the module's
+        own programming history, as the dealer tool does.
+      </p>
+      <h3>Tuning</h3>
+      <p>
+        Open a firmware image with an XDF definition and edit named constants and
+        tables in real units, with the raw hex beside them. Tables can be set,
+        scaled, interpolated and smoothed, and shown as a 2D graph or a 3D surface.
+        Comfort mode lists the common MS45 values under plain names. Saving writes
+        a file on your computer, never the car.
+      </p>
+      <h3>Live tuning</h3>
+      <p>
+        On an MS45 running the live-tune program, <b>LIVE ON</b> puts every edit
+        onto the running engine as you make it, and a live cursor marks the cells
+        the engine is reading. Beside the editor you can open the fault memory, the
+        learned adaptations (each clearable on its own), a rev gauge and live
+        values. Tick <b>Save to ECU</b> and the DME keeps the tune at key-off.
+      </p>
+      <h3>Logging</h3>
+      <p>
+        Comfort lists the readings that matter under plain names; Expert offers
+        every read-only job of every module. Each reading gets a chart while you
+        drive, and runs are kept in History and export as CSV. A replay scrubs
+        through a run, and Map mode paints the path the engine took across a table
+        from your tune. A DME reset during a run is kept as a black box.
+      </p>
+    </section>
 
-        <div class="callout plain">
-          <h4>On iPhone, open it in a browser</h4>
-          <p>Opening the app from the Files app preview will hang on the splash screen
-            with no error. Quick Look restricts scripts. Open it in Safari, or add it to
-            the home screen and launch it from there.</p>
-        </div>
-      </section>
+    <section id="coverage">
+      <h2>Supported cars</h2>
+      <div class="table"><table>
+        <thead><tr><th scope="col">Part</th><th scope="col">Covers</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Diagnostics</th><td>26 chassis: E31, E34, E36, E38, E39, E46, E52, E53, E60, E65, E70, E83, E85, E87, E89, E90, F01, F07, F10, F25, F30, K25, K40, R50, R56 and RR1</td></tr>
+          <tr><th scope="row">Wiring diagrams</th><td>15 chassis: E38, E39, E46, E52, E53, E60, E63, E65, E70, E83, E85, E87, E89, E90 and F01</td></tr>
+          <tr><th scope="row">Parts catalogue</th><td>246 chassis, from the E3, E9, E12 and E21 through the current G series, plus the i models, the K series motorcycles and Rolls-Royce</td></tr>
+          <tr><th scope="row">Flashing and tuning</th><td>The Siemens MS45 DME and the GS20 automatic gearbox</td></tr>
+        </tbody>
+      </table></div>
+      <p>
+        How much each chassis covers depends on how many modules it has: an E65
+        carries 96 module definitions, an E60 91, an E90 61, an E46 55, an F30 19.
+        A parts lookup needs no car, so it reaches far beyond the diagnostics.
+      </p>
+    </section>
 
-      <section id="hardware">
-        <h2>The cable</h2>
-        <p class="section-note">One is supported. An ELM327 is not it.</p>
+    <section id="safety">
+      <h2>Writing and safety</h2>
+      <p>
+        Reading is open. Anything that changes the car asks first, and a refused
+        write sends nothing at all.
+      </p>
+      <h3 id="safety-checks">Every job is checked before it runs</h3>
+      <p>
+        A job the app does not recognise is treated as a <b>write</b>, not as safe,
+        and a blocked write is stopped before a single byte reaches the car. A
+        permanent write (an EEPROM change, a service reset) always asks, whatever
+        the setting. In a remote session, the car's owner approves each write.
+      </p>
+      <h3 id="safety-activations">Activations</h3>
+      <p>
+        Activations ask first by default and say which kind they are: a test that
+        holds until you change it back or leave the screen, or a permanent write
+        that stays. Leaving an activation screen releases anything still held.
+      </p>
+      <h3 id="safety-coding">Coding</h3>
+      <p>
+        A coding write is an EEPROM write, and on a module that controls the
+        immobiliser or the airbags a mistake can stop the car starting. So every
+        coding write:
+      </p>
+      <ol>
+        <li>lists every change and waits for you to choose <b>Write to car</b>;</li>
+        <li>is refused unless the app has proved which variant and coding index the module is;</li>
+        <li>saves the module's current coding before anything is sent;</li>
+        <li>re-reads the module afterwards and reports any byte that did not land.</li>
+      </ol>
+      <p>
+        Your changes are laid over what was just read from the module, never over a
+        blank image. Modules that are coded in numbered blocks rather than by
+        address are refused for now.
+      </p>
+      <h3 id="safety-flashing">Flashing</h3>
+      <div class="callout warn">
+        <h4>Take a full read first</h4>
+        <p>
+          Flashing erases and rewrites the program and calibration in the module.
+          Before you write anything, take a full read and keep the files somewhere
+          safe: it is the only guaranteed way back. Keep a battery charger on, the
+          ignition on and the engine off, and do not unplug or close the page until
+          it reports success.
+        </p>
+        <p>
+          Flash only files meant for exactly this module and program version.
+          Options such as EWS delete change what the car protects against; know
+          what they do before you tick them.
+        </p>
+      </div>
+    </section>
 
-        <h3>K+DCAN USB cable</h3>
-        <p>The standard BMW cable. The app opens it at <code>115200 8N1</code> by default
-          and reopens the port at a different speed when a module needs one: DS2 and
-          KWP2000 modules run at <code>9600 8E1</code>, BMW-FAST and D-CAN at
-          <code>115200 8N1</code>. You do not have to configure any of this.</p>
-        <p>If your cable uses an FTDI chip, its <b>latency timer should be set to 1 ms</b>.
-          The app does not change this setting for you; it only tells you when the symptoms
-          look like a slow timer. On macOS the FTDI driver's default can be high enough
-          that the cable misses its own echo, which surfaces as
-          <code>IFH-0003</code>.</p>
+    <section id="offline">
+      <h2>Working offline</h2>
+      <p>
+        The app installs to the home screen or the dock and keeps working without a
+        connection. Everything it reads is a static file, so once it is cached
+        there is no server to be unreachable.
+      </p>
+      <p>
+        For a copy that never touches the network, every
+        <a href="https://github.com/dader34/BMWeb/releases">release</a> has
+        self-contained builds: unzip one and open <code>index.html</code>.
+      </p>
+      <div class="table"><table>
+        <thead><tr><th scope="col">Build</th><th scope="col">Size</th><th scope="col">Has</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">offline</th><td>about 1 GB</td><td>Diagnostics, coding, the fault lookup with its service data, the ISTA view, tuning definitions and the wiring diagrams</td></tr>
+          <tr><th scope="row">offline-no-wiring</th><td>about 850 MB</td><td>The same without the diagrams</td></tr>
+          <tr><th scope="row">offline-complete</th><td>about 9 GB</td><td>Adds the parts catalogue and the repair manual for every chassis. Too large for a GitHub release, so it is on Hugging Face, linked from each release's notes.</td></tr>
+        </tbody>
+      </table></div>
+    </section>
 
-        <h3>Where it works</h3>
-        <div class="matrix">
-          <div class="matrix-scroll">
-            <table>
-              <thead>
-                <tr>
-                  <th scope="col">Platform</th>
-                  <th scope="col">K+DCAN USB</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <th scope="row">Chrome or Edge, desktop</th>
-                  <td>Yes, via Web Serial</td>
-                </tr>
-                <tr>
-                  <th scope="row">Safari</th>
-                  <td class="req">No, Safari has no Web Serial</td>
-                </tr>
-                <tr>
-                  <th scope="row">iPhone and Android</th>
-                  <td class="req">No USB path on a phone; everything offline still works</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </section>
+    <section id="trouble">
+      <h2>Troubleshooting</h2>
+      <p>The errors people actually hit, and what each one means.</p>
+      <div class="table"><table>
+        <thead><tr><th scope="col">Message</th><th scope="col">Code</th><th scope="col">What it means</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">No cable connected</th><td></td><td>Plug the cable directly into the computer rather than through a USB hub, and check the car end is fully seated.</td></tr>
+          <tr><th scope="row">Security access denied</th><td></td><td>Engine off, ignition in position 2, healthy battery. The security seed is random, so a retry sometimes works where the first attempt did not.</td></tr>
+          <tr><th scope="row">The ECU rejected the request</th><td><code>conditions_not_correct</code></td><td>The module refuses because the car is not in the state the job needs. Ignition position 2, engine off.</td></tr>
+          <tr><th scope="row">The cable is not hearing itself</th><td><code>IFH-0003</code></td><td>The K line is half duplex, so the cable should hear an echo of what it sends. Either a connection is loose or the FTDI latency timer is too high. Reseat both ends, then check the latency is 1 ms.</td></tr>
+          <tr><th scope="row">No response from the ECU</th><td><code>IFH-0009</code>, <code>IFH-0018</code></td><td>Nothing answered. Usually the module is not fitted to this car, is not powered in this ignition position, or is on a bus this cable does not reach.</td></tr>
+          <tr><th scope="row">Damaged answer</th><td><code>IFH-0019</code></td><td>Something replied, but the reply did not survive the wire. Nearly always electrical: a marginal cable, a bad ground or a low battery.</td></tr>
+          <tr><th scope="row">App error, not the car</th><td></td><td>Nothing needs checking on the vehicle. The fault is in the software.</td></tr>
+        </tbody>
+      </table></div>
+    </section>
 
-      <section id="features">
-        <h2>What you can do</h2>
-        <p class="section-note">Every module screen is BMW's own INPA screen, decompiled and
-          rendered as it was drawn. Modules BMW never drew a screen for say so rather than
-          guessing at a layout.</p>
+    <section id="limits">
+      <h2>Limitations</h2>
+      <ul>
+        <li><b>Flashing covers two modules:</b> the MS45 DME and the GS20 gearbox. Other modules can be read and coded, not flashed.</li>
+        <li><b>Coding refuses block-coded modules</b>, such as the E46 body module (GM5) and light module (LSZ), until the way the factory tool addresses their blocks is confirmed.</li>
+        <li><b>A phone cannot use the cable.</b> Everything that needs no car still works there.</li>
+        <li>If the wrong coding keyword table is matched, it returns plausible but wrong keywords instead of failing loudly. Treat unexpected coding readouts with suspicion.</li>
+      </ul>
+    </section>
+    <div class="pager">
+      <span>Something wrong or missing? <a href="https://github.com/dader34/BMWeb/issues">Open an issue</a>.</span>
+      <a href="wiki/index.html">How the units work: the wiki &rarr;</a>
+    </div>
+  </main>
 
-        <div class="feature-list">
-          <div class="feature">
-            <h4>Fault memory</h4>
-            <p>Read stored codes with their English text and detail, then clear them.</p>
-          </div>
-          <div class="feature">
-            <h4>Whole-car scan</h4>
-            <p>INPA's own vehicle script reads every module's fault memory in one pass; the result is a report joined with the fault lookup, printable.</p>
-          </div>
-          <div class="feature">
-            <h4>Live values</h4>
-            <p>Watch measurements update continuously as gauges, several at once, and log them to CSV with timestamps.</p>
-          </div>
-          <div class="feature">
-            <h4>Activations</h4>
-            <p>Drive real components for testing. Held actuators are released when you leave the screen.</p>
-          </div>
-          <div class="feature">
-            <h4>Coding</h4>
-            <p>Read and inspect coding data, stage changes, and see exactly what would be sent.</p>
-          </div>
-          <div class="feature">
-            <h4>Trouble codes and plans</h4>
-            <p>Search 51,484 fault codes offline, with P-codes and the matching ISTA service documents.</p>
-          </div>
-          <div class="feature">
-            <h4>Wiring diagrams</h4>
-            <p>BMW's WDS diagrams as vectors. Scroll to zoom, drag to pan.</p>
-          </div>
-          <div class="feature">
-            <h4>Parts catalogue</h4>
-            <p>ETK part numbers, diagrams, supersessions and VIN decoding.</p>
-          </div>
-          <div class="feature">
-            <h4>Tool32</h4>
-            <p>Run any SGBD job directly and read the raw result registers.</p>
-          </div>
-          <div class="feature">
-            <h4>Tuning</h4>
-            <p>Inspect ECU firmware images with a hex editor and TunerPro .xdf constants, flags and tables.</p>
-          </div>
-        </div>
-        <p>There is also a built-in tutorial: a seven step tour of the interface and five
-          slides on how the whole thing works, from the Apps hub.</p>
-      </section>
-
-      <section id="coverage">
-        <h2>Supported cars</h2>
-        <p class="section-note">26 chassis for diagnostics. The parts catalogue reaches much
-          further than that.</p>
-
-        <h3>Diagnostics</h3>
-        <div class="chips">
-          <span class="chip">E31</span><span class="chip">E34</span><span class="chip">E36</span>
-          <span class="chip">E38</span><span class="chip">E39</span><span class="chip">E46</span>
-          <span class="chip">E52</span><span class="chip">E53</span><span class="chip">E60</span>
-          <span class="chip">E65</span><span class="chip">E70</span><span class="chip">E83</span>
-          <span class="chip">E85</span><span class="chip">E87</span><span class="chip">E89</span>
-          <span class="chip">E90</span><span class="chip">F01</span><span class="chip">F10</span>
-          <span class="chip">F25</span><span class="chip">F07</span><span class="chip">F30</span>
-          <span class="chip">K25</span><span class="chip">K40</span><span class="chip">R50</span>
-          <span class="chip">R56</span><span class="chip">RR1</span>
-        </div>
-        <p>Coverage per chassis varies with how many modules the car has: an E65 carries 96
-          module definitions, an E60 91, an E90 61, an E46 55, an F30 19.</p>
-
-        <h3>Wiring diagrams</h3>
-        <p>15 chassis: E38, E39, E46, E52, E53, E60, E63, E65, E70, E83, E85, E87, E89, E90
-          and F01.</p>
-
-        <h3>Parts catalogue</h3>
-        <p>246 chassis bundles, from the E3, E9, E12 and E21 through the current G series,
-          plus the i models, the K series motorcycles and Rolls-Royce. This is far wider
-          than the diagnostic coverage, because a parts lookup needs no live connection to
-          the car.</p>
-      </section>
-
-      <section id="safety">
-        <h2>Writing and safety</h2>
-        <p class="section-note">The short version: reading is open, and anything that
-          changes the car asks first &mdash; and a refused write sends nothing at all.</p>
-
-        <div class="callout">
-          <h4>Unknown jobs are treated as writes, and every write is gated</h4>
-          <p>Every job is classified before it runs. Anything the classifier does not
-            recognise is <b>assumed to be a write</b>, rather than assumed safe, and a
-            blocked write is blocked before a single byte reaches the car, not caught
-            partway through.</p>
-          <p>Actuator tests confirm before firing, are registered before they are sent,
-            and are released when you leave the screen. A permanent write (an EEPROM
-            change, a service reset) always confirms, whatever the setting. Coding
-            writes take a backup first and re-read the module afterwards to prove what
-            landed.</p>
-        </div>
-
-        <h3>Coding</h3>
-        <p>The coding editor stages changes and shows you exactly what would be sent, but
-          <b>it has no send path at all</b>. That is deliberate rather than an oversight. A
-          coding write is an EEPROM write, and on a module that gates the immobiliser or the
-          airbags, getting it wrong means the car does not start, or worse. The send path
-          does not exist rather than sitting behind a confirmation dialog that a stray
-          keypress could clear.</p>
-        <p>Where a live coding write does exist, it takes a backup first, because once the
-          write lands it cannot be undone, and it re-reads the module afterwards to prove
-          the change actually took. A mismatch is reported as a verification error rather
-          than a success.</p>
-
-        <h3>Actuator tests</h3>
-        <p>Activations drive real components, so confirmation is <b>on by default</b>. The
-          dialog tells you which kind you are about to run:</p>
-        <ul>
-          <li>A test drive stays as set until you change it back or leave the screen.</li>
-          <li>A permanent write changes the module for good and does not undo itself when
-            you leave.</li>
-        </ul>
-        <p>Leaving an activation screen releases anything still being held, so you cannot
-          walk away from a running actuator by navigating elsewhere.</p>
-      </section>
-
-      <section id="offline">
-        <h2>Working offline</h2>
-        <p>The app installs to the home screen or the dock as a progressive web app and
-          keeps working without a connection. Everything it reads is a static file, so once
-          it is cached there is no server to be unreachable.</p>
-        <p>For a copy that never touches the network, every
-          <a href="https://github.com/dader34/BMWeb/releases">release</a> ships
-          self-contained builds: unzip one and open <code>index.html</code>. The
-          <b>offline</b> build (about 370 MB) has diagnostics, coding, the fault lookup
-          with its ISTA plans and the wiring diagrams; <b>offline-no-wiring</b> (about
-          220 MB) drops the diagrams. The <b>offline-complete</b> build adds the parts
-          catalogue for every chassis, which makes it about 6 GB, more than a GitHub
-          release asset may hold, so it lives on Hugging Face and is linked from each
-          release's notes.</p>
-      </section>
-
-      <section id="trouble">
-        <h2>Troubleshooting</h2>
-        <p class="section-note">The errors people actually hit, and what each one means.</p>
-
-        <div class="fault">
-          <h4>No cable connected</h4>
-          <p>Plug the cable directly into the machine rather than through a USB hub, and
-            check the OBD-II end is fully seated.</p>
-        </div>
-        <div class="fault">
-          <h4>Security access denied</h4>
-          <p>Engine off, ignition in position 2, healthy battery. The security seed is
-            random, so a retry sometimes succeeds where the first attempt did not.</p>
-        </div>
-        <div class="fault">
-          <h4>The ECU rejected the request</h4>
-          <p>Reported as <code>conditions_not_correct</code>. The module is refusing because
-            the car is not in the state the job requires. Ignition position 2, engine off.</p>
-        </div>
-        <div class="fault">
-          <span class="code">IFH-0003</span>
-          <h4>The cable is not hearing itself</h4>
-          <p>The K line is half duplex, so the cable should hear an echo of what it sends.
-            When it does not, either the connection is loose, or the FTDI latency timer is
-            too high. Reseat both ends first, then check the latency is 1 ms.</p>
-        </div>
-        <div class="fault">
-          <span class="code">IFH-0009 / IFH-0018</span>
-          <h4>No response from the ECU</h4>
-          <p>Nothing answered. Usually the module is not present on this car, is not powered
-            in the current ignition position, or is on a bus this cable does not reach.</p>
-        </div>
-        <div class="fault">
-          <span class="code">IFH-0019</span>
-          <h4>Damaged answer</h4>
-          <p>Something replied, but the reply did not survive the wire. This is nearly
-            always electrical: a marginal cable, a bad ground, or a low battery.</p>
-        </div>
-        <div class="fault">
-          <h4>App error, not the car</h4>
-          <p>When you see this, nothing needs checking on the vehicle. The fault is in the
-            software, not the car.</p>
-        </div>
-      </section>
-
-      <section id="limits">
-        <h2>Limitations</h2>
-        <p class="section-note">What this does not do yet, stated plainly.</p>
-        <ul>
-          <li><b>Flashing exists for backup only.</b> Fault reading and clearing, live
-            values, actuator tests (running INPA's own key scripts), guided test
-            procedures and coding work; DME flashing stays read-side.</li>
-          <li><b>ISO 9141 slow init is not implemented.</b> Very early modules that need a
-            5 baud initialisation will refuse to connect rather than half work.</li>
-          <li><b>A phone cannot use a USB cable</b>, and a site served over HTTPS cannot
-            talk to a car.</li>
-          <li>If the wrong coding keyword table is matched, it returns plausible but wrong
-            keywords rather than failing loudly. Treat unexpected coding readouts with
-            suspicion.</li>
-          <li>The macOS build is <b>Apple Silicon</b>.</li>
-        </ul>
-      </section>
-
-    </article>
-  </div>
-</main>
-
-<footer class="site-footer">
-  <div class="wrap wrap-wide footer-in">
-    <span>BMWeb, BMW diagnostics without Windows</span>
-    <a href="https://github.com/dader34/BMWeb">github.com/dader34/BMWeb</a>
-  </div>
-</footer>
+  <aside class="onpage" aria-label="On this page">
+    <h4>On this page</h4>
+    <ul id="onpage"></ul>
+  </aside>
+</div>
 
 <script>
 (function () {
+  var sections = Array.prototype.slice.call(document.querySelectorAll('.article section'));
 
-  // Highlight the contents entry for whatever section is on screen. Uses an
-  // observer rather than a scroll handler so it costs nothing while idle.
-  var links = Array.prototype.slice.call(
-    document.querySelectorAll('#toc-nav a'));
-  var byId = {};
-  links.forEach(function (a) { byId[a.getAttribute('href').slice(1)] = a; });
-
-  var sections = Array.prototype.slice.call(document.querySelectorAll('.doc section'));
-  if (!sections.length || !('IntersectionObserver' in window)) return;
-
-  var visible = {};
-  var io = new IntersectionObserver(function (entries) {
-    entries.forEach(function (e) { visible[e.target.id] = e.isIntersecting; });
-    // The topmost visible section wins, so scrolling up and down agree.
-    for (var i = 0; i < sections.length; i++) {
-      if (visible[sections[i].id]) {
-        links.forEach(function (a) { a.classList.remove('current'); });
-        if (byId[sections[i].id]) byId[sections[i].id].classList.add('current');
-        break;
-      }
+  // A # link beside every heading.
+  document.querySelectorAll('.article h2, .article h3').forEach(function (h) {
+    var id = h.id || (h.parentNode.tagName === 'SECTION' && h.tagName === 'H2' ? h.parentNode.id : '');
+    if (!id) {
+      id = h.textContent.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      h.id = id;
     }
-  }, { rootMargin: '-10% 0px -70% 0px' });
+    var a = document.createElement('a');
+    a.className = 'anchor'; a.href = '#' + id; a.textContent = '#';
+    a.setAttribute('aria-label', 'Link to this heading');
+    h.appendChild(a);
+  });
 
-  sections.forEach(function (s) { io.observe(s); });
-}());
+  // The sidebar marks the section on screen; the right rail lists its headings.
+  var side = {};
+  document.querySelectorAll('.sidebar a').forEach(function (a) { side[a.getAttribute('href').slice(1)] = a; });
+  var rail = document.getElementById('onpage');
+  var current = null;
+  function show(sec) {
+    if (sec === current) return;
+    current = sec;
+    Object.keys(side).forEach(function (k) { side[k].classList.toggle('on', k === sec.id); });
+    rail.innerHTML = '';
+    var heads = [sec.querySelector('h2')].concat(Array.prototype.slice.call(sec.querySelectorAll('h3')));
+    heads.forEach(function (h) {
+      var li = document.createElement('li');
+      var a = document.createElement('a');
+      a.href = '#' + (h.tagName === 'H2' ? sec.id : h.id);
+      a.textContent = h.firstChild.textContent.trim();
+      a.dataset.target = h.tagName === 'H2' ? sec.id : h.id;
+      li.appendChild(a); rail.appendChild(li);
+    });
+    mark();
+  }
+  function mark() {
+    var links = rail.querySelectorAll('a');
+    var pick = links[0];
+    links.forEach(function (a) {
+      var el = document.getElementById(a.dataset.target);
+      if (el && el.getBoundingClientRect().top < 140) pick = a;
+    });
+    links.forEach(function (a) { a.classList.toggle('on', a === pick); });
+  }
+  function onScroll() {
+    var pick = sections[0];
+    sections.forEach(function (s) { if (s.getBoundingClientRect().top < 160) pick = s; });
+    if (window.innerHeight + window.scrollY >= document.body.scrollHeight - 4) pick = sections[sections.length - 1];
+    show(pick); mark();
+  }
+  window.addEventListener('scroll', onScroll, { passive: true });
+  onScroll();
+
+  // Phone menu.
+  var sb = document.getElementById('sidebar');
+  var menu = document.querySelector('.menu-btn');
+  menu.addEventListener('click', function () {
+    var open = sb.classList.toggle('open');
+    menu.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+  sb.addEventListener('click', function (e) {
+    if (e.target.tagName === 'A') { sb.classList.remove('open'); menu.setAttribute('aria-expanded', 'false'); }
+  });
+
+  // Search over sections and their sub-headings; every word must appear.
+  var index = [];
+  sections.forEach(function (s) {
+    var h2 = s.querySelector('h2').firstChild.textContent.trim();
+    var parts = [{ id: s.id, t: h2, x: '' }];
+    Array.prototype.forEach.call(s.children, function (el) {
+      if (el.tagName === 'H3') parts.push({ id: el.id, t: h2 + ' › ' + el.firstChild.textContent.trim(), x: '' });
+      else if (el.tagName !== 'H2') parts[parts.length - 1].x += ' ' + el.textContent.replace(/\s+/g, ' ');
+    });
+    index = index.concat(parts);
+  });
+  var q = document.getElementById('q');
+  var box = document.getElementById('results');
+  var sel = -1;
+  function run() {
+    var words = q.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    box.innerHTML = ''; sel = -1;
+    if (!words.length) { box.classList.remove('open'); return; }
+    var hits = [];
+    index.forEach(function (e) {
+      var t = e.t.toLowerCase(), x = e.x.toLowerCase(), score = 0;
+      for (var i = 0; i < words.length; i++) {
+        if (t.indexOf(words[i]) >= 0) score += 10;
+        else if (x.indexOf(words[i]) >= 0) score += 1;
+        else return;
+      }
+      hits.push({ e: e, score: score });
+    });
+    hits.sort(function (a, b) { return b.score - a.score; });
+    if (!hits.length) box.innerHTML = '<div class="none">Nothing matches.</div>';
+    hits.slice(0, 8).forEach(function (h) {
+      var a = document.createElement('a');
+      a.href = '#' + h.e.id;
+      var b = document.createElement('b'); b.textContent = h.e.t;
+      var s = document.createElement('span');
+      var x = h.e.x.trim(), at = Math.max(0, x.toLowerCase().indexOf(words[0]) - 40);
+      s.textContent = (at ? '…' : '') + x.slice(at, at + 110) + (x.length > at + 110 ? '…' : '');
+      a.appendChild(b); a.appendChild(s); box.appendChild(a);
+    });
+    box.classList.add('open');
+  }
+  function move(d) {
+    var items = box.querySelectorAll('a');
+    if (!items.length) return;
+    if (items[sel]) items[sel].classList.remove('sel');
+    sel = (sel + d + items.length) % items.length;
+    items[sel].classList.add('sel');
+  }
+  q.addEventListener('input', run);
+  q.addEventListener('keydown', function (e) {
+    if (e.key === 'ArrowDown') { e.preventDefault(); move(1); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); move(-1); }
+    else if (e.key === 'Enter') { var it = box.querySelectorAll('a'); var p = it[sel] || it[0]; if (p) { location.hash = p.getAttribute('href'); box.classList.remove('open'); q.blur(); } }
+    else if (e.key === 'Escape') { q.value = ''; run(); q.blur(); }
+  });
+  box.addEventListener('click', function () { box.classList.remove('open'); });
+  document.addEventListener('click', function (e) { if (!e.target.closest('.search')) box.classList.remove('open'); });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === '/' && document.activeElement !== q) { e.preventDefault(); q.focus(); }
+  });
+})();
 </script>
 </body>
 </html>
