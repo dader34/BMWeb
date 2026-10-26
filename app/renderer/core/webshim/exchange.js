@@ -427,6 +427,9 @@ async function runExchange(bus, out, comm) {
       // one), which is what keeps variant probing quick.
       if (!e || e.ifh === 'IFH-0003') throw e;
       const garbled = e.ifh === 'IFH-0019';
+      // counted on the transport, so a long job (a flash) can see that its
+      // line is marginal and step the rate down between download ranges
+      if (garbled && bus) bus.garbles = (bus.garbles || 0) + 1;
       const spent = attempt + 1;
       if (garbled ? spent >= attempts : spent > repeats) throw e;
       // The reference retry is a PURE RETRANSMISSION: the same bytes with

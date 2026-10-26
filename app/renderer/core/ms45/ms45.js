@@ -1094,22 +1094,94 @@ async function ms45SecurityAccess(diagProtocol, onStage) {
     return false;
   }
   if (diagProtocol !== 'BMW-FAST') {
-    for (const [job, arg] of [
-      ['diagnose_mode', 'ECUPM;PC115200'],
-      ['SET_PARAMETER', ';115200'],
-      ['ACCESS_TIMING_PARAMETER', '00;120;24;240;00'],
-      ['SET_PARAMETER', ';115200;;15'],
-    ]) {
-      if (!(await ms45Job(job, flasherProgrammingArg(arg))).ok) {
+    // the line the Baud Test proved, when it is faster than 115200: the
+    // loader takes a rate by value (DIAGNOSE_MODE's BAUDRATE "SB", KWP
+    // 10 85 06 + 24 bits); otherwise the SGBD's list, as always
+    const fast = ms45FastLineBaud();
+    _ms45LineBaud = fast || flasherProgrammingBaud();
+    for (const [job, arg] of ms45ProgrammingSteps(fast)) {
+      if (!(await ms45Job(job, arg)).ok) {
         stage(`Could not enter programming mode (${job} ${arg})`);
         return false;
       }
     }
+    if (fast) stage(`Programming at ${fast} baud`);
   } else if (!(await ms45Job('diagnose_mode', 'ECUPM')).ok) {
     stage('Could not enter programming mode');
     return false;
   }
   return true;
+}
+
+/** The rates a programming session steps down through on a marginal line. */
+const MS45_LINE_STEPS = [312500, 250000, 208333, 156250, 115200];
+/** The programming session's current rate (set on entry, lowered by a step-down). */
+let _ms45LineBaud = 115200;
+
+/**
+ * The faster programming rate the Baud Test passed (Settings fastLineBest),
+ * or 0 to keep the SGBD's 115200: never through a WiFi adapter (its parity
+ * stops at 25 kBaud) and only on a rate this list knows.
+ * @returns {number}
+ */
+function ms45FastLineBaud() {
+  if (flasherProgrammingBaud() !== 115200) return 0;
+  const best = Number(
+    (typeof Settings !== 'undefined' && Settings.get('fastLineBest', 0)) || 0
+  );
+  return best > 115200 && MS45_LINE_STEPS.includes(best) ? best : 0;
+}
+
+/**
+ * The jobs that put the DME (already authenticated) into programming mode
+ * at a rate: the SGBD's own PC115200 list entry, or "SB" with the value.
+ * @param {number} baud - 0 or 115200 for the standard rate.
+ * @returns {Array<[string, string]>}
+ */
+function ms45ProgrammingSteps(baud) {
+  if (!baud || baud === 115200)
+    return [
+      ['diagnose_mode', 'ECUPM;PC115200'],
+      ['SET_PARAMETER', ';115200'],
+      ['ACCESS_TIMING_PARAMETER', '00;120;24;240;00'],
+      ['SET_PARAMETER', ';115200;;15'],
+    ].map(([j, a]) => [j, flasherProgrammingArg(a)]);
+  return [
+    ['diagnose_mode', `ECUPM;SB;${baud}`],
+    ['SET_PARAMETER', `;${baud}`],
+    ['ACCESS_TIMING_PARAMETER', '00;120;24;240;00'],
+    ['SET_PARAMETER', `;${baud};;15`],
+  ];
+}
+
+/**
+ * Between download ranges: when the line garbled two answers since `since`
+ * (the transport retransmitted them), move the programming session one rate
+ * down and remember it for the next flash. The loader takes a new rate in
+ * programming mode between ranges (proven on the emulated loader).
+ * @param {number} since - The transport's garble count at the session's start.
+ * @param {(s: string) => void} stage
+ * @returns {Promise<number>} The garble count to measure from next.
+ */
+async function ms45MaybeStepDown(since, stage) {
+  const bus = typeof webBus !== 'undefined' ? webBus : null;
+  const now = (bus && bus.garbles) || 0;
+  if (now - since < 2 || _ms45LineBaud <= 115200) return since;
+  const at = MS45_LINE_STEPS.indexOf(_ms45LineBaud);
+  const lower = MS45_LINE_STEPS[at + 1] || 115200;
+  stage(
+    `${now - since} garbled answers at ${_ms45LineBaud} baud: stepping the line down to ${lower}`
+  );
+  for (const [job, arg] of ms45ProgrammingSteps(lower)) {
+    if (!(await ms45Job(job, arg)).ok) {
+      stage(`Could not step the line down (${job} ${arg})`);
+      return now;
+    }
+  }
+  _ms45LineBaud = lower;
+  if (typeof Settings !== 'undefined')
+    Settings.set('fastLineBest', lower > 115200 ? lower : 0);
+  return now;
 }
 
 /**
@@ -1317,7 +1389,10 @@ async function ms45FlashBlock(toFlash, blockStart, blockEnd, opts = {}) {
     note(
       `Skipping ${skipped} blank (0xFF) blocks of ${Math.ceil(total / MS45_FLASH_SEGMENT)}: ${runs.length} download range${runs.length === 1 ? '' : 's'}`
     );
+  let garblesFrom =
+    (typeof webBus !== 'undefined' && webBus && webBus.garbles) || 0;
   for (const run of runs) {
+    garblesFrom = await ms45MaybeStepDown(garblesFrom, stage);
     const rangeArg = _ms45RangeArg(blockStart + run.from, run.length);
     if (!(await ms45Job('flash_schreiben_adresse', rangeArg)).ok) {
       stage('Failed to set flash address');
