@@ -313,7 +313,18 @@ function fbLogOpen(host, entry, opts = {}) {
   };
 
   // ---- the timeline: every job where it happened ----------------------------------
-  const colours = { ok: '#5ec8a0', bad: '#ff6b6b', note: '#f4d35e' };
+  // the palette is the stylesheet's (--lv-*: quiet greys, one colour for a
+  // failure; the classic skin overrides them), read once the view is in
+  const styleOf = getComputedStyle(host.querySelector('.fb-logview'));
+  const tone = (name, fallback) =>
+    (styleOf.getPropertyValue(name) || '').trim() || fallback;
+  const colours = {
+    ok: tone('--lv-ok', '#8a97a3'),
+    bad: tone('--lv-bad', '#ff6b6b'),
+    note: tone('--lv-note', '#8a97a3'),
+    tick: tone('--lv-tick', '#8a97a3'),
+    pick: tone('--lv-pick', '#ffffff'),
+  };
   const xOf = (w, ms) => 8 + (ms / total) * (w - 16);
   function draw() {
     if (state.closed) return;
@@ -340,7 +351,7 @@ function fbLogOpen(host, entry, opts = {}) {
       const x1 = xOf(w, e.at);
       const x0 = xOf(w, e.at - e.took);
       g.fillStyle = e.failed ? colours.bad : colours.ok;
-      g.globalAlpha = e.failed ? 1 : 0.75;
+      g.globalAlpha = e.failed ? 1 : 0.55;
       g.fillRect(
         x0,
         e.failed ? top : top + 6,
@@ -355,7 +366,7 @@ function fbLogOpen(host, entry, opts = {}) {
       if (e.kind === 'note')
         g.fillRect(Math.round(xOf(w, e.at)), bottom + 2, 1.5, 5);
     // the clock along the bottom
-    g.fillStyle = '#8a97a3';
+    g.fillStyle = colours.tick;
     g.font = '10px ui-monospace, SFMono-Regular, Menlo, monospace';
     g.textBaseline = 'top';
     const steps = Math.max(2, Math.floor(w / 130));
@@ -366,7 +377,7 @@ function fbLogOpen(host, entry, opts = {}) {
     }
     const p = log.events[state.picked];
     if (p) {
-      g.strokeStyle = '#ffffff';
+      g.strokeStyle = colours.pick;
       g.lineWidth = 1.5;
       const x = Math.round(xOf(w, p.at)) + 0.5;
       g.beginPath();

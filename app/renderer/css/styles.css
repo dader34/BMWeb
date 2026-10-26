@@ -10286,6 +10286,13 @@ body.remote-helper::after {
 }
 /* a flash session's log, shown as a session */
 .fb-logview {
+  /* one quiet palette: jobs in a neutral grey, only a failure in colour */
+  --lv-ok: var(--ink-faint);
+  --lv-bad: var(--red, #ff6b6b);
+  --lv-note: var(--ink-faint);
+  --lv-tick: var(--ink-faint);
+  --lv-pick: var(--ink);
+  --lv-pick-bg: var(--panel-2);
   flex: 1;
   min-width: 0;
   min-height: 0;
@@ -10365,7 +10372,8 @@ body.remote-helper::after {
   overflow-wrap: anywhere;
 }
 .fb-logview-fact.bad b {
-  color: #ff6b6b;
+  color: var(--lv-bad);
+  font-weight: 500;
 }
 .fb-logview-timeline {
   position: relative;
@@ -10398,7 +10406,7 @@ body.remote-helper::after {
   display: none;
 }
 .fb-logview-tip.bad {
-  color: #ff6b6b;
+  color: var(--lv-bad);
 }
 .fb-logview-body {
   flex: 1;
@@ -10443,7 +10451,7 @@ body.remote-helper::after {
   color: var(--ink-faint);
 }
 .fb-logview-kind.bad .fb-logview-kind-n {
-  color: #ff6b6b;
+  color: var(--lv-bad);
 }
 .fb-logview-kind-ms {
   font:
@@ -10463,10 +10471,10 @@ body.remote-helper::after {
 .fb-logview-kind-bar span {
   display: block;
   height: 100%;
-  background: #5ec8a0;
+  background: var(--lv-ok);
 }
 .fb-logview-kind.bad .fb-logview-kind-bar span {
-  background: #ff6b6b;
+  background: var(--lv-bad);
 }
 .fb-logview-lines {
   flex: 1;
@@ -10518,13 +10526,13 @@ body.remote-helper::after {
   background: var(--panel-2);
 }
 .fb-logview-row.picked {
-  background: rgba(244, 211, 94, 0.09);
-  border-left-color: var(--amber);
+  background: var(--lv-pick-bg);
+  border-left-color: var(--lv-pick);
   color: var(--ink);
 }
 .fb-logview-row.bad .fb-logview-status,
 .fb-logview-row.bad .fb-logview-name {
-  color: #ff6b6b;
+  color: var(--lv-bad);
 }
 .fb-logview-row.note {
   grid-template-columns: 62px 1fr;
@@ -10534,7 +10542,7 @@ body.remote-helper::after {
   color: var(--ink-faint);
 }
 .fb-logview-note {
-  color: var(--amber);
+  color: var(--ink-dim);
   white-space: normal;
 }
 .fb-logview-took {
