@@ -125,14 +125,22 @@ async function showFlashing(page) {
   setActions(fbState.actions);
   fbState.tuningActions = null; // the editor is mounted when its page is first shown
 
-  fbState.module = null;
-  fbState.running = false;
-  fbState.page = 'flashing';
-  fbState.optionsOpen = false;
-  fbState.log = [];
-  fbState.lastInPlace = false;
-  fbState.dme = fbDmeFreshState();
-  fbState.tcu = fbTcuFreshState();
+  // the app keeps its state across visits: the module, what was
+  // identified, the files loaded, the options ticked, the log and the page
+  // stay as they were left; only the first visit starts fresh
+  const returning = !!fbState.dme;
+  if (!returning) {
+    fbState.module = null;
+    fbState.running = false;
+    fbState.page = 'flashing';
+    fbState.optionsOpen = false;
+    fbState.log = [];
+    fbState.lastInPlace = false;
+    fbState.ecuBox = null;
+    fbState.status = null;
+    fbState.dme = fbDmeFreshState();
+    fbState.tcu = fbTcuFreshState();
+  }
 
   // no page heading: the breadcrumb names the screen and the Flasher's layout
   // wants the whole window (the log and the pages size themselves to it)
@@ -288,13 +296,16 @@ async function showFlashing(page) {
   fbOptionsWire();
   fbRefreshAll();
   fbHistoryRefresh();
-  fbSetStatus(
-    fbOnSharedCar()
-      ? "Remote: using the shared car's cable"
-      : webBus.connected
-        ? 'Cable connected'
-        : 'No cable connected: Identify will ask for the port'
-  );
+  // the status line as it was left (not logged again)
+  if (returning && fbState.status) fbEls.status.textContent = fbState.status;
+  else
+    fbSetStatus(
+      fbOnSharedCar()
+        ? "Remote: using the shared car's cable"
+        : webBus.connected
+          ? 'Cable connected'
+          : 'No cable connected: Identify will ask for the port'
+    );
   // the cable reconnects on its own after a page load, usually a moment after
   // this screen opens; follow it rather than freeze the first answer
   if (!fbCableListener) {
@@ -314,8 +325,46 @@ async function showFlashing(page) {
     };
     window.addEventListener('bmweb-cable', fbCableListener);
   }
-  // opened on one of its other pages (its address named it)
-  if (page && page !== 'flashing' && fbEls[`page-${page}`]) fbShowPage(page);
+  // opened on one of its other pages (its address named it), or back on
+  // the one it was left on
+  const open =
+    page && page !== 'flashing' ? page : returning ? fbState.page : null;
+  if (open && open !== 'flashing' && fbEls[`page-${open}`]) fbShowPage(open);
+}
+
+/**
+ * Put the kept state back on a freshly built screen: the module choice,
+ * the ECU box, the Full Binary tick, the log and Custom Options if they
+ * were open. The buttons and option ticks follow from fbRefreshAll and the
+ * gates, which read the same state.
+ */
+function fbRestoreView() {
+  const m = fbState.module;
+  if (m) {
+    fbModuleDd.set(m);
+    fbEls.identify.disabled = false;
+    fbEls.identify.textContent = 'Identify';
+  }
+  fbSetEcuBox(
+    fbState.ecuBox ||
+      (m === 'tcu'
+        ? 'TCU not identified'
+        : m === 'dme'
+          ? 'DME not identified'
+          : 'Select a control unit')
+  );
+  if (fbEls['dme-fullbin'])
+    fbEls['dme-fullbin'].checked = !!(fbState.dme && fbState.dme.fullBin);
+  fbPaintLog();
+  if (m === 'dme' && typeof fbOptionsRefreshEwsGate === 'function') {
+    fbOptionsRefreshEwsGate();
+    if (typeof fbOptionsRefreshPatchGate === 'function')
+      fbOptionsRefreshPatchGate();
+  }
+  if (fbState.optionsOpen && m) {
+    fbOptionsShowFor(m);
+    fbShowOptions(true);
+  }
 }
 
 /**
@@ -329,6 +378,7 @@ function fbShowPage(page) {
   fbState.page = page;
   // the address follows the page, so a reload stays on the tuning editor
   if (typeof routeSetFlashingPage === 'function') routeSetFlashingPage(page);
+  if (returning) fbRestoreView();
   for (const p of ['flashing', 'tuning', 'logging', 'history', 'settings']) {
     fbEls[`page-${p}`].hidden = p !== page;
     fbEls[`rail-${p}`].classList.toggle('current', p === page);
@@ -433,6 +483,7 @@ function fbSetStatusInPlace(text) {
  * @param {string} text - The line.
  */
 function fbLog(text) {
+  fbState.status = text;
   if (!text) return;
   fbState.log.push(fbStamp() + text);
   fbState.lastInPlace = false;
@@ -464,6 +515,7 @@ function fbFlashingBar(flashing) {
 function fbBusy(busy) {
   fbState.running = !!busy;
   if (!fbEls.identify) return;
+  fbState.status = text;
   fbEls.identify.disabled = busy || !fbState.module;
   fbEls.module.querySelector('.lkd-btn').disabled = !!busy;
   if (busy) fbModuleDd.close();
@@ -521,6 +573,7 @@ function fbChoose(message, title, choices) {
       `<div class="modal" role="dialog" aria-modal="true">
         <div class="modal-title">${esc(title)}</div>
         <div class="modal-body">${fbHtml(message)}</div>
+  fbState.ecuBox = text;
         <div class="modal-actions fb-modal-actions">
           <button class="btn modal-cancel">Cancel<span class="modal-key">Esc</span></button>
           ${choices.map((c, i) => `<button class="btn fb-choice" data-i="${i}">${esc(c)}</button>`).join('')}
