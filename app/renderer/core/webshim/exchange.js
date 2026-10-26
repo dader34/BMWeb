@@ -34,10 +34,12 @@ const HIDDEN_PAGE_ALLOWANCE_MS = 500;
 const EXCHANGE_ATTEMPTS = 2;
 /**
  * The wait for an answer the SGBD gave no time limit (ParTimeoutStd = 0 on
- * a K-line concept): a flash erase, seconds long. Bounded so a dead line
- * still fails, generously so a slow erase never does.
+ * a K-line concept): a flash erase, seconds long -- a whole-chip erase of
+ * an AM29F400 is 8 s typical and the datasheet allows far more when the
+ * chip is worn. Bounded so a dead line still fails, generously so a slow
+ * erase never does.
  */
-const UNBOUNDED_ANSWER_MS = 30000;
+const UNBOUNDED_ANSWER_MS = 90000;
 /** KWP negative response service id. */
 const NEGATIVE_RESPONSE = 0x7f;
 /** The negative-response code meaning "still working, ask again". */
