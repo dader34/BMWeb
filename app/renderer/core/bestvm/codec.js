@@ -274,10 +274,16 @@ const Best2Codec = {
       regen = at(8);
       timeoutNr78 = at(9);
     }
+    // a K-line SGBD that writes ParTimeoutStd as an explicit 0 means "no
+    // time limit": the GS20's FLASH_LOESCHEN does, for an erase that takes
+    // seconds, where every other job of it says 1000 ms -- not "unset"
+    const unbounded =
+      c >= 0x1 && c <= 0x6 && words.length > 5 && words[5] === 0;
     return {
       concept: c,
       baud: words[1],
       timeout,
+      unbounded,
       regen,
       telEnd,
       timeoutNr78,

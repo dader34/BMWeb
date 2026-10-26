@@ -32,6 +32,12 @@ const SLOW_ANSWER_MS = 200;
 const HIDDEN_PAGE_ALLOWANCE_MS = 500;
 /** Send once, retransmit once: EDIABAS's single-glitch cover. */
 const EXCHANGE_ATTEMPTS = 2;
+/**
+ * The wait for an answer the SGBD gave no time limit (ParTimeoutStd = 0 on
+ * a K-line concept): a flash erase, seconds long. Bounded so a dead line
+ * still fails, generously so a slow erase never does.
+ */
+const UNBOUNDED_ANSWER_MS = 30000;
 /** KWP negative response service id. */
 const NEGATIVE_RESPONSE = 0x7f;
 /** The negative-response code meaning "still working, ask again". */
@@ -314,7 +320,9 @@ async function runExchange(bus, out, comm) {
     !isDs2(conceptOf(comm)) && negativeBody(framed, comm)[0] === TRANSFER_DATA;
   const timeoutMs =
     Math.max(
-      (comm && comm.timeout) || DEFAULT_TIMEOUT_MS,
+      (comm && comm.unbounded ? UNBOUNDED_ANSWER_MS : 0) ||
+        (comm && comm.timeout) ||
+        DEFAULT_TIMEOUT_MS,
       transfer ? TRANSFER_ANSWER_MS : 0
     ) +
     (hidden ? HIDDEN_PAGE_ALLOWANCE_MS : 0) +
