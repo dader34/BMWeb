@@ -464,6 +464,10 @@ async function fbDmeReadCarFastFlasher() {
       fbDmeReadProtocol()
     );
     d.fastFlasher = fastFlasher.parseDetection(hook, stamp);
+    // a DME that carries the flasher keeps it: the program flash re-adds
+    // it unless Custom Options' tick was taken off (installFastSet)
+    if (d.fastFlasher && d.fastFlasher.hooked && !d.installFastSet)
+      d.installFast = true;
     // the gate only runs once the loader accepts the program and jumps
     // through MPC 0x8: a DME left in its loader (an interrupted flash) has
     // the stamp and the hook but no way into the flasher until a full flash
