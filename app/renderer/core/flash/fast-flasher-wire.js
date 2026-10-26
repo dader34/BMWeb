@@ -333,15 +333,25 @@ class FastFlashClient {
       // one): the DME did the command and answered, the line mangled a
       // byte -- every service but RESET is idempotent, so once more. The
       // first program push at 312500 died of two such bytes in 300 replies.
+      // ... and a request mangled on the way IN: the body answers "chunk
+      // CRC mismatch" or "malformed" to a frame the line damaged, which is
+      // just as idempotent to send again
+      const refusedAsDamaged =
+        !err &&
+        reply &&
+        reply.svc === 0x7f &&
+        (reply.data[1] === 2 || reply.data[1] === 6) &&
+        (svc === FF_SVC.CHUNK || svc === FF_SVC.CHUNK_SET);
       const garbled =
-        err && /checksum|frame is not one/.test(err.message || '');
+        (err && /checksum|frame is not one/.test(err.message || '')) ||
+        refusedAsDamaged;
       const again = garbled && svc !== FF_SVC.RESET && attempt === 1;
       if (this.trace)
         this.trace(
           _ffTraceLine(svc, data, reply, Date.now() - t0) +
             (again ? ' -- garbled, once more' : '')
         );
-      if (!err) break;
+      if (!err && !again) break;
       if (!again) throw err;
       this.lineErrors++;
       if (this.lineErrors >= FF_LINE_ERRORS_STEP && this.stepDown) {

@@ -590,6 +590,46 @@ const be32 = (b, at) =>
     );
   }
 
+  // ---- 4e. a chunk the line damaged on the way in is sent once more ----------
+  {
+    const nak = (svc, reason) => {
+      const f = [0x06, 0x12, 0xf1, 0x7f, svc, reason];
+      f.push(f.slice(1).reduce((a, b) => (a + b) & 0xff, 0));
+      return Uint8Array.from(f);
+    };
+    const ack = (svc) => {
+      const f = [0x04, 0x12, 0xf1, svc | 0x40];
+      f.push(f.slice(1).reduce((a, b) => (a + b) & 0xff, 0));
+      return Uint8Array.from(f);
+    };
+    let n = 0;
+    const link = {
+      async exchange() {
+        n++;
+        return n === 1 ? nak(0x03, 2) : ack(0x03);
+      },
+    };
+    const client = new W.Client(link);
+    await client.chunk(0x40000, new Uint8Array(64));
+    assert.strictEqual(n, 2);
+    assert.strictEqual(client.lineErrors, 1);
+    n = 0;
+    const perm = {
+      async exchange() {
+        n++;
+        return nak(0x03, 1);
+      },
+    };
+    await assert.rejects(
+      () => new W.Client(perm).chunk(0x10000, new Uint8Array(64)),
+      /not permitted/
+    );
+    assert.strictEqual(n, 1, 'a real refusal is not retried');
+    ok(
+      'a CHUNK the body refused as damaged (chunk CRC / malformed) goes once more; a permission refusal does not'
+    );
+  }
+
   // ---- 5. detection ----------------------------------------------------------
   console.log('\ndetection');
   {
