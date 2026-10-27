@@ -536,7 +536,7 @@ const be32 = (b, at) =>
       4
     );
     assert.strictEqual(
-      calls.filter((c) => c[0] === 'chunk' && c[1] === 0x10000).length,
+      calls.filter((c) => c[0] === 'chunk' && c[1] === 0x0).length,
       20
     );
     ok(
@@ -635,15 +635,31 @@ const be32 = (b, at) =>
   {
     const hook = (w) =>
       Uint8Array.from([w >>> 24, (w >>> 16) & 255, (w >>> 8) & 255, w & 255]);
-    const stamp = Buffer.from('4d53343551460901ffffd300ffffd400', 'hex');
+    const stamp = Buffer.from('4d53343551460d03ffffd300ffffd400', 'hex');
     const det = fastFlasher.parseDetection(
       hook(fastFlasherBlob.hookWord),
       stamp
     );
-    assert(det && det.ready && det.version === 9 && det.mpc && !det.outdated);
+    assert(det && det.ready && det.version === 13 && det.mpc && !det.outdated);
     assert(det.mpcSafe, "v8 writes the MPC through the loader's driver");
-    assert.strictEqual(fastFlasher.describe(det), 'Fast flasher v9 present');
-    assert(det.pagesets && det.fastLine, 'v9: pagesets and a safe SET_BAUD');
+    assert.strictEqual(fastFlasher.describe(det), 'Fast flasher v13 present');
+    assert(det.pagesets && det.fastLine, 'v9+: pagesets and a safe SET_BAUD');
+    assert(det.aifWipe, 'v12+ carries the AIF wipe');
+    assert(det.reads, 'v13 carries READ');
+    // v12: the AIF wipe, but its READ read the wrong address -- never asked
+    const v12 = Buffer.from(stamp);
+    v12[6] = 12;
+    const twelve = fastFlasher.parseDetection(
+      hook(fastFlasherBlob.hookWord),
+      v12
+    );
+    assert(twelve.aifWipe && !twelve.reads && twelve.upgradable);
+    // the shipped v9 before it: upgraded by a Fast Flash Program
+    const v9 = Buffer.from(stamp);
+    v9[6] = 9;
+    v9[7] = 0x01;
+    const nine = fastFlasher.parseDetection(hook(fastFlasherBlob.hookWord), v9);
+    assert(nine.outdated && nine.upgradable && !nine.aifWipe && nine.fastLine);
     const v8 = Buffer.from(stamp);
     v8[6] = 8;
     const eight = fastFlasher.parseDetection(
@@ -708,11 +724,29 @@ const be32 = (b, at) =>
     assert(orphan && !orphan.hooked && !orphan.ready);
     assert.throws(() => fastFlasher.assertReady(orphan), /no longer leads/);
     const newer = Buffer.from(stamp);
-    newer[6] = 10;
+    newer[6] = 14;
     assert(
       !fastFlasher.parseDetection(hook(fastFlasherBlob.hookWord), newer)
         .supported
     );
+    // v12+ carries the AIF wipe (stamp flag bit 1); the bench bodies v10/v11
+    // had it too but are older: upgradable, and not offered the wipe
+    const aifBody = Buffer.from(stamp);
+    aifBody[7] = 0x03;
+    const aifDet = fastFlasher.parseDetection(
+      hook(fastFlasherBlob.hookWord),
+      aifBody
+    );
+    assert(aifDet.supported && aifDet.ready && aifDet.aifWipe);
+    for (const bench of [10, 11]) {
+      const old = Buffer.from(aifBody);
+      old[6] = bench;
+      const det = fastFlasher.parseDetection(
+        hook(fastFlasherBlob.hookWord),
+        old
+      );
+      assert(det.supported && det.outdated && det.upgradable && !det.aifWipe);
+    }
     const malformed = Buffer.from(stamp);
     malformed[8] = 0;
     assert.strictEqual(
@@ -785,6 +819,88 @@ const be32 = (b, at) =>
     );
     ok(
       'splice touches only the body range and MPC 0x8; guards refuse a used range or a strange hook; re-install is allowed'
+    );
+  }
+
+  // ---- 7. READ: the client checks each block's CRC, readImage tiles ----
+  {
+    const ext = new Uint8Array(0x100000);
+    const mpc = new Uint8Array(0x70000);
+    for (let i = 0; i < ext.length; i++) ext[i] = (i * 31 + (i >>> 12)) & 0xff;
+    for (let i = 0; i < mpc.length; i++) mpc[i] = (i * 17 + 5) & 0xff;
+    const asked = [];
+    let damage = 0; // flip one data byte in the next `damage` replies
+    const link = {
+      async exchange(frame) {
+        const q = W.parse(frame);
+        assert.strictEqual(q.svc, W.SVC.READ);
+        const off = be32(q.data, 0);
+        const n = (q.data[4] << 8) | q.data[5];
+        asked.push([off, n]);
+        if (!n || n > W.READ_MAX) return W.frame(0x7f, [q.svc, 6]);
+        const src = off & 0x80000000 ? mpc : ext;
+        const at = off & 0x7fffffff;
+        if (at + n > src.length) return W.frame(0x7f, [q.svc, 1]);
+        const data = Uint8Array.from(src.subarray(at, at + n));
+        const crc = W.crc32(data);
+        if (damage > 0) {
+          damage--;
+          data[n >> 1] ^= 0x01; // after the CRC: a byte the line mangled
+        }
+        return W.frame(0x4a, [
+          crc >>> 24,
+          (crc >>> 16) & 0xff,
+          (crc >>> 8) & 0xff,
+          crc & 0xff,
+          ...data,
+        ]);
+      },
+    };
+    const client = new W.Client(link);
+    const got = await client.read(0x7f00, 512);
+    assert.deepStrictEqual(
+      Array.from(got),
+      Array.from(ext.subarray(0x7f00, 0x8100))
+    );
+    damage = 1;
+    const again = await client.read(0x40000, 4096);
+    assert.deepStrictEqual(
+      Array.from(again),
+      Array.from(ext.subarray(0x40000, 0x41000))
+    );
+    assert.strictEqual(
+      client.lineErrors,
+      1,
+      'a damaged block is read once more'
+    );
+    let stepped = 0;
+    client.stepDown = async () => stepped++;
+    damage = 2;
+    await assert.rejects(client.read(0x40000, 4096), /damaged twice/);
+    assert.strictEqual(
+      stepped,
+      1,
+      'the second damaged block steps the line down'
+    );
+    await assert.rejects(client.read(0x40000, 4097), W.Nak);
+    asked.length = 0;
+    let last = -1;
+    const img = await W.readImage(client, {
+      mpc: true,
+      progress: (p) => {
+        assert(p >= last && p <= 100);
+        last = p;
+      },
+    });
+    assert(Buffer.from(img.flash).equals(Buffer.from(ext)), 'the chip, whole');
+    assert(Buffer.from(img.mpc).equals(Buffer.from(mpc)), 'the MPC, whole');
+    assert.strictEqual(asked.length, (0x100000 + 0x70000) / 0x1000);
+    assert(asked.every(([, n]) => n === 0x1000) && last === 100);
+    assert.strictEqual(asked[256][0], 0x80000000, 'the MPC through its window');
+    const tune = await W.readImage(client, {});
+    assert(tune.mpc === null && tune.flash.length === 0x100000);
+    ok(
+      'READ: a block checked against its CRC, a damaged one asked once more, twice is an error; readImage tiles 1 MB + 448 KB in 4 KB'
     );
   }
 

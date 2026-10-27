@@ -5,7 +5,7 @@
 // protocol is core/flash/fast-flasher-wire.js, detection and the bootstrap
 // splice core/flash/fast-flasher.js. Part of the DME screen with dme.js;
 // one scope.
-/* exported fbDmeFastFlashTune, fbDmeFastFlashProgram, fbDmeFastFlasherAvailable */
+/* exported fbDmeFastFlashTune, fbDmeFastFlashProgram, fbDmeFastFlasherAvailable, fbDmeWipeAif, fbDmeFastRead */
 
 // ---- Fast Flash ------------------------------------------------------------------------------------------
 /**
@@ -36,59 +36,58 @@ async function fbDmeFastFlashTune() {
       );
       return { attach: ['fast_tune_cal_0x40000.bin', signedCal], signedCal };
     },
-    push: (client, cb, p) => fastFlashWire.pushCal(client, p.signedCal, cb),
+    // through BL15 the push is the resumable one: run again after a power
+    // cut, it asks the DME what is already written and sends only the rest
+    push: (client, cb, p) =>
+      fbDmeResumes()
+        ? fbDmeResumablePushCal(client, p.signedCal, cb)
+        : fastFlashWire.pushCal(client, p.signedCal, cb),
   });
 }
 
 /**
- * Baud Test: into the fast flasher, then each faster line speed in turn
- * (fast-flasher-wire.js FF_LINE_TEST_RATES) with HELLOs, 4 KB frames and a
- * 64 KB CRC at each, back to 115200 between them, and the DME restarted on
- * its program. Nothing is written. The verdict per rate goes to the status
- * line and the session log. Testing-only.
+ * Fast Read (full-binary mode): into the fast flasher, the whole external
+ * chip and the MPC read 4 KB at a time with a CRC per block, saved under
+ * the names Read DME uses, and the DME restarted on its program. Nothing is
+ * written. Testing-only.
  */
-async function fbDmeFastBaudTest() {
+async function fbDmeFastRead() {
   const d = fbState.dme;
   if (!fbProtectTesting()) return;
   if (!d.identified) return;
-  if (!(await fbDmeFastFlasherAvailable('Baud Test', { upgrade: true })))
-    return;
-  if (!d.fastFlasher.fastLine) {
+  if (!(await fbDmeFastFlasherAvailable('Fast Read'))) return;
+  if (!d.fastFlasher.reads) {
     await fbMessage(
-      `The fast flasher on the DME is v${d.fastFlasher.version}; a line-speed change that cannot strand the DME came with v${fastFlasher.LINE_FROM}. Run Fast Flash Program once to upgrade it, then test.`,
-      'Baud Test'
+      `The fast flasher on the DME is v${d.fastFlasher.version}; reading came with v${fastFlasher.READS_FROM}. Run Fast Flash Program once to upgrade it.`,
+      'Fast Read'
     );
     return;
   }
-  const rates = fastFlashWire.LINE_TEST_RATES.map(([r]) => r).join(', ');
   await fbDmeFastFlash({
-    title: 'Baud Test',
-    operation: 'fast-baud-test',
-    what: 'line',
-    noFasterLine: true,
+    title: 'Fast Read',
+    operation: 'fast-read',
+    what: 'read',
     confirm:
-      `Baud Test resets the DME into its fast flasher and tries faster line speeds one by one (${rates} baud): at each, five HELLOs, three 4 KB frames and a 64 KB CRC. Nothing is written, and the DME is restarted on its program afterwards. A speed the line cannot carry costs a few seconds.\n\n` +
-      'Run the test?',
-    note: `DME ${d.ident.hwRef} / prog ${d.ident.progRef} / fast flasher v${d.fastFlasher.version} / baud test`,
-    push: async (client, cb, p) => {
-      const r = await fastFlashWire.lineTest(client, p.link, (s) =>
-        cb.stage(s)
-      );
-      if (r.lost) {
-        fbDmeSetFastLive(false);
-        return {
-          ok: true,
-          skipped: false,
-          summary: `${r.summary} -- the DME stayed on a rate the line does not carry: switch the ignition off for ten seconds and back on, then Identify`,
-          best: r.best,
-        };
-      }
+      `Fast Read resets the DME into its fast flasher and reads the 1 MB external flash and the 448 KB MPC. Nothing is written, and the DME is restarted on its program afterwards.\n\n` +
+      'Read the DME?',
+    note: `DME ${d.ident.hwRef} / prog ${d.ident.progRef} / fast flasher v${d.fastFlasher.version} / fast read`,
+    push: async (client, cb) => {
+      const t0 = Date.now();
+      const r = await fastFlashWire.readImage(client, { ...cb, mpc: true });
+      const s = Math.round((Date.now() - t0) / 1000);
       cb.stage('Restarting the DME');
       await client.reset();
-      // the fastest rate that passed is what the next fast flash asks for first
-      Settings.set('fastLineBest', r.best);
-      flashLog.note(`Fast flashes will ask for ${r.best} baud first`);
-      return { ok: true, skipped: false, summary: r.summary, best: r.best };
+      const base = `${d.ident.vin}_${d.ident.hwRef}`;
+      fbSaveBytes(`${base}_Flash.bin`, r.flash);
+      if (r.mpc) fbSaveBytes(`${base}_MPC.bin`, r.mpc);
+      flashLog.note(
+        `Fast Read: ${r.flash.length + (r.mpc ? r.mpc.length : 0)} bytes in ${s} s`
+      );
+      return {
+        ok: true,
+        skipped: false,
+        summary: 'saved the full flash and MPC',
+      };
     },
   });
 }
@@ -102,13 +101,15 @@ async function fbDmeFastBaudTest() {
  * Everything the flasher is told goes to the session log, command by
  * command (the client's trace), for a diagnosis from the downloaded file.
  * @param {{title: string, operation: string, what: string, confirm: string,
- *   note: string, counter?: boolean,
+ *   note: string, counter?: boolean, after?: () => Promise<void>,
+ *   confirmed?: boolean,
  *   prepare?: () => Promise<{attach?: [string, Uint8Array]}>,
  *   push: (client: object, cb: object, prepared: object) => Promise<{skipped: boolean}>}} spec
  */
 async function fbDmeFastFlash(spec) {
   const d = fbState.dme;
-  if (!(await fbConfirm(spec.confirm, spec.title))) {
+  // `confirmed`: a guided flow (Install BL14) asked once for all its steps
+  if (!spec.confirmed && !(await fbConfirm(spec.confirm, spec.title))) {
     flashLog.note(`${spec.title} not confirmed: nothing was sent to the car`);
     return;
   }
@@ -141,7 +142,8 @@ async function fbDmeFastFlash(spec) {
         client,
         link,
         (s) => flashLog.note(s),
-        Number(Settings.get('fastLineBest', 0)) || 0
+        Number(Settings.get('fastLineBest', fastFlashWire.FAST_LINES[0][0])) ||
+          0
       );
       ui.stage(`Line at ${rate} baud`);
       // a line that garbles replies steps down one rate, once, and the
@@ -157,6 +159,7 @@ async function fbDmeFastFlash(spec) {
         await client.setBaud(scbr);
         await link.rebaud(lower, { patience: 15000 });
         await client.setBaud(scbr);
+        client.baud = lower;
         Settings.set('fastLineBest', lower);
         ui.stage(`Line at ${lower} baud`);
       };
@@ -196,7 +199,8 @@ async function fbDmeFastFlash(spec) {
     ui.stop();
     fbFlashingBar(false);
     fbProgress(0);
-    if (ok) await fbDmeIdentify(true);
+    // `after` replaces the identify (the AIF wipe asks for a key cycle first)
+    if (ok) await (spec.after ? spec.after() : fbDmeIdentify(true));
     await fbSessionStop();
   }
 }
@@ -271,17 +275,23 @@ function fbDmeFastUi(title) {
   const elapsed = () => Math.round((Date.now() - started) / 1000);
   const paint = () => fbSetStatusInPlace(`${title}: ${phase}… ${pct}%`);
   const phaseOf = (s) =>
-    /^Compar/.test(s)
-      ? 'comparing'
-      : /^Test/.test(s)
-        ? 'testing the line'
-        : /^(Eras|Writ)/.test(s)
-          ? 'writing'
-          : /^Verif/.test(s)
-            ? 'verifying'
-            : /^(Mark|Restart)/.test(s)
-              ? 'finishing'
-              : null;
+    /^Checking the flasher/.test(s)
+      ? 'checking the flasher'
+      : /^(Trying a faster line|Line at)/.test(s)
+        ? 'setting the line speed'
+        : /^Read/.test(s)
+          ? 'reading'
+          : /^Compar/.test(s)
+            ? 'comparing'
+            : /^Test/.test(s)
+              ? 'testing the line'
+              : /^(Eras|Writ)/.test(s)
+                ? 'writing'
+                : /^Verif/.test(s)
+                  ? 'verifying'
+                  : /^(Mark|Restart)/.test(s)
+                    ? 'finishing'
+                    : null;
   const timer = setInterval(paint, 1000);
   return {
     stage(s) {
@@ -367,7 +377,9 @@ async function fbDmeFastPushWithResume(client, ui, push) {
       await client.hello();
     } catch (e2) {
       throw new Error(
-        `${e.message}. The flasher did not answer a HELLO either (${e2.message}). If the ignition stayed on, run the same fast flash again: it reconnects to the flasher and finishes. If the power was lost, the DME is in its loader -- Identify shows "program missing" -- and a standard Flash Program restores it.`,
+        fbDmeResumes()
+          ? `${e.message}. The flasher did not answer a HELLO either (${e2.message}). The DME carries the fast flash bootloader, which survives a power loss: switch the ignition on, Identify, load the same file and run the same fast flash again -- it reads what the DME already holds and writes only the rest.`
+          : `${e.message}. The flasher did not answer a HELLO either (${e2.message}). If the ignition stayed on, run the same fast flash again: it reconnects to the flasher and finishes. If the power was lost, the DME is in its loader -- Identify shows "program missing" -- and a standard Flash Program restores it.`,
         { cause: e2 }
       );
     }
@@ -386,6 +398,50 @@ async function fbDmeFastPushWithResume(client, ui, push) {
     fbDmeSetFastLive(false);
     return r;
   }
+}
+
+/**
+ * Whether a push to this DME can be resumed after a power loss: its fast
+ * flasher is the BL15 bootloader, whose park window still lets the fast
+ * path in when the loader will not start a half-written program or tune.
+ * @returns {boolean}
+ */
+function fbDmeResumes() {
+  const f = fbState.dme.fastFlasher;
+  return !!(f && f.bootLoader >= 15 && typeof pushResume !== 'undefined');
+}
+
+/**
+ * The calibration through the resumable push (core/flash/push-resume.js):
+ * the same 29 chunks and marks pushCal writes, but decided from what the
+ * DME holds -- complete (nothing sent), half-written after a cut (only the
+ * missing chunks), or other content (erase, then all of it) -- then the
+ * restart.
+ * @param {object} client
+ * @param {Uint8Array} signedCal - 0x1D000 bytes.
+ * @param {{stage: (s: string) => void, progress: (pct: number) => void,
+ *   note: (s: string) => void}} cb
+ * @returns {Promise<{skipped: boolean, summary: string}>}
+ */
+async function fbDmeResumablePushCal(client, signedCal, cb) {
+  cb.stage('Comparing the calibration on the DME');
+  const r = await pushResume.push(
+    client,
+    { base: fastFlashWire.CAL_SECTOR, data: signedCal, marks: 0 },
+    cb
+  );
+  cb.stage('Restarting the DME');
+  await client.reset();
+  const n = signedCal.length / pushResume.CHUNK;
+  return {
+    skipped: r.sent === 0 && !r.erased,
+    summary:
+      r.sent === 0 && !r.erased
+        ? 'the DME already held this calibration; checked and marked, nothing written'
+        : r.erased
+          ? `written (${r.sent} of ${n} chunks)`
+          : `resumed: ${r.sent} of ${n} chunks were missing and are written`,
+  };
 }
 
 /** How many times the reset trigger is tried: a late break is a safe miss. */
@@ -456,7 +512,8 @@ async function fbDmeEnterFastFlasher(owner, ui) {
     const link = fastFlashWire.webLink(webBus);
     try {
       const stamp = await link.resume();
-      if (String.fromCharCode(...stamp.subarray(0, 6)) === 'MS45QF') {
+      // the resident body (MS45QF) or the BL14 boot-region ring (MS45BL)
+      if (/^MS45(QF|BL)$/.test(String.fromCharCode(...stamp.subarray(0, 6)))) {
         flashLog.note(
           'Reconnected to the fast flasher left running by an interrupted session'
         );
@@ -524,7 +581,7 @@ async function fbDmeEnterFastFlasher(owner, ui) {
     try {
       const stamp = await link.enter({ onLine: fbDmeNoteLine });
       const magic = String.fromCharCode(...stamp.subarray(0, 6));
-      if (magic !== 'MS45QF')
+      if (magic !== 'MS45QF' && magic !== 'MS45BL')
         throw new Error(
           `The DME answered, but its HELLO stamp read "${magic}", not a fast flasher.`
         );
@@ -552,7 +609,8 @@ async function fbDmeEnterFastFlasher(owner, ui) {
           `The DME does not answer on its program after the reset (${probe.error || probe.status || 'no answer'}): it is most likely waiting in the fast flasher`
         );
         throw new Error(
-          `The fast flasher did not answer (${e.message}), and the DME no longer answers on its program either: it is most likely waiting in the flasher. Nothing was written. Switch the ignition off for ten seconds and back on: the DME starts its program again (the dash warnings go with it).`
+          `The fast flasher did not answer (${e.message}), and the DME no longer answers on its program either: it is most likely waiting in the flasher. Nothing was written. Switch the ignition off for ten seconds and back on: the DME starts its program again (the dash warnings go with it).`,
+          { cause: e }
         );
       }
       fbDmeSetFastLive(false);
@@ -716,8 +774,15 @@ async function fbDmeMpcMatchesCar(mpc) {
  * so the loaded MPC must already be on the DME (checked over a normal KWP
  * session before the flasher session opens: the program signature covers
  * MPC segments). Full-binary mode only; testing-only.
+ * @param {{carry?: (flash: Uint8Array, mpc: Uint8Array) =>
+ *   {flash: Uint8Array, mpc: Uint8Array}, title?: string, confirmed?: boolean,
+ *   after?: () => Promise<void>}} [opts]
+ *   - carry: the body the pair is given in place of the shipped one (the
+ *   BL14 installer); title and confirmed: a guided flow's own name, and
+ *   that it already asked; after: what runs in place of the Identify that
+ *   follows a successful push.
  */
-async function fbDmeFastFlashProgram() {
+async function fbDmeFastFlashProgram(opts = {}) {
   const d = fbState.dme;
   if (!fbProtectTesting()) return;
   if (!d.identified || !d.flash || !d.mpc) return;
@@ -734,7 +799,15 @@ async function fbDmeFastFlashProgram() {
     // the DME carries the flasher, so the pair must too: its code in the last
     // program sector (which this push rewrites) and its hook in the MPC
     // (which the program signature covers)
-    const carried = fastFlasher.withFlasher(images.source, images.mpc);
+    // (the BL14 install swaps in its installer body here: opts.carry)
+    // a DME whose fast flasher is the bootloader needs no resident body: the
+    // pair goes as loaded
+    const carry =
+      opts.carry ||
+      (d.fastFlasher.bootLoader
+        ? (flash, mpc) => ({ flash, mpc })
+        : fastFlasher.withFlasher);
+    const carried = carry(images.source, images.mpc);
     images = { source: carried.flash, mpc: carried.mpc };
   } catch (e) {
     await fbMessage(e.message, e.title || 'Fast Flash Program');
@@ -765,23 +838,158 @@ async function fbDmeFastFlashProgram() {
     }
   }
   await fbDmeFastFlash({
-    title: 'Fast Flash Program',
+    title: opts.title || 'Fast Flash Program',
+    confirmed: !!opts.confirmed,
+    after: opts.after,
     operation: 'fast-flash-program',
     what: 'program',
     counter: true,
     confirm:
       (writesMpc
-        ? 'Fast Flash Program resets the DME into its fast flasher and rewrites the program -- the external sectors and the MPC (internal flash) blocks that differ, compressed.\n\n'
+        ? `Fast Flash Program resets the DME into its fast flasher and rewrites the program -- the external sectors and the MPC (internal flash) blocks that differ${hasCal ? ', and the calibration' : ''}, compressed.\n\n`
         : 'Fast Flash Program resets the DME into its fast flasher and rewrites the external program -- only the sectors that differ, compressed.\n\n' +
           'The MPC (internal flash) is left as it is; it has been checked to match the loaded program.\n\n') +
       'Keep the ignition on, a charger on the battery and the cable plugged in until it has finished. An interrupted write leaves the program without its valid marks, and the DME stays in the flasher until a flash completes.\n\n' +
       'Write the program?',
     note: `DME ${d.ident.hwRef} / prog ${progRef || '(unreadable)'} / fast flasher v${d.fastFlasher.version}${d.fastFlasher.ready ? '' : ` (upgrading to v${fastFlasher.VERSION})`}${d.flashName ? ` / ${d.flashName}` : ''}${d.mpcName ? ` + ${d.mpcName}` : ''}`,
     prepare: async () => ({ attach: ['fast_program_ext.bin', chipImage] }),
-    push: (client, cb) =>
-      fastFlashWire.pushProgram(client, chipImage, cb, {
+    push: async (client, cb) => {
+      // the calibration too, as Flash Program writes it: first, without the
+      // reset, so the program push that follows closes the session
+      if (hasCal)
+        await fastFlashWire.pushCal(
+          client,
+          chipImage.slice(MS45_CAL_START, MS45_CAL_START + MS45_CAL_LENGTH),
+          cb,
+          { reset: false }
+        );
+      return fastFlashWire.pushProgram(client, chipImage, cb, {
         mpc: writesMpc ? mpc : null,
         pagesets: !!d.fastFlasher.pagesets,
-      }),
+      });
+    },
+  });
+}
+
+/** The boot content below the log, which the wipe writes back: [0x8000, 0x1FB34). */
+const FB_AIF_BOOT_FROM = 0x8000;
+const FB_AIF_BOOT_TO = 0x1fb34;
+
+/**
+ * The DME's own boot content, read over KWP on the running program the way
+ * identify reads (no unlock; at the raised line rate when it can go up).
+ * @returns {Promise<Uint8Array|null>}
+ */
+async function fbDmeReadBootContent() {
+  let baud = fbState.dme.ident.baud || 9600;
+  if (baud === 9600 && typeof ms45RaiseBaud === 'function') {
+    try {
+      baud = await ms45RaiseBaud();
+    } catch (e) {
+      baud = 9600;
+    }
+  }
+  if (baud === 9600)
+    return ms45ReadCarBytes(
+      FB_AIF_BOOT_FROM,
+      FB_AIF_BOOT_TO - 1,
+      'ROMX',
+      fbDmeReadProtocol()
+    );
+  fbDmeFastReads = true;
+  try {
+    return await ms45ReadCarBytes(
+      FB_AIF_BOOT_FROM,
+      FB_AIF_BOOT_TO - 1,
+      'ROMX',
+      fbDmeReadProtocol()
+    );
+  } finally {
+    fbDmeFastReads = false;
+    await ms45DefaultBaud();
+  }
+}
+
+/**
+ * BENCH ONLY (localhost). Wipe the programming log (AIF/UIF) through the v10
+ * boot-window body: erase the 96 KB boot sector and stream the boot content
+ * below the log back. The flasher has no read-bytes service, so the host
+ * supplies [0x8000, 0x1FB34): from the loaded flash image when there is one,
+ * else read off the DME first. Either way the wipe refuses unless it matches
+ * the DME's boot sector (CRC) before anything is erased. NOT
+ * reboot-recoverable: a power/cable loss between the erase and the restore
+ * leaves the DME recoverable only by a BDM / boot-mode rig.
+ */
+async function fbDmeWipeAif() {
+  const d = fbState.dme;
+  if (!fbProtectTesting()) return;
+  if (!(d.identified && d.fastFlasher && d.fastFlasher.aifWipe)) {
+    await fbMessage(
+      'The fast flasher on this DME does not carry the AIF wipe (v12 and later do): Fast Flash Program upgrades it.',
+      'Wipe AIF'
+    );
+    return;
+  }
+  const fromFile = !!(d.flash && d.flash.length >= FB_AIF_BOOT_TO);
+  let bootContent = fromFile
+    ? d.flash.slice(FB_AIF_BOOT_FROM, FB_AIF_BOOT_TO)
+    : null;
+  await fbDmeFastFlash({
+    title: 'Wipe AIF',
+    operation: 'aif-wipe',
+    what: 'aif',
+    noFasterLine: true,
+    confirm:
+      'This erases the 96 KB boot ' +
+      'sector (the loader included) and writes the boot content back ' +
+      (fromFile
+        ? 'from the loaded image'
+        : 'as read off the DME just before (no file is loaded)') +
+      ', leaving the programming log (AIF/UIF) blank. It refuses before ' +
+      "erasing unless that content matches the DME's own.\n\nA power or " +
+      'cable loss between the erase and the restore leaves a DME that ' +
+      'neither the loader nor a full flash can reach: only a BDM / boot-mode ' +
+      'rig recovers it. Keep power and the cable steady.\n\n' +
+      'Wipe the AIF?',
+    note: `Wipe AIF on ${d.ident.hwRef} / boot content from ${fromFile ? d.flashName || 'the loaded image' : 'the DME'}`,
+    prepare: async () => {
+      // a v13 body reads it itself, in seconds, once the session is open
+      if (bootContent || d.fastFlasher.reads) return {};
+      fbSetStatusInPlace('Wipe AIF: reading the boot content over KWP…');
+      flashLog.note('Reading the boot content [0x8000, 0x1FB34) off the DME');
+      bootContent = await fbDmeReadBootContent();
+      if (!bootContent)
+        throw new Error(
+          'Could not read the boot content off the DME; nothing was erased'
+        );
+      return {};
+    },
+    after: async () => {
+      const text =
+        'AIF wiped. Switch the ignition off for ten seconds and back on, then press Identify.';
+      fbSetStatus(text);
+      await fbMessage(text, 'Wipe AIF');
+    },
+    push: async (client, cb) => {
+      if (!bootContent) {
+        cb.stage('Reading the boot content through the flasher');
+        bootContent = await fastFlashWire.readArea(
+          client,
+          FB_AIF_BOOT_FROM,
+          FB_AIF_BOOT_TO - FB_AIF_BOOT_FROM,
+          (n) =>
+            cb.progress(
+              Math.floor((n * 50) / (FB_AIF_BOOT_TO - FB_AIF_BOOT_FROM))
+            )
+        );
+      }
+      await fastFlashWire.wipeAif(client, bootContent, (s) => flashLog.note(s));
+      // the wipe leaves the flasher running: RESET boots the restored loader
+      // and the program, as every push ends, so the Identify that follows
+      // reads the DME and not the flasher
+      cb.stage('Restarting the DME');
+      await client.reset();
+      return { skipped: false };
+    },
   });
 }

@@ -21,6 +21,9 @@
 //   MARKS        05 which:u8  (0 cal 0x5FF80/0x5FFC0, 1 program) -- the
 //                commit point, always last before RESET
 //   RESET        06  (the reply goes out, then a watchdog reset)
+//   READ         0A off:u32 len:u16 (1..4096)      -> 4A crc:u32 <len bytes>
+//                (v13; crc over the bytes; any ext offset, or the MPC
+//                window 0x80000000 | offset -- boot block and loader too)
 //
 // Offsets are ext offsets; the DME refuses anything below 0x40000 or past
 // the chip. CRCs are CRC-32/MPEG-2 (poly 04C11DB7, init FFFFFFFF, no
@@ -42,7 +45,28 @@ const FF_SVC = {
   RESET: 0x06,
   SET_BAUD: 0x07, // v8: u16 SCBR; the body answers at the old rate, then switches
   CHUNK_SET: 0x08, // v8: pagesets over several MPC blocks at once
+  AIF: 0x09, // v10 bench body only: the AIF-wipe resume marker (read/arm/done)
+  READ: 0x0a, // v13: raw bytes of the chip or the MPC, 4 KB a request
 };
+/** READ: bytes per request (the body refuses more), and the external chip. */
+const FF_READ_MAX = 0x1000;
+const FF_EXT_SIZE = 0x100000;
+
+// AIF-wipe (v10 boot-window body) constants. The programming log lives at the
+// top of the single 96 KB boot sector; wiping it means erasing that sector
+// (loader included) and streaming the boot content below the log back from a
+// reference image. A resume marker at ext 0x387EC (survives the erase) gates
+// the erase on "armed", so the host can tell a mid-wipe state on reconnect --
+// though once the boot sector is erased the DME cannot re-enter the flasher
+// until the loader is restored (bench only; see fast-flasher.js). (github aside)
+const FF_AIF = { READ: 0, ARM: 1, DONE: 2 };
+const FF_MARK = { FRESH: 0xffff, ARMED: 0xa55a, DONE: 0xa558 };
+const FF_BOOT = 0x8000; // boot sector start
+const FF_BOOT_END = 0x20000; // boot sector end (exclusive)
+const FF_AIF_START = 0x1fb34; // the programming log: left blank after a wipe
+// HELLO must report this. v11: a row of marker slots, so it wipes again;
+// v10 had one marker halfword and refused every wipe after its first
+const FF_AIFWIPE_STAMP = { version: 12, flags: 0x03 };
 const FF_SVC_NAME = Object.fromEntries(
   Object.entries(FF_SVC).map(([k, v]) => [v, k])
 );
@@ -68,6 +92,7 @@ const FF_TIMEOUT = {
   RESET: 1000,
   SET_BAUD: 2000,
   CHUNK_SET: 3000,
+  READ: 3000, // 4 KB is ~0.4 s at 115200 8E1, plus the body's CRC pass
 };
 /**
  * The faster lines a v8 body is asked for after the probe, in order: the
@@ -80,6 +105,7 @@ const FF_TIMEOUT = {
  * 10.4 kBaud at ISO's 10 nF worst case -- so 250 k is a try, 156 k likely.
  */
 const FF_FAST_LINES = [
+  [416667, 3], // the car's line carried it (2026-10-26): where sessions start
   [312500, 4],
   [250000, 5],
   [208333, 6],
@@ -267,6 +293,8 @@ function _ffTraceLine(svc, data, reply, ms) {
   else if (svc === FF_SVC.CHUNK)
     what = ` 0x${_ffBe32(data, 0).toString(16).toUpperCase()} ${(data[4] << 8) | data[5]}B (${(data[6] << 8) | data[7]}B packed)`;
   else if (svc === FF_SVC.MARKS) what = data[0] ? ' program' : ' cal';
+  else if (svc === FF_SVC.READ)
+    what = ` 0x${_ffBe32(data, 0).toString(16).toUpperCase()} ${(data[4] << 8) | data[5]}B`;
   let got = 'no reply';
   if (reply && reply.svc === 0x7f)
     got = `NAK ${FF_NAK_REASON[reply.data[1]] || `reason ${reply.data[1]}`}`;
@@ -308,6 +336,8 @@ class FastFlashClient {
       typeof nrv2b !== 'undefined' ? nrv2b : require('./nrv2b.js').nrv2b;
     /** Garbled replies so far (a marginal line shows here first). */
     this.lineErrors = 0;
+    /** The line rate the session is on (ffFasterLine and a step-down move it). */
+    this.baud = FF_BAUD;
     /** Set by the session: moves the line down a rate; called once at FF_LINE_ERRORS_STEP. */
     this.stepDown = null;
   }
@@ -492,6 +522,107 @@ class FastFlashClient {
     );
     return packed.length;
   }
+
+  /**
+   * v10 bench body: read the AIF-wipe resume marker halfword at ext 0x387EC.
+   * @returns {Promise<number>} 0xFFFF fresh, 0xA55A armed, 0xA558 done.
+   */
+  async aifRead() {
+    const d = await this.call(FF_SVC.AIF, [FF_AIF.READ], FF_TIMEOUT.MARKS);
+    return ((d[0] << 8) | d[1]) & 0xffff;
+  }
+
+  /** v10 bench body: arm the marker (0xFFFF -> 0xA55A), required before a boot-sector erase. */
+  async aifArm() {
+    await this.call(FF_SVC.AIF, [FF_AIF.ARM], FF_TIMEOUT.MARKS);
+  }
+
+  /** v10 bench body: mark the wipe done (0xA55A -> 0xA558). */
+  async aifDone() {
+    await this.call(FF_SVC.AIF, [FF_AIF.DONE], FF_TIMEOUT.MARKS);
+  }
+
+  /**
+   * v13: raw bytes, checked against the CRC the body sends with them. A
+   * mismatch is a byte the line mangled inside the data (the frame sum is
+   * one byte over 4 KB): asked once more, like a garbled reply.
+   * @param {number} off - Ext offset, or FF_MPC_WINDOW | MPC offset.
+   * @param {number} len - 1..4096.
+   * @returns {Promise<Uint8Array>}
+   */
+  async read(off, len) {
+    for (let attempt = 1; ; attempt++) {
+      const d = await this.call(
+        FF_SVC.READ,
+        [..._ffU32(off), ..._ffU16(len)],
+        FF_TIMEOUT.READ
+      );
+      const bytes = d.subarray(4);
+      if (bytes.length === len && ffCrc32(bytes) === _ffBe32(d, 0))
+        return bytes;
+      if (this.trace)
+        this.trace(
+          `FF READ 0x${off.toString(16).toUpperCase()} ${len}B -> ${bytes.length}B, CRC mismatch${attempt === 1 ? ' -- once more' : ''}`
+        );
+      if (attempt > 1)
+        throw new Error(
+          `fast flasher: READ 0x${off.toString(16)} came back damaged twice`
+        );
+      // damaged data is a marginal line just as a garbled reply is: it
+      // counts toward the same step-down
+      this.lineErrors++;
+      if (this.lineErrors >= FF_LINE_ERRORS_STEP && this.stepDown) {
+        const down = this.stepDown;
+        this.stepDown = null;
+        await down();
+      }
+    }
+  }
+}
+
+/**
+ * An area through READ, 4 KB a request.
+ * @param {FastFlashClient} client
+ * @param {number} base - An ext offset, or FF_MPC_WINDOW | an MPC offset.
+ * @param {number} size
+ * @param {(done: number) => void} [progress] - Bytes read so far.
+ * @returns {Promise<Uint8Array>}
+ */
+async function ffReadArea(client, base, size, progress = () => {}) {
+  const out = new Uint8Array(size);
+  for (let at = 0; at < size; at += FF_READ_MAX) {
+    const n = Math.min(FF_READ_MAX, size - at);
+    out.set(await client.read((base + at) >>> 0, n), at);
+    progress(at + n);
+  }
+  return out;
+}
+
+/**
+ * Fast Read: the external chip's 1 MB and, when asked, the MPC's 448 KB --
+ * the same files a KWP full read saves, ~1.5 MB at the line's rate instead
+ * of the loader's 9600 baud.
+ * @param {FastFlashClient} client
+ * @param {{mpc?: boolean, stage?: (s: string) => void,
+ *   progress?: (pct: number) => void}} [cb]
+ * @returns {Promise<{flash: Uint8Array, mpc: Uint8Array|null}>}
+ */
+async function ffReadImage(client, cb = {}) {
+  const stage = cb.stage || (() => {});
+  const progress = cb.progress || (() => {});
+  const total = FF_EXT_SIZE + (cb.mpc ? FF_MPC_SIZE : 0);
+  stage('Reading the external flash');
+  const flash = await ffReadArea(client, 0, FF_EXT_SIZE, (n) =>
+    progress(Math.floor((n * 100) / total))
+  );
+  let mpc = null;
+  if (cb.mpc) {
+    stage('Reading the MPC');
+    mpc = await ffReadArea(client, FF_MPC_WINDOW, FF_MPC_SIZE, (n) =>
+      progress(Math.floor(((FF_EXT_SIZE + n) * 100) / total))
+    );
+  }
+  return { flash, mpc };
 }
 
 /**
@@ -504,6 +635,16 @@ class FastFlashClient {
  * @param {(s: string) => void} [note]
  * @returns {Promise<number>} The rate the session is on.
  */
+/** Where the line test's 4 KB frames go: refused by every body (NAK 1). */
+const FF_LINE_TEST_FRAME_AT = 0x0;
+/**
+ * Where the line test sent them before: inside the v10 bench body's boot
+ * window, so that body programmed the test pattern over the loader's 4 KB
+ * there. The AIF wipe accepts a restore source differing from the DME only
+ * in this block, which repairs it.
+ */
+const FF_LINE_TEST_DAMAGE_AT = 0x10000;
+
 /**
  * The Baud Test: try each rate in turn on an open v8 session and report
  * what the cable and the K-line carry. At each rate: the HELLO that
@@ -590,8 +731,11 @@ async function ffLineTest(
     }
     for (let i = 0; i < FF_TEST_FRAMES; i++) {
       try {
-        await client.chunk(0x10000, longFrame);
-        r.why = 'a CHUNK below 0x40000 was accepted';
+        // ext 0x0: below every window any body writes (the v10 bench body
+        // opens [0x8000, 0x20000), and the old target 0x10000 inside it had
+        // that body program the test pattern over the boot loader)
+        await client.chunk(FF_LINE_TEST_FRAME_AT, longFrame);
+        r.why = 'a CHUNK to ext 0x0 was accepted';
       } catch (e) {
         if (e instanceof FastFlashNak && e.reason === 1) r.frames++;
       }
@@ -648,6 +792,7 @@ async function ffFasterLine(client, link, note = () => {}, preferred = 0) {
     try {
       await link.rebaud(rate);
       await client.setBaud(scbr); // heard: the body may keep the rate
+      client.baud = rate;
       note(`Line at ${rate} baud (SCBR ${scbr})`);
       return rate;
     } catch (e) {
@@ -683,6 +828,8 @@ function ffCalSectorImage(signedCal) {
  * @param {Uint8Array} signedCal
  * @param {{stage?: (s: string) => void, progress?: (pct: number, what: string) => void,
  *   note?: (s: string) => void}} [cb]
+ * @param {{reset?: boolean}} [opts] - reset: false skips the closing RESET
+ *   (a program push follows in the same session and resets).
  * @returns {Promise<{ok: true, skipped: boolean, sent: number, chunks: number}>}
  */
 /**
@@ -721,7 +868,9 @@ function _ffTracker(progress, total) {
   };
 }
 
-async function ffPushCal(client, signedCal, cb = {}) {
+async function ffPushCal(client, signedCal, cb = {}, opts = {}) {
+  // reset: false leaves the flasher running for a program push after it
+  const reset = opts.reset !== false;
   const stage = cb.stage || (() => {});
   const note = cb.note || (() => {});
   if (!signedCal || signedCal.length !== FF_CAL_LENGTH)
@@ -739,8 +888,10 @@ async function ffPushCal(client, signedCal, cb = {}) {
     note('The DME already holds exactly this calibration; nothing written');
     track.setTotal(U.QUERY + U.RESET);
     track.add(U.QUERY, 'Compared');
-    stage('Restarting the DME');
-    await client.reset();
+    if (reset) {
+      stage('Restarting the DME');
+      await client.reset();
+    }
     track.add(U.RESET, 'Done');
     return { ok: true, skipped: true, sent: 0, chunks: 0 };
   }
@@ -767,8 +918,10 @@ async function ffPushCal(client, signedCal, cb = {}) {
   stage('Marking the calibration valid');
   await client.marks(0);
   track.add(U.MARKS, 'Marked valid');
-  stage('Restarting the DME');
-  await client.reset();
+  if (reset) {
+    stage('Restarting the DME');
+    await client.reset();
+  }
   track.add(U.RESET, 'Done');
   note(
     `Fast flash: ${chunks} chunks, ${sent} bytes on the wire for ${FF_CAL_LENGTH} (${Math.round((sent * 100) / FF_CAL_LENGTH)}%)`
@@ -951,20 +1104,28 @@ async function ffPushProgram(client, signedFull, cb = {}, opts = {}) {
   const pagesets = parallel.length
     ? Math.max(1, Math.min(64, Math.floor(4096 / (FF_PAGE * parallel.length))))
     : 0;
+  // the car's measured rates, per chunk a fixed part and a part that
+  // scales with the line (fitted to 115200 and 416667 sessions, 2026-10-26:
+  // an external chunk 0.35 s -> 0.14 s, a pageset chunk 0.35 -> 0.23 s plus
+  // the CMF's pulses); a sequential MPC block is the CMF's time, not the wire's
+  const baud = client.baud || FF_BAUD;
+  const slow = FF_BAUD / baud;
+  const extChunk = 0.06 + 0.29 * slow;
+  const setChunk = 0.187 + 0.163 * slow;
   const seconds =
     sequential.reduce(
       (n, u) =>
         n +
         (u.addr >= FF_MPC_WINDOW
           ? 1 + 8 * 1.9
-          : 2.5 + 0.35 * slotsOf(u.bytes.length)),
+          : 2.5 + extChunk * slotsOf(u.bytes.length)),
       0
     ) +
     (parallel.length
-      ? 1 + (FF_MPC_BLOCK / FF_PAGE / pagesets) * (0.35 + 0.025 * pagesets)
+      ? 1 + (FF_MPC_BLOCK / FF_PAGE / pagesets) * (setChunk + 0.025 * pagesets)
       : 0);
   note(
-    `Estimated write time ~${Math.round(seconds)} s at 115200 (the car's measured rates${parallel.length ? `; ${parallel.length} MPC blocks as pagesets` : ''})`
+    `Estimated write time ~${Math.round(seconds)} s at ${baud} baud (the car's measured rates${parallel.length ? `; ${parallel.length} MPC blocks as pagesets` : ''})`
   );
   const writeUnit = async (u, which) => {
     stage(`Writing ${which}`);
@@ -1371,8 +1532,133 @@ function _ffFind(hay, needle) {
   return -1;
 }
 
+/**
+ * Wipe the programming log (AIF/UIF) through an OPEN v10 boot-window session.
+ * Marker-driven, so the first run and a resume are the same path. BENCH ONLY:
+ * a boot-sector erase removes the loader, so a power loss between the erase
+ * and the restore leaves a DME that can only be recovered by a bootstrap
+ * (full flash) -- the marker cannot help once the sector is blank.
+ *
+ * @param {FastFlashClient} client - an open session (break-held HELLO done).
+ * @param {Uint8Array} bootContent - the reference image's [0x8000, 0x1FB34)
+ *   bytes (the boot content BELOW the log; restored verbatim). The flasher has
+ *   no read-bytes service, so the host supplies this from the image it flashed.
+ * @param {(msg: string) => void} [log]
+ * @returns {Promise<{wiped: boolean, already?: boolean}>}
+ * @throws {Error} wrong body, bad marker, a sector that would not blank, etc.
+ */
+async function ffWipeAif(client, bootContent, log = () => {}) {
+  const stamp = await client.hello();
+  const magic = String.fromCharCode(...Array.from(stamp.slice(0, 6)));
+  const ver = stamp[6];
+  const flags = stamp[7];
+  if (
+    magic !== 'MS45QF' ||
+    ver < FF_AIFWIPE_STAMP.version ||
+    (flags & FF_AIFWIPE_STAMP.flags) !== FF_AIFWIPE_STAMP.flags
+  )
+    throw new Error(
+      `not the AIF-wipe bench body (HELLO ${magic} v${ver} flags 0x${flags.toString(16)}); ` +
+        'a v12+ fast flasher carries the wipe: Fast Flash Program upgrades it'
+    );
+  if (bootContent.length !== FF_AIF_START - FF_BOOT)
+    throw new Error(
+      `bootContent must be ${FF_AIF_START - FF_BOOT} bytes ([0x8000, 0x1fb34))`
+    );
+
+  let mk = await client.aifRead();
+  log(`AIF marker 0x${mk.toString(16)}`);
+  // v11 reads the current slot: fresh after a finished wipe, DONE only when
+  // every slot has been spent
+  if (mk === FF_MARK.DONE)
+    throw new Error(
+      'every AIF-wipe marker slot on this DME is spent; nothing was erased'
+    );
+  if (mk === FF_MARK.FRESH) {
+    // the restore source must be what the sector holds now: the erase is
+    // committed until the restore lands, and a source from another loader
+    // build would leave this DME's start code with a foreign loader
+    const have =
+      (await client.sectorQuery(FF_BOOT, FF_AIF_START - FF_BOOT)) >>> 0;
+    if (have === ffCrc32(bootContent) >>> 0) {
+      log('boot content matches the DME');
+    } else {
+      // block by block: a source that differs ONLY in the block the old line
+      // test programmed over (a v10 body took its CHUNKs to 0x10000) is the
+      // repair of that damage; anything else is another unit's content
+      const differ = [];
+      for (let at = FF_BOOT; at < FF_AIF_START; at += 0x1000) {
+        const len = Math.min(0x1000, FF_AIF_START - at);
+        const dme = (await client.sectorQuery(at, len)) >>> 0;
+        const src =
+          ffCrc32(bootContent.subarray(at - FF_BOOT, at - FF_BOOT + len)) >>> 0;
+        if (dme !== src) differ.push(at);
+      }
+      const hex = (a) => `0x${a.toString(16)}`;
+      if (!(differ.length === 1 && differ[0] === FF_LINE_TEST_DAMAGE_AT))
+        throw new Error(
+          "the boot content to restore does not match the DME's own boot sector " +
+            `(blocks differing: ${differ.map(hex).join(', ') || 'none found block by block'}); nothing was erased`
+        );
+      log(
+        `boot content matches the DME except the 4 KB at ${hex(FF_LINE_TEST_DAMAGE_AT)} (the line test's damage): the restore repairs it`
+      );
+    }
+    await client.aifArm();
+    mk = await client.aifRead();
+    if (mk !== FF_MARK.ARMED) throw new Error('the AIF marker did not arm');
+    log('armed (0xA55A)');
+  } else if (mk !== FF_MARK.ARMED) {
+    throw new Error(
+      `AIF marker 0x${mk.toString(16)}: neither fresh, armed nor done`
+    );
+  }
+
+  log('erasing the boot sector (AIF + loader; committed until the restore)...');
+  await client.erase(FF_BOOT);
+
+  // the on-silicon blank check: a hardware-protected sector would fail here,
+  // with the boot sector still stock -> the DME still boots (recoverable)
+  const blankCrc =
+    ffCrc32(new Uint8Array(FF_BOOT_END - FF_BOOT).fill(0xff)) >>> 0;
+  const got = (await client.sectorQuery(FF_BOOT, FF_BOOT_END - FF_BOOT)) >>> 0;
+  if (got !== blankCrc)
+    throw new Error(
+      'boot sector did not read blank after ERASE (hardware-protected?)'
+    );
+  log('boot sector blank');
+
+  // restore the boot content below the log; pad to a multiple of 8 with 0xFF
+  // (the all-literal NRV2B form the body decodes carries full 8-byte groups,
+  // and the pad lands in the erased log head as a no-op, so the log stays blank)
+  const pad = bootContent.length % 8 ? 8 - (bootContent.length % 8) : 0;
+  const payload = new Uint8Array(bootContent.length + pad).fill(0xff);
+  payload.set(bootContent, 0);
+  for (let off = 0; off < payload.length; off += 4096)
+    await client.chunk(
+      FF_BOOT + off,
+      payload.subarray(off, Math.min(off + 4096, payload.length))
+    );
+  log(`restored ${bootContent.length} bytes of boot content`);
+
+  await client.verify(
+    FF_BOOT,
+    FF_AIF_START - FF_BOOT,
+    ffCrc32(bootContent) >>> 0
+  );
+  await client.aifDone();
+  // the slot is spent, so the current one is the next, fresh slot
+  if ((await client.aifRead()) === FF_MARK.ARMED)
+    throw new Error('the AIF marker is still armed after the commit');
+  log('AIF wiped, marker DONE');
+  return { wiped: true };
+}
+
 const fastFlashWire = {
   SVC: FF_SVC,
+  AIF: FF_AIF,
+  MARK: FF_MARK,
+  wipeAif: ffWipeAif,
   BAUD: FF_BAUD,
   CAL_SECTOR: FF_CAL_SECTOR,
   CAL_LENGTH: FF_CAL_LENGTH,
@@ -1387,6 +1673,9 @@ const fastFlashWire = {
   programUnits: ffProgramUnits,
   MPC_WINDOW: FF_MPC_WINDOW,
   pushProgram: ffPushProgram,
+  readArea: ffReadArea,
+  readImage: ffReadImage,
+  READ_MAX: FF_READ_MAX,
   fasterLine: ffFasterLine,
   FAST_LINES: FF_FAST_LINES,
   lineTest: ffLineTest,

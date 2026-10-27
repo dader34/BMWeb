@@ -345,6 +345,8 @@ const flashHistory = {
         return 'Flash tune';
       case 'flash-program':
         return 'Flash program';
+      case 'quick-flash':
+        return 'Quick flash';
       case 'verify-program':
         return 'Finish programming';
       case 'read-dme':

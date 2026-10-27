@@ -13217,3 +13217,116 @@ html[data-theme='inpa'] .ipo-key:hover {
   outline: 1px solid var(--amber);
   outline-offset: 1px;
 }
+
+/* the programming log (AIF) editor, a bench page of the flasher's rail */
+#fb-page-aif {
+  gap: 8px;
+}
+.fb-aif-gap {
+  flex: 1;
+}
+.fb-aif-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+  flex: 1;
+  min-height: 0;
+}
+.fb-aif-body .fb-table-wrap {
+  margin: 0;
+}
+.fb-aif-detail {
+  overflow-y: auto;
+  align-self: start;
+  max-height: 100%;
+}
+.fb-aif .fb-table tr.fb-aif-blank td {
+  padding-top: 3px;
+  padding-bottom: 3px;
+}
+.fb-aif .fb-table tr.fb-aif-unseen td {
+  opacity: 0.55;
+}
+.fb-aif-badge {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 1px 6px;
+  border-radius: 3px;
+  border: 1px solid currentColor;
+  white-space: nowrap;
+}
+.fb-aif-badge.fb-aif-direct {
+  color: var(--green);
+}
+.fb-aif-badge.fb-aif-rewrite {
+  color: var(--red);
+}
+.fb-aif-badge.fb-aif-warn {
+  color: var(--amber);
+}
+.fb-aif-fields .modal-input {
+  margin-bottom: 0;
+  padding: 4px 8px;
+  font-size: 12px;
+}
+.fb-aif-input.fb-aif-changed {
+  border-color: var(--amber);
+}
+.fb-aif-hex {
+  display: grid;
+  grid-template-columns: auto repeat(16, 2.4ch) auto;
+  gap: 2px 3px;
+  align-items: center;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  overflow-x: auto;
+}
+.fb-aif-off {
+  color: var(--ink-faint);
+  padding-right: 6px;
+}
+.fb-aif-byte {
+  width: 2.4ch;
+  padding: 1px 0;
+  text-align: center;
+  font: inherit;
+  text-transform: uppercase;
+  color: var(--ink);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 2px;
+}
+.fb-aif-byte:hover,
+.fb-aif-byte:focus {
+  border-color: var(--line-bright);
+  outline: none;
+}
+.fb-aif-byte.fb-aif-changed {
+  color: var(--amber);
+}
+.fb-aif-byte.fb-aif-sets {
+  color: var(--red);
+  border-color: var(--red);
+}
+.fb-aif-ascii {
+  color: var(--ink-dim);
+  padding-left: 8px;
+  white-space: pre;
+}
+@media (max-width: 820px) {
+  .fb-aif-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.fb-aif .fb-table tr.active .fb-aif-badge {
+  color: inherit;
+}
+.fb-aif-input.fb-aif-sets {
+  border-color: var(--red);
+}
+.fb-aif-raw summary {
+  cursor: pointer;
+  padding: 4px 0;
+}

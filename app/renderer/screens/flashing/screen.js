@@ -12,7 +12,44 @@
 // upshift) in options.js. The engines underneath are core/ms45/ms45.js (the DME
 // over the SGBD's jobs), core/flash/gs20.js + core/flash/gs20-program.js (the
 // transmission over raw DS2), core/flash/mapswitch.js and core/flash/flash-history.js.
-/* exported showFlashing, fbState, fbEls, fbSetStatus, fbSetStage, fbSetStatusInPlace, fbLog, fbProgress, fbFlashingBar, fbBusy, fbConfirm, fbMessage, fbChoose, fbConfirmAck, fbPickFile, fbIsIos, fbReadBytes, fbReadText, fbSaveBytes, fbEnsureCable, fbDescribeError, fbProgrammingCounter, fbRefreshCustomOptionsGate, fbShowOptions, fbAifArgs, fbOnSharedCar, fbRemoteAction, fbFlashRun, fbAifWanted, fbSetEcuBox, fbRefreshAll, fbDevUi, fbWriteAif, fbTesterSerial, fbSessionStart, fbSessionStop */
+/* exported showFlashing, fbApplyLayout, fbState, fbEls, fbSetStatus, fbSetStage, fbSetStatusInPlace, fbLog, fbProgress, fbFlashingBar, fbBusy, fbConfirm, fbMessage, fbChoose, fbConfirmAck, fbPickFile, fbIsIos, fbReadBytes, fbReadText, fbSaveBytes, fbEnsureCable, fbDescribeError, fbProgrammingCounter, fbRefreshCustomOptionsGate, fbShowOptions, fbAifArgs, fbOnSharedCar, fbRemoteAction, fbFlashRun, fbAifWanted, fbFastFlasherWanted, fbSetEcuBox, fbRefreshAll, fbDevUi, fbWriteAif, fbTesterSerial, fbSessionStart, fbSessionStop */
+
+/**
+ * Follow the screen layout setting without a redraw (the top bar's switch):
+ * the classic window's class, title bar and body tag on or off. A redraw
+ * would forget the identified module and the loaded files, and must never
+ * happen mid-flash.
+ * @returns {void}
+ */
+function fbApplyLayout() {
+  const wrap = document.querySelector('#view .fb');
+  if (!wrap) return;
+  const classic = inpaMode();
+  wrap.classList.toggle('fb-classic', classic);
+  document.body.classList.toggle('fb-classic-on', classic);
+  let bar = wrap.querySelector('#fb-titlebar');
+  if (classic && !bar) {
+    bar = document.createElement('div');
+    bar.className = 'fb-titlebar';
+    bar.id = 'fb-titlebar';
+    wrap.prepend(bar);
+    fbEls.titlebar = bar;
+    bar.textContent = `BMWeb Flasher - ${FB_PAGE_TITLES[fbState.page] || fbState.page}`;
+  } else if (!classic && bar) {
+    bar.remove();
+    delete fbEls.titlebar;
+  }
+}
+
+/** The pages' names, for the classic window's title bar. */
+const FB_PAGE_TITLES = {
+  flashing: 'Flashing',
+  tuning: 'Tuning',
+  logging: 'Data logging',
+  history: 'History',
+  aif: 'AIF editor',
+  settings: 'Settings',
+};
 
 /**
  * Whether a flash writes a programming-log entry (AIF): a setting, off
@@ -21,6 +58,18 @@
  */
 function fbAifWanted() {
   return Settings.get('flashWriteAif', false) === true;
+}
+
+/**
+ * Whether Flash Tune and Flash Program go through the resident fast flasher
+ * when the DME has a ready one (Settings, on unless switched off). Testing
+ * builds only, like the rest of the flasher.
+ * @returns {boolean}
+ */
+function fbFastFlasherWanted() {
+  return (
+    fbProtectTesting() && Settings.get('flashUseFastFlasher', true) === true
+  );
 }
 
 /** Whether this is the published site rather than a developer's local build. */
@@ -146,13 +195,21 @@ async function showFlashing(page) {
   // wants the whole window (the log and the pages size themselves to it)
   view.innerHTML = '';
   const wrap = document.createElement('div');
-  wrap.className = 'fb';
+  // the INPA-style layout draws the app as a classic Windows tool, like
+  // Web32 and WebKFP: its own grey, a title bar, raised buttons (styles.css)
+  const classic = inpaMode();
+  wrap.className = classic ? 'fb fb-classic' : 'fb';
+  // dialogs and the log viewer open on the body, outside .fb: this tag
+  // gives them the same look (cleared by setCrumbs on the next screen)
+  document.body.classList.toggle('fb-classic-on', classic);
   wrap.innerHTML = `
+    ${classic ? '<div class="fb-titlebar" id="fb-titlebar">BMWeb Flasher - Flashing</div>' : ''}
     <div class="fb-rail">
       <button class="fb-rail-btn current" id="fb-rail-flashing" title="Flashing">&#x21AF;</button>
       <button class="fb-rail-btn" id="fb-rail-tuning" title="Tuning">&#x26C3;</button>
       <button class="fb-rail-btn" id="fb-rail-logging" title="Data logging">&#x223F;</button>
       <button class="fb-rail-btn" id="fb-rail-history" title="History">&#x27F2;</button>
+      <button class="fb-rail-btn" id="fb-rail-aif" title="AIF" hidden>&#x25A4;</button>
       <button class="fb-rail-btn" id="fb-rail-settings" title="Settings">&#x2699;&#xFE0E;</button>
     </div>
     <div class="fb-main">
@@ -205,6 +262,8 @@ async function showFlashing(page) {
         <div class="fb-mono fb-dim" id="fb-history-status">Select a session to see how it ended.</div>
       </div>
 
+      ${fbAifEdPageHtml()}
+
       <div class="fb-page" id="fb-page-settings" hidden>
         <div class="fb-section">
           <div class="fb-code">FILES</div>
@@ -215,6 +274,11 @@ async function showFlashing(page) {
           <div class="fb-code">PROGRAMMING RECORD</div>
           <label class="fb-check"><input type="checkbox" id="fb-set-aif"> Log every flash in the module (AIF)</label>
           <div class="fb-dim">A module keeps 14 entries and they cannot be erased. Before a flash the app says how many are left and asks whether to go on. With this off, nothing is written to the log and no question is asked.</div>
+        </div>
+        <div class="fb-section" id="fb-set-fast-section" hidden>
+          <div class="fb-code">FAST FLASHER</div>
+          <label class="fb-check"><input type="checkbox" id="fb-set-fast"> Use the fast flasher</label>
+          <div class="fb-dim">When the DME has a ready fast flasher, Flash Tune and Flash Program write through it (compressed, only what differs); otherwise, and with this off, they use the DME's stock flashing loader. A fast flash writes no programming record (AIF).</div>
         </div>
         <div class="fb-section">
           <div class="fb-code">TESTING ONLY</div>
@@ -244,6 +308,7 @@ async function showFlashing(page) {
   fbEls['rail-tuning'].onclick = () => fbShowPage('tuning');
   fbEls['rail-logging'].onclick = () => fbShowPage('logging');
   fbEls['rail-history'].onclick = () => fbShowPage('history');
+  fbEls['rail-aif'].onclick = () => fbShowPage('aif');
   fbEls['rail-settings'].onclick = () => fbShowPage('settings');
 
   // the app's own dropdown, in the skin the chassis and module pickers wear;
@@ -272,6 +337,10 @@ async function showFlashing(page) {
 
   fbEls['set-keep'].checked = !!Settings.get('flashKeepFiles', false);
   fbEls['set-aif'].checked = fbAifWanted();
+  fbEls['set-fast-section'].hidden = !fbProtectTesting();
+  fbEls['set-fast'].checked = fbFastFlasherWanted();
+  fbEls['set-fast'].onchange = () =>
+    Settings.set('flashUseFastFlasher', fbEls['set-fast'].checked);
   fbEls['set-dev'].checked = fbDevUi();
   fbEls['set-keep'].onchange = () =>
     Settings.set('flashKeepFiles', fbEls['set-keep'].checked);
@@ -294,6 +363,7 @@ async function showFlashing(page) {
   fbDmeWire();
   fbTcuWire();
   fbOptionsWire();
+  if (returning) fbRestoreView();
   fbRefreshAll();
   fbHistoryRefresh();
   // the status line as it was left (not logged again)
@@ -358,8 +428,6 @@ function fbRestoreView() {
   fbPaintLog();
   if (m === 'dme' && typeof fbOptionsRefreshEwsGate === 'function') {
     fbOptionsRefreshEwsGate();
-    if (typeof fbOptionsRefreshPatchGate === 'function')
-      fbOptionsRefreshPatchGate();
   }
   if (fbState.optionsOpen && m) {
     fbOptionsShowFor(m);
@@ -376,10 +444,19 @@ function fbRestoreView() {
  */
 function fbShowPage(page) {
   fbState.page = page;
+  // the classic window's title bar names the page, the way a Windows tool did
+  if (fbEls.titlebar)
+    fbEls.titlebar.textContent = `BMWeb Flasher - ${FB_PAGE_TITLES[page] || page}`;
   // the address follows the page, so a reload stays on the tuning editor
   if (typeof routeSetFlashingPage === 'function') routeSetFlashingPage(page);
-  if (returning) fbRestoreView();
-  for (const p of ['flashing', 'tuning', 'logging', 'history', 'settings']) {
+  for (const p of [
+    'flashing',
+    'tuning',
+    'logging',
+    'history',
+    'aif',
+    'settings',
+  ]) {
     fbEls[`page-${p}`].hidden = p !== page;
     fbEls[`rail-${p}`].classList.toggle('current', p === page);
   }
@@ -402,6 +479,7 @@ function fbShowPage(page) {
     logMount(fbEls['page-logging'], fbState.actions[0]);
   if (page === 'flashing') fbShowOptions(false);
   if (page === 'history') fbHistoryRefresh();
+  if (page === 'aif') fbAifEdShow();
 }
 
 /**
@@ -437,6 +515,7 @@ function fbPaintLog() {
  */
 function fbSetStatus(text) {
   if (!text) return;
+  fbState.status = text;
   if (fbEls.status) fbEls.status.textContent = text;
   fbState.log.push(fbStamp() + text);
   fbState.lastInPlace = false;
@@ -468,6 +547,7 @@ function fbSetStage(text) {
  */
 function fbSetStatusInPlace(text) {
   if (!text) return;
+  fbState.status = text;
   if (fbEls.status) fbEls.status.textContent = text;
   const line = fbStamp() + text;
   if (fbState.lastInPlace && fbState.log.length)
@@ -483,7 +563,6 @@ function fbSetStatusInPlace(text) {
  * @param {string} text - The line.
  */
 function fbLog(text) {
-  fbState.status = text;
   if (!text) return;
   fbState.log.push(fbStamp() + text);
   fbState.lastInPlace = false;
@@ -515,7 +594,6 @@ function fbFlashingBar(flashing) {
 function fbBusy(busy) {
   fbState.running = !!busy;
   if (!fbEls.identify) return;
-  fbState.status = text;
   fbEls.identify.disabled = busy || !fbState.module;
   fbEls.module.querySelector('.lkd-btn').disabled = !!busy;
   if (busy) fbModuleDd.close();
@@ -527,6 +605,7 @@ function fbBusy(busy) {
  * @param {string} text - What to show.
  */
 function fbSetEcuBox(text) {
+  fbState.ecuBox = text;
   if (fbEls.ecu) fbEls.ecu.textContent = text;
 }
 
@@ -573,7 +652,6 @@ function fbChoose(message, title, choices) {
       `<div class="modal" role="dialog" aria-modal="true">
         <div class="modal-title">${esc(title)}</div>
         <div class="modal-body">${fbHtml(message)}</div>
-  fbState.ecuBox = text;
         <div class="modal-actions fb-modal-actions">
           <button class="btn modal-cancel">Cancel<span class="modal-key">Esc</span></button>
           ${choices.map((c, i) => `<button class="btn fb-choice" data-i="${i}">${esc(c)}</button>`).join('')}
@@ -822,8 +900,22 @@ function fbConfirmFlash(op) {
  * @param {{stage?: (t: string) => void, progress?: (pct: number, what: string) => void}} [ui] - The screen's handlers.
  * @returns {Promise<object>} The operation's result ({ok, status, ...bytes}).
  */
+/**
+ * Run a flash operation, locally or handed to a shared car's owner. Write
+ * operations ask the one write-confirm question first -- unless the flow
+ * already asked its own, fuller one and passes `ui.confirm === false` (the
+ * patch install: its dialog covers the program write and the calibration
+ * restore together, so asking again is noise).
+ * @param {string} op
+ * @param {object} payload
+ * @param {{stage?: Function, progress?: Function, confirm?: boolean}} [ui]
+ */
 async function fbFlashRun(op, payload, ui = {}) {
-  if (flashOps.writes(op) && !(await fbConfirmFlash(op))) {
+  if (
+    flashOps.writes(op) &&
+    ui.confirm !== false &&
+    !(await fbConfirmFlash(op))
+  ) {
     flashLog.note('Write not confirmed: nothing was sent to the car');
     return { ok: false, cancelled: true, status: FB_FLASH_CANCELLED };
   }
@@ -967,6 +1059,12 @@ function fbRefreshAll() {
   fbTcuRefresh();
   fbRefreshCustomOptionsGate();
   fbEls['verify-program'].disabled = !(fbState.dme && fbState.dme.identified);
+  // the log editor only for a DME identified with the BL14 loader
+  fbEls['rail-aif'].hidden = !fbAifEdAvailable();
+  if (fbState.page === 'aif') {
+    if (fbEls['rail-aif'].hidden) fbShowPage('flashing');
+    else fbAifEdPaint();
+  }
 }
 
 /**

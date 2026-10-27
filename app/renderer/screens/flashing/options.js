@@ -5,7 +5,7 @@
 // preparation; nothing here talks to the car, the built pair is handed to
 // Flash Program). For the transmission: remove auto upshift, applied to the
 // loaded calibration on the way out.
-/* exported fbOptionsHtml, fbOptionsWire, fbOptionsShowFor, fbOptionsRefreshSummary, fbOptionsEwsBlockedReason, fbOptionsRefreshEwsGate, fbOptionsRefreshUpshiftGate, fbOptionsProtectBlockedReason, fbOptionsCarRevLimitRead */
+/* exported fbOptionsHtml, fbOptionsWire, fbOptionsShowFor, fbOptionsRefreshSummary, fbOptionsEwsBlockedReason, fbOptionsRefreshEwsGate, fbOptionsRefreshUpshiftGate, fbOptionsProtectBlockedReason, fbOptionsCarRevLimitRead, fbOptionsFastBlockedReason, fbOptionsRefreshAifGate */
 
 /** The map switch inputs and the last build. */
 const fbMs = {
@@ -59,9 +59,15 @@ function fbOptionsHtml() {
     </div>
 
     <div class="fb-section" id="fb-opt-ews-section">
-      <div class="fb-code">EWS DELETE</div>
-      <label class="fb-check"><input type="checkbox" id="fb-opt-ews" disabled> EWS Delete</label>
+      <div class="fb-code">PROGRAM FLASH</div>
+      <div class="fb-row">
+        <label class="fb-check"><input type="checkbox" id="fb-opt-ews" disabled> EWS Delete</label>
+      </div>
       <div class="fb-faint" id="fb-opt-ews-reason"></div>
+    </div>
+
+    <div class="fb-section" id="fb-opt-aif-section" hidden>
+      ${fbBl14Html()}
     </div>
 
     <div class="fb-section" id="fb-opt-revcut-section">
@@ -186,8 +192,12 @@ function fbOptionsShowFor(module) {
   fbEls['opt-protect-section'].hidden = tcu || !fbProtectTesting();
   fbEls['opt-ms-section'].hidden = tcu;
   fbEls['opt-upshift-section'].hidden = !tcu;
+  fbEls['opt-aif-section'].hidden = tcu || !fbProtectTesting();
   if (tcu) fbOptionsRefreshUpshiftGate();
-  else fbOptionsRefreshEwsGate();
+  else {
+    fbOptionsRefreshEwsGate();
+    fbOptionsRefreshAifGate();
+  }
   fbMsInputsChanged();
 }
 
@@ -203,6 +213,8 @@ function fbOptionsRefreshSummary() {
   const active = [];
   const d = fbState.dme;
   if (d && d.ews) active.push('EWS delete');
+  if (d && d.installFast && !fbOptionsFastBlockedReason())
+    active.push('fast flasher');
   const protect = d && fbDmeProtectPlanned();
   if (protect && protect.sparkCut) active.push('spark cut');
   if (
@@ -227,7 +239,7 @@ function fbOptionsEwsBlockedReason() {
   const id = d.ident;
   if (!fbDevUi() || d.identified) {
     if (!id.hwRef) return 'Identify the DME first.';
-    if (id.hwRef !== '0044570')
+    if (!fbDmeIsMs451())
       return `EWS delete is only verified for the MS45.1 (hardware reference 0044570). This DME reports ${id.hwRef}.`;
     if (!id.progRef)
       return 'The DME did not report a program reference (ZIF_LESEN), so its program version cannot be confirmed. EWS delete stays disabled.';
@@ -269,6 +281,36 @@ function fbOptionsRefreshEwsGate() {
   fbOptionsRefreshProtectGate();
   fbOptionsRefreshSummary();
   fbRefreshCustomOptionsGate();
+}
+
+// ---- the fast flash bootloader (bench) -----------------------------------------------------------------
+/**
+ * BENCH ONLY (localhost, like the fast flasher it rides on): the section
+ * holds Install fast flash bootloader (screens/flashing/bl14-install.js).
+ */
+function fbOptionsRefreshAifGate() {
+  fbBl14Refresh();
+}
+
+// ---- the fast flasher ----------------------------------------------------------------------------------
+/**
+ * Why the Install fast flasher button is not available, or null when it is.
+ * It needs the identified MS45.1 in Full Binary mode with the pair loaded,
+ * and no flasher already reachable. The pair's
+ * own fitness (blank body range, stock reset word) is checked at the click.
+ * @returns {string|null}
+ */
+function fbOptionsFastBlockedReason() {
+  if (!fbProtectTesting()) return 'Not available yet.';
+  const d = fbState.dme;
+  if (!d || !d.ident || !d.ident.hwRef) return 'Identify the DME first.';
+  if (!fbDmeIsMs451())
+    return `The fast flasher is only built for the MS45.1 (hardware reference 0044570). This DME reports ${d.ident.hwRef}.`;
+  if (!d.fullBin)
+    return 'The flasher is added to the loaded pair, so it needs Full Binary mode.';
+  if (!d.flash || !d.mpc)
+    return 'Load the external flash and its MPC flash first.';
+  return null;
 }
 
 // ---- spark cut rev limiter and engine protection ----------------------------------------------------------

@@ -60,9 +60,7 @@ function fbDmePanelHtml() {
       <button class="btn fb-wide" id="fb-dme-load2" disabled hidden>Load File 2 (MPC Flash)</button>
       <div class="fb-mono fb-faint fb-name" id="fb-dme-name2" hidden></div>
       <div class="fb-pill" id="fb-dme-tune" hidden><span id="fb-dme-tune-text"></span><button class="fb-x" id="fb-dme-tune-remove" title="Remove the tune. The tune on the car is then left as it is.">&#x2715;</button></div>
-      <button class="btn danger fb-wide" id="fb-dme-fast-tune" disabled hidden title="Writes the calibration through the resident fast flasher: compressed, erasing only the cal sector (~5-6 s).">Fast Flash Tune</button>
-      <button class="btn danger fb-wide" id="fb-dme-fast-program" disabled hidden title="Writes the external program through the resident fast flasher: compressed, only the sectors that differ (~35-40 s). The MPC must match what is on the DME.">Fast Flash Program</button>
-      <button class="btn fb-wide" id="fb-dme-baud-test" disabled hidden title="Tries faster line speeds through the resident fast flasher (312500, 250000, 208333, 156250 baud) and reports which the cable and the K-line carry. Writes nothing.">Baud Test</button>
+      <button class="btn fb-wide" id="fb-dme-fast-read" disabled hidden title="Reads the external flash and the MPC through the resident fast flasher, 4 KB at a time with a CRC each. Writes nothing.">Fast Read</button>
       <button class="btn danger fb-wide" id="fb-dme-flash-program" disabled hidden>Flash Program</button>
       <button class="btn danger fb-wide" id="fb-dme-flash-tune" disabled>Flash Tune</button>
       <label class="fb-check"><input type="checkbox" id="fb-dme-fullbin" disabled> Full Binary</label>
@@ -84,17 +82,39 @@ function fbDmeWire() {
     fbOptionsRefreshEwsGate();
     fbSetStatus('Removed the tune. The tune on the car will be left as it is.');
   };
+  // with "Use the fast flasher" on and a ready flasher on the DME, the two
+  // write buttons go through it; otherwise through the stock loader
   fbEls['dme-flash-tune'].onclick = () =>
-    fbDmeGuard('Flash Tune', fbDmeFlashTune);
-  fbEls['dme-fast-tune'].onclick = () =>
-    fbDmeGuard('Fast Flash Tune', fbDmeFastFlashTune);
-  fbEls['dme-fast-program'].onclick = () =>
-    fbDmeGuard('Fast Flash Program', fbDmeFastFlashProgram);
+    fbDmeGuard('Flash Tune', () =>
+      fbDmeUseFastFlasher(false) ? fbDmeFastFlashTune() : fbDmeFlashTune()
+    );
   fbEls['dme-flash-program'].onclick = () =>
-    fbDmeGuard('Flash Program', fbDmeFlashProgram);
-  fbEls['dme-baud-test'].onclick = () =>
-    fbDmeGuard('Baud Test', fbDmeFastBaudTest);
+    fbDmeGuard('Flash Program', () =>
+      fbDmeUseFastFlasher(true) ? fbDmeFastFlashProgram() : fbDmeFlashProgram()
+    );
+  fbEls['dme-fast-read'].onclick = () => fbDmeGuard('Fast Read', fbDmeFastRead);
   fbEls['dme-fullbin'].onchange = () => fbDmeFullBinChanged();
+}
+
+/**
+ * Whether a write button goes through the resident fast flasher: the
+ * setting is on, identify found a flasher it can use (for the program push
+ * an outdated body that can carry its own upgrade counts) and the cable can
+ * hold the break the entry needs. Anything else uses the stock loader.
+ * @param {boolean} program - Flash Program (true) or Flash Tune.
+ * @returns {boolean}
+ */
+function fbDmeUseFastFlasher(program) {
+  const f = fbState.dme.fastFlasher;
+  if (!fbFastFlasherWanted() || !f) return false;
+  if (!(f.ready || (program && f.upgradable))) return false;
+  const breakLine =
+    typeof webBus !== 'undefined' && webBus.port && !!webBus.port.setSignals;
+  if (!breakLine)
+    flashLog.note(
+      'Fast flasher on the DME, but this cable cannot hold the break line: using the stock loader'
+    );
+  return breakLine;
 }
 
 function fbDmeReset() {
@@ -131,31 +151,11 @@ function fbDmeRefresh() {
         ? 'Load MPC'
         : 'Load File 2 (MPC Flash)';
   fbEls['dme-flash-program'].hidden = !full;
-  // shown only when identify found a ready fast flasher on the DME and a
-  // tune is loaded; it pushes the calibration, so it lives beside Flash Tune
-  // (not the full-binary program flow) and is hidden in full-binary mode
   const fastReady = !!(d.fastFlasher && d.fastFlasher.ready);
-  const noTuneForFast = d.exchangeKind === '0PA' && !d.exchangeTuneLoaded;
-  fbEls['dme-fast-tune'].hidden = !(fastReady && !full);
-  fbEls['dme-fast-tune'].disabled = !(
-    d.identified &&
-    d.flash &&
-    !noTuneForFast
-  );
-  // the program push (full-binary only): a ready flasher and a loaded pair
-  // an outdated body that still works can carry the push that replaces it
-  const fastUpgrade = !!(d.fastFlasher && d.fastFlasher.upgradable);
-  fbEls['dme-fast-program'].hidden = !((fastReady || fastUpgrade) && full);
-  fbEls['dme-fast-program'].disabled = !(
-    d.identified &&
-    full &&
-    d.flash &&
-    d.mpc
-  );
-  // the line-speed test: any flasher on the DME, nothing to load (a body
-  // older than v8 has no SET_BAUD and the test says so)
-  fbEls['dme-baud-test'].hidden = !(fastReady || fastUpgrade);
-  fbEls['dme-baud-test'].disabled = !d.identified;
+  // the read (full-binary only, the MPC too): a ready flasher that has
+  // READ (v13), nothing to load
+  fbEls['dme-fast-read'].hidden = !(fastReady && d.fastFlasher.reads && full);
+  fbEls['dme-fast-read'].disabled = !d.identified;
   fbEls['dme-flash-tune'].hidden = full;
   const noTune = d.exchangeKind === '0PA' && !d.exchangeTuneLoaded;
   fbEls['dme-flash-tune'].disabled = !(
@@ -261,7 +261,7 @@ async function fbDmeIdentify(afterFlash = false) {
   else if (d.fastFlasher) fbLog(fastFlasher.describe(d.fastFlasher));
   fbRefreshAll();
   fbOptionsRefreshEwsGate();
-  fbOptionsRefreshPatchGate();
+  fbOptionsRefreshAifGate();
   const summary = fbDmeImmobilizerSummary() + fbDmeMapSwitchSummary();
   const carRead = d.carProgramEwsDeleted !== null || d.carMapSwitch !== null;
   // after a flash the flash's own result stays up
@@ -287,7 +287,8 @@ async function fbDmeIdentifyThroughFlasher() {
   let link = null;
   try {
     claim = await webClaimBus('Identify');
-    link = fastFlashWire.webLink(webBus, { onStep: (s) => fbLog(s) });
+    // each HELLO ask at each rate goes to the session log, not the screen
+    link = fastFlashWire.webLink(webBus, { onStep: (s) => flashLog.note(s) });
     const stamp = await link.resume();
     if (String.fromCharCode(...stamp.subarray(0, 6)) !== 'MS45QF') return false;
     const gate =
@@ -407,6 +408,7 @@ async function fbDmeReadCar() {
     await fbDmeReadCarRevLimit();
     await fbDmeReadCarResetRecord();
     await fbDmeReadCarFastFlasher();
+    await fbAifEdReadLoader();
   };
   // identify may have left the session at the cable's rate already
   let baud = d.ident.baud || 9600;

@@ -29,7 +29,20 @@ const FAST_FLASHER_MAGIC = 'MS45QF';
 const FAST_FLASHER_HOOK_AT = 0x8; // MPC, the loader's reset word
 const FAST_FLASHER_STOCK_HOOK = 0x4bf717b6; // `ba 0xFFF717B4`
 const FAST_FLASHER_EXT_CPU = 0xfff00000; // where the external chip is mapped
-const FAST_FLASHER_VERSION = 9; // the highest stamp version this app speaks
+const FAST_FLASHER_VERSION = 13; // the highest stamp version this app speaks
+/**
+ * The first body with READ: raw bytes of the chip or the MPC, 4 KB a
+ * request, each block with its CRC (Fast Read). A v12 build carried a READ
+ * that read from the wrong address, so it is never asked.
+ */
+const FAST_FLASHER_READS_FROM = 13;
+/**
+ * The first body that carries the AIF wipe (stamp flag bit 1): the boot
+ * sector window, shut to writes until the wipe arms a marker slot. v10 and
+ * v11 were bench-only bodies with it; they are older, and upgradable.
+ */
+const FAST_FLASHER_AIFWIPE_FROM = 12;
+const FAST_FLASHER_FLAG_BOOT_WINDOW = 0x02;
 /**
  * The first body whose MPC (internal flash) writes go through the boot
  * loader's own CMF driver. v2-v6 carried a hand-written sequence that read
@@ -94,6 +107,7 @@ const fastFlasher = {
   MPC_WRITES_FROM: FAST_FLASHER_MPC_WRITES_FROM,
   PAGESETS_FROM: FAST_FLASHER_PAGESETS_FROM,
   LINE_FROM: FAST_FLASHER_LINE_FROM,
+  READS_FROM: FAST_FLASHER_READS_FROM,
   CHUNK: FAST_FLASHER_CHUNK,
 
   /**
@@ -128,6 +142,8 @@ const fastFlasher = {
       !!hook &&
       hook.length >= 4 &&
       _fastFlasherBe32(hook, 0) === _fastFlasherBranch(gateCpu);
+    const bootWindow = (flags & FAST_FLASHER_FLAG_BOOT_WINDOW) !== 0;
+    const aifWipe = version >= FAST_FLASHER_AIFWIPE_FROM && bootWindow;
     const supported = version <= FAST_FLASHER_VERSION;
     // older bodies wedge on a real cable (a stray byte after the reopen made
     // v2 swallow every HELLO): they are reinstalled, not used
@@ -150,6 +166,10 @@ const fastFlasher = {
       pagesets: version >= FAST_FLASHER_PAGESETS_FROM,
       // a line-speed change that cannot strand the DME: v9
       fastLine: version >= FAST_FLASHER_LINE_FROM,
+      // READ: the whole chip and the MPC at the line's rate
+      reads: version >= FAST_FLASHER_READS_FROM,
+      // the bench body that can erase the boot sector (Wipe AIF)
+      aifWipe,
       ready: hooked && supported && !outdated,
       // an outdated body that can still carry the program push which
       // replaces it (Fast Flash Program splices the current body in)
@@ -165,6 +185,9 @@ const fastFlasher = {
    */
   describe(det) {
     if (!det) return 'Fast flasher: not on this DME';
+    // the boot-region bootloader standing in for the resident flasher
+    if (det.bootLoader)
+      return `Fast flash bootloader BL${det.bootLoader} present`;
     const v = `v${det.version}`;
     if (det.notRunning)
       return `Fast flasher ${v} found, but the DME is not running its program (${det.notRunning}), so the flasher cannot be reached. Run a full Flash Program (or Install fast flasher) to finish the DME first.`;

@@ -2,7 +2,7 @@
  * @file The one bus instance this host drives, and the lock that serialises
  * everything that touches it.
  */
-/* exported webBus, withBusLock, webBusRawExchange, lockBus */
+/* exported webBus, withBusLock, webBusRawExchange, lockBus, webClaimBus, webBusClaimedBy */
 
 /**
  * Which transport this host can do: the native serial bridge when the macOS
@@ -30,12 +30,64 @@ let busChain = Promise.resolve();
  * @returns {Promise<T>} Its result, settled when it has finished.
  */
 function withBusLock(fn) {
+  // a claimed cable takes nobody else's telegrams (webClaimBus)
+  if (busClaim) return Promise.reject(busClaimedError());
   const run = busChain.then(fn, fn);
   busChain = run.then(
     () => {},
     () => {}
   );
   return run;
+}
+
+/**
+ * Who holds the whole cable, when someone does: a flash cannot share the
+ * K-line with anything, not even between two of its own telegrams, and the
+ * per-exchange lock only orders single exchanges.
+ * @type {{owner: string}|null}
+ */
+let busClaim = null;
+
+/** @returns {Error} What a caller is told while the cable is claimed. */
+function busClaimedError() {
+  const e = new Error(
+    `the cable is busy: ${busClaim.owner} is programming a module; wait for it to finish`
+  );
+  e.busClaimed = true;
+  return e;
+}
+
+/** @returns {string|null} Who holds the cable, or null when nobody does. */
+function webBusClaimedBy() {
+  return busClaim ? busClaim.owner : null;
+}
+
+/**
+ * Take the whole cable for one long job (a flash): once everything queued
+ * ahead has finished, every other entry point is refused (withBusLock,
+ * connect, disconnect) until it is released. The holder talks to the wire
+ * through the exchange it is handed. The control-line poll (readState) is
+ * left alone: it reads the cable's modem lines, never the K-line.
+ * @param {string} owner - Named in the refusal others get ("WebKFP").
+ * @returns {Promise<{exchange: (out: ArrayLike<number>, comm: CommParams) =>
+ *   Promise<number[]>, release: () => void}>}
+ * @throws {Error} When the cable is already claimed.
+ */
+async function webClaimBus(owner) {
+  await withBusLock(() => {
+    if (busClaim) throw busClaimedError();
+    busClaim = { owner };
+  });
+  const claim = busClaim;
+  return {
+    exchange: (out, comm) => {
+      if (busClaim !== claim) throw new Error('the cable claim was released');
+      return webBusRawExchange(out, comm);
+    },
+    release: () => {
+      if (busClaim === claim) busClaim = null;
+    },
+  };
 }
 
 /**
@@ -79,6 +131,8 @@ function lockBus(bus, onDisconnect) {
     readState: bus.readState ? bus.readState.bind(bus) : null,
   };
   bus.disconnect = async (...a) => {
+    // refused before the sessions are forgotten: a claim's job is using them
+    if (busClaim) throw busClaimedError();
     onDisconnect();
     return withBusLock(() => raw.disconnect(...a));
   };
@@ -89,6 +143,8 @@ function lockBus(bus, onDisconnect) {
   busRawExchange = (...a) => raw.exchange(...a);
   bus.connect = (...a) => withBusLock(() => raw.connect(...a));
   if (raw.readState) {
-    bus.readState = (...a) => withBusLock(() => raw.readState(...a));
+    // the modem lines only: answered beside a claim, never queued behind it
+    bus.readState = (...a) =>
+      busClaim ? raw.readState(...a) : withBusLock(() => raw.readState(...a));
   }
 }
