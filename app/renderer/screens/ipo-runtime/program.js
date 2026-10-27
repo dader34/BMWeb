@@ -539,16 +539,20 @@ class IpoProgram {
         // (the E46 M3 mss54ds0 has FS_LESEN / FS_LESEN_TEXT only) answers with
         // an error -- the memory's own fields stand, and we stop asking so one
         // missing job does not abort the whole read (github, MSS54 faults).
-        let d;
-        try {
-          d = await this.runJob(sgbd, 'FS_LESEN_DETAIL', nr, ctx);
-        } catch (_e) {
-          hasDetail = false;
-          d = f; // the plain FS_LESEN fields carry this fault
-        }
+        // runJob never throws: a failure comes back as its JOB_STATUS
+        const d = await this.runJob(sgbd, 'FS_LESEN_DETAIL', nr, ctx);
         if (d == null) return null; // a genuine cancel from runJob
-        const ds = (d.sets || []).slice(1).find((s) => s && s.F_ORT_NR != null);
-        if (ds) det = Object.assign({}, f, ds);
+        if (String(d.get('JOB_STATUS') || 'OKAY') !== 'OKAY') {
+          hasDetail = false;
+          // the read itself succeeded; the status line says so rather than
+          // ending on the detail's failure
+          this.ui.status(this, `FS_LESEN · ${fed.get('JOB_STATUS') || 'OKAY'}`);
+        } else {
+          const ds = (d.sets || [])
+            .slice(1)
+            .find((s) => s && s.F_ORT_NR != null);
+          if (ds) det = Object.assign({}, f, ds);
+        }
       }
       const hex =
         typeof hexText === 'function'
@@ -807,8 +811,9 @@ class IpoProgram {
    * follow a menu switch it performs, pick its backdrop screen, register its
    * release, paint.
    * @param {string} name - the menu proc
-   * @param {{fromEntry?: boolean, screen?: string|null, frequent?: boolean}} [opts] -
-   *   the screen the opening key set, or that this is the entry's menu
+   * @param {{fromEntry?: boolean, screen?: string|null, frequent?: boolean, view?: object|null}} [opts] -
+   *   the screen the opening key set, or that this is the entry's menu, and
+   *   the view it opened after its setmenu
    * @returns {Promise<boolean>} false when the menu does not exist
    */
   async openMenu(name, opts = {}) {
@@ -860,6 +865,7 @@ class IpoProgram {
       return this.openMenu(out.menu, {
         screen: out.screen || opts.screen,
         frequent: out.screen ? out.screenFrequent : opts.frequent,
+        view: out.view || opts.view,
       });
     }
     // the key that opened this menu usually set its backdrop screen too
@@ -888,7 +894,35 @@ class IpoProgram {
     this.ui.route(this);
     if (this.screen) await this.showScreen(this.screen, this.frequent);
     else this.ui.paint(this);
+    // a view opened after the setmenu that brought us here stays on top of
+    // the new menu's backdrop (showScreen cleared it)
+    const view = out.view || opts.view;
+    if (view && gen === this.gen) {
+      this.adoptView(view);
+      this.ui.paint(this);
+    }
     return true;
+  }
+
+  /**
+   * Make a file the body viewopened the view.
+   * @param {object} view - the body's view (the file's lines)
+   * @returns {void}
+   */
+  adoptView(view) {
+    this.view = view;
+    // The report is ALWAYS built: it is the structured form of what came
+    // off the wire, and Save to garage, the print sheet and the
+    // freeze-frame band all read it. What it does NOT decide is the
+    // view -- `showReport` does that, and only a whole-car read earns
+    // the table (see ipoReportBeatsText). A single module's Error memory
+    // key keeps INPA's own printed listing, which is what the technician
+    // is reading there.
+    if (typeof ipoProtocolReport === 'function') {
+      const rep = ipoProtocolReport(this.wireReads, view.lines);
+      this.view.report = rep.modules.length ? rep : null;
+      this.view.showReport = ipoReportBeatsText(rep);
+    }
   }
 
   /**
@@ -1408,19 +1442,7 @@ class IpoProgram {
     // the view now, until the script opens another menu or screen -- shown
     // as the data behind it where the body read fault memories
     if (out.view) {
-      this.view = out.view;
-      // The report is ALWAYS built: it is the structured form of what came
-      // off the wire, and Save to garage, the print sheet and the
-      // freeze-frame band all read it. What it does NOT decide is the
-      // view -- `showReport` does that, and only a whole-car read earns
-      // the table (see ipoReportBeatsText). A single module's Error memory
-      // key keeps INPA's own printed listing, which is what the technician
-      // is reading there.
-      if (typeof ipoProtocolReport === 'function') {
-        const rep = ipoProtocolReport(this.wireReads, out.view.lines);
-        this.view.report = rep.modules.length ? rep : null;
-        this.view.showReport = ipoReportBeatsText(rep);
-      }
+      this.adoptView(out.view);
     } else if (out.viewClose) {
       // viewclose without a viewopen after it: INPA's viewer window is
       // gone, the screen behind it shows again
@@ -1448,16 +1470,24 @@ class IpoProgram {
       return true;
     }
     this.filterChanged = false;
+    // a key that switches menu or screen and THEN viewopens (the E46 M3
+    // MSS54's Read: setmenu(m_fehler_lesen), INPAapiFsLesen, viewopen) keeps
+    // its view over the new backdrop, as INPA's viewer window does
     if (out.menu && out.menu !== this.menu && this.exec.procs[out.menu]) {
       return this.openMenu(out.menu, {
         screen: out.screen || null,
         frequent: out.screen ? out.screenFrequent : false,
+        view: out.view || null,
       });
     }
     if (out.screen) {
       // a setscreen re-runs the screen even when it is the same one: INPA
       // restarts its cycle (the idle-actuator keys redraw their readout)
       await this.showScreen(out.screen, out.screenFrequent);
+      if (out.view && gen === this.gen) {
+        this.adoptView(out.view);
+        this.ui.paint(this);
+      }
       return true;
     }
     this.ui.paint(this);

@@ -2837,6 +2837,57 @@ const sysSet = (sgbd) => ({
     ok("a clean single-module read keeps the script's own text");
   }
 
+  // ===========================================================================
+  // E46 M3 MSS54: Read error memory switches menu BEFORE it reads
+  // (setmenu(m_fehler_lesen), INPAapiFsLesen, viewopen), and mss54ds0 has no
+  // FS_LESEN_DETAIL. The protocol must still be the view (github #260).
+  // ===========================================================================
+  {
+    const mexec = loadExec('E46', 'MSS54M3');
+    assert.ok(mexec && mexec.procs.m_fehler, 'MSS54M3 exec missing');
+    const mfault = { F_ORT_NR: 81, F_ORT_TEXT: 'Lambda', F_HEX_CODE: [0x51] };
+    const msent = fakeApi((job) => {
+      const sys = sysSet('mss54ds0');
+      if (job === 'INITIALISIERUNG')
+        return { system: sys, sets: [{ DONE: '1' }] };
+      if (job === 'FS_LESEN')
+        return { system: sys, sets: [mfault, { JOB_STATUS: 'OKAY' }] };
+      if (job === 'FS_LESEN_DETAIL') return new Error('no job FS_LESEN_DETAIL');
+      return { system: sys, sets: [{ JOB_STATUS: 'OKAY' }] };
+    });
+    const mui = fakeUi();
+    const mstatus = [];
+    mui.status = (p, t) => mstatus.push(t);
+    const mp = new IpoProgram(
+      { sgbd: 'mss54ds0', label: 'DME', _variant: 'MSS54DS0', chassis: 'E46' },
+      mexec,
+      mui
+    );
+    const mr = await mp.start();
+    assert.strictEqual(mr.ok, true, `mss54 start failed: ${mr.reason}`);
+    await mp.openMenu('m_fehler');
+    await mp.press(1);
+    for (let i = 0; i < 200 && (mp.busy || !mp.view); i++)
+      await new Promise((r) => setTimeout(r, 5));
+    assert.ok(
+      msent.some((s) => s.job === 'FS_LESEN_DETAIL'),
+      'the detail was asked'
+    );
+    assert.strictEqual(mp.menu, 'm_fehler_lesen');
+    assert.ok(
+      mp.view && mp.view.lines.some((l) => /^81 .*Lambda/.test(l)),
+      `the protocol is the view: ${JSON.stringify(mp.view && mp.view.lines)}`
+    );
+    assert.strictEqual(
+      mstatus[mstatus.length - 1],
+      'FS_LESEN · OKAY',
+      `the status ends on the read: ${mstatus.join(' | ')}`
+    );
+    ok(
+      'MSS54 Read: view survives the setmenu before it; missing detail job stands down'
+    );
+  }
+
   console.log(`ipo-runtime: ${passed} checks passed`);
 })().catch((e) => {
   console.error(e && e.stack ? e.stack : e);
