@@ -562,7 +562,6 @@ function fbAifEdAdopt(bl) {
       : 0;
   d.fastFlasher = fbAifEdLoaderAsFlasher(bl);
   if (resident) d.fastFlasher.resident = resident;
-  if (!d.installFastSet) d.installFast = false;
 }
 
 /**

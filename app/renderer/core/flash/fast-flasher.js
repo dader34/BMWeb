@@ -195,10 +195,8 @@ const fastFlasher = {
       return `Fast flasher ${v} body found, but the reset word at MPC 0x8 no longer leads to it (the internal flash was rewritten whole). Bootstrap again to use it.`;
     if (!det.supported)
       return `Fast flasher ${v} found; this app speaks up to v${FAST_FLASHER_VERSION}. Update BMWeb to use it.`;
-    if (det.outdated && det.upgradable)
-      return `Fast flasher ${v} present, older than this app's v${FAST_FLASHER_VERSION}: Fast Flash Program (full binary) upgrades it, or reinstall it from Options`;
     if (det.outdated)
-      return `Fast flasher ${v} present, older than this app's v${FAST_FLASHER_VERSION}: reinstall it from Options before fast flashing`;
+      return `Fast flasher ${v} present, older than this app's v${FAST_FLASHER_VERSION}: install the fast flash bootloader (Custom Options) to fast flash`;
     return `Fast flasher ${v} present`;
   },
 

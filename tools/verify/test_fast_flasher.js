@@ -475,75 +475,6 @@ const be32 = (b, at) =>
     );
   }
 
-  // ---- 4c. the Baud Test over a mock link ------------------------------------
-  console.log('\nbaud test');
-  {
-    const stamp = Uint8Array.from([0x4d, 0x53, 0x34, 0x35, 0x51, 0x46, 8, 1]);
-    const dead = new Set([312500, 250000]); // rates the "line" does not carry
-    const calls = [];
-    const client = {
-      async setBaud(scbr) {
-        calls.push(['setBaud', scbr]);
-      },
-      async hello() {
-        return Uint8Array.from(stamp);
-      },
-      async sectorQuery() {
-        return 0;
-      },
-      async chunk(off) {
-        calls.push(['chunk', off]);
-        throw new W.Nak(0x03, 1);
-      },
-      async reset() {},
-    };
-    const link = {
-      async rebaud(rate, opts = {}) {
-        calls.push(['rebaud', rate, opts.patience || 0]);
-        if (dead.has(rate)) throw new Error('no HELLO');
-        return stamp;
-      },
-    };
-    const r = await W.lineTest(client, link, () => {}, [
-      [312500, 4],
-      [250000, 5],
-      [208333, 6],
-      [156250, 8],
-    ]);
-    assert.strictEqual(r.best, 208333);
-    assert.deepStrictEqual(
-      r.results.map((x) => [x.rate, x.ok, x.why]),
-      [
-        [312500, false, 'no HELLO'],
-        [250000, false, 'no HELLO'],
-        [208333, true, ''],
-        [156250, true, ''],
-      ]
-    );
-    assert(/208333: OK/.test(r.summary) && /250000: no HELLO/.test(r.summary));
-    // a dead rate waits for the body's fallback; a live one sets 115200 itself
-    const rb = calls.filter((c) => c[0] === 'rebaud');
-    assert.deepStrictEqual(rb.slice(0, 2), [
-      ['rebaud', 312500, 0],
-      ['rebaud', 115200, 15000],
-    ]);
-    assert.deepStrictEqual(rb.slice(-2), [
-      ['rebaud', 156250, 0],
-      ['rebaud', 115200, 2000],
-    ]);
-    assert.strictEqual(
-      calls.filter((c) => c[0] === 'setBaud' && c[1] === 11).length,
-      4
-    );
-    assert.strictEqual(
-      calls.filter((c) => c[0] === 'chunk' && c[1] === 0x0).length,
-      20
-    );
-    ok(
-      'baud test: dead rates reported with no HELLO and the fallback waited for, live rates proven by HELLOs, 4 KB frames and a CRC, 115200 restored after each; best = first OK'
-    );
-  }
-
   // ---- 4d. a garbled reply is asked for once more ------------------------------
   console.log('\ngarbled replies');
   {
@@ -697,12 +628,10 @@ const be32 = (b, at) =>
     const old = fastFlasher.parseDetection(hook(fastFlasherBlob.hookWord), v2);
     assert(old && old.hooked && old.outdated && !old.ready);
     assert.throws(() => fastFlasher.assertReady(old));
-    assert(/reinstall/.test(fastFlasher.describe(old)));
-    // v5 works on the car (with the link's pauses): a Fast Flash Program may
-    // run on it to replace it; v4 and older may not
-    assert(
-      old.upgradable && /Fast Flash Program/.test(fastFlasher.describe(old))
-    );
+    assert(/fast flash bootloader/.test(fastFlasher.describe(old)));
+    // detection still marks v5+ upgradable, but the app no longer upgrades
+    // old bodies: the fast flash bootloader replaces them
+    assert(old.upgradable);
     const v4 = Buffer.from(stamp);
     v4[6] = 4;
     const v4det = fastFlasher.parseDetection(

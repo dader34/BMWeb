@@ -258,60 +258,13 @@ function fbDmeChipImage(source, mpcOut, hasCal) {
 async function fbDmeFlashProgram(opts = {}) {
   const d = fbState.dme;
   if (!d.identified || !d.flash || !d.mpc) return;
-  // Install Fast Flasher is this same flash with the flasher spliced in
-  const install = !!(
-    opts.installFastFlasher ||
-    (d.installFast && !fbOptionsFastBlockedReason())
-  );
-  // a DME that already carries the flasher just keeps it: no separate
-  // install dialog, it is an ordinary Flash Program
-  const keeping = install && !!(d.fastFlasher && d.fastFlasher.hooked);
-  const title = install && !keeping ? 'Install Fast Flasher' : 'Flash Program';
+  const title = opts.title || 'Flash Program';
+  // what the pair carries besides itself: the caller's body (the bootloader
+  // install's installer), else nothing -- an old resident flasher left in a
+  // read is taken out with its MPC hook (the bootloader is the fast path)
+  const carry = opts.carry || fastFlasher.withoutFlasher;
   const prompts = await fbDmeProgramMatchPrompts(title);
   if (!prompts) return;
-  // the splice is checked before anything opens: a pair the builder refuses
-  // never reaches the car
-  if (install && keeping) {
-    try {
-      const edited = fbDmeApplyProgramEdits(prompts);
-      const can = fastFlasher.canBootstrap(edited.source, edited.mpc);
-      if (!can.ok) {
-        await fbMessage(
-          `The DME carries the fast flasher, but it cannot be added to the loaded pair (${can.why}). Untick "Install fast flasher" in Custom Options to flash the pair without it.`,
-          title
-        );
-        return;
-      }
-    } catch (e) {
-      await fbMessage(e.message, e.title || title);
-      return;
-    }
-  } else if (install) {
-    let edited;
-    try {
-      edited = fbDmeApplyProgramEdits(prompts);
-    } catch (e) {
-      await fbMessage(e.message, e.title || title);
-      return;
-    }
-    const can = fastFlasher.canBootstrap(edited.source, edited.mpc);
-    if (!can.ok) {
-      await fbMessage(
-        `The fast flasher cannot be installed on the loaded pair: ${can.why}.`,
-        title
-      );
-      return;
-    }
-    if (
-      !(await fbConfirm(
-        'Install Fast Flasher writes the loaded pair as a full program flash (about 3.5 minutes) with the resident fast flasher added: its code in the blank range at ext 0xFD26C and the reset hook at MPC 0x8. The pair is re-checksummed and re-signed as every full flash is.\n\n' +
-          'Load the pair that is on the car (or the one you want on it): everything in it is written.\n\n' +
-          `Afterwards, Identify shows "Fast flasher v${fastFlasher.VERSION} present" and Fast Flash Tune / Fast Flash Program become available.\n\nContinue?`,
-        title
-      ))
-    )
-      return;
-  }
   let success = true;
   fbFlashingBar(true);
   await fbSessionStart('flash-program', {
@@ -320,46 +273,44 @@ async function fbDmeFlashProgram(opts = {}) {
   });
   try {
     flashLog.note(
-      `DME ${d.ident.hwRef} / prog ${d.ident.progRef} / diag ${d.ident.diagProtocol} / EWS delete ${d.ews}${d.flashName ? ` / ${d.flashName}` : ''}${d.mpcName ? ` + ${d.mpcName}` : ''}`
+      `DME ${d.ident.hwRef} / prog ${d.ident.progRef} / diag ${d.ident.diagProtocol} / EWS delete ${d.ews}${d.flashName ? ` / ${d.flashName}` : ''}${d.mpcName && d.mpcName !== d.flashName ? ` + ${d.mpcName}` : ''}`
     );
     if (!(await fbProgrammingCounter(false))) return;
     let images;
     try {
       images = fbDmeApplyProgramEdits(prompts);
-      // the flasher's body and hook, spliced before signing (the body sits
-      // inside a signed program segment; fbFlashRun's flash signs it)
-      if (install) images = fastFlasher.bootstrap(images.source, images.mpc);
+      // spliced before signing: whatever the carry adds sits inside a
+      // signed program segment (fbFlashRun's flash signs it)
+      const carried = carry(images.source, images.mpc);
+      images = { source: carried.flash, mpc: carried.mpc };
     } catch (e) {
       await fbMessage(e.message, e.title || title);
       return;
     }
-    const source = install ? images.flash : images.source;
-    const { mpc } = images;
-    if (install) {
-      flashLog.note(
-        'Fast flasher: body spliced at ext 0xFD26C, hook at MPC 0x8'
-      );
-      fbLog(`Fast flasher: ${keeping ? 'keeping' : 'installing'}`);
-    }
+    const { source, mpc } = images;
     const hasCal = d.flash.length >= 0x5d000 && !fbDmeProgramHasNoTune();
     const mpcOut = mpc;
     const progRef = ms45ReadAscii(source, 0x6031c, 12);
-    const result = await fbFlashRun('dme-program', {
-      flash: source,
-      mpc: mpcOut,
-      hasCal,
-      diagProtocol: d.ident.diagProtocol,
-      aifArgs: fbAifArgs(progRef),
-      describe: `DME program ${progRef || '(unreadable version)'}${hasCal ? ' + calibration' : ''}${install ? ' + fast flasher' : ''}, 1 MB external + 448 KB MPC`,
-      vin: d.ident.vin,
-      hwRef: d.ident.hwRef,
-    });
+    const result = await fbFlashRun(
+      'dme-program',
+      {
+        flash: source,
+        mpc: mpcOut,
+        hasCal,
+        diagProtocol: d.ident.diagProtocol,
+        aifArgs: fbAifArgs(progRef),
+        describe: `DME program ${progRef || '(unreadable version)'}${hasCal ? ' + calibration' : ''}${opts.carry ? ' + installer body' : ''}, 1 MB external + 448 KB MPC`,
+        vin: d.ident.vin,
+        hwRef: d.ident.hwRef,
+      },
+      opts.confirmed ? { confirm: false } : {}
+    );
     success = result.ok;
     fbSetStatus(result.status);
   } finally {
     fbFlashingBar(false);
     fbProgress(0);
-    if (success) await fbDmeIdentify(true);
+    if (success) await (opts.after ? opts.after() : fbDmeIdentify(true));
     await fbSessionStop();
   }
 }

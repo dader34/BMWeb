@@ -71,7 +71,7 @@ function fbDmeWire() {
   // reads through it (the same files, at the line's rate)
   fbEls['dme-read'].onclick = () =>
     fbDmeGuard('Read DME', () =>
-      fbDmeUseFastFlasher(false) && fbState.dme.fastFlasher.reads
+      fbDmeUseFastFlasher() && fbState.dme.fastFlasher.reads
         ? fbDmeFastRead()
         : fbDmeRead()
     );
@@ -92,27 +92,24 @@ function fbDmeWire() {
   // write buttons go through it; otherwise through the stock loader
   fbEls['dme-flash-tune'].onclick = () =>
     fbDmeGuard('Flash Tune', () =>
-      fbDmeUseFastFlasher(false) ? fbDmeFastFlashTune() : fbDmeFlashTune()
+      fbDmeUseFastFlasher() ? fbDmeFastFlashTune() : fbDmeFlashTune()
     );
   fbEls['dme-flash-program'].onclick = () =>
     fbDmeGuard('Flash Program', () =>
-      fbDmeUseFastFlasher(true) ? fbDmeFastFlashProgram() : fbDmeFlashProgram()
+      fbDmeUseFastFlasher() ? fbDmeFastFlashProgram() : fbDmeFlashProgram()
     );
   fbEls['dme-fullbin'].onchange = () => fbDmeFullBinChanged();
 }
 
 /**
- * Whether a write button goes through the resident fast flasher: the
- * setting is on, identify found a flasher it can use (for the program push
- * an outdated body that can carry its own upgrade counts) and the cable can
+ * Whether Read DME, Flash Tune and Flash Program go through the fast
+ * flasher: the setting is on, identify found a ready one and the cable can
  * hold the break the entry needs. Anything else uses the stock loader.
- * @param {boolean} program - Flash Program (true) or Flash Tune.
  * @returns {boolean}
  */
-function fbDmeUseFastFlasher(program) {
+function fbDmeUseFastFlasher() {
   const f = fbState.dme.fastFlasher;
-  if (!fbFastFlasherWanted() || !f) return false;
-  if (!(f.ready || (program && f.upgradable))) return false;
+  if (!fbFastFlasherWanted() || !f || !f.ready) return false;
   const breakLine =
     typeof webBus !== 'undefined' && webBus.port && !!webBus.port.setSignals;
   if (!breakLine)
@@ -499,10 +496,6 @@ async function fbDmeReadCarFastFlasher() {
       fbDmeReadProtocol()
     );
     d.fastFlasher = fastFlasher.parseDetection(hook, stamp);
-    // a DME that carries the flasher keeps it: the program flash re-adds
-    // it unless Custom Options' tick was taken off (installFastSet)
-    if (d.fastFlasher && d.fastFlasher.hooked && !d.installFastSet)
-      d.installFast = true;
     // the gate only runs once the loader accepts the program and jumps
     // through MPC 0x8: a DME left in its loader (an interrupted flash) has
     // the stamp and the hook but no way into the flasher until a full flash

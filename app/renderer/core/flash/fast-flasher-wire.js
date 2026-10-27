@@ -52,21 +52,13 @@ const FF_SVC = {
 const FF_READ_MAX = 0x1000;
 const FF_EXT_SIZE = 0x100000;
 
-// AIF-wipe (v10 boot-window body) constants. The programming log lives at the
-// top of the single 96 KB boot sector; wiping it means erasing that sector
-// (loader included) and streaming the boot content below the log back from a
-// reference image. A resume marker at ext 0x387EC (survives the erase) gates
-// the erase on "armed", so the host can tell a mid-wipe state on reconnect --
-// though once the boot sector is erased the DME cannot re-enter the flasher
-// until the loader is restored (bench only; see fast-flasher.js). (github aside)
+// The AIF marker ladder (S_AIF): READ/ARM/DONE a row of marker slots from
+// ext 0x387EC (blank to 0x40000, so it survives a boot-sector erase). An
+// erase of the boot sector is refused unless a slot is armed; the AIF
+// editor's rewrite and the bootloader install arm one around their erases
+// (core/flash/aif.js, core/flash/bl14.js).
 const FF_AIF = { READ: 0, ARM: 1, DONE: 2 };
 const FF_MARK = { FRESH: 0xffff, ARMED: 0xa55a, DONE: 0xa558 };
-const FF_BOOT = 0x8000; // boot sector start
-const FF_BOOT_END = 0x20000; // boot sector end (exclusive)
-const FF_AIF_START = 0x1fb34; // the programming log: left blank after a wipe
-// HELLO must report this. v11: a row of marker slots, so it wipes again;
-// v10 had one marker halfword and refused every wipe after its first
-const FF_AIFWIPE_STAMP = { version: 12, flags: 0x03 };
 const FF_SVC_NAME = Object.fromEntries(
   Object.entries(FF_SVC).map(([k, v]) => [v, k])
 );
@@ -113,25 +105,16 @@ const FF_FAST_LINES = [
   [208333, 6],
   [156250, 8],
 ];
-/** The rates the Baud Test tries, fastest first (all exact for the DME, exact or within 0.2 % for an FTDI cable). */
-const FF_LINE_TEST_RATES = [
-  [625000, 2],
-  [416667, 3],
-  [312500, 4],
-  [250000, 5],
-  [208333, 6],
-  [156250, 8],
-];
+/**
+ * The rates a running flasher may be holding when a cut session is picked up
+ * again: the session rates, and the faster ones earlier builds started on.
+ */
+const FF_RESUME_RATES = [625000, 416667, ...FF_FAST_LINES.map(([r]) => r)];
 /** Garbled replies in a session before the line is stepped down a rate. */
 const FF_LINE_ERRORS_STEP = 2;
-/** The Baud Test's soak at each rate: replies that must all come back clean. */
-const FF_TEST_HELLOS = 20;
-const FF_TEST_FRAMES = 10;
-const FF_TEST_CRCS = 5;
 /** How long the body's own fallback to 115200 is waited for after a dead rate. */
 const FF_FALLBACK_PATIENCE_MS = 15000;
-/** The MPC's 448 KB in 32 KB blocks; a pageset is one 64-byte page per block. */
-const FF_MPC_BLOCKS = 14;
+/** A pageset is one 64-byte page per MPC block. */
 const FF_PAGE = 64;
 /** SECTOR_QUERY / VERIFY: a base plus this per 64 KB read back. */
 const FF_READ_BASE_MS = 2000;
@@ -637,149 +620,10 @@ async function ffReadImage(client, cb = {}) {
  * @param {(s: string) => void} [note]
  * @returns {Promise<number>} The rate the session is on.
  */
-/** Where the line test's 4 KB frames go: refused by every body (NAK 1). */
-const FF_LINE_TEST_FRAME_AT = 0x0;
-/**
- * Where the line test sent them before: inside the v10 bench body's boot
- * window, so that body programmed the test pattern over the loader's 4 KB
- * there. The AIF wipe accepts a restore source differing from the DME only
- * in this block, which repairs it.
- */
-const FF_LINE_TEST_DAMAGE_AT = 0x10000;
-
-/**
- * The Baud Test: try each rate in turn on an open v8 session and report
- * what the cable and the K-line carry. At each rate: the HELLO that
- * rebaud() asks, then five HELLOs whose stamp must match, a 64 KB CRC
- * (timed), and three 4 KB CHUNKs to a read-only offset -- the body checks
- * the frame's checksum and the permission before anything else, so NAK 1
- * (perm) proves a long tester-to-DME frame arrived intact, and nothing is
- * written. Between rates the session goes back to 115200 (by SET_BAUD, or
- * by the body's own fallback when the rate garbled it). Writes nothing.
- * @param {FastFlashClient} client
- * @param {{rebaud: (baudRate: number, opts?: object) => Promise<Uint8Array>}} link
- * @param {(s: string) => void} [note]
- * @param {Array<[number, number]>} [rates] - [baud, SCBR] pairs.
- * @returns {Promise<{results: Array<object>, summary: string, best: number}>}
- */
-async function ffLineTest(
-  client,
-  link,
-  note = () => {},
-  rates = FF_LINE_TEST_RATES
-) {
-  if (!link || !link.rebaud)
-    throw new Error('fast flasher: this link cannot change its rate');
-  const stamp = await client.hello();
-  const same = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
-  const longFrame = new Uint8Array(4096);
-  for (let i = 0; i < longFrame.length; i++)
-    longFrame[i] = (i * 7919 + 13) & 0xff;
-  const results = [];
-  let lost = false;
-  for (const [rate, scbr] of rates) {
-    const r = {
-      rate,
-      scbr,
-      hellos: 0,
-      frames: 0,
-      queryMs: null,
-      ok: false,
-      why: '',
-    };
-    results.push(r);
-    note(`Testing ${rate} baud (SCBR ${scbr})`);
-    try {
-      await client.setBaud(scbr);
-    } catch (e) {
-      r.why = `SET_BAUD refused (${e.message})`;
-      note(`${rate} baud: ${r.why}`);
-      break;
-    }
-    try {
-      await link.rebaud(rate);
-      await client.setBaud(scbr); // heard: the body may keep the rate
-    } catch (e) {
-      r.why = 'no HELLO';
-      note(
-        `${rate} baud: no HELLO (${e.message}); waiting for the body's fallback to ${FF_BAUD}`
-      );
-      try {
-        await link.rebaud(FF_BAUD, { patience: FF_FALLBACK_PATIENCE_MS });
-      } catch (e2) {
-        r.why = `no HELLO, and the DME did not come back to ${FF_BAUD} within ${FF_FALLBACK_PATIENCE_MS / 1000} s`;
-        note(`${rate} baud: ${r.why} (${e2.message})`);
-        lost = true;
-        break;
-      }
-      continue;
-    }
-    // a soak, not a probe: the first program push at 312500 passed five
-    // HELLOs and died of two garbled bytes in 300 replies
-    for (let i = 0; i < FF_TEST_HELLOS; i++) {
-      try {
-        if (same(await client.hello(), stamp)) r.hellos++;
-      } catch (e) {
-        /* a miss: counted by its absence */
-      }
-    }
-    const t0 = Date.now();
-    try {
-      for (let i = 0; i < FF_TEST_CRCS; i++)
-        await client.sectorQuery(FF_CAL_SECTOR, 0x10000);
-      r.queryMs = Math.round((Date.now() - t0) / FF_TEST_CRCS);
-    } catch (e) {
-      r.why = `64 KB CRC: ${e.message}`;
-    }
-    for (let i = 0; i < FF_TEST_FRAMES; i++) {
-      try {
-        // ext 0x0: below every window any body writes (the v10 bench body
-        // opens [0x8000, 0x20000), and the old target 0x10000 inside it had
-        // that body program the test pattern over the boot loader)
-        await client.chunk(FF_LINE_TEST_FRAME_AT, longFrame);
-        r.why = 'a CHUNK to ext 0x0 was accepted';
-      } catch (e) {
-        if (e instanceof FastFlashNak && e.reason === 1) r.frames++;
-      }
-    }
-    r.ok =
-      r.hellos === FF_TEST_HELLOS &&
-      r.frames === FF_TEST_FRAMES &&
-      r.queryMs !== null;
-    if (!r.ok && !r.why)
-      r.why = `HELLO ${r.hellos}/${FF_TEST_HELLOS}, 4 KB frames ${r.frames}/${FF_TEST_FRAMES}`;
-    note(
-      `${rate} baud: HELLO ${r.hellos}/${FF_TEST_HELLOS}, 4 KB frames ${r.frames}/${FF_TEST_FRAMES}, 64 KB CRC x${FF_TEST_CRCS} ${r.queryMs === null ? 'no answer' : `${r.queryMs} ms each`} -- ${r.ok ? 'OK' : 'FAILED'}`
-    );
-    let setOk = true;
-    try {
-      await client.setBaud(11);
-    } catch (e) {
-      setOk = false;
-    }
-    try {
-      await link.rebaud(FF_BAUD, {
-        patience: setOk ? 2000 : FF_FALLBACK_PATIENCE_MS,
-      });
-      await client.setBaud(11); // confirmed at 115200
-    } catch (e) {
-      note(`back to ${FF_BAUD}: the DME did not answer (${e.message})`);
-      lost = true;
-      break;
-    }
-  }
-  const summary = results
-    .map((r) => `${r.rate}: ${r.ok ? 'OK' : r.why || 'failed'}`)
-    .join(' · ');
-  const best = (results.find((r) => r.ok) || { rate: FF_BAUD }).rate;
-  return { results, summary, best, lost };
-}
-
 async function ffFasterLine(client, link, note = () => {}, preferred = 0) {
   if (!link || !link.rebaud) return FF_BAUD;
-  // the rate the last Baud Test on this DME passed goes first; the list
-  // follows for anything it did not cover
-  const lines = FF_LINE_TEST_RATES.filter(([r]) => r === preferred).concat(
+  // the rate this DME last held goes first; the list follows for the rest
+  const lines = FF_FAST_LINES.filter(([r]) => r === preferred).concat(
     FF_FAST_LINES.filter(([r]) => r !== preferred)
   );
   for (const [rate, scbr] of lines) {
@@ -1448,7 +1292,7 @@ function ffWebLink(bus, opts = {}) {
       // the body may be holding a confirmed faster line from the session
       // that was cut short: 115200 first, then each rate it could be on
       let last = null;
-      for (const rate of [FF_BAUD].concat(FF_LINE_TEST_RATES.map(([r]) => r))) {
+      for (const rate of [FF_BAUD, ...FF_RESUME_RATES]) {
         await bus.reopen({
           baudRate: rate,
           dataBits: 8,
@@ -1534,133 +1378,10 @@ function _ffFind(hay, needle) {
   return -1;
 }
 
-/**
- * Wipe the programming log (AIF/UIF) through an OPEN v10 boot-window session.
- * Marker-driven, so the first run and a resume are the same path. BENCH ONLY:
- * a boot-sector erase removes the loader, so a power loss between the erase
- * and the restore leaves a DME that can only be recovered by a bootstrap
- * (full flash) -- the marker cannot help once the sector is blank.
- *
- * @param {FastFlashClient} client - an open session (break-held HELLO done).
- * @param {Uint8Array} bootContent - the reference image's [0x8000, 0x1FB34)
- *   bytes (the boot content BELOW the log; restored verbatim). The flasher has
- *   no read-bytes service, so the host supplies this from the image it flashed.
- * @param {(msg: string) => void} [log]
- * @returns {Promise<{wiped: boolean, already?: boolean}>}
- * @throws {Error} wrong body, bad marker, a sector that would not blank, etc.
- */
-async function ffWipeAif(client, bootContent, log = () => {}) {
-  const stamp = await client.hello();
-  const magic = String.fromCharCode(...Array.from(stamp.slice(0, 6)));
-  const ver = stamp[6];
-  const flags = stamp[7];
-  if (
-    magic !== 'MS45QF' ||
-    ver < FF_AIFWIPE_STAMP.version ||
-    (flags & FF_AIFWIPE_STAMP.flags) !== FF_AIFWIPE_STAMP.flags
-  )
-    throw new Error(
-      `not the AIF-wipe bench body (HELLO ${magic} v${ver} flags 0x${flags.toString(16)}); ` +
-        'a v12+ fast flasher carries the wipe: Fast Flash Program upgrades it'
-    );
-  if (bootContent.length !== FF_AIF_START - FF_BOOT)
-    throw new Error(
-      `bootContent must be ${FF_AIF_START - FF_BOOT} bytes ([0x8000, 0x1fb34))`
-    );
-
-  let mk = await client.aifRead();
-  log(`AIF marker 0x${mk.toString(16)}`);
-  // v11 reads the current slot: fresh after a finished wipe, DONE only when
-  // every slot has been spent
-  if (mk === FF_MARK.DONE)
-    throw new Error(
-      'every AIF-wipe marker slot on this DME is spent; nothing was erased'
-    );
-  if (mk === FF_MARK.FRESH) {
-    // the restore source must be what the sector holds now: the erase is
-    // committed until the restore lands, and a source from another loader
-    // build would leave this DME's start code with a foreign loader
-    const have =
-      (await client.sectorQuery(FF_BOOT, FF_AIF_START - FF_BOOT)) >>> 0;
-    if (have === ffCrc32(bootContent) >>> 0) {
-      log('boot content matches the DME');
-    } else {
-      // block by block: a source that differs ONLY in the block the old line
-      // test programmed over (a v10 body took its CHUNKs to 0x10000) is the
-      // repair of that damage; anything else is another unit's content
-      const differ = [];
-      for (let at = FF_BOOT; at < FF_AIF_START; at += 0x1000) {
-        const len = Math.min(0x1000, FF_AIF_START - at);
-        const dme = (await client.sectorQuery(at, len)) >>> 0;
-        const src =
-          ffCrc32(bootContent.subarray(at - FF_BOOT, at - FF_BOOT + len)) >>> 0;
-        if (dme !== src) differ.push(at);
-      }
-      const hex = (a) => `0x${a.toString(16)}`;
-      if (!(differ.length === 1 && differ[0] === FF_LINE_TEST_DAMAGE_AT))
-        throw new Error(
-          "the boot content to restore does not match the DME's own boot sector " +
-            `(blocks differing: ${differ.map(hex).join(', ') || 'none found block by block'}); nothing was erased`
-        );
-      log(
-        `boot content matches the DME except the 4 KB at ${hex(FF_LINE_TEST_DAMAGE_AT)} (the line test's damage): the restore repairs it`
-      );
-    }
-    await client.aifArm();
-    mk = await client.aifRead();
-    if (mk !== FF_MARK.ARMED) throw new Error('the AIF marker did not arm');
-    log('armed (0xA55A)');
-  } else if (mk !== FF_MARK.ARMED) {
-    throw new Error(
-      `AIF marker 0x${mk.toString(16)}: neither fresh, armed nor done`
-    );
-  }
-
-  log('erasing the boot sector (AIF + loader; committed until the restore)...');
-  await client.erase(FF_BOOT);
-
-  // the on-silicon blank check: a hardware-protected sector would fail here,
-  // with the boot sector still stock -> the DME still boots (recoverable)
-  const blankCrc =
-    ffCrc32(new Uint8Array(FF_BOOT_END - FF_BOOT).fill(0xff)) >>> 0;
-  const got = (await client.sectorQuery(FF_BOOT, FF_BOOT_END - FF_BOOT)) >>> 0;
-  if (got !== blankCrc)
-    throw new Error(
-      'boot sector did not read blank after ERASE (hardware-protected?)'
-    );
-  log('boot sector blank');
-
-  // restore the boot content below the log; pad to a multiple of 8 with 0xFF
-  // (the all-literal NRV2B form the body decodes carries full 8-byte groups,
-  // and the pad lands in the erased log head as a no-op, so the log stays blank)
-  const pad = bootContent.length % 8 ? 8 - (bootContent.length % 8) : 0;
-  const payload = new Uint8Array(bootContent.length + pad).fill(0xff);
-  payload.set(bootContent, 0);
-  for (let off = 0; off < payload.length; off += 4096)
-    await client.chunk(
-      FF_BOOT + off,
-      payload.subarray(off, Math.min(off + 4096, payload.length))
-    );
-  log(`restored ${bootContent.length} bytes of boot content`);
-
-  await client.verify(
-    FF_BOOT,
-    FF_AIF_START - FF_BOOT,
-    ffCrc32(bootContent) >>> 0
-  );
-  await client.aifDone();
-  // the slot is spent, so the current one is the next, fresh slot
-  if ((await client.aifRead()) === FF_MARK.ARMED)
-    throw new Error('the AIF marker is still armed after the commit');
-  log('AIF wiped, marker DONE');
-  return { wiped: true };
-}
-
 const fastFlashWire = {
   SVC: FF_SVC,
   AIF: FF_AIF,
   MARK: FF_MARK,
-  wipeAif: ffWipeAif,
   BAUD: FF_BAUD,
   CAL_SECTOR: FF_CAL_SECTOR,
   CAL_LENGTH: FF_CAL_LENGTH,
@@ -1680,8 +1401,6 @@ const fastFlashWire = {
   READ_MAX: FF_READ_MAX,
   fasterLine: ffFasterLine,
   FAST_LINES: FF_FAST_LINES,
-  lineTest: ffLineTest,
-  LINE_TEST_RATES: FF_LINE_TEST_RATES,
   webLink: ffWebLink,
 };
 

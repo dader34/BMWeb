@@ -14,6 +14,27 @@
 // AIF editor runs on it. BL14 (stamp at 0x17080, the handoff word only) is
 // still recognised by Identify; this file installs BL15.
 //
+// And takes it off again (Restore stock bootloader). A held line on a BL15
+// DME always lands in the ring -- its handoff window runs before MPC 0x8,
+// so a resident installer body is out of reach -- and the ring's body may
+// not touch the 8 KB sector. So the way back is two sessions on the ring:
+//
+//   1. on BL15: the ring swapped for its INSTALLER variant (bl14Blob.
+//      installerRing: the same windows and layout, the body's write window
+//      opened to 0x4000, stamp flags 7) -- one 96 KB rewrite, the windows
+//      at the same addresses, so the patched words stay right throughout;
+//   2. on the installer ring: the 8 KB sector with both words stock FIRST
+//      (from then on the DME boots the stock loader whatever happens to
+//      the ring), then the 96 KB sector with the ring blanked, stamp and
+//      all -- the boot region as it was before the install, loader build
+//      and programming log kept.
+//
+// A cut after step 2's 8 KB rewrite and before its 96 KB one leaves a DME
+// that boots stock but still carries the installer ring's stamp; nothing
+// can reach that ring any more, so Identify keeps reporting a bootloader
+// that a held line no longer finds. Harmless, but only a bench rig clears
+// the stamp (Install refuses a ring it did not put there).
+//
 // The park hook is only right for a loader that enters its park through the
 // call BL15 was built against (the lis+addi pair at 0x3828, bl14Blob.guard):
 // the install reads it first and refuses any other loader build.
@@ -46,6 +67,8 @@ const BL14_CHUNK = 0x1000;
 const BL14_MAGIC = 'MS45BL';
 /** The installer body's stamp flag: its window opens at 0x4000. */
 const BL14_INSTALLER_FLAG = 0x04;
+/** Ext offsets the ring's two variants cover between them. */
+const BL14_RING_SPAN_END = 0x1f700;
 
 const bl14Wire =
   typeof fastFlashWire !== 'undefined'
@@ -55,6 +78,7 @@ const bl14Data =
   typeof bl14Blob !== 'undefined'
     ? bl14Blob
     : require('./bl14-blob.js').bl14Blob;
+const BL14_RING_LEN = BL14_RING_SPAN_END - bl14Data.ring.at;
 
 /** @param {string} hex @returns {Uint8Array} */
 function _bl14Hex(hex) {
@@ -67,6 +91,11 @@ function _bl14Hex(hex) {
 /** The ring's bytes, from `bl14Blob.ring.at`. @returns {Uint8Array} */
 function bl14Ring() {
   return _bl14Hex(bl14Data.ring.hex.join(''));
+}
+
+/** The installer ring's bytes, from the same address. @returns {Uint8Array} */
+function bl14InstallerRing() {
+  return _bl14Hex(bl14Data.installerRing.hex.join(''));
 }
 
 /** @param {Uint8Array} b @param {number} at @returns {number} */
@@ -136,6 +165,90 @@ function bl14Splice(boot, sect8k, guard) {
     sect8k: ns,
     bootChanged: !same(nb, boot),
     sect8kChanged: !same(ns, sect8k),
+  };
+}
+
+/**
+ * Which ring the boot region carries, and where its two words stand.
+ * @param {Uint8Array} boot - [0x8000, 0x20000) as read off the DME.
+ * @param {Uint8Array} sect8k - [0x4000, 0x6000) as read off the DME.
+ * @returns {{ring: 'blank'|'bl15'|'installer'|null,
+ *   words: 'stock'|'patched'|null}} null: neither, not a region we built
+ */
+function bl14Survey(boot, sect8k) {
+  if (boot.length !== BL14_BOOT_LEN || sect8k.length !== BL14_SECT8K_LEN)
+    throw new Error('bl14: the boot region read is the wrong size');
+  const at = bl14Data.ring.at - BL14_BOOT;
+  const span = (r) => {
+    const out = new Uint8Array(BL14_RING_LEN).fill(0xff);
+    out.set(r, 0);
+    return out;
+  };
+  const have = boot.subarray(at, at + BL14_RING_LEN);
+  const same = (r) => have.every((x, i) => x === r[i]);
+  const ring = have.every((x) => x === 0xff)
+    ? 'blank'
+    : same(span(bl14Ring()))
+      ? 'bl15'
+      : same(span(bl14InstallerRing()))
+        ? 'installer'
+        : null;
+  const words = bl14Data.patches.map((p) =>
+    _bl14Be32(sect8k, p.at - BL14_SECT8K)
+  );
+  const all = (k) => words.every((w, i) => w === bl14Data.patches[i][k]);
+  return {
+    ring,
+    words: all('stock') ? 'stock' : all('word') ? 'patched' : null,
+  };
+}
+
+/**
+ * Restore, session 1's boot sector: BL15's ring swapped for the installer
+ * ring. Refuses a region that is not BL15 as BMWeb installs it.
+ * @param {Uint8Array} boot @param {Uint8Array} sect8k - As read off the DME.
+ * @returns {Uint8Array|null} The new boot sector; null when it already
+ *   carries the installer ring.
+ */
+function bl14InstallerImage(boot, sect8k) {
+  const v = bl14Survey(boot, sect8k);
+  if (v.words !== 'patched' || (v.ring !== 'bl15' && v.ring !== 'installer'))
+    throw new Error(
+      `bl14: the boot region is not BL15 as BMWeb installs it (ring ${v.ring || 'unknown'}, words ${v.words || 'unknown'}). Nothing was written.`
+    );
+  if (v.ring === 'installer') return null;
+  const nb = Uint8Array.from(boot);
+  const at = bl14Data.ring.at - BL14_BOOT;
+  nb.fill(0xff, at, at + BL14_RING_LEN);
+  nb.set(bl14InstallerRing(), at);
+  return nb;
+}
+
+/**
+ * Restore, session 2's sectors: both words stock, the ring blanked.
+ * Refuses a region that is not the installer ring's (or a restore of it
+ * cut between the two sectors).
+ * @param {Uint8Array} boot @param {Uint8Array} sect8k - As read off the DME.
+ * @returns {{boot: Uint8Array, sect8k: Uint8Array, bootChanged: boolean,
+ *   sect8kChanged: boolean}}
+ */
+function bl14RestoreImages(boot, sect8k) {
+  const v = bl14Survey(boot, sect8k);
+  if (!v.words || !v.ring || v.ring === 'bl15')
+    throw new Error(
+      `bl14: the boot region is not the installer ring as BMWeb puts it on (ring ${v.ring || 'unknown'}, words ${v.words || 'unknown'}). Nothing was written.`
+    );
+  const ns = Uint8Array.from(sect8k);
+  for (const p of bl14Data.patches)
+    _bl14PutBe32(ns, p.at - BL14_SECT8K, p.stock);
+  const nb = Uint8Array.from(boot);
+  const at = bl14Data.ring.at - BL14_BOOT;
+  nb.fill(0xff, at, at + BL14_RING_LEN);
+  return {
+    boot: nb,
+    sect8k: ns,
+    bootChanged: v.ring !== 'blank',
+    sect8kChanged: v.words !== 'stock',
   };
 }
 
@@ -227,12 +340,121 @@ async function bl14Install(client, cb) {
   };
 }
 
+/** Read the 8 KB and 96 KB sectors off the DME (20% of the bar). */
+async function _bl14ReadRegion(client, cb) {
+  cb.stage('Reading the boot region off the DME');
+  const sect8k = await bl14Wire.readArea(client, BL14_SECT8K, BL14_SECT8K_LEN);
+  const boot = await bl14Wire.readArea(client, BL14_BOOT, BL14_BOOT_LEN, (n) =>
+    cb.progress(Math.floor((n * 20) / BL14_BOOT_LEN))
+  );
+  return { boot, sect8k };
+}
+
+/** The stamp's first 8 bytes where the ring keeps it. */
+async function _bl14Stamp(client) {
+  const st = await client.read(bl14Data.ring.stampAt, 16);
+  return {
+    magic: String.fromCharCode(...st.subarray(0, 6)),
+    version: st[6],
+    flags: st[7],
+  };
+}
+
+/**
+ * Restore, session 1, on BL15: swap the ring for its installer variant
+ * (one 96 KB rewrite; the windows stay where the patched words point). A
+ * DME already carrying the installer ring is left as it is.
+ * @param {FastFlashClient} client - A session on BL15's ring.
+ * @param {{stage: (s: string) => void, progress: (pct: number) => void,
+ *   note: (s: string) => void}} cb
+ * @returns {Promise<{skipped: boolean, summary: string}>}
+ */
+async function bl14ToInstaller(client, cb) {
+  const { boot, sect8k } = await _bl14ReadRegion(client, cb);
+  const nb = bl14InstallerImage(boot, sect8k);
+  if (!nb) {
+    cb.note('the installer ring is already on the DME: nothing written');
+    return { skipped: true, summary: 'the installer ring was already on' };
+  }
+  await aifLadderArm(client, cb.note);
+  await _bl14Rewrite(
+    client,
+    BL14_BOOT,
+    nb,
+    cb,
+    20,
+    95,
+    'the boot sector (the installer ring)'
+  );
+  await aifLadderDone(client);
+  const st = await _bl14Stamp(client);
+  if (st.magic !== BL14_MAGIC || !(st.flags & BL14_INSTALLER_FLAG))
+    throw new Error(
+      `the stamp reads "${st.magic}" flags 0x${st.flags.toString(16)} after the swap`
+    );
+  cb.progress(100);
+  return { skipped: false, summary: 'installer ring in, programming log kept' };
+}
+
+/**
+ * Restore, session 2, on the installer ring: both words back to stock
+ * (the 8 KB sector, first: the DME boots stock from here on), then the
+ * ring blanked out of the 96 KB sector. Picks up a run cut between the two.
+ * @param {FastFlashClient} client - A session on the installer ring.
+ * @param {{stage: (s: string) => void, progress: (pct: number) => void,
+ *   note: (s: string) => void}} cb
+ * @returns {Promise<{skipped: boolean, summary: string}>}
+ */
+async function bl14Restore(client, cb) {
+  const { boot, sect8k } = await _bl14ReadRegion(client, cb);
+  const r = bl14RestoreImages(boot, sect8k);
+  if (!r.sect8kChanged && !r.bootChanged) {
+    cb.note('the boot region is already stock: nothing written');
+    return { skipped: true, summary: 'the boot region was already stock' };
+  }
+  await aifLadderArm(client, cb.note);
+  if (r.sect8kChanged)
+    await _bl14Rewrite(
+      client,
+      BL14_SECT8K,
+      r.sect8k,
+      cb,
+      20,
+      30,
+      'the 8 KB sector (the stock handoff and park words)'
+    );
+  if (r.bootChanged)
+    await _bl14Rewrite(
+      client,
+      BL14_BOOT,
+      r.boot,
+      cb,
+      30,
+      95,
+      'the boot sector (the ring blanked)'
+    );
+  await aifLadderDone(client);
+  const st = await _bl14Stamp(client);
+  if (st.magic === BL14_MAGIC)
+    throw new Error('the stamp still reads MS45BL after the restore');
+  cb.progress(100);
+  return {
+    skipped: false,
+    summary: 'stock bootloader restored, programming log kept',
+  };
+}
+
 const bl14 = {
   MAGIC: BL14_MAGIC,
   STAMP_AT: bl14Data.ring.stampAt,
   INSTALLER_FLAG: BL14_INSTALLER_FLAG,
   splice: bl14Splice,
+  survey: bl14Survey,
+  installerImage: bl14InstallerImage,
+  restoreImages: bl14RestoreImages,
   install: bl14Install,
+  toInstaller: bl14ToInstaller,
+  restore: bl14Restore,
   /** Whether identify's detection is the installer body. */
   isInstaller(det) {
     return !!(det && det.version >= 13 && det.flags & BL14_INSTALLER_FLAG);
