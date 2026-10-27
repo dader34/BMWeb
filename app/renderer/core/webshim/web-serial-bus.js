@@ -319,7 +319,23 @@ class WebSerialBus extends SerialTransportBase {
     // "reading 'close' of null", which the app could not tell from a bug.
     // Name it as what it is, in the words the error screen recognises.
     if (!this.port) throw new Error('no cable is open');
-    await this.port.close();
+    // A reopen only needs the port OPEN on cfg, so a close() that reports the
+    // port is ALREADY closed is success, not failure -- open() below reopens
+    // it. On some macOS Chrome / FTDI builds the reader.cancel() in
+    // _releaseStreams also closes the port, so this close() then threw
+    // "Failed to execute 'close' on 'SerialPort': The port is already closed"
+    // -- uncaught, it aborted the whole concept switch. The first telegram of
+    // the engine group (d_0012 probes DS2 then KWP2000*) needs that switch
+    // from the 115200 BMW-FAST default to 9600 8E1, so NOTHING was ever sent:
+    // an empty wire and a 1 ms "no module answered" that read as a dead DME on
+    // a cable (USB 403:6001) that worked under Windows. A single-concept probe
+    // (d_0032 / GS20) rarely hit it. disconnect() already ignores this close;
+    // this is the one path that did not. (github #260)
+    try {
+      await this.port.close();
+    } catch {
+      /* already closed (or closing): open() reopens it below */
+    }
     await this.port.open(cfg);
     this.config = cfg;
     this.writer = this.port.writable.getWriter();
