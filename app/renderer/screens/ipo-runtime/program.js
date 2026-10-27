@@ -530,14 +530,23 @@ class IpoProgram {
       ),
       ''
     );
+    let hasDetail = true; // until a module proves it has no FS_LESEN_DETAIL
     for (const f of faults) {
       const nr = f.F_ORT_NR != null ? String(f.F_ORT_NR) : '';
       let det = f;
-      if (nr) {
-        // the detail pass, as INPA's API makes it; a module without the job
-        // answers with an error and the memory's own fields stand
-        const d = await this.runJob(sgbd, 'FS_LESEN_DETAIL', nr, ctx);
-        if (d == null) return null;
+      if (nr && hasDetail) {
+        // the detail pass, as INPA's API makes it. A module without the job
+        // (the E46 M3 mss54ds0 has FS_LESEN / FS_LESEN_TEXT only) answers with
+        // an error -- the memory's own fields stand, and we stop asking so one
+        // missing job does not abort the whole read (github, MSS54 faults).
+        let d;
+        try {
+          d = await this.runJob(sgbd, 'FS_LESEN_DETAIL', nr, ctx);
+        } catch (_e) {
+          hasDetail = false;
+          d = f; // the plain FS_LESEN fields carry this fault
+        }
+        if (d == null) return null; // a genuine cancel from runJob
         const ds = (d.sets || []).slice(1).find((s) => s && s.F_ORT_NR != null);
         if (ds) det = Object.assign({}, f, ds);
       }
