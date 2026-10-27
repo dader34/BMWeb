@@ -268,6 +268,8 @@ async function showFlashing(page) {
         <div class="fb-section">
           <div class="fb-code">FILES</div>
           <label class="fb-check"><input type="checkbox" id="fb-set-keep"> Keep a copy of every file written to a module</label>
+          <label class="fb-check"><input type="checkbox" id="fb-set-onefile"> Save full reads as one file (external flash + MPC)</label>
+          <div class="fb-dim">A Full Binary read then saves one 1.5 MB file, the 1 MB external flash followed by the 448 KB MPC, instead of two. Load External takes either: a one-file full read loads both halves.</div>
           <div class="fb-dim">Each flash or write session keeps the exact images sent to the module with its History entry; Save Files hands them back. Everything stays in this browser.</div>
         </div>
         <div class="fb-section">
@@ -344,6 +346,11 @@ async function showFlashing(page) {
   fbEls['set-dev'].checked = fbDevUi();
   fbEls['set-keep'].onchange = () =>
     Settings.set('flashKeepFiles', fbEls['set-keep'].checked);
+  fbEls['set-onefile'].checked = fbDmeFullOneFile();
+  fbEls['set-onefile'].onchange = () => {
+    Settings.set('flashFullOneFile', fbEls['set-onefile'].checked);
+    fbRefreshAll();
+  };
   fbEls['set-aif'].onchange = () =>
     Settings.set('flashWriteAif', fbEls['set-aif'].checked);
   fbEls['set-dev'].onchange = () => {

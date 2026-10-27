@@ -37,7 +37,7 @@ function showSettings() {
     </div>`;
   const themeGrid = document.createElement('div');
   themeGrid.className = 'theme-grid';
-  const cur = Settings.get('theme', 'instrument');
+  const cur = Settings.get('theme', DEFAULT_THEME);
   THEMES.forEach((t) => {
     const card = document.createElement('button');
     card.className = 'theme-card' + (t.id === cur ? ' active' : '');
@@ -98,7 +98,7 @@ function showSettings() {
           { val: 'on', label: 'Classic' },
           { val: 'off', label: 'Modern' },
         ],
-        Settings.get('inpaScreens', 'on'),
+        Settings.get('inpaScreens', 'off'),
         // re-render: this screen is itself laid out differently per mode
         (v) => {
           Settings.set('inpaScreens', v);

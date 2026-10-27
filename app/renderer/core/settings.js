@@ -6,7 +6,7 @@
  * declared inline in index.html so the name lands before first paint.
  */
 
-/* exported API, THEMES, itemLabel */
+/* exported API, THEMES, DEFAULT_THEME, itemLabel */
 
 /**
  * Base URL of the diagnostic engine. The native shell runs a local sidecar;
@@ -20,9 +20,9 @@ const API =
 /**
  * The keys the app persists. Every key is optional; readers pass a default.
  * @typedef {Object} AppSettings
- * @property {string} [theme] - Skin id from {@link THEMES} ('instrument' by default).
+ * @property {string} [theme] - Skin id from {@link THEMES} (DEFAULT_THEME, 'brackets', by default).
  * @property {'en'|'orig'} [lang] - Translated captions, or raw EDIABAS names.
- * @property {'on'|'off'} [inpaScreens] - INPA-faithful layout on desktop; on by default.
+ * @property {'on'|'off'} [inpaScreens] - INPA-faithful layout on desktop; off (the modern layout) by default.
  * @property {'on'|'off'} [confirmActuators] - Ask before firing an actuator test.
  * @property {boolean} [betaReports] - Show the Report button and auto-file wire errors.
  * @property {string} [betaEndpoint] - Collector / signaling worker URL.
@@ -83,6 +83,9 @@ const Settings = {
  * drawn with no `data-theme` attribute at all.
  * @type {Array<{id: string, name: string}>}
  */
+/** The skin a first-time user gets (no theme saved yet). */
+const DEFAULT_THEME = 'brackets';
+
 const THEMES = [
   { id: 'instrument', name: 'Instrument' },
   { id: 'inpa', name: 'INPA' },
@@ -260,7 +263,7 @@ function updateDockIcon() {
   };
   img.src = url;
 }
-applyTheme(Settings.get('theme', 'instrument'));
+applyTheme(Settings.get('theme', DEFAULT_THEME));
 applyCursor();
 
 /**

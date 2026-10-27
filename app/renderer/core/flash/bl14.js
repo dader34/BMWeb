@@ -223,7 +223,7 @@ async function bl14Install(client, cb) {
   cb.progress(100);
   return {
     skipped: false,
-    summary: `BL${stamp[6]} installed, programming log kept`,
+    summary: 'fast flasher installed, programming log kept',
   };
 }
 

@@ -59,7 +59,9 @@ function istaAdminRows() {
         { val: 'off', label: 'Modern' },
       ],
       now:
-        typeof Settings === 'object' ? Settings.get('inpaScreens', 'on') : 'on',
+        typeof Settings === 'object'
+          ? Settings.get('inpaScreens', 'off')
+          : 'off',
     },
     {
       key: 'confirmActuators',

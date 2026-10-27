@@ -3,7 +3,7 @@
  * escaping, the breadcrumb strip, headings, skeleton placeholders, tooltips.
  */
 
-/* exported view, led, linkText, sbLeft, sbRight, fkeysEl, dispChassis, CHASSIS_TAG, crumbs, hex, inpaMode, inpaTheme, screenOwner, setCrumbs, tipify, head, stagger, skeletonList */
+/* exported view, led, linkText, sbLeft, sbRight, fkeysEl, dispChassis, CHASSIS_TAG, crumbs, hex, inpaMode, inpaScreensNow, inpaTheme, screenOwner, setCrumbs, tipify, head, stagger, skeletonList */
 
 /** The screen body every show*() renders into. @type {HTMLElement} */
 const view = document.getElementById('view');
@@ -107,12 +107,33 @@ const isMobileViewport = () =>
   !!(window.matchMedia && window.matchMedia(MOBILE_MEDIA).matches);
 
 /**
+ * Whether the screen showing is one whose classic window a first-time user
+ * gets: NCS Expert's and WinKFP's own windows are what their users know.
+ * (By reference, not name: the deployed bundle is minified.)
+ * @returns {boolean}
+ */
+const inpaFirstScreen = () =>
+  (typeof showNcsExpert === 'function' && lastScreen === showNcsExpert) ||
+  (typeof showWebKfp === 'function' && lastScreen === showWebKfp);
+
+/**
+ * The layout setting as it applies to the screen showing: the user's choice
+ * once one is saved (the top bar's switch, Settings), else that screen's
+ * default -- classic for NCS Expert and WebKFP, modern everywhere else.
+ * @returns {'on'|'off'}
+ */
+const inpaScreensNow = () => {
+  const saved = Settings.get('inpaScreens', null);
+  if (saved === 'on' || saved === 'off') return saved;
+  return inpaFirstScreen() ? 'on' : 'off';
+};
+
+/**
  * INPA-style layout on. Forced off on a phone (the mobile stylesheet strips
  * what makes it itself), so every screen follows one reader.
  * @returns {boolean}
  */
-const inpaMode = () =>
-  Settings.get('inpaScreens', 'on') === 'on' && !isMobileViewport();
+const inpaMode = () => inpaScreensNow() === 'on' && !isMobileViewport();
 
 /**
  * The INPA skin is on (Settings 'theme'). Apps that carry a period chrome
@@ -122,7 +143,7 @@ const inpaMode = () =>
  * @returns {boolean}
  */
 const inpaTheme = () =>
-  Settings.get('theme', 'instrument') === 'inpa' && !isMobileViewport();
+  Settings.get('theme', DEFAULT_THEME) === 'inpa' && !isMobileViewport();
 
 /**
  * How many times a screen has been drawn. Bumped by setCrumbs(), which every

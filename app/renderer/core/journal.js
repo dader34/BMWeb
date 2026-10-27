@@ -125,7 +125,7 @@ const Journal = {
       settings: {
         theme:
           typeof Settings !== 'undefined'
-            ? Settings.get('theme', 'instrument')
+            ? Settings.get('theme', DEFAULT_THEME)
             : null,
         inpa: typeof inpaMode === 'function' ? inpaMode() : null,
       },

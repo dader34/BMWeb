@@ -187,7 +187,7 @@ const fastFlasher = {
     if (!det) return 'Fast flasher: not on this DME';
     // the boot-region bootloader standing in for the resident flasher
     if (det.bootLoader)
-      return `Fast flash bootloader BL${det.bootLoader} present`;
+      return `Fast flasher present${det.resident ? ' (an older copy is still in the program: the next Fast Flash Program removes it)' : ''}`;
     const v = `v${det.version}`;
     if (det.notRunning)
       return `Fast flasher ${v} found, but the DME is not running its program (${det.notRunning}), so the flasher cannot be reached. Run a full Flash Program (or Install fast flasher) to finish the DME first.`;
@@ -328,6 +328,38 @@ const fastFlasher = {
    * @returns {{flash: Uint8Array, mpc: Uint8Array}}
    * @throws {Error} When the pair neither carries the flasher nor can take it.
    */
+  /**
+   * The pair WITHOUT the resident flasher, for a DME whose fast flasher is
+   * the boot-region bootloader: the body range back to blank and MPC 0x8
+   * back to the program's own reset word -- both together, since a hook
+   * left pointing at a blank body would send every boot into 0xFF. A pair
+   * that carries neither comes back as it was. The caller signs.
+   * @param {Uint8Array} flash
+   * @param {Uint8Array} mpc
+   * @returns {{flash: Uint8Array, mpc: Uint8Array, removed: boolean}}
+   */
+  withoutFlasher(flash, mpc) {
+    const f = Uint8Array.from(flash);
+    const m = Uint8Array.from(mpc);
+    const blob =
+      typeof fastFlasherBlob !== 'undefined'
+        ? fastFlasherBlob
+        : require('./fast-flasher-blob.js').fastFlasherBlob;
+    let removed = false;
+    const stamp = String.fromCharCode(
+      ...f.subarray(FAST_FLASHER_STAMP_AT, FAST_FLASHER_STAMP_AT + 6)
+    );
+    if (stamp === FAST_FLASHER_MAGIC) {
+      f.fill(0xff, fastFlasher.BODY_START, fastFlasher.BODY_END);
+      removed = true;
+    }
+    if (_fastFlasherBe32(m, FAST_FLASHER_HOOK_AT) === blob.hookWord) {
+      _fastFlasherPutBe32(m, FAST_FLASHER_HOOK_AT, FAST_FLASHER_STOCK_HOOK);
+      removed = true;
+    }
+    return { flash: f, mpc: m, removed };
+  },
+
   withFlasher(flash, mpc) {
     if (fastFlasher.carriesFlasher(flash, mpc)) return { flash, mpc };
     return fastFlasher.bootstrap(flash, mpc);

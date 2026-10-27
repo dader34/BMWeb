@@ -60,7 +60,6 @@ function fbDmePanelHtml() {
       <button class="btn fb-wide" id="fb-dme-load2" disabled hidden>Load File 2 (MPC Flash)</button>
       <div class="fb-mono fb-faint fb-name" id="fb-dme-name2" hidden></div>
       <div class="fb-pill" id="fb-dme-tune" hidden><span id="fb-dme-tune-text"></span><button class="fb-x" id="fb-dme-tune-remove" title="Remove the tune. The tune on the car is then left as it is.">&#x2715;</button></div>
-      <button class="btn fb-wide" id="fb-dme-fast-read" disabled hidden title="Reads the external flash and the MPC through the resident fast flasher, 4 KB at a time with a CRC each. Writes nothing.">Fast Read</button>
       <button class="btn danger fb-wide" id="fb-dme-flash-program" disabled hidden>Flash Program</button>
       <button class="btn danger fb-wide" id="fb-dme-flash-tune" disabled>Flash Tune</button>
       <label class="fb-check"><input type="checkbox" id="fb-dme-fullbin" disabled> Full Binary</label>
@@ -68,7 +67,14 @@ function fbDmePanelHtml() {
 }
 
 function fbDmeWire() {
-  fbEls['dme-read'].onclick = () => fbDmeGuard('Read DME', fbDmeRead);
+  // with the fast flasher wanted and one on the DME that reads, Read DME
+  // reads through it (the same files, at the line's rate)
+  fbEls['dme-read'].onclick = () =>
+    fbDmeGuard('Read DME', () =>
+      fbDmeUseFastFlasher(false) && fbState.dme.fastFlasher.reads
+        ? fbDmeFastRead()
+        : fbDmeRead()
+    );
   fbEls['dme-read-maps'].onclick = () =>
     fbDmeGuard('Read Installed Maps', fbDmeReadInstalledMaps);
   fbEls['dme-load1'].onclick = () => fbDmeLoadFile1();
@@ -92,7 +98,6 @@ function fbDmeWire() {
     fbDmeGuard('Flash Program', () =>
       fbDmeUseFastFlasher(true) ? fbDmeFastFlashProgram() : fbDmeFlashProgram()
     );
-  fbEls['dme-fast-read'].onclick = () => fbDmeGuard('Fast Read', fbDmeFastRead);
   fbEls['dme-fullbin'].onchange = () => fbDmeFullBinChanged();
 }
 
@@ -137,10 +142,15 @@ function fbDmeRefresh() {
   );
   fbEls['dme-fullbin'].disabled = !canLoad;
   fbEls['dme-load1'].disabled = !canLoad || d.exchangeKind != null;
-  fbEls['dme-load1'].textContent = full
-    ? 'Load External / .0pa'
-    : 'Load File / .0da';
-  fbEls['dme-load2'].hidden = !full;
+  // with full reads kept as one file (Settings), the one file is the whole
+  // program: no separate MPC to load (a .0pa still takes its .0da there)
+  const oneFile = full && fbDmeFullOneFile() && d.exchangeKind !== '0PA';
+  fbEls['dme-load1'].textContent = !full
+    ? 'Load File / .0da'
+    : oneFile
+      ? 'Load full program'
+      : 'Load External / .0pa';
+  fbEls['dme-load2'].hidden = !full || oneFile;
   fbEls['dme-load2'].disabled =
     !canLoad ||
     (d.exchangeKind === '0PA' ? d.exchangeTuneLoaded : d.exchangeKind != null);
@@ -151,11 +161,6 @@ function fbDmeRefresh() {
         ? 'Load MPC'
         : 'Load File 2 (MPC Flash)';
   fbEls['dme-flash-program'].hidden = !full;
-  const fastReady = !!(d.fastFlasher && d.fastFlasher.ready);
-  // the read (full-binary only, the MPC too): a ready flasher that has
-  // READ (v13), nothing to load
-  fbEls['dme-fast-read'].hidden = !(fastReady && d.fastFlasher.reads && full);
-  fbEls['dme-fast-read'].disabled = !d.identified;
   fbEls['dme-flash-tune'].hidden = full;
   const noTune = d.exchangeKind === '0PA' && !d.exchangeTuneLoaded;
   fbEls['dme-flash-tune'].disabled = !(
@@ -173,7 +178,13 @@ function fbDmeRefresh() {
   const raw = d.exchangeKind == null;
   fbEls['dme-name1'].hidden = !(raw && d.flash && d.flashName);
   fbEls['dme-name1'].textContent = d.flashName || '';
-  fbEls['dme-name2'].hidden = !(raw && full && d.mpc && d.mpcName);
+  fbEls['dme-name2'].hidden = !(
+    raw &&
+    full &&
+    d.mpc &&
+    d.mpcName &&
+    d.mpcName !== d.flashName
+  );
   fbEls['dme-name2'].textContent = d.mpcName || '';
   fbEls['dme-exchange'].hidden = d.exchangeKind == null;
   fbEls['dme-tune'].hidden = !d.exchangeTuneLoaded;
@@ -209,6 +220,28 @@ async function fbDmeGuard(title, fn) {
  * @returns {Promise<void>}
  */
 async function fbDmeIdentify(afterFlash = false) {
+  if (!afterFlash) return fbDmeIdentifyRun(false);
+  // after a flash the flash's result owns the status line, so the identify
+  // that follows is shown there only while it runs (the bar sweeping), then
+  // the result comes back -- without this the screen looked hung
+  const result = fbEls.status ? fbEls.status.textContent : '';
+  if (fbEls.status)
+    fbEls.status.textContent = `${result ? `${result} -- ` : ''}identifying the DME…`;
+  if (fbEls.fill) fbEls.fill.classList.add('indeterminate');
+  try {
+    return await fbDmeIdentifyRun(true);
+  } finally {
+    if (fbEls.fill) fbEls.fill.classList.remove('indeterminate');
+    if (
+      fbEls.status &&
+      fbEls.status.textContent.endsWith('identifying the DME…')
+    )
+      fbEls.status.textContent = result;
+  }
+}
+
+/** @param {boolean} afterFlash */
+async function fbDmeIdentifyRun(afterFlash) {
   const d = fbState.dme;
   // the line rate goes up once the DME answers and stays up through the
   // car reads below (fbDmeReadCar lowers it); a DME that never answered
@@ -820,9 +853,7 @@ async function fbDmeRead() {
       fbSetStatus(r.status);
       return;
     }
-    const base = `${d.ident.vin}_${d.ident.hwRef}`;
-    fbSaveBytes(`${base}${d.fullBin ? '_Flash' : ''}.bin`, r.flash);
-    if (r.mpc) fbSaveBytes(`${base}_MPC.bin`, r.mpc);
+    fbDmeSaveRead(r.flash, d.fullBin ? r.mpc : null);
     fbSetStatus(
       `Saved ${d.fullBin ? 'the full flash and MPC' : 'the tune'} (${r.flash.length} bytes)`
     );

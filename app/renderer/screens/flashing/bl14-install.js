@@ -36,8 +36,7 @@ function fbBl14WhyNot() {
   const d = fbState.dme;
   const det = d.fastFlasher;
   if (!d.identified) return 'Identify the DME first.';
-  if (d.bootLoader)
-    return `The fast flash bootloader (BL${d.bootLoader.version}) is on this DME.`;
+  if (d.bootLoader) return 'The fast flasher is on this DME.';
   if (fbBl14HasInstaller()) return null;
   if (!det) return 'Needs the fast flasher on the DME.';
   if (!(det.ready || det.upgradable)) return fastFlasher.describe(det);
@@ -161,7 +160,7 @@ async function fbBl14Install() {
       const bl = fbState.dme.bootLoader;
       fbSetStatus(
         bl
-          ? `Install fast flash bootloader: done, BL${bl.version} is on the DME`
+          ? 'Install fast flash bootloader: done, the fast flasher is on the DME'
           : 'Install fast flash bootloader: written and verified, but Identify did not find it yet. Switch the ignition off and on, then press Identify.'
       );
     },

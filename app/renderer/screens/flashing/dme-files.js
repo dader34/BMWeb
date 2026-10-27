@@ -3,7 +3,7 @@
 // show them, and the immobilizer checks around every load (a tune and a
 // program must agree with each other and with the car). Part of the DME
 // screen with dme.js; one scope.
-/* exported fbDmeFullBinChanged, fbDmeProgramHasNoTune, fbDmeLoadFile1, fbDmeLoadFile2, fbDmeRemovePairedTune, fbDmeClearExchangeFile, fbDmeLoadBuiltPair, fbDmeMatchImmobilizer, fbDmeGateLoadedFiles, fbDmeStoredMapsHaveStockImmobilizer, fbDmeStoredMapsWithoutImmobilizer */
+/* exported fbDmeFullOneFile, fbDmeSaveRead, fbDmeFullBinChanged, fbDmeProgramHasNoTune, fbDmeLoadFile1, fbDmeLoadFile2, fbDmeRemovePairedTune, fbDmeClearExchangeFile, fbDmeLoadBuiltPair, fbDmeMatchImmobilizer, fbDmeGateLoadedFiles, fbDmeStoredMapsHaveStockImmobilizer, fbDmeStoredMapsWithoutImmobilizer */
 
 // ---- loading files ------------------------------------------------------------------------------------
 function fbDmeFullBinChanged() {
@@ -35,6 +35,40 @@ function fbDmeProgramMismatchPrompt() {
   return fbState.dme.ident.hwRef
     ? 'Loaded program does not match DME hardware.\n\nDo you wish to load it anyway?'
     : 'No DME has been identified, so this program cannot be checked against one.\n\nDo you wish to load it anyway?';
+}
+
+/**
+ * Whether a Full Binary read saves one file (the external flash, then the
+ * MPC) instead of two (Settings > Files).
+ * @returns {boolean}
+ */
+function fbDmeFullOneFile() {
+  return Settings.get('flashFullOneFile', false) === true;
+}
+
+/**
+ * Save what a read returned under the names Read DME always used: the tune
+ * as <VIN>_<hw>.bin; a full read as <VIN>_<hw>_Flash.bin + _MPC.bin, or as
+ * one <VIN>_<hw>_Full.bin (flash then MPC) with the setting on.
+ * @param {Uint8Array} flash - The tune, or the 1 MB external flash.
+ * @param {?Uint8Array} mpc - The MPC for a full read, else null.
+ */
+function fbDmeSaveRead(flash, mpc) {
+  const d = fbState.dme;
+  const base = `${d.ident.vin}_${d.ident.hwRef}`;
+  if (!mpc) {
+    fbSaveBytes(`${base}.bin`, flash);
+    return;
+  }
+  if (fbDmeFullOneFile()) {
+    const both = new Uint8Array(flash.length + mpc.length);
+    both.set(flash, 0);
+    both.set(mpc, flash.length);
+    fbSaveBytes(`${base}_Full.bin`, both);
+    return;
+  }
+  fbSaveBytes(`${base}_Flash.bin`, flash);
+  fbSaveBytes(`${base}_MPC.bin`, mpc);
 }
 
 async function fbDmeLoadFile1() {
@@ -71,6 +105,34 @@ async function fbDmeLoadFile1() {
         d.flash = null;
         return;
       }
+    } else if (bytes.length === MS45_FULL_FLASH_LENGTH + MS45_MPC_LENGTH) {
+      // a one-file full read: the external flash, then the MPC
+      const flash = bytes.slice(0, MS45_FULL_FLASH_LENGTH);
+      const mpc = bytes.slice(MS45_FULL_FLASH_LENGTH);
+      if (
+        !ms45VerifyProgramMatch(flash, d.ident.hwRef) &&
+        !(await fbConfirm(fbDmeProgramMismatchPrompt(), 'Warning'))
+      ) {
+        d.flash = null;
+        d.mpc = null;
+        return;
+      }
+      if (
+        !ms45VerifyFlashMpcMatch(flash, mpc) &&
+        !(await fbConfirm(
+          'The external flash and the MPC in this file do not match. Flashing them may permanently brick your DME.\n\nDo you wish to load it anyway?',
+          'Warning'
+        ))
+      ) {
+        d.flash = null;
+        d.mpc = null;
+        return;
+      }
+      d.flash = flash;
+      d.mpc = mpc;
+      // one file, one name: the MPC line under it stays empty
+      d.flashName = file.name;
+      d.mpcName = file.name;
     } else {
       if (bytes.length !== MS45_FULL_FLASH_LENGTH) {
         fbSetStatus('Invalid flash file length');

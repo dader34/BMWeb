@@ -46,49 +46,60 @@ async function fbDmeFastFlashTune() {
 }
 
 /**
- * Fast Read (full-binary mode): into the fast flasher, the whole external
- * chip and the MPC read 4 KB at a time with a CRC per block, saved under
- * the names Read DME uses, and the DME restarted on its program. Nothing is
+ * Read DME through the fast flasher (Read DME takes this path when the fast
+ * flasher is wanted and the DME has one that reads): the same files a KWP
+ * read saves under the same names -- the tune [0x40000, 0x5D000), or with
+ * Full Binary the 1 MB external flash and the 448 KB MPC -- 4 KB at a time
+ * with a CRC per block, then the DME restarted on its program. Nothing is
  * written. Testing-only.
  */
 async function fbDmeFastRead() {
   const d = fbState.dme;
   if (!fbProtectTesting()) return;
   if (!d.identified) return;
-  if (!(await fbDmeFastFlasherAvailable('Fast Read'))) return;
-  if (!d.fastFlasher.reads) {
-    await fbMessage(
-      `The fast flasher on the DME is v${d.fastFlasher.version}; reading came with v${fastFlasher.READS_FROM}. Run Fast Flash Program once to upgrade it.`,
-      'Fast Read'
-    );
-    return;
-  }
+  if (!(await fbDmeFastFlasherAvailable('Read DME'))) return;
+  const full = !!d.fullBin;
   await fbDmeFastFlash({
-    title: 'Fast Read',
+    title: 'Read DME',
     operation: 'fast-read',
     what: 'read',
+    noFasterLine: !full,
     confirm:
-      `Fast Read resets the DME into its fast flasher and reads the 1 MB external flash and the 448 KB MPC. Nothing is written, and the DME is restarted on its program afterwards.\n\n` +
+      `Read DME goes through the fast flasher: the DME restarts into it, ${full ? 'the 1 MB external flash and the 448 KB MPC are' : 'the tune is'} read, and it restarts on its program. Nothing is written. Engine off.\n\n` +
       'Read the DME?',
-    note: `DME ${d.ident.hwRef} / prog ${d.ident.progRef} / fast flasher v${d.fastFlasher.version} / fast read`,
+    note: `DME ${d.ident.hwRef} / prog ${d.ident.progRef} / ${fastFlasher.describe(d.fastFlasher)} / fast read, ${full ? 'full' : 'tune'}`,
     push: async (client, cb) => {
       const t0 = Date.now();
-      const r = await fastFlashWire.readImage(client, { ...cb, mpc: true });
+      let flash;
+      let mpc = null;
+      if (full) {
+        const r = await fastFlashWire.readImage(client, { ...cb, mpc: true });
+        flash = r.flash;
+        mpc = r.mpc;
+      } else {
+        cb.stage('Reading the tune');
+        flash = await fastFlashWire.readArea(
+          client,
+          fastFlashWire.CAL_SECTOR,
+          fastFlashWire.CAL_LENGTH,
+          (n) => cb.progress(Math.floor((n * 100) / fastFlashWire.CAL_LENGTH))
+        );
+      }
       const s = Math.round((Date.now() - t0) / 1000);
       cb.stage('Restarting the DME');
       await client.reset();
-      const base = `${d.ident.vin}_${d.ident.hwRef}`;
-      fbSaveBytes(`${base}_Flash.bin`, r.flash);
-      if (r.mpc) fbSaveBytes(`${base}_MPC.bin`, r.mpc);
+      fbDmeSaveRead(flash, mpc);
       flashLog.note(
-        `Fast Read: ${r.flash.length + (r.mpc ? r.mpc.length : 0)} bytes in ${s} s`
+        `Fast read: ${flash.length + (mpc ? mpc.length : 0)} bytes in ${s} s`
       );
       return {
         ok: true,
         skipped: false,
-        summary: 'saved the full flash and MPC',
+        summary: full ? 'saved the full flash and MPC' : 'saved the tune',
       };
     },
+    // a read changes nothing to identify again for
+    after: async () => {},
   });
 }
 
@@ -142,8 +153,14 @@ async function fbDmeFastFlash(spec) {
         client,
         link,
         (s) => flashLog.note(s),
-        Number(Settings.get('fastLineBest', fastFlashWire.FAST_LINES[0][0])) ||
-          0
+        // a rate remembered above where sessions start (a Baud Test, an
+        // older build) is not tried first: the list starts at its top
+        Math.min(
+          Number(
+            Settings.get('fastLineBest', fastFlashWire.FAST_LINES[0][0])
+          ) || 0,
+          fastFlashWire.FAST_LINES[0][0]
+        )
       );
       ui.stage(`Line at ${rate} baud`);
       // a line that garbles replies steps down one rate, once, and the
@@ -253,6 +270,9 @@ async function fbDmeFastProbe(client, ui) {
   }
 }
 
+/** Fast Flash Program with a tune: the tune's share of the push's bar, %. */
+const FB_FAST_CAL_SHARE = 15;
+
 /** The share of the progress bar that getting into the flasher takes. */
 const FB_FAST_ENTRY_PCT = 5;
 
@@ -302,14 +322,18 @@ function fbDmeFastUi(title) {
     notice(s) {
       fbSetStatus(s);
     },
+    // the bar only moves forward: an entry retried, or a push resumed from
+    // its compare after a dropped frame, holds the bar where it was until
+    // the work passes it again instead of dropping it back
     entry(p) {
-      pct = Math.round(Math.min(FB_FAST_ENTRY_PCT, p));
+      pct = Math.max(pct, Math.round(Math.min(FB_FAST_ENTRY_PCT, p)));
       fbProgress(pct);
       paint();
     },
     push(p) {
-      pct = Math.round(
-        FB_FAST_ENTRY_PCT + (p * (100 - FB_FAST_ENTRY_PCT)) / 100
+      pct = Math.max(
+        pct,
+        Math.round(FB_FAST_ENTRY_PCT + (p * (100 - FB_FAST_ENTRY_PCT)) / 100)
       );
       fbProgress(pct);
       paint();
@@ -801,11 +825,11 @@ async function fbDmeFastFlashProgram(opts = {}) {
     // (which the program signature covers)
     // (the BL14 install swaps in its installer body here: opts.carry)
     // a DME whose fast flasher is the bootloader needs no resident body: the
-    // pair goes as loaded
+    // pair goes without one (an old body and its MPC hook come out together)
     const carry =
       opts.carry ||
       (d.fastFlasher.bootLoader
-        ? (flash, mpc) => ({ flash, mpc })
+        ? fastFlasher.withoutFlasher
         : fastFlasher.withFlasher);
     const carried = carry(images.source, images.mpc);
     images = { source: carried.flash, mpc: carried.mpc };
@@ -856,17 +880,28 @@ async function fbDmeFastFlashProgram(opts = {}) {
     push: async (client, cb) => {
       // the calibration too, as Flash Program writes it: first, without the
       // reset, so the program push that follows closes the session
+      // one bar for both: the calibration its share first, the program the
+      // rest (each push reports its own 0-100)
+      const calShare = hasCal ? FB_FAST_CAL_SHARE : 0;
       if (hasCal)
         await fastFlashWire.pushCal(
           client,
           chipImage.slice(MS45_CAL_START, MS45_CAL_START + MS45_CAL_LENGTH),
-          cb,
+          { ...cb, progress: (p) => cb.progress((p * calShare) / 100) },
           { reset: false }
         );
-      return fastFlashWire.pushProgram(client, chipImage, cb, {
-        mpc: writesMpc ? mpc : null,
-        pagesets: !!d.fastFlasher.pagesets,
-      });
+      return fastFlashWire.pushProgram(
+        client,
+        chipImage,
+        {
+          ...cb,
+          progress: (p) => cb.progress(calShare + (p * (100 - calShare)) / 100),
+        },
+        {
+          mpc: writesMpc ? mpc : null,
+          pagesets: !!d.fastFlasher.pagesets,
+        }
+      );
     },
   });
 }

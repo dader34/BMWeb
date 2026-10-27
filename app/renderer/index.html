@@ -309,8 +309,10 @@
               localStorage.getItem('bmacw.settings') ||
               '{}'
           );
-        if (early.theme && early.theme !== 'instrument') {
-          document.documentElement.setAttribute('data-theme', early.theme);
+        // a first visit (nothing saved) gets the default skin, brackets
+        const theme = early.theme || 'brackets';
+        if (theme !== 'instrument') {
+          document.documentElement.setAttribute('data-theme', theme);
         }
         document.documentElement.style.setProperty('--aero-opacity', '0.82');
       } catch {

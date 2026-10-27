@@ -499,7 +499,7 @@ async function fbAifEdReadLoader() {
     remembered: true,
   };
   fbLog(
-    `The DME is stopped in its loader (${fbDmeProgrammingStatus(status)}): using the fast flash bootloader BL${r.version} last identified on ${[r.hwRef, r.vin].filter(Boolean).join(' ') || 'this browser'}`
+    `The DME is stopped in its loader (${fbDmeProgrammingStatus(status)}): using the fast flasher last identified on ${[r.hwRef, r.vin].filter(Boolean).join(' ') || 'this browser'}`
   );
   if (!d.identified) {
     d.identified = true;
@@ -553,8 +553,16 @@ function fbAifEdAdopt(bl) {
   const status = d.ident.programmingStatus;
   const stopped = !!status && status !== 'Normalbetrieb';
   if (stopped && bl.version < 15) return;
-  if (stopped || !(d.fastFlasher && d.fastFlasher.ready))
-    d.fastFlasher = fbAifEdLoaderAsFlasher(bl);
+  // the bootloader comes first in the boot path, so a held line lands in it
+  // even beside an old resident flasher: it is the fast flasher. The
+  // resident one is noted, and the next program flash leaves it out
+  const resident =
+    d.fastFlasher && !d.fastFlasher.bootLoader && d.fastFlasher.hooked
+      ? d.fastFlasher.version
+      : 0;
+  d.fastFlasher = fbAifEdLoaderAsFlasher(bl);
+  if (resident) d.fastFlasher.resident = resident;
+  if (!d.installFastSet) d.installFast = false;
 }
 
 /**
@@ -610,7 +618,7 @@ function fbAifEdWhyNot(write) {
     return 'Needs a cable that can hold the break line (Web Serial or a gateway).';
   if (!write) return null;
   if (!(bl.flags & FB_AIF_ED_LOADER_BOOT_WINDOW))
-    return `This BL${bl.version} was built without the boot-sector window: it can read the log but not write it.`;
+    return 'This fast flasher was built without the boot-sector window: it can read the log but not write it.';
   if (typeof aifLog === 'undefined')
     return 'The AIF protocol client (core/flash/aif.js) is not loaded in this build.';
   return null;
@@ -975,13 +983,10 @@ async function fbAifEdWrite() {
       await client.reset();
       return { skipped: false, summary: `${plan.path} write verified` };
     },
-    after: async () => {
-      if (!rewrite) return;
-      const text =
-        'Log written. Switch the ignition off for ten seconds and back on, then press Identify.';
-      fbSetStatus(text);
-      await fbMessage(text, 'Write AIF');
-    },
+    // the push ended with the flasher's RESET: the DME restarts on its own
+    // (through the rewritten loader after a rewrite) and is identified again,
+    // which also re-reads the log's fields from the DME
+    after: () => fbDmeIdentify(true),
   });
   if (wrote) s.base = next.slice();
   fbAifEdPaint();

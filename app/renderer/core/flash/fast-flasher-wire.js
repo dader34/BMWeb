@@ -105,7 +105,9 @@ const FF_TIMEOUT = {
  * 10.4 kBaud at ISO's 10 nF worst case -- so 250 k is a try, 156 k likely.
  */
 const FF_FAST_LINES = [
-  [416667, 3], // the car's line carried it (2026-10-26): where sessions start
+  // sessions start here: 416667 carried the car's line (2026-10-26) but
+  // dropped a frame mid-MPC push (2026-10-27); a garbled line steps down
+  // from here one rate at a time
   [312500, 4],
   [250000, 5],
   [208333, 6],
