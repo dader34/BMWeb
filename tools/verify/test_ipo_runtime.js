@@ -2338,11 +2338,15 @@ const sysSet = (sgbd) => ({
       F_ART1_TEXT: 'sporadisch',
       F_HFK: 2,
       F_LZ: 40,
-      F_UW_ANZ: 1,
+      F_UW_ANZ: 2,
       F_UW_SATZ: 1,
       F_UW1_TEXT: 'Kilometerstand',
       F_UW1_WERT: 123456,
       F_UW1_EINH: 'km',
+      // a real as the SGBD computes it (17 * 0.1), github #260
+      F_UW2_TEXT: 'aufgetreten vor (rel. BZ)',
+      F_UW2_WERT: 1.7000000000000002,
+      F_UW2_EINH: 'h',
     };
     const asent = fakeApi((job, arg) => {
       const sys = sysSet('mrs4');
@@ -2406,7 +2410,25 @@ const sysSet = (sgbd) => ({
       ap.view && ap.view.lines.some((l) => /Firing loop ZK0/.test(l)),
       `the protocol file names the fault: ${JSON.stringify(ap.view && ap.view.lines)}`
     );
-    assert.ok(ap.view.lines.some((l) => /1 Fehler im Fehlerspeicher/.test(l)));
+    // the file's own labels follow the language setting (github #260)
+    assert.ok(
+      ap.view.lines.some((l) => /^1 fault in the fault memory$/.test(l)),
+      `the count line in English: ${JSON.stringify(ap.view.lines)}`
+    );
+    assert.ok(
+      ap.view.lines.some((l) =>
+        /Fault type: .*Frequency: 2 {2}Logistics counter: 40/.test(l)
+      ),
+      `the type/frequency/counter labels in English: ${JSON.stringify(ap.view.lines)}`
+    );
+    assert.ok(
+      !ap.view.lines.some((l) => /Fehlerart|Häufigkeit|Logistikzähler/.test(l)),
+      'no German label left'
+    );
+    assert.ok(
+      ap.view.lines.some((l) => /: 1\.70 h$/.test(l)),
+      `a real is rounded as the fault screen rounds it: ${JSON.stringify(ap.view.lines)}`
+    );
     assert.ok(
       ap.view.lines.some((l) => /Kilometerstand: 123456 km/.test(l)),
       'the environment line'
@@ -2418,6 +2440,24 @@ const sysSet = (sgbd) => ({
     );
     assert.strictEqual(rep.modules[0].codes.length, 1);
     assert.strictEqual(Number(rep.modules[0].codes[0].F_ORT_NR), 5);
+    // Original mode writes INPA's German labels; the value is still rounded
+    LANG = 'orig';
+    try {
+      const de = await ap.apiFaultRead('mrs4', 'na_fs.tmp', {
+        label: 'test',
+        scope: 'entry',
+      });
+      assert.ok(de.includes('1 Fehler im Fehlerspeicher'), JSON.stringify(de));
+      assert.ok(
+        de.some((l) =>
+          /Fehlerart: .*Häufigkeit: 2 {2}Logistikzähler: 40/.test(l)
+        ),
+        `German labels in Original mode: ${JSON.stringify(de)}`
+      );
+      assert.ok(de.some((l) => /: 1\.70 h$/.test(l)));
+    } finally {
+      LANG = 'en';
+    }
     ok(
       'INPAapiFsLesen: FS_LESEN + detail on the wire, protocol file written, report built'
     );
