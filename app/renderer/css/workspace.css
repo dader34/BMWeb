@@ -23,22 +23,13 @@
   border-bottom: 1px solid var(--line);
   background: var(--bg);
 }
-.ws-brand {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  margin-right: 6px;
-}
 .ws-eyebrow {
+  margin-right: 6px;
   font-family: ui-monospace, Menlo, monospace;
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--amber);
-}
-.ws-title {
-  font-size: 14px;
-  font-weight: 600;
 }
 .ws-ctl {
   display: flex;

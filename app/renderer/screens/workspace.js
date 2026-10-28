@@ -224,10 +224,7 @@ function showWorkspace() {
   view.innerHTML = `
     <div class="ws">
       <div class="ws-toolbar">
-        <div class="ws-brand">
-          <span class="ws-eyebrow">Workspace</span>
-          <span class="ws-title" id="ws-title"></span>
-        </div>
+        <span class="ws-eyebrow">Workspace</span>
         <div class="ws-ctl">
           <span class="ws-ctl-label">Layout</span>
           <div class="ws-dd" id="ws-layout-dd"></div>
@@ -412,8 +409,6 @@ function showWorkspace() {
     const L = WS_LAYOUTS[state.layout];
     grid.style.gridTemplateColumns = L.cols;
     grid.style.gridTemplateRows = L.rows;
-    document.getElementById('ws-title').textContent =
-      `${L.n} panes · ${L.label.toLowerCase()}`;
     for (let i = 0; i < 4; i++) {
       let pane = grid.children[i];
       if (!pane) {
