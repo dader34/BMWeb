@@ -271,7 +271,7 @@ const fastFlasher = {
     const blob =
       typeof fastFlasherBlob !== 'undefined'
         ? fastFlasherBlob
-        : require('./fast-flasher-blob.js').fastFlasherBlob;
+        : require('../generated/fast-flasher-blob.js').fastFlasherBlob;
     if (hook !== FAST_FLASHER_STOCK_HOOK && hook !== blob.hookWord)
       return {
         ok: false,
@@ -303,7 +303,7 @@ const fastFlasher = {
     const blob =
       typeof fastFlasherBlob !== 'undefined'
         ? fastFlasherBlob
-        : require('./fast-flasher-blob.js').fastFlasherBlob;
+        : require('../generated/fast-flasher-blob.js').fastFlasherBlob;
     if (!flash || !mpc || flash.length < fastFlasher.BODY_END) return false;
     if (_fastFlasherBe32(mpc, blob.hookAt) !== blob.hookWord) return false;
     for (const [off, hex] of blob.runs) {
@@ -342,7 +342,7 @@ const fastFlasher = {
     const blob =
       typeof fastFlasherBlob !== 'undefined'
         ? fastFlasherBlob
-        : require('./fast-flasher-blob.js').fastFlasherBlob;
+        : require('../generated/fast-flasher-blob.js').fastFlasherBlob;
     let removed = false;
     const stamp = String.fromCharCode(
       ...f.subarray(FAST_FLASHER_STAMP_AT, FAST_FLASHER_STAMP_AT + 6)
@@ -369,7 +369,7 @@ const fastFlasher = {
     const blob =
       typeof fastFlasherBlob !== 'undefined'
         ? fastFlasherBlob
-        : require('./fast-flasher-blob.js').fastFlasherBlob;
+        : require('../generated/fast-flasher-blob.js').fastFlasherBlob;
     const f = Uint8Array.from(flash);
     const m = Uint8Array.from(mpc);
     for (const [off, hex] of blob.runs) {

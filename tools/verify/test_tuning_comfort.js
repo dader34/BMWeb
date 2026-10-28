@@ -16,8 +16,8 @@ const live = require(
     '..',
     'app',
     'renderer',
-    'screens',
-    'tuning',
+    'core',
+    'generated',
     'comfort-live.js'
   )
 ).TN_COMFORT_LIVE;

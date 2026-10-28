@@ -38,7 +38,7 @@ const LT_EXT = 0xfff00000;
 const ltData =
   typeof liveTuneBlob !== 'undefined'
     ? liveTuneBlob
-    : require('./livetune-blob.js').liveTuneBlob;
+    : require('../generated/livetune-blob.js').liveTuneBlob;
 const ltChecksums =
   typeof ms45Checksums !== 'undefined'
     ? ms45Checksums

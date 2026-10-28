@@ -24,7 +24,7 @@ const assert = require('assert');
 
 global.nrv2b = require('../../app/renderer/core/flash/nrv2b.js').nrv2b;
 global.fastFlasherBlob =
-  require('../../app/renderer/core/flash/fast-flasher-blob.js').fastFlasherBlob;
+  require('../../app/renderer/core/generated/fast-flasher-blob.js').fastFlasherBlob;
 const {
   fastFlasher,
 } = require('../../app/renderer/core/flash/fast-flasher.js');

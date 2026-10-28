@@ -31,7 +31,7 @@
 /**
  * The values shown, by the DME's own identifier for each: where it lives
  * and how its bytes scale come from the program's value table and the
- * SGBD's (core/ms45/ms45-value-map.js), so the figure here is the one a BMW
+ * SGBD's (core/generated/ms45-value-map.js), so the figure here is the one a BMW
  * tester shows under that name. [identifier, label, units, decimals].
  * Engine speed is first: the dial is drawn from it.
  * @type {Array<[number, string, string, number]>}

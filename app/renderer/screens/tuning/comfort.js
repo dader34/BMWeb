@@ -476,7 +476,7 @@ function tnComfortFor(def) {
   // remembered on the definition: 5,700 titles are not indexed twice
   def.comfortList = found >= TN_COMFORT_MIN ? groups : null;
   // the generated group last: the single values the live-tune build keeps
-  // in RAM of their own (screens/tuning/comfort-live.js), always live
+  // in RAM of their own (core/generated/comfort-live.js), always live
   if (def.comfortList && typeof TN_COMFORT_LIVE !== 'undefined') {
     const subjects = resolve(TN_COMFORT_LIVE.subjects);
     if (subjects.length)

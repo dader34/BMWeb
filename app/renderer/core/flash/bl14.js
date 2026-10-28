@@ -77,7 +77,7 @@ const bl14Wire =
 const bl14Data =
   typeof bl14Blob !== 'undefined'
     ? bl14Blob
-    : require('./bl14-blob.js').bl14Blob;
+    : require('../generated/bl14-blob.js').bl14Blob;
 const BL14_RING_LEN = BL14_RING_SPAN_END - bl14Data.ring.at;
 
 /** @param {string} hex @returns {Uint8Array} */
