@@ -109,34 +109,10 @@ const WS_APPS = [
     desc: 'Flash stock programs',
   },
   {
-    route: 'apps/job-search',
-    icon: '⌕',
-    title: 'Job search',
-    desc: 'Find any screen or key in the scripts',
-  },
-  {
     route: 'apps/script',
     icon: '⌁',
     title: 'Script runner',
     desc: 'Run an INPA script of your own',
-  },
-  {
-    route: 'apps/tree',
-    icon: '⌥',
-    title: 'ECU tree',
-    desc: "The car's modules on their buses",
-  },
-  {
-    route: 'apps/service',
-    icon: '✓',
-    title: 'Service',
-    desc: 'Service tasks on this car',
-  },
-  {
-    route: 'garage',
-    icon: '⌂',
-    title: 'Garage',
-    desc: 'Your cars and what changed',
   },
   {
     route: 'inpa',
