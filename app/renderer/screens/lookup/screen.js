@@ -138,6 +138,7 @@ function lookupCountText(res, terms) {
  * @returns {Promise<void>}
  */
 async function showLookup() {
+  document.body.classList.add('apps-section'); // the desktop Back arrow
   cancelSweep();
   lastScreen = showLookup;
   setCrumbs([

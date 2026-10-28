@@ -103,6 +103,7 @@ function jobSearchCountText(res) {
  * @returns {Promise<void>}
  */
 async function showJobSearch(query) {
+  document.body.classList.add('apps-section'); // the desktop Back arrow
   cancelSweep();
   if (typeof query === 'string') jobSearchState.q = query;
   lastScreen = () => showJobSearch();
