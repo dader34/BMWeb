@@ -57,13 +57,6 @@
   font-size: 15px;
   opacity: 0.85;
 }
-.ws-hint {
-  margin-left: auto;
-  font-size: 12px;
-  color: var(--ink-faint);
-  cursor: help;
-  white-space: nowrap;
-}
 .ws-grid {
   flex: 1;
   position: relative; /* floating panes are placed in it */

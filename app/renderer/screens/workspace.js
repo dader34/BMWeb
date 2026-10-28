@@ -233,7 +233,6 @@ function showWorkspace() {
           <span class="ws-ctl-label">Scale</span>
           <div class="ws-dd ws-dd-scale" id="ws-scale-dd"></div>
         </div>
-        <span class="ws-hint" title="The panes drive the one cable this page holds: each pane's jobs take their turn on it, and a flash from a pane holds it for all of them until it has finished.">&#9432; One cable, shared</span>
       </div>
       <div class="ws-grid" id="ws-grid"></div>
     </div>`;
