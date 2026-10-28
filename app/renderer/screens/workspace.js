@@ -201,6 +201,21 @@ function showWorkspace() {
   ]);
   document.body.classList.add('apps-section');
   sbLeft.textContent = 'workspace';
+  // the shell's Back arrow and Esc: an open picker closes first, then the
+  // page gives way to Apps (the panes' own Back buttons are their own)
+  setActions([
+    {
+      key: 'Escape',
+      keyLabel: 'Esc',
+      label: 'Back',
+      kind: 'back',
+      fn: () => {
+        const open = document.querySelector('.ws-picker:not([hidden])');
+        if (open) open.hidden = true;
+        else showApps();
+      },
+    },
+  ]);
   const state = wsLoad();
   view.innerHTML = `
     <div class="ws">
