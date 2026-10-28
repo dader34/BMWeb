@@ -104,6 +104,9 @@ run node tools/verify/test_ir_i18n.js
 echo
 echo "== ECU backup engine: crypto bit-exact, reads byte-identical, rails hold =="
 run node tools/verify/test_flasher.js
+run node tools/verify/test_bytes.js
+run node tools/verify/test_modules_built.js
+run node tools/verify/test_fast_flasher.js
 
 echo
 echo "== GS20 calibration engine: checksum pinned, write sequence, rails, baud change =="
@@ -206,6 +209,14 @@ echo "== coding UI -> write flow: review builds the payload, write needs confirm
 run node tools/verify/test_coding_ui_flow.js
 
 echo
+echo "== BMWeb Coding (NCS): FSW_PSW.TRC/.MAN round trip, edits, warnings =="
+run node tools/verify/test_ncs.js
+
+echo
+echo "== ZCS_SCHREIBEN / ZCS_LOESCHEN: BMW's cluster script writes the key (and only it) =="
+run node tools/verify/test_ncs_zcs.js
+
+echo
 echo "== ECU memory read: region units (word vs byte), chunking, refused reads =="
 run node tools/verify/test_tuning_memory.js
 
@@ -232,6 +243,12 @@ run node tools/verify/test_coding_auftrag.js
 echo
 echo "== SGET rows extract and every predicate parses =="
 run python3 tools/decompile/ncs_sget.py --check
+
+echo
+echo "== CVT: each coding function's value per car decodes, and evaluates =="
+run python3 tools/decompile/ncs_cvt.py --check
+run node tools/verify/test_coding_cvt.js
+run node tools/verify/test_ncs_key.js
 
 echo
 echo "== SGFAM/AT/ZST tables parse, and the ZCS->SA bridge resolves =="

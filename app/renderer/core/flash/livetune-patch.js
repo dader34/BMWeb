@@ -43,40 +43,16 @@ const ltChecksums =
   typeof ms45Checksums !== 'undefined'
     ? ms45Checksums
     : require('../ms45/ms45.js').ms45Checksums;
-
-/** @param {string} hex @returns {Uint8Array} */
-function _ltHex(hex) {
-  const out = new Uint8Array(hex.length / 2);
-  for (let i = 0; i < out.length; i++)
-    out[i] = parseInt(hex.substr(i * 2, 2), 16);
-  return out;
-}
-
-/** @param {Uint8Array} b @param {number} at @returns {number} */
-function _ltBe32(b, at) {
-  return (
-    ((b[at] << 24) | (b[at + 1] << 16) | (b[at + 2] << 8) | b[at + 3]) >>> 0
-  );
-}
-
-/** CRC-32 as zlib computes it (the blob's `known`). */
-function _ltCrc32(chunks) {
-  let crc = 0xffffffff;
-  for (const b of chunks)
-    for (let i = 0; i < b.length; i++) {
-      crc ^= b[i];
-      for (let k = 0; k < 8; k++) crc = (crc >>> 1) ^ (0xedb88320 & -(crc & 1));
-    }
-  return (crc ^ 0xffffffff) >>> 0;
-}
+const ltBytes =
+  typeof bytes !== 'undefined' ? bytes : require('../bytes/index.mjs');
 
 /** The footprint as [offset, bytes] runs, decoded once. */
 let _ltRuns = null;
 function _ltFootprint() {
   if (!_ltRuns)
     _ltRuns = {
-      ext: ltData.ext.map(([at, hex]) => [at, _ltHex(hex)]),
-      mpc: ltData.mpc.map(([at, hex]) => [at, _ltHex(hex)]),
+      ext: ltData.ext.map(([at, hex]) => [at, ltBytes.hexToBytes(hex)]),
+      mpc: ltData.mpc.map(([at, hex]) => [at, ltBytes.hexToBytes(hex)]),
     };
   return _ltRuns;
 }
@@ -92,7 +68,7 @@ function liveTuneSurvey(flash, mpc) {
   if (flash.length !== LT_FLASH_LENGTH || mpc.length !== LT_MPC_LENGTH)
     return null;
   const fp = _ltFootprint();
-  const crc = _ltCrc32([
+  const crc = ltBytes.crc32Zlib([
     ...fp.ext.map(([at, b]) => flash.subarray(at, at + b.length)),
     ...fp.mpc.map(([at, b]) => mpc.subarray(at, at + b.length)),
   ]);
@@ -105,12 +81,13 @@ function liveTuneSurvey(flash, mpc) {
 function _ltRomTestSum(flash, mpc) {
   let total = LT_ROMTEST_SEED;
   for (let i = 0; i < 3; i++) {
-    const start = _ltBe32(flash, LT_ROMTEST_RANGES + 8 * i);
-    const end = _ltBe32(flash, LT_ROMTEST_RANGES + 8 * i + 4);
+    const start = ltBytes.be32(flash, LT_ROMTEST_RANGES + 8 * i);
+    const end = ltBytes.be32(flash, LT_ROMTEST_RANGES + 8 * i + 4);
     const img = start < LT_EXT ? mpc : flash;
     const base = start < LT_EXT ? 0 : LT_EXT;
     for (let a = start; a < end; a += 4)
-      total = (total + BigInt(_ltBe32(img, a - base))) & 0xffffffffffffffffn;
+      total =
+        (total + BigInt(ltBytes.be32(img, a - base))) & 0xffffffffffffffffn;
   }
   return total;
 }
@@ -120,7 +97,7 @@ function _ltMonitorSum(cal) {
   const m = ltData.monitor;
   let total = LT_ROMTEST_SEED;
   for (let a = m.from; a < m.to; a += 4)
-    total = (total + BigInt(_ltBe32(cal, a))) & 0xffffffffffffffffn;
+    total = (total + BigInt(ltBytes.be32(cal, a))) & 0xffffffffffffffffn;
   const out = new Uint8Array(8);
   for (let i = 7; i >= 0; i--) {
     out[i] = Number(total & 0xffn);
@@ -169,8 +146,8 @@ function liveTuneSplice(flash, mpc) {
       "The tune's safety-monitor sum is not right, so a live tune save could not keep it in step. Nothing was written."
     );
   if (
-    _ltBe32(f, mon.table) !== (0xffe40000 + mon.from) >>> 0 ||
-    _ltBe32(f, mon.table + 4) !== (0xffe40000 + mon.to) >>> 0
+    ltBytes.be32(f, mon.table) !== (0xffe40000 + mon.from) >>> 0 ||
+    ltBytes.be32(f, mon.table + 4) !== (0xffe40000 + mon.to) >>> 0
   )
     throw new Error(
       'The safety monitor does not sum the range a live tune save keeps in step. Nothing was written.'

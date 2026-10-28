@@ -35,6 +35,9 @@
 // flasher's unprompted HELLO ack.
 /* exported fastFlashWire */
 
+const ffWireBytes =
+  typeof bytes !== 'undefined' ? bytes : require('../bytes/index.mjs');
+
 const FF_SVC = {
   HELLO: 0x00,
   SECTOR_QUERY: 0x01,
@@ -171,30 +174,6 @@ const FF_PROGRAM_MARKS = [
   [0xfffc0, 0x42244890],
 ];
 
-/** CRC-32/MPEG-2's table, built once. */
-const FF_CRC_TABLE = (() => {
-  const t = new Uint32Array(256);
-  for (let i = 0; i < 256; i++) {
-    let c = i << 24;
-    for (let k = 0; k < 8; k++)
-      c = c & 0x80000000 ? (c << 1) ^ 0x04c11db7 : c << 1;
-    t[i] = c >>> 0;
-  }
-  return t;
-})();
-
-/**
- * CRC-32/MPEG-2 of a byte span.
- * @param {Uint8Array} bytes
- * @returns {number}
- */
-function ffCrc32(bytes) {
-  let crc = 0xffffffff;
-  for (let i = 0; i < bytes.length; i++)
-    crc = ((crc << 8) ^ FF_CRC_TABLE[((crc >>> 24) ^ bytes[i]) & 0xff]) >>> 0;
-  return crc >>> 0;
-}
-
 /** @param {number} v @returns {number[]} */
 function _ffU32(v) {
   return [(v >>> 24) & 0xff, (v >>> 16) & 0xff, (v >>> 8) & 0xff, v & 0xff];
@@ -203,13 +182,6 @@ function _ffU32(v) {
 /** @param {number} v @returns {number[]} */
 function _ffU16(v) {
   return [(v >>> 8) & 0xff, v & 0xff];
-}
-
-/** @param {ArrayLike<number>} b @param {number} at @returns {number} */
-function _ffBe32(b, at) {
-  return (
-    ((b[at] << 24) | (b[at + 1] << 16) | (b[at + 2] << 8) | b[at + 3]) >>> 0
-  );
 }
 
 /**
@@ -272,14 +244,14 @@ function _ffTraceLine(svc, data, reply, ms) {
   const name = FF_SVC_NAME[svc] || `svc ${svc}`;
   let what = '';
   if (svc === FF_SVC.SECTOR_QUERY || svc === FF_SVC.VERIFY)
-    what = ` 0x${_ffBe32(data, 0).toString(16).toUpperCase()} ${_ffBe32(data, 4)}B`;
+    what = ` 0x${ffWireBytes.be32(data, 0).toString(16).toUpperCase()} ${ffWireBytes.be32(data, 4)}B`;
   else if (svc === FF_SVC.ERASE)
-    what = ` 0x${_ffBe32(data, 0).toString(16).toUpperCase()}`;
+    what = ` 0x${ffWireBytes.be32(data, 0).toString(16).toUpperCase()}`;
   else if (svc === FF_SVC.CHUNK)
-    what = ` 0x${_ffBe32(data, 0).toString(16).toUpperCase()} ${(data[4] << 8) | data[5]}B (${(data[6] << 8) | data[7]}B packed)`;
+    what = ` 0x${ffWireBytes.be32(data, 0).toString(16).toUpperCase()} ${(data[4] << 8) | data[5]}B (${(data[6] << 8) | data[7]}B packed)`;
   else if (svc === FF_SVC.MARKS) what = data[0] ? ' program' : ' cal';
   else if (svc === FF_SVC.READ)
-    what = ` 0x${_ffBe32(data, 0).toString(16).toUpperCase()} ${(data[4] << 8) | data[5]}B`;
+    what = ` 0x${ffWireBytes.be32(data, 0).toString(16).toUpperCase()} ${(data[4] << 8) | data[5]}B`;
   let got = 'no reply';
   if (reply && reply.svc === 0x7f)
     got = `NAK ${FF_NAK_REASON[reply.data[1]] || `reason ${reply.data[1]}`}`;
@@ -403,7 +375,7 @@ class FastFlashClient {
       [..._ffU32(off), ..._ffU32(len)],
       this._readMs(len)
     );
-    return _ffBe32(d, 0);
+    return ffWireBytes.be32(d, 0);
   }
 
   /** @param {number} off */
@@ -425,7 +397,7 @@ class FastFlashClient {
         ..._ffU32(off),
         ..._ffU16(plain.length),
         ..._ffU16(packed.length),
-        ..._ffU32(ffCrc32(packed)),
+        ..._ffU32(ffWireBytes.crc32Mpeg2(packed)),
         ...packed,
       ],
       FF_TIMEOUT.CHUNK
@@ -496,7 +468,7 @@ class FastFlashClient {
         ..._ffU16(offset),
         ..._ffU16(plain.length),
         ..._ffU16(packed.length),
-        ..._ffU32(ffCrc32(packed)),
+        ..._ffU32(ffWireBytes.crc32Mpeg2(packed)),
         pagesets,
         0,
         0,
@@ -543,7 +515,10 @@ class FastFlashClient {
         FF_TIMEOUT.READ
       );
       const bytes = d.subarray(4);
-      if (bytes.length === len && ffCrc32(bytes) === _ffBe32(d, 0))
+      if (
+        bytes.length === len &&
+        ffWireBytes.crc32Mpeg2(bytes) === ffWireBytes.be32(d, 0)
+      )
         return bytes;
       if (this.trace)
         this.trace(
@@ -730,7 +705,7 @@ async function ffPushCal(client, signedCal, cb = {}, opts = {}) {
   );
   stage('Comparing the calibration on the DME');
   const onChip = await client.sectorQuery(FF_CAL_SECTOR, FF_CAL_SECTOR_SIZE);
-  if (onChip === ffCrc32(target)) {
+  if (onChip === ffWireBytes.crc32Mpeg2(target)) {
     note('The DME already holds exactly this calibration; nothing written');
     track.setTotal(U.QUERY + U.RESET);
     track.add(U.QUERY, 'Compared');
@@ -759,7 +734,11 @@ async function ffPushCal(client, signedCal, cb = {}, opts = {}) {
     track.add(U.CHUNK, `Writing chunk ${i + 1} of ${slots}`);
   }
   stage('Verifying');
-  await client.verify(FF_CAL_SECTOR, FF_CAL_LENGTH, ffCrc32(signedCal));
+  await client.verify(
+    FF_CAL_SECTOR,
+    FF_CAL_LENGTH,
+    ffWireBytes.crc32Mpeg2(signedCal)
+  );
   track.add(U.VERIFY, 'Verified');
   stage('Marking the calibration valid');
   await client.marks(0);
@@ -888,7 +867,7 @@ async function ffPushProgram(client, signedFull, cb = {}, opts = {}) {
   for (const [i, u] of units.entries()) {
     stage(`Comparing ${u.name} (${i + 1} of ${units.length})`);
     const have = await client.sectorQuery(u.addr, u.bytes.length);
-    if (have !== ffCrc32(u.bytes)) todo.push(u);
+    if (have !== ffWireBytes.crc32Mpeg2(u.bytes)) todo.push(u);
     track.add(U.QUERY, `Compared ${u.name}`);
   }
   if (!todo.length) {
@@ -987,7 +966,11 @@ async function ffPushProgram(client, signedFull, cb = {}, opts = {}) {
     }
     // verified as soon as it is written: a failure names its unit
     stage(`Verifying ${which}`);
-    await client.verify(u.addr, u.write.length, ffCrc32(u.write));
+    await client.verify(
+      u.addr,
+      u.write.length,
+      ffWireBytes.crc32Mpeg2(u.write)
+    );
     track.add(U.VERIFY, `Verified ${which}`);
   };
   const total = todo.length;
@@ -1041,7 +1024,11 @@ async function ffPushProgram(client, signedFull, cb = {}, opts = {}) {
     }
     for (const u of parallel) {
       stage(`Verifying ${u.name}`);
-      await client.verify(u.addr, u.write.length, ffCrc32(u.write));
+      await client.verify(
+        u.addr,
+        u.write.length,
+        ffWireBytes.crc32Mpeg2(u.write)
+      );
       track.add(U.VERIFY, `Verified ${u.name}`);
     }
     n += blocks.length;
@@ -1385,7 +1372,7 @@ const fastFlashWire = {
   BAUD: FF_BAUD,
   CAL_SECTOR: FF_CAL_SECTOR,
   CAL_LENGTH: FF_CAL_LENGTH,
-  crc32: ffCrc32,
+  crc32: ffWireBytes.crc32Mpeg2,
   frame: ffFrame,
   parse: ffParse,
   Client: FastFlashClient,

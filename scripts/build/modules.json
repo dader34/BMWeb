@@ -1,0 +1,10 @@
+{
+  "about": "The renderer's ES module directories, each built by scripts/build/bundle-modules.mjs into one classic script under core/generated/ that defines the named global. Add a directory here when it moves to modules; its consumers keep using the global until the whole renderer has moved.",
+  "modules": [
+    {
+      "entry": "core/bytes/index.mjs",
+      "out": "core/generated/bytes.js",
+      "global": "bytes"
+    }
+  ]
+}

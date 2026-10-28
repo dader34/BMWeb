@@ -79,6 +79,19 @@ module.exports = [
     },
   },
 
+  // The renderer's ES module directories (scripts/build/modules.json): each
+  // is built into a classic script, but the source is a real module -- it
+  // imports what it uses, so an undefined name is a bug here.
+  {
+    files: ['app/renderer/**/*.mjs'],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'module',
+      globals: { ...globals.browser },
+    },
+    rules: { ...js.configs.recommended.rules },
+  },
+
   // Node tooling: generators and build scripts.
   {
     files: ['tools/**/*.js', 'scripts/**/*.js'],

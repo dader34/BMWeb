@@ -13,7 +13,7 @@
     "resolveJsonModule": true,
     "types": []
   },
-  "include": ["app/renderer/**/*.js"],
+  "include": ["app/renderer/**/*.js", "app/renderer/**/*.mjs"],
   "exclude": [
     "node_modules",
     "dist-web",

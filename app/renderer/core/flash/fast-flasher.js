@@ -23,6 +23,9 @@
 // chunks; the flasher unpacks each and programs it.
 /* exported fastFlasher */
 
+const ffBytes =
+  typeof bytes !== 'undefined' ? bytes : require('../bytes/index.mjs');
+
 const FAST_FLASHER_STAMP_AT = 0xfd26c; // ext offset, the body's head
 const FAST_FLASHER_STAMP_LENGTH = 16;
 const FAST_FLASHER_MAGIC = 'MS45QF';
@@ -78,18 +81,6 @@ const FAST_FLASHER_FLAG_MPC = 0x01;
 const FAST_FLASHER_CHUNK = 0x1000; // bytes per stop-and-wait chunk, unpacked
 
 /**
- * A big-endian word out of a byte array.
- * @param {Uint8Array} b
- * @param {number} at
- * @returns {number}
- */
-function _fastFlasherBe32(b, at) {
-  return (
-    ((b[at] << 24) | (b[at + 1] << 16) | (b[at + 2] << 8) | b[at + 3]) >>> 0
-  );
-}
-
-/**
  * The absolute `ba` PPC assembles at MPC 0x8 for a target (AA set).
  * @param {number} target - CPU address.
  * @returns {number}
@@ -129,8 +120,8 @@ const fastFlasher = {
     if (s !== FAST_FLASHER_MAGIC) return null;
     const version = stamp[6];
     const flags = stamp[7];
-    const gateCpu = _fastFlasherBe32(stamp, 8);
-    const entryCpu = _fastFlasherBe32(stamp, 12);
+    const gateCpu = ffBytes.be32(stamp, 8);
+    const entryCpu = ffBytes.be32(stamp, 12);
     // both addresses must land inside the external chip's body range, or the
     // stamp is not one of ours whatever its first six bytes say
     const inBody = (a) =>
@@ -141,7 +132,7 @@ const fastFlasher = {
     const hooked =
       !!hook &&
       hook.length >= 4 &&
-      _fastFlasherBe32(hook, 0) === _fastFlasherBranch(gateCpu);
+      ffBytes.be32(hook, 0) === _fastFlasherBranch(gateCpu);
     const bootWindow = (flags & FAST_FLASHER_FLAG_BOOT_WINDOW) !== 0;
     const aifWipe = version >= FAST_FLASHER_AIFWIPE_FROM && bootWindow;
     const supported = version <= FAST_FLASHER_VERSION;
@@ -267,7 +258,7 @@ const fastFlasher = {
           ok: false,
           why: `the body range is not blank (ext ${i.toString(16)} = ${flash[i].toString(16)}); this image already carries code there`,
         };
-    const hook = _fastFlasherBe32(mpc, FAST_FLASHER_HOOK_AT);
+    const hook = ffBytes.be32(mpc, FAST_FLASHER_HOOK_AT);
     const blob =
       typeof fastFlasherBlob !== 'undefined'
         ? fastFlasherBlob
@@ -305,9 +296,9 @@ const fastFlasher = {
         ? fastFlasherBlob
         : require('../generated/fast-flasher-blob.js').fastFlasherBlob;
     if (!flash || !mpc || flash.length < fastFlasher.BODY_END) return false;
-    if (_fastFlasherBe32(mpc, blob.hookAt) !== blob.hookWord) return false;
+    if (ffBytes.be32(mpc, blob.hookAt) !== blob.hookWord) return false;
     for (const [off, hex] of blob.runs) {
-      const bytes = _fastFlasherHex(hex);
+      const bytes = ffBytes.hexToBytes(hex);
       for (let i = 0; i < bytes.length; i++)
         if (flash[off + i] !== bytes[i]) return false;
     }
@@ -351,8 +342,8 @@ const fastFlasher = {
       f.fill(0xff, fastFlasher.BODY_START, fastFlasher.BODY_END);
       removed = true;
     }
-    if (_fastFlasherBe32(m, FAST_FLASHER_HOOK_AT) === blob.hookWord) {
-      _fastFlasherPutBe32(m, FAST_FLASHER_HOOK_AT, FAST_FLASHER_STOCK_HOOK);
+    if (ffBytes.be32(m, FAST_FLASHER_HOOK_AT) === blob.hookWord) {
+      ffBytes.putBe32(m, FAST_FLASHER_HOOK_AT, FAST_FLASHER_STOCK_HOOK);
       removed = true;
     }
     return { flash: f, mpc: m, removed };
@@ -373,7 +364,7 @@ const fastFlasher = {
     const f = Uint8Array.from(flash);
     const m = Uint8Array.from(mpc);
     for (const [off, hex] of blob.runs) {
-      const bytes = _fastFlasherHex(hex);
+      const bytes = ffBytes.hexToBytes(hex);
       if (
         off < fastFlasher.BODY_START ||
         off + bytes.length > fastFlasher.BODY_END
@@ -383,26 +374,10 @@ const fastFlasher = {
         );
       f.set(bytes, off);
     }
-    _fastFlasherPutBe32(m, blob.hookAt, blob.hookWord);
+    ffBytes.putBe32(m, blob.hookAt, blob.hookWord);
     return { flash: f, mpc: m };
   },
 };
-
-/** @param {Uint8Array} b @param {number} at @param {number} v */
-function _fastFlasherPutBe32(b, at, v) {
-  b[at] = (v >>> 24) & 0xff;
-  b[at + 1] = (v >>> 16) & 0xff;
-  b[at + 2] = (v >>> 8) & 0xff;
-  b[at + 3] = v & 0xff;
-}
-
-/** @param {string} hex @returns {Uint8Array} */
-function _fastFlasherHex(hex) {
-  const out = new Uint8Array(hex.length / 2);
-  for (let i = 0; i < out.length; i++)
-    out[i] = parseInt(hex.substr(i * 2, 2), 16);
-  return out;
-}
 
 if (typeof window !== 'undefined') {
   window.fastFlasher = fastFlasher;

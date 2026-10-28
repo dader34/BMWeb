@@ -79,38 +79,17 @@ const bl14Data =
     ? bl14Blob
     : require('../generated/bl14-blob.js').bl14Blob;
 const BL14_RING_LEN = BL14_RING_SPAN_END - bl14Data.ring.at;
-
-/** @param {string} hex @returns {Uint8Array} */
-function _bl14Hex(hex) {
-  const out = new Uint8Array(hex.length / 2);
-  for (let i = 0; i < out.length; i++)
-    out[i] = parseInt(hex.substr(i * 2, 2), 16);
-  return out;
-}
+const bl14Bytes =
+  typeof bytes !== 'undefined' ? bytes : require('../bytes/index.mjs');
 
 /** The ring's bytes, from `bl14Blob.ring.at`. @returns {Uint8Array} */
 function bl14Ring() {
-  return _bl14Hex(bl14Data.ring.hex.join(''));
+  return bl14Bytes.hexToBytes(bl14Data.ring.hex.join(''));
 }
 
 /** The installer ring's bytes, from the same address. @returns {Uint8Array} */
 function bl14InstallerRing() {
-  return _bl14Hex(bl14Data.installerRing.hex.join(''));
-}
-
-/** @param {Uint8Array} b @param {number} at @returns {number} */
-function _bl14Be32(b, at) {
-  return (
-    ((b[at] << 24) | (b[at + 1] << 16) | (b[at + 2] << 8) | b[at + 3]) >>> 0
-  );
-}
-
-/** @param {Uint8Array} b @param {number} at @param {number} v */
-function _bl14PutBe32(b, at, v) {
-  b[at] = (v >>> 24) & 0xff;
-  b[at + 1] = (v >>> 16) & 0xff;
-  b[at + 2] = (v >>> 8) & 0xff;
-  b[at + 3] = v & 0xff;
+  return bl14Bytes.hexToBytes(bl14Data.installerRing.hex.join(''));
 }
 
 /**
@@ -132,8 +111,8 @@ function bl14Splice(boot, sect8k, guard) {
   if (
     !guard ||
     guard.length < 8 ||
-    _bl14Be32(guard, 0) !== g.words[0] ||
-    _bl14Be32(guard, 4) !== g.words[1]
+    bl14Bytes.be32(guard, 0) !== g.words[0] ||
+    bl14Bytes.be32(guard, 4) !== g.words[1]
   )
     throw new Error(
       `bl14: the loader's park call at ext 0x${g.at.toString(16)} is not the one the bootloader was built for: this DME's loader is a different build. Nothing was written.`
@@ -148,7 +127,7 @@ function bl14Splice(boot, sect8k, guard) {
       );
   }
   for (const p of bl14Data.patches) {
-    const word = _bl14Be32(sect8k, p.at - BL14_SECT8K);
+    const word = bl14Bytes.be32(sect8k, p.at - BL14_SECT8K);
     if (word !== p.stock && word !== p.word)
       throw new Error(
         `bl14: the loader's word at ext 0x${p.at.toString(16)} reads 0x${word.toString(16)}, not the stock 0x${p.stock.toString(16)}. Nothing was written.`
@@ -158,7 +137,7 @@ function bl14Splice(boot, sect8k, guard) {
   nb.set(ring, at);
   const ns = Uint8Array.from(sect8k);
   for (const p of bl14Data.patches)
-    _bl14PutBe32(ns, p.at - BL14_SECT8K, p.word);
+    bl14Bytes.putBe32(ns, p.at - BL14_SECT8K, p.word);
   const same = (a, b) => a.every((x, i) => x === b[i]);
   return {
     boot: nb,
@@ -194,7 +173,7 @@ function bl14Survey(boot, sect8k) {
         ? 'installer'
         : null;
   const words = bl14Data.patches.map((p) =>
-    _bl14Be32(sect8k, p.at - BL14_SECT8K)
+    bl14Bytes.be32(sect8k, p.at - BL14_SECT8K)
   );
   const all = (k) => words.every((w, i) => w === bl14Data.patches[i][k]);
   return {
@@ -240,7 +219,7 @@ function bl14RestoreImages(boot, sect8k) {
     );
   const ns = Uint8Array.from(sect8k);
   for (const p of bl14Data.patches)
-    _bl14PutBe32(ns, p.at - BL14_SECT8K, p.stock);
+    bl14Bytes.putBe32(ns, p.at - BL14_SECT8K, p.stock);
   const nb = Uint8Array.from(boot);
   const at = bl14Data.ring.at - BL14_BOOT;
   nb.fill(0xff, at, at + BL14_RING_LEN);
@@ -471,8 +450,8 @@ const bl14 = {
     const m = Uint8Array.from(mpc);
     // whichever body the pair carried goes, the installer takes its place
     f.fill(0xff, fastFlasher.BODY_START, fastFlasher.BODY_END);
-    for (const [off, hex] of inst.runs) f.set(_bl14Hex(hex), off);
-    _bl14PutBe32(m, inst.hookAt, inst.hookWord);
+    for (const [off, hex] of inst.runs) f.set(bl14Bytes.hexToBytes(hex), off);
+    bl14Bytes.putBe32(m, inst.hookAt, inst.hookWord);
     return { flash: f, mpc: m };
   },
 };
