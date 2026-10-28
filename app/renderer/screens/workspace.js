@@ -298,13 +298,14 @@ function showWorkspace() {
     const pane = panes[i];
     if (on) {
       const r = pane.getBoundingClientRect();
-      const g = grid.getBoundingClientRect();
+      // fixed to the window, so a pane can be dragged over the app's own
+      // top bar, right up to the top of the window
       pane.classList.add('ws-float');
-      // an absolutely positioned grid child with a grid-area is placed
-      // relative to that CELL, not the grid: a floating pane has none
+      // a grid child with a grid-area is placed relative to that CELL once
+      // it is positioned: a floating pane has none
       pane.style.gridArea = '';
-      pane.style.left = `${Math.round(r.left - g.left)}px`;
-      pane.style.top = `${Math.round(r.top - g.top)}px`;
+      pane.style.left = `${Math.round(r.left)}px`;
+      pane.style.top = `${Math.round(r.top)}px`;
       pane.style.width = `${Math.round(r.width)}px`;
       pane.style.height = `${Math.round(r.height)}px`;
       raise(i);
@@ -324,9 +325,18 @@ function showWorkspace() {
       : 'Float this pane as a window over the grid';
     requestAnimationFrame(fitAll);
   }
-  let zTop = 10;
+  // the floating panes keep z-indexes 100..103 in their stacking order:
+  // over the page and its top bar, under the app's dialogs (9000+)
   const raise = (i) => {
-    panes[i].style.zIndex = String(++zTop);
+    const order = panes
+      .filter((p) => p && p.classList.contains('ws-float') && p !== panes[i])
+      .sort(
+        (a, b) => Number(a.style.zIndex || 100) - Number(b.style.zIndex || 100)
+      );
+    order.push(panes[i]);
+    order.forEach((p, k) => {
+      p.style.zIndex = String(100 + k);
+    });
   };
 
   function drag(i, e) {
@@ -334,8 +344,9 @@ function showWorkspace() {
     if (!pane.classList.contains('ws-float') || e.button !== 0) return;
     e.preventDefault();
     raise(i);
-    const x0 = e.clientX - pane.offsetLeft;
-    const y0 = e.clientY - pane.offsetTop;
+    const r0 = pane.getBoundingClientRect();
+    const x0 = e.clientX - r0.left;
+    const y0 = e.clientY - r0.top;
     // the frames would swallow the pointer mid-drag
     grid.classList.add('ws-dragging');
     const move = (ev) => {

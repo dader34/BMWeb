@@ -59,7 +59,6 @@
 }
 .ws-grid {
   flex: 1;
-  position: relative; /* floating panes are placed in it */
   display: grid;
   gap: 4px;
   padding: 4px;
@@ -220,10 +219,11 @@
   transform-origin: top left;
 }
 
-/* a floating pane: out of the grid, over it, dragged by its header and
-   resized from its corner; its grid cell stays empty */
+/* a floating pane: out of the grid and fixed to the window, so it can be
+   dragged over the app's top bar right up to the top; dragged by its
+   header and resized from its corner; its grid cell stays empty */
 .ws-pane.ws-float {
-  position: absolute;
+  position: fixed;
   grid-area: auto;
   resize: both;
   min-width: 320px;
