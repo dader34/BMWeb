@@ -7,15 +7,17 @@
 // adopts its shell's bus and lock (core/webshim/bus.js, busShell), so the
 // panes' jobs take their turn on the one K-line, and a flash from a pane
 // holds the cable for all of them as it would for the shell's own screens.
-// A pane can pop out into its own window and keep the same cable through
-// its opener; that is the road to a second tab on another monitor.
 //
 // Layouts are presets (left/right, top/bottom, one wide + two, 2 x 2).
 // A pane is narrower than the app's compact-layout breakpoints (up to
 // 900 px), so each frame gets a desktop-sized viewport (the "scale" width)
 // and is scaled down to fit its pane: a pane is the desktop app, smaller,
-// not the phone layout. Which app is in which pane, the layout and the
-// scale width are remembered.
+// not the phone layout. What a pane shows is picked from a tile grid over
+// the pane (the same tiles as Home); a pane can float over the grid as a
+// window of its own (dragged by its header, resized from its corner) and
+// dock back. The pane's frame never moves in the DOM -- moving an iframe
+// reloads it -- only its styling changes. Which app is in which pane, the
+// layout and the scale width are remembered.
 /* exported showWorkspace */
 
 const WS_STORE = 'bmweb.workspace';
@@ -24,6 +26,7 @@ const WS_STORE = 'bmweb.workspace';
 const WS_LAYOUTS = {
   'two-lr': {
     label: 'Left / right',
+    glyph: '◧',
     n: 2,
     cols: '1fr 1fr',
     rows: '1fr',
@@ -31,6 +34,7 @@ const WS_LAYOUTS = {
   },
   'two-tb': {
     label: 'Top / bottom',
+    glyph: '⬒',
     n: 2,
     cols: '1fr',
     rows: '1fr 1fr',
@@ -38,6 +42,7 @@ const WS_LAYOUTS = {
   },
   three: {
     label: 'One wide + two',
+    glyph: '⬓',
     n: 3,
     cols: '1fr 1fr',
     rows: '1fr 1fr',
@@ -45,6 +50,7 @@ const WS_LAYOUTS = {
   },
   four: {
     label: '2 × 2',
+    glyph: '⊞',
     n: 4,
     cols: '1fr 1fr',
     rows: '1fr 1fr',
@@ -52,22 +58,92 @@ const WS_LAYOUTS = {
   },
 };
 
-/** What a pane can open: a route (core/router.js) and its name. */
+/** What a pane can open: a route (core/router.js), as a tile. */
 const WS_APPS = [
-  ['apps/tuning', 'Tuning (live tune)'],
-  ['apps/logging', 'Data logging'],
-  ['', 'Vehicles: modules, fault memory, live values'],
-  ['apps/tool32', 'Web32 (tool32)'],
-  ['apps/flashing', 'Flashing'],
-  ['apps/history', 'Flashing history'],
-  ['apps/coding', 'Coding'],
-  ['apps/webkfp', 'WebKFP'],
-  ['apps/job-search', 'Job search'],
-  ['apps/script', 'Script runner'],
-  ['apps/tree', 'ECU tree'],
-  ['apps/service', 'Service'],
-  ['garage', 'Garage'],
-  ['inpa', 'INPA scripts'],
+  {
+    route: 'apps/tuning',
+    icon: '⛁',
+    title: 'Tuning',
+    desc: 'Edit the tune; LIVE on the running engine',
+  },
+  {
+    route: 'apps/logging',
+    icon: '∿',
+    title: 'Data logging',
+    desc: 'Chart readings while you drive',
+  },
+  {
+    route: '',
+    icon: '▣',
+    title: 'Diagnostics',
+    desc: 'A module: fault memory, live values, activations',
+  },
+  {
+    route: 'apps/tool32',
+    icon: '⌗',
+    title: 'Web32',
+    desc: 'Run any SGBD job, read its registers',
+  },
+  {
+    route: 'apps/flashing',
+    icon: '↯',
+    title: 'Flashing',
+    desc: 'Read and write the DME and the gearbox',
+  },
+  {
+    route: 'apps/history',
+    icon: '⟲',
+    title: 'Flashing history',
+    desc: 'Every session, with its log',
+  },
+  {
+    route: 'apps/coding',
+    icon: '⚙',
+    title: 'Coding',
+    desc: 'Change car configurations',
+  },
+  {
+    route: 'apps/webkfp',
+    icon: '↯',
+    title: 'WebKFP',
+    desc: 'Flash stock programs',
+  },
+  {
+    route: 'apps/job-search',
+    icon: '⌕',
+    title: 'Job search',
+    desc: 'Find any screen or key in the scripts',
+  },
+  {
+    route: 'apps/script',
+    icon: '⌁',
+    title: 'Script runner',
+    desc: 'Run an INPA script of your own',
+  },
+  {
+    route: 'apps/tree',
+    icon: '⌥',
+    title: 'ECU tree',
+    desc: "The car's modules on their buses",
+  },
+  {
+    route: 'apps/service',
+    icon: '✓',
+    title: 'Service',
+    desc: 'Service tasks on this car',
+  },
+  {
+    route: 'garage',
+    icon: '⌂',
+    title: 'Garage',
+    desc: 'Your cars and what changed',
+  },
+  {
+    route: 'inpa',
+    icon: '▤',
+    title: 'INPA scripts',
+    desc: 'The vehicle list, as INPA shows it',
+  },
 ];
 
 /** The frame's viewport width in CSS px (0 = the pane's own, unscaled). */
@@ -84,7 +160,7 @@ const WS_DEFAULT = {
   scale: 1200,
 };
 
-/** @returns {{layout: string, routes: string[]}} The saved workspace, or the default. */
+/** @returns {{layout: string, routes: string[], scale: number}} The saved workspace, or the default. */
 function wsLoad() {
   try {
     const s = JSON.parse(localStorage.getItem(WS_STORE) || 'null');
@@ -106,7 +182,7 @@ function wsLoad() {
   };
 }
 
-/** @param {{layout: string, routes: string[]}} state */
+/** @param {{layout: string, routes: string[], scale: number}} state */
 function wsSave(state) {
   try {
     localStorage.setItem(WS_STORE, JSON.stringify(state));
@@ -124,6 +200,16 @@ function wsPaneUrl(i, route) {
   return `index.html?pane=${i + 1}#${route}`;
 }
 
+/** @param {string} route @returns {{icon: string, title: string}} */
+function wsAppOf(route) {
+  return (
+    WS_APPS.find((a) => a.route === route) || {
+      icon: '▢',
+      title: route || 'Diagnostics',
+    }
+  );
+}
+
 /** The Workspace page. */
 function showWorkspace() {
   lastScreen = showWorkspace;
@@ -135,27 +221,26 @@ function showWorkspace() {
   document.body.classList.add('apps-section');
   sbLeft.textContent = 'workspace';
   const state = wsLoad();
+  const layoutButtons = Object.entries(WS_LAYOUTS)
+    .map(
+      ([k, l]) =>
+        `<button type="button" class="ws-lay" data-layout="${k}" title="${esc(l.label)}"
+          aria-pressed="${k === state.layout}"><span class="ws-lay-glyph">${l.glyph}</span>${esc(l.label)}</button>`
+    )
+    .join('');
   const scaleOptions = WS_SCALES.map(
     ([w, name]) =>
       `<option value="${w}"${w === state.scale ? ' selected' : ''}>${esc(name)}</option>`
   ).join('');
-  const layoutOptions = Object.entries(WS_LAYOUTS)
-    .map(
-      ([k, l]) =>
-        `<option value="${k}"${k === state.layout ? ' selected' : ''}>${esc(l.label)}</option>`
-    )
-    .join('');
   view.innerHTML = `
     <div class="ws">
       <div class="ws-toolbar">
         <span class="ws-title">Workspace</span>
-        <label class="ws-layout">Layout
-          <select id="ws-layout">${layoutOptions}</select></label>
-        <label class="ws-layout">Scale
+        <div class="ws-layouts" role="group" aria-label="Layout">${layoutButtons}</div>
+        <label class="ws-scale">Scale
           <select id="ws-scale" title="The width each pane's app is laid out at, then scaled to fit">${scaleOptions}</select></label>
         <span class="ws-note">One cable, shared: each pane's jobs take their
-          turn on it. A flash from a pane holds the cable for all of them until
-          it has finished.</span>
+          turn on it. A flash from a pane holds it for all of them.</span>
       </div>
       <div class="ws-grid" id="ws-grid"></div>
     </div>`;
@@ -164,8 +249,10 @@ function showWorkspace() {
   const frames = [];
   /** @type {HTMLElement[]} */
   const boxes = [];
+  /** @type {HTMLElement[]} */
+  const panes = [];
 
-  /** Lay the frame out at the scale width and shrink it to its box. */
+  // ---- the frame, laid out at the scale width and shrunk to its box ----
   function fit(i) {
     const f = frames[i];
     const box = boxes[i];
@@ -190,57 +277,147 @@ function showWorkspace() {
   const ro =
     typeof ResizeObserver !== 'undefined' ? new ResizeObserver(fitAll) : null;
 
-  const paneHtml = (i) => {
-    const picks = WS_APPS.map(
-      ([r, name]) =>
-        `<option value="${esc(r)}"${r === (state.routes[i] || '') ? ' selected' : ''}>${esc(name)}</option>`
+  // ---- the picker: the tiles over a pane ----------------------------------
+  const tilesHtml = (i) =>
+    WS_APPS.map(
+      (a) =>
+        `<button type="button" class="ws-tile" data-pane="${i}" data-route="${esc(a.route)}"
+          aria-pressed="${a.route === (state.routes[i] || '')}">
+          <span class="ws-tile-icon">${a.icon}</span>
+          <span class="ws-tile-title">${esc(a.title)}</span>
+          <span class="ws-tile-desc">${esc(a.desc)}</span>
+        </button>`
     ).join('');
-    return `
-      <div class="ws-pane-head">
-        <span class="ws-pane-no">${i + 1}</span>
-        <select class="ws-pick" data-pane="${i}" title="What this pane shows">${picks}</select>
-        <button type="button" class="btn ws-pop" data-pane="${i}"
-          title="Open this pane in its own window (it keeps the same cable)">⧉</button>
-      </div>
-      <div class="ws-popped-note">
-        <span>Open in its own window.</span>
-        <button type="button" class="btn ws-back">Bring it back here</button>
-      </div>
-      <div class="ws-frame-box"></div>`;
+
+  function setName(i) {
+    const app = wsAppOf(state.routes[i] || '');
+    const name = panes[i].querySelector('.ws-name');
+    name.innerHTML = `<span class="ws-name-icon">${app.icon}</span>${esc(app.title)}<span class="ws-name-caret">▾</span>`;
+  }
+
+  function openPicker(i) {
+    const p = panes[i].querySelector('.ws-picker');
+    p.innerHTML = `<div class="ws-picker-head">Pane ${i + 1}: what it shows</div>
+      <div class="ws-tiles">${tilesHtml(i)}</div>`;
+    p.hidden = false;
+    for (const t of p.querySelectorAll('.ws-tile'))
+      t.onclick = () => {
+        pick(i, t.dataset.route);
+        p.hidden = true;
+      };
+  }
+
+  function pick(i, route) {
+    state.routes[i] = route;
+    wsSave(state);
+    setName(i);
+    // the pane's own router follows its hash: no reload, the pane's
+    // bus (the shell's) stays as it is
+    try {
+      frames[i].contentWindow.location.hash = '#' + route;
+    } catch {
+      frames[i].src = wsPaneUrl(i, route);
+    }
+  }
+
+  // ---- floating: the pane as a window over the grid -----------------------
+  function float(i, on) {
+    const pane = panes[i];
+    if (on) {
+      const r = pane.getBoundingClientRect();
+      const g = grid.getBoundingClientRect();
+      pane.classList.add('ws-float');
+      // an absolutely positioned grid child with a grid-area is placed
+      // relative to that CELL, not the grid: a floating pane has none
+      pane.style.gridArea = '';
+      pane.style.left = `${Math.round(r.left - g.left)}px`;
+      pane.style.top = `${Math.round(r.top - g.top)}px`;
+      pane.style.width = `${Math.round(r.width)}px`;
+      pane.style.height = `${Math.round(r.height)}px`;
+      raise(i);
+    } else {
+      pane.classList.remove('ws-float');
+      pane.style.left =
+        pane.style.top =
+        pane.style.width =
+        pane.style.height =
+          '';
+      pane.style.zIndex = '';
+      pane.style.gridArea = WS_LAYOUTS[state.layout].areas[i] || '';
+    }
+    pane.querySelector('.ws-float-btn').textContent = on ? '⇲' : '⇱';
+    pane.querySelector('.ws-float-btn').title = on
+      ? 'Dock this pane back into the grid'
+      : 'Float this pane as a window over the grid';
+    requestAnimationFrame(fitAll);
+  }
+  let zTop = 10;
+  const raise = (i) => {
+    panes[i].style.zIndex = String(++zTop);
   };
 
+  function drag(i, e) {
+    const pane = panes[i];
+    if (!pane.classList.contains('ws-float') || e.button !== 0) return;
+    e.preventDefault();
+    raise(i);
+    const x0 = e.clientX - pane.offsetLeft;
+    const y0 = e.clientY - pane.offsetTop;
+    // the frames would swallow the pointer mid-drag
+    grid.classList.add('ws-dragging');
+    const move = (ev) => {
+      pane.style.left = `${Math.max(0, ev.clientX - x0)}px`;
+      pane.style.top = `${Math.max(0, ev.clientY - y0)}px`;
+    };
+    const up = () => {
+      grid.classList.remove('ws-dragging');
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  }
+
+  // ---- the panes --------------------------------------------------------------
+  const paneHtml = (i) => `
+      <div class="ws-pane-head">
+        <span class="ws-pane-no">${i + 1}</span>
+        <button type="button" class="ws-name" title="Pick what this pane shows"></button>
+        <span class="ws-grip" title="Drag a floating pane here; double-click to float or dock"></span>
+        <button type="button" class="ws-float-btn" title="Float this pane as a window over the grid">⇱</button>
+      </div>
+      <div class="ws-picker" hidden></div>
+      <div class="ws-frame-box"></div>`;
+
   function wire(pane, i) {
-    pane.querySelector('.ws-pick').onchange = (e) => {
-      state.routes[i] = e.target.value;
-      wsSave(state);
-      // the pane's own router follows its hash: no reload, the pane's
-      // bus (the shell's) stays as it is
-      try {
-        frames[i].contentWindow.location.hash = '#' + state.routes[i];
-      } catch {
-        frames[i].src = wsPaneUrl(i, state.routes[i]);
-      }
+    pane.querySelector('.ws-name').onclick = () => {
+      const p = pane.querySelector('.ws-picker');
+      if (p.hidden) openPicker(i);
+      else p.hidden = true;
     };
-    pane.querySelector('.ws-pop').onclick = () => {
-      const w = window.open(
-        wsPaneUrl(i, state.routes[i] || ''),
-        `bmweb-pane-${i + 1}`,
-        'width=1100,height=760'
-      );
-      if (!w) return; // blocked: the pane stays where it is
-      frames[i].src = 'about:blank';
-      pane.classList.add('ws-popped');
+    const fb = pane.querySelector('.ws-float-btn');
+    fb.onclick = () => float(i, !pane.classList.contains('ws-float'));
+    const head = pane.querySelector('.ws-pane-head');
+    head.onpointerdown = (e) => {
+      if (e.target.closest('button')) return;
+      drag(i, e);
     };
-    pane.querySelector('.ws-back').onclick = () => {
-      pane.classList.remove('ws-popped');
-      frames[i].src = wsPaneUrl(i, state.routes[i] || '');
+    head.ondblclick = (e) => {
+      if (e.target.closest('button')) return;
+      float(i, !pane.classList.contains('ws-float'));
     };
+    pane.onpointerdown = () => {
+      if (pane.classList.contains('ws-float')) raise(i);
+    };
+    if (ro) ro.observe(pane); // a resize from the corner refits the frame
   }
 
   function apply() {
     const L = WS_LAYOUTS[state.layout];
     grid.style.gridTemplateColumns = L.cols;
     grid.style.gridTemplateRows = L.rows;
+    for (const b of document.querySelectorAll('.ws-lay'))
+      b.setAttribute('aria-pressed', String(b.dataset.layout === state.layout));
     for (let i = 0; i < 4; i++) {
       let pane = grid.children[i];
       if (!pane) {
@@ -259,24 +436,28 @@ function showWorkspace() {
         boxes[i] = box;
         box.appendChild(f);
         if (ro) ro.observe(box);
+        panes[i] = pane;
         grid.appendChild(pane);
         wire(pane, i);
+        setName(i);
       }
       // panes past the layout's count keep their frame (and its screen's
       // state) but are hidden, so switching 2 x 2 -> left/right -> 2 x 2
       // brings the same apps back
       pane.hidden = i >= L.n;
-      pane.style.gridArea = i < L.n ? L.areas[i] : '';
+      if (!pane.classList.contains('ws-float'))
+        pane.style.gridArea = i < L.n ? L.areas[i] : '';
     }
     wsSave(state);
     // the boxes have their new sizes once the grid has laid out
     requestAnimationFrame(fitAll);
   }
 
-  document.getElementById('ws-layout').onchange = (e) => {
-    state.layout = e.target.value;
-    apply();
-  };
+  for (const b of document.querySelectorAll('.ws-lay'))
+    b.onclick = () => {
+      state.layout = b.dataset.layout;
+      apply();
+    };
   document.getElementById('ws-scale').onchange = (e) => {
     state.scale = Number(e.target.value) || 0;
     wsSave(state);

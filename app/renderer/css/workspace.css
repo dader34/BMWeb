@@ -1,6 +1,7 @@
-/* Workspace (screens/workspace.js): the grid of panes, and the pane mode a
-   frame's own document takes (body.pane, set by core/webshim/install.js
-   when the document is a pane of a BMWeb shell). */
+/* Workspace (screens/workspace.js): the grid of panes, the tile picker over
+   a pane, a pane floating as a window, and the pane mode a frame's own
+   document takes (body.pane, set by core/webshim/install.js when the
+   document is a pane of a BMWeb shell). */
 
 .ws {
   position: absolute;
@@ -16,23 +17,55 @@
 .ws-toolbar {
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 8px 14px;
+  gap: 18px;
+  padding: 6px 14px;
   border-bottom: 1px solid var(--border, #3a3f47);
   font-size: 13px;
 }
 .ws-title {
   font-weight: 600;
 }
-.ws-layout select {
+.ws-layouts {
+  display: flex;
+  gap: 4px;
+}
+.ws-lay {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  font: inherit;
+  font-size: 12px;
+  color: inherit;
+  background: transparent;
+  border: 1px solid var(--border, #3a3f47);
+  border-radius: 5px;
+  cursor: pointer;
+  opacity: 0.75;
+}
+.ws-lay:hover {
+  opacity: 1;
+}
+.ws-lay[aria-pressed='true'] {
+  opacity: 1;
+  background: var(--accent, #e9c46a);
+  color: #111;
+  border-color: transparent;
+}
+.ws-lay-glyph {
+  font-size: 15px;
+  line-height: 1;
+}
+.ws-scale select {
   margin-left: 6px;
 }
 .ws-note {
-  opacity: 0.65;
+  opacity: 0.6;
   font-size: 12px;
 }
 .ws-grid {
   flex: 1;
+  position: relative; /* floating panes are placed in it */
   display: grid;
   gap: 4px;
   padding: 4px;
@@ -46,6 +79,8 @@
   border: 1px solid var(--border, #3a3f47);
   border-radius: 6px;
   overflow: hidden;
+  position: relative; /* the picker sits over the frame */
+  background: var(--bg, #15181c);
 }
 .ws-pane[hidden] {
   display: none;
@@ -54,18 +89,124 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 4px 8px;
+  padding: 3px 6px 3px 10px;
   font-size: 12px;
   background: var(--panel, rgba(255, 255, 255, 0.04));
+  user-select: none;
 }
 .ws-pane-no {
-  opacity: 0.6;
+  opacity: 0.5;
   font-family: ui-monospace, Menlo, monospace;
 }
-.ws-pick {
-  flex: 1;
+.ws-name {
+  flex: 0 1 auto;
   min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 8px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: inherit;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  cursor: pointer;
+  text-align: left;
 }
+.ws-name:hover {
+  border-color: var(--border, #3a3f47);
+}
+.ws-name-icon {
+  opacity: 0.8;
+}
+.ws-name-caret {
+  opacity: 0.5;
+  font-size: 11px;
+}
+.ws-grip {
+  flex: 1;
+  align-self: stretch;
+  min-width: 24px;
+}
+.ws-float-btn {
+  font: inherit;
+  font-size: 14px;
+  line-height: 1;
+  padding: 3px 7px;
+  color: inherit;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  cursor: pointer;
+  opacity: 0.7;
+}
+.ws-float-btn:hover {
+  opacity: 1;
+  border-color: var(--border, #3a3f47);
+}
+
+/* the picker: the tiles over the pane, under its header */
+.ws-picker {
+  position: absolute;
+  top: 30px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2;
+  overflow: auto;
+  padding: 14px;
+  background: var(--bg, #15181c);
+}
+.ws-picker[hidden] {
+  display: none;
+}
+.ws-picker-head {
+  font-size: 12px;
+  opacity: 0.6;
+  margin: 0 0 10px 2px;
+}
+.ws-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+}
+.ws-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 10px 12px;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  background: var(--panel, rgba(255, 255, 255, 0.04));
+  border: 1px solid var(--border, #3a3f47);
+  border-radius: 6px;
+  cursor: pointer;
+}
+.ws-tile:hover {
+  border-color: var(--accent, #e9c46a);
+}
+.ws-tile[aria-pressed='true'] {
+  border-color: var(--accent, #e9c46a);
+  box-shadow: inset 0 0 0 1px var(--accent, #e9c46a);
+}
+.ws-tile-icon {
+  font-size: 18px;
+  opacity: 0.85;
+}
+.ws-tile-title {
+  font-weight: 600;
+  font-size: 13px;
+}
+.ws-tile-desc {
+  font-size: 11px;
+  opacity: 0.6;
+  line-height: 1.3;
+}
+
 /* the frame is laid out at the scale width and shrunk to the box
    (screens/workspace.js, fit): absolute, scaled from its top-left corner */
 .ws-frame-box {
@@ -84,20 +225,24 @@
   background: transparent;
   transform-origin: top left;
 }
-.ws-popped-note {
-  display: none;
-  flex: 1;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  font-size: 13px;
-  opacity: 0.8;
+
+/* a floating pane: out of the grid, over it, dragged by its header and
+   resized from its corner; its grid cell stays empty */
+.ws-pane.ws-float {
+  position: absolute;
+  grid-area: auto;
+  resize: both;
+  min-width: 320px;
+  min-height: 200px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.55);
+  border-color: var(--accent, #e9c46a);
 }
-.ws-popped .ws-frame-box {
-  display: none;
+.ws-pane.ws-float .ws-pane-head,
+.ws-pane.ws-float .ws-grip {
+  cursor: move;
 }
-.ws-popped .ws-popped-note {
-  display: flex;
+.ws-grid.ws-dragging .ws-frame {
+  pointer-events: none;
 }
 
 /* A pane's own document: the shell's bar holds the cable, so the pane shows
