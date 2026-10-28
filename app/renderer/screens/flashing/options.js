@@ -5,7 +5,7 @@
 // preparation; nothing here talks to the car, the built pair is handed to
 // Flash Program). For the transmission: remove auto upshift, applied to the
 // loaded calibration on the way out.
-/* exported fbOptionsHtml, fbOptionsWire, fbOptionsShowFor, fbOptionsRefreshSummary, fbOptionsEwsBlockedReason, fbOptionsRefreshEwsGate, fbOptionsRefreshUpshiftGate, fbOptionsProtectBlockedReason, fbOptionsCarRevLimitRead, fbOptionsRefreshAifGate */
+/* exported fbOptionsHtml, fbOptionsWire, fbOptionsShowFor, fbOptionsRefreshSummary, fbOptionsEwsBlockedReason, fbOptionsRefreshEwsGate, fbOptionsRefreshUpshiftGate, fbOptionsProtectBlockedReason, fbOptionsCarRevLimitRead, fbOptionsRefreshBenchGate */
 
 /** The map switch inputs and the last build. */
 const fbMs = {
@@ -68,6 +68,10 @@ function fbOptionsHtml() {
 
     <div class="fb-section" id="fb-opt-aif-section" hidden>
       ${fbBl14Html()}
+    </div>
+
+    <div class="fb-section" id="fb-opt-livetune-section" hidden>
+      ${fbLtInstallHtml()}
     </div>
 
     <div class="fb-section" id="fb-opt-revcut-section">
@@ -193,10 +197,11 @@ function fbOptionsShowFor(module) {
   fbEls['opt-ms-section'].hidden = tcu;
   fbEls['opt-upshift-section'].hidden = !tcu;
   fbEls['opt-aif-section'].hidden = tcu || !fbProtectTesting();
+  fbEls['opt-livetune-section'].hidden = tcu || !fbProtectTesting();
   if (tcu) fbOptionsRefreshUpshiftGate();
   else {
     fbOptionsRefreshEwsGate();
-    fbOptionsRefreshAifGate();
+    fbOptionsRefreshBenchGate();
   }
   fbMsInputsChanged();
 }
@@ -281,13 +286,15 @@ function fbOptionsRefreshEwsGate() {
   fbRefreshCustomOptionsGate();
 }
 
-// ---- the fast flash bootloader (bench) -----------------------------------------------------------------
+// ---- the bench sections: bootloader and live tune ---------------------------------------------------------
 /**
- * BENCH ONLY (localhost, like the fast flasher it rides on): the section
- * holds Install fast flash bootloader (screens/flashing/bl14-install.js).
+ * BENCH ONLY (localhost, like the fast flasher they ride on): the
+ * bootloader section (screens/flashing/bl14-install.js) and the live tune
+ * one (screens/flashing/livetune-install.js), refreshed together.
  */
-function fbOptionsRefreshAifGate() {
+function fbOptionsRefreshBenchGate() {
   fbBl14Refresh();
+  fbLtInstallRefresh();
 }
 
 // ---- spark cut rev limiter and engine protection ----------------------------------------------------------

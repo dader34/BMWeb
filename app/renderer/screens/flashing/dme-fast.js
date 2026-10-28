@@ -749,10 +749,13 @@ async function fbDmeFastFlasherAvailable(title) {
  * and the calibration when the pair has one. Full-binary mode only;
  * testing-only.
  * @param {{carry?: (flash: Uint8Array, mpc: Uint8Array) =>
- *   {flash: Uint8Array, mpc: Uint8Array}, title?: string, confirmed?: boolean,
+ *   {flash: Uint8Array, mpc: Uint8Array}, patch?: (flash: Uint8Array,
+ *   mpc: Uint8Array) => {flash: Uint8Array, mpc: Uint8Array},
+ *   patchName?: string, title?: string, confirmed?: boolean,
  *   after?: () => Promise<void>}} [opts]
  *   - carry: the body the pair is given in place of the shipped one (the
- *   BL14 installer); title and confirmed: a guided flow's own name, and
+ *   BL14 installer); patch: applied after it, last of all (live tune);
+ *   title and confirmed: a guided flow's own name, and
  *   that it already asked; after: what runs in place of the Identify that
  *   follows a successful push.
  */
@@ -778,6 +781,11 @@ async function fbDmeFastFlashProgram(opts = {}) {
         : fastFlasher.withFlasher);
     const carried = carry(images.source, images.mpc);
     images = { source: carried.flash, mpc: carried.mpc };
+    // last of all: a patch that redoes a sum of its own (live tune)
+    if (opts.patch) {
+      const patched = opts.patch(images.source, images.mpc);
+      images = { source: patched.flash, mpc: patched.mpc };
+    }
   } catch (e) {
     await fbMessage(e.message, e.title || 'Fast Flash Program');
     return;

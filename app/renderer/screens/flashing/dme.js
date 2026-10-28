@@ -291,7 +291,7 @@ async function fbDmeIdentifyRun(afterFlash) {
   else if (d.fastFlasher) fbLog(fastFlasher.describe(d.fastFlasher));
   fbRefreshAll();
   fbOptionsRefreshEwsGate();
-  fbOptionsRefreshAifGate();
+  fbOptionsRefreshBenchGate();
   const summary = fbDmeImmobilizerSummary() + fbDmeMapSwitchSummary();
   const carRead = d.carProgramEwsDeleted !== null || d.carMapSwitch !== null;
   // after a flash the flash's own result stays up

@@ -283,6 +283,12 @@ async function fbDmeFlashProgram(opts = {}) {
       // signed program segment (fbFlashRun's flash signs it)
       const carried = carry(images.source, images.mpc);
       images = { source: carried.flash, mpc: carried.mpc };
+      // last of all: a patch that redoes a sum of its own (live tune's
+      // ROM-test sum) has to see every other edit already made
+      if (opts.patch) {
+        const patched = opts.patch(images.source, images.mpc);
+        images = { source: patched.flash, mpc: patched.mpc };
+      }
     } catch (e) {
       await fbMessage(e.message, e.title || title);
       return;
@@ -299,7 +305,7 @@ async function fbDmeFlashProgram(opts = {}) {
         hasCal,
         diagProtocol: d.ident.diagProtocol,
         aifArgs: fbAifArgs(progRef),
-        describe: `DME program ${progRef || '(unreadable version)'}${hasCal ? ' + calibration' : ''}${opts.carry ? ' + installer body' : ''}, 1 MB external + 448 KB MPC`,
+        describe: `DME program ${progRef || '(unreadable version)'}${hasCal ? ' + calibration' : ''}${opts.carry ? ' + installer body' : ''}${opts.patchName ? ` + ${opts.patchName}` : ''}, 1 MB external + 448 KB MPC`,
         vin: d.ident.vin,
         hwRef: d.ident.hwRef,
       },
