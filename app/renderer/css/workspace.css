@@ -1,0 +1,95 @@
+/* Workspace (screens/workspace.js): the grid of panes, and the pane mode a
+   frame's own document takes (body.pane, set by core/webshim/install.js
+   when the document is a pane of a BMWeb shell). */
+
+.ws {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+}
+/* the page is the whole view: no page padding around the grid */
+.view:has(> .ws) {
+  padding: 0;
+  overflow: hidden;
+}
+.ws-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border, #3a3f47);
+  font-size: 13px;
+}
+.ws-title {
+  font-weight: 600;
+}
+.ws-layout select {
+  margin-left: 6px;
+}
+.ws-note {
+  opacity: 0.65;
+  font-size: 12px;
+}
+.ws-grid {
+  flex: 1;
+  display: grid;
+  gap: 4px;
+  padding: 4px;
+  min-height: 0;
+}
+.ws-pane {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  border: 1px solid var(--border, #3a3f47);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.ws-pane[hidden] {
+  display: none;
+}
+.ws-pane-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  font-size: 12px;
+  background: var(--panel, rgba(255, 255, 255, 0.04));
+}
+.ws-pane-no {
+  opacity: 0.6;
+  font-family: ui-monospace, Menlo, monospace;
+}
+.ws-pick {
+  flex: 1;
+  min-width: 0;
+}
+.ws-frame {
+  flex: 1;
+  width: 100%;
+  border: 0;
+  background: transparent;
+}
+.ws-popped-note {
+  display: none;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-size: 13px;
+  opacity: 0.8;
+}
+.ws-popped .ws-frame {
+  display: none;
+}
+.ws-popped .ws-popped-note {
+  display: flex;
+}
+
+/* A pane's own document: the shell's bar holds the cable, so the pane shows
+   only the cable state and drops the chrome it does not need. */
+body.pane .topbar-right > :not(.status) {
+  display: none;
+}

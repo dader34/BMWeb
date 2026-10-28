@@ -18,6 +18,15 @@ lockBus(webBus, forgetCar);
 
 if (typeof window !== 'undefined') {
   window.webBus = webBus;
+  // the lock surface a pane of this document adopts (bus.js, busShell)
+  window.withBusLock = withBusLock;
+  window.webClaimBus = webClaimBus;
+  window.webBusClaimedBy = webBusClaimedBy;
+  window.webBusRawExchange = webBusRawExchange;
+  window.webBusOnDisconnect = webBusOnDisconnect;
+  // a pane of a BMWeb shell (the Workspace page): css/workspace.css drops
+  // the chrome the shell's bar already provides
+  if (busShell && document.body) document.body.classList.add('pane');
   window.installWebShim = installWebShim;
   // group -> variant resolution, for the sweep screen: which SGBD answers
   // at this diagnostic address? (lowercased SGBD name, or null)
@@ -28,5 +37,7 @@ if (typeof window !== 'undefined') {
   window.webWriteCoding = webWriteCoding;
   // the read beside it: a module's coding image through its own script
   window.webReadCoding = webReadCoding;
+  window.webCodingReadJob = webCodingReadJob;
+  window.webCodingBlockProven = webCodingBlockProven;
   installWebShim();
 }

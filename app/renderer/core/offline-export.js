@@ -16,6 +16,7 @@ const OFFLINE_SHELL = [
   'css/styles.css',
   'css/lookup.css',
   'css/tuning.css',
+  'css/workspace.css',
   'css/themes.css',
   'css/ista-real.css',
 
@@ -255,6 +256,7 @@ const OFFLINE_SHELL = [
   'screens/service/open.js',
   'screens/service/screen.js',
   'screens/tool32.js',
+  'screens/workspace.js',
   'screens/webkfp.js',
   'screens/flashing/dme.js',
   'screens/flashing/tcu.js',

@@ -14,6 +14,8 @@
 //   #apps/parts           Parts Catalogue (showEtk)
 //   #apps/parts/vin       the VIN Decoder page (showVinDecoder)
 //   #apps/tool32          Tool32 (showTool32)
+//   #apps/webkfp          WebKFP (showWebKfp)
+//   #apps/coding          Coding (showNcsExpert)
 
 /**
  * Exact route -> opener. Each opener guards on its screen existing, so a
@@ -32,6 +34,9 @@ const APPS_ROUTES = {
   'apps/parts/vin': () =>
     typeof showVinDecoder === 'function' ? showVinDecoder() : null,
   'apps/tool32': () => (typeof showTool32 === 'function' ? showTool32() : null),
+  'apps/webkfp': () => (typeof showWebKfp === 'function' ? showWebKfp() : null),
+  'apps/coding': () =>
+    typeof showNcsExpert === 'function' ? showNcsExpert() : null,
   'apps/job-search': () =>
     typeof showJobSearch === 'function' ? showJobSearch('') : null,
   'apps/backup': () =>
@@ -39,6 +44,8 @@ const APPS_ROUTES = {
   'apps/flashing': () =>
     typeof showFlashing === 'function' ? showFlashing() : null,
   'apps/tuning': () => (typeof showTuning === 'function' ? showTuning() : null),
+  'apps/workspace': () =>
+    typeof showWorkspace === 'function' ? showWorkspace() : null,
   // the app's other two pages: its history of sessions, and its settings
   'apps/history': () =>
     typeof showFlashing === 'function' ? showFlashing('history') : null,
@@ -71,9 +78,12 @@ const ROUTE_FOR_SCREEN = {
   showEtk: 'apps/parts',
   showVinDecoder: 'apps/parts/vin',
   showTool32: 'apps/tool32',
+  showWebKfp: 'apps/webkfp',
+  showNcsExpert: 'apps/coding',
   showJobSearch: 'apps/job-search',
   showFlashing: 'apps/flashing',
   showTuning: 'apps/tuning',
+  showWorkspace: 'apps/workspace',
   showGarage: 'garage',
   showLogging: 'apps/logging',
   showScriptRunner: 'apps/script',
@@ -474,12 +484,12 @@ function _onLocationChange() {
     } finally {
       _routing = false;
     }
-  } else if (route === '' && typeof showChassis === 'function') {
+  } else if (route === '' && typeof showApps === 'function') {
     // hash cleared (Back out of the Apps section) -> home
     _routing = true;
     _openRoute = null;
     try {
-      showChassis();
+      showApps();
     } finally {
       _routing = false;
     }

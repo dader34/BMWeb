@@ -2,15 +2,37 @@
  * @file The one bus instance this host drives, and the lock that serialises
  * everything that touches it.
  */
-/* exported webBus, withBusLock, webBusRawExchange, lockBus, webClaimBus, webBusClaimedBy */
+/* exported webBus, withBusLock, webBusRawExchange, lockBus, webClaimBus, webBusClaimedBy, webBusOnDisconnect, busShell */
 
 /**
  * Which transport this host can do: the native serial bridge when the macOS
  * shell injects one, else Web Serial. Both drive the same K+DCAN cable.
  * @type {NativeSerialBus|WebSerialBus}
  */
-const webBus =
-  typeof window !== 'undefined' && window.bmweb && window.bmweb.serialOpen
+/**
+ * The shell this document is a pane of, when it is one: a same-origin
+ * BMWeb that holds the cable -- the Workspace page's frames
+ * (screens/workspace.js), or the window that popped a pane out. Its bus
+ * and its lock are this document's too: one cable, one queue, however
+ * many panes drive it. A parent or opener that is not ours (another
+ * origin) throws on touch and counts as none.
+ * @type {Window|null}
+ */
+const busShell = (() => {
+  if (typeof window === 'undefined') return null;
+  for (const w of [window.parent, window.opener]) {
+    try {
+      if (w && w !== window && w.webBus && typeof w.withBusLock === 'function')
+        return w;
+    } catch {
+      /* cross-origin: not a shell of ours */
+    }
+  }
+  return null;
+})();
+const webBus = busShell
+  ? busShell.webBus
+  : typeof window !== 'undefined' && window.bmweb && window.bmweb.serialOpen
     ? new NativeSerialBus()
     : new WebSerialBus();
 
@@ -30,6 +52,7 @@ let busChain = Promise.resolve();
  * @returns {Promise<T>} Its result, settled when it has finished.
  */
 function withBusLock(fn) {
+  if (busShell) return busShell.withBusLock(fn);
   // a claimed cable takes nobody else's telegrams (webClaimBus)
   if (busClaim) return Promise.reject(busClaimedError());
   const run = busChain.then(fn, fn);
@@ -59,6 +82,7 @@ function busClaimedError() {
 
 /** @returns {string|null} Who holds the cable, or null when nobody does. */
 function webBusClaimedBy() {
+  if (busShell) return busShell.webBusClaimedBy();
   return busClaim ? busClaim.owner : null;
 }
 
@@ -74,6 +98,7 @@ function webBusClaimedBy() {
  * @throws {Error} When the cable is already claimed.
  */
 async function webClaimBus(owner) {
+  if (busShell) return busShell.webClaimBus(owner);
   await withBusLock(() => {
     if (busClaim) throw busClaimedError();
     busClaim = { owner };
@@ -108,10 +133,25 @@ let busRawExchange = null;
  * @throws {Error} When lockBus has not run yet.
  */
 function webBusRawExchange(out, comm) {
+  if (busShell) return busShell.webBusRawExchange(out, comm);
   if (!busRawExchange) throw new Error('bus not initialised');
   return busRawExchange(out, comm);
 }
 
+/**
+ * What the panes of this shell want run when the cable drops: each one's
+ * forgetCar, so no pane keeps a session the wire no longer has.
+ * @type {(() => void)[]}
+ */
+const busDisconnectHooks = [];
+/**
+ * SHELL: run `fn` before this document's cable disconnects (a pane's
+ * forgetCar; lockBus registers it through busShell).
+ * @param {() => void} fn
+ */
+function webBusOnDisconnect(fn) {
+  busDisconnectHooks.push(fn);
+}
 /**
  * Wrap the bus's wire entry points (connect, exchange, readState,
  * disconnect) in the bus lock, and run `onDisconnect` before the wire drops.
@@ -124,6 +164,12 @@ function webBusRawExchange(out, comm) {
  * @param {() => void} onDisconnect - Forgets everything known about the car.
  */
 function lockBus(bus, onDisconnect) {
+  if (busShell) {
+    // the shell wrapped its bus once; a pane only asks to forget its own
+    // sessions when the shell's cable drops
+    busShell.webBusOnDisconnect(onDisconnect);
+    return;
+  }
   const raw = {
     disconnect: bus.disconnect.bind(bus),
     exchange: bus.exchange.bind(bus),
@@ -134,6 +180,13 @@ function lockBus(bus, onDisconnect) {
     // refused before the sessions are forgotten: a claim's job is using them
     if (busClaim) throw busClaimedError();
     onDisconnect();
+    for (const fn of busDisconnectHooks) {
+      try {
+        fn();
+      } catch {
+        /* a pane that has gone */
+      }
+    }
     return withBusLock(() => raw.disconnect(...a));
   };
   bus.exchange = (...a) => withBusLock(() => raw.exchange(...a));
