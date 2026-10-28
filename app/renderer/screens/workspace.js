@@ -221,26 +221,22 @@ function showWorkspace() {
   document.body.classList.add('apps-section');
   sbLeft.textContent = 'workspace';
   const state = wsLoad();
-  const layoutButtons = Object.entries(WS_LAYOUTS)
-    .map(
-      ([k, l]) =>
-        `<button type="button" class="ws-lay" data-layout="${k}" title="${esc(l.label)}"
-          aria-pressed="${k === state.layout}"><span class="ws-lay-glyph">${l.glyph}</span>${esc(l.label)}</button>`
-    )
-    .join('');
-  const scaleOptions = WS_SCALES.map(
-    ([w, name]) =>
-      `<option value="${w}"${w === state.scale ? ' selected' : ''}>${esc(name)}</option>`
-  ).join('');
   view.innerHTML = `
     <div class="ws">
       <div class="ws-toolbar">
-        <span class="ws-title">Workspace</span>
-        <div class="ws-layouts" role="group" aria-label="Layout">${layoutButtons}</div>
-        <label class="ws-scale">Scale
-          <select id="ws-scale" title="The width each pane's app is laid out at, then scaled to fit">${scaleOptions}</select></label>
-        <span class="ws-note">One cable, shared: each pane's jobs take their
-          turn on it. A flash from a pane holds it for all of them.</span>
+        <div class="ws-brand">
+          <span class="ws-eyebrow">Workspace</span>
+          <span class="ws-title" id="ws-title"></span>
+        </div>
+        <div class="ws-ctl">
+          <span class="ws-ctl-label">Layout</span>
+          <div class="ws-dd" id="ws-layout-dd"></div>
+        </div>
+        <div class="ws-ctl">
+          <span class="ws-ctl-label">Scale</span>
+          <div class="ws-dd ws-dd-scale" id="ws-scale-dd"></div>
+        </div>
+        <span class="ws-hint" title="The panes drive the one cable this page holds: each pane's jobs take their turn on it, and a flash from a pane holds it for all of them until it has finished.">&#9432; One cable, shared</span>
       </div>
       <div class="ws-grid" id="ws-grid"></div>
     </div>`;
@@ -416,8 +412,8 @@ function showWorkspace() {
     const L = WS_LAYOUTS[state.layout];
     grid.style.gridTemplateColumns = L.cols;
     grid.style.gridTemplateRows = L.rows;
-    for (const b of document.querySelectorAll('.ws-lay'))
-      b.setAttribute('aria-pressed', String(b.dataset.layout === state.layout));
+    document.getElementById('ws-title').textContent =
+      `${L.n} panes · ${L.label.toLowerCase()}`;
     for (let i = 0; i < 4; i++) {
       let pane = grid.children[i];
       if (!pane) {
@@ -453,15 +449,42 @@ function showWorkspace() {
     requestAnimationFrame(fitAll);
   }
 
-  for (const b of document.querySelectorAll('.ws-lay'))
-    b.onclick = () => {
-      state.layout = b.dataset.layout;
+  const dd = (items, value, onChange, renderRow) =>
+    makeDropdown({
+      items,
+      value,
+      classPrefix: 'lkd',
+      parts: { cur: 'val', menu: 'pop', opt: 'item' },
+      searchable: false,
+      renderRow,
+      onChange,
+    });
+  const layoutDd = dd(
+    Object.entries(WS_LAYOUTS).map(([k, l]) => ({
+      val: k,
+      label: `${l.glyph}\u2003${l.label}`,
+      glyph: l.glyph,
+      name: l.label,
+    })),
+    state.layout,
+    (v) => {
+      state.layout = v;
       apply();
-    };
-  document.getElementById('ws-scale').onchange = (e) => {
-    state.scale = Number(e.target.value) || 0;
-    wsSave(state);
-    fitAll();
-  };
+    },
+    (o) =>
+      `<span class="ws-dd-glyph">${o.glyph}</span><span class="lkd-item-label">${esc(o.name)}</span>`
+  );
+  document.getElementById('ws-layout-dd').appendChild(layoutDd.el);
+  const scaleDd = dd(
+    WS_SCALES.map(([w, name]) => ({ val: w, label: name })),
+    state.scale,
+    (v) => {
+      state.scale = Number(v) || 0;
+      wsSave(state);
+      fitAll();
+    },
+    (o) => `<span class="lkd-item-label">${esc(o.label)}</span>`
+  );
+  document.getElementById('ws-scale-dd').appendChild(scaleDd.el);
   apply();
 }

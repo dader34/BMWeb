@@ -17,51 +17,61 @@
 .ws-toolbar {
   display: flex;
   align-items: center;
-  gap: 18px;
-  padding: 6px 14px;
-  border-bottom: 1px solid var(--border, #3a3f47);
-  font-size: 13px;
+  gap: 26px;
+  min-height: 52px;
+  padding: 0 18px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg);
+}
+.ws-brand {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin-right: 6px;
+}
+.ws-eyebrow {
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--amber);
 }
 .ws-title {
+  font-size: 14px;
   font-weight: 600;
 }
-.ws-layouts {
+.ws-ctl {
   display: flex;
-  gap: 4px;
-}
-.ws-lay {
-  display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  font: inherit;
-  font-size: 12px;
-  color: inherit;
-  background: transparent;
-  border: 1px solid var(--border, #3a3f47);
-  border-radius: 5px;
-  cursor: pointer;
-  opacity: 0.75;
+  gap: 10px;
 }
-.ws-lay:hover {
-  opacity: 1;
+.ws-ctl-label {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
 }
-.ws-lay[aria-pressed='true'] {
-  opacity: 1;
-  background: var(--accent, #e9c46a);
-  color: #111;
-  border-color: transparent;
+.ws-dd .lkd {
+  min-width: 200px;
 }
-.ws-lay-glyph {
+.ws-dd-scale .lkd {
+  min-width: 190px;
+}
+.ws-dd .lkd-pop {
+  min-width: 220px;
+}
+.ws-dd-glyph {
+  width: 18px;
+  text-align: center;
   font-size: 15px;
-  line-height: 1;
+  opacity: 0.85;
 }
-.ws-scale select {
-  margin-left: 6px;
-}
-.ws-note {
-  opacity: 0.6;
+.ws-hint {
+  margin-left: auto;
   font-size: 12px;
+  color: var(--ink-faint);
+  cursor: help;
+  white-space: nowrap;
 }
 .ws-grid {
   flex: 1;
