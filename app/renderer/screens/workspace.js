@@ -11,7 +11,11 @@
 // its opener; that is the road to a second tab on another monitor.
 //
 // Layouts are presets (left/right, top/bottom, one wide + two, 2 x 2).
-// Which app is in which pane, and the layout, are remembered.
+// A pane is narrower than the app's compact-layout breakpoints (up to
+// 900 px), so each frame gets a desktop-sized viewport (the "scale" width)
+// and is scaled down to fit its pane: a pane is the desktop app, smaller,
+// not the phone layout. Which app is in which pane, the layout and the
+// scale width are remembered.
 /* exported showWorkspace */
 
 const WS_STORE = 'bmweb.workspace';
@@ -66,9 +70,18 @@ const WS_APPS = [
   ['inpa', 'INPA scripts'],
 ];
 
+/** The frame's viewport width in CSS px (0 = the pane's own, unscaled). */
+const WS_SCALES = [
+  [1000, 'Compact (1000 px)'],
+  [1200, 'Desktop (1200 px)'],
+  [1440, 'Wide (1440 px)'],
+  [0, 'None (pane size)'],
+];
+
 const WS_DEFAULT = {
   layout: 'four',
   routes: ['apps/tuning', 'apps/logging', '', 'apps/tool32'],
+  scale: 1200,
 };
 
 /** @returns {{layout: string, routes: string[]}} The saved workspace, or the default. */
@@ -76,11 +89,21 @@ function wsLoad() {
   try {
     const s = JSON.parse(localStorage.getItem(WS_STORE) || 'null');
     if (s && WS_LAYOUTS[s.layout] && Array.isArray(s.routes))
-      return { layout: s.layout, routes: s.routes.map((r) => String(r || '')) };
+      return {
+        layout: s.layout,
+        routes: s.routes.map((r) => String(r || '')),
+        scale: WS_SCALES.some(([w]) => w === s.scale)
+          ? s.scale
+          : WS_DEFAULT.scale,
+      };
   } catch {
     /* no storage, or an older shape: the default stands */
   }
-  return { layout: WS_DEFAULT.layout, routes: [...WS_DEFAULT.routes] };
+  return {
+    layout: WS_DEFAULT.layout,
+    routes: [...WS_DEFAULT.routes],
+    scale: WS_DEFAULT.scale,
+  };
 }
 
 /** @param {{layout: string, routes: string[]}} state */
@@ -112,6 +135,10 @@ function showWorkspace() {
   document.body.classList.add('apps-section');
   sbLeft.textContent = 'workspace';
   const state = wsLoad();
+  const scaleOptions = WS_SCALES.map(
+    ([w, name]) =>
+      `<option value="${w}"${w === state.scale ? ' selected' : ''}>${esc(name)}</option>`
+  ).join('');
   const layoutOptions = Object.entries(WS_LAYOUTS)
     .map(
       ([k, l]) =>
@@ -124,6 +151,8 @@ function showWorkspace() {
         <span class="ws-title">Workspace</span>
         <label class="ws-layout">Layout
           <select id="ws-layout">${layoutOptions}</select></label>
+        <label class="ws-layout">Scale
+          <select id="ws-scale" title="The width each pane's app is laid out at, then scaled to fit">${scaleOptions}</select></label>
         <span class="ws-note">One cable, shared: each pane's jobs take their
           turn on it. A flash from a pane holds the cable for all of them until
           it has finished.</span>
@@ -133,6 +162,33 @@ function showWorkspace() {
   const grid = document.getElementById('ws-grid');
   /** @type {HTMLIFrameElement[]} */
   const frames = [];
+  /** @type {HTMLElement[]} */
+  const boxes = [];
+
+  /** Lay the frame out at the scale width and shrink it to its box. */
+  function fit(i) {
+    const f = frames[i];
+    const box = boxes[i];
+    if (!f || !box) return;
+    const W = state.scale;
+    const bw = box.clientWidth;
+    const bh = box.clientHeight;
+    if (!W || !bw || !bh || bw >= W) {
+      f.style.width = '100%';
+      f.style.height = '100%';
+      f.style.transform = '';
+      return;
+    }
+    const k = bw / W;
+    f.style.width = `${W}px`;
+    f.style.height = `${Math.round(bh / k)}px`;
+    f.style.transform = `scale(${k})`;
+  }
+  const fitAll = () => {
+    for (let i = 0; i < frames.length; i++) fit(i);
+  };
+  const ro =
+    typeof ResizeObserver !== 'undefined' ? new ResizeObserver(fitAll) : null;
 
   const paneHtml = (i) => {
     const picks = WS_APPS.map(
@@ -149,7 +205,8 @@ function showWorkspace() {
       <div class="ws-popped-note">
         <span>Open in its own window.</span>
         <button type="button" class="btn ws-back">Bring it back here</button>
-      </div>`;
+      </div>
+      <div class="ws-frame-box"></div>`;
   };
 
   function wire(pane, i) {
@@ -198,7 +255,10 @@ function showWorkspace() {
         f.setAttribute('allow', 'serial');
         f.src = wsPaneUrl(i, state.routes[i] || '');
         frames[i] = f;
-        pane.appendChild(f);
+        const box = pane.querySelector('.ws-frame-box');
+        boxes[i] = box;
+        box.appendChild(f);
+        if (ro) ro.observe(box);
         grid.appendChild(pane);
         wire(pane, i);
       }
@@ -209,11 +269,18 @@ function showWorkspace() {
       pane.style.gridArea = i < L.n ? L.areas[i] : '';
     }
     wsSave(state);
+    // the boxes have their new sizes once the grid has laid out
+    requestAnimationFrame(fitAll);
   }
 
   document.getElementById('ws-layout').onchange = (e) => {
     state.layout = e.target.value;
     apply();
+  };
+  document.getElementById('ws-scale').onchange = (e) => {
+    state.scale = Number(e.target.value) || 0;
+    wsSave(state);
+    fitAll();
   };
   apply();
 }
