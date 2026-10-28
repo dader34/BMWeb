@@ -143,7 +143,12 @@ function wsLoad() {
     if (s && WS_LAYOUTS[s.layout] && Array.isArray(s.routes))
       return {
         layout: s.layout,
-        routes: s.routes.map((r) => String(r || '')),
+        // a saved pick the picker no longer offers falls back to the
+        // pane's default, instead of coming back under its raw route
+        routes: WS_DEFAULT.routes.map((d, i) => {
+          const r = String(s.routes[i] || '');
+          return WS_APPS.some((a) => a.route === r) ? r : d;
+        }),
         scale: WS_SCALES.some(([w]) => w === s.scale)
           ? s.scale
           : WS_DEFAULT.scale,
