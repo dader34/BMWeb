@@ -103,15 +103,31 @@ function showTool32() {
   setCrumbs([
     { label: 'Vehicles', fn: showChassis },
     { label: 'Apps', fn: showApps },
-    { label: 'Tool32' },
+    { label: 'Web32' },
   ]);
   document.body.classList.add('apps-section');
   sbLeft.textContent = 'tool32';
-  view.innerHTML = head(
-    'EDIABAS',
-    'Tool32',
-    'Run any SGBD job directly against the ECU and read its raw results.'
-  );
+  // The INPA-style layout is EDIABAS ToolSet 32's own window: its title bar
+  // and banner, the panes inside drawn the way Windows drew them
+  // (styles.css, .t32-win). The modern one is the same panes as a card
+  // under the page heading.
+  const classic = inpaMode();
+  let win = null;
+  if (classic) {
+    view.innerHTML = '';
+    win = document.createElement('div');
+    win.className = 't32-win';
+    win.innerHTML = `
+    <div class="t32-titlebar">Web32</div>
+    <div class="t32-banner"><span class="t32-banner-name">BMWeb Tool 32</span></div>`;
+    winMaximizable(win);
+  } else {
+    view.innerHTML = head(
+      'SGBD',
+      'Web32',
+      'Run any SGBD job directly and read its raw result registers.'
+    );
+  }
   setActions([
     {
       key: 'Escape',
@@ -141,7 +157,7 @@ function showTool32() {
   sgbdFilter.placeholder = 'Filter SGBD…';
   sgbdFilter.spellcheck = false;
   const sgbdBox = tool32ListBox();
-  sgbdCol.append(labelSpan('SGBD'), sgbdFilter, sgbdBox);
+  sgbdCol.append(labelSpan('SGBDs'), sgbdFilter, sgbdBox);
 
   // -- job pane (filterable) ----------------------------------------------
   const jobCol = document.createElement('div');
@@ -153,7 +169,7 @@ function showTool32() {
   jobFilter.spellcheck = false;
   jobFilter.disabled = true;
   const jobBox = tool32ListBox();
-  jobCol.append(labelSpan('Job'), jobFilter, jobBox);
+  jobCol.append(labelSpan('Jobs'), jobFilter, jobBox);
 
   // -- run pane -----------------------------------------------------------
   const runCol = document.createElement('div');
@@ -163,7 +179,7 @@ function showTool32() {
   runHead.textContent = 'Select an SGBD and a job.';
   // a column label so the run pane's top row lines up with the two filter
   // inputs on the left, instead of floating above them.
-  const runLabel = labelSpan('Run');
+  const runLabel = labelSpan('Arguments');
   // Always shown (disabled until a job is picked) so its box lines up with the
   // two filter inputs on the left as the run column's first control row.
   const argRow = document.createElement('div');
@@ -212,7 +228,7 @@ function showTool32() {
   // inputs on the left), then the job-name/status line, the repeat controls,
   // and the results. The trace is a full-width section BELOW the three columns
   // (Tool32's Trace window), built separately.
-  runCol.append(runLabel, argRow, runHead, repRow, out);
+  runCol.append(runLabel, argRow, runHead, repRow, labelSpan('Results'), out);
 
   cols.append(sgbdCol, jobCol, runCol);
   card.append(cols);
@@ -225,7 +241,12 @@ function showTool32() {
   // that grows across runs, Clear, and Export to a .trc-style text file.
   const trace = buildTraceSection();
   card.append(trace.el);
-  view.appendChild(card);
+  if (win) {
+    win.appendChild(card);
+    view.appendChild(win);
+  } else {
+    view.appendChild(card);
+  }
 
   const state = { sgbds: [], jobs: [], sgbd: null, job: null };
   // A remembered job + argument waiting for its SGBD's job list to load
@@ -408,7 +429,7 @@ function showTool32() {
               title: `${name} changes the ECU`,
               body:
                 'This job commands or changes the ECU rather than reading ' +
-                'it, and Tool32 sends exactly what you type &mdash; no ' +
+                'it, and Web32 sends exactly what you type &mdash; no ' +
                 'release-on-leave, no re-read. Make sure the module and ' +
                 'anything it drives are safe to move.',
               confirmLabel: 'Run',
@@ -762,7 +783,7 @@ function exportTrc(rows) {
     return `${ms}  INFO ${r.note || ''}`; // kline wake, config, etc.
   });
   const header =
-    `EDIABAS-style trace (BMWeb Tool32)\n` +
+    `EDIABAS-style trace (BMWeb Web32)\n` +
     `exported ${new Date().toISOString()}\n` +
     `${rows.length} entries\n${'-'.repeat(60)}\n`;
   const blob = new Blob([header + lines.join('\n') + '\n'], {

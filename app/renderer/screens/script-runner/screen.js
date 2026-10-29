@@ -9,8 +9,83 @@
  * the app will put on the wire.
  */
 
-/** The script this screen currently holds, or null. Session only, never stored. */
+/** The script this screen currently holds, or null. */
 let _scriptRunnerLoaded = null;
+
+/**
+ * Where the files the user gave are kept for this tab: sessionStorage, so a
+ * reload (or the layout switch's redraw) brings the script back -- running,
+ * if it was -- and closing the tab forgets it. Never sent anywhere.
+ */
+const SR_KEEP = 'bmweb.scriptRunner';
+
+/**
+ * Keep the given files for this tab (base64, with their names).
+ * @param {File[]} files
+ * @returns {Promise<void>}
+ */
+async function scriptRunnerKeep(files) {
+  try {
+    const list = [];
+    for (const f of Array.from(files || [])) {
+      const b = new Uint8Array(await f.arrayBuffer());
+      let bin = '';
+      for (let i = 0; i < b.length; i += 0x8000)
+        bin += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000));
+      list.push({ name: f.name, b64: btoa(bin) });
+    }
+    sessionStorage.setItem(
+      SR_KEEP,
+      JSON.stringify({ files: list, running: false })
+    );
+  } catch (e) {
+    // storage blocked or full: the script just will not survive a reload
+  }
+}
+
+/** @returns {{files: {name: string, b64: string}[], running: boolean}|null} */
+function scriptRunnerKept() {
+  try {
+    return JSON.parse(sessionStorage.getItem(SR_KEEP) || 'null');
+  } catch (e) {
+    return null;
+  }
+}
+
+/**
+ * Note whether the kept script is running, so a reload starts it again.
+ * @param {boolean} on
+ * @returns {void}
+ */
+function scriptRunnerKeepRunning(on) {
+  const k = scriptRunnerKept();
+  if (!k) return;
+  k.running = on;
+  try {
+    sessionStorage.setItem(SR_KEEP, JSON.stringify(k));
+  } catch (e) {
+    // as above
+  }
+}
+
+/**
+ * After a reload: load the kept files again and, when the script was
+ * running, start it again (as a shipped module's deep link does).
+ * @returns {Promise<void>}
+ */
+async function scriptRunnerRestore() {
+  const k = scriptRunnerKept();
+  if (!k || !Array.isArray(k.files) || !k.files.length) return;
+  const files = k.files.map(
+    (f) =>
+      new File([Uint8Array.from(atob(f.b64), (c) => c.charCodeAt(0))], f.name)
+  );
+  await scriptRunnerLoad(files, false);
+  const loaded = _scriptRunnerLoaded;
+  if (!k.running || !loaded || lastScreen !== showScriptRunner) return;
+  await scriptRunnerTarget(loaded);
+  if (lastScreen === showScriptRunner) scriptRunnerRun(loaded);
+}
 
 /**
  * Open the Script runner.
@@ -25,29 +100,63 @@ function showScriptRunner() {
   ]);
   document.body.classList.add('apps-section');
   sbLeft.textContent = 'script runner';
-  view.innerHTML =
-    head(
-      'INPA',
-      'Script runner',
-      'Run an INPA script against the car: a compiled .IPO, or a .IPS / .SRC source compiled here.'
-    ) +
-    `<div class="etk-idcard sr-card">
-      <div class="sr-drop empty" id="sr-drop" tabindex="0" role="button"
-           aria-label="Choose an INPA script">
-        <div class="empty-big">Drop an INPA script</div>
-        <div>A compiled <code>.IPO</code>, or a <code>.IPS</code> / <code>.SRC</code> source with the
-             <code>.h</code> and <code>.SRC</code> files it includes. Nothing is uploaded or kept.</div>
-        <button class="btn primary" id="sr-pick" type="button">Choose files</button>
-        <div class="sr-loaded-line" id="sr-loaded" hidden></div>
+  const input = `<input type="file" id="sr-input" multiple hidden
+             accept=".ipo,.IPO,.ips,.IPS,.src,.SRC,.h,.H" />`;
+  // Two looks over one flow (the ids are the contract): the INPA-style layout
+  // draws a Windows tool -- a file field, group boxes, a status bar -- and the
+  // modern one a drop card over a summary and the Run card.
+  view.innerHTML = inpaMode()
+    ? `<div class="t32-win sr-win" id="sr-win">
+      <div class="t32-titlebar">Script runner</div>
+      <div class="sr-win-body">
+        <fieldset class="sr-win-group" id="sr-drop" tabindex="0"
+                  role="button" aria-label="Choose an INPA script">
+          <legend>Script file</legend>
+          <div class="sr-win-file">
+            <span class="sr-win-field" id="sr-loaded">(no script loaded)</span>
+            <button class="sr-win-btn" id="sr-pick" type="button">Open...</button>
+          </div>
+          <div class="sr-win-hint">A compiled .IPO, or a .IPS / .SRC source with the .h and .SRC
+            files it includes. Drop them anywhere on this window; nothing is uploaded, and only this tab keeps them.</div>
+        </fieldset>
+        ${input}
+        <div class="sr-win-results">
+          <div id="sr-report"></div>
+          <div id="sr-run"></div>
+        </div>
       </div>
-      <input type="file" id="sr-input" multiple hidden
-             accept=".ipo,.IPO,.ips,.IPS,.src,.SRC,.h,.H" />
-      <div class="results-panel" id="sr-report"></div>
-      <div id="sr-run"></div>
+      <div class="sr-win-status"><span id="sr-status">Ready</span></div>
+    </div>`
+    : head(
+        'INPA',
+        'Script runner',
+        'Run an INPA script against the car: a compiled .IPO, or a .IPS / .SRC source compiled here.'
+      ) +
+      `<div class="sr-modern">
+      <div class="sr-mdrop" id="sr-drop" tabindex="0" role="button"
+           aria-label="Choose an INPA script">
+        <div class="sr-mdrop-icon" aria-hidden="true">⇪</div>
+        <div class="sr-mdrop-text">
+          <div class="sr-mdrop-title">Drop an INPA script here</div>
+          <div class="sr-mdrop-sub">
+            <span class="sr-chip">.IPO</span> compiled, or
+            <span class="sr-chip">.IPS</span><span class="sr-chip">.SRC</span> source with its
+            <span class="sr-chip">.h</span> includes. Nothing is uploaded; only this tab keeps them.
+          </div>
+          <div class="sr-loaded-line" id="sr-loaded" hidden></div>
+        </div>
+        <button class="btn primary" id="sr-pick" type="button">Choose files</button>
+      </div>
+      ${input}
+      <div class="sr-mgrid">
+        <div id="sr-report"></div>
+        <div id="sr-run"></div>
+      </div>
     </div>`;
   scriptRunnerWire();
   scriptRunnerActions();
   if (_scriptRunnerLoaded) scriptRunnerRender(_scriptRunnerLoaded);
+  else scriptRunnerRestore();
 }
 
 /**
@@ -79,16 +188,19 @@ function scriptRunnerActions(extra) {
  * @returns {void}
  */
 function scriptRunnerWire() {
-  const drop = document.getElementById('sr-drop');
   const input = document.getElementById('sr-input');
-  if (!drop || !input) return;
+  // the file area opens the picker; a drop lands anywhere on the classic
+  // window, as on a Windows tool, or on the modern drop card
+  const area = document.getElementById('sr-drop');
+  const drop = document.getElementById('sr-win') || area;
+  if (!area || !drop || !input) return;
   const open = () => input.click();
   document.getElementById('sr-pick').addEventListener('click', (e) => {
     e.stopPropagation();
     open();
   });
-  drop.addEventListener('click', open);
-  drop.addEventListener('keydown', (e) => {
+  area.addEventListener('click', open);
+  area.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
       open();
@@ -118,9 +230,11 @@ function scriptRunnerWire() {
 /**
  * Read, decode or compile the dropped files and show what they are.
  * @param {FileList} files The dropped or picked files.
+ * @param {boolean} [keep=true] Keep them for this tab (false: they came
+ *   from what was kept).
  * @returns {Promise<void>}
  */
-async function scriptRunnerLoad(files) {
+async function scriptRunnerLoad(files, keep = true) {
   const report = document.getElementById('sr-report');
   const runner = document.getElementById('sr-run');
   if (runner) runner.innerHTML = '';
@@ -143,6 +257,7 @@ async function scriptRunnerLoad(files) {
     }
     return;
   }
+  if (keep) await scriptRunnerKeep(files);
   const built = scriptRunnerBuild(read.script, read.includes);
   const loaded = {
     name: read.script.name,
@@ -153,6 +268,16 @@ async function scriptRunnerLoad(files) {
   };
   _scriptRunnerLoaded = loaded;
   scriptRunnerRender(loaded);
+}
+
+/**
+ * The classic window's status line; the modern layout has none.
+ * @param {string} text
+ * @returns {void}
+ */
+function scriptRunnerStatus(text) {
+  const s = document.getElementById('sr-status');
+  if (s) s.textContent = text || 'Ready';
 }
 
 /**
@@ -212,6 +337,9 @@ function scriptRunnerRender(loaded) {
         : '');
     const run = document.getElementById('sr-run');
     if (run) run.innerHTML = '';
+    scriptRunnerStatus(
+      `${loaded.name}: ${b.errors.length} problem${b.errors.length === 1 ? '' : 's'}`
+    );
     scriptRunnerActions();
     return;
   }
@@ -223,11 +351,7 @@ function scriptRunnerRender(loaded) {
     : exec.procs.SgbdInpaCheck
       ? 'SgbdInpaCheck'
       : null;
-  rows.push(kv('Procedures', String(Object.keys(exec.procs).length)));
-  rows.push(kv('Menus', inv.menus.length ? inv.menus.join(', ') : 'none'));
-  rows.push(kv('Screens', String(inv.screens.length)));
-  if (inv.machines.length)
-    rows.push(kv('State machines', String(inv.machines.length)));
+  if (inv.menus.length) rows.push(kv('Menus', inv.menus.join(', ')));
   if (exec.imports && Object.keys(exec.imports).length) {
     rows.push(kv('DLL imports', Object.values(exec.imports).join(', ')));
   }
@@ -241,6 +365,9 @@ function scriptRunnerRender(loaded) {
   }
 
   report.innerHTML = `<div class="result-card"><div class="result-head">Script</div>${rows.join('')}</div>`;
+  scriptRunnerStatus(
+    `${loaded.name}: ${b.kind === 'compiled' ? 'compiled .IPO' : 'source, compiled here'}`
+  );
 
   const run = document.getElementById('sr-run');
   if (!run) return;
@@ -306,6 +433,10 @@ async function scriptRunnerTarget(loaded) {
  * @returns {Promise<void>}
  */
 async function scriptRunnerRun(loaded) {
+  // the running script is the screen: the layout switch and a reload open
+  // it again instead of dropping back to the file page
+  lastScreen = () => scriptRunnerRun(loaded);
+  scriptRunnerKeepRunning(true);
   const target = loaded.target || { sgbd: loaded.stem.toLowerCase() };
   const sgbd = target.sgbd;
   if (
@@ -328,7 +459,10 @@ async function scriptRunnerRun(loaded) {
   view.innerHTML =
     '<div class="etk-idcard sr-card"><div class="results-panel" id="sr-host"></div></div>';
   const host = document.getElementById('sr-host');
-  const back = () => showScriptRunner();
+  const back = () => {
+    scriptRunnerKeepRunning(false);
+    showScriptRunner();
+  };
   sbLeft.textContent = `${sgbd}.prg · starting`;
   let opened;
   try {

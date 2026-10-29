@@ -100,7 +100,7 @@ function istaBackAction() {
     {
       key: 'Escape',
       keyLabel: 'Esc',
-      label: 'ISTA',
+      label: 'Workshop',
       kind: 'back',
       fn: () => showIsta(ISTA_HOME_TAB, null, null),
     },

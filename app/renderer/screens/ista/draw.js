@@ -769,7 +769,7 @@ async function showIsta(tab, sub, sub3, carId) {
   try {
     setCrumbs([
       { label: 'Vehicles', fn: showChassis },
-      { label: 'ISTA', fn: () => showIsta(ISTA_HOME_TAB, null, null) },
+      { label: 'Workshop', fn: () => showIsta(ISTA_HOME_TAB, null, null) },
       { label: (istaTab(istaState.tab) || {}).label || istaState.tab },
     ]);
   } finally {
@@ -964,11 +964,6 @@ async function istaHome(host, onlyTab) {
     }
     grid.appendChild(card);
   }
-}
-
-if (typeof document !== 'undefined' && document.getElementById) {
-  const btn = document.getElementById('ista-btn');
-  if (btn) btn.onclick = () => showIsta();
 }
 
 if (typeof window !== 'undefined') {

@@ -512,8 +512,8 @@ function showWiring(chassisId, openDoc = null, vin = null, category = null) {
   // you are
   view.innerHTML = '';
 
-  // the WDS look follows the INPA skin, not the layout mode
-  const classic = typeof inpaTheme === 'function' && inpaTheme();
+  // WDS's own chrome in the classic layout or under the INPA skin
+  const classic = wiringClassic();
   // no F-key bar either mode: both layouts carry Back/print/help on their own
   // chrome, and the bar would cost the diagram 52px. setCrumbs restores it.
   document.body.classList.add('wds-nofkeys');

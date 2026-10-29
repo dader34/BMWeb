@@ -144,20 +144,40 @@ async function showLookup() {
   setCrumbs([
     { label: 'Vehicles', fn: showChassis },
     { label: 'Apps', fn: showApps },
-    { label: 'Diagnostics' },
+    { label: 'Fault codes' },
   ]);
   // the reader may leave while this screen loads (screenOwner)
   const _mine = screenOwner();
   sbLeft.textContent = 'diagnostics';
+  // no F-key bar here, either layout (as on wiring); Esc still goes back.
+  // setCrumbs restores it on the next screen.
+  document.body.classList.add('wds-nofkeys');
 
-  view.innerHTML = head('Reference', 'Diagnostic Plans and Trouble Codes');
+  // The INPA-style layout draws a Windows tool in Web32's grey: search and
+  // filters, the results as a list view, the count on the status line (the
+  // same window as Job search). The modern one is a page under its heading.
+  let host = view;
+  let statusHost = null;
+  if (typeof inpaMode === 'function' && inpaMode()) {
+    view.innerHTML = `<div class="t32-win js-win lk-win">
+      <div class="t32-titlebar">Fault codes</div>
+      <div class="js-win-body"></div>
+      <div class="js-win-status"></div>
+    </div>`;
+    host = view.querySelector('.js-win-body');
+    statusHost = view.querySelector('.js-win-status');
+    if (typeof winMaximizable === 'function')
+      winMaximizable(view.querySelector('.lk-win'));
+  } else {
+    view.innerHTML = head('Reference', 'Fault codes');
+  }
 
   // loading state while the index literal is injected + parsed
   const loading = document.createElement('div');
   loading.className = 'empty';
   loading.innerHTML =
     '<span class="loader"></span><span>Loading fault database…</span>';
-  view.appendChild(loading);
+  host.appendChild(loading);
 
   // the renderer, once the controls exist; the metadata warm-up below may
   // land before then
@@ -187,19 +207,19 @@ async function showLookup() {
 
   const controls = lookupControls();
   if (!_mine()) return;
-  view.appendChild(controls.el);
+  host.appendChild(controls.el);
   const { input, clearBtn } = controls;
 
-  // count line + results container
+  // count line + results container (the count rides the classic status line)
   const countLine = document.createElement('div');
   countLine.className = 'lookup-count';
   if (!_mine()) return;
-  view.appendChild(countLine);
+  (statusHost || host).appendChild(countLine);
 
   const results = document.createElement('div');
   results.className = 'lookup-results';
   if (!_mine()) return;
-  view.appendChild(results);
+  host.appendChild(results);
 
   const chassisDd = lookupDropdown(
     'All chassis',

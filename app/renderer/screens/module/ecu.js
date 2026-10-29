@@ -201,49 +201,35 @@ async function showEcuDeep(chassisId, sgbd, menuName, screenName) {
   if (rec) {
     const par = String(rec.identifiedVariantOf || '').toLowerCase();
     const grp = String(rec.group || '').toLowerCase();
-    /** @type {{sec: object, ecu: object}|null} */
-    let byGroup = null;
-    for (const sec of ch.sections || []) {
+    /** @type {Array<{sec: object, ecu: object}>} the rows on its address */
+    const onAddr = [];
+    /** @type {{sec: object, ecu: object}|null} the row it was found under */
+    let named = null;
+    for (const sec of ch.sections || [])
       for (const e of sec.ecus || []) {
         if (
           par &&
           (String(e.sgbd).toLowerCase() === par ||
             String(e.code || '').toLowerCase() === par)
         )
-          return showEcu(
-            chassisId,
-            sec.name,
-            { ...e, _variant: want.toUpperCase() },
-            menuName,
-            screenName
-          );
-        // Among the rows sharing that address, prefer the one whose SGBD
-        // looks like the same family as the variant: me9k_ng4 belongs with
-        // ME9_4N, not with the DDE40 diesel that merely answers on the same
-        // address. The stem is the leading letters of the SGBD, which is
-        // what BMW names a family by (me9, ms45, dde, mss).
-        if (grp && String(e.group || '').toLowerCase() === grp) {
-          const stem = (x) => (String(x || '').match(/^[a-z]+/) || [''])[0];
-          const same = stem(e.sgbd) && stem(e.sgbd) === stem(want);
-          if (same) byGroup = { sec, ecu: e, exact: true };
-          else if (!byGroup) byGroup = { sec, ecu: e, exact: false };
-        }
+          named = { sec, ecu: e };
+        if (grp && String(e.group || '').toLowerCase() === grp)
+          onAddr.push({ sec, ecu: e });
       }
-    }
-    if (byGroup && !byGroup.exact) {
-      // one more pass: a family match anywhere on the address beats the
-      // first row that merely shares it
-      for (const sec of ch.sections || [])
-        for (const e of sec.ecus || []) {
-          const stem = (x) => (String(x || '').match(/^[a-z]+/) || [''])[0];
-          if (
-            String(e.group || '').toLowerCase() === grp &&
-            stem(e.sgbd) &&
-            stem(e.sgbd) === stem(want)
-          )
-            byGroup = { sec, ecu: e, exact: true };
-        }
-    }
+    // 1. the row whose INPA script DECLARES the variant: scripts list the
+    //    SGBDs they drive in their header (ME9_4N.IPO: "ME9K_5,ME9K_6,
+    //    ME9K42,ME9K_NG4"), so me9k_ng4 opens on the ME9 row, not on the
+    //    DDE40 diesel that merely answers on the same address. No name is
+    //    compared but the one BMW wrote.
+    let byGroup = null;
+    for (const r of onAddr)
+      if (irDeclaresSgbd(await irLiveExec(r.ecu.sgbd), want)) {
+        byGroup = r;
+        break;
+      }
+    // 2. else the row it was discovered under, when that is a configured row;
+    // 3. else the first row on its address
+    if (!byGroup) byGroup = named || onAddr[0] || null;
     if (byGroup)
       return showEcu(
         chassisId,
@@ -300,7 +286,7 @@ async function showEcu(
   view.innerHTML = head(
     `${sectionName} · ${ecu.code}`,
     ecu.label,
-    `SGBD ${ecu.sgbd}.prg · running INPA's script`
+    `SGBD ${ecu.sgbd}.prg`
   );
 
   const grid = document.createElement('div');
@@ -324,7 +310,7 @@ async function showEcu(
     if (sub) {
       sub.textContent =
         `SGBD ${ecu.sgbd}.prg · identified by the car ` +
-        `(configured ${ecu._sgbdBase}) · running INPA's script`;
+        `(configured ${ecu._sgbdBase})`;
     }
   }
   // THE SGBD IS WHAT WE TALK TO; THE SCRIPT IS WHAT DRAWS. INPA loads ONE

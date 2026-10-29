@@ -127,7 +127,7 @@ function appsTourSteps() {
     {
       screen: 'apps',
       sel: '.app-entry[data-app="tool32"]:not(.app-absent)',
-      title: 'Tool32',
+      title: 'Web32',
       body:
         'The power tool: run any SGBD job on a module directly and read its ' +
         'raw result registers -- the same low-level access the factory ' +

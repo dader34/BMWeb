@@ -115,25 +115,46 @@ async function showJobSearch(query) {
   // the reader may leave while this screen loads (screenOwner)
   const _mine = screenOwner();
   sbLeft.textContent = 'job search';
+  // no F-key bar here, either layout (as on Diagnostics); Esc still goes
+  // back. setCrumbs restores it on the next screen.
+  document.body.classList.add('wds-nofkeys');
 
-  view.innerHTML = head(
-    'Reference',
-    'Job search',
-    "Search every screen and key in INPA's scripts by what it does, then " +
-      'open the module right there. Works offline, no cable needed.'
-  );
+  // The INPA-style layout draws a Windows tool in Web32's grey: the search
+  // field and filter, the results as a list view, the count on the status
+  // line. The modern one is a page under its heading. Same parts either way.
+  const classic = inpaMode();
+  let host = view;
+  let statusHost = null;
+  if (classic) {
+    view.innerHTML = `<div class="t32-win js-win">
+      <div class="t32-titlebar">Job search</div>
+      <div class="js-win-body"></div>
+      <div class="js-win-status"></div>
+    </div>`;
+    host = view.querySelector('.js-win-body');
+    statusHost = view.querySelector('.js-win-status');
+    if (typeof winMaximizable === 'function')
+      winMaximizable(view.querySelector('.js-win'));
+  } else {
+    view.innerHTML = head(
+      'Reference',
+      'Job search',
+      "Search every screen and key in INPA's scripts by what it does, then " +
+        'open the module right there. Works offline, no cable needed.'
+    );
+  }
 
   const controls = jobSearchControls();
-  view.appendChild(controls.el);
+  host.appendChild(controls.el);
   const { input, clearBtn, chassisSlot } = controls;
 
   const countLine = document.createElement('div');
   countLine.className = 'lookup-count';
-  view.appendChild(countLine);
+  (statusHost || host).appendChild(countLine);
 
   const results = document.createElement('div');
   results.className = 'job-search-results';
-  view.appendChild(results);
+  host.appendChild(results);
 
   // The index is ~2 MB and the screen is useful the moment it lands, so it is
   // fetched here rather than on the first keystroke: by the time a query is
@@ -275,11 +296,6 @@ function jobSearchEmptyHtml() {
       <div>Every menu key and screen in every module this build ships,
         by its label in English or German, the screen it opens, the jobs it
         sends, or the result keys it reads.</div>
-      <div class="job-search-hints">
-        <code>fault memory</code><code>Fehlerspeicher</code>
-        <code>lambda</code><code>steering angle</code>
-        <code>FS_LESEN</code><code>odometer</code>
-      </div>
     </div>`;
 }
 

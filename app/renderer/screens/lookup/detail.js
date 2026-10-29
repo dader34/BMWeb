@@ -208,6 +208,6 @@ function printFaultDetail(hex, title, pcodes, info, doc) {
     title: `${hex} · ${title}`,
     subtitle: pcodes && pcodes.length ? `P-codes: ${pcodes.join(', ')}` : '',
     sections,
-    footer: `${APP_NAME} · Diagnostic Plans and Trouble Codes · printed ${new Date().toLocaleDateString()}`,
+    footer: `${APP_NAME} · Fault codes · printed ${new Date().toLocaleDateString()}`,
   });
 }

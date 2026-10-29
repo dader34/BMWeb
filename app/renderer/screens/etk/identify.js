@@ -65,24 +65,36 @@ function etkVinSummary(hit) {
 function showVinDecoder(opts) {
   opts = opts || {};
   const onResolve = opts.onResolve || openDecoded; // default: open the parts catalogue
-  const backFn = opts.back || showEtk;
+  // the decoder is the catalogue's landing now: out to Home by default
+  const backFn = opts.back || showApps;
   lastScreen = () => showVinDecoder(opts);
   setCrumbs(
     opts.crumbs || [
       { label: 'Vehicles', fn: showChassis },
       { label: 'Apps', fn: showApps },
-      { label: 'Parts', fn: showEtk },
-      { label: 'VIN Decoder' },
+      { label: 'Parts Catalogue' },
     ]
   );
   document.body.classList.add('apps-section');
   sbLeft.textContent = 'vin decoder';
-  view.innerHTML = head(
-    opts.eyebrow || 'ETK',
-    opts.title || 'Vehicle Identification',
-    opts.subtitle ||
-      'Enter your VIN, or identify your vehicle by series, body and model.'
-  );
+  // The INPA-style layout draws ETK's own kind of window: Web32's grey, the
+  // VIN and attribute boxes as group boxes, the lists as list views
+  // (styles.css, .etk-win). The modern one is a page under its heading.
+  let host = view;
+  if (typeof inpaMode === 'function' && inpaMode()) {
+    view.innerHTML = `<div class="t32-win etk-win">
+      <div class="t32-titlebar">${esc(opts.eyebrow || 'ETK')} - ${esc(opts.title || 'Vehicle identification')}</div>
+      <div class="etk-win-body"></div>
+    </div>`;
+    host = view.querySelector('.etk-win-body');
+  } else {
+    view.innerHTML = head(
+      opts.eyebrow || 'ETK',
+      opts.title || 'Vehicle Identification',
+      opts.subtitle ||
+        'Enter your VIN, or identify your vehicle by series, body and model.'
+    );
+  }
   setActions([etkBackAction(backFn)]);
 
   // Two columns: the VIN box + attributes selector on the left, a full-height
@@ -97,7 +109,7 @@ function showVinDecoder(opts) {
   // the VIN box and the attributes selector.
   const saved = etkSavedVehiclesPanel(onResolve);
   layout.appendChild(saved.el);
-  view.appendChild(layout);
+  host.appendChild(layout);
 
   const vinBox = etkVinBox(opts, onResolve);
   leftCol.appendChild(vinBox.el);

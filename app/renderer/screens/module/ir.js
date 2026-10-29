@@ -50,6 +50,31 @@ function irLiveExec(sgbd) {
   return _irExecCache.get(key);
 }
 
+/** A script's SGBD declaration: names, comma-separated ("ME9K_5,ME9K_NG4"). */
+const IR_SGBD_LIST_RE = /^[A-Z0-9_]+(?:\s*,\s*[A-Z0-9_]+)*$/;
+
+/**
+ * Does an INPA script declare an SGBD as one it handles? Scripts carry the
+ * list in their header (ME9_4N.IPO: "ME9K_5,ME9K_6,ME9K42,ME9K_NG4") -- BMW's
+ * own statement of which variants that script drives. Exact names only.
+ * @param {object|null} exec - the script ({procs}).
+ * @param {string} sgbd - the SGBD name.
+ * @returns {boolean}
+ */
+function irDeclaresSgbd(exec, sgbd) {
+  const want = String(sgbd || '').toUpperCase();
+  if (!exec || !exec.procs || !want) return false;
+  for (const ops of Object.values(exec.procs))
+    for (const o of ops || []) {
+      if (!o || o.op !== 'const' || typeof o.v !== 'string') continue;
+      const v = o.v.trim().toUpperCase();
+      if (!v.includes(',') && v !== want) continue;
+      if (!IR_SGBD_LIST_RE.test(v)) continue;
+      if (v.split(',').some((x) => x.trim() === want)) return true;
+    }
+  return false;
+}
+
 /**
  * Put an exec into the cache under a name, so the runtime finds it there
  * instead of fetching one.
@@ -316,6 +341,7 @@ if (typeof module !== 'undefined' && module.exports) {
     irExecSgbd,
     irLiveExec,
     irSeedExec,
+    irDeclaresSgbd,
     irAskInput,
     irItemBodyJobs,
     irUseTranslations,

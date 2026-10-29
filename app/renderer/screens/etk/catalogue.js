@@ -5,7 +5,7 @@
  * that opens a main group or diagram straight from a #apps/parts URL.
  */
 
-/* exported ETK_STATE, etkBackAction, showEtk, showEtkChassis, showEtkDeep */
+/* exported ETK_STATE, etkBackAction, showEtk, showEtkGrid, showEtkChassis, showEtkDeep */
 
 /**
  * The variant filter, remembered across the whole chassis (module-level):
@@ -121,11 +121,30 @@ function etkChassisCard(id) {
 }
 
 /**
- * The parts catalogue landing: pick a vehicle to browse its catalogue.
+ * The parts catalogue's landing: the VIN decoder (by VIN, or by series, body
+ * and model), in either layout. Everything that opens the catalogue -- the
+ * home tile, #apps/parts, the catalogue's own Back keys -- comes here.
+ * @returns {void}
+ */
+function showEtk() {
+  return showVinDecoder({
+    back: showApps,
+    crumbs: [
+      { label: 'Vehicles', fn: showChassis },
+      { label: 'Apps', fn: showApps },
+      { label: 'Parts Catalogue' },
+    ],
+  });
+}
+
+/**
+ * The vehicle grid the catalogue used to open on: every chassis with parts
+ * data as a card. Not linked any more (showEtk opens the VIN decoder), kept
+ * for a picker by chassis.
  * @returns {Promise<void>}
  */
-async function showEtk() {
-  lastScreen = showEtk;
+async function showEtkGrid() {
+  lastScreen = showEtkGrid;
   setCrumbs([
     { label: 'Vehicles', fn: showChassis },
     { label: 'Apps', fn: showApps },
