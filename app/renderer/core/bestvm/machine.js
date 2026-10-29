@@ -151,6 +151,10 @@ class VmError extends Error {}
  * @property {?import('./codec.js').CommParams} [comm] - Wire parameters
  *   carried over from the session's INITIALISIERUNG.
  * @property {?Date} [now] - A fixed clock for `date`/`time`/`ticks`.
+ * @property {string} [interfaceType] - What `xtype` reports: 'OBD' (the
+ *   K+DCAN cable; the default) or 'EDIC' (BMW's programming interface,
+ *   which a flash SGBD's SET_EDIC_BAUDRATE needs before it will move the
+ *   wire to the module's fast rate).
  */
 
 /**
@@ -195,6 +199,7 @@ class Best2Vm {
     // transmitted with comm=null, i.e. BMW-FAST 115200 8N1, and every
     // K-line module got line noise.
     this.comm = opts.comm || null;
+    this.interfaceType = opts.interfaceType || null;
     /**
      * Significant digits flt2a keeps (setflt / _floatPrecision). Held on
      * the machine, not reset per job, as the engine holds it: a job that

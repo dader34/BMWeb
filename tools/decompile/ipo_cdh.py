@@ -167,6 +167,10 @@ CDH_SLOTS = {
                                  ("out", "int", "retVal")]),
     0x58: ("CDHGetReferenzProgramm", []),
     0x59: ("CDHGetReferenzDaten", []),
+    # Milliseconds. Not in the coding corpus; the WinKFP programming scripts
+    # (PABD 12MDS451) call it as CDHDelay(ResetZeit * 1000 + 500) and
+    # CDHDelay(500) after a reset.
+    0x5a: ("CDHDelay", [("in", "int", "d")]),
     0x5b: ("CDHSetDataOrg", [("in", "int", "wortBreite"), ("in", "int", "byteFolge"),
                              ("in", "int", "adrMode"), ("out", "int", "retVal")]),
     0x5c: ("CDHIdReady", [("out", "bool", "ready")]),

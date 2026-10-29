@@ -305,6 +305,18 @@ async function runExchange(bus, out, comm) {
   assertReachable(comm);
   bus.sessionConcept = conceptOf(comm);
   await bus.ensureConfig(portConfig(comm));
+  // An EMPTY telegram sends nothing: it hands the interface the SGBD's new
+  // CommParameter. 10mds45's SET_PARAMETER does exactly this to follow the
+  // DME to 125000 baud once DIAGNOSE_MODE has told it to switch -- the port
+  // is reconfigured above, and there is no answer to wait for.
+  if (!out || !out.length) {
+    busTrace.add(
+      'kline',
+      null,
+      `parameters applied, nothing sent (baud ${(comm && comm.baud) || '?'})`
+    );
+    return [];
+  }
   const framed = withChecksum(out, comm);
   // ParTimeoutStd is the ECU's budget to start answering. A page that is
   // not in front gets its wake-ups (the port's next chunk, the worker's
@@ -361,7 +373,7 @@ async function runExchange(bus, out, comm) {
       // with the page's state at the time
       if (Date.now() - askedAt > SLOW_ANSWER_MS)
         console.warn(
-          `[kline] ${out[0].toString(16).padStart(2, '0')} answered after ${Date.now() - askedAt} ms (budget ${timeoutMs} ms, attempt ${attempt + 1}/${attempts}, page ${typeof document !== 'undefined' ? document.visibilityState : '?'})`
+          `[kline] ${(out[0] | 0).toString(16).padStart(2, '0')} answered after ${Date.now() - askedAt} ms (budget ${timeoutMs} ms, attempt ${attempt + 1}/${attempts}, page ${typeof document !== 'undefined' ? document.visibilityState : '?'})`
         );
       // keep reading while the ECU says "still working" -- bounded, so a
       // stuck ECU still fails instead of hanging the screen
@@ -424,7 +436,7 @@ async function runExchange(bus, out, comm) {
       lastErr = e;
       busTrace.add('err', null, `${e.ifh || ''} ${e.message}`.trim());
       console.warn(
-        `[kline] ${out[0].toString(16).padStart(2, '0')} ${e && e.ifh ? e.ifh : 'failed'} after ${Date.now() - sentAt} ms (budget ${timeoutMs} ms, attempt ${attempt + 1}/${attempts}, page ${typeof document !== 'undefined' ? document.visibilityState : '?'}): ${e && e.message}`
+        `[kline] ${(out[0] | 0).toString(16).padStart(2, '0')} ${e && e.ifh ? e.ifh : 'failed'} after ${Date.now() - sentAt} ms (budget ${timeoutMs} ms, attempt ${attempt + 1}/${attempts}, page ${typeof document !== 'undefined' ? document.visibilityState : '?'}): ${e && e.message}`
       );
       // The error carries its IFH code: a garbled answer is IFH-0019
       // (checksum / incomplete), a cable fault IFH-0003 (echo), silence

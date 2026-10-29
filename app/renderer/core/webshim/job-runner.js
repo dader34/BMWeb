@@ -2,7 +2,7 @@
  * @file EDIABAS's session model and the job runner: run a job the way the
  * server's /run endpoint did, but in the VM, over the live bus.
  */
-/* exported sessionFor, switchSession, forgetSessions, newTally, driveJobOverBus, webRunJob, webRunJobAnywhere, webSetRemoteAction, webDropSession */
+/* exported sessionFor, switchSession, forgetSessions, newTally, driveJobOverBus, webRunJob, webRunJobAnywhere, webSetRemoteAction, webDropSession, webProvideJobCode */
 
 /**
  * How many telegram exchanges a single job may need before it is declared
@@ -246,15 +246,24 @@ function isNoUsableAnswer(err) {
  * @param {AnswerTally} tally - Updated in place as telegrams are answered.
  * @param {ExchangeFn} [exchange] - The wire; webBus.exchange (which takes
  *   the bus lock per telegram) unless the caller already holds the lock.
+ * @param {number} [maxPasses] - How many exchanges the job may take
+ *   (MAX_JOB_PASSES): a flash SGBD polling a busy module needs far more.
  * @returns {Promise<DriveResult>} The result sets and the finished VM.
  * @throws {Error} A VM error from the job itself, a wire error that is not
- *   silence, or 'did not settle' after MAX_JOB_PASSES exchanges.
+ *   silence, or 'did not settle' after `maxPasses` exchanges.
  */
-async function driveJobOverBus(buildVm, job, arg, tally, exchange) {
+async function driveJobOverBus(
+  buildVm,
+  job,
+  arg,
+  tally,
+  exchange,
+  maxPasses = MAX_JOB_PASSES
+) {
   const wire = exchange || ((out, comm) => webBus.exchange(out, comm));
   const answers = new Map();
   const jobNow = new Date();
-  for (let attempt = 0; attempt < MAX_JOB_PASSES; attempt++) {
+  for (let attempt = 0; attempt < maxPasses; attempt++) {
     let missing = null;
     let sendSeq = 0;
     const send = (out, comm) => {
@@ -288,9 +297,7 @@ async function driveJobOverBus(buildVm, job, arg, tally, exchange) {
       answers.set(missing.key, answer);
     }
   }
-  throw new Error(
-    `job did not settle after ${MAX_JOB_PASSES} telegram exchanges`
-  );
+  throw new Error(`job did not settle after ${maxPasses} telegram exchanges`);
 }
 
 /**
@@ -330,11 +337,27 @@ function jobCodeFor(sgbd) {
 }
 
 /**
+ * Hand the runner an SGBD's code that no chassis archive carries: the
+ * programming SGBDs WebKFP's scripts run (10gd20, 10mds45) are no module of
+ * any car's menu, so they ship with WebKFP (data/kfp) instead.
+ * @param {string} sgbd - The SGBD name (any case).
+ * @param {object} code - Its job code.
+ * @param {object} [tables] - Its tables.
+ * @returns {void}
+ */
+function webProvideJobCode(sgbd, code, tables) {
+  jobCodeCache.set(
+    String(sgbd).toLowerCase(),
+    Promise.resolve({ code, tables: tables || {} })
+  );
+}
+
+/**
  * Run a job on an SGBD over the live bus, inside its EDIABAS session.
  * @param {string} sgbd - The SGBD name.
  * @param {string} job - The job name.
  * @param {string|null} arg - The argument string (null for none).
- * @param {{shared?: Map<string, any>, comm?: CommParams|null, noInit?: boolean, exchange?: ExchangeFn}} [opts] -
+ * @param {{shared?: Map<string, any>, comm?: CommParams|null, noInit?: boolean, exchange?: ExchangeFn, interfaceType?: string, maxPasses?: number}} [opts] -
  *   A detached session to run in (endSession's ENDE uses this), and the
  *   wire to use: the raw exchange when the caller already holds the bus
  *   lock for the whole job (routeRun does, so a session switch and its job
@@ -366,13 +389,16 @@ async function webRunJob(sgbd, job, arg, opts = {}) {
         shared: session.shared,
         inited: session.inited,
         comm: session.comm,
+        // WebKFP runs its flash SGBDs as on an EDIC (Best2Vm.interfaceType)
+        interfaceType: opts.interfaceType,
         now,
         send,
       }),
     job,
     argText,
     tally,
-    opts.exchange
+    opts.exchange,
+    opts.maxPasses
   );
   session.inited = true;
   session.comm = vm.comm || session.comm;

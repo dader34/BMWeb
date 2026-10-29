@@ -708,6 +708,27 @@ console.log('\nDS2 answer length without xawlen');
     }
     check('a garble during the busy wait still surfaces', err !== null);
 
+    // an empty telegram (10mds45 SET_PARAMETER following the DME to 125000
+    // baud) reconfigures the port and sends nothing
+    {
+      const configs = [];
+      const eb = fakeBus(1, silence);
+      eb.ensureConfig = async (cfg) => configs.push(cfg);
+      const got = await runExchange(eb, [], {
+        concept: 0x10d,
+        baud: 125000,
+        timeout: 10,
+      });
+      check(
+        'an empty telegram applies the new baud and sends nothing',
+        Array.isArray(got) &&
+          got.length === 0 &&
+          eb.sent === 0 &&
+          configs.length === 1 &&
+          configs[0].baudRate === 125000
+      );
+    }
+
     console.log(failures ? `\n${failures} FAILED` : '\ntransport holds');
     process.exit(failures ? 1 : 0);
   })();

@@ -93,6 +93,12 @@ const INTERFACE_VERSION = 209;
  */
 const COMM_PARAM_WIDTHS = { 0x00: 2, 0x01: 4, 0xff: 1 };
 
+/** Where an EDIC CommParameter keeps its baud rate (a little-endian dword). */
+const EDIC_BAUD_AT = 28;
+/** The rates an EDIC blob is believed for; anything else is another layout. */
+const EDIC_BAUD_MIN = 1200;
+const EDIC_BAUD_MAX = 500000;
+
 /** The largest protocol concept number a CommParameter blob can name. */
 const COMM_CONCEPT_MAX = 0x1ff;
 
@@ -1297,6 +1303,17 @@ Object.assign(Best2Vm.prototype, {
         // The VM does not touch the port; it surfaces {concept, baud,
         // timeout, ...} to send(), which owns framing and the wire.
         const raw = Array.from(this.bytes(A));
+        // EDIC's own CommParameter, which only an SGBD told it is on an
+        // EDIC sends (SET_EDIC_BAUDRATE in 10gd8604, 11mds43, 12dde40...):
+        // 00 FF, then the baud as a dword at offset 28. The protocol stays
+        // the session's; only the rate moves -- the module has just been
+        // told (BAUDRATEN_UMSTELLUNG) to switch to the same one.
+        if (raw.length >= EDIC_BAUD_AT + 4 && raw[0] === 0 && raw[1] === 0xff) {
+          const baud = Best2Codec.leValue(raw, EDIC_BAUD_AT, 4);
+          if (this.comm && baud >= EDIC_BAUD_MIN && baud <= EDIC_BAUD_MAX)
+            this.comm = Object.assign({}, this.comm, { baud });
+          return;
+        }
         const width = raw.length >= 2 ? COMM_PARAM_WIDTHS[raw[1]] || 0 : 0;
         let words = [];
         if (width && raw.length % width === 0) {
@@ -1350,7 +1367,11 @@ Object.assign(Best2Vm.prototype, {
         // Interface type name. EdInterfaceObd reports "OBD" for the K+DCAN
         // cable this app drives; SGBDs (carb) branch on it to pick their
         // concept.
-        this.store(A, Best2Codec.strBytes(INTERFACE_TYPE), true);
+        this.store(
+          A,
+          Best2Codec.strBytes(this.interfaceType || INTERFACE_TYPE),
+          true
+        );
         return;
       }
       case 'xvers': {
