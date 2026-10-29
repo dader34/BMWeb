@@ -66,7 +66,6 @@ async function fbLtInstall() {
     await fbMessage(why, 'Install live tune');
     return;
   }
-  const from = fbLtInstallSurvey();
   const v = liveTunePatch.VERSION;
   const fast = fbDmeUseFastFlasher();
   const ok = await fbConfirm(

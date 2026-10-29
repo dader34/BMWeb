@@ -9,7 +9,9 @@
 //
 //   node tools/verify/test_aif_log_wire.js
 if (typeof global.window === 'undefined') global.window = {};
-const { fastFlashWire } = require('../../app/renderer/core/flash/fast-flasher-wire.js');
+const {
+  fastFlashWire,
+} = require('../../app/renderer/core/flash/fast-flasher-wire.js');
 const { aifLog } = require('../../app/renderer/core/flash/aif.js');
 
 const crc32 = fastFlashWire.crc32;
@@ -45,7 +47,10 @@ function mockDme() {
     );
     chip[at + 9] = s ? 0x26 : 0x03;
     chip[at + 0x20] = 0x21; // '!'
-    chip.set(Array.from(s < 2 ? '42324' : 'BMWEB', (c) => c.charCodeAt(0)), at + 0x21);
+    chip.set(
+      Array.from(s < 2 ? '42324' : 'BMWEB', (c) => c.charCodeAt(0)),
+      at + 0x21
+    );
   }
   const dme = {
     chip,
@@ -133,20 +138,24 @@ const cb = () => {
     check('direct: slot 1 edited', dme.chip[AIF + 64 + 0x22] === 0x20);
     check(
       'direct: nothing below the log changed',
-      crc32(dme.chip.subarray(BOOT, AIF)) === crc32(stock().chip.subarray(BOOT, AIF))
+      crc32(dme.chip.subarray(BOOT, AIF)) ===
+        crc32(stock().chip.subarray(BOOT, AIF))
     );
     check('direct: no erase', dme.erases === 0);
-    check('direct: two ladder slots spent, third fresh', (async () => true)() &&
-      dme.slots[0] === MARK.DONE &&
-      dme.slots[1] === MARK.DONE &&
-      dme.slots[2] === MARK.FRESH);
+    check(
+      'direct: two ladder slots spent, third fresh',
+      (async () => true)() &&
+        dme.slots[0] === MARK.DONE &&
+        dme.slots[1] === MARK.DONE &&
+        dme.slots[2] === MARK.FRESH
+    );
   }
 
   // ---- writeDirect: a bit-set edit NAKs and says why ----------------------
   {
     const dme = stock();
     const bad = dme.chip.slice(AIF, AIF + 64);
-    bad[0x21] = 0x42 & 0x02 | 0x41; // 'B' over '4'... whatever: force a set
+    bad[0x21] = (0x42 & 0x02) | 0x41; // 'B' over '4'... whatever: force a set
     bad[0x21] = bad[0x21] | 0x08; // a bit the chip does not have
     let threw = '';
     try {
@@ -154,7 +163,10 @@ const cb = () => {
     } catch (e) {
       threw = e.message;
     }
-    check('bit-set: refused with the rewrite guidance', /would not take/.test(threw) && /rewrite/.test(threw));
+    check(
+      'bit-set: refused with the rewrite guidance',
+      /would not take/.test(threw) && /rewrite/.test(threw)
+    );
     check('bit-set: nothing below the log changed', dme.erases === 0);
     check(
       'bit-set: the ladder stays ARMED (resumable)',
@@ -164,7 +176,10 @@ const cb = () => {
     const good = dme.chip.slice(AIF, AIF + 64);
     good[0x25] = 0x30;
     await aifLog.writeDirect(dme.client, [{ at: AIF, bytes: good }], cb());
-    check('bit-set: a later edit resumes the armed slot', dme.slots[0] === MARK.DONE && dme.cur === 1);
+    check(
+      'bit-set: a later edit resumes the armed slot',
+      dme.slots[0] === MARK.DONE && dme.cur === 1
+    );
   }
 
   // ---- writeDirect: bounds and shape --------------------------------------
@@ -172,18 +187,32 @@ const cb = () => {
     const dme = stock();
     let threw = '';
     try {
-      await aifLog.writeDirect(dme.client, [{ at: AIF - 2, bytes: new Uint8Array(64) }], cb());
+      await aifLog.writeDirect(
+        dme.client,
+        [{ at: AIF - 2, bytes: new Uint8Array(64) }],
+        cb()
+      );
     } catch (e) {
       threw = e.message;
     }
-    check('bounds: an edit outside the log refused', /outside the log/.test(threw));
+    check(
+      'bounds: an edit outside the log refused',
+      /outside the log/.test(threw)
+    );
     threw = '';
     try {
-      await aifLog.writeDirect(dme.client, [{ at: AIF, bytes: new Uint8Array(63) }], cb());
+      await aifLog.writeDirect(
+        dme.client,
+        [{ at: AIF, bytes: new Uint8Array(63) }],
+        cb()
+      );
     } catch (e) {
       threw = e.message;
     }
-    check('bounds: an odd-length edit refused', /even, at most 4096/.test(threw));
+    check(
+      'bounds: an odd-length edit refused',
+      /even, at most 4096/.test(threw)
+    );
   }
 
   // ---- rewrite: a trusted sector that matches, splice and restore ---------
@@ -192,12 +221,18 @@ const cb = () => {
     const sector = dme.chip.slice(BOOT, BOOT_END); // what the app holds
     const aif = new Uint8Array(LOG_LEN).fill(0xff); // clear-all
     await aifLog.rewrite(dme.client, aif, cb(), { sector });
-    check('rewrite: the log is blank', dme.chip.subarray(AIF, BOOT_END).every((b) => b === 0xff));
+    check(
+      'rewrite: the log is blank',
+      dme.chip.subarray(AIF, BOOT_END).every((b) => b === 0xff)
+    );
     check(
       'rewrite: the loader came back byte-identical',
       dme.chip.subarray(BOOT, AIF).every((b, i) => b === sector[i])
     );
-    check('rewrite: one erase, one ladder slot', dme.erases === 1 && dme.slots[0] === MARK.DONE);
+    check(
+      'rewrite: one erase, one ladder slot',
+      dme.erases === 1 && dme.slots[0] === MARK.DONE
+    );
     check('rewrite: nothing read off the DME', dme.reads === 0);
   }
 
@@ -209,10 +244,19 @@ const cb = () => {
     const aif = new Uint8Array(LOG_LEN).fill(0xff);
     const c = cb();
     await aifLog.rewrite(dme.client, aif, c, { sector });
-    check('fallback: the stale sector was not trusted', c.notes.some((n) => /does not match the chip/.test(n)));
+    check(
+      'fallback: the stale sector was not trusted',
+      c.notes.some((n) => /does not match the chip/.test(n))
+    );
     check('fallback: the sector was read back', dme.reads === AIF - BOOT);
-    check('fallback: the loader still byte-identical', dme.chip.subarray(BOOT, AIF).every((b, i) => b === stock().chip[BOOT + i]));
-    check('fallback: the log blank', dme.chip.subarray(AIF, BOOT_END).every((b) => b === 0xff));
+    check(
+      'fallback: the loader still byte-identical',
+      dme.chip.subarray(BOOT, AIF).every((b, i) => b === stock().chip[BOOT + i])
+    );
+    check(
+      'fallback: the log blank',
+      dme.chip.subarray(AIF, BOOT_END).every((b) => b === 0xff)
+    );
   }
 
   // ---- rewrite: no sector given, wrong log length, spent ladder -----------
@@ -221,7 +265,10 @@ const cb = () => {
     const aif = new Uint8Array(LOG_LEN).fill(0xff);
     aif[0] = 0x40;
     await aifLog.rewrite(dme.client, aif, cb()); // no opts.sector
-    check('no-sector: read the boot content off the DME', dme.reads === AIF - BOOT);
+    check(
+      'no-sector: read the boot content off the DME',
+      dme.reads === AIF - BOOT
+    );
     check('no-sector: the log rewritten', dme.chip[AIF] === 0x40);
 
     let threw = '';
@@ -230,28 +277,45 @@ const cb = () => {
     } catch (e) {
       threw = e.message;
     }
-    check('shape: a wrong-length log refused', /must be 1228 bytes/.test(threw));
+    check(
+      'shape: a wrong-length log refused',
+      /must be 1228 bytes/.test(threw)
+    );
 
     const spent = mockDme();
     spent.slots.fill(MARK.DONE);
     spent.cur = 64;
     threw = '';
     try {
-      await aifLog.rewrite(spent.client, new Uint8Array(LOG_LEN).fill(0xff), cb());
+      await aifLog.rewrite(
+        spent.client,
+        new Uint8Array(LOG_LEN).fill(0xff),
+        cb()
+      );
     } catch (e) {
       threw = e.message;
     }
-    check('ladder: every slot spent -> nothing erased', /is spent/.test(threw) && spent.erases === 0);
+    check(
+      'ladder: every slot spent -> nothing erased',
+      /is spent/.test(threw) && spent.erases === 0
+    );
 
     const foreign = mockDme();
     foreign.slots[0] = 0x1234;
     threw = '';
     try {
-      await aifLog.rewrite(foreign.client, new Uint8Array(LOG_LEN).fill(0xff), cb());
+      await aifLog.rewrite(
+        foreign.client,
+        new Uint8Array(LOG_LEN).fill(0xff),
+        cb()
+      );
     } catch (e) {
       threw = e.message;
     }
-    check('ladder: a foreign tail refused', /foreign tail/.test(threw) && foreign.erases === 0);
+    check(
+      'ladder: a foreign tail refused',
+      /foreign tail/.test(threw) && foreign.erases === 0
+    );
   }
 
   console.log(

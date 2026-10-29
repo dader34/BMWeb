@@ -9,7 +9,9 @@
 //
 //   node tools/verify/test_push_resume.js
 if (typeof global.window === 'undefined') global.window = {};
-const { fastFlashWire } = require('../../app/renderer/core/flash/fast-flasher-wire.js');
+const {
+  fastFlashWire,
+} = require('../../app/renderer/core/flash/fast-flasher-wire.js');
 const { pushResume } = require('../../app/renderer/core/flash/push-resume.js');
 
 const crc32 = fastFlashWire.crc32;
@@ -54,7 +56,10 @@ function mockDme(setup) {
             throw new fastFlashWire.Nak(fastFlashWire.SVC.CHUNK, 4);
       },
       async verify(off, len, want) {
-        if (crc32(dme.chip.subarray(off - BASE, off - BASE + len)) >>> 0 !== want >>> 0)
+        if (
+          crc32(dme.chip.subarray(off - BASE, off - BASE + len)) >>> 0 !==
+          want >>> 0
+        )
           throw new fastFlashWire.Nak(fastFlashWire.SVC.VERIFY, 5);
       },
       async read(off, len) {
@@ -95,17 +100,23 @@ const cb = () => {
     },
   };
 };
-const converged = (dme, want) =>
-  dme.chip.every((b, i) => b === want[i]);
+const converged = (dme, want) => dme.chip.every((b, i) => b === want[i]);
 
 (async () => {
   // ---- A. old content: erase, all chunks -------------------------------
   {
     const dme = mockDme();
     const c = cb();
-    const r = await pushResume.push(dme.client, { base: BASE, data: target, marks: 0, chunk: CHUNK }, c);
+    const r = await pushResume.push(
+      dme.client,
+      { base: BASE, data: target, marks: 0, chunk: CHUNK },
+      c
+    );
     check('A: converged', converged(dme, target));
-    check('A: erased once, 8 sent', r.erased && dme.erases === 1 && r.sent === 8);
+    check(
+      'A: erased once, 8 sent',
+      r.erased && dme.erases === 1 && r.sent === 8
+    );
     check('A: the cal marks burned once', JSON.stringify(dme.marks) === '[0]');
     check('A: progress monotonic to 100', c.monotonic && c.lastPct === 100);
   }
@@ -118,9 +129,16 @@ const converged = (dme, want) =>
       chip.fill(0xff, 4 * CHUNK);
     });
     const c = cb();
-    const r = await pushResume.push(dme.client, { base: BASE, data: target, marks: 0, chunk: CHUNK }, c);
+    const r = await pushResume.push(
+      dme.client,
+      { base: BASE, data: target, marks: 0, chunk: CHUNK },
+      c
+    );
     check('B: converged', converged(dme, target));
-    check('B: the guard chose a full erase', /foreign content -> erase/.test(r.verdict));
+    check(
+      'B: the guard chose a full erase',
+      /foreign content -> erase/.test(r.verdict)
+    );
     check('B: 8 sent after the erase', r.sent === 8 && dme.erases === 1);
   }
 
@@ -131,10 +149,16 @@ const converged = (dme, want) =>
       chip.fill(0xff, 3 * CHUNK);
     });
     const c = cb();
-    const r = await pushResume.push(dme.client, { base: BASE, data: target, marks: 0, chunk: CHUNK }, c);
+    const r = await pushResume.push(
+      dme.client,
+      { base: BASE, data: target, marks: 0, chunk: CHUNK },
+      c
+    );
     check('C: converged', converged(dme, target));
-    check('C: resumed at 3, 5 sent, no new erase',
-      /resume at chunk 3/.test(r.verdict) && r.sent === 5 && !r.erased);
+    check(
+      'C: resumed at 3, 5 sent, no new erase',
+      /resume at chunk 3/.test(r.verdict) && r.sent === 5 && !r.erased
+    );
   }
 
   // ---- D. a torn chunk: half of chunk 3 took before the cut -------------
@@ -148,7 +172,11 @@ const converged = (dme, want) =>
       chip.fill(0xff, 3 * CHUNK + CHUNK / 2);
     });
     const c = cb();
-    const r = await pushResume.push(dme.client, { base: BASE, data: target, marks: 0, chunk: CHUNK }, c);
+    const r = await pushResume.push(
+      dme.client,
+      { base: BASE, data: target, marks: 0, chunk: CHUNK },
+      c
+    );
     check('D: converged', converged(dme, target));
     check('D: the torn chunk re-pushed (5 sent)', r.sent === 5 && !r.erased);
   }
@@ -163,10 +191,20 @@ const converged = (dme, want) =>
       chip.fill(0x0f, 5 * CHUNK, 6 * CHUNK);
     });
     const c = cb();
-    const r = await pushResume.push(dme.client, { base: BASE, data: target, marks: 0, chunk: CHUNK }, c);
+    const r = await pushResume.push(
+      dme.client,
+      { base: BASE, data: target, marks: 0, chunk: CHUNK },
+      c
+    );
     check('E: converged', converged(dme, target));
-    check('E: the NAK fell back to a full erase', dme.erases === 1 && r.sent === 8);
-    check('E: the fallback was narrated', c.notes.some((s) => /would not take/.test(s)));
+    check(
+      'E: the NAK fell back to a full erase',
+      dme.erases === 1 && r.sent === 8
+    );
+    check(
+      'E: the fallback was narrated',
+      c.notes.some((s) => /would not take/.test(s))
+    );
   }
 
   // ---- F. complete: nothing sent, verify + marks only -------------------
@@ -174,9 +212,15 @@ const converged = (dme, want) =>
     const dme = mockDme((chip) => chip.set(target));
     const before = dme.chip.slice();
     const c = cb();
-    const r = await pushResume.push(dme.client, { base: BASE, data: target, marks: 0, chunk: CHUNK }, c);
-    check('F: nothing sent, nothing written', r.sent === 0 && !r.erased &&
-      dme.chip.every((b, i) => b === before[i]));
+    const r = await pushResume.push(
+      dme.client,
+      { base: BASE, data: target, marks: 0, chunk: CHUNK },
+      c
+    );
+    check(
+      'F: nothing sent, nothing written',
+      r.sent === 0 && !r.erased && dme.chip.every((b, i) => b === before[i])
+    );
     check('F: still confirmed (marks)', dme.marks.length === 1);
     check('F: verdict complete', /complete/.test(r.verdict));
   }
@@ -185,14 +229,25 @@ const converged = (dme, want) =>
   {
     const dme = mockDme((chip) => chip.set(blankTail));
     const c = cb();
-    const r = await pushResume.push(dme.client, { base: BASE, data: blankTail, marks: 0, chunk: CHUNK }, c);
-    check('G: blank-tail target still reads complete', /complete/.test(r.verdict) && r.sent === 0);
+    const r = await pushResume.push(
+      dme.client,
+      { base: BASE, data: blankTail, marks: 0, chunk: CHUNK },
+      c
+    );
+    check(
+      'G: blank-tail target still reads complete',
+      /complete/.test(r.verdict) && r.sent === 0
+    );
     // and a push missing only the blank tail is already done
     const dme2 = mockDme((chip) => {
       chip.set(blankTail.subarray(0, (N - 1) * CHUNK));
       chip.fill(0xff, (N - 1) * CHUNK);
     });
-    const r2 = await pushResume.push(dme2.client, { base: BASE, data: blankTail, marks: 0, chunk: CHUNK }, cb());
+    const r2 = await pushResume.push(
+      dme2.client,
+      { base: BASE, data: blankTail, marks: 0, chunk: CHUNK },
+      cb()
+    );
     check('G: cut before the blank tail -> 0 sent', r2.sent === 0);
   }
 
@@ -202,12 +257,18 @@ const converged = (dme, want) =>
     dme.nakAt = 5; // refuses chunk 5 forever
     let threw = '';
     try {
-      await pushResume.push(dme.client, { base: BASE, data: target, marks: 0, chunk: CHUNK }, cb());
+      await pushResume.push(
+        dme.client,
+        { base: BASE, data: target, marks: 0, chunk: CHUNK },
+        cb()
+      );
     } catch (e) {
       threw = e.message;
     }
-    check('H: the bound stands after 2 restarts',
-      /again after a full erase/.test(threw) && dme.erases === 3);
+    check(
+      'H: the bound stands after 2 restarts',
+      /again after a full erase/.test(threw) && dme.erases === 3
+    );
   }
 
   // ---- I. shape: bad span length refused; marks optional -----------------
@@ -215,18 +276,33 @@ const converged = (dme, want) =>
     const dme = mockDme();
     let threw = '';
     try {
-      await pushResume.push(dme.client, { base: BASE, data: target.subarray(0, 3 * CHUNK + 5), marks: 0, chunk: CHUNK }, cb());
+      await pushResume.push(
+        dme.client,
+        {
+          base: BASE,
+          data: target.subarray(0, 3 * CHUNK + 5),
+          marks: 0,
+          chunk: CHUNK,
+        },
+        cb()
+      );
     } catch (e) {
       threw = e.message;
     }
     check('I: a non-multiple span refused', /multiple of/.test(threw));
     const dme2 = mockDme((chip) => chip.set(target));
-    await pushResume.push(dme2.client, { base: BASE, data: target, chunk: CHUNK }, cb()); // no marks
+    await pushResume.push(
+      dme2.client,
+      { base: BASE, data: target, chunk: CHUNK },
+      cb()
+    ); // no marks
     check('I: marks null by default', dme2.marks.length === 0);
   }
 
   console.log(
-    failures ? `\n${failures} FAIL` : '\nALL OK -- pushResume client vs mock DME'
+    failures
+      ? `\n${failures} FAIL`
+      : '\nALL OK -- pushResume client vs mock DME'
   );
   process.exit(failures ? 1 : 0);
 })();

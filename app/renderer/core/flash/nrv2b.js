@@ -43,19 +43,24 @@ const nrv2b = (() => {
   class BitWriter {
     constructor() {
       this.bytes = [];
-      this.pend = -1;                          // index of the open group byte
-      this.n = 0;                              // bits already in it
+      this.pend = -1; // index of the open group byte
+      this.n = 0; // bits already in it
     }
     bit(b) {
-      if (this.n === 0) {                      // bbPutBit: bb_p = bb_op++
+      if (this.n === 0) {
+        // bbPutBit: bb_p = bb_op++
         this.pend = this.bytes.length;
         this.bytes.push(0);
       }
       if (b) this.bytes[this.pend] |= 0x80 >> this.n;
-      if (++this.n === 8) { this.n = 0; this.pend = -1; }
+      if (++this.n === 8) {
+        this.n = 0;
+        this.pend = -1;
+      }
     }
-    byte(v) {                                  // bbPutByte: *bb_op++ = b
-      this.bytes.push(v & 0xFF);
+    byte(v) {
+      // bbPutByte: *bb_op++ = b
+      this.bytes.push(v & 0xff);
     }
     // bbFlushBits(0): the open group byte is already placed; its unwritten
     // low bits stay zero, and the decoder never consumes them -- no-op.
@@ -67,11 +72,13 @@ const nrv2b = (() => {
     if (i >= 2) {
       let t = 4;
       i += 2;
-      do { t <<= 1; } while (i >= t);
+      do {
+        t <<= 1;
+      } while (i >= t);
       t >>= 1;
       do {
         t >>= 1;
-        w.bit((i & t) ? 1 : 0);
+        w.bit(i & t ? 1 : 0);
         w.bit(0);
       } while (t > 2);
     }
@@ -87,16 +94,22 @@ const nrv2b = (() => {
     let b = off === lastOff ? 1 + 2 : 1 + 10;
     if (off !== lastOff) {
       let o = (off - 1) >> 8;
-      while (o > 0) { b += 2; o >>= 1; }
+      while (o > 0) {
+        b += 2;
+        o >>= 1;
+      }
     }
     b += 2;
     if (mLen < 3) return b;
     mLen -= 3;
-    do { b += 2; mLen >>= 1; } while (mLen > 0);
+    do {
+      b += 2;
+      mLen >>= 1;
+    } while (mLen > 0);
     return b;
   }
 
-  const MAX_MATCH = 2048;                      // SWD_F; longer matches split
+  const MAX_MATCH = 2048; // SWD_F; longer matches split
   const HASH_SIZE = 1 << 16;
 
   // A hash-chain match finder over the chunk (the chunks are independent,
@@ -104,22 +117,30 @@ const nrv2b = (() => {
   // the longest match for pos; the chain is ordered newest-first, so equal
   // lengths keep the smallest offset.
   function findMatch(data, head, prev, pos, maxChain, niceLen) {
-    if (pos + 3 > data.length) return null;    // a 3-byte hash needs three bytes
-    let bestLen = 1, bestOff = 0;
-    const limit = pos > 0xFFFF ? pos - 0xFFFF : 0;   // offsets are uint16 here
+    if (pos + 3 > data.length) return null; // a 3-byte hash needs three bytes
+    let bestLen = 1,
+      bestOff = 0;
+    const limit = pos > 0xffff ? pos - 0xffff : 0; // offsets are uint16 here
     const end = data.length;
-    let cand = head[(data[pos] << 16 | data[pos + 1] << 8 | data[pos + 2]) & 0xFFFF];
+    let cand =
+      head[((data[pos] << 16) | (data[pos + 1] << 8) | data[pos + 2]) & 0xffff];
     let chain = maxChain;
-    while (cand >= limit && cand < pos && chain-- > 0) {   // cand < pos, always
+    while (cand >= limit && cand < pos && chain-- > 0) {
+      // cand < pos, always
       let len = 0;
-      while (len < MAX_MATCH && pos + len < end && data[cand + len] === data[pos + len]) len++;
+      while (
+        len < MAX_MATCH &&
+        pos + len < end &&
+        data[cand + len] === data[pos + len]
+      )
+        len++;
       if (len > bestLen) {
         bestLen = len;
         bestOff = pos - cand;
         if (len >= niceLen) break;
       }
       const nx = prev[cand];
-      if (nx >= cand) break;                   // chains must decrease; else stop
+      if (nx >= cand) break; // chains must decrease; else stop
       cand = nx;
     }
     return bestLen >= 2 ? [bestLen, bestOff] : null;
@@ -127,14 +148,16 @@ const nrv2b = (() => {
 
   function insertPos(data, head, prev, pos) {
     if (pos + 3 > data.length) return;
-    const h = (data[pos] << 16 | data[pos + 1] << 8 | data[pos + 2]) & 0xFFFF;
+    const h =
+      ((data[pos] << 16) | (data[pos + 1] << 8) | data[pos + 2]) & 0xffff;
     prev[pos] = head[h];
     head[h] = pos;
   }
 
   // code_match / code_run from n2_99.ch, NRV2B branch, verbatim structure.
   function codeMatch(w, len, off, state) {
-    while (len > MAX_MATCH) {                  // overlong: split into pieces
+    while (len > MAX_MATCH) {
+      // overlong: split into pieces
       codeMatch(w, MAX_MATCH - 3, off, state);
       len -= MAX_MATCH - 3;
     }
@@ -165,7 +188,7 @@ const nrv2b = (() => {
   // decides, which is what UCL's swd skip logic amounts to.
   function encode(data, opts) {
     const maxChain = (opts && opts.maxChain) || 256;
-    const tryLazy = (opts && opts.tryLazy !== undefined) ? opts.tryLazy : 2;
+    const tryLazy = opts && opts.tryLazy !== undefined ? opts.tryLazy : 2;
     const goodLen = (opts && opts.goodLen) || 32;
     const maxLazy = (opts && opts.maxLazy) || 128;
     const niceLen = (opts && opts.niceLen) || 128;
@@ -175,15 +198,16 @@ const nrv2b = (() => {
     const prev = new Int32Array(data.length);
     const state = { lastOff: 1 };
 
-    let litStart = 0, lit = 0;                 // the pending literal run
+    let litStart = 0,
+      lit = 0; // the pending literal run
     let pos = 0;
 
     while (pos < data.length) {
       const match = findMatch(data, head, prev, pos, maxChain, niceLen);
       insertPos(data, head, prev, pos);
 
-      if (!match || matchCost(match[0], match[1], state.lastOff, 0xFFFF) < 0) {
-        lit++;                                 // a literal
+      if (!match || matchCost(match[0], match[1], state.lastOff, 0xffff) < 0) {
+        lit++; // a literal
         pos++;
         continue;
       }
@@ -191,18 +215,28 @@ const nrv2b = (() => {
 
       // the lazy look: up to tryLazy positions ahead
       if (tryLazy > 0 && len < maxLazy && off !== state.lastOff) {
-        const l1 = matchCost(len, off, state.lastOff, 0xFFFF);
+        const l1 = matchCost(len, off, state.lastOff, 0xffff);
         const maxAhead = Math.min(tryLazy, len - 1);
-        for (let ahead = 1; ahead <= maxAhead && pos + ahead + 2 < data.length; ahead++) {
-          const m2 = findMatch(data, head, prev, pos + ahead,
-                               len >= goodLen ? maxChain >> 2 : maxChain, niceLen);
-          insertPos(data, head, prev, pos + ahead);   // search FIRST: a chain
-          if (!m2) continue;                          // holds its own position too
+        for (
+          let ahead = 1;
+          ahead <= maxAhead && pos + ahead + 2 < data.length;
+          ahead++
+        ) {
+          const m2 = findMatch(
+            data,
+            head,
+            prev,
+            pos + ahead,
+            len >= goodLen ? maxChain >> 2 : maxChain,
+            niceLen
+          );
+          insertPos(data, head, prev, pos + ahead); // search FIRST: a chain
+          if (!m2) continue; // holds its own position too
           if (!m2) continue;
-          const l2 = matchCost(m2[0], m2[1], state.lastOff, 0xFFFF);
+          const l2 = matchCost(m2[0], m2[1], state.lastOff, 0xffff);
           if (l2 < 0) continue;
           if (l1 + (ahead + m2[0] - len) * 5 > l2 + ahead * 9) {
-            lit += ahead;                      // the gap becomes literals
+            lit += ahead; // the gap becomes literals
             pos += ahead;
             [len, off] = m2;
             break;
@@ -211,7 +245,10 @@ const nrv2b = (() => {
       }
 
       // 1 - the literal run, 2 - the match (n2_99.ch order)
-      for (let i = 0; i < lit; i++) { w.bit(1); w.byte(data[litStart + i]); }
+      for (let i = 0; i < lit; i++) {
+        w.bit(1);
+        w.byte(data[litStart + i]);
+      }
       codeMatch(w, len, off, state);
 
       // advance past the match, inserting every covered position once
@@ -222,7 +259,10 @@ const nrv2b = (() => {
         insertPos(data, head, prev, pos);
       }
     }
-    for (let i = 0; i < lit; i++) { w.bit(1); w.byte(data[litStart + i]); }
+    for (let i = 0; i < lit; i++) {
+      w.bit(1);
+      w.byte(data[litStart + i]);
+    }
 
     // EOF: 0 ss11(0x1000000) 0xFF -- the decoder reads (v-3)*256 + 0xFF =
     // 0xFFFFFFFF and stops. Our chunks are length-framed too, so a decoder
@@ -230,7 +270,7 @@ const nrv2b = (() => {
     // trailing pad bits of the last group byte are already zero.
     w.bit(0);
     ss11(w, 0x1000000);
-    w.byte(0xFF);
+    w.byte(0xff);
     return Uint8Array.from(w.bytes);
   }
 
@@ -238,17 +278,23 @@ const nrv2b = (() => {
   // Reads until outLen bytes are written or the EOF marker arrives.
   function decode(src, outLen) {
     const out = new Uint8Array(outLen);
-    let ilen = 0, olen = 0, bb = 0, lastOff = 1;
+    let ilen = 0,
+      olen = 0,
+      bb = 0,
+      lastOff = 1;
     const getbit = () => {
-      if (bb & 0x7F) { bb *= 2; } else {
-        if (ilen >= src.length) throw new Error("nrv2b: input overrun");
+      if (bb & 0x7f) {
+        bb *= 2;
+      } else {
+        if (ilen >= src.length) throw new Error('nrv2b: input overrun');
         bb = src[ilen++] * 2 + 1;
       }
       return (bb >> 8) & 1;
     };
     while (olen < outLen) {
       while (getbit()) {
-        if (ilen >= src.length || olen >= outLen) throw new Error("nrv2b: input overrun");
+        if (ilen >= src.length || olen >= outLen)
+          throw new Error('nrv2b: input overrun');
         out[olen++] = src[ilen++];
       }
       let code = 1;
@@ -259,26 +305,30 @@ const nrv2b = (() => {
       if (code === 2) {
         off = lastOff;
       } else {
-        if (ilen >= src.length) throw new Error("nrv2b: input overrun");
+        if (ilen >= src.length) throw new Error('nrv2b: input overrun');
         off = (code - 3) * 256 + src[ilen++];
-        if (off === 0xFFFFFFFF) break;
+        if (off === 0xffffffff) break;
         lastOff = ++off;
       }
       let mLen = getbit();
       mLen = mLen * 2 + getbit();
       if (mLen === 0) {
         mLen++;
-        do { mLen = mLen * 2 + getbit(); } while (!getbit());
+        do {
+          mLen = mLen * 2 + getbit();
+        } while (!getbit());
         mLen += 2;
       }
       mLen += off > 0xd00 ? 1 : 0;
-      if (off > olen) throw new Error("nrv2b: lookbehind overrun");
-      if (olen + mLen + 1 > outLen) throw new Error("nrv2b: output overrun");
+      if (off > olen) throw new Error('nrv2b: lookbehind overrun');
+      if (olen + mLen + 1 > outLen) throw new Error('nrv2b: output overrun');
       let mPos = olen - off;
       out[olen++] = out[mPos++];
-      do { out[olen++] = out[mPos++]; } while (--mLen > 0);
+      do {
+        out[olen++] = out[mPos++];
+      } while (--mLen > 0);
     }
-    if (olen !== outLen) throw new Error("nrv2b: stream ended early");
+    if (olen !== outLen) throw new Error('nrv2b: stream ended early');
     return out;
   }
 

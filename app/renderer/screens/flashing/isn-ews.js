@@ -33,12 +33,7 @@ function fbIsnAvailable() {
   if (fbDevUi()) return true;
   const d = fbState.dme;
   const bl = d && d.bootLoader;
-  return !!(
-    fbState.module === 'dme' &&
-    d.identified &&
-    bl &&
-    bl.version >= 14
-  );
+  return !!(fbState.module === 'dme' && d.identified && bl && bl.version >= 14);
 }
 
 /**

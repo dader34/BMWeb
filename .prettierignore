@@ -24,6 +24,5 @@ vendor/
 # data + generated assets
 data/
 *.min.js
-app/renderer/core/ms45/ms45-cursor-map.js
-app/renderer/core/ms45/ms45-value-map.js
-app/renderer/screens/tuning/comfort-live.js
+# generated blobs and maps (see core/generated/README.md — never hand-edited)
+app/renderer/core/generated/
