@@ -138,7 +138,9 @@ async function fbDmeFastFlash(spec) {
     const prepared = spec.prepare ? await spec.prepare() : {};
     if (spec.counter && !(await fbProgrammingCounter(false))) return;
     if (prepared.attach) flashLog.attach(...prepared.attach);
-    ({ claim, link } = await fbDmeEnterFastFlasher(spec.title, ui));
+    ({ claim, link } = await fbDmeEnterFastFlasher(spec.title, ui, {
+      late: !!spec.lateHold,
+    }));
     ui.entry(FB_FAST_ENTRY_PCT);
     const client = new fastFlashWire.Client(link, {
       trace: (t) => flashLog.trace(t),
@@ -472,6 +474,15 @@ async function fbDmeResumablePushCal(client, signedCal, cb) {
 const FB_FAST_ENTRY_TRIES = 2;
 /** After a missed trigger, how long the DME takes to come back up on its program, ms. */
 const FB_FAST_REBOOT_MS = 2500;
+/**
+ * The late hold (spec.lateHold): how long after the reset's reply the line
+ * goes low, per attempt, ms. Past the BL15 ring's ~1 ms window (the DME
+ * reboots within a few ms of its reply: an entry whose break came a couple
+ * of USB transfers late missed the old gate) and well inside the late
+ * installer gate's ~2 s. A hold that comes after that gate has let go is a
+ * safe miss: the DME boots its program, and the next attempt holds sooner.
+ */
+const FB_FAST_LATE_MS = [300, 120];
 
 /**
  * The wire parameters (rate, framing, timing) the raw reset request goes out
@@ -524,7 +535,7 @@ async function fbDmeFastWireParams() {
  *   both (link.leave, claim.release) in its finally.
  * @throws {Error} When no attempt reached the flasher.
  */
-async function fbDmeEnterFastFlasher(owner, ui) {
+async function fbDmeEnterFastFlasher(owner, ui, opts = {}) {
   let lastError = null;
   // a session cut short earlier: the flasher may still be running -- picking
   // it up finishes the push; a reset would drop to the loader instead
@@ -589,7 +600,16 @@ async function fbDmeEnterFastFlasher(owner, ui) {
       throw new Error('The DME refused the reset request.');
     }
     // the line goes low NOW, before any bookkeeping or screen update: the
-    // gate's window opens whenever the DME gets round to rebooting
+    // gate's window opens whenever the DME gets round to rebooting. A late
+    // hold waits first: the BL15 ring's window must see the line idle and
+    // let the boot by, so only the late gate behind it is held
+    if (opts.late) {
+      const ms = FB_FAST_LATE_MS[Math.min(attempt, FB_FAST_LATE_MS.length) - 1];
+      flashLog.note(
+        `Late hold: the line goes low ${ms} ms after the reset's reply`
+      );
+      await new Promise((r) => setTimeout(r, ms));
+    }
     await webBus.port.setSignals({ break: true });
     // the DME is rebooting out of the diagnostic session it was in -- and
     // from here it may come up in the flasher, so the next press asks the
@@ -643,7 +663,9 @@ async function fbDmeEnterFastFlasher(owner, ui) {
       );
     }
   }
-  const keyed = await fbDmeEnterAtKeyOn(owner, ui);
+  // a line held at key-on lands in the ring, which is what a late hold is
+  // there to get past
+  const keyed = opts.late ? null : await fbDmeEnterAtKeyOn(owner, ui);
   if (keyed) return keyed;
   throw new Error(
     `The DME did not enter the fast flasher (${lastError ? lastError.message : 'no answer'}). It is running its normal program; nothing was written.`
@@ -776,7 +798,9 @@ async function fbDmeFastFlashProgram(opts = {}) {
     // the bootloader install hands its installer body in as opts.carry
     const carry =
       opts.carry ||
-      (d.fastFlasher.bootLoader
+      // the repair installer only exists on a DME with the bootloader (and
+      // is what it was put there to replace): it comes out the same way
+      (d.fastFlasher.bootLoader || bl14.isLateInstaller(d.fastFlasher)
         ? fastFlasher.withoutFlasher
         : fastFlasher.withFlasher);
     const carried = carry(images.source, images.mpc);

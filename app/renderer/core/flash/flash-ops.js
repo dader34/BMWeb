@@ -1,9 +1,10 @@
-// The flashing operations -- the DME's Flash Tune, Flash Program and reads,
-// the transmission's calibration and program writes and reads -- as one
-// module with no screen in it: an operation takes prepared images and a few
-// facts, runs everything that touches the cable (session, unlock, erase,
-// write, record, verify; or the read) and reports stages, progress and log
-// lines through callbacks, returning what was read as bytes.
+// The flashing operations -- the DME's Flash Tune, Flash Program and
+// reads, the transmission's calibration and program writes and
+// reads -- as one module with no screen in it: an operation takes prepared
+// images and a few facts, runs everything that touches the cable (session,
+// unlock, erase, write, record, verify; or the read) and reports stages,
+// progress and log lines through callbacks, returning what was read as
+// bytes.
 //
 // Two callers. The flashing screen runs an operation on its own cable. The
 // owner of a shared car runs one for a helper: core/remote.js forwards a
@@ -111,7 +112,7 @@ async function flashDmeTune(p, c) {
   if (!(await flashDmeEnterFast(p.diagProtocol)))
     return { ok: false, status: 'The DME refused the programming session' };
   c.stage('Erasing Flash');
-  if (!(await ms45Erase(0x2040000, 0x20000)))
+  if (!(await ms45Erase(0x2040000, 0x20000, c.stage)))
     return { ok: false, status: 'Erase failed' };
   let toFlash = ms45Checksums.correctParameterChecksums(p.cal);
   toFlash = ms45Checksums.signParameters(toFlash);
@@ -158,7 +159,7 @@ async function flashDmeProgram(p, c) {
   const progress = (what) => (pct) => c.progress(pct, what);
   c.note('PHASE: erase program region 0x2060000 block 0xA0000');
   c.stage('Erasing Flash');
-  if (!(await ms45Erase(0x2060000, 0xa0000)))
+  if (!(await ms45Erase(0x2060000, 0xa0000, c.stage)))
     return { ok: false, status: 'Flash failed' };
   c.note('PHASE: write external program 0x2060000..0x20FFF3F');
   c.stage('Flashing External Program');
@@ -188,7 +189,7 @@ async function flashDmeProgram(p, c) {
     );
     c.note('PHASE: erase calibration 0x2040000 block 0x20000');
     c.stage('Erasing Calibration');
-    ok = await ms45Erase(0x2040000, 0x20000);
+    ok = await ms45Erase(0x2040000, 0x20000, c.stage);
     if (ok) {
       c.note('PHASE: write calibration 0x2040000..0x205CFFF');
       c.stage('Flashing Calibration');
@@ -203,10 +204,22 @@ async function flashDmeProgram(p, c) {
   // the record goes in while the DME is still in programming mode (the
   // default session refuses the write), naming the program just written
   await flashDmeRecord(p.aifArgs, c);
+  // the erase above always takes the marks sector, so the program pair is
+  // blank now and only this check re-programs it. The DME reads fine
+  // without the check (the loader starts on the calibration pair) but
+  // answers "program missing or incomplete" and parks silent on its next
+  // reset (emulator-measured). WinKFP runs the check too; it must run
+  // whatever calibration came with the file. With a calibration the DME
+  // reads status 6 between the two checks (only the Daten check brings it
+  // back to 1), so the first one neither gates on status 1 nor resets --
+  // the shape of Finish Programming.
   ok = await ms45FinishFlash('Programm', !p.hasCal, p.diagProtocol, c.stage);
   if (ok && p.hasCal)
     ok = await ms45FinishFlash('Daten', true, p.diagProtocol, c.stage);
-  return { ok, status: ok ? 'Flash successful' : 'Flash failed' };
+  if (ok) return { ok, status: 'Flash successful' };
+  // every write landed and only the close failed: the chip holds the
+  // image, so Finish Programming can complete it
+  return { ok, status: 'Flash failed' };
 }
 
 // ---- the transmission ---------------------------------------------------------------------------------

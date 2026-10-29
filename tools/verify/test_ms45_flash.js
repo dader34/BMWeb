@@ -321,6 +321,16 @@ const eq = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
   }
 
   // ── 6. jobs over a stubbed runner ──────────────────────────────────────────
+  // An OKAY answer carrying the result fields ms450ds0 sets alongside it: the
+  // DME's own verdict, 1 when the erase / block / flash is done.
+  const RESULTS = {
+    flash_loeschen: { FLASH_LOESCHEN_STATUS: 1 },
+    flash_schreiben: { FLASH_SCHREIBEN_ANZAHL: 1, FLASH_SCHREIBEN_STATUS: 1 },
+    FLASH_PROGRAMMIER_STATUS_LESEN: { FLASH_PROGRAMMIER_STATUS: 1 },
+  };
+  const sgbdOk = (job, extra) => ({
+    sets: [{ JOB_STATUS: 'OKAY', ...(RESULTS[job] || {}), ...extra }],
+  });
   console.log('\njobs');
   {
     const calls = [];
@@ -331,11 +341,7 @@ const eq = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
         calls.filter((c) => c.job === 'flash_schreiben').length === 3
       )
         return { sets: [{ JOB_STATUS: 'ERROR_ECU' }] };
-      return {
-        sets: [
-          { JOB_STATUS: 'OKAY', _TEL_AUFTRAG: '01-02', _TEL_ANTWORT: '03' },
-        ],
-      };
+      return sgbdOk(job, { _TEL_AUFTRAG: '01-02', _TEL_ANTWORT: '03' });
     };
     const traced = [];
     M.ms45SetJobTrace((job, arg, status, tx, rx) =>
@@ -488,7 +494,7 @@ const eq = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
       const notes = [];
       global.webRunJob = async (sgbd, job, arg) => {
         calls.push({ sgbd, job, arg });
-        return { sets: [{ JOB_STATUS: 'OKAY' }] };
+        return sgbdOk(job);
       };
       assert.ok(
         await M.ms45FlashBlock(img, START, START + img.length - 1, {
@@ -619,7 +625,7 @@ const eq = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
           calls.filter((c) => c.job === 'flash_schreiben').length === 3
         )
           return { sets: [{ JOB_STATUS: 'ERROR_ECU' }] };
-        return { sets: [{ JOB_STATUS: 'OKAY' }] };
+        return sgbdOk(job);
       };
       const st = [];
       assert.ok(
@@ -663,7 +669,7 @@ const eq = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
           calls.length = 0;
           global.webRunJob = async (sgbd, job, arg) => {
             calls.push({ job, arg });
-            return { sets: [{ JOB_STATUS: 'OKAY' }] };
+            return sgbdOk(job);
           };
           assert.ok(
             await M.ms45FlashBlock(image, start, start + image.length - 1, {})
@@ -721,6 +727,85 @@ const eq = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
     assert.ok(!r.ok && /no cable/.test(r.error));
     ok(
       'a thrown job is a failure, not an exception, like the reference ExecuteJob'
+    );
+  }
+
+  // ── 7. the DME's own verdicts, as WinKFP's 12MDS451.IPO reads them ─────────
+  // ms450ds0 answers OKAY to any positive reply; the result field is what says
+  // whether the erase, the block or the whole flash took.
+  console.log('\nresults behind OKAY');
+  {
+    const calls = [];
+    const stub = (verdicts) => {
+      calls.length = 0;
+      global.webRunJob = async (sgbd, job) => {
+        calls.push(job);
+        return sgbdOk(job, verdicts[job]);
+      };
+    };
+    const stages = [];
+    const stage = (s) => stages.push(s);
+
+    stub({ flash_loeschen: { FLASH_LOESCHEN_STATUS: 0 } });
+    assert.strictEqual(await M.ms45Erase(0x2040000, 0x20000, stage), false);
+    assert.ok(
+      stages.some((s) => /did not erase 0x2040000: erase status 0/.test(s))
+    );
+    stub({ flash_loeschen: { FLASH_LOESCHEN_STATUS: undefined } });
+    assert.strictEqual(await M.ms45Erase(0x2040000, 0x20000), false);
+    ok(
+      'an erase the DME answers 71 02 00 (or without a verdict) is a failed erase'
+    );
+
+    stub({ flash_schreiben: { FLASH_SCHREIBEN_STATUS: 2 } });
+    stages.length = 0;
+    const data = new Uint8Array(0xfd * 3).fill(0x11);
+    const wrote = await M.ms45FlashBlock(
+      data,
+      0x2040000,
+      0x2040000 + data.length - 1,
+      { onStage: stage }
+    );
+    assert.strictEqual(wrote, false);
+    assert.strictEqual(calls.filter((j) => j === 'flash_schreiben').length, 1);
+    assert.strictEqual(calls[calls.length - 1], 'STEUERGERAETE_RESET');
+    assert.ok(
+      stages.some((s) => /Flash failed at 0x2040000 \(write status 2\)/.test(s))
+    );
+    ok('a block answered 76 .. 02 stops the write at that block and resets');
+
+    stub({
+      FLASH_PROGRAMMIER_STATUS_LESEN: {
+        FLASH_PROGRAMMIER_STATUS: 6,
+        FLASH_PROGRAMMIER_STATUS_TEXT:
+          'Signaturpruefung DAF nicht durchgefuehrt',
+      },
+    });
+    stages.length = 0;
+    assert.strictEqual(
+      await M.ms45FinishFlash('Programm', false, 'KWP2000*', stage),
+      true,
+      'status 6 after the program check is expected: the data check comes next'
+    );
+    assert.strictEqual(
+      await M.ms45FinishFlash('Daten', true, 'KWP2000*', stage),
+      false
+    );
+    assert.ok(
+      stages.some((s) =>
+        /not back to normal operation: programming status 6 \(Signaturpruefung DAF/.test(
+          s
+        )
+      )
+    );
+    assert.strictEqual(calls[calls.length - 1], 'STEUERGERAETE_RESET');
+    stub({});
+    assert.strictEqual(
+      await M.ms45FinishFlash('Daten', true, 'KWP2000*', stage),
+      true
+    );
+    ok(
+      'the last signature check must leave programming status 1; an earlier one need not'
     );
   }
 

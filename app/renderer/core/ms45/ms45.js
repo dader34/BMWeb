@@ -865,7 +865,15 @@ const ms45AifFields = [
  * the program reference, the programming status and the diagnostic protocol.
  * @returns {Promise<Ms45Ident>}
  */
-async function ms45Identify() {
+/**
+ * Identify the DME: the coding data, the references, the programming status
+ * and the protocol. With `opts.raise`, the line rate goes up as soon as the
+ * DME has answered once and stays up (ms45RaiseBaud): the caller reads more
+ * on the same session and brings the rate back down (ms45DefaultBaud) --
+ * `baud` in the result says what the session is at.
+ * @param {{raise?: boolean}} [opts]
+ */
+async function ms45Identify(opts = {}) {
   // the first job after a flash's reset can land while the DME is still
   // restarting (seen: the AIF unanswered two seconds after the reset, read
   // fine on the next identify), so an unanswered first read is asked again
@@ -880,6 +888,16 @@ async function ms45Identify() {
   if (!aifRes.ok) {
     await new Promise((resolve) => setTimeout(resolve, 1500));
     aifRes = await ms45Job('aif_lesen', '');
+  }
+  // the DME has spoken: the rest of identify, and the memory reads the
+  // caller makes after it, go at the cable's rate rather than 9600
+  let baud = 9600;
+  if (opts.raise && aifRes.ok) {
+    try {
+      baud = await ms45RaiseBaud();
+    } catch (e) {
+      baud = 9600;
+    }
   }
   const aif = {};
   for (const f of ms45AifFields) {
@@ -924,6 +942,7 @@ async function ms45Identify() {
     diagProblem,
     type,
     aif,
+    baud,
   };
 }
 
@@ -1113,23 +1132,28 @@ async function ms45SecurityAccess(diagProtocol, onStage) {
   return true;
 }
 
-/** The rates a programming session steps down through on a marginal line. */
+/**
+ * The rates a programming session steps down through on a marginal line.
+ * Not 416667: the fast flasher carries it, but a loader session there
+ * entered programming mode and then never answered its erase on the car
+ * (2026-10-26, the cal left erased) -- the loader's programming mode starts
+ * at the SGBD's 115200 unless a slower-than-416667 rate is remembered.
+ */
 const MS45_LINE_STEPS = [312500, 250000, 208333, 156250, 115200];
 /** The programming session's current rate (set on entry, lowered by a step-down). */
 let _ms45LineBaud = 115200;
 
 /**
- * The faster programming rate the Baud Test passed (Settings fastLineBest),
- * or 0 to keep the SGBD's 115200: never through a WiFi adapter (its parity
- * stops at 25 kBaud) and only on a rate this list knows.
- * @returns {number}
+ * The rate the stock loader's programming session starts at: always the
+ * SGBD's 115200. The Baud Test's faster rate (Settings fastLineBest) is the
+ * fast flasher's line; a standard program write at 250000 went unanswered
+ * on the car (2026-10-28, the second block after a good first one, the
+ * loader alive throughout), so the slow path keeps the rate every proven
+ * flash used until it is proven at speed.
+ * @returns {number} 0: the standard rate.
  */
 function ms45FastLineBaud() {
-  if (flasherProgrammingBaud() !== 115200) return 0;
-  const best = Number(
-    (typeof Settings !== 'undefined' && Settings.get('fastLineBest', 0)) || 0
-  );
-  return best > 115200 && MS45_LINE_STEPS.includes(best) ? best : 0;
+  return 0;
 }
 
 /**
@@ -1232,16 +1256,42 @@ async function ms45LeaveProgrammingMode(diagProtocol) {
 }
 
 /**
+ * Whether a flash job's result field reads 1, the DME's "done". The SGBD
+ * answers OKAY to any positive reply -- an erase answered 71 02 00, a block
+ * answered 76 .. 02 -- and puts the DME's own verdict in this field; WinKFP's
+ * programming procedure (12MDS451.IPO) stops on anything but 1.
+ * @param {{res: object}} r - What ms45Job returned.
+ * @param {string} field - FLASH_LOESCHEN_STATUS, FLASH_SCHREIBEN_STATUS, ...
+ * @returns {boolean}
+ */
+function _ms45ResultIsOne(r, field) {
+  return _ms45Field(r.res, field) === '1';
+}
+
+/**
  * The post-flash sequence: drop back to normal comms, verify the signature,
  * reset the ECU. When several partitions are written in one session, each is
- * checked but only the last resets.
+ * checked but only the last resets, and the last must leave the DME reporting
+ * normal operation (programming status 1), as WinKFP requires; any other
+ * status means the DME will stay in its boot loader.
  * @param {'Programm'|'Daten'} area - Which signature.
  * @param {boolean} resetEcu - Whether to reset at the end.
  * @param {string} diagProtocol - DIAG_PROT_IST.
  * @param {(text: string) => void} [onStage] - Progress callback.
+ * @param {boolean} [runSignatureCheck=true] - Pass false only when the flash
+ *   plan kept the valid marks pair intact (a quick flash whose plan avoided
+ *   the marks sector): the check is then vacuous -- the still-valid pair
+ *   answers "nothing to check" (71 09 00), which the SGBD reports as
+ *   ERROR_FLASH_SIGNATURE_CHECK.
  * @returns {Promise<boolean>}
  */
-async function ms45FinishFlash(area, resetEcu, diagProtocol, onStage) {
+async function ms45FinishFlash(
+  area,
+  resetEcu,
+  diagProtocol,
+  onStage,
+  runSignatureCheck = true
+) {
   const stage = onStage || (() => {});
   if (diagProtocol !== 'BMW-FAST') {
     if (!(await ms45Job('diagnose_mode', 'DEFAULT;PC9600')).ok) return false;
@@ -1253,14 +1303,32 @@ async function ms45FinishFlash(area, resetEcu, diagProtocol, onStage) {
       return false;
   }
   if (!(await ms45Job('FLASH_PROGRAMMIER_STATUS_LESEN', '')).ok) return false;
-  stage('Checking signature');
-  if (!(await ms45Job('FLASH_SIGNATUR_PRUEFEN', `${area};64`)).ok) {
-    stage('Signature check failed');
+  if (runSignatureCheck) {
+    stage('Checking signature');
+    if (!(await ms45Job('FLASH_SIGNATUR_PRUEFEN', `${area};64`)).ok) {
+      stage('Signature check failed');
+      await ms45Reset();
+      return false;
+    }
+  } else {
+    // a plan that kept the marks sector valid makes the check vacuous: the
+    // still-valid pair answers "nothing to check" (71 09 00), which the
+    // SGBD reports as an error. The DME rebooting on the new program is
+    // the verification then. (Emulator-measured; see the quick-flash plan.)
+    stage('Skipping signature check (the valid marks were kept)');
+  }
+  const after = await ms45Job('FLASH_PROGRAMMIER_STATUS_LESEN', '');
+  if (!after.ok) return false;
+  if (!resetEcu) return true;
+  if (!_ms45ResultIsOne(after, 'FLASH_PROGRAMMIER_STATUS')) {
+    const status = _ms45Field(after.res, 'FLASH_PROGRAMMIER_STATUS') || '?';
+    const text = _ms45Field(after.res, 'FLASH_PROGRAMMIER_STATUS_TEXT');
+    stage(
+      `The DME is not back to normal operation: programming status ${status}${text ? ` (${text})` : ''}`
+    );
     await ms45Reset();
     return false;
   }
-  if (!(await ms45Job('FLASH_PROGRAMMIER_STATUS_LESEN', '')).ok) return false;
-  if (!resetEcu) return true;
   stage('Resetting ECU');
   return ms45Reset();
 }
@@ -1286,18 +1354,30 @@ function _ms45Le32(v) {
 
 /**
  * flash_loeschen for exactly the start/length given. The DME erases only
- * that, and refuses a download to a sector that has not been erased.
+ * that, and refuses a download to a sector that has not been erased. Done
+ * only when the DME's answer (71 02 <status>) says 1.
  * @param {number} blockStart - The address as the DME sees it (0x2040000 ...).
  * @param {number} blockLength - The length.
+ * @param {(text: string) => void} [onStage] - Told why, when it fails.
  * @returns {Promise<boolean>}
  */
-async function ms45Erase(blockStart, blockLength) {
+async function ms45Erase(blockStart, blockLength, onStage) {
   const cmd = new Uint8Array(22);
   cmd[0] = 1;
   cmd[4] = 0xfe;
   cmd.set(_ms45Le32(blockLength), 13);
   cmd.set(_ms45Le32(blockStart), 17);
-  return (await ms45Job('flash_loeschen', cmd)).ok;
+  const r = await ms45Job('flash_loeschen', cmd);
+  if (!r.ok) return false;
+  if (!_ms45ResultIsOne(r, 'FLASH_LOESCHEN_STATUS')) {
+    onStage &&
+      onStage(
+        `The DME did not erase 0x${blockStart.toString(16).toUpperCase()}: erase status ` +
+          `${_ms45Field(r.res, 'FLASH_LOESCHEN_STATUS') || 'missing'}`
+      );
+    return false;
+  }
+  return true;
 }
 
 /** The flash_schreiben segment: the most data one KWP telegram carries. */
@@ -1413,9 +1493,14 @@ async function ms45FlashBlock(toFlash, blockStart, blockEnd, opts = {}) {
         toFlash.subarray(at, at + seg),
         Uint8Array.from([3]),
       ]);
-      if (!(await ms45Job('flash_schreiben', telegram)).ok) {
+      const r = await ms45Job('flash_schreiben', telegram);
+      // the answer is 76 <block counter> <status>: 01 programmed, 02 not
+      if (!r.ok || !_ms45ResultIsOne(r, 'FLASH_SCHREIBEN_STATUS')) {
+        const why = r.ok
+          ? ` (write status ${_ms45Field(r.res, 'FLASH_SCHREIBEN_STATUS') || 'missing'})`
+          : '';
         stage(
-          `Flash failed at 0x${address.toString(16).toUpperCase()}. Resetting DME.`
+          `Flash failed at 0x${address.toString(16).toUpperCase()}${why}. Resetting DME.`
         );
         if (!(await ms45Reset())) stage('Error Resetting ECU');
         return false;

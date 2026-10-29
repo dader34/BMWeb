@@ -331,6 +331,7 @@ const xor = (bytes) => bytes.reduce((a, b) => a ^ b, 0);
         );
       if (cmd === 0x0d)
         return m.info ? m.info : frame(0xa0, new Array(0x49).fill(0));
+      if (cmd === 0x0a) return frame(0xa0, [0]); // checksum check: holds
       if (cmd === 0x90) {
         if (payload.length === 5 && payload[1] === 0x42)
           return frame(0xa0, [0]); // already open
@@ -380,15 +381,15 @@ const xor = (bytes) => bytes.reduce((a, b) => a ^ b, 0);
         const n = payload[5];
         m.writes.push([addr, n]);
         for (let i = 0; i < n; i++) flash[addr - 0x80000 + i] &= payload[6 + i];
+        // the next address and the count programmed, as the module answers
         const next = addr + n;
         return frame(0xa0, [
           sub,
           (next >> 16) & 0xff,
           (next >> 8) & 0xff,
           next & 0xff,
-          0,
+          n,
           1,
-          0,
         ]);
       }
       return frame(0xb0, []);

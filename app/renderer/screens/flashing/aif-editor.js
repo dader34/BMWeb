@@ -593,6 +593,7 @@ function fbAifEdLoaderAsFlasher(bl) {
 
 /** Whether the rail offers the editor: a DME identified with the fast flash bootloader (BL14 or BL15). */
 function fbAifEdAvailable() {
+  if (fbDevUi()) return true; // the dev UI toggle forces the rail page on
   const d = fbState.dme;
   const bl = d && d.bootLoader;
   return !!(

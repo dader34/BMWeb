@@ -153,7 +153,9 @@ ok(
 // ── 3. a simulated transmission ─────────────────────────────────────────────
 // Answers at the frame level. The fake bus exchange checks what the real
 // one would: concept 6, the baud the module is listening on, and that the
-// request is unsigned (the bus signs it).
+// request is unsigned (the bus signs it). Flash answers have the layout the
+// module's boot block gives in gs20-emu: 32 0A A0 <sub-command> <address>
+// <count> <sub-status> <xor>, the write's address being the next one.
 function makeTcu() {
   const t = {
     baud: 9600,
@@ -162,6 +164,8 @@ function makeTcu() {
     flash: new Uint8Array(G.GS20_CAL_LENGTH).fill(0x55),
     erased: false,
     busyLeft: 0,
+    checksumBusy: 2, // 0A answers busy this many times while it sums
+    statusSub: 1, // the 07 0F sub-status while not busy
     volts: 122, // 12.44 V
     refuseFast: false,
     silentOnce: null, // a command byte to answer with silence once
@@ -253,15 +257,31 @@ function makeTcu() {
         );
         return reply(0xa0, Array.from(t.flash.subarray(off, off + n)));
       }
+      case 0x0a: {
+        if (t.checksumBusy > 0) {
+          t.checksumBusy--;
+          return reply(0xa1);
+        }
+        return reply(0xa0, [G.gs20Checksum.verify(t.flash) ? 0 : 4]);
+      }
       case 0x07: {
         if (!t.unlocked) return reply(0xa2);
         const addr = (p[2] << 16) | (p[3] << 8) | p[4];
+        const flashReply = (at, count, sub) =>
+          reply(0xa0, [
+            p[1],
+            (at >> 16) & 0xff,
+            (at >> 8) & 0xff,
+            at & 0xff,
+            count,
+            sub,
+          ]);
         if (p[1] === 0x0f) {
           if (t.busyLeft > 0) {
             t.busyLeft--;
             return reply(0xa1);
           }
-          return reply(0xa0, [0, 0, 0, 0, 0, 1, 0]);
+          return flashReply(addr, 0, t.statusSub);
         }
         if (p[1] === 0x06) {
           assert.strictEqual(
@@ -272,7 +292,7 @@ function makeTcu() {
           t.flash.fill(0xff);
           t.erased = true;
           t.busyLeft = 3;
-          return reply(0xa0, [0, 0, 0, 0, 0, 1, 0]);
+          return flashReply(addr, 0, 1);
         }
         if (p[1] === 0x02) {
           assert.ok(t.erased, 'written after the erase');
@@ -286,12 +306,11 @@ function makeTcu() {
           assert.ok(n <= 118, 'write chunk cap');
           const off = addr - G.GS20_CAL_ADDRESS;
           for (let i = 0; i < n; i++) {
-            if (t.flash[off + i] !== 0xff)
-              return reply(0xa0, [0, 0, 0, 0, 0, 3, 0]);
+            if (t.flash[off + i] !== 0xff) return flashReply(addr, 0, 3);
             t.flash[off + i] = data[i];
           }
           t.writes++;
-          return reply(0xa0, [0, 0, 0, 0, 0, 1, 0]);
+          return flashReply(addr + n, n, 1);
         }
         return reply(0xb0);
       }
@@ -352,10 +371,14 @@ const GS20VOLT = 10;
     '3 busy polls + the ready one'
   );
   assert.ok(
-    cmds.slice(9, -1).every((c) => c === '07 02'),
+    cmds.slice(9, -4).every((c) => c === '07 02'),
     'then only writes'
   );
-  assert.strictEqual(cmds[cmds.length - 1], '07 0f', 'commit last');
+  assert.deepStrictEqual(
+    cmds.slice(-4),
+    ['07 0f', '0a', '0a', '0a'],
+    'commit, then the checksum check: 2 busy + the result'
+  );
   // blank pairs were never written, chunks are 118 or trimmed
   const writes = tcu.log.filter((p) => p[0] === 0x07 && p[1] === 0x02);
   assert.ok(writes.every((p) => p[5] <= 118));
@@ -505,6 +528,84 @@ const GS20VOLT = 10;
     /write rejected at 0x09[0-9A-F]{4}: flash fault 2 \(write rejected\)/
   );
   ok('a rejected write names its address and the flash fault');
+
+  // the rules 10GD20.prg (WinKFP's programming SGBD) judges answers by.
+  // `answer` replaces the fake's answer to one command; null keeps it.
+  const withAnswer = (t, answer) => async (out, comm) => {
+    const r = await t.exchange(out, comm);
+    const body = answer(out.slice(2), r);
+    return body ? [...body, xor(body)] : r;
+  };
+
+  // a flash fault reported before the erase stops it, nothing erased
+  tcu = makeTcu();
+  tcu.statusSub = 3;
+  w2 = new G.Gs20CalWriter(new W.Ds2Wire(tcu.exchange));
+  await assert.rejects(
+    () => w2.write(fixed),
+    /flash fault before the erase \(flash fault 3.*Nothing was erased/
+  );
+  assert.strictEqual(w2.eraseStarted, false);
+  assert.ok(!tcu.erased);
+  // a status of 0x0F (what a region reads mid-flash) is not a fault
+  tcu = makeTcu();
+  wire = new W.Ds2Wire(
+    withAnswer(tcu, (p) =>
+      p[0] === 0x07 && p[1] === 0x0f && !tcu.erased
+        ? [0x32, 0x0a, 0xa0, 0x0f, 0x09, 0x00, 0x00, 0x00, 0x0f]
+        : null
+    )
+  );
+  await new G.Gs20CalWriter(wire).write(fixed);
+  assert.deepStrictEqual(Array.from(tcu.flash), Array.from(fixed));
+  ok(
+    'a flash fault in the status before the erase refuses it with nothing erased; 0x0F does not'
+  );
+
+  // an erase whose sub-status is not success stops before any write
+  tcu = makeTcu();
+  wire = new W.Ds2Wire(
+    withAnswer(tcu, (p) =>
+      p[0] === 0x07 && p[1] === 0x06
+        ? [0x32, 0x0a, 0xa0, 0x06, 0x09, 0x00, 0x00, 0x00, 0x08]
+        : null
+    )
+  );
+  w2 = new G.Gs20CalWriter(wire);
+  await assert.rejects(
+    () => w2.write(fixed),
+    /did not erase 0x090000: flash fault 8 \(erase refused\)/
+  );
+  assert.strictEqual(w2.eraseStarted, true);
+  assert.strictEqual(tcu.writes, 0, 'no write after a failed erase');
+  ok('a failed erase is caught from its sub-status, before any write');
+
+  // a write that echoes fewer bytes than were sent is caught
+  tcu = makeTcu();
+  wire = new W.Ds2Wire(
+    withAnswer(tcu, (p, r) => {
+      if (p[0] !== 0x07 || p[1] !== 0x02 || tcu.writes !== 10) return null;
+      const short = r.slice(0, -1);
+      short[7] = p[5] - 2;
+      return short;
+    })
+  );
+  await assert.rejects(
+    () => new G.Gs20CalWriter(wire).write(fixed),
+    /write at 0x09[0-9A-F]{4} programmed 116 of 118 bytes/
+  );
+  ok('a write whose echoed count falls short of the chunk is caught');
+
+  // the module's own checksum check: 4 = mismatch, after the write
+  tcu = makeTcu();
+  wire = new W.Ds2Wire(
+    withAnswer(tcu, (p) => (p[0] === 0x0a ? [0x32, 0x05, 0xa0, 0x04] : null))
+  );
+  await assert.rejects(
+    () => new G.Gs20CalWriter(wire).write(fixed),
+    /calibration is written, but the transmission reports its checksum wrong \(result 4\)/
+  );
+  ok('the closing 0A checksum check fails a write the module would reject');
 
   // the unlock answers "already open" with a short reply: no key is sent
   tcu = makeTcu();

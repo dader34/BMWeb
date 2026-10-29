@@ -70,6 +70,10 @@ function fbOptionsHtml() {
       ${fbBl14Html()}
     </div>
 
+    <div class="fb-section" id="fb-opt-eeprom-section" hidden>
+      ${fbIsnEepromHtml()}
+    </div>
+
     <div class="fb-section" id="fb-opt-livetune-section" hidden>
       ${fbLtInstallHtml()}
     </div>
@@ -197,6 +201,9 @@ function fbOptionsShowFor(module) {
   fbEls['opt-ms-section'].hidden = tcu;
   fbEls['opt-upshift-section'].hidden = !tcu;
   fbEls['opt-aif-section'].hidden = tcu || !fbProtectTesting();
+  // the EEPROM read only for a DME identified with the fast flash bootloader
+  fbEls['opt-eeprom-section'].hidden =
+    tcu || !fbProtectTesting() || !(fbState.dme && fbState.dme.bootLoader);
   fbEls['opt-livetune-section'].hidden = tcu || !fbProtectTesting();
   if (tcu) fbOptionsRefreshUpshiftGate();
   else {
@@ -243,27 +250,27 @@ function fbOptionsEwsBlockedReason() {
   if (!fbDevUi() || d.identified) {
     if (!id.hwRef) return 'Identify the DME first.';
     if (!fbDmeIsMs451())
-      return `EWS delete is only verified for the MS45.1 (hardware reference 0044570). This DME reports ${id.hwRef}.`;
+      return `EWS delete is MS45.1 only; this DME reports ${id.hwRef}.`;
     if (!id.progRef)
-      return 'The DME did not report a program reference (ZIF_LESEN), so its program version cannot be confirmed. EWS delete stays disabled.';
+      return 'The DME did not report a program version. EWS delete stays off.';
     if (!id.progRef.includes(ewsDelete.SUPPORTED_PROGRAM_VERSION)) {
-      return `EWS delete is only verified for program ${ewsDelete.SUPPORTED_PROGRAM_VERSION}, but this DME reports ${id.progRef}. The other MS45.1 program lays its globals out differently, so the patch offsets would land on unrelated code.`;
+      return `EWS delete is only verified for program ${ewsDelete.SUPPORTED_PROGRAM_VERSION}; this DME reports ${id.progRef}.`;
     }
   }
   if (!d.fullBin)
     return 'EWS delete patches the program area, so it needs Full Binary mode.';
   if (d.exchangeKind === '0PA' && !d.exchangeTuneLoaded)
-    return 'EWS delete also edits the tune, and a .0PA has no tune in it. Load its .0DA as well.';
+    return 'EWS delete also edits the tune: load the .0DA as well.';
   // the files are checked once they are loaded (the gate runs again then);
   // until that, Full Binary ticked is enough to offer the option
   if (!d.flash) return null;
   if (ewsDelete.isAlreadyPatched(d.flash)) return null;
   const version = ewsDelete.readProgramVersion(d.flash);
   if (version !== ewsDelete.SUPPORTED_PROGRAM_VERSION) {
-    return `EWS delete is only verified for program version ${ewsDelete.SUPPORTED_PROGRAM_VERSION}, but the loaded program reports ${version || 'an unreadable version'}. Other MS45.1 programs lay their globals out differently, so the patch offsets would land on unrelated code.`;
+    return `EWS delete is only verified for program ${ewsDelete.SUPPORTED_PROGRAM_VERSION}; the loaded program reports ${version || 'an unreadable version'}.`;
   }
   if (!ewsDelete.isApplicable(d.flash)) {
-    return 'The loaded program is the right version, but its immobilizer bytes hold values that are neither stock nor deleted, so it may be modified in some other way.';
+    return 'The loaded program’s immobilizer bytes are neither stock nor deleted: it may be modified some other way.';
   }
   return null;
 }
@@ -294,6 +301,7 @@ function fbOptionsRefreshEwsGate() {
  */
 function fbOptionsRefreshBenchGate() {
   fbBl14Refresh();
+  fbIsnEepromRefresh();
   fbLtInstallRefresh();
 }
 
@@ -426,8 +434,8 @@ function fbProtectRefreshNotes() {
     installed
       ? `The loaded program already carries: ${ms45Protect.describe(installed).join('; ')}. What is ticked here is what gets flashed.`
       : ms45Protect.isOutdated(d.flash, d.mpc)
-        ? 'The loaded program carries an earlier version of the spark cut and protection, which does not cut the spark on a running engine. Ticking anything here replaces it.'
-        : 'The loaded program carries a spark cut or protection this version does not recognise. Ticking anything here replaces it.'
+        ? 'The loaded program carries an older spark cut and protection. Ticking anything here replaces it.'
+        : 'The loaded program carries a spark cut or protection this version does not know. Ticking anything here replaces it.'
   );
 }
 
@@ -461,7 +469,7 @@ async function fbOptionsEwsChanged() {
   }
   if (
     !(await fbConfirm(
-      'EWS delete disables the immobilizer check in the DME program.\n\nThe car will start without a valid EWS handshake, which removes a theft deterrent. Only do this on a vehicle you own.\n\nContinue?',
+      'EWS delete disables the immobilizer check.\n\nThe car will start without the EWS handshake. Only do this on a car you own.\n\nContinue?',
       'EWS Delete'
     ))
   ) {
@@ -502,7 +510,7 @@ async function fbOptionsUpshiftChanged() {
   }
   if (
     !(await fbConfirm(
-      'This raises every upshift point out of reach, so the gearbox holds whichever gear is selected and will not change up on its own.\n\nThe engine will run to the limiter rather than shifting, and the car will not move off again until you shift manually.\n\nApply it to the loaded calibration?',
+      'The gearbox will hold the selected gear and never upshift on its own. The engine runs to the limiter instead of shifting.\n\nApply it to the loaded calibration?',
       'Remove auto upshift'
     ))
   ) {
@@ -607,7 +615,7 @@ function fbMsDescribeInputs() {
   if (!inst) return 'Ready to build.';
   const installed = `${mapSwitch.describeTrigger(inst.trigger, inst.presses)}, ${mapSwitch.describeScope(inst.scope)}, ${inst.maps} maps`;
   if (!mapSwitch.isCurrentVersion(fbMs.mpc))
-    return `This pair carries an earlier version of the map switch (${installed}). Build updates it and stores the maps the new way.`;
+    return `This pair carries an older map switch (${installed}). Build updates it.`;
   if (
     inst.trigger === fbMs.trigger &&
     (inst.trigger !== 'dsc' || inst.presses === fbMs.presses) &&
@@ -636,7 +644,7 @@ async function fbMsLoadFlash() {
     const data = await fbReadBytes(file);
     if (data.length !== MS45_FULL_FLASH_LENGTH) {
       await fbMessage(
-        `An external flash image is 1 MB (0x100000 bytes). This file is 0x${data.length.toString(16).toUpperCase()} bytes.`,
+        `A flash image is 1 MB. This file is 0x${data.length.toString(16).toUpperCase()} bytes.`,
         'Map Switch'
       );
       return;
@@ -770,7 +778,7 @@ async function fbMsSend() {
   const d = fbState.dme;
   if (fbState.module !== 'dme' || !d.ident.hwRef) {
     await fbMessage(
-      'Go back and identify the DME first, then load the build again.\n\nA loaded program is checked against the DME that was identified.',
+      'Identify the DME first, then load the build again.',
       'Map Switch'
     );
     return;

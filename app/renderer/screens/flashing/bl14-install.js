@@ -12,6 +12,9 @@
 //   2. BL15: on that body, the DME's own boot region read, the ring spliced
 //      in, both sectors rewritten (bl14.install).
 // The next program flash leaves the installer body out again; BL15 stays.
+// A DME already on an older BL15 takes the same button as an update: one
+// session on its ring, the boot sector rewritten with this build's ring
+// (bl14.upgrade); no file, no installer body.
 //
 // "Restore stock bootloader" is its mirror, also one confirmation and up to
 // two sessions, both on the ring (a held line never gets past BL15 to a
@@ -21,6 +24,19 @@
 //   2. on the installer ring: both words stock, the ring blanked
 //      (bl14.restore). Program, tune and MPC are not touched, and no file
 //      needs loading.
+//
+// "Repair fast flash bootloader" is the way past a ring that takes a held
+// line and never answers (v16 on the car, 2026-10-28), when the update's
+// one session on that ring cannot start. Nothing goes through the ring:
+//   1. the loaded pair flashed by the DME's own loader with the installer
+//      body behind the LATE gate (bl14.withLateInstaller: ~2 s of polls at
+//      MPC 0x8). Skipped when the DME already carries it;
+//   2. the DME reset and the line held only ~300 ms after the reply, past
+//      the ring's ~1 ms window, into the late gate: on that body, the boot
+//      sector rewritten with this build's ring (bl14.upgrade).
+// The late installer stays in the program as a way back in should the new
+// ring fail too; the next program flash takes it out (every boot pays its
+// ~2 s, and a K-line byte in that time enters the flasher).
 /* exported fbBl14Html, fbBl14Refresh */
 
 function fbBl14Html() {
@@ -32,6 +48,10 @@ function fbBl14Html() {
         <button class="btn danger" id="fb-opt-bl14-install" disabled>Install fast flash bootloader</button>
       </div>
       <div class="fb-faint" id="fb-opt-bl14-reason"></div>
+      <div class="fb-row">
+        <button class="btn danger" id="fb-opt-bl14-repair" disabled>Repair fast flash bootloader</button>
+      </div>
+      <div class="fb-faint" id="fb-opt-bl14-repair-reason"></div>
       <div class="fb-row">
         <button class="btn danger" id="fb-opt-bl14-restore" disabled>Restore stock bootloader</button>
       </div>
@@ -48,13 +68,67 @@ function fbBl14HasInstaller() {
 function fbBl14WhyNot() {
   const d = fbState.dme;
   if (!d.identified) return 'Identify the DME first.';
-  if (d.bootLoader) return 'The fast flasher is on this DME.';
+  if (bl14.isCurrent(d.bootLoader))
+    return `This build's fast flash bootloader (v${d.bootLoader.version}) is on this DME.`;
+  // an older bootloader is not a refusal: one session on its own ring
+  // swaps it for this build's (bl14.upgrade), the boot CRC word recomputed
+  // with it (a ring without the stamp's CRC bit may carry the stock word:
+  // the DME resets itself every ~5 s); no file is needed, since a held
+  // line lands in the ring and never in a body in the program
+  if (d.bootLoader) return null;
   if (fbBl14HasInstaller()) return null;
   // stage 1 writes the pair: through a ready fast flasher the DME already
   // has, or through the DME's own loader (a stock DME, or an old body the
   // installer replaces)
   if (!(d.fullBin && d.flash && d.mpc))
-    return 'Needs Full Binary with the DME’s pair loaded (the program it already runs): the first stage writes it with the installer body.';
+    return 'Needs Full Binary with the DME’s pair loaded.';
+  return null;
+}
+
+/** Whether the DME carries the late installer, ready to use (repair stage 1 done). */
+function fbBl14HasLateInstaller() {
+  const det = fbState.dme.fastFlasher;
+  return bl14.isLateInstaller(det) && det.ready;
+}
+
+/**
+ * Whether the DME sits in the late installer right now. Any K-line byte in
+ * the late gate's ~2 s enters it -- an Identify straight after the stage-1
+ * flash did, on the car -- and then no KWP answers, so the bootloader's
+ * stamp is unknown. Stage 2 can still run there: it reconnects, and
+ * bl14.upgrade reads the boot region and refuses anything but an older ring.
+ */
+function fbBl14InLateInstaller() {
+  const d = fbState.dme;
+  return !!(d.ident && d.ident.inFlasher && fbBl14HasLateInstaller());
+}
+
+/** How long a reset DME is left alone before Identify: past the late
+ * gate's ~2 s (more if the car runs its poll loop slower), ms. */
+const FB_BL14_LATE_SETTLE_MS = 10000;
+
+/** Identify once the late gate has let the boot by. */
+async function fbBl14IdentifyAfterLateGate() {
+  fbSetStatus(
+    'Waiting 10 s for the DME to start its program (the repair installer listens at every boot)…'
+  );
+  await new Promise((r) => setTimeout(r, FB_BL14_LATE_SETTLE_MS));
+  await fbDmeIdentify(true);
+}
+
+/** Why Repair fast flash bootloader cannot start, or null. */
+function fbBl14RepairWhyNot() {
+  const d = fbState.dme;
+  if (!d.identified) return 'Identify the DME first.';
+  if (fbBl14InLateInstaller()) return null;
+  if (!d.bootLoader) return 'The fast flash bootloader is not on this DME.';
+  if (d.bootLoader.stampAt !== bl14.STAMP_AT)
+    return 'This DME carries BL14: only BL15 can be repaired.';
+  if (bl14.isCurrent(d.bootLoader))
+    return `This build's bootloader (v${d.bootLoader.version}) is on the DME already.`;
+  if (fbBl14HasLateInstaller()) return null;
+  if (!(d.fullBin && d.flash && d.mpc))
+    return 'Needs Full Binary with the DME’s pair loaded.';
   return null;
 }
 
@@ -71,6 +145,10 @@ function fbBl14RestoreWhyNot() {
   if (!d.bootLoader) return 'The fast flash bootloader is not on this DME.';
   if (d.bootLoader.stampAt !== bl14.STAMP_AT)
     return 'This DME carries BL14, which BMWeb cannot take off: only BL15 can be restored.';
+  // the restore recognises this build's ring byte for byte: an older one
+  // is updated first (one session), then it comes off like any other
+  if (!bl14.isCurrent(d.bootLoader))
+    return `This DME carries an older bootloader (v${d.bootLoader.version}): update it first, then it can be restored.`;
   return null;
 }
 
@@ -91,11 +169,30 @@ function fbBl14Refresh() {
   _fbBl14Wire(btn, 'Install fast flash bootloader', fbBl14Install);
   const why = fbBl14WhyNot();
   btn.disabled = !!why;
+  const bl = fbState.dme.bootLoader;
+  // the same button and session: the two-stage install on a stock DME, or
+  // one session on an older ring that swaps it for this build's
+  btn.textContent = bl
+    ? 'Update fast flash bootloader'
+    : 'Install fast flash bootloader';
   fbEls['opt-bl14-reason'].textContent =
     why ||
-    (fbBl14HasInstaller()
-      ? 'Ready: the installer body is already on the DME, so only the second stage runs.'
-      : 'Ready.');
+    (bl
+      ? `Update: your DME is on v${bl.version} (old).`
+      : fbBl14HasInstaller()
+        ? 'Ready: the installer body is already on the DME, so only the second stage runs.'
+        : 'Ready.');
+  const pbtn = fbEls['opt-bl14-repair'];
+  _fbBl14Wire(pbtn, 'Repair fast flash bootloader', fbBl14Repair);
+  const pwhy = fbBl14RepairWhyNot();
+  pbtn.disabled = !!pwhy;
+  fbEls['opt-bl14-repair-reason'].textContent =
+    pwhy ||
+    (fbBl14InLateInstaller()
+      ? 'Ready: the DME is waiting in the repair installer, so only the second stage runs (it reconnects).'
+      : fbBl14HasLateInstaller()
+        ? 'Ready: the repair installer is already on the DME, so only the second stage runs.'
+        : 'For a bootloader that will not answer. Slow: a full program flash, then the boot sector.');
   const rbtn = fbEls['opt-bl14-restore'];
   _fbBl14Wire(rbtn, 'Restore stock bootloader', fbBl14Restore);
   const rwhy = fbBl14RestoreWhyNot();
@@ -116,15 +213,49 @@ async function fbBl14Install() {
     await fbMessage(why, 'Install fast flash bootloader');
     return;
   }
-  const both = !fbBl14HasInstaller();
+  // an older BL15 on the DME: one session on its ring swaps it for this
+  // build's; the two-stage install is for a DME without one
+  const update = !!d.bootLoader;
+  const both = !update && !fbBl14HasInstaller();
   const ok = await fbConfirm(
-    'The loader build and the programming log on the DME are kept. A power or cable loss between an erase and its rewrite leaves a DME that neither the loader nor a full flash can reach: only a BDM / boot-mode rig recovers it. Keep the ignition on, a charger on the battery and the cable plugged in until it has finished.\n\nInstall the fast flash bootloader?',
+    'Keep the ignition on, a charger on the battery and the cable plugged in until it has finished. A power or cable loss mid-write can leave the DME unbootable.\n\nInstall the fast flash bootloader?',
     'Install fast flash bootloader'
   );
   if (!ok) {
     flashLog.note(
       'Install fast flash bootloader not confirmed: nothing was sent to the car'
     );
+    return;
+  }
+
+  if (update) {
+    fbSetStatus(
+      'Update fast flash bootloader: resetting the DME into the bootloader…'
+    );
+    await fbDmeFastFlash({
+      title: 'Update fast flash bootloader',
+      operation: 'bl14-update',
+      what: 'boot loader',
+      noFasterLine: true,
+      confirmed: true,
+      confirm: '',
+      note: `DME ${d.ident.hwRef} / bootloader v${d.bootLoader.version} flags 0x${d.bootLoader.flags.toString(16)} / bootloader update to v${bl14.BODY_VERSION} flags 0x${bl14.BODY_FEATURES.toString(16)}`,
+      push: async (client, cb) => {
+        const r = await bl14.upgrade(client, cb);
+        cb.stage('Restarting the DME');
+        await client.reset();
+        return r;
+      },
+      after: async () => {
+        await fbDmeIdentify(true);
+        const bl = fbState.dme.bootLoader;
+        fbSetStatus(
+          bl14.isCurrent(bl)
+            ? `Update fast flash bootloader: done, v${bl.version} is on the DME`
+            : 'Update fast flash bootloader: written. Switch the ignition off and on, then Identify.'
+        );
+      },
+    });
     return;
   }
 
@@ -145,7 +276,7 @@ async function fbBl14Install() {
     // the push ends with an Identify: it must now report the installer
     if (!fbBl14HasInstaller()) {
       await fbMessage(
-        'Stage 1 did not leave the installer body on the DME (see the status line and the log). The boot region was not touched.',
+        'Stage 1 failed (see the log). Nothing else was written.',
         'Install fast flash bootloader'
       );
       return;
@@ -181,7 +312,85 @@ async function fbBl14Install() {
       fbSetStatus(
         bl
           ? 'Install fast flash bootloader: done, the fast flasher is on the DME'
-          : 'Install fast flash bootloader: written and verified, but Identify did not find it yet. Switch the ignition off and on, then press Identify.'
+          : 'Install fast flash bootloader: written. Switch the ignition off and on, then Identify.'
+      );
+    },
+  });
+}
+
+/** Repair fast flash bootloader: the late installer through the DME's own loader if needed, then the ring rewritten through it, one confirmation. */
+async function fbBl14Repair() {
+  const d = fbState.dme;
+  if (!fbProtectTesting()) return;
+  const why = fbBl14RepairWhyNot();
+  if (why) {
+    await fbMessage(why, 'Repair fast flash bootloader');
+    return;
+  }
+  const both = !fbBl14HasLateInstaller();
+  const ok = await fbConfirm(
+    `${both ? 'Stage 1 flashes the loaded program the slow way, with a repair installer in it. Stage 2 rewrites the boot sector through it. ' : ''}Keep the ignition on, a charger on the battery and the cable plugged in until it has finished. A power or cable loss mid-write can leave the DME unbootable.\n\nRepair the fast flash bootloader?`,
+    'Repair fast flash bootloader'
+  );
+  if (!ok) {
+    flashLog.note(
+      'Repair fast flash bootloader not confirmed: nothing was sent to the car'
+    );
+    return;
+  }
+
+  if (both) {
+    fbSetStatus(
+      'Repair fast flash bootloader, stage 1 of 2: the repair installer, through the DME’s own loader'
+    );
+    await fbDmeFlashProgram({
+      carry: bl14.withLateInstaller,
+      title: 'Repair fast flash bootloader (1/2: repair installer)',
+      confirmed: true,
+      // an Identify inside the late gate's window enters the installer
+      after: fbBl14IdentifyAfterLateGate,
+    });
+    if (!fbBl14HasLateInstaller()) {
+      await fbMessage(
+        'Stage 1 failed (see the log). Nothing else was written.',
+        'Repair fast flash bootloader'
+      );
+      return;
+    }
+  }
+
+  // sitting in the installer already: the session reconnects to it (a
+  // reset request would go unheard)
+  const waiting = fbBl14InLateInstaller();
+  if (waiting) fbDmeSetFastLive(true);
+  fbSetStatus(
+    `Repair fast flash bootloader${both ? ', stage 2 of 2' : ''}: ${waiting ? 'reconnecting to' : 'resetting the DME into'} the repair installer…`
+  );
+  await fbDmeFastFlash({
+    title: both
+      ? 'Repair fast flash bootloader (2/2: bootloader)'
+      : 'Repair fast flash bootloader',
+    operation: 'bl15-repair',
+    what: 'boot loader',
+    noFasterLine: true,
+    confirmed: true,
+    confirm: '',
+    // past the ring's window: a line held across the reset lands in it
+    lateHold: true,
+    note: `DME ${d.ident.hwRef} / bootloader ${d.bootLoader ? `v${d.bootLoader.version} flags 0x${d.bootLoader.flags.toString(16)}` : 'not read (in the installer)'} / repair installer v${fbState.dme.fastFlasher.version} flags 0x${fbState.dme.fastFlasher.flags.toString(16)} / bootloader repair to v${bl14.BODY_VERSION}`,
+    push: async (client, cb) => {
+      const r = await bl14.upgrade(client, cb);
+      cb.stage('Restarting the DME');
+      await client.reset();
+      return r;
+    },
+    after: async () => {
+      await fbBl14IdentifyAfterLateGate();
+      const bl = fbState.dme.bootLoader;
+      fbSetStatus(
+        bl14.isCurrent(bl)
+          ? `Repair fast flash bootloader: done, v${bl.version} is on the DME.`
+          : 'Repair fast flash bootloader: written. Switch the ignition off and on, then Identify.'
       );
     },
   });
@@ -198,7 +407,7 @@ async function fbBl14Restore() {
   }
   const both = !fbBl14HasInstallerRing();
   const ok = await fbConfirm(
-    'The fast flash bootloader comes off the DME: the loader\u2019s two patched words go back to stock and the bootloader is blanked out of the boot sector. Fast Flash, Fast Read and the AIF editor go with it. The loader build, the programming log, the program, the tune and the MPC are kept. A power or cable loss between an erase and its rewrite leaves a DME that neither the loader nor a full flash can reach: only a BDM / boot-mode rig recovers it. Keep the ignition on, a charger on the battery and the cable plugged in until it has finished.\n\nRestore the stock bootloader?',
+    'Takes the fast flash bootloader off the DME. Fast Flash, Fast Read and the AIF editor go with it; the program and tune stay. Keep the ignition on, a charger on the battery and the cable plugged in until it has finished. A power or cable loss mid-write can leave the DME unbootable.\n\nRestore the stock bootloader?',
     'Restore stock bootloader'
   );
   if (!ok) {
@@ -237,7 +446,7 @@ async function fbBl14Restore() {
     );
     if (!fbBl14HasInstallerRing()) {
       await fbMessage(
-        'Stage 1 did not leave the installer ring on the DME (see the status line and the log). The 8 KB sector was not touched, so the DME still boots through BL15.',
+        'Stage 1 failed (see the log). The DME still boots as before.',
         'Restore stock bootloader'
       );
       return;
@@ -259,7 +468,7 @@ async function fbBl14Restore() {
       await fbDmeIdentify(true);
       fbSetStatus(
         fbState.dme.bootLoader
-          ? 'Restore stock bootloader: written and verified, but Identify still reads the bootloader\u2019s stamp. Switch the ignition off and on, then press Identify.'
+          ? 'Restore stock bootloader: written. Switch the ignition off and on, then Identify.'
           : 'Restore stock bootloader: done, the DME runs the stock loader'
       );
     }

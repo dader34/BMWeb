@@ -14,7 +14,7 @@
 function fbLtInstallHtml() {
   return `
       <div class="fb-code">LIVE TUNE</div>
-      <div class="fb-dim">Tables and single values changed while the engine runs, saved into the tune at key-off when asked (Tuning, LIVE). The loaded pair is written with live tune in it; its tune is the one live tune starts from.</div>
+      <div class="fb-dim">Change tables and values while the engine runs, saved at key-off when asked.</div>
       <div class="fb-row">
         <button class="btn danger" id="fb-opt-lt-install" disabled>Install live tune</button>
       </div>
@@ -71,7 +71,7 @@ async function fbLtInstall() {
   const v = liveTunePatch.VERSION;
   const fast = fbDmeUseFastFlasher();
   const ok = await fbConfirm(
-    `Writes the loaded pair -- program and tune -- as a ${fast ? 'Fast Flash Program' : 'Flash Program'} with live tune ${v} in it${from === 'stock' ? '' : ` (in place of the loaded ${liveTunePatch.describe(from)})`}. The tune written is the one live tune keeps its saves against.\n\nThe DME must be in the car it was read from, and the pair must be the one you want on it: everything in it is written. Keep the ignition on, a charger on the battery and the cable plugged in until it has finished.\n\nInstall live tune?`,
+    `Writes the loaded pair as a ${fast ? 'Fast Flash Program' : 'Flash Program'} with live tune ${v} in it. Keep the ignition on, a charger on the battery and the cable plugged in until it has finished.\n\nInstall live tune?`,
     'Install live tune'
   );
   if (!ok) {

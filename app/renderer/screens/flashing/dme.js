@@ -344,6 +344,9 @@ async function fbDmeIdentifyThroughFlasher() {
       progRef: d.ident.progRef || '',
       inFlasher: true,
     };
+    // the next fast operation must reconnect: a reset request goes unheard
+    // here (sent anyway, its session seed gets the body's noise back)
+    fbDmeSetFastLive(true);
     fbSetEcuBox(`MS45.1  ${d.ident.hwRef}  ·  in the fast flasher`);
     fbLog(
       `The DME is in its fast flasher (${fastFlasher.describe(d.fastFlasher)}): a push cut short can be finished -- load the same files and run the same fast flash; it reconnects. Nothing of KWP answers until a flash completes or the ignition is cycled.`

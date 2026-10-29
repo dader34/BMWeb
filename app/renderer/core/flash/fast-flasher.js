@@ -32,7 +32,15 @@ const FAST_FLASHER_MAGIC = 'MS45QF';
 const FAST_FLASHER_HOOK_AT = 0x8; // MPC, the loader's reset word
 const FAST_FLASHER_STOCK_HOOK = 0x4bf717b6; // `ba 0xFFF717B4`
 const FAST_FLASHER_EXT_CPU = 0xfff00000; // where the external chip is mapped
-const FAST_FLASHER_VERSION = 13; // the highest stamp version this app speaks
+const FAST_FLASHER_VERSION = 18; // the highest stamp version this app speaks
+/**
+ * The oldest body used as it stands: v13 is the first with a READ that
+ * reads the right bytes, and the one proven on the car. Anything older is
+ * reinstalled before it is used (v14 added the EEPROM read window and v15
+ * the EEPROM write service -- the ISN screen asks for those by their
+ * stamp flags, not here).
+ */
+const FAST_FLASHER_CURRENT_FROM = 13;
 /**
  * The first body with READ: raw bytes of the chip or the MPC, 4 KB a
  * request, each block with its CRC (Fast Read). A v12 build carried a READ
@@ -138,7 +146,7 @@ const fastFlasher = {
     const supported = version <= FAST_FLASHER_VERSION;
     // older bodies wedge on a real cable (a stray byte after the reopen made
     // v2 swallow every HELLO): they are reinstalled, not used
-    const outdated = version < FAST_FLASHER_VERSION;
+    const outdated = version < FAST_FLASHER_CURRENT_FROM;
     return {
       version,
       flags,

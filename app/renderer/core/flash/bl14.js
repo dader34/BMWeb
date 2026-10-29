@@ -67,8 +67,26 @@ const BL14_CHUNK = 0x1000;
 const BL14_MAGIC = 'MS45BL';
 /** The installer body's stamp flag: its window opens at 0x4000. */
 const BL14_INSTALLER_FLAG = 0x04;
+/** The resident body's stamp flag for the LATE gate (~2 s of polls): it is
+ * entered by a line held after the ring's window (bl14Blob.lateInstaller). */
+const BL14_LATE_FLAG = 0x20;
 /** Ext offsets the ring's two variants cover between them. */
 const BL14_RING_SPAN_END = 0x1f700;
+/** The two sectors below the boot sector that the boot block's CRC also
+ * covers: [0x0, 0x4000) and [0x6000, 0x8000). Read, never written. */
+const BL14_LOW = 0x0;
+const BL14_LOW_LEN = 0x4000;
+const BL14_MID = 0x6000;
+const BL14_MID_LEN = 0x2000;
+/** The boot block's CRC word ("ROM test level 1"). The PROGRAM's background
+ * checksum task walks ext [start, end] -- the words at 0x1F808 and 0x1F80C,
+ * 0x0-0x1EFFF on both loader builds -- seeded from 0x1F9F0, and compares
+ * with the word here every ~5 s; a mismatch is self-check code 11 and the
+ * DME resets itself at every walk (fault 28B2 "reason 11"). The ring and
+ * both patched words lie inside, so every boot sector written here carries
+ * the word recomputed over the DME's own boot region (bl14WithBootCrc) --
+ * the car's reset loop of 2026-10-28 was a ring with the stock word left. */
+const BL14_BOOT_CRC_AT = 0x1f800;
 
 const bl14Wire =
   typeof fastFlashWire !== 'undefined'
@@ -90,6 +108,62 @@ function bl14Ring() {
 /** The installer ring's bytes, from the same address. @returns {Uint8Array} */
 function bl14InstallerRing() {
   return bl14Bytes.hexToBytes(bl14Data.installerRing.hex.join(''));
+}
+
+const _bl14Same = (a, b) =>
+  a.length === b.length && a.every((x, i) => x === b[i]);
+
+/**
+ * The boot block's CRC over the four areas as they would stand, following
+ * the table the boot sector itself carries (see BL14_BOOT_CRC_AT).
+ * @param {Uint8Array} low - [0x0, 0x4000) as read off the DME.
+ * @param {Uint8Array} sect8k - [0x4000, 0x6000), as it will be written.
+ * @param {Uint8Array} mid - [0x6000, 0x8000) as read off the DME.
+ * @param {Uint8Array} boot - [0x8000, 0x20000), as it will be written.
+ * @returns {number|null} Unsigned; null when the table is blank (no check).
+ */
+function bl14BootCrc(low, sect8k, mid, boot) {
+  if (
+    low.length !== BL14_LOW_LEN ||
+    sect8k.length !== BL14_SECT8K_LEN ||
+    mid.length !== BL14_MID_LEN ||
+    boot.length !== BL14_BOOT_LEN
+  )
+    throw new Error('bl14: a boot region read is the wrong size');
+  const at = BL14_BOOT_CRC_AT - BL14_BOOT;
+  const start = bl14Bytes.be32(boot, at + 8);
+  const end = bl14Bytes.be32(boot, at + 12);
+  const init = bl14Bytes.be32(boot, at + 0x1f0);
+  if (start === 0xffffffff) return null;
+  const lo = start & 0xfffff;
+  const hi = end & 0xfffff;
+  if (start >>> 20 !== 0xfff || lo !== 0 || hi >= BL14_BOOT_CRC_AT)
+    throw new Error(
+      `bl14: the boot CRC table names ext 0x${start.toString(16)}-0x${end.toString(16)}, not a range this install can sum. Nothing was written.`
+    );
+  const all = new Uint8Array(BL14_BOOT + BL14_BOOT_LEN);
+  all.set(low, BL14_LOW);
+  all.set(sect8k, BL14_SECT8K);
+  all.set(mid, BL14_MID);
+  all.set(boot, BL14_BOOT);
+  return bl14Bytes.crc32Mpeg2(all.subarray(lo, hi + 1), init);
+}
+
+/**
+ * The boot sector with its CRC word brought up to date for the region as
+ * the four areas describe it. Every sector written by this file goes
+ * through here; a region whose word is stale with nothing else to change
+ * is still a rewrite (that is how a DME left looping by an older build is
+ * mended: Install again).
+ * @param {Uint8Array} low @param {Uint8Array} sect8k @param {Uint8Array} mid
+ * @param {Uint8Array} boot
+ * @returns {Uint8Array} A copy of `boot`.
+ */
+function bl14WithBootCrc(low, sect8k, mid, boot) {
+  const crc = bl14BootCrc(low, sect8k, mid, boot);
+  const nb = Uint8Array.from(boot);
+  if (crc !== null) bl14Bytes.putBe32(nb, BL14_BOOT_CRC_AT - BL14_BOOT, crc);
+  return nb;
 }
 
 /**
@@ -151,8 +225,12 @@ function bl14Splice(boot, sect8k, guard) {
  * Which ring the boot region carries, and where its two words stand.
  * @param {Uint8Array} boot - [0x8000, 0x20000) as read off the DME.
  * @param {Uint8Array} sect8k - [0x4000, 0x6000) as read off the DME.
- * @returns {{ring: 'blank'|'bl15'|'installer'|null,
- *   words: 'stock'|'patched'|null}} null: neither, not a region we built
+ * @returns {{ring: 'blank'|'bl15'|'installer'|'older'|null,
+ *   words: 'stock'|'patched'|null,
+ *   stamp: {version: number, flags: number}|null}} ring null: neither,
+ *   not a region we built; 'older': a ring BMWeb put on from an earlier
+ *   build (its stamp names this ring's windows, its bytes are not these),
+ *   with `stamp` read from it
  */
 function bl14Survey(boot, sect8k) {
   if (boot.length !== BL14_BOOT_LEN || sect8k.length !== BL14_SECT8K_LEN)
@@ -165,13 +243,24 @@ function bl14Survey(boot, sect8k) {
   };
   const have = boot.subarray(at, at + BL14_RING_LEN);
   const same = (r) => have.every((x, i) => x === r[i]);
+  const stampAt = bl14Data.ring.stampAt - BL14_BOOT;
+  const st = boot.subarray(stampAt, stampAt + 16);
+  const mine = bl14Bytes.hexToBytes(bl14Data.ring.stamp);
+  // the same magic and the same two window addresses: a ring of ours,
+  // whatever its version and flags
+  const stamped =
+    String.fromCharCode(...st.subarray(0, 6)) === BL14_MAGIC &&
+    st.subarray(8, 16).every((x, i) => x === mine[8 + i]);
+  const stamp = stamped ? { version: st[6], flags: st[7] } : null;
   const ring = have.every((x) => x === 0xff)
     ? 'blank'
     : same(span(bl14Ring()))
       ? 'bl15'
       : same(span(bl14InstallerRing()))
         ? 'installer'
-        : null;
+        : stamped
+          ? 'older'
+          : null;
   const words = bl14Data.patches.map((p) =>
     bl14Bytes.be32(sect8k, p.at - BL14_SECT8K)
   );
@@ -179,7 +268,47 @@ function bl14Survey(boot, sect8k) {
   return {
     ring,
     words: all('stock') ? 'stock' : all('word') ? 'patched' : null,
+    stamp,
   };
+}
+
+/**
+ * Whether a bootloader stamp is this build's or newer: its version, and
+ * every feature flag this build's ring sets (the EEPROM read window came
+ * in as a flag on a version already out, so the version alone cannot tell
+ * the two apart).
+ * @param {{version: number, flags: number}|null|undefined} bl
+ * @returns {boolean}
+ */
+function bl14IsCurrent(bl) {
+  return !!(
+    bl &&
+    bl.version >= BL14_BODY_VERSION &&
+    (bl.flags & BL14_BODY_FEATURES) === BL14_BODY_FEATURES
+  );
+}
+
+/**
+ * Update's boot sector: an older ring of ours swapped for this build's.
+ * Refuses a region that is not a BL15 BMWeb installed (any version); the
+ * installer variant of an older ring is taken too (a restore cut short
+ * on an old build ends up on this ring, which this build can restore).
+ * @param {Uint8Array} boot @param {Uint8Array} sect8k - As read off the DME.
+ * @returns {Uint8Array|null} The new boot sector; null when it already
+ *   carries this build's ring (either variant).
+ */
+function bl14UpgradeImage(boot, sect8k) {
+  const v = bl14Survey(boot, sect8k);
+  if (v.words !== 'patched' || !v.ring || v.ring === 'blank')
+    throw new Error(
+      `bl14: the boot region does not carry a bootloader BMWeb installed (ring ${v.ring || 'unknown'}, words ${v.words || 'unknown'}). Nothing was written.`
+    );
+  if (v.ring !== 'older') return null;
+  const nb = Uint8Array.from(boot);
+  const at = bl14Data.ring.at - BL14_BOOT;
+  nb.fill(0xff, at, at + BL14_RING_LEN);
+  nb.set(bl14Ring(), at);
+  return nb;
 }
 
 /**
@@ -269,14 +398,12 @@ async function _bl14Rewrite(client, base, data, cb, pct0, pct1, what) {
  * @returns {Promise<{skipped: boolean, summary: string}>}
  */
 async function bl14Install(client, cb) {
-  cb.stage('Reading the boot region off the DME');
   const guard = await client.read(bl14Data.guard.at, 8);
-  const sect8k = await bl14Wire.readArea(client, BL14_SECT8K, BL14_SECT8K_LEN);
-  const boot = await bl14Wire.readArea(client, BL14_BOOT, BL14_BOOT_LEN, (n) =>
-    cb.progress(Math.floor((n * 20) / BL14_BOOT_LEN))
-  );
+  const { low, sect8k, mid, boot } = await _bl14ReadRegion(client, cb);
   const s = bl14Splice(boot, sect8k, guard);
-  if (!s.bootChanged && !s.sect8kChanged) {
+  const nb = bl14WithBootCrc(low, s.sect8k, mid, s.boot);
+  const bootChanged = s.bootChanged || !_bl14Same(nb, boot);
+  if (!bootChanged && !s.sect8kChanged) {
     cb.note('the bootloader is already on the DME: nothing written');
     return {
       skipped: true,
@@ -284,14 +411,14 @@ async function bl14Install(client, cb) {
     };
   }
   cb.note(
-    `splice: ring ${s.bootChanged ? 'goes in' : 'already in'}, handoff + park words ${s.sect8kChanged ? 'go in' : 'already patched'}`
+    `splice: ring ${s.bootChanged ? 'goes in' : 'already in'}, handoff + park words ${s.sect8kChanged ? 'go in' : 'already patched'}${bootChanged && !s.bootChanged ? ', boot CRC word brought up to date' : ''}`
   );
   await aifLadderArm(client, cb.note);
-  if (s.bootChanged)
+  if (bootChanged)
     await _bl14Rewrite(
       client,
       BL14_BOOT,
-      s.boot,
+      nb,
       cb,
       20,
       85,
@@ -319,14 +446,134 @@ async function bl14Install(client, cb) {
   };
 }
 
-/** Read the 8 KB and 96 KB sectors off the DME (20% of the bar). */
+/**
+ * Burn a new DME ISN into the flash triple at ext 0x1FB00, through the
+ * boot-sector ladder this file already uses (ARM -> ERASE -> CHUNK ->
+ * VERIFY -> DONE). BENCH ONLY. The read-back is the boot sector re-read and
+ * the ISN voted from it, so a wrong write shows as a mismatch, not a
+ * silent pass. A DME already on that ISN is left as it is.
+ *
+ * This writes ONLY the six ISN bytes (plus the boot CRC word, which is
+ * recomputed for hygiene though 0x1FB00 lies outside its range); the ring,
+ * the handoff words, the program and the log are untouched.
+ * @param {FastFlashClient} client - A session on the fast flash bootloader.
+ * @param {number} isn - 0x0000..0xFFFF, the ISN to write.
+ * @param {{stage: (s: string) => void, progress: (pct: number) => void,
+ *   note: (s: string) => void}} cb
+ * @returns {Promise<{skipped: boolean, was: number|null, summary: string}>}
+ */
+async function bl14BurnIsn(client, isn, cb) {
+  const isnFlashMod =
+    typeof isnFlash !== 'undefined'
+      ? isnFlash
+      : require('./isn-flash.js').isnFlash;
+  const { low, sect8k, mid, boot } = await _bl14ReadRegion(client, cb);
+  const s = isnFlashMod.spliceBoot(low, sect8k, mid, boot, isn);
+  const text = (v) => (v === null ? '??' : isnFlashMod.text(v));
+  if (!s.changed) {
+    cb.note(`the DME already holds ISN ${text(isn)}: nothing written`);
+    return {
+      skipped: true,
+      was: s.was,
+      summary: `the DME already held ISN ${text(isn)}`,
+    };
+  }
+  cb.note(`ISN ${text(s.was)} -> ${text(isn)} (flash 0x1FB00)`);
+  await aifLadderArm(client, cb.note);
+  await _bl14Rewrite(
+    client,
+    BL14_BOOT,
+    s.boot,
+    cb,
+    20,
+    95,
+    `the boot sector (ISN ${text(isn)})`
+  );
+  await aifLadderDone(client);
+  // read the six bytes back and vote them: the write is only good if the
+  // DME would now read the ISN we wrote
+  const back = await client.read(isnFlashMod.AT, isnFlashMod.LEN);
+  const got = isnFlashMod.fromTriple(back);
+  if (got !== isn)
+    throw new Error(
+      `ISN read-back is ${text(got)} (${Array.from(back)
+        .map((b) => b.toString(16).padStart(2, '0'))
+        .join(' ')}), not ${text(isn)}`
+    );
+  cb.progress(100);
+  return {
+    skipped: false,
+    was: s.was,
+    summary: `ISN written: ${text(s.was)} -> ${text(isn)}`,
+  };
+}
+
+/**
+ * Virginize the DME: blank the ISN triple at ext 0x1FB00 to 0xFF, through
+ * the same boot-sector ladder. The DME then reads a blank ISN (0xFFFF).
+ * NB the EWS does NOT write the flash triple back during a sync (car, 2026-
+ * 10-28): pairing is burnIsn with the car's ISN + the sync; this is a bench
+ * tool. BENCH ONLY. A DME already blank is left as it is.
+ * @param {FastFlashClient} client - A session on the fast flash bootloader.
+ * @param {{stage: (s: string) => void, progress: (pct: number) => void,
+ *   note: (s: string) => void}} cb
+ * @returns {Promise<{skipped: boolean, was: number|null, summary: string}>}
+ */
+async function bl14Virginize(client, cb) {
+  const isnFlashMod =
+    typeof isnFlash !== 'undefined'
+      ? isnFlash
+      : require('./isn-flash.js').isnFlash;
+  const text = (v) => (v === null ? 'blank' : isnFlashMod.text(v));
+  const { low, sect8k, mid, boot } = await _bl14ReadRegion(client, cb);
+  const s = isnFlashMod.blankBoot(low, sect8k, mid, boot);
+  if (!s.changed) {
+    cb.note('the DME ISN is already blank: nothing written');
+    return {
+      skipped: true,
+      was: s.was,
+      summary: 'the DME ISN was already blank',
+    };
+  }
+  cb.note(`ISN ${text(s.was)} -> blank (flash 0x1FB00 wiped to FF)`);
+  await aifLadderArm(client, cb.note);
+  await _bl14Rewrite(
+    client,
+    BL14_BOOT,
+    s.boot,
+    cb,
+    20,
+    95,
+    'the boot sector (ISN blanked)'
+  );
+  await aifLadderDone(client);
+  const back = await client.read(isnFlashMod.AT, isnFlashMod.LEN);
+  if (!Array.from(back).every((b) => b === 0xff))
+    throw new Error(
+      `the ISN did not read blank after the wipe (${Array.from(back)
+        .map((b) => b.toString(16).padStart(2, '0'))
+        .join(' ')})`
+    );
+  cb.progress(100);
+  return {
+    skipped: false,
+    was: s.was,
+    summary: `ISN virginized (was ${text(s.was)})`,
+  };
+}
+
+/** Read the boot region off the DME (20% of the bar): the 8 KB and 96 KB
+ * sectors that get written, and the two below them that the boot block's
+ * CRC covers as well. */
 async function _bl14ReadRegion(client, cb) {
   cb.stage('Reading the boot region off the DME');
+  const low = await bl14Wire.readArea(client, BL14_LOW, BL14_LOW_LEN);
   const sect8k = await bl14Wire.readArea(client, BL14_SECT8K, BL14_SECT8K_LEN);
+  const mid = await bl14Wire.readArea(client, BL14_MID, BL14_MID_LEN);
   const boot = await bl14Wire.readArea(client, BL14_BOOT, BL14_BOOT_LEN, (n) =>
     cb.progress(Math.floor((n * 20) / BL14_BOOT_LEN))
   );
-  return { boot, sect8k };
+  return { low, sect8k, mid, boot };
 }
 
 /** The stamp's first 8 bytes where the ring keeps it. */
@@ -349,12 +596,15 @@ async function _bl14Stamp(client) {
  * @returns {Promise<{skipped: boolean, summary: string}>}
  */
 async function bl14ToInstaller(client, cb) {
-  const { boot, sect8k } = await _bl14ReadRegion(client, cb);
-  const nb = bl14InstallerImage(boot, sect8k);
-  if (!nb) {
+  const { low, sect8k, mid, boot } = await _bl14ReadRegion(client, cb);
+  const img = bl14InstallerImage(boot, sect8k);
+  const nb = bl14WithBootCrc(low, sect8k, mid, img || boot);
+  if (!img && _bl14Same(nb, boot)) {
     cb.note('the installer ring is already on the DME: nothing written');
     return { skipped: true, summary: 'the installer ring was already on' };
   }
+  if (!img)
+    cb.note('the installer ring is on already; its boot CRC word was stale');
   await aifLadderArm(client, cb.note);
   await _bl14Rewrite(
     client,
@@ -385,8 +635,10 @@ async function bl14ToInstaller(client, cb) {
  * @returns {Promise<{skipped: boolean, summary: string}>}
  */
 async function bl14Restore(client, cb) {
-  const { boot, sect8k } = await _bl14ReadRegion(client, cb);
+  const { low, sect8k, mid, boot } = await _bl14ReadRegion(client, cb);
   const r = bl14RestoreImages(boot, sect8k);
+  r.boot = bl14WithBootCrc(low, r.sect8k, mid, r.boot);
+  r.bootChanged = r.bootChanged || !_bl14Same(r.boot, boot);
   if (!r.sect8kChanged && !r.bootChanged) {
     cb.note('the boot region is already stock: nothing written');
     return { skipped: true, summary: 'the boot region was already stock' };
@@ -423,20 +675,106 @@ async function bl14Restore(client, cb) {
   };
 }
 
+/**
+ * Update, one session on an older BL15: the park call checked against this
+ * ring's build, both sectors read, this build's ring in place of the old one
+ * (one 96 KB rewrite; the windows stay where the patched words point), the
+ * stamp read back current. A DME already carrying this build's ring is left
+ * as it is.
+ * @param {FastFlashClient} client - A session on the old ring.
+ * @param {{stage: (s: string) => void, progress: (pct: number) => void,
+ *   note: (s: string) => void}} cb
+ * @returns {Promise<{skipped: boolean, summary: string}>}
+ */
+async function bl14Upgrade(client, cb) {
+  cb.stage('Reading the boot region off the DME');
+  const guard = await client.read(bl14Data.guard.at, 8);
+  const g = bl14Data.guard;
+  if (
+    bl14Bytes.be32(guard, 0) !== g.words[0] ||
+    bl14Bytes.be32(guard, 4) !== g.words[1]
+  )
+    throw new Error(
+      `bl14: the loader's park call at ext 0x${g.at.toString(16)} is not the one this bootloader was built for. Nothing was written.`
+    );
+  const { low, sect8k, mid, boot } = await _bl14ReadRegion(client, cb);
+  const was = bl14Survey(boot, sect8k).stamp;
+  const img = bl14UpgradeImage(boot, sect8k);
+  const nb = bl14WithBootCrc(low, sect8k, mid, img || boot);
+  if (!img && _bl14Same(nb, boot)) {
+    cb.note(
+      'this build of the bootloader is already on the DME: nothing written'
+    );
+    return { skipped: true, summary: 'the bootloader was already current' };
+  }
+  cb.note(
+    img
+      ? `update: v${was.version} flags 0x${was.flags.toString(16)} -> v${BL14_BODY_VERSION} flags 0x${BL14_RING_FLAGS.toString(16)}`
+      : 'this build of the bootloader is on already; its boot CRC word was stale (an older install): rewriting the boot sector'
+  );
+  await aifLadderArm(client, cb.note);
+  await _bl14Rewrite(
+    client,
+    BL14_BOOT,
+    nb,
+    cb,
+    20,
+    95,
+    'the boot sector (the new ring)'
+  );
+  await aifLadderDone(client);
+  const st = await _bl14Stamp(client);
+  if (st.magic !== BL14_MAGIC || !bl14IsCurrent(st))
+    throw new Error(
+      `the stamp reads "${st.magic}" v${st.version} flags 0x${st.flags.toString(16)} after the update`
+    );
+  cb.progress(100);
+  return {
+    skipped: false,
+    summary: `bootloader updated to v${st.version}, programming log kept`,
+  };
+}
+
+/** This build's body version, from the blob's installer stamp. */
+const BL14_BODY_VERSION = parseInt(bl14Data.installer.stamp.slice(12, 14), 16);
+/** This build's ring stamp flags, and the feature bits among them (the
+ * installer bit is a variant, not a feature). */
+const BL14_RING_FLAGS = parseInt(bl14Data.ring.stamp.slice(14, 16), 16);
+const BL14_BODY_FEATURES = BL14_RING_FLAGS & ~BL14_INSTALLER_FLAG;
+
 const bl14 = {
   MAGIC: BL14_MAGIC,
   STAMP_AT: bl14Data.ring.stampAt,
   INSTALLER_FLAG: BL14_INSTALLER_FLAG,
+  /** This build's body version and feature flags, so a DME carrying an
+   * older bootloader is offered the update rather than told it already
+   * has one (bl14.isCurrent). */
+  BODY_VERSION: BL14_BODY_VERSION,
+  BODY_FEATURES: BL14_BODY_FEATURES,
+  isCurrent: bl14IsCurrent,
+  /** The ring stamp's flag for "installed with the boot CRC word kept"
+   * (ms45-emu tools/build/bl15.py CRC_FLAG); a ring without it is older. */
+  CRC_FLAG: 0x40,
   splice: bl14Splice,
   survey: bl14Survey,
+  bootCrc: bl14BootCrc,
+  withBootCrc: bl14WithBootCrc,
+  upgradeImage: bl14UpgradeImage,
+  upgrade: bl14Upgrade,
   installerImage: bl14InstallerImage,
   restoreImages: bl14RestoreImages,
   install: bl14Install,
   toInstaller: bl14ToInstaller,
   restore: bl14Restore,
+  burnIsn: bl14BurnIsn,
+  virginize: bl14Virginize,
   /** Whether identify's detection is the installer body. */
   isInstaller(det) {
     return !!(det && det.version >= 13 && det.flags & BL14_INSTALLER_FLAG);
+  },
+  /** Whether it is the installer behind the late gate (Repair bootloader). */
+  isLateInstaller(det) {
+    return !!(bl14.isInstaller(det) && det.flags & BL14_LATE_FLAG);
   },
   /**
    * The pair with the installer body spliced in, as fastFlasher.bootstrap
@@ -445,16 +783,31 @@ const bl14 = {
    * @returns {{flash: Uint8Array, mpc: Uint8Array}}
    */
   withInstaller(flash, mpc) {
-    const inst = bl14Data.installer;
-    const f = Uint8Array.from(flash);
-    const m = Uint8Array.from(mpc);
-    // whichever body the pair carried goes, the installer takes its place
-    f.fill(0xff, fastFlasher.BODY_START, fastFlasher.BODY_END);
-    for (const [off, hex] of inst.runs) f.set(bl14Bytes.hexToBytes(hex), off);
-    bl14Bytes.putBe32(m, inst.hookAt, inst.hookWord);
-    return { flash: f, mpc: m };
+    return _bl14Carry(bl14Data.installer, flash, mpc);
+  },
+  /**
+   * The pair with the installer behind the LATE gate spliced in: the way
+   * past a ring that takes a held line and cannot serve. Written by the
+   * DME's own loader; every boot listens ~2 s at MPC 0x8 until the next
+   * program flash takes it out (the caller signs).
+   * @param {Uint8Array} flash @param {Uint8Array} mpc
+   * @returns {{flash: Uint8Array, mpc: Uint8Array}}
+   */
+  withLateInstaller(flash, mpc) {
+    return _bl14Carry(bl14Data.lateInstaller, flash, mpc);
   },
 };
+
+/** One installer variant spliced into a pair, whichever body it carried. */
+function _bl14Carry(inst, flash, mpc) {
+  const f = Uint8Array.from(flash);
+  const m = Uint8Array.from(mpc);
+  // whichever body the pair carried goes, the installer takes its place
+  f.fill(0xff, fastFlasher.BODY_START, fastFlasher.BODY_END);
+  for (const [off, hex] of inst.runs) f.set(bl14Bytes.hexToBytes(hex), off);
+  bl14Bytes.putBe32(m, inst.hookAt, inst.hookWord);
+  return { flash: f, mpc: m };
+}
 
 if (typeof window !== 'undefined') window.bl14 = bl14;
 if (typeof module !== 'undefined' && module.exports) module.exports = { bl14 };

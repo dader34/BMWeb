@@ -9,7 +9,11 @@
 // sequence -- session, unlock, status, erase, wait, write, commit -- and its
 // region, chunk and timing were taken from the macOS flasher, which verified
 // a full calibration write against a real transmission: the read-back
-// matched the written calibration byte for byte.
+// matched the written calibration byte for byte. The answers are judged the
+// way BMW's own programming SGBD for this module (10GD20.prg, which WinKFP
+// runs) judges them: erase and write sub-statuses, the written-byte count
+// each write echoes, and a closing 0A in which the module checks the
+// calibration's checksum itself (decoded in projects/winkfp-re/GS20-FLASH.md).
 //
 // Safety, in order of importance:
 //   * The calibration's checksum is corrected before anything is sent, so a
@@ -168,6 +172,26 @@ const GS20_CHALLENGE_REPLY = 46;
 /** Supply voltage: command 0B 03 answers a 48-byte block; the volts sit here. */
 const GS20_VOLTAGE_OFFSET = 10;
 const GS20_VOLTAGE_SCALE = 0.10196078;
+/**
+ * Flash sub-statuses (frame byte 8) that BMW's programming SGBD, 10GD20.prg,
+ * takes as a failed region in its 07 0F status check: WinKFP stops on these
+ * before the erase and after the last write.
+ */
+const GS20_STATUS_FAULTS = [2, 3, 4, 5, 6, 9];
+/** In a write answer, frame byte 7 echoes how many bytes were programmed. */
+const GS20_WRITE_COUNT_OFFSET = 7;
+/** In the 0A answer, frame byte 3: 0 when the calibration's checksum holds. */
+const GS20_CHECKSUM_RESULT_OFFSET = 3;
+
+/**
+ * Whether an erase or write sub-status reports success, by 10GD20.prg's
+ * rule: 1, or any value with the top bit set.
+ * @param {number|null} sub - The sub-status byte.
+ * @returns {boolean}
+ */
+function _gs20FlashOk(sub) {
+  return sub === 1 || (sub != null && sub >= 0x80);
+}
 
 /**
  * The 07 <sub> <addr24> 00 command the flash commands share.
@@ -561,6 +585,13 @@ class Gs20CalWriter {
           `programming. Nothing was erased. Reply: ${busTrace.hex(reply.slice(0, 12))}`
       );
     }
+    const sub = ds2SubStatus(reply);
+    if (status === DS2_STATUS.ok && GS20_STATUS_FAULTS.includes(sub)) {
+      throw new Error(
+        `the transmission reports a flash fault before the erase (${ds2DescribeSubStatus(sub)}), ` +
+          `so WinKFP would not program it either. Nothing was erased. Reply: ${busTrace.hex(reply.slice(0, 12))}`
+      );
+    }
   }
 
   /**
@@ -572,7 +603,7 @@ class Gs20CalWriter {
    */
   async erase(abort) {
     this.eraseStarted = true;
-    await this._exchange(
+    const erased = await this._exchange(
       _gs20AddressCommand(0x06, GS20_CAL_ADDRESS),
       GS20_ERASE_TIMEOUT_MS,
       'erase',
@@ -580,6 +611,13 @@ class Gs20CalWriter {
         abort,
       }
     );
+    const sub = ds2SubStatus(erased);
+    if (!_gs20FlashOk(sub)) {
+      throw new Error(
+        `the transmission did not erase ${_gs20Hex(GS20_CAL_ADDRESS)}: ${ds2DescribeSubStatus(sub)} ` +
+          `(${busTrace.hex(erased.slice(0, 12))})`
+      );
+    }
     for (let poll = 0; poll < GS20_MAX_BUSY_POLLS; poll++) {
       _gs20Check(abort);
       const reply = await this._exchange(
@@ -642,9 +680,16 @@ class Gs20CalWriter {
         }
       );
       const sub = ds2SubStatus(reply);
-      if (sub != null && sub !== 1) {
+      if (!_gs20FlashOk(sub)) {
         throw new Error(
           `write rejected at ${_gs20Hex(address)}: ${ds2DescribeSubStatus(sub)}`
+        );
+      }
+      const count = reply[GS20_WRITE_COUNT_OFFSET];
+      if (count !== length) {
+        throw new Error(
+          `write at ${_gs20Hex(address)} programmed ${count == null ? 'no' : count} of ${length} bytes ` +
+            `(${busTrace.hex(reply.slice(0, 12))})`
         );
       }
       offset += length;
@@ -681,6 +726,39 @@ class Gs20CalWriter {
       );
     }
     throw new Error('the transmission never confirmed the write');
+  }
+
+  /**
+   * Ask the module to check the calibration's checksum itself (0A), as
+   * WinKFP does after every flash. It answers busy while it sums, then 0 in
+   * frame byte 3 when the checksum holds; 4 is a mismatch, a calibration it
+   * would reject at power-up.
+   * @param {AbortSignal} [abort] - Cancel signal.
+   * @returns {Promise<void>}
+   * @throws {Error} When the module reports the checksum wrong or stays busy.
+   */
+  async verifyChecksum(abort) {
+    for (let poll = 0; poll < GS20_MAX_BUSY_POLLS; poll++) {
+      _gs20Check(abort);
+      const reply = await this._exchange(
+        [0x0a],
+        GS20_NORMAL_TIMEOUT_MS,
+        'checksum check',
+        { abort, allowBusy: true }
+      );
+      if (ds2Status(reply) === DS2_STATUS.busy) {
+        await bmwSleep(GS20_BUSY_POLL_MS);
+        continue;
+      }
+      const result = reply[GS20_CHECKSUM_RESULT_OFFSET];
+      if (result === 0) return;
+      throw new Error(
+        `the calibration is written, but the transmission reports its checksum wrong ` +
+          `(result ${result == null ? 'missing' : result}); it will reject it at power-up ` +
+          `(${busTrace.hex(reply.slice(0, 12))})`
+      );
+    }
+    throw new Error('the transmission never finished checking the checksum');
   }
 
   /**
@@ -730,6 +808,8 @@ class Gs20CalWriter {
 
     stage('committing');
     await this.commit(opts.abort);
+    stage('checking the checksum');
+    await this.verifyChecksum(opts.abort);
     stage('done');
     return { checksumCorrected };
   }

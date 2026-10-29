@@ -48,6 +48,7 @@ const FB_PAGE_TITLES = {
   logging: 'Data logging',
   history: 'History',
   aif: 'AIF editor',
+  isn: 'ISN / EWS',
   settings: 'Settings',
 };
 
@@ -210,6 +211,7 @@ async function showFlashing(page) {
       <button class="fb-rail-btn" id="fb-rail-logging" title="Data logging">&#x223F;</button>
       <button class="fb-rail-btn" id="fb-rail-history" title="History">&#x27F2;</button>
       <button class="fb-rail-btn" id="fb-rail-aif" title="AIF" hidden>&#x25A4;</button>
+      <button class="fb-rail-btn" id="fb-rail-isn" title="ISN / EWS" hidden>&#x1F511;&#xFE0E;</button>
       <button class="fb-rail-btn" id="fb-rail-settings" title="Settings">&#x2699;&#xFE0E;</button>
     </div>
     <div class="fb-main">
@@ -264,6 +266,8 @@ async function showFlashing(page) {
 
       ${fbAifEdPageHtml()}
 
+      ${fbIsnPageHtml()}
+
       <div class="fb-page" id="fb-page-settings" hidden>
         <div class="fb-section">
           <div class="fb-code">FILES</div>
@@ -290,7 +294,7 @@ async function showFlashing(page) {
         <div class="fb-section">
           <div class="fb-code">DEVELOPMENT</div>
           <label class="fb-check"><input type="checkbox" id="fb-set-dev"> Allow loading files and Custom Options without an identified module</label>
-          <div class="fb-dim">For building and checking files on the bench. Every write still needs the car identified.</div>
+          <div class="fb-dim">For building and checking files on the bench. Also shows the AIF and ISN/EWS rail pages at all times. Every write still needs the car identified.</div>
         </div>
       </div>
 
@@ -311,6 +315,7 @@ async function showFlashing(page) {
   fbEls['rail-logging'].onclick = () => fbShowPage('logging');
   fbEls['rail-history'].onclick = () => fbShowPage('history');
   fbEls['rail-aif'].onclick = () => fbShowPage('aif');
+  fbEls['rail-isn'].onclick = () => fbShowPage('isn');
   fbEls['rail-settings'].onclick = () => fbShowPage('settings');
 
   // the app's own dropdown, in the skin the chassis and module pickers wear;
@@ -462,6 +467,7 @@ function fbShowPage(page) {
     'logging',
     'history',
     'aif',
+    'isn',
     'settings',
   ]) {
     fbEls[`page-${p}`].hidden = p !== page;
@@ -487,6 +493,7 @@ function fbShowPage(page) {
   if (page === 'flashing') fbShowOptions(false);
   if (page === 'history') fbHistoryRefresh();
   if (page === 'aif') fbAifEdShow();
+  if (page === 'isn') fbIsnShow();
 }
 
 /**
@@ -1071,6 +1078,12 @@ function fbRefreshAll() {
   if (fbState.page === 'aif') {
     if (fbEls['rail-aif'].hidden) fbShowPage('flashing');
     else fbAifEdPaint();
+  }
+  // the matcher under the same loader's EEPROM services (v15 bodies)
+  fbEls['rail-isn'].hidden = !fbIsnAvailable();
+  if (fbState.page === 'isn') {
+    if (fbEls['rail-isn'].hidden) fbShowPage('flashing');
+    else fbIsnPaint();
   }
 }
 

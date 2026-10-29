@@ -653,7 +653,7 @@ const be32 = (b, at) =>
     assert(orphan && !orphan.hooked && !orphan.ready);
     assert.throws(() => fastFlasher.assertReady(orphan), /no longer leads/);
     const newer = Buffer.from(stamp);
-    newer[6] = 14;
+    newer[6] = fastFlasher.VERSION + 1;
     assert(
       !fastFlasher.parseDetection(hook(fastFlasherBlob.hookWord), newer)
         .supported
