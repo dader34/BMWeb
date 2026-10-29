@@ -27,9 +27,17 @@ eval(
 );
 const CE = window.CodingEncode;
 
-// Load the real datenmap into the same shim to pull live field fixtures.
-eval(fs.readFileSync(path.join(R, 'app/renderer/data/datenmap.js'), 'utf8'));
-const MAP = window.BMW_DATEN_MAP;
+// Every chassis's coding files (data/daten/<CHASSIS>.json, NCS's own names),
+// for live field fixtures: module -> {chassis: {CH: variants}}.
+const MAP = {};
+for (const f of fs.readdirSync(path.join(R, 'app/renderer/data/daten'))) {
+  if (!f.endsWith('.json')) continue;
+  const d = JSON.parse(
+    fs.readFileSync(path.join(R, 'app/renderer/data/daten', f), 'utf8')
+  );
+  for (const [name, entry] of Object.entries(d.modules || {}))
+    MAP[`${d.chassis}:${name}`] = entry;
+}
 
 const fails = [];
 const ok = (cond, msg) => {

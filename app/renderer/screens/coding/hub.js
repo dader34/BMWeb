@@ -17,7 +17,8 @@
  * @returns {Promise<boolean>} true when at least one module is codeable.
  */
 async function chassisHasCoding(chassisId) {
-  return (await codeableModules(chassisId)).length > 0;
+  // NCS's module list for the chassis (SGFAM)
+  return (await ncsSlots(chassisId)).length > 0;
 }
 
 /**
@@ -230,7 +231,7 @@ async function showExpertCoding(chassisId, cont, back, scan, reScan) {
   // the scan had read the selected ones -- the two disagreed about which
   // variant a slot holds. Take the scan's own modules, which are also the
   // ones codingResolveVariants retargeted.
-  const all = (scan && scan.mods) || (await codeableModules(chassisId));
+  const all = (scan && scan.mods) || [];
   if (!all.length) {
     cont.innerHTML = errorBlock('No codeable modules on this chassis.');
     return;

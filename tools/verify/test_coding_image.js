@@ -14,7 +14,7 @@
 //   2. An unread function is unknown: no value, no marked option, nothing to
 //      pick. Nothing is matched by name and nothing is made up.
 //   3. Where a module is read from comes from BMW's tables: the coding file
-//      by the module's index (in hex: index 52 is LSZ.C34), the coding SGBD
+//      by the module's index (its digits are the file: 34 is LSZ.C34), the coding SGBD
 //      and script from the selection table's row, the script's file from the
 //      script index. The late E46 cluster is KOMBI46R, coded by A_KMB46 or
 //      A_AKMB46 depending on how the car is coded.
@@ -106,8 +106,16 @@ for (const f of [
   'screens/coding/review.js',
   'screens/coding/scan.js',
   'screens/coding/write-review.js',
+  'screens/coding/ncs-slots.js',
 ])
   load(f);
+// NCS's coding files under their own names (daten_files.py)
+const DATEN46 = JSON.parse(
+  fs.readFileSync(R('data/daten/E46.json'), 'utf8')
+).modules;
+// the cluster's coding file, registered the way the scan registers a module
+// it found (sections 1-2 work on it directly)
+page.codingRegisterFile('kombi46', DATEN46.KMB_E46);
 
 // ---- the car: a simulated late cluster ------------------------------------------
 function cluster(mem, o = {}) {
@@ -309,34 +317,68 @@ const freshMem = () => {
   }
 
   // ---- 3. where a module is read from ---------------------------------------------------
+  // NCS's procedure (scanCoding over ncs-slots.js): only the cluster answers
+  // here, through its coding SGBD C_KMB46, with the index the case sets.
   console.log('\nwhere a module is read from');
   const S = page.CodingSelect;
   const stamps = [3, 4, 5, 6, 7, 8].map((n) => `KMBI_CI_0${n}`);
+  const realReadImage = page.codingReadImage;
+  const realReadJob = page.webCodingReadJob;
+  page.api = async (url) => {
+    throw new Error(`no answer (${url})`);
+  };
+  const scanAt = async (index, equipment) => {
+    page.webCodingReadJob = async (sgbd, o) =>
+      sgbd === 'c_kmb46' && o.jobname === 'CODIERINDEX_LESEN'
+        ? { ok: true, pars: { CODIERINDEX: index }, info: '' }
+        : { ok: false, pars: {}, info: 'no answer' };
+    page.codingReadImage = async () => null;
+    const codes = [];
+    if (equipment) {
+      // what the car's equipment is read from: an order (here only its time
+      // criterion) and/or keywords given by hand
+      Object.defineProperty(codes, 'car', {
+        value: {
+          fa: equipment.time ? { date: equipment.time } : null,
+          keywords: equipment.keywords,
+        },
+      });
+      codes.push('0');
+    }
+    const scan = await page.scanCoding('E46', { innerHTML: '' }, codes);
+    page.codingReadImage = realReadImage;
+    page.webCodingReadJob = realReadJob;
+    const m = scan.mods[0];
+    return { scan, m, src: m && scan.sources.get(m.sgbd) };
+  };
   {
-    const fns = await page.moduleFunctions('E46', 'kombi46', 8);
-    const m = { sgbd: 'kombi46', label: 'Cluster' };
-    let src = await page.codingSourceOf('E46', m, fns, null);
+    let r = await scanAt('08');
     ok(
-      src.route === 'script' && src.sgbd === 'kombi46r',
-      "the late cluster's coding SGBD is KOMBI46R (the selection table's row), not the diagnostic one"
+      r.scan.mods.length === 1 &&
+        r.m.file === 'KMB_E46.C08' &&
+        r.src.sgbd === 'kombi46r',
+      `one module answers: the cluster on KMB_E46.C08, coded on KOMBI46R as the selection table says (${r.m && r.m.label})`
     );
     ok(
-      src.decided === false && /^A_A?KMB46$/.test(src.script),
-      `with the car's equipment unknown, which of its two scripts is the car's is left open (reading with ${src.script})`
+      r.src.decided === false &&
+        r.src.choices
+          .map((c) => c.script)
+          .sort()
+          .join() === 'A_AKMB46,A_KMB46',
+      "with the car's equipment unknown, both of its scripts are offered and none is assumed"
     );
-    src = await page.codingSourceOf('E46', m, fns, S.aswIds('E46', [], stamps));
+    r = await scanAt('08', { keywords: stamps });
     ok(
-      src.script === 'A_KMB46' && src.dispatchKey === 'a_kmb46' && src.decided,
+      r.src.script === 'A_KMB46' &&
+        r.src.dispatchKey === 'a_kmb46' &&
+        r.src.decided,
       'a car coded by its central key: A_KMB46, from its own file'
     );
-    src = await page.codingSourceOf(
-      'E46',
-      m,
-      fns,
-      S.aswIds('E46', [], ['PU01', ...stamps])
-    );
+    r = await scanAt('08', { keywords: ['PU01', ...stamps] });
     ok(
-      src.script === 'A_AKMB46' && src.dispatchKey === 'c_kmb46' && src.decided,
+      r.src.script === 'A_AKMB46' &&
+        r.src.dispatchKey === 'c_kmb46' &&
+        r.src.decided,
       'a car coded by its vehicle order: A_AKMB46'
     );
     for (const key of ['a_kmb46', 'c_kmb46']) {
@@ -355,14 +397,9 @@ const freshMem = () => {
         at.time['0904'].includes('LSZ_CI_35'),
       "the order table's row for 09/04 carries the order-coding marker and the revision stamps (its continuation lines too)"
     );
-    src = await page.codingSourceOf(
-      'E46',
-      m,
-      fns,
-      S.aswIds('E46', [], [], '#0904')
-    );
+    r = await scanAt('08', { keywords: [], time: '#0904' });
     ok(
-      src.script === 'A_AKMB46' && src.decided,
+      r.src.script === 'A_AKMB46' && r.src.decided,
       'so an order of 09/04 settles the script by itself: A_AKMB46'
     );
     ok(
@@ -372,54 +409,43 @@ const freshMem = () => {
           'KMB_E46.C06',
       "and names the cluster's coding file: C08 for 09/04, C06 for 03/03"
     );
-    const early = await page.moduleFunctions('E46', 'kombi46', 6);
-    src = await page.codingSourceOf('E46', m, early, null);
-    ok(src.sgbd === 'c_kmb46', 'an early cluster (index 6) is C_KMB46');
-    const unresolved = await page.moduleFunctions('E46', 'kombi46', null);
-    src = await page.codingSourceOf('E46', m, unresolved, null);
+    r = await scanAt('06');
+    ok(r.src.sgbd === 'c_kmb46', 'an early cluster (index 06) is C_KMB46');
+    r = await scanAt('');
     ok(
-      src.route === null && /coding index/.test(src.why),
-      'without a coding index there is no source, and it says why'
+      !r.scan.mods.length,
+      'a module that gives no coding index is not listed'
     );
   }
   {
     // an index of ten or more is the file's extension in HEX
-    const lsz = page.BMW_DATEN_MAP.lsz;
+    const lsz = DATEN46.LSZ;
     ok(
       String(page.variantsForCI(lsz, 'E46', 52)) === 'C34' &&
         page.variantHasCI('C34', 52) &&
         !page.variantHasCI('C34', 34),
       'coding index 52 is LSZ.C34'
     );
-    const scan = new Map([['lsz', new Map([['ID_COD_INDEX', '52']])]]);
+    // BMW's coding scripts use the result's digits as the file extension
+    // (CILesen: ID_COD_INDEX padded to two characters -> CODIERINDEX), so a
+    // module answering 34 is on LSZ.C34 -- index 0x34
+    const scan = new Map([['lsz', new Map([['ID_COD_INDEX', '34']])]]);
     ok(
       page.codingIndexFromScan(scan, 'lsz') === 52,
-      'and a result of 52 is index 52 (it used to be read as hex 0x52)'
+      'and a result of 34 is LSZ.C34 (the digits are the file name)'
+    );
+    scan.get('lsz').set('ID_COD_INDEX', '7');
+    ok(
+      page.codingIndexFromScan(scan, 'lsz') === 7,
+      'a one-digit result is padded, as the scripts do: 7 is C07'
     );
     scan.get('lsz').set('ID_COD_INDEX', '0x34');
     ok(
       page.codingIndexFromScan(scan, 'lsz') === 52,
       'text that says it is hex is hex'
     );
-    const fns = await page.moduleFunctions('E46', 'lsz', 52);
-    const src = await page.codingSourceOf('E46', { sgbd: 'lsz' }, fns, null);
-    ok(
-      fns.codingIsResolved && src.route === 'blob',
-      'the light module numbers its coding blocks: it is read from the raw block, not its script'
-    );
-    const image = await page.codingReadImage(
-      src,
-      new Map([['CODIERDATEN', '01 02 03 04']])
-    );
-    ok(
-      image.block === 0 && image.bytes.length === 4 && image.route === 'blob',
-      'and that raw block is block 0 only'
-    );
-    const inBlock1 = fns.find((f) => f.block === 1);
-    ok(
-      inBlock1 && page.codingImageValue(inBlock1, image) === null,
-      'so a function in another block stays unknown'
-    );
+    // (which file, SGBD and script each slot and index resolves to, the
+    // light module's numbered blocks included: tools/verify/test_ncs_slots.js)
   }
 
   // ---- 4. scan, show, stage, write ----------------------------------------------------------
@@ -488,11 +514,17 @@ const freshMem = () => {
     };
     // the car's equipment, as the identity read hands it over
     const saCodes = [];
-    Object.defineProperty(saCodes, 'keywords', { value: stamps });
+    Object.defineProperty(saCodes, 'car', { value: { keywords: stamps } });
     saCodes.push('0');
+    page.webCodingReadJob = async (sgbd, o) =>
+      sgbd === 'c_kmb46' && o.jobname === 'CODIERINDEX_LESEN'
+        ? { ok: true, pars: { CODIERINDEX: '08' }, info: '' }
+        : { ok: false, pars: {}, info: 'no answer' };
     const scan = await page.scanCoding('E46', { innerHTML: '' }, saCodes);
-    const image = scan.images.get('kombi46');
-    const source = scan.sources.get('kombi46');
+    // the scan's own key for the module it found (the slot, "kmb")
+    const K = scan.mods[0].sgbd;
+    const image = scan.images.get(K);
+    const source = scan.sources.get(K);
     ok(
       source.sgbd === 'kombi46r' &&
         source.script === 'A_KMB46' &&
@@ -506,15 +538,14 @@ const freshMem = () => {
       `the scan read the image through the script (${image && image.known.size} bytes)`
     );
     ok(
-      scan.status.get('kombi46').state === 'ok' &&
-        !sim.log.some((t) => t[2] === 0x07),
+      scan.status.get(K).state === 'ok' && !sim.log.some((t) => t[2] === 0x07),
       'the module counts as read, and reading wrote nothing'
     );
 
-    const fns = await page.moduleFunctions('E46', 'kombi46', 8);
+    const fns = await page.moduleFunctions('E46', K, 8);
     const state = new Map();
-    page.seedState(state, 'kombi46', fns, image);
-    const key = 'kombi46:TEMPERATUR_EINHEIT';
+    page.seedState(state, K, fns, image);
+    const key = `${K}:TEMPERATUR_EINHEIT`;
     const f = fns.find((x) => x.name === 'TEMPERATUR_EINHEIT');
     const cur = state.get(key).current;
     ok(
@@ -533,8 +564,7 @@ const freshMem = () => {
     );
     const unread = [...state.values()].filter((s) => s.current == null).length;
     ok(
-      page.treeReadNote(state, { sgbd: 'kombi46', fns, source }) === '' &&
-        unread === 0,
+      page.treeReadNote(state, { sgbd: K, fns, source }) === '' && unread === 0,
       'every choosable function of the module was read'
     );
 
@@ -542,13 +572,13 @@ const freshMem = () => {
     const other = cur === '01' ? '00' : '01';
     state.get(key).staged = other;
     const mod = {
-      sgbd: 'kombi46',
+      sgbd: K,
       label: 'Cluster',
       fns,
       chassisId: 'E46',
       source,
     };
-    const edits = page.treeStagedEdits([mod], state).get('kombi46');
+    const edits = page.treeStagedEdits([mod], state).get(K);
     ok(
       edits.length === 1 &&
         edits[0].hex === other &&
@@ -597,9 +627,9 @@ const freshMem = () => {
     );
     // not coding data: shown, not offered, and refused if it is edited anyway
     const lockedFn = fns.find(
-      (x) => fns.codingLocked.has(x.name) && state.has(`kombi46:${x.name}`)
+      (x) => fns.codingLocked.has(x.name) && state.has(`${K}:${x.name}`)
     );
-    const lkey = `kombi46:${lockedFn.name}`;
+    const lkey = `${K}:${lockedFn.name}`;
     const lhtml = page.treeValues(
       lockedFn.values,
       (n) => n,

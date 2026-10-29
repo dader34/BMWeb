@@ -241,10 +241,12 @@ async function hostChecks() {
   h.CDHActivateAllFsw();
   h.CDHGetNettoMaskFromCbd();
   h.CDHGetApiJobData(16, buf);
+  // a coding job answers with the request's own header in front of the data
+  const sent = h.bufs.get(buf).bytes.slice(0, 21);
   h.lastSets = [
     {
       JOB_STATUS: 'OKAY',
-      CODIER_DATEN: [...new Array(21).fill(0), 0xaa, 0xbb, 3],
+      CODIER_DATEN: [...sent, 0xaa, 0xbb, 3],
     },
   ];
   ok(
@@ -254,6 +256,24 @@ async function hostChecks() {
       h.netto[9] === 0xbb,
     "an answer buffer fills the image at the request's address"
   );
+  // as the factory tool checks it: a different header, or no closing 0x03
+  for (const [what, bytes] of [
+    [
+      'header',
+      [...sent.slice(0, 17), sent[17] ^ 1, ...sent.slice(18), 1, 2, 3],
+    ],
+    ['end', [...sent, 1, 2, 0]],
+  ]) {
+    h.cursor = 0;
+    h.slots.forEach((x) => (x.flags = 0));
+    h.CDHGetApiJobData(16, buf);
+    h.lastSets = [{ JOB_STATUS: 'OKAY', CODIER_DATEN: bytes }];
+    h.CDHapiResultBinary(buf, 'CODIER_DATEN', 1);
+    ok(
+      h.CDHBinBufToNettoData(buf) !== 0,
+      `an answer with a different ${what} is refused`
+    );
+  }
   h.CDHGetNettoMaskFromCbd();
   h.CDHGetApiJobData(16, buf);
   h.lastSets = [{ JOB_STATUS: 'OKAY', CODIER_DATEN: new Array(21).fill(0) }];
@@ -417,25 +437,41 @@ async function interpreterChecks() {
   );
   ok(/rejected/.test(r.info), 'and what failed is kept');
 
-  // a call the host cannot serve
+  // a call the host cannot serve: a write is refused before the run starts
+  const unserved = {
+    cabimain: [c('x'), call('CDHSomethingNew'), ret, { op: 'endproc' }],
+  };
   seen.length = 0;
-  r = await run({
-    cabimain: [
-      c('x'),
-      call('CDHSomethingNew'),
-      ret,
-      c(''),
-      c('NEVER'),
-      c(''),
-      c(''),
-      call('CDHapiJob'),
-      ret,
-      c(0),
-      call('CDHSetReturnVal'),
-      ret,
-      { op: 'endproc' },
-    ],
-  });
+  const refusal = await thrown(() => run(unserved));
+  ok(
+    refusal &&
+      /CDHSomethingNew/.test(refusal.message) &&
+      /nothing is sent/.test(refusal.message) &&
+      !seen.length,
+    'a write whose script calls something the host lacks is refused before anything runs'
+  );
+  // and a read that reaches one stops there
+  seen.length = 0;
+  r = await run(
+    {
+      cabimain: [
+        c('x'),
+        call('CDHSomethingNew'),
+        ret,
+        c(''),
+        c('NEVER'),
+        c(''),
+        c(''),
+        call('CDHapiJob'),
+        ret,
+        c(0),
+        call('CDHSetReturnVal'),
+        ret,
+        { op: 'endproc' },
+      ],
+    },
+    { mode: 'read' }
+  );
   ok(
     !r.ok &&
       r.err === CD.ERR_UNSUPPORTED_CALL &&
@@ -612,7 +648,7 @@ async function endToEnd() {
     'data/ecu-src/c_kmb46.job-code.json.gz',
     'data/ecu-src/c_gm5.job-code.json.gz',
     'app/renderer/data/coding-dispatch/c_kmb46.json',
-    'app/renderer/data/datenmap.js',
+    'app/renderer/data/daten/E46.json',
   ];
   const missing = need.filter((f) => !fs.existsSync(path.join(ROOT, f)));
   if (missing.length) {
@@ -640,12 +676,10 @@ async function endToEnd() {
       'utf8'
     )
   );
-  const win = {};
-  new Function(
-    'window',
-    fs.readFileSync(path.join(ROOT, 'app/renderer/data/datenmap.js'), 'utf8')
-  )(win);
-  const kombi = win.BMW_DATEN_MAP.kombi46;
+  // the cluster's coding file under NCS's own name (daten_files.py)
+  const kombi = JSON.parse(
+    fs.readFileSync(path.join(ROOT, 'app/renderer/data/daten/E46.json'), 'utf8')
+  ).modules.KMB_E46;
   const variant = Object.keys(kombi.chassis.E46).find((k) =>
     k.split('+').includes('C08')
   );

@@ -23,6 +23,12 @@
  * START/STOP match after `_` too ((?:\b|_)), so STEUERN_ROE_STOP-style names
  * are writes, and a SYSTEMCHECK_STOP_INFO hits the write tier before INFO.
  * Relaxing a WRITE token is the safe direction. This is the ONE classifier.
+ *
+ * Rule 4 has two strengths. A job NAMED as a write is refused before it
+ * starts; an unrecognised one (FA_STREAM2STRUCT, which turns the vehicle
+ * order's stream into its fields without the bus) may run, but is still a
+ * write to the transmit check, so it cannot put a byte on the wire
+ * (isNamedWriteJob; machine.js `run`).
  */
 
 /**
@@ -83,11 +89,24 @@ function isWriteJob(name) {
   return true; // default-deny: unknown => guarded
 }
 
+/**
+ * Is the job a write by its name (rule 2), not merely unrecognised (rule 4)?
+ * @param {string} name - The SGBD job name, any case.
+ * @returns {boolean} True when a write verb names it.
+ */
+function isNamedWriteJob(name) {
+  const n = String(name || '');
+  if (READ_TOKEN.test(n)) return false;
+  if (CONFIG_READ_TOKEN.test(n) && !WRITE_TOKEN.test(n)) return false;
+  return WRITE_TOKEN.test(n);
+}
+
 // Under node the pieces are separate modules; the browser gives them one
 // shared script scope. index.js assembles the public surface from these.
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     isWriteJob,
+    isNamedWriteJob,
     READ_TOKEN,
     CONFIG_READ_TOKEN,
     WRITE_TOKEN,

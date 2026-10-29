@@ -222,6 +222,22 @@
     return out;
   }
 
+  /**
+   * The EINHEIT to decode/encode a field's bytes with. 'A' (base-36) and 'b'
+   * (bitstring) read each byte as an ASCII character, which only a whole
+   * byte can be: on a sub-byte field (the E39/E52 cluster's EINGANG_PIN_D4,
+   * mask 0xC0) they are a display gloss on a number, like 'd'.
+   * @param {DatenField} rule - the field.
+   * @param {number} width - its width in bytes.
+   * @returns {string|undefined} the unit to use.
+   */
+  function textUnit(rule, width) {
+    const u = rule.unit;
+    if (u !== 'A' && u !== 'b') return u;
+    for (let i = 0; i < width; i++) if (maskAt(rule, i) !== 0xff) return 'h';
+    return u;
+  }
+
   // ---- mask/shift geometry --------------------------------------------------
   // datenmap carries a single-int `mask` (the FIRST byte's mask) and `shift`
   // (its trailing-zero count). For width>1 fields BMW ships mask 0xFF/shift 0,
@@ -337,7 +353,7 @@
       bytes[i] = (raw & maskAt(rule, i)) >>> shiftAt(rule, i);
     }
 
-    let value = einheitDecode(rule.unit, bytes);
+    let value = einheitDecode(textUnit(rule, width), bytes);
     const ops = rule.ops || [];
     for (let k = 0; k < ops.length; k++)
       value = applyOp(ops[k][0], ops[k][1], value);
@@ -388,7 +404,7 @@
       v = applyOpInverse(ops[k][0], ops[k][1], v);
 
     // Stage 4: invert EINHEIT to source bytes.
-    const enc = einheitEncode(rule.unit, v, width);
+    const enc = einheitEncode(textUnit(rule, width), v, width);
 
     // Stage 5: splice with mask+shift. Non-destructive: only the mask's bits of
     // each netto byte are touched, so a neighbour sharing the byte survives.

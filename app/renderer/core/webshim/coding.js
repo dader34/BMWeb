@@ -16,7 +16,7 @@
  * It runs over the SAME bus lock as reads (withBusLock), so a coding sequence
  * cannot interleave with the topbar state poll or any job on the wire.
  */
-/* exported webWriteCoding, webReadCoding */
+/* exported webWriteCoding, webReadCoding, webCodingReadJob, webCodingBlockProven */
 
 /**
  * A module's coding script, by the file it ships in.
@@ -35,8 +35,9 @@ async function webCodingScript(key) {
  * (coding-write.js readCoding). A read: the run's write gate is shut, so it
  * needs no confirmation.
  * @param {string} sgbd - The CODING SGBD the car's selection row names.
- * @param {{dispatchKey: string, cabd: object}} opts - which script file, and
- *   the module's coding description.
+ * @param {{dispatchKey: string, cabd: object, fa?: string}} opts - which
+ *   script file, the module's coding description, and the car's vehicle
+ *   order when known.
  * @returns {Promise<{netto: number[], read: number[], size: number}>} the
  *   image and which of its addresses were read.
  * @throws {Error} When no cable is connected, or the SGBD or its script is
@@ -62,9 +63,82 @@ async function webReadCoding(sgbd, opts = {}) {
       session,
       dispatch,
       dataOrg: dispatch.dataOrg || null,
+      // a job the script asks of another SGBD (FA.PRG) runs on that SGBD
+      codeFor: jobCodeFor,
       cabd: opts.cabd,
+      fa: opts.fa || undefined,
     })
   );
+}
+
+/**
+ * Run one READ job of a module's coding script (ZCS_LESEN, FGNR_LESEN,
+ * FA_READ, ...) and return what the script hands back.
+ * @param {string} sgbd - the coding SGBD.
+ * @param {{dispatchKey?: string, jobname: string}} opts - the script file
+ *   and the job.
+ * @returns {Promise<{ok: boolean, pars: object, info: string}>}
+ * @throws {Error} When no cable is connected or nothing is shipped for it.
+ */
+async function webCodingReadJob(sgbd, opts) {
+  if (typeof window.runCodingReadJob !== 'function')
+    throw new Error('coding-write.js is not loaded');
+  if (!webBus.connected) throw new Error('no cable connected');
+  const key = String(sgbd).toLowerCase();
+  const code = await webFetchJson(`data/job-code/${key}.json`);
+  if (!code) throw new Error(`no job code shipped for ${sgbd}`);
+  const tables = (await webFetchJson(`data/sgbd-tables/${key}.json`)) || {};
+  const dispatch = await webCodingScript(opts.dispatchKey || key);
+  if (!dispatch) throw new Error(`no coding script shipped for ${sgbd}`);
+  await switchSession(sgbd);
+  const session = sessionFor(sgbd);
+  return withBusLock(() =>
+    window.runCodingReadJob(sgbd, {
+      code,
+      tables,
+      exchange: (out, comm) => webBusRawExchange(out, comm),
+      session,
+      dispatch,
+      dataOrg: dispatch.dataOrg || null,
+      // a job the script asks of another SGBD (FA.PRG) runs on that SGBD
+      codeFor: jobCodeFor,
+      jobname: opts.jobname,
+    })
+  );
+}
+
+/** @type {Map<string, Promise<boolean>>} sgbd+blocks -> its jobs tell them apart */
+const _webBlockProof = new Map();
+
+/**
+ * Do this coding SGBD's read and write jobs tell the description's blocks
+ * apart on the wire (write.js blockOnTheWire)? The factory tool folds the
+ * block into the request's address and trusts the jobs; this asks them, in
+ * the VM -- no cable needed -- once per SGBD and block set. A description
+ * with block 0 only has nothing to get wrong and passes without asking.
+ * @param {string} sgbd - the coding SGBD.
+ * @param {number[]} [blocks] - the description's block numbers.
+ * @returns {Promise<boolean>}
+ */
+function webCodingBlockProven(sgbd, blocks = [0]) {
+  const list = [...new Set(blocks.map((b) => b | 0))].sort((a, b) => a - b);
+  if (list.length < 2) return Promise.resolve(true);
+  const name = String(sgbd).toLowerCase();
+  const key = `${name}:${list.join(',')}`;
+  if (!_webBlockProof.has(key)) {
+    _webBlockProof.set(
+      key,
+      (async () => {
+        if (typeof window.codingBlockOnTheWire !== 'function') return false;
+        const code = await webFetchJson(`data/job-code/${name}.json`);
+        if (!code) return false;
+        const tables =
+          (await webFetchJson(`data/sgbd-tables/${name}.json`)) || {};
+        return window.codingBlockOnTheWire(code, tables, window.Best2Vm, list);
+      })().catch(() => false)
+    );
+  }
+  return _webBlockProof.get(key);
 }
 
 /**
@@ -72,7 +146,7 @@ async function webReadCoding(sgbd, opts = {}) {
  * @param {string} sgbd - The SGBD to code.
  * @param {string} nettoHex - The netto coding bytes as hex.
  * @param {{confirmed?: boolean, jobname?: string, dispatchKey?: string, base?: string, cabd?: object,
- *   vin?: string, systemData?: Record<string, string>}} [opts] - `confirmed` must be true
+ *   vin?: string, fa?: string, systemData?: Record<string, string>}} [opts] - `confirmed` must be true
  *   (the UI's explicit confirmation); `jobname` picks the dispatcher job when
  *   a derived dispatcher is shipped (default SG_CODIEREN). For that path:
  *   `base` is the image the edits were made on, `cabd` the module's coding
@@ -101,17 +175,21 @@ async function webWriteCoding(sgbd, nettoHex, opts = {}) {
   if (!code) throw new Error(`no job code shipped for ${sgbd}`);
   const tables = (await webFetchJson(`data/sgbd-tables/${key}.json`)) || {};
 
-  // DISPATCHER PROGRAM (optional). When a derived A_<cabd> coding dispatcher
-  // is shipped for this module, writeCoding runs BMW's own dispatcher instead
-  // of the hand-sequenced strategy (see coding-write.js writeViaDispatch). The
-  // exec ships next to the module's job-code as <sgbd>.ipoexec.json with a
-  // "coding":true marker; opts.dataOrg carries the CABD word width. Absent, the
-  // strategy path runs unchanged, so this is additive and safe.
-  // opts.dispatchKey names the file when the script is not the one keyed by
-  // this SGBD: the car's selection row names both, and they differ (the late
-  // E46 cluster is KOMBI46R, coded by A_KMB46 or A_AKMB46).
+  // THE MODULE'S OWN CODING SCRIPT, always. Every coding screen reads a
+  // module through its script and writes it back the same way; without the
+  // script (not shipped, or the fetch failed) the write is refused rather
+  // than handed to the hand-sequenced strategy, which knows none of the
+  // factory tool's selection rules. opts.dispatchKey names the file when the
+  // script is not the one keyed by this SGBD: the car's selection row names
+  // both, and they differ (the late E46 cluster is KOMBI46R, coded by A_KMB46
+  // or A_AKMB46).
   const dispatch = await webCodingScript(opts.dispatchKey || key);
-  const dispatchOk = !!dispatch;
+  if (!dispatch) {
+    throw new Error(
+      `coding write refused: the coding script for ${sgbd} could not be ` +
+        'loaded, so nothing was sent. Reload the page and try again.'
+    );
+  }
 
   // One SGBD is loaded at a time, exactly like a read: end the previous
   // session (its ENDE) before this one initialises, then run the whole write
@@ -129,16 +207,19 @@ async function webWriteCoding(sgbd, nettoHex, opts = {}) {
       // serialises, so pass the RAW exchange to avoid queuing behind ourselves
       exchange: (out, comm) => webBusRawExchange(out, comm),
       session,
-      // the dispatcher program + its word width, only when shipped for this CABD
-      dispatch: dispatchOk ? dispatch : null,
-      dataOrg: dispatchOk ? dispatch.dataOrg || null : null,
-      jobname: dispatchOk ? opts.jobname || 'SG_CODIEREN' : undefined,
+      // the coding script + its word width
+      dispatch: dispatch,
+      dataOrg: dispatch.dataOrg || null,
+      codeFor: jobCodeFor,
+      jobname: opts.jobname || 'SG_CODIEREN',
       // what the dispatcher path writes from; writeCoding refuses that path
       // without the coding description rather than guess a selection
-      cabd: dispatchOk ? opts.cabd || null : undefined,
-      base: dispatchOk ? opts.base || null : undefined,
-      systemData: dispatchOk ? opts.systemData || undefined : undefined,
-      vin: dispatchOk ? opts.vin || undefined : undefined,
+      cabd: opts.cabd || null,
+      base: opts.base || null,
+      systemData: opts.systemData || undefined,
+      sget: opts.sget || undefined,
+      vin: opts.vin || undefined,
+      fa: opts.fa || undefined,
       onStage: opts.onStage,
     })
   );

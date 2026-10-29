@@ -21,10 +21,9 @@ const TREE_MODULE_CAP = 400;
  * @param {() => void} back - the Back action.
  * @param {ScanCache|null} scan - the scan.
  * @param {(() => Promise<void>)|null} reScan - the hub's re-read, when any.
- * @param {boolean} [showAll] - skip the equipment-code module filter.
  * @returns {Promise<void>} resolves once drawn.
  */
-async function expertTree(chassisId, mods, cont, back, scan, reScan, showAll) {
+async function expertTree(chassisId, mods, cont, back, scan, reScan) {
   cont.className = 'coding-panel coding-tree-wrap';
   cont.innerHTML = `
     <div class="tree-bar">
@@ -35,13 +34,9 @@ async function expertTree(chassisId, mods, cont, back, scan, reScan, showAll) {
   const treeEl = cont.querySelector('#coding-tree');
   const filterEl = cont.querySelector('#tree-filter');
 
-  // Extract SA codes from ZCS for FA/ZCS filtering
-  const saCodes = extractSaCodesFromScan(scan);
-  // ...and drop modules this car's equipment codes say it does not carry.
-  const shown = showAll
-    ? mods
-    : await filterModulesByFa(chassisId, mods, saCodes);
-  const hidden = mods.length - shown.length;
+  // The scan already kept only the modules that answered, and applied the
+  // car's equipment to the selection table's rows (scanCoding).
+  const shown = mods;
 
   // pull each module's DATEN functions (chassis variant union) once; skip
   // modules with no functions -- a 0-function row is a dead expand.
@@ -63,21 +58,6 @@ async function expertTree(chassisId, mods, cont, back, scan, reScan, showAll) {
         // same way, or not at all
         source: (scan && scan.sources && scan.sources.get(m.sgbd)) || null,
       });
-  }
-
-  // Never filter silently: say what the car's equipment codes hid, and offer
-  // the way back. A module missing with no explanation reads as a bug.
-  if (hidden > 0) {
-    const note = document.createElement('div');
-    note.className = 'cod-fa-note';
-    note.innerHTML =
-      `${hidden} module${hidden === 1 ? '' : 's'} hidden — ` +
-      `this car's equipment codes say it doesn't have ` +
-      `${hidden === 1 ? 'it' : 'them'}. ` +
-      `<button class="linklike" id="fa-show-all">Show all</button>`;
-    cont.querySelector('.tree-bar').insertAdjacentElement('afterend', note);
-    note.querySelector('#fa-show-all').onclick = () =>
-      expertTree(chassisId, mods, cont, back, scan, reScan, true);
   }
 
   const label = (name) =>
@@ -119,7 +99,7 @@ async function expertTree(chassisId, mods, cont, back, scan, reScan, showAll) {
     node.innerHTML =
       `<summary class="tree-mod-h">` +
       `<span class="tree-name">${esc(m.label)}</span>` +
-      `<span class="tree-meta mono">${esc(m.sgbd)}.prg · ` +
+      `<span class="tree-meta mono">${esc(m.file || `${m.sgbd}.prg`)} · ` +
       `${shownFns.length} function${shownFns.length === 1 ? '' : 's'}` +
       `${treeReadNote(state, m)}</span>` +
       `</summary>`;

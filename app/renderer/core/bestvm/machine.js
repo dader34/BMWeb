@@ -279,7 +279,11 @@ class Best2Vm {
     // implicit INITIALISIERUNG, which is itself only a read but still puts
     // bytes on the wire. "Nothing was sent" is a much easier promise to
     // reason about than "only harmless things were sent".
-    if (isWriteJob(jobName) && !this.allowWrites) {
+    // A job only unrecognised by name runs, but sends nothing: the transmit
+    // check still refuses it (this.writeJob), and its init is not run.
+    const unrecognised =
+      !this.allowWrites && isWriteJob(jobName) && !isNamedWriteJob(jobName);
+    if (isNamedWriteJob(jobName) && !this.allowWrites) {
       throw new VmError(
         `refusing to run write job ${jobName}: ` +
           'construct the VM with {allowWrites: true} to permit it'
@@ -288,6 +292,7 @@ class Best2Vm {
     const init = this.code.jobs.INITIALISIERUNG;
     if (
       init !== undefined &&
+      !unrecognised &&
       !this._inited &&
       String(jobName).toUpperCase() !== 'INITIALISIERUNG'
     ) {

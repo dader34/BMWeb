@@ -74,6 +74,28 @@ def coding_sgbds_by_chassis():
                 names.add(str(cabd).lower())
         if names:
             out[str(cid).upper()] = names
+    # ...and the coding SGBDs the selection table routes those slots to by
+    # coding index (SGET's SGBD column): the E46 GM5 is opened as C_GM5 but
+    # its two-block files are coded on ZKE5 / ZKE5_S12, the DSC on C_ASDSC
+    # and C_DSC57. NCS Expert runs those, so the chassis archive carries them.
+    sget = os.path.join(ROOT, "app", "renderer", "data", "sget.js")
+    if os.path.isfile(sget):
+        with open(sget, encoding="utf-8") as f:
+            text = f.read()
+        at = text.find("BMW_SGET")
+        start = text.find("{", at)
+        end = text.rfind("}")
+        try:
+            all_sget = json.loads(text[start:end + 1]) if at >= 0 else {}
+        except ValueError:
+            all_sget = {}
+        for cid, tbl in all_sget.items():
+            rows = tbl.get("rows", tbl) if isinstance(tbl, dict) else tbl
+            for row in rows or []:
+                sgbd = (row or {}).get("SGBD")
+                if sgbd:
+                    out.setdefault(str(cid).upper(), set()).add(
+                        str(sgbd).lower())
     return out
 
 

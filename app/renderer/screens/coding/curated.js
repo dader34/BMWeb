@@ -29,43 +29,44 @@
  */
 
 /**
- * group -> ordered [sgbd, FSW keyword]. Keywords verified present in
- * BMW_DATEN_MAP for E46; a missing one is skipped.
+ * group -> ordered [coding file, FSW keyword], the file under NCS's own name
+ * (SGET's SGNAME: GM5, LSZ, KMB_E46). A feature shows when the car's scan
+ * found a module on that file and the keyword is in it; else it is skipped.
  * @type {Record<string, Array<[string, string]>>}
  */
 const CURATED_E46 = {
   Mirrors: [
-    ['zke5', 'BEIKLAPPEN_GM'], // folding outside mirrors
-    ['zke5', 'BEIKLAPP_B_KOMFORTSCHL_GM'], // fold on comfort-close
-    ['zke5', 'SPIEGELMEMORY_GM'], // mirror memory
-    ['zke5', 'SPIEGELABKLAPPEN_GM'], // passenger curb tilt in reverse
+    ['GM5', 'BEIKLAPPEN_GM'], // folding outside mirrors
+    ['GM5', 'BEIKLAPP_B_KOMFORTSCHL_GM'], // fold on comfort-close
+    ['GM5', 'SPIEGELMEMORY_GM'], // mirror memory
+    ['GM5', 'SPIEGELABKLAPPEN_GM'], // passenger curb tilt in reverse
   ],
   'Locking & Remote': [
-    ['zke5', 'ZV_SELEKTIV'], // 1 press = driver door
-    ['zke5', 'VERRIEGELN_AUT_NACH_2_MIN'], // auto re-lock after 2 min
-    ['zke5', 'KOMFORTOEFFNUNG_FB'], // comfort open from key
-    ['zke5', 'KOMFORTSCHLIESSUNG_FB'], // comfort close from key
+    ['GM5', 'ZV_SELEKTIV'], // 1 press = driver door
+    ['GM5', 'VERRIEGELN_AUT_NACH_2_MIN'], // auto re-lock after 2 min
+    ['GM5', 'KOMFORTOEFFNUNG_FB'], // comfort open from key
+    ['GM5', 'KOMFORTSCHLIESSUNG_FB'], // comfort close from key
   ],
   Windows: [
-    ['zke5', 'FH_FAHRERTUER_TIPP_AUF'], // one-touch driver up
-    ['zke5', 'FH_FAHRERTUER_TIPP_ZU'],
-    ['zke5', 'EINKLEMMSCH_VORNE'], // anti-pinch front
-    ['zke5', 'EINKLEMMSCH_HINTEN'], // anti-pinch rear
+    ['GM5', 'FH_FAHRERTUER_TIPP_AUF'], // one-touch driver up
+    ['GM5', 'FH_FAHRERTUER_TIPP_ZU'],
+    ['GM5', 'EINKLEMMSCH_VORNE'], // anti-pinch front
+    ['GM5', 'EINKLEMMSCH_HINTEN'], // anti-pinch rear
   ],
   Lighting: [
-    ['lsz', 'TAGFAHRLICHT'], // DRL
-    ['lsz', 'PO_ALS_DRL'], // position lights as DRL
-    ['lsz', 'NSL_ALS_STANDLICHT'], // rear fog as standing light
-    ['zke5', 'INNENLICHT_AN_MEHRFACH_ZV'], // double-lock -> interior lights
+    ['LSZ', 'TAGFAHRLICHT'], // DRL
+    ['LSZ', 'PO_ALS_DRL'], // position lights as DRL
+    ['LSZ', 'NSL_ALS_STANDLICHT'], // rear fog as standing light
+    ['GM5', 'INNENLICHT_AN_MEHRFACH_ZV'], // double-lock -> interior lights
   ],
   'Alarm (DWA)': [
-    ['zke5', 'DWA'], // anti-theft alarm
-    ['zke5', 'FUNK_INNENRAUMSCHUTZ'], // ultrasonic interior
-    ['zke5', 'NEIGUNGSGEBER'], // tilt sensor
+    ['GM5', 'DWA'], // anti-theft alarm
+    ['GM5', 'FUNK_INNENRAUMSCHUTZ'], // ultrasonic interior
+    ['GM5', 'NEIGUNGSGEBER'], // tilt sensor
   ],
   'Chimes & Warnings': [
-    ['kombi46', 'AKUSTIK_GURT_WARN'], // seatbelt gong
-    ['kombi46', 'LICHTWARNUNG'], // lights-left-on warning
+    ['KMB_E46', 'AKUSTIK_GURT_WARN'], // seatbelt gong
+    ['KMB_E46', 'LICHTWARNUNG'], // lights-left-on warning
   ],
 };
 
@@ -99,6 +100,8 @@ function hasCurated(chassisId) {
  */
 async function curatedResolve(sgbd, kw) {
   const daten = typeof datenFor === 'function' ? await datenFor(sgbd) : null;
+  // (sgbd is the scanned module's key; its coding file was registered by
+  // the scan -- see curatedFeatures)
   if (!daten) return null;
   const ch = daten.chassis.E46 || daten.chassis[Object.keys(daten.chassis)[0]];
   if (!ch) return null;
@@ -138,14 +141,20 @@ async function curatedResolve(sgbd, kw) {
  * @returns {Promise<CuratedGroup[]>} the groups that resolved to at least
  *   one feature.
  */
-async function curatedFeatures(chassisId) {
+async function curatedFeatures(chassisId, scan) {
   const map = CURATED[String(chassisId || '').toUpperCase()];
   if (!map) return [];
+  // coding file -> the scanned module on it (GM5 -> "gm5", LSZ -> "alsz")
+  const onFile = new Map();
+  for (const m of (scan && scan.mods) || [])
+    if (m.file) onFile.set(String(m.file).split('.')[0].toUpperCase(), m.sgbd);
   const out = [];
   for (const [group, entries] of Object.entries(map)) {
     const items = [];
-    for (const [sgbd, kw] of entries) {
-      const r = await curatedResolve(sgbd, kw);
+    for (const [file, kw] of entries) {
+      const mod = onFile.get(file);
+      if (!mod) continue; // the car has no module on that file
+      const r = await curatedResolve(mod, kw);
       if (r) items.push(r);
     }
     if (items.length) out.push({ group, items });
@@ -170,7 +179,10 @@ async function showCuratedCoding(chassisId, container, back, scan, reScan) {
   };
   if (typeof loadDatenMap === 'function') await loadDatenMap();
 
-  let groups = await curatedFeatures(chassisId);
+  // the features are found on the modules the car has: read it first when
+  // opened on its own (the hub hands its scan over)
+  if (!scan) scan = await scanCoding(chassisId, document.createElement('div'));
+  let groups = await curatedFeatures(chassisId, scan);
   // Drop features whose module the car did not answer. The curated list is
   // written per chassis, not per car, so it names hardware this one may not
   // carry (on a real E46 eight of fifteen codeable modules never answered --

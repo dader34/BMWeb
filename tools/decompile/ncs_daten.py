@@ -533,10 +533,42 @@ def layout(data):
              scripts switch these on and off BY NAME ("ZCS",
              "Var_Fahrzeugparameter"), so the names are an interface, not a
              label; and only the first kind is coding data.
+    fill     the description's unused bits (UNBELEGT1 + the UNBELEGT2 that
+             follows it) as [blocknr, start, length, masks, values]: the bits
+             no function owns, and the value the factory tool writes into
+             them when every function is switched on (CBD_PROC.C, the netto
+             build: a byte goes whole only when functions and fill together
+             cover all eight bits).
+    own      every function row's bits (PARZUWEISUNG_FSW and _DIR) as
+             [blocknr, start, length, masks] -- named or not: a row whose
+             keyword the tables lack is left out of the coding UI, but the
+             factory tool still owns and writes its bits.
     """
     secs = schema(data)
     recs = records(data)
-    out = dict(speicherorg(data), typ='FREI', index=[], groups=[])
+    out = dict(speicherorg(data), typ='FREI', index=[], groups=[], fill=[],
+               own=[])
+    for r in rows(data):
+        out['own'].append([r['block'] or 0, r['word'], max(1, r['byte'] or 1),
+                           list(r['masks'] or [r['mask'] if r['mask'] is not None
+                                               else 0xFF])])
+    u1 = secs.get('UNBELEGT1')
+    u2 = secs.get('UNBELEGT2')
+    if u1:
+        for seq, pay, _ in recs:
+            if seq == u1['seq']:
+                try:
+                    blk, wort, n, _idx, masks = parse_payload(
+                        u1['sig'] or '{L}LW{B}(B)', pay)
+                except (ValueError, IndexError):
+                    continue
+                out['fill'].append([blk or 0, wort, n, list(masks or []), []])
+            elif u2 and seq == u2['seq'] and out['fill']:
+                try:
+                    (vals,) = parse_payload(u2['sig'] or '(B)', pay)
+                except (ValueError, IndexError):
+                    continue
+                out['fill'][-1][4] = list(vals or [])
     sec = secs.get('SPEICHERORG')
     if sec:
         for seq, pay, _ in recs:

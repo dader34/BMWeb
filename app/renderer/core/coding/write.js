@@ -44,6 +44,9 @@
  *   the (bus-locked) wire: request bytes in, answer bytes out.
  * @property {{jobs?: Record<string, unknown>, tables?: Record<string, unknown>}} [code]
  *   - the SGBD program.
+ * @property {(sgbd: string) => Promise<{code: object|null, tables?: object}|null>} [codeFor]
+ *   - another SGBD's program, for a job the coding script addresses to it
+ *   (FA.PRG's FA_STREAM2STRUCT).
  * @property {Record<string, unknown>} [tables] - the SGBD's tables.
  * @property {JobList} [jobs] - the SGBD's job list.
  * @property {WriteSession} [session] - carried across the sequence.
@@ -56,6 +59,8 @@
  * @property {string|ArrayLike<number>} [base] - the image the edits were made
  *   on; what differs from it is what gets written.
  * @property {(text: string) => void} [onStage] - told where the run is.
+ * @property {string} [fa] - the car's vehicle order as text, for a script
+ *   that reads elements of it (CDHGetFaElement).
  * @property {string} [vin] - the car's 17-character VIN; becomes the
  *   FAHRGESTELL_NR (with its check character) a script may ask for.
  * @property {Record<string, string>} [systemData] - anything else a script
@@ -191,6 +196,39 @@
   // the caller instead of fixed: the read steps of a coding sequence run
   // with the gate CLOSED, so only the confirmed write steps can transmit a
   // write job even if a read job were misclassified.
+  /**
+   * The context a coding script's job runs in. A job the script addresses to
+   * another SGBD (A_KMB46's FA_READ asks FA.PRG for FA_STREAM2STRUCT) runs on
+   * that SGBD's own code, in a session of its own, as EDIABAS loads the SGBD
+   * a job names; the write permission is the caller's either way. Without a
+   * loader (opts.codeFor) or the SGBD's code, the module's own code runs and
+   * the VM says it has no such job.
+   * @param {string} sgbd - the coding SGBD.
+   * @param {{codeFor?: (sgbd: string) => Promise<{code: object|null,
+   *   tables?: object}|null>}} opts - the loader.
+   * @returns {(ctx: WriteContext, jobSgbd: string|undefined) =>
+   *   Promise<WriteContext>}
+   */
+  function foreignJobs(sgbd, opts) {
+    const own = String(sgbd).toLowerCase();
+    /** @type {Map<string, {shared: Map<string, any>, inited: boolean, comm: any}>} */
+    const sessions = new Map();
+    return async (ctx, jobSgbd) => {
+      const key = String(jobSgbd || '').toLowerCase();
+      if (!key || key === own || typeof opts.codeFor !== 'function') return ctx;
+      const got = await opts.codeFor(key);
+      if (!got || !got.code) return ctx;
+      if (!sessions.has(key))
+        sessions.set(key, { shared: new Map(), inited: false, comm: null });
+      return {
+        ...ctx,
+        code: got.code,
+        tables: got.tables || {},
+        session: sessions.get(key),
+      };
+    };
+  }
+
   /**
    * Run one SGBD job over the bus with the context's write permission.
    * @param {WriteContext} ctx - the runner context.
@@ -514,6 +552,185 @@
   /** The dispatcher jobname that reads the coding back. */
   const READ_JOBNAME = 'CODIERDATEN_LESEN';
 
+  // BLOCK-ADDRESSED CODING. A module whose description numbers its blocks
+  // (SPEICHERORG TYP BLOCK: the light module, the body module ...) keeps each
+  // block as its own little memory, and its coding jobs take a block number
+  // rather than an address. The factory tool's own CBD reader (CBD_READ.C,
+  // CBDParzuwFsw / CBDParzuwDir, read out of its binary) folds the block into
+  // the address when it loads a row:
+  //
+  //     if (BLOCKNR != 0) {
+  //       if (WORTADR > 0xFF || BLOCKNR > 0xFFFFFF) -> error 0x115A
+  //       WORTADR |= wordWidth * BLOCKNR * 0x100
+  //     }
+  //
+  // and the request buffer carries that address little-endian from HDR_ADDR
+  // (dispatch-host.js). So the block is the address's upper bytes and the
+  // offset its low byte, and every coding SGBD reads it there in its own way:
+  // the LSZ, body module (ZKE5, ZKE5_S12), airbag, PDC ... send byte 0x12 as
+  // the block (`08 <block>`); the ALC sends 0x13 and 0x12 (`08 <hi> <lo>`,
+  // its blocks are 0x3000..); the ME9 KWP jobs send 0x13 and 0x14 as the data
+  // identifier (`22 30 00`). None of that is the host's business: a blocked
+  // description is laid into one flat image, block N at N * 256 (one byte per
+  // word: every blocked E46 description is byte-wide), and a request is
+  // always one whole block. Nothing else in the read/write path needs to know
+  // about blocks.
+  /** Bytes per block in the flat image of a block-addressed module. */
+  const BLOCK_STRIDE = 256;
+
+  /**
+   * Do this SGBD's coding jobs tell the description's blocks apart on the
+   * wire? The factory tool trusts them blindly; the case worth refusing is a
+   * description whose blocks the jobs cannot all name -- two of them would
+   * be written to the same place. Asked of the module's own jobs, in the VM,
+   * with nothing on the wire: each job is run once per block (the first
+   * eight the description names) and its first telegram kept; the blocks
+   * are on the wire when no two telegrams are the same.
+   * @param {object} code - the SGBD's job code.
+   * @param {object} tables - its tables.
+   * @param {Function} Vm - the BEST/2 VM.
+   * @param {number[]} blocks - the description's block numbers.
+   * @returns {boolean}
+   */
+  function blockOnTheWire(code, tables, Vm, blocks) {
+    const jobs = (code && code.jobs) || {};
+    const has = (j) =>
+      Array.isArray(jobs) ? jobs.some((x) => (x.name || x) === j) : j in jobs;
+    const pair = [
+      ['C_C_LESEN', 'C_C_AUFTRAG'],
+      ['C_S_LESEN', 'C_S_AUFTRAG'],
+    ].find(([r, w]) => has(r) && has(w));
+    if (!pair || !Vm) return false;
+    const N = 8;
+    const telegram = (job, addr) => {
+      const p = new Array(21 + N + 1).fill(0);
+      p[0] = 1;
+      p[1] = 1;
+      p[9] = 0xff;
+      p[13] = N;
+      p[15] = N;
+      p[17] = addr & 0xff;
+      p[18] = (addr >> 8) & 0xff;
+      p[19] = (addr >> 16) & 0xff;
+      p[20] = (addr >> 24) & 0xff;
+      p[p.length - 1] = 3;
+      const args = String.fromCharCode(...p);
+      let first = null;
+      const vm = new Vm(code, {
+        tables: tables || {},
+        args,
+        allowWrites: true,
+        shared: new Map(),
+        inited: false,
+        comm: null,
+        now: new Date(0),
+        send: (out) => {
+          first = Array.from(out);
+          throw new Error('probe');
+        },
+      });
+      try {
+        vm.run(job, args);
+      } catch {
+        /* stopped at the first telegram, or refused the buffer */
+      }
+      return first ? first.join(',') : null;
+    };
+    const probe = [...new Set((blocks || []).map((b) => b | 0))]
+      .sort((a, b) => a - b)
+      .slice(0, 8);
+    if (probe.length < 2) return true;
+    return pair.every((job) => {
+      const t = probe.map((b) => telegram(job, b * BLOCK_STRIDE));
+      return t.every((x) => x) && new Set(t).size === t.length;
+    });
+  }
+
+  /**
+   * The block numbers a coding description names, ascending (just [0] for a
+   * flat one).
+   * @param {CabdLayout|null|undefined} cabd - the description.
+   * @returns {number[]}
+   */
+  function codingBlocks(cabd) {
+    const out = new Set([0]);
+    for (const g of (cabd && cabd.groups) || []) out.add(g.block | 0);
+    for (const f of (cabd && cabd.fields) || []) out.add(f.block | 0);
+    return [...out].sort((a, b) => a - b);
+  }
+
+  /**
+   * Does a description number its blocks?
+   * @param {CabdLayout} cabd - the description.
+   * @returns {boolean}
+   */
+  function isBlocked(cabd) {
+    return !!(
+      cabd &&
+      (cabd.typ === 'BLOCK' ||
+        (cabd.fields || []).some((f) => (f.block | 0) > 0) ||
+        (cabd.groups || []).some((g) => (g.block | 0) > 0))
+    );
+  }
+
+  /**
+   * A block-addressed description laid flat (address = block * 256 +
+   * offset, every block 0 afterwards), marked with its stride. A flat
+   * description, or one already laid flat, comes back unchanged.
+   * @param {CabdLayout} cabd - the description.
+   * @returns {CabdLayout & {blockStride?: number}}
+   */
+  function flattenBlocked(cabd) {
+    if (!cabd || cabd.blockStride || !isBlocked(cabd)) return cabd;
+    const at = (block, word) => (block | 0) * BLOCK_STRIDE + (word | 0);
+    return {
+      ...cabd,
+      fields: (cabd.fields || []).map((f) => ({
+        ...f,
+        word: at(f.block, f.word),
+        block: 0,
+      })),
+      groups: (cabd.groups || []).map((g) => ({
+        ...g,
+        start: at(g.block, g.start),
+        block: 0,
+      })),
+      ...(cabd.fill
+        ? {
+            fill: cabd.fill.map((r) => ({
+              ...r,
+              start: at(r.block, r.start),
+              block: 0,
+            })),
+          }
+        : {}),
+      ...(cabd.own
+        ? {
+            own: cabd.own.map((r) => ({
+              ...r,
+              start: at(r.block, r.start),
+              block: 0,
+            })),
+          }
+        : {}),
+      blockStride: BLOCK_STRIDE,
+    };
+  }
+
+  /**
+   * One function of a block-addressed module, addressed in the flat image.
+   * @param {object} f - the function (its own block and word).
+   * @returns {object} the same function at block * 256 + word, block 0.
+   */
+  function flatRule(f) {
+    if (!f || !(f.block | 0)) return f;
+    return {
+      ...f,
+      word: (f.block | 0) * BLOCK_STRIDE + (f.word | 0),
+      block: 0,
+    };
+  }
+
   /**
    * Every byte address the coding description gives a meaning to: its
    * functions, and (for a read) its named blocks, which reach bytes no
@@ -538,6 +755,69 @@
     const out = [];
     for (let a = 0; a < size; a++) if (map[a]) out.push(a);
     return out;
+  }
+
+  /**
+   * What the factory tool writes of a module when it codes all of it (the
+   * netto build, CBD_PROC.C): per byte, the bits its functions own together
+   * with the description's unused bits (UNBELEGT1), and the value those
+   * unused bits get (UNBELEGT2: the row's value, shifted into its mask, the
+   * mask's bytes big end first). A byte with no bit in either is never sent.
+   * Null for a description that carries no unused-bit rows (an older data
+   * build): then nothing is known beyond the functions.
+   * @param {CabdLayout & {fill?: Array<{start: number, length: number,
+   *   masks: number[], values: number[]}>}} cabd - the description (laid flat).
+   * @param {number} size - the image size.
+   * @returns {{mask: Uint8Array, fillMask: Uint8Array, fillBits: Uint8Array}|null}
+   */
+  function factoryCoverage(cabd, size) {
+    if (!cabd || !Array.isArray(cabd.fill)) return null;
+    const mask = new Uint8Array(size);
+    const fillMask = new Uint8Array(size);
+    const fillBits = new Uint8Array(size);
+    // every function row, named or not (cabd.own); without it, the
+    // functions the description's caller kept
+    const rows = cabd.own
+      ? cabd.own
+      : (cabd.fields || []).map((f) => ({
+          start: f.word | 0,
+          length: f.byte,
+          masks:
+            f.masks && f.masks.length
+              ? f.masks
+              : [f.mask == null ? 0xff : f.mask],
+        }));
+    for (const r of rows) {
+      const n = Math.max(1, r.length | 0);
+      for (let k = 0; k < n; k++) {
+        const a = (r.start | 0) + k;
+        if (a >= 0 && a < size) mask[a] |= r.masks[k % r.masks.length] & 0xff;
+      }
+    }
+    for (const r of cabd.fill) {
+      const w = r.masks.length;
+      if (!w) continue;
+      let m = 0n;
+      let v = 0n;
+      for (let k = 0; k < w; k++) {
+        m = (m << 8n) | BigInt(r.masks[k] & 0xff);
+        v =
+          (v << 8n) | BigInt((r.values[k - (w - r.values.length)] ?? 0) & 0xff);
+      }
+      let shift = 0n;
+      if (m) while (!((m >> shift) & 1n)) shift++;
+      const bits = (v << shift) & m;
+      for (let k = 0; k < Math.max(1, r.length | 0); k++) {
+        const a = (r.start | 0) + k;
+        if (a < 0 || a >= size) continue;
+        const j = BigInt(w - 1 - (k % w)) * 8n;
+        const bm = Number((m >> j) & 0xffn);
+        mask[a] |= bm;
+        fillMask[a] |= bm;
+        fillBits[a] = (fillBits[a] & ~bm) | Number((bits >> j) & 0xffn);
+      }
+    }
+    return { mask, fillMask, fillBits };
   }
 
   /**
@@ -574,7 +854,8 @@
       throw new Error('coding read refused: no bus exchange provided');
     if (!opts.dispatch || typeof root.runCodingDispatch !== 'function')
       throw new Error(`coding read refused: no coding script for ${sgbd}`);
-    const cabd = opts.cabd;
+    // a block-addressed module is read in the flat image (see flattenBlocked)
+    const cabd = flattenBlocked(opts.cabd);
     if (!cabd || !Array.isArray(cabd.fields) || !cabd.fields.length)
       throw new Error('coding read refused: no coding description');
     const org = opts.dataOrg || opts.dispatch.dataOrg || {};
@@ -588,8 +869,10 @@
       session: opts.session || { shared: new Map(), inited: false, comm: null },
       now: opts.now || null,
     };
+    const ctxFor = foreignJobs(sgbd, opts);
     const r = await root.runCodingDispatch(opts.dispatch, {
       sgbd,
+      fa: opts.fa || undefined,
       cabd,
       dataOrg: {
         wortBreite: wb,
@@ -603,7 +886,7 @@
       // read-only whatever the script asks for
       runJob: async (jobSgbd, job, argText, o) =>
         runJobOverBus(
-          { ...baseCtx, allowWrites: false },
+          await ctxFor({ ...baseCtx, allowWrites: false }, jobSgbd),
           jobSgbd || sgbd,
           job,
           o && o.binary
@@ -617,6 +900,120 @@
       );
     }
     return { netto: r.netto, read: r.read, size, log: r.log };
+  }
+
+  /**
+   * Does a vehicle order carry an element with this marker (and a value)?
+   * The markers are the factory tool's (dispatch-host.js FA_MARKS).
+   * @param {string} fa - the order as text.
+   * @param {string} mark - the marker character.
+   * @returns {boolean}
+   */
+  function faHasElement(fa, mark) {
+    const m = String(mark).charAt(0);
+    for (let i = 0; i < fa.length; i++)
+      if (fa[i] === m && i + 1 < fa.length && !'*$#%&-+|'.includes(fa[i + 1]))
+        return true;
+    return false;
+  }
+
+  /**
+   * A vehicle-order marker in words.
+   * @param {string} mark - the marker character.
+   * @returns {string}
+   */
+  function faMarkName(mark) {
+    return (
+      {
+        '&': 'upholstery code',
+        '%': 'paint code',
+        '#': 'build date',
+        '*': 'type key',
+        $: 'option codes',
+      }[String(mark).charAt(0)] || `"${mark}" element`
+    );
+  }
+
+  /** A VIN whose last seven (chars 10-16) are BMW's "not known" marker. */
+  const NO_VIN = '0000000000ZZ00000';
+
+  /**
+   * Does this coding script use a given text constant (a system-data key,
+   * a job name)?
+   * @param {object|null|undefined} dispatch - the script.
+   * @param {string} text - the constant.
+   * @returns {boolean}
+   */
+  function scriptAsks(dispatch, text) {
+    if (!dispatch || !dispatch.procs) return false;
+    for (const ops of Object.values(dispatch.procs))
+      for (const o of ops || [])
+        if (o && o.op === 'const' && o.v === text) return true;
+    return false;
+  }
+
+  /**
+   * Does this coding script treat ZZ00000 as "no VIN"?
+   * @param {object|null|undefined} dispatch - the script.
+   * @returns {boolean}
+   */
+  function scriptKnowsNoVin(dispatch) {
+    return scriptAsks(dispatch, 'ZZ00000');
+  }
+
+  /**
+   * Run one of a coding script's READ jobs (ZCS_LESEN, FGNR_LESEN, FA_READ,
+   * CODIERINDEX_LESEN, ...) and return what it hands back -- how NCS Expert
+   * reads the car's key, order and VIN from the modules that hold them. The
+   * run's write gate is shut.
+   * @param {string} sgbd - the coding SGBD.
+   * @param {WriteOptions & {jobname: string}} opts - `exchange`, `code`,
+   *   `tables`, `dispatch`, `jobname`.
+   * @returns {Promise<{ok: boolean, pars: Record<string, string|number>,
+   *   info: string, log: WireLogEntry[]}>} the outcome and the values.
+   */
+  async function runCodingReadJob(sgbd, opts = /** @type {any} */ ({})) {
+    if (typeof opts.exchange !== 'function')
+      throw new Error('coding read refused: no bus exchange provided');
+    if (!opts.dispatch || typeof root.runCodingDispatch !== 'function')
+      throw new Error(`coding read refused: no coding script for ${sgbd}`);
+    if (/SCHREIBEN|CODIEREN|LOESCHEN|WRITE/i.test(String(opts.jobname)))
+      throw new Error(`coding read refused: ${opts.jobname} is not a read`);
+    const org = opts.dataOrg || opts.dispatch.dataOrg || {};
+    const baseCtx = {
+      Best2Vm: getVm(opts),
+      code: opts.code,
+      tables: opts.tables || (opts.code && opts.code.tables) || {},
+      exchange: opts.exchange,
+      session: opts.session || { shared: new Map(), inited: false, comm: null },
+      now: opts.now || null,
+    };
+    const ctxFor = foreignJobs(sgbd, opts);
+    const r = await root.runCodingDispatch(opts.dispatch, {
+      sgbd,
+      fa: opts.fa || undefined,
+      cabd: flattenBlocked(opts.cabd) || { fields: [] },
+      dataOrg: {
+        wortBreite: org.wortBreite === 2 ? 2 : 1,
+        byteFolge: org.byteFolge === 1 ? 1 : 0,
+        adrMode: 0,
+      },
+      mode: 'read',
+      jobname: opts.jobname,
+      netto: [],
+      readAddrs: [],
+      systemData: systemDataFor(opts),
+      runJob: async (jobSgbd, job, argText, o) =>
+        runJobOverBus(
+          await ctxFor({ ...baseCtx, allowWrites: false }, jobSgbd),
+          jobSgbd || sgbd,
+          job,
+          o && o.binary
+            ? { bin: Array.from(argText, (c) => c.charCodeAt(0)) }
+            : argText
+        ),
+    });
+    return { ok: r.ok, pars: r.pars || {}, info: r.info, log: r.log };
   }
 
   /**
@@ -643,6 +1040,12 @@
           : null;
     if (/^[A-HJ-NPR-Z0-9]{17}$/.test(vin) && Encode)
       data.FAHRGESTELL_NR = Encode.formatFahrgestellNr(vin);
+    else if (scriptKnowsNoVin(opts.dispatch))
+      // No VIN known: BMW's marker for that is ZZ00000 in the last seven,
+      // which the scripts that check for it (LSZ, KMB46, LCM, ...) take as
+      // "leave the module's VIN alone". Only those get it -- the rest would
+      // write whatever they were handed.
+      data.FAHRGESTELL_NR = NO_VIN;
     return { ...data, ...(opts.systemData || {}) };
   }
 
@@ -659,12 +1062,82 @@
    *   when the dispatcher reports failure or the re-read does not match.
    */
   async function writeViaDispatch(sgbd, want, baseCtx, opts) {
-    const cabd = opts.cabd;
+    // a block-addressed module is written in the flat image (flattenBlocked);
+    // `want` and `base` are already laid out that way by the reader
+    const cabd = flattenBlocked(opts.cabd);
     if (!cabd || !Array.isArray(cabd.fields) || !cabd.fields.length) {
       throw new Error(
         'coding write refused: the dispatcher needs the coding description ' +
           'of the module (its functions and their addresses) to select from'
       );
+    }
+    if (
+      cabd.blockStride &&
+      !blockOnTheWire(
+        baseCtx.code,
+        baseCtx.tables,
+        baseCtx.Best2Vm,
+        codingBlocks(opts.cabd)
+      )
+    ) {
+      throw new Error(
+        `coding write refused: ${sgbd} numbers its coding blocks, but its ` +
+          'own read and write jobs cannot tell them all apart on the wire'
+      );
+    }
+    // THE VIN. A script that asks for FAHRGESTELL_NR writes it to the module
+    // (A_IHK46 does on every SG_CODIEREN, unconditionally). NCS always has
+    // it -- the FG of the car's key -- so without it the run would code the
+    // module and then fail on the VIN job, mid-sequence. Refuse before
+    // anything is sent, unless the script knows BMW's "no VIN" marker.
+    if (
+      !systemDataFor(opts).FAHRGESTELL_NR &&
+      scriptAsks(opts.dispatch, 'FAHRGESTELL_NR')
+    ) {
+      throw new Error(
+        `coding write refused: ${sgbd}'s coding script writes the car's VIN ` +
+          'into the module, and no VIN is known. Enter it or read it from ' +
+          'the car (VIN/ZCS/FA) first.'
+      );
+    }
+    // WHAT ELSE THE SCRIPT WILL ASK FOR, asked before anything is sent: a
+    // script that reads the car's order (EWS3 writes its paint and
+    // upholstery codes after the coding) or the module's ident lists, and
+    // finds them missing, would stop with the coding already written.
+    const D = root.codingDispatch || {};
+    if (typeof D.scriptCalls === 'function') {
+      const calls = D.scriptCalls(opts.dispatch);
+      if (calls.includes('CDHGetFaElement')) {
+        const fa = String(opts.fa || '').trim();
+        if (!fa) {
+          throw new Error(
+            `coding write refused: ${sgbd}'s coding script reads the car's ` +
+              'vehicle order (FA), and none was read. Read the car (VIN/ZCS/FA) first.'
+          );
+        }
+        const lacking = [
+          ...new Set(D.scriptCallArgs(opts.dispatch, 'CDHGetFaElement', 3)),
+        ].filter((m) => m && !faHasElement(fa, m));
+        if (lacking.length) {
+          throw new Error(
+            `coding write refused: ${sgbd}'s coding script writes the car's ` +
+              `${lacking.map(faMarkName).join(' and ')} from its vehicle order, ` +
+              'and the order read from the car has none'
+          );
+        }
+      }
+      if (calls.includes('CDHGetInfo')) {
+        const sys = systemDataFor(opts);
+        const lacking = [
+          ...new Set(D.scriptCallArgs(opts.dispatch, 'CDHGetInfo', 5)),
+        ].filter((k) => !sys[String(k).toUpperCase()]);
+        if (lacking.length) {
+          throw new Error(
+            `coding write refused: ${sgbd}'s coding script asks for the ` +
+              `module's ${lacking.join(', ')}, which this app does not read`
+          );
+        }
+      }
     }
     // data-org: word width (1 byte / 2 word), byte order (0 low-first), from
     // the CABD's SPEICHERORG.
@@ -685,6 +1158,28 @@
     const kinds = (cabd.groups || []).filter((g) => g.kind);
     const isCoded = new Uint8Array(want.length);
     for (const a of coded) isCoded[a] = 1;
+    // THE CENTRAL CODING KEY IS A BLOCK, NOT A FUNCTION. ZCS_SCHREIBEN and
+    // ZCS_LOESCHEN write the "ZCS" group (GM/SA/VN with their check
+    // characters), which no function covers. Those two jobs, and only those,
+    // may edit its bytes.
+    const zcsJob = /^ZCS_(SCHREIBEN|LOESCHEN)$/i.test(
+      String(opts.jobname || '')
+    );
+    if (zcsJob) {
+      const g = (cabd.groups || []).find(
+        (x) => String(x.name).toUpperCase() === 'ZCS'
+      );
+      if (!g) {
+        throw new Error(
+          'coding write refused: this coding description has no ZCS block'
+        );
+      }
+      for (let a = g.start | 0; a < (g.start | 0) + (g.length | 0); a++)
+        if (a < isCoded.length) {
+          if (!isCoded[a]) coded.push(a);
+          isCoded[a] = 1;
+        }
+    }
 
     // WHAT IS BEING EDITED: where the wanted image differs from the image the
     // edits were made on (opts.base, the caller's own read). Without a base
@@ -697,15 +1192,26 @@
     }
 
     /** @type {CdhRunJob} */
+    const ctxFor = foreignJobs(sgbd, opts);
     const runJob = async (jobSgbd, job, argText, o) => {
-      const ctx = { ...baseCtx, allowWrites: !!(o && o.allowWrites) };
+      const ctx = await ctxFor(
+        { ...baseCtx, allowWrites: !!(o && o.allowWrites) },
+        jobSgbd
+      );
       const arg =
         o && o.binary
           ? { bin: Array.from(argText, (c) => c.charCodeAt(0)) }
           : argText;
       return runJobOverBus(ctx, jobSgbd || sgbd, job, arg);
     };
-    const common = { sgbd, cabd, dataOrg, confirmed: true, runJob };
+    const common = {
+      sgbd,
+      cabd,
+      dataOrg,
+      confirmed: true,
+      runJob,
+      fa: opts.fa || undefined,
+    };
 
     /**
      * Read byte addresses through the script's own read route.
@@ -805,6 +1311,13 @@
     // word of the description's coding blocks, not just the ones an edit is
     // in. (Without block kinds: every word a function lives in.) Only whole
     // words count; a word half outside the region is not the coding job's.
+    //
+    // With the description's unused-bit rows known (factoryCoverage), it is
+    // the factory's set exactly: a coding-block word goes when a function or
+    // an unused-bit row owns a bit of it. The rest of a coding block -- on the
+    // cluster its coding date, VIN, ZCS key and odometer bytes, which their
+    // own jobs write -- is not touched.
+    const cover = factoryCoverage(cabd, want.length);
     const inRegion = new Uint8Array(want.length);
     if (kinds.length) {
       for (const g of kinds) {
@@ -816,11 +1329,22 @@
     } else {
       for (const a of coded) inRegion[a] = 1;
     }
+    const zcsGroup = zcsJob
+      ? (cabd.groups || []).find((x) => String(x.name).toUpperCase() === 'ZCS')
+      : null;
+    const owned = (a) =>
+      !cover ||
+      cover.mask[a] !== 0 ||
+      (zcsGroup && a >= zcsGroup.start && a < zcsGroup.start + zcsGroup.length);
     const region = [];
     for (let w = 0; w + wb <= want.length; w += wb) {
       let whole = true;
-      for (let k = 0; k < wb; k++) if (!inRegion[w + k]) whole = false;
-      if (whole) for (let k = 0; k < wb; k++) region.push(w + k);
+      let any = false;
+      for (let k = 0; k < wb; k++) {
+        if (!inRegion[w + k]) whole = false;
+        if (owned(w + k)) any = true;
+      }
+      if (whole && any) for (let k = 0; k < wb; k++) region.push(w + k);
     }
     const regionSet = new Set(region);
     const lost = edits.find((a) => !regionSet.has(a));
@@ -845,6 +1369,12 @@
     const image = want.slice();
     for (const a of region) image[a] = before[a];
     for (const a of edits) image[a] = want[a];
+    // and the unused bits as the factory tool codes them: the description's
+    // fill value (they belong to no function, so no edit is in them)
+    if (cover)
+      for (const a of region)
+        if (cover.fillMask[a])
+          image[a] = (image[a] & ~cover.fillMask[a]) | cover.fillBits[a];
     stage('Writing: do not disconnect or switch the ignition off');
     const result = await root.runCodingDispatch(opts.dispatch, {
       ...common,
@@ -854,15 +1384,20 @@
       changed: region,
       held: before,
       systemData: systemDataFor(opts),
+      sget: opts.sget,
     });
     const sent = new Set(result.written);
     const unsent = edits.filter((a) => !sent.has(a));
     if (!result.ok) {
+      const tried = result.writesTried | 0;
       throw errVerify(
         `the coding run failed (${result.info || `error ${result.err}, return ${result.ret}`})` +
-          (sent.size
-            ? `; ${sent.size} bytes had already been sent`
-            : '; nothing was sent')
+          (tried
+            ? `; ${tried} write telegram${tried === 1 ? '' : 's'} had gone out` +
+              ` (${sent.size} bytes confirmed), so the module may hold part of ` +
+              'the new coding: read it again, then write the saved backup ' +
+              'back or run the coding again'
+            : '; nothing was written')
       );
     }
     if (unsent.length) {
@@ -925,13 +1460,24 @@
     _bytesToArgString: bytesToArgString,
     _extractNetto: extractNetto,
     _systemDataFor: systemDataFor,
+    runCodingReadJob,
+    blockOnTheWire,
+    codingBlocks,
+    flattenBlocked,
+    flatRule,
+    factoryCoverage,
+    BLOCK_STRIDE,
   };
 
   if (typeof root !== 'undefined') {
     root.codingWriteStrategy = codingWriteStrategy;
     root.writeCoding = writeCoding;
     root.readCoding = readCoding;
+    root.runCodingReadJob = runCodingReadJob;
     root.codingWrite = api;
+    root.codingFlatRule = flatRule;
+    root.codingBlockOnTheWire = blockOnTheWire;
+    root.codingBlocks = codingBlocks;
   }
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = api;

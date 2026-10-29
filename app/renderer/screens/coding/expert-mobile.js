@@ -24,7 +24,7 @@ function expertModuleList(chassisId, mods, cont, back, scan, reScan) {
     row.type = 'button';
     row.innerHTML =
       `<span class="cur-label">${esc(m.label)}` +
-      `<span class="exp-sgbd mono">${esc(m.sgbd)}.prg</span></span>` +
+      `<span class="exp-sgbd mono">${esc(m.file || `${m.sgbd}.prg`)}</span></span>` +
       `<span class="exp-arrow">›</span>`;
     row.onclick = () => expertModuleScreen(chassisId, m, back, scan);
     list.appendChild(row);
@@ -66,7 +66,7 @@ async function expertModuleScreen(chassisId, m, back, scan) {
     { label: m.label },
   ]);
   lastScreen = () => expertModuleScreen(chassisId, m, back, scan);
-  view.innerHTML = head('Coding', m.label, `${m.sgbd}.prg`);
+  view.innerHTML = head('Coding', m.label, m.file || `${m.sgbd}.prg`);
   const host = document.createElement('div');
   host.className = 'coding-panel coding-tree-wrap';
   view.appendChild(host);

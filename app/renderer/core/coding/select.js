@@ -195,42 +195,354 @@
   // "PU01 and KMBI_CI_07 and not (KMBI_CI_08 or S54B32)". They are NOT option
   // catalogue numbers -- catalogue 205 is the automatic gearbox, S205 is
   // PDC_CI_02, and the automatic is S37. So a car's equipment has to come to
-  // a predicate as keyword ids: the keywords its coding key decodes to, and
-  // the keywords the option catalogue (AT) gives for its catalogue numbers.
+  // a predicate as keyword ids, and it gets there the way the factory tool
+  // gets it (read out of NCSEXPER.exe, 2026-10-26):
+  //
+  //   vehicle order (FA) -> the AT table, row by row      (AT_PROC.C)
+  //   coding key (ZCS)   -> the ZST table, row by row     (ZST_PROC.C)
+  //   a module's coding file -> its SGVT row's keywords  (SGV_PROC.C)
+
+  /**
+   * A table's keyword names as ids, unknown names left out.
+   * @param {object} ch - the chassis's tables.
+   * @param {Iterable<string>} names - keyword names.
+   * @param {Set<number>} into - where the ids go.
+   */
+  function addNames(ch, names, into) {
+    const asw = (ch && ch.asw) || {};
+    for (const kw of names || []) {
+      const id = asw[String(kw || '').toUpperCase()];
+      if (id != null) into.add(id);
+    }
+  }
+
+  /**
+   * The factory's date column of an AT row (checkDateWithZeitkriterium):
+   * `V0302` holds for a car built before 03/02, `N0302` from 03/02 on. The
+   * year is compared as its two characters, before the month -- so, as in
+   * the factory tool, a car of 1999 ("99") counts as built after 2002.
+   * @param {string} date - `V` or `N` and MMYY.
+   * @param {string} time - the car's MMYY.
+   * @returns {boolean}
+   */
+  function dateHolds(date, time) {
+    if (!/^\d{4}$/.test(time || '')) return false;
+    const rm = date.slice(1, 3);
+    const ry = date.slice(3, 5);
+    const cm = time.slice(0, 2);
+    const cy = time.slice(2, 4);
+    const before = cy < ry || (cy === ry && cm < rm);
+    return date[0].toUpperCase() === 'V' ? before : !before;
+  }
+
+  /**
+   * An AT row's order-code condition (`185`, `205+(EU31,EV91)`): each code
+   * holds when the order carries it (`?` in the condition matches any
+   * character), `+` is and, `,` or, `!` not, NOT before AND before OR.
+   * @param {string} cond - the condition, without its `=`.
+   * @param {Set<string>} codes - the order's codes.
+   * @returns {boolean}
+   */
+  function condHolds(cond, codes) {
+    const toks =
+      String(cond)
+        .toUpperCase()
+        .match(/[!+,()]|[^!+,()&]+/g) || [];
+    let i = 0;
+    const has = (pat) => {
+      for (const c of codes) {
+        if (c.length !== pat.length) continue;
+        let ok = true;
+        for (let k = 0; k < pat.length && ok; k++)
+          ok = pat[k] === '?' || pat[k] === c[k];
+        if (ok) return true;
+      }
+      return false;
+    };
+    const factor = () => {
+      if (toks[i] === '!') {
+        i++;
+        return !factor();
+      }
+      if (toks[i] === '(') {
+        i++;
+        const v = or();
+        if (toks[i++] !== ')') throw new Error(`AT condition ${cond}`);
+        return v;
+      }
+      const t = toks[i++];
+      if (!t || /[!+,()]/.test(t)) throw new Error(`AT condition ${cond}`);
+      return has(t);
+    };
+    const and = () => {
+      let v = factor();
+      while (toks[i] === '+') {
+        i++;
+        v = factor() && v;
+      }
+      return v;
+    };
+    const or = () => {
+      let v = and();
+      while (toks[i] === ',') {
+        i++;
+        v = and() || v;
+      }
+      return v;
+    };
+    const v = or();
+    if (i !== toks.length) throw new Error(`AT condition ${cond}`);
+    return v;
+  }
+
+  /**
+   * The keywords a vehicle order gives, through the chassis's AT table as
+   * the factory tool walks it (GetAtFile): a `Z`/`A` row holds for the car
+   * whose time criterion it names; a `W`, `E`, `H` or `K` row when its code
+   * is one of the order's codes -- the type key (`*`), options (`$`), HO
+   * words (`+`) and E words (`-`), compared as written -- and then its date
+   * and its condition hold.
+   * @param {string} chassisId - chassis id.
+   * @param {{codes: string[], time?: string|null}} order - the order's codes
+   *   (no markers) and its time criterion (`0904` or `#0904`).
+   * @returns {{keywords: string[], errors: string[]}|null} null when the
+   *   chassis ships no AT rows.
+   */
+  function atKeywords(chassisId, order) {
+    const tables = root.BMW_TABLES || {};
+    const ch = tables[String(chassisId || '').toUpperCase()];
+    const rows = ch && ch.at && ch.at.rows;
+    if (!rows) return null;
+    const codes = new Set(
+      (order.codes || []).map((c) => String(c).trim().toUpperCase())
+    );
+    const time = String(order.time || '').replace(/^#/, '');
+    const keywords = [];
+    const errors = [];
+    for (const r of rows) {
+      let holds;
+      if (r.k === 'Z' || r.k === 'A') holds = r.code === time;
+      else {
+        holds = codes.has(r.code);
+        if (holds && r.date) {
+          if (!time) {
+            errors.push(
+              `the order has no time criterion, and AT row ${r.k} ${r.code} ${r.date} needs one`
+            );
+            holds = false;
+          } else holds = dateHolds(r.date, time);
+        }
+        if (holds && r.cond)
+          try {
+            holds = condHolds(r.cond, codes);
+          } catch (e) {
+            errors.push(String(e.message || e));
+            holds = false;
+          }
+      }
+      if (!holds) continue;
+      for (const kw of r.kw) if (!keywords.includes(kw)) keywords.push(kw);
+    }
+    return { keywords, errors };
+  }
+
+  /**
+   * Hex digits of a key, upper case.
+   * @param {unknown} s - the key.
+   * @returns {string}
+   */
+  function hexOf(s) {
+    return String(s == null ? '' : s)
+      .replace(/[^0-9A-Fa-f]/g, '')
+      .toUpperCase();
+  }
+
+  /**
+   * Does every bit of the row's field sit in the car's (an all-zero field
+   * holds for every car)?
+   * @param {string} car - the car's key, hex.
+   * @param {string} row - the row's field, hex.
+   * @returns {boolean}
+   */
+  function bitsHold(car, row) {
+    for (let i = 0; i < row.length; i++) {
+      const m = parseInt(row[i], 16);
+      if (!m) continue;
+      const k = parseInt(car[i] || '0', 16);
+      if ((k & m) !== m) return false;
+    }
+    return true;
+  }
+
+  /**
+   * The GM field as the factory tool tests it (ZST_PROC.C): it is no mask.
+   * Characters 1-4 are a value that must equal the car's (0000 = any), 5-6
+   * the same (00 = any), 7 a mask, 8 a value again (0 = any).
+   * @param {string} car - the car's GM, 8 hex digits.
+   * @param {string} row - the row's GM.
+   * @returns {boolean}
+   */
+  function gmHolds(car, row) {
+    const c = car.padEnd(8, '0');
+    const r = row.padEnd(8, '0');
+    const same = (a, b) =>
+      /^0+$/.test(r.slice(a, b)) || r.slice(a, b) === c.slice(a, b);
+    const m = parseInt(r[6], 16);
+    return (
+      same(0, 4) && same(4, 6) && (parseInt(c[6], 16) & m) === m && same(7, 8)
+    );
+  }
+
+  /**
+   * The keywords a coding key gives, through the chassis's ZST table as the
+   * factory tool matches it: every row whose SA and VN bits the car's keys
+   * carry and whose GM fits (gmHolds) -- an all-zero row holds for every
+   * car -- with all its keywords, the modules' `*_CI_nn` stamps included.
+   * @param {string} chassisId - chassis id.
+   * @param {{gm?: string, sa?: string, vn?: string}} keys - the car's keys.
+   * @returns {string[]|null} null when the chassis ships no ZST.
+   */
+  function zstKeywords(chassisId, keys) {
+    const tables = root.BMW_TABLES || {};
+    const ch = tables[String(chassisId || '').toUpperCase()];
+    const rows = ch && ch.zst;
+    if (!rows) return null;
+    const gm = hexOf(keys && keys.gm);
+    const sa = hexOf(keys && keys.sa);
+    const vn = hexOf(keys && keys.vn);
+    const out = [];
+    for (const r of rows) {
+      if (!gmHolds(gm, r.gm) || !bitsHold(sa, r.sa) || !bitsHold(vn, r.vn))
+        continue;
+      const names =
+        r.names ||
+        r.keywords.concat(
+          Object.entries(r.ci || {}).map(
+            ([sg, n]) => `${sg}_CI_${String(n).padStart(2, '0')}`
+          )
+        );
+      for (const n of names) if (!out.includes(n)) out.push(n);
+    }
+    return out;
+  }
+
+  /**
+   * A module's row of the chassis's SGVT (version table), as the factory
+   * tool reads it before coding the module: the row of its family and
+   * coding file must have a predicate that holds for the car -- if not, the
+   * coding file does not fit the order (error 0x11A0) -- and its keywords
+   * join the car's.
+   * @param {string} chassisId - chassis id.
+   * @param {string} family - the module's family (SGFAM slot, `KMB`).
+   * @param {string} cbd - its coding file's extension (`C08`).
+   * @param {number[]} ids - the car's keyword ids so far.
+   * @returns {{found: boolean, holds: boolean, add: number[]}}
+   */
+  function sgvtRow(chassisId, family, cbd, ids) {
+    const tables = root.BMW_TABLES || {};
+    const ch = tables[String(chassisId || '').toUpperCase()];
+    const fam = String(family || '').toUpperCase();
+    const c = String(cbd || '').toUpperCase();
+    const row = ((ch && ch.sgvt) || []).find(
+      (r) => r.fam === fam && r.cbd === c
+    );
+    if (!row) return { found: false, holds: true, add: [] };
+    const holds = rowApplies(row, ids);
+    return { found: true, holds, add: holds ? row.asw.slice() : [] };
+  }
+
   /**
    * The car's equipment in the predicates' own numbering.
    * @param {string} chassisId - chassis id.
-   * @param {Array<string|number>|null|undefined} saCodes - option catalogue numbers.
+   * @param {Array<string|number>|null|undefined} orderCodes - the vehicle
+   *   order's codes, without their markers (type key, options, HO and E
+   *   words), compared as written.
    * @param {string[]|null|undefined} [keywords] - equipment keywords already
-   *   known (a coding key's, with its `*_CI_nn` stamps).
-   * @param {string|null|undefined} [time] - a vehicle order's time criterion
-   *   (`#0904` or `0904`): the option catalogue's row for it carries what no
-   *   option does -- the order-coding marker and the modules' revision
-   *   stamps.
+   *   known (a coding key's, see zstKeywords).
+   * @param {string|null|undefined} [time] - the order's time criterion
+   *   (`#0904` or `0904`).
    * @returns {number[]|null} the keyword ids, or null when the chassis ships
    *   no keyword table -- then nothing can be evaluated, which is not the
    *   same as "the car has none of it".
    */
-  function aswIds(chassisId, saCodes, keywords, time) {
+  function aswIds(chassisId, orderCodes, keywords, time) {
     const tables = root.BMW_TABLES || {};
     const ch = tables[String(chassisId || '').toUpperCase()];
-    const asw = ch && ch.asw;
-    if (!asw) return null;
+    if (!ch || !ch.asw) return null;
     const ids = new Set();
-    const add = (kw) => {
-      const id = asw[String(kw || '').toUpperCase()];
-      if (id != null) ids.add(id);
-    };
-    for (const kw of keywords || []) add(kw);
-    const byTime = (ch.at && ch.at.time) || {};
-    const when = String(time || '').replace(/^#/, '');
-    for (const kw of byTime[when] || []) add(kw);
-    const bySa = (ch.at && ch.at.sa) || {};
-    for (const c of saCodes || []) {
-      const n = String(parseInt(String(c).trim(), 10));
-      for (const kw of bySa[n] || bySa[String(c).trim()] || []) add(kw);
+    addNames(ch, keywords, ids);
+    if ((orderCodes && orderCodes.length) || time) {
+      const at = atKeywords(chassisId, { codes: orderCodes || [], time });
+      if (at) addNames(ch, at.keywords, ids);
     }
     return Array.from(ids).sort((x, y) => x - y);
+  }
+
+  /**
+   * The vehicle order's codes the factory tool matches the AT against: the
+   * type key (`*`), options (`$`), HO words (`+`) and E words (`-`), each
+   * without its marker. The paint (`%`), upholstery (`&`) and build numbers
+   * (`|`) are not among them.
+   * @param {object|null} fa - a parsed order (VehicleIdentity.parseFa).
+   * @returns {string[]}
+   */
+  function orderCodes(fa) {
+    if (!fa) return [];
+    return [fa.typ, ...(fa.sa || []), ...(fa.howort || []), ...(fa.ewort || [])]
+      .filter(Boolean)
+      .map((c) => String(c).toUpperCase());
+  }
+
+  /**
+   * The car's equipment from what is known of it: its vehicle order when
+   * there is one, else its coding key -- as keyword names, ids, and what
+   * went wrong on the way.
+   * @param {string} chassisId - chassis id.
+   * @param {{fa?: string|object|null, zcs?: object|null,
+   *   keywords?: string[]}} car - the order (text or parsed) and/or the
+   *   coding keys; `keywords` are equipment names given by hand, which the
+   *   factory tool takes too (its keyword entry), added to either.
+   * @returns {{ids: number[]|null, keywords: string[], source: string|null,
+   *   time: string|null, errors: string[]}}
+   */
+  function carEquipment(chassisId, car) {
+    const VI = root.VehicleIdentity;
+    let fa = car && car.fa;
+    if (typeof fa === 'string')
+      fa = fa && VI && VI.parseFa ? VI.parseFa(fa) : null;
+    const tables = root.BMW_TABLES || {};
+    const ch = tables[String(chassisId || '').toUpperCase()];
+    const out = {
+      ids: null,
+      keywords: [],
+      source: null,
+      time: null,
+      errors: [],
+    };
+    if (!ch || !ch.asw) return out;
+    if (fa) {
+      out.source = 'FA';
+      out.time = fa.date ? String(fa.date).replace(/^#/, '') : null;
+      const at = atKeywords(chassisId, {
+        codes: orderCodes(fa),
+        time: out.time,
+      });
+      if (at) {
+        out.keywords = at.keywords;
+        out.errors.push(...at.errors);
+      }
+    } else if (car && car.zcs) {
+      out.source = 'ZCS';
+      out.keywords = zstKeywords(chassisId, car.zcs) || [];
+    } else if (car && car.keywords && car.keywords.length)
+      out.source = 'keywords';
+    else return out;
+    for (const kw of (car && car.keywords) || [])
+      if (!out.keywords.includes(kw)) out.keywords.push(kw);
+    const ids = new Set();
+    addNames(ch, out.keywords, ids);
+    out.ids = Array.from(ids).sort((x, y) => x - y);
+    return out;
   }
 
   // `ambiguous` is the honest part. Rows differing only by coding index are
@@ -331,6 +643,13 @@
 
   const api = {
     aswIds,
+    atKeywords,
+    zstKeywords,
+    sgvtRow,
+    orderCodes,
+    carEquipment,
+    gmHolds,
+    dateHolds,
     rowApplies,
     rowsFor,
     candidatesForSlot,

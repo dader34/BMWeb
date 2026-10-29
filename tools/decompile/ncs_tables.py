@@ -175,10 +175,15 @@ def parse_at(path):
     unconditional mapping we have not checked would be worse than omitting it.
     """
     sa, kw, time = {}, {}, {}
+    rows = []
     into = None            # the keyword list a `>>>` line continues
     for ln in lines(path):
         p = ln.split()
         if p and p[0] == '>>>':
+            if rows and rows[-1] is not None:
+                for n in keywords_from(p[1:]):
+                    if n not in rows[-1]['kw']:
+                        rows[-1]['kw'].append(n)
             if into is not None:
                 owner, key = into
                 for n in keywords_from(p[1:]):
@@ -190,6 +195,7 @@ def parse_at(path):
                             kw[n].append(key)
             continue
         into = None
+        rows.append(_at_row(p))
         if len(p) >= 2 and p[0] in ('Z', 'A') and \
                 re.fullmatch(r'#\d{4}', p[1]):
             code = p[1][1:]
@@ -223,7 +229,37 @@ def parse_at(path):
             if num not in kw[n]:
                 kw[n].append(num)
         into = (sa, num)
-    return {'sa': sa, 'kw': kw, 'time': time}
+    return {'sa': sa, 'kw': kw, 'time': time,
+            'rows': [r for r in rows if r is not None]}
+
+
+def _at_row(p):
+    """One AT row as the factory tool walks it (AT_PROC.C GetAtFile), or
+    None for a line that is not a row.
+
+    `Z`/`A` rows (ZEIT, ZEITALT) hold for the car whose time criterion is
+    their `#MMYY`. `W` (BESTELLUNG, field SALA) and `E`/`H`/`K`
+    (ERGAENZUNG, HISTORIE, KUNDENDIENST, field WORT) hold when their code is
+    one of the order's codes, compared as written; then a date (`V0302`
+    before 03/02, `N0302` from 03/02 on) and an order-code condition
+    (`=185`) may narrow them. Every keyword of a row that holds is the car's.
+    The `{k, code, date, cond, kw}` it returns is what select.js evaluates.
+    """
+    if len(p) < 2 or p[0] not in ('W', 'E', 'H', 'K', 'Z', 'A'):
+        return None
+    kind, code, rest = p[0], p[1], p[2:]
+    if kind in ('Z', 'A'):
+        if not re.fullmatch(r'#\d{4}', code):
+            return None
+        return {'k': kind, 'code': code[1:], 'date': None, 'cond': None,
+                'kw': keywords_from(rest)}
+    date = cond = None
+    if rest and re.fullmatch(r'[VN]\d{4}', rest[0]):
+        date, rest = rest[0], rest[1:]
+    if rest and rest[0].startswith('='):
+        cond, rest = rest[0][1:], rest[1:]
+    return {'k': kind, 'code': code.upper(), 'date': date, 'cond': cond,
+            'kw': keywords_from(rest)}
 
 
 # ---- ZST: ZCS key bits -> equipment keywords -------------------------------
@@ -262,6 +298,7 @@ def parse_zst(path):
             'key': key, 'date': date,
             'gm': gm.upper(), 'sa': sa.upper(), 'vn': vn.upper(),
             'keywords': opts,
+            'names': names,
             'ci': ci,
             'empty': not (int(gm, 16) or int(sa, 16) or int(vn, 16)),
         })
@@ -420,6 +457,7 @@ def corpus():
         (re.compile(r'^([A-Z0-9]+)AT\.000$'), 'at'),
         (re.compile(r'^([A-Z0-9]+)ZST\.000$'), 'zst'),
         (re.compile(r'^([A-Z0-9]+)ZST\.K00$'), 'sabits'),
+        (re.compile(r'^([A-Z0-9]+)SGVT\.000$'), 'sgvt'),
     ]
     for dirpath, _, names in os.walk(DATEN):
         # A chassis's tables ship in two places: its OWN directory, and a
@@ -478,6 +516,52 @@ def parse_asw(chassis):
     return out
 
 
+# ---- SGVT: module version -> keywords, and the order check ----------------
+
+def parse_sgvt(path):
+    """-> [{fam, cbd, exprHex, asw: [id...]}], in file order.
+
+    The factory tool (SGV_PROC.C GetSgvtFile) looks up the row of the
+    module's family and coding file (`KMB C08`): its predicate must hold for
+    the car (else error 0x11A0, the coding file does not fit the order), and
+    the VERSIONS_ASW records that follow it add keyword ids. A predicate
+    continues in AUFTRAGSAUSDRUCK2 records.
+    """
+    import struct
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import ncs_daten as N
+    data = open(path, 'rb').read()
+    secs = N.schema(data)
+    head = secs.get('AUFTRAGSAUSDRUCK')
+    cont = secs.get('AUFTRAGSAUSDRUCK2')
+    vers = secs.get('VERSIONS_ASW')
+    if not head:
+        return []
+    rows = []
+
+    def expr_of(b, i):
+        n = b[i]
+        return b[i + 1:i + 1 + n]
+
+    for seq, payload, _at in N.records(data):
+        b = bytes(payload)
+        if seq == head['seq']:
+            j = b.index(b'\0')
+            fam = b[:j].decode('latin-1')
+            k = b.index(b'\0', j + 1)
+            cbd = b[j + 1:k].decode('latin-1')
+            rows.append({'fam': fam.upper(), 'cbd': cbd.upper(),
+                         'expr': expr_of(b, k + 1), 'asw': []})
+        elif cont and seq == cont['seq'] and rows:
+            rows[-1]['expr'] += expr_of(b, 0)
+        elif vers and seq == vers['seq'] and rows:
+            n = struct.unpack_from('<H', b, 0)[0]
+            rows[-1]['asw'] += list(struct.unpack_from('<%dH' % n, b, 2))
+    for r in rows:
+        r['exprHex'] = r.pop('expr').hex().upper()
+    return rows
+
+
 def build():
     """Every chassis' parsed tables: ``{chassis: {sgfam, at, zst, sabits,
     asw}}`` (each key present only when that file exists for the chassis)."""
@@ -495,6 +579,8 @@ def build():
             entry['zst'] = parse_zst(paths['zst'])
         if 'sabits' in paths:
             entry['sabits'] = parse_sabits(paths['sabits'])
+        if 'sgvt' in paths:
+            entry['sgvt'] = parse_sgvt(paths['sgvt'])
         if entry:
             out[ch] = entry
     return out

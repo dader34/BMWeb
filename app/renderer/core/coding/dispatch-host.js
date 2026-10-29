@@ -270,7 +270,9 @@
   const HDR_BYTE_COUNT = 13;
   /** Header offset of the word count (u16 LE). */
   const HDR_WORD_COUNT = 15;
-  /** Header offset of the wire address in WORD units (u16 LE). */
+  /** Header offset of the wire address in WORD units: u32 LE, the factory
+   *  tool's own buffer (CDHDATA.CPP, logged as "Adr. %08lX"). A block-
+   *  addressed module's block number rides in its upper bytes (write.js). */
   const HDR_ADDR = 17;
   /** The most records one request carries when the script names no limit. */
   const RECORD_CAP = 32;
@@ -282,6 +284,14 @@
   const CDH_UNKNOWN_NAME = 1;
   /** CDH return value: the module's coding index is not this description's. */
   const CDH_WRONG_INDEX = 2;
+  /** Run error: no vehicle order to read an element of (the factory's 0x11A3). */
+  const FA_UNKNOWN = 0x11a3;
+  /** Run error: CDHGetInfo was asked for something nobody read. */
+  const INFO_UNKNOWN = 0x1001;
+  /** Run error: the script tried to go on to another module (CDHSetSgName). */
+  const OTHER_MODULE = 0x1002;
+  /** The markers the factory tool splits a vehicle order at. */
+  const FA_MARKS = '*$#%&-+|';
   /** Jobs whose buffer is a request to READ, or to check: nothing is written. */
   const NOT_A_WRITE = /LESEN|CHECKSUM|IDENT|STATUS/i;
 
@@ -348,6 +358,11 @@
       const size = this.netto.length;
       /** @type {CabdLayout} */
       this.cabd = opts.cabd || { fields: [] };
+      /** @type {number} bytes per block of a block-addressed module laid flat
+       *  (write.js flattenBlocked), 0 for an ordinary one. Such a module is
+       *  dealt out a WHOLE block per request: its jobs take the block from the
+       *  address's high byte and always start at the block's first byte. */
+      this.blockStride = this.cabd.blockStride | 0;
       /** @type {Map<string, Array<[number, number]>>} function -> [start, end) ranges */
       this.fieldRanges = new Map();
       /** @type {Map<string, Array<{start: number, masks: number[]}>>} function -> its bits, byte by byte */
@@ -402,6 +417,28 @@
       this.sys = new Map();
       for (const [k, v] of Object.entries(opts.systemData || {}))
         this.sys.set(k, String(v));
+      /** @type {string} CDHReadSget: the car's module families (its SGET),
+       *  each followed by a comma as NCS hands it over -- the LSZ script
+       *  splits on ',' and only counts a name the comma closes. Unknown is
+       *  empty: a script then takes the car to have none of the others. */
+      this.sget = (opts.sget || [])
+        .map((f) => String(f).trim().toUpperCase())
+        .filter(Boolean)
+        .map((f) => `${f},`)
+        .join('');
+      /** @type {string} the car's vehicle order (FA) as text, '' unknown:
+       *  CDHGetFaElement reads its elements. */
+      this.fa = String(opts.fa || '').trim();
+      /** @type {number} where CDHGetFaElement's walk stands in `fa` */
+      this._faPos = 0;
+      /** @type {string} set by a callback that cannot serve the script: the
+       *  interpreter ends the run right there (dispatch.js _call), whatever
+       *  the script would do next. */
+      this.hostFault = '';
+      /** @type {Map<number, number>} settimer's deadlines, by timer */
+      this._timers = new Map();
+      /** @type {number} write telegrams started (CDHapiJobData with data) */
+      this.writesTried = 0;
       /** @type {Set<string>} what the caller supplied about this car */
       this._given = new Set(this.sys.keys());
       /** @type {Map<string, string|number>} CDHSetCabdPar / GetCabdPar */
@@ -535,6 +572,130 @@
     CDHGetSgbdName() {
       return this.sgbd;
     }
+    /** @returns {string} the car's module families, comma-terminated. */
+    CDHReadSget() {
+      return this.sget;
+    }
+    /**
+     * The next element of the car's vehicle order with a given marker (`&`
+     * upholstery, `%` paint, `$` option ...), the marker included -- as the
+     * factory tool walks it (AT_PROC.C getFaElement): the order is split at
+     * the markers `* $ # % & - + |`, `first` 1 starts from the beginning and
+     * anything else continues after the last element handed out, an empty
+     * marker takes the next element whatever it is, and no such element
+     * hands back ''. No order at all is an error (0x11A3), and ends the run.
+     * @param {unknown} marker - the marker character, '' for any.
+     * @param {unknown} first - 1 to start over.
+     * @returns {string} the element with its marker, '' when there is none.
+     */
+    CDHGetFaElement(marker, first) {
+      if (!this.fa) {
+        this.err = FA_UNKNOWN;
+        this.errInfo =
+          "the coding script needs the car's vehicle order (FA), and none was read";
+        this.hostFault = this.errInfo;
+        return '';
+      }
+      const want = asStr(marker).charAt(0);
+      if (asInt(first) === 1) this._faPos = 0;
+      const text = this.fa;
+      const isMark = (c) => FA_MARKS.includes(c);
+      let i = this._faPos;
+      while (i < text.length) {
+        // the element starts at a marker and runs to the next one
+        while (i < text.length && !isMark(text[i])) i++;
+        if (i >= text.length) break;
+        let j = i + 1;
+        while (j < text.length && !isMark(text[j])) j++;
+        const el = text.slice(i, j);
+        i = j;
+        if (el.length > 1 && (!want || el[0] === want)) {
+          this._faPos = i;
+          return el.trim();
+        }
+      }
+      this._faPos = text.length;
+      return '';
+    }
+    /**
+     * settimer(timer, ms): the wait a script spins on after a module reset
+     * (KOMBIR50's Sg_Reset). WebKFP's host keeps its own, on its caller's
+     * clock.
+     * @param {unknown} timer - Which timer.
+     * @param {unknown} ms - When it expires, from now.
+     * @returns {void}
+     */
+    settimer(timer, ms) {
+      this._timers.set(asInt(timer), Date.now() + Math.max(0, asInt(ms)));
+    }
+    /**
+     * testtimer(timer, ->expired). The wait is real: it sleeps a little
+     * before it answers, so the script's spin neither burns the step budget
+     * nor holds up the page.
+     * @param {unknown} timer - Which timer.
+     * @returns {Promise<number>} 1 once it has expired (one never set has).
+     */
+    async testtimer(timer) {
+      const due = this._timers.get(asInt(timer));
+      if (due == null) return 1;
+      const left = due - Date.now();
+      if (left > 0) await new Promise((r) => setTimeout(r, Math.min(left, 50)));
+      return Date.now() >= due ? 1 : 0;
+    }
+    /**
+     * Pass-through of the factory tool's dump of the read coding to its
+     * fsw_psw.dat trace file (CDH.C CDHGetFswPswFromNettoData): it writes a
+     * file on the PC and nothing else, so there is nothing to do here.
+     * @returns {number} 0.
+     */
+    CDHGetFswPswFromNettoData() {
+      return CDH_OK;
+    }
+    /**
+     * What NCS knows about the module it is coding (CDH.C CDHGetInfo):
+     * CODIERINDEX, HARDWARE_NUMMER or SOFTWARE_NUMMER, each a comma list.
+     * `index` 0 hands back the whole list, n its n-th entry. Taken from the
+     * system data the caller supplied under those names; one that was not
+     * supplied is an error, which ends the run before the script uses it.
+     * @param {unknown} name - which list.
+     * @param {unknown} index - 0 for all of it, else 1-based.
+     * @returns {{text: string, count: number, retVal: number}}
+     */
+    CDHGetInfo(name, index) {
+      const key = asStr(name).toUpperCase();
+      const known = ['CODIERINDEX', 'HARDWARE_NUMMER', 'SOFTWARE_NUMMER'];
+      const list = this.sys.get(key);
+      if (!known.includes(key) || !list) {
+        this.err = INFO_UNKNOWN;
+        this.errInfo = `the coding script asks for the module's ${key}, which was not read`;
+        this.hostFault = this.errInfo;
+        return { text: '', count: 0, retVal: 1 };
+      }
+      const items = String(list).split(',');
+      const n = asInt(index);
+      if (n === 0) return { text: list, count: items.length, retVal: 0 };
+      if (n < 1 || n > items.length) {
+        this.err = INFO_UNKNOWN;
+        this.errInfo = `the module's ${key} has no entry ${n}`;
+        this.hostFault = this.errInfo;
+        return { text: '', count: items.length, retVal: 1 };
+      }
+      return { text: items[n - 1], count: items.length, retVal: 0 };
+    }
+    /**
+     * Switch the run to another module of the car (CDH.C CDHSetSgName: load
+     * that module's coding file, SGBD and script). One run here codes the one
+     * module it was started for, so this is refused: the run ends, before
+     * the script sends anything for the other module.
+     * @param {unknown} name - the module.
+     * @returns {number} 1.
+     */
+    CDHSetSgName(name) {
+      this.err = OTHER_MODULE;
+      this.errInfo = `the coding script goes on to code another module (${asStr(name)}), which a run here does not do`;
+      this.hostFault = this.errInfo;
+      return 1;
+    }
     /**
      * Set the data organisation.
      * @param {unknown} wb - word width (defaults to 1).
@@ -591,6 +752,29 @@
       const buf = this.bufs.get(asInt(h));
       if (!buf) return CDH_UNKNOWN_NAME;
       binWriteWord(buf, asInt(pos), asInt(val), true);
+      return CDH_OK;
+    }
+    /**
+     * Copy len bytes from one buffer into another (the flash scripts'
+     * WASBufferKopieren, and Authentisierung putting the key at 21 of the
+     * job's data). The IR names it builtin_64; see CALL_ALIASES in dispatch.js.
+     * @param {unknown} src - source handle.
+     * @param {unknown} dst - destination handle.
+     * @param {unknown} srcPos - first source byte.
+     * @param {unknown} dstPos - first destination byte.
+     * @param {unknown} len - byte count.
+     * @returns {number} 0, or 1 for a bad handle.
+     */
+    CDHBinBufCopy(src, dst, srcPos, dstPos, len) {
+      const s = this.bufs.get(asInt(src));
+      const d = this.bufs.get(asInt(dst));
+      if (!s || !d) return CDH_UNKNOWN_NAME;
+      const from = asInt(srcPos);
+      const to = asInt(dstPos);
+      // read first: the two may be the same buffer
+      const bytes = [];
+      for (let k = 0; k < asInt(len); k++) bytes.push(binReadByte(s, from + k));
+      bytes.forEach((b, k) => binWriteByte(d, to + k, b));
       return CDH_OK;
     }
     /**
@@ -658,15 +842,30 @@
      * @returns {number} 0.
      */
     CDHActivateFsw(name) {
-      this._switch(this.fieldRanges.get(asStr(name).toUpperCase()), true);
+      for (const r of this._fswRanges(name)) this._switch(r, true);
       return CDH_OK;
+    }
+    /**
+     * A function's ranges by name. As the factory tool selects (SELECT.C
+     * SelectFsw): a name the description lacks is tried as its indexed
+     * copies, NAME[1], NAME[2] ..., and each one found is switched.
+     * @param {unknown} name - the function.
+     * @returns {Array<Array<[number, number]>>}
+     */
+    _fswRanges(name) {
+      const key = asStr(name).toUpperCase();
+      if (this.fieldRanges.has(key)) return [this.fieldRanges.get(key)];
+      const out = [];
+      for (let i = 1; this.fieldRanges.has(`${key}[${i}]`); i++)
+        out.push(this.fieldRanges.get(`${key}[${i}]`));
+      return out;
     }
     /**
      * @param {unknown} name - the function.
      * @returns {number} 0.
      */
     CDHInactivateFsw(name) {
-      this._switch(this.fieldRanges.get(asStr(name).toUpperCase()), false);
+      for (const r of this._fswRanges(name)) this._switch(r, false);
       return CDH_OK;
     }
     /**
@@ -698,6 +897,38 @@
      */
     _select(map, bits) {
       const wb = this.wortBreite;
+      // BLOCK MODE: a block the selection touches goes whole -- its jobs write
+      // from the block's first byte whatever the request says -- with the
+      // bytes the selection does not own going as the module holds them (the
+      // same rule as the other byte of a word).
+      if (this.blockStride) {
+        const stride = this.blockStride;
+        const touched = new Set();
+        for (let a = 0; a < map.length; a++)
+          if (map[a]) touched.add((a / stride) | 0);
+        const whole = new Uint8Array(map.length);
+        for (let a = 0; a < map.length; a++)
+          if (map[a] || (touched.has((a / stride) | 0) && this.everything[a]))
+            whole[a] = 1;
+        const own = map;
+        map = whole;
+        bits = bits || null;
+        const words = new Set();
+        for (let a = 0; a < map.length; a++) if (map[a]) words.add(a);
+        this.slots = Array.from(words)
+          .sort((x, y) => x - y)
+          .map((a) => ({
+            addr: a,
+            value: 0,
+            mask: bits ? bits[a] : 0xff,
+            masks: [bits ? bits[a] : 0xff],
+            own: [!!own[a]],
+            flags: 0,
+          }));
+        this.cursor = 0;
+        this._pending = undefined;
+        return;
+      }
       const words = new Set();
       for (let a = 0; a < map.length; a++) if (map[a]) words.add((a / wb) | 0);
       this.slots = Array.from(words)
@@ -772,17 +1003,61 @@
      * @returns {number} 0, or 1 when this coding index has no such group.
      */
     CDHGetGrpDataFromCbd(name) {
-      const ranges = this.groupRanges.get(asStr(name).toUpperCase());
+      const group = asStr(name).toUpperCase();
+      const ranges = this.groupRanges.get(group);
       if (!ranges) {
         this.errInfo = `no group ${asStr(name)} in this coding description`;
         return CDH_UNKNOWN_NAME;
       }
+      // THE ZCS GROUP IS THE CAR'S KEY, NOT THE MODULE'S. NCS fills it from
+      // the central coding key it holds (system data GM/SA/VN_SCHLUESSEL), so
+      // ZCS_SCHREIBEN writes the key the user entered and ZCS_LOESCHEN the
+      // blank one its script sets (FFFFFFFFP, FFFF..E, FFFFFFFFFFF). Without
+      // this the group went out as the module already held it.
+      if (group === 'ZCS') this._fillZcs(ranges);
       const map = new Uint8Array(this.netto.length);
       for (const [start, end] of ranges)
         for (let a = start; a < end && a < map.length; a++)
           map[a] = this.everything[a];
       this._select(map);
       return CDH_OK;
+    }
+    /**
+     * Lay the central coding key (system data GM/SA/VN_SCHLUESSEL) into the
+     * ZCS group's bytes: GM 4 bytes + check, SA 8 + check, VN 5 + check, the
+     * 20-byte region (KMB_E46: address 104 or 368). The keys may carry their
+     * check character; the body is what is packed and the check recomputed.
+     * Leaves the image alone unless all three keys are set and the group is
+     * that one 20-byte region.
+     * @param {Array<[number, number]>} ranges - the group's address ranges.
+     * @returns {void}
+     */
+    _fillZcs(ranges) {
+      const gm = this.sys.get('GM_SCHLUESSEL');
+      const sa = this.sys.get('SA_SCHLUESSEL');
+      const vn = this.sys.get('VN_SCHLUESSEL');
+      if (!gm || !sa || !vn || !ranges.length) return;
+      const [start, end] = ranges[0];
+      if (ranges.length !== 1 || end - start !== 20) return;
+      if (end > this.netto.length) return;
+      const Encode =
+        typeof root !== 'undefined' && root.CodingEncode
+          ? root.CodingEncode
+          : typeof require !== 'undefined'
+            ? require('./encode.js')
+            : null;
+      if (!Encode || typeof Encode.buildZcsRegion !== 'function') return;
+      const body = (s, n) =>
+        String(s)
+          .replace(/[^0-9A-Fa-f]/g, '')
+          .slice(0, n);
+      Encode.buildZcsRegion(
+        body(gm, 8),
+        body(sa, 16),
+        body(vn, 10),
+        start,
+        this.netto
+      );
     }
     /**
      * The module's coding index against the description's own list.
@@ -794,10 +1069,15 @@
       const list = this.cabd.codingIndex;
       if (asStr(what).toUpperCase() !== 'CODIERINDEX' || !list || !list.length)
         return CDH_OK;
+      // the script hands over ID_COD_INDEX's digits, which name the coding
+      // file (34 is C34, index 0x34): read them as hex, as NCS does
       const text = asStr(value).trim();
-      const index = /^\d+$/.test(text) ? parseInt(text, 10) : NaN;
+      const index = /^[0-9a-f]{1,2}$/i.test(text) ? parseInt(text, 16) : NaN;
       if (list.includes(index)) return CDH_OK;
-      this.errInfo = `the module's coding index is ${text || '(none)'}, this description is for ${list.join(', ')}`;
+      const files = list
+        .map((n) => `C${n.toString(16).padStart(2, '0').toUpperCase()}`)
+        .join(', ');
+      this.errInfo = `the module's coding index is ${text || '(none)'}, this description is for ${files}`;
       return CDH_WRONG_INDEX;
     }
 
@@ -819,19 +1099,36 @@
       const buf = this.bufs.get(asInt(bufHandle));
       this._pending = undefined;
       if (!buf) return { bufSize: 0, nrOfData: 0 };
-      const wb = this.wortBreite;
+      const wb = this.blockStride ? 1 : this.wortBreite; // block mode deals bytes
       const cap = Math.max(1, asInt(maxData) || RECORD_CAP);
       const start = this.cursor;
+      const stride = this.blockStride;
       let n = 0;
-      while (
-        n < cap &&
-        start + n < this.slots.length &&
-        !(this.slots[start + n].flags & SLOT_CONSUMED) &&
-        this.slots[start + n].addr === this.slots[start].addr + n * wb &&
-        // one mask per request: a run ends where the mask changes
-        String(this.slots[start + n].masks) === String(this.slots[start].masks)
-      )
-        n++;
+      if (stride) {
+        // BLOCK MODE: one whole block per request -- contiguous, within one
+        // block, never split by mask or by the script's MaxData (a second
+        // request would land at the block's first byte again).
+        const block =
+          ((this.slots[start] ? this.slots[start].addr : 0) / stride) | 0;
+        while (
+          start + n < this.slots.length &&
+          !(this.slots[start + n].flags & SLOT_CONSUMED) &&
+          this.slots[start + n].addr === this.slots[start].addr + n &&
+          ((this.slots[start + n].addr / stride) | 0) === block
+        )
+          n++;
+      } else {
+        while (
+          n < cap &&
+          start + n < this.slots.length &&
+          !(this.slots[start + n].flags & SLOT_CONSUMED) &&
+          this.slots[start + n].addr === this.slots[start].addr + n * wb &&
+          // one mask per request: a run ends where the mask changes
+          String(this.slots[start + n].masks) ===
+            String(this.slots[start].masks)
+        )
+          n++;
+      }
       if (n === 0) return { bufSize: 0, nrOfData: 0 };
       const startAddr = this.slots[start].addr;
       const payloadLen = n * wb;
@@ -846,7 +1143,9 @@
         binWriteByte(buf, HDR_MASK + k, this.slots[start].masks[k]);
       binWriteWord(buf, HDR_BYTE_COUNT, payloadLen, true);
       binWriteWord(buf, HDR_WORD_COUNT, n, true);
-      binWriteWord(buf, HDR_ADDR, (startAddr / wb) | 0, true); // WORD units
+      const wireAddr = (startAddr / wb) | 0; // WORD units
+      binWriteWord(buf, HDR_ADDR, wireAddr & 0xffff, true);
+      binWriteWord(buf, HDR_ADDR + 2, (wireAddr >>> 16) & 0xffff, true);
       // The data: the image's bytes in address order. A word-organised module
       // stores a word's bytes at consecutive addresses in its own order, so
       // address order IS its byte order; the job sends them as they come.
@@ -863,7 +1162,10 @@
         );
       }
       binWriteByte(buf, PACKET_DATA + payloadLen, PACKET_END);
-      this._pending = { start, n };
+      // the header as sent: the answer must carry it back unchanged
+      const header = [];
+      for (let k = 0; k < PACKET_DATA; k++) header.push(binReadByte(buf, k));
+      this._pending = { start, n, header };
       for (let k = 0; k < n; k++) this.slots[start + k].flags |= SLOT_CONSUMED;
       this.cursor = start + n;
       return { bufSize: PACKET_OVERHEAD + payloadLen, nrOfData: n };
@@ -882,10 +1184,23 @@
       const buf = this.bufs.get(asInt(bufHandle));
       const pend = this._pending;
       if (!buf || !pend) return 1;
-      const wb = this.wortBreite;
+      const wb = this.blockStride ? 1 : this.wortBreite;
       const want = pend.n * wb;
       if (buf.size < PACKET_DATA + want) {
         this.errInfo = `the answer holds ${Math.max(0, buf.size - PACKET_DATA)} data bytes, the request asked for ${want}`;
+        return 1;
+      }
+      // As the factory tool checks an answer (CDHBinBufToNettoData,
+      // CDHDATA.CPP): its 21-byte header must be the request's, byte for
+      // byte, and the byte after the data must be the closing 0x03.
+      for (let k = 0; k < PACKET_DATA; k++) {
+        if (binReadByte(buf, k) !== pend.header[k]) {
+          this.errInfo = `the answer's header differs from the request's at byte ${k}`;
+          return 1;
+        }
+      }
+      if (binReadByte(buf, PACKET_DATA + want) !== PACKET_END) {
+        this.errInfo = 'the answer does not end with 0x03 after its data';
         return 1;
       }
       const startAddr = this.slots[pend.start].addr;
@@ -940,6 +1255,9 @@
       }
       const pend = this._pending;
       const carries = pend && !NOT_A_WRITE.test(name);
+      // counted before the job goes out: one that fails on the wire may
+      // still have reached the module
+      if (carries && this.allowWrites) this.writesTried++;
       this.lastSets = await this.runJob(sg, name, bytesToArgString(bytes), {
         allowWrites: this.allowWrites,
         binary: true,
@@ -947,7 +1265,7 @@
       if (carries) {
         // only the selection's own bytes count as written: one that rode
         // along went back as the module held it
-        const wb = this.wortBreite;
+        const wb = this.blockStride ? 1 : this.wortBreite;
         for (let i = 0; i < pend.n; i++) {
           const slot = this.slots[pend.start + i];
           for (let k = 0; k < wb; k++)
@@ -1043,8 +1361,15 @@
    */
   const OUT_MULTI = {
     CDHGetApiJobData: ['bufSize', 'nrOfData'], // plus dataType/retVal ignored
-    CDHCallAuthenticate: ['responseLen'],
+    CDHGetApiJobByteData: ['bufSize', 'nrOfData', 'retVal'],
+    // the programming scripts test the retVal: a key that could not be made
+    // has to read as a failure there
+    CDHCallAuthenticate: ['responseLen', 'retVal'],
     CDHAuthGetRandom: ['rndBin', 'rndAsc'],
+    CDHGetInfo: ['text', 'count', 'retVal'],
+    apiResultText: ['rc', 'text'],
+    apiResultInt: ['rc', 'value'],
+    fileread: ['line', 'eof'],
   };
 
   // Callbacks whose scalar return is the FIRST out-ref while later out-refs are
@@ -1066,6 +1391,9 @@
     'CDHBinBufToStr',
     'CDHCheckDataUsed',
     'CDHBinBufCreate',
+    'testtimer',
+    'apiErrorText',
+    'apiErrorCode',
   ]);
   // CDHapiResultInt(value, result, set) has ONE out, the value: it is covered
   // by the single-out rule. CDHBinBufReadByte/ReadWord(buf, value, pos, ret)
@@ -1092,6 +1420,11 @@
     CDHSetCabdWordPar: ['in', 'in', 'out'],
     CDHGetCabdWordPar: ['in', 'out', 'out'],
     CDHGetSgbdName: ['out', 'out'],
+    CDHReadSget: ['out', 'out'],
+    CDHGetFaElement: ['in', 'in', 'out'],
+    CDHGetFswPswFromNettoData: ['in', 'out'],
+    CDHGetInfo: ['in', 'in', 'out', 'out', 'out'],
+    CDHSetSgName: ['in', 'out'],
     CDHSetDataOrg: ['in', 'in', 'in', 'out'],
     CDHResetApiJobData: [],
     CDHGetApiJobData: ['in', 'in', 'out', 'out', 'out', 'out'],
@@ -1101,6 +1434,7 @@
     CDHBinBufDelete: ['in', 'out'],
     CDHBinBufWriteByte: ['in', 'in', 'in', 'out'],
     CDHBinBufWriteWord: ['in', 'in', 'in', 'out'],
+    CDHBinBufCopy: ['in', 'in', 'in', 'in', 'in', 'out'],
     CDHBinBufReadByte: ['in', 'out', 'in', 'out'],
     CDHBinBufReadWord: ['in', 'out', 'in', 'out'],
     CDHBinBufToStr: ['in', 'out', 'out'],
@@ -1130,6 +1464,20 @@
       'out',
     ],
     CDHAuthGetRandom: ['out', 'out'],
+    // the flash programming calls (WinKFP's scripts; core/kfp/host.js)
+    CDHGetApiJobByteData: ['in', 'in', 'out', 'out', 'out'],
+    CDHDelay: ['in'],
+    settimer: ['in', 'in'],
+    testtimer: ['in', 'out'],
+    apiResultText: ['out', 'out', 'in', 'in', 'in'],
+    apiErrorText: ['out'],
+    apiErrorCode: ['out'],
+    apiJob: ['in', 'in', 'in', 'in'],
+    apiResultInt: ['out', 'out', 'in', 'in'],
+    fileopen: ['in', 'in'],
+    fileclose: [],
+    filewrite: ['in'],
+    fileread: ['out', 'out'],
   };
 
   const api = {

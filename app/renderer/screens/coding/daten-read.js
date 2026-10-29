@@ -183,13 +183,33 @@ function codDatenField(daten, chassis, index, kw) {
  */
 function codingImageValue(f, image) {
   if (!f || !image || !image.bytes) return null;
-  if ((f.block || 0) !== (image.block || 0)) return null;
+  // a block-addressed module read through its script comes back as one flat
+  // image, block N at N * 256 (core/coding/write.js flattenBlocked)
+  if (image.flat && typeof codingFlatRule === 'function') f = codingFlatRule(f);
+  else if ((f.block || 0) !== (image.block || 0)) return null;
   const at = typeof f.word === 'number' ? f.word : -1;
   const width = typeof f.byte === 'number' && f.byte > 0 ? f.byte : 1;
   if (at < 0 || at + width > image.bytes.length) return null;
   if (image.known)
     for (let i = 0; i < width; i++) if (!image.known.has(at + i)) return null;
   return CodingEncode.fieldHex(f, image.bytes);
+}
+
+/**
+ * Each scanned module's coding file, as NCS's procedure picked it (key: the
+ * module's key in the scan, e.g. "gm5"). Filled by scanCoding.
+ * @type {Map<string, object>}
+ */
+const _codingFiles = new Map();
+
+/**
+ * Record the coding file NCS's procedure picked for a module.
+ * @param {string} key - the module's key in the scan.
+ * @param {object} entry - the coding file (data/daten/<CH>.json shape).
+ * @returns {void}
+ */
+function codingRegisterFile(key, entry) {
+  _codingFiles.set(String(key).toLowerCase(), entry);
 }
 
 /**
@@ -214,11 +234,11 @@ async function codingFor(sgbd) {
  * @returns {Promise<DatenMapEntry|null>} the entry, or null.
  */
 async function datenFor(sgbd) {
-  if (typeof loadDatenMap !== 'function') return null;
-  await loadDatenMap();
-  const map = (typeof window !== 'undefined' && window.BMW_DATEN_MAP) || null;
-  if (!map || !sgbd) return null;
-  return map[String(sgbd).toLowerCase()] || null;
+  // the coding file NCS's own procedure picked for this module (the hub's
+  // scan registers it: module list, coding index, selection table) -- no
+  // name involved
+  // Only that: a coding file is never looked up by a diagnostic SGBD's name.
+  return _codingFiles.get(String(sgbd || '').toLowerCase()) || null;
 }
 
 // The pieces the other coding screens call; published explicitly so the shared surface is visible.
@@ -230,4 +250,5 @@ if (typeof window !== 'undefined') {
   window.codingImageValue = codingImageValue;
   window.codingFor = codingFor;
   window.datenFor = datenFor;
+  window.codingRegisterFile = codingRegisterFile;
 }

@@ -108,6 +108,23 @@ async function treeWriteModule(mod, edits, state, onStage) {
             : `No way to write this module${src && src.why ? ': ' + src.why : ''}`,
       };
     }
+    // A numbered-block module reads through its script into one flat image,
+    // block N at N * 256, and is written back the same way: the block rides
+    // in the request's address, as the factory tool sends it, and the
+    // module's own jobs put it on the wire. Refused only when they cannot
+    // tell the description's blocks apart
+    // (webCodingBlockProven, asked of the jobs in the VM).
+    const blockOk =
+      !src.blocked ||
+      (typeof webCodingBlockProven === 'function' &&
+        (await webCodingBlockProven(src.sgbd, codingBlocks(src.cabd))));
+    if (src.blocked && !blockOk) {
+      return {
+        sgbd,
+        ok: false,
+        err: 'This module numbers its coding blocks, and its own read and write jobs cannot tell them all apart on the wire; it is not written',
+      };
+    }
     // Two scripts can drive one module (a car coded by its central key, and
     // one coded by its vehicle order), and they do different things on a
     // write. Unless the car's equipment or the table settled which, stop.
@@ -130,6 +147,7 @@ async function treeWriteModule(mod, edits, state, onStage) {
     const fresh = await webReadCoding(src.sgbd, {
       dispatchKey: src.dispatchKey,
       cabd: src.cabd,
+      fa: mod.fa || src.fa || undefined,
     });
     const nettoHex = codingNettoHex(fresh.netto);
     const CodingEncode =
@@ -138,7 +156,9 @@ async function treeWriteModule(mod, edits, state, onStage) {
         : require('../../core/coding/encode.js');
     const modified = CodingEncode.spliceEdits(
       Uint8Array.from(fresh.netto),
-      edits
+      src.blocked && typeof codingFlatRule === 'function'
+        ? edits.map((e) => ({ ...e, rule: codingFlatRule(e.rule) }))
+        : edits
     );
     const modHex = codingNettoHex(modified);
 
@@ -162,6 +182,10 @@ async function treeWriteModule(mod, edits, state, onStage) {
       dispatchKey: src.dispatchKey,
       base: nettoHex,
       cabd: src.cabd,
+      // the car's VIN, when the caller knows it: scripts write it to the module
+      vin: mod.vin || undefined,
+      // the car's vehicle order, for a script that reads it
+      fa: mod.fa || src.fa || undefined,
       onStage,
     });
 

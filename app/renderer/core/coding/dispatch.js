@@ -81,6 +81,8 @@
  * @property {string} info - the recorded error text, '' when none.
  * @property {number[]} netto - the image after the run (read mode fills it).
  * @property {number[]} written - byte addresses a write job carried.
+ * @property {number} writesTried - write telegrams started, including one
+ *   that failed on the wire.
  * @property {number[]} read - byte addresses a read filled in.
  */
 
@@ -128,11 +130,29 @@
   /** The error number recorded when the run stops on an unserved host call. */
   const ERR_UNSUPPORTED_CALL = 9001;
 
+  /**
+   * CDH callbacks the IR knows only by number, under their CABI.H names
+   * (told apart by how the scripts call them).
+   * @type {Record<string, string>}
+   */
+  const CALL_ALIASES = {
+    // (src, dst, srcPos, dstPos, len, ->ret): WASBufferKopieren's copy,
+    // Authentisierung's key into the job data at 21
+    builtin_64: 'CDHBinBufCopy',
+    // the PC text file the diesel PABDs (05DDE608, 14DDE60x ...) keep a value
+    // in across a programming run (WerteDDE.txt): fileopen(name, mode),
+    // filewrite(line), fileread(->line, ->eof), fileclose()
+    builtin_21: 'fileopen',
+    builtin_22: 'fileclose',
+    builtin_23: 'filewrite',
+    builtin_65: 'fileread',
+  };
+
   // The language's own library, which the dispatchers lean on: every error
   // text is built with strcat, the coding index is padded by strlen, and the
   // cluster decides whether to rewrite the VIN from midstr(FAHRGESTELL_NR).
   // Each takes its destination as the first (out) argument.
-  /** @type {Record<string, {sig: Array<'in'|'out'>, fn: (...a: unknown[]) => unknown}>} */
+  /** @type {Record<string, {sig: Array<'in'|'out'>, fn: (this: any, ...a: any[]) => unknown}>} */
   const BUILTINS = {
     strcat: { sig: ['out', 'in', 'in'], fn: (a, b) => asStr(a) + asStr(b) },
     strlen: { sig: ['out', 'in'], fn: (a) => asStr(a).length },
@@ -146,6 +166,40 @@
   };
   /** The cabimain jobname that means "code the module". */
   const DEFAULT_JOBNAME = 'SG_CODIEREN';
+
+  /**
+   * Every library or host call a script makes, by name, aliases resolved.
+   * @param {DispatcherProgram} exec - the script.
+   * @returns {string[]} the names, each once.
+   */
+  function scriptCalls(exec) {
+    const out = new Set();
+    for (const ops of Object.values((exec && exec.procs) || {}))
+      for (const o of ops || [])
+        if (o && o.op === 'call' && o.name)
+          out.add(CALL_ALIASES[o.name] || o.name);
+    return [...out];
+  }
+
+  /**
+   * The text constants a script hands a call as its first argument, at every
+   * place it makes it: the call's first argument is pushed `argc` tokens
+   * before it. Used to ask, before anything is sent, what a script will want.
+   * @param {DispatcherProgram} exec - the script.
+   * @param {string} name - the call.
+   * @param {number} argc - how many arguments it takes.
+   * @returns {string[]} the constants (a non-constant argument is left out).
+   */
+  function scriptCallArgs(exec, name, argc) {
+    const out = [];
+    for (const ops of Object.values((exec && exec.procs) || {}))
+      (ops || []).forEach((o, i) => {
+        if (!o || o.op !== 'call' || o.name !== name) return;
+        const a = ops[i - argc];
+        if (a && a.op === 'const') out.push(String(a.v));
+      });
+    return out;
+  }
 
   // ---- the interpreter ----------------------------------------------------
   //
@@ -209,7 +263,18 @@
       for (; i < toks.length; i++) {
         const op = toks[i].op;
         if (op === 'decl' || op === 'const') header.push(toks[i]);
-        else break;
+        else if (
+          // a negative initial value is `const n; neg` (the ARS70 script's
+          // Authentisierung ends its locals with -1): one local, not the
+          // end of the header -- stopping there left every local unset
+          op === 'binop' &&
+          toks[i].name === 'neg' &&
+          header.length &&
+          header[header.length - 1].op === 'const'
+        ) {
+          const last = header[header.length - 1];
+          header[header.length - 1] = { ...last, v: -asInt(last.v) };
+        } else break;
       }
       // only a run of declarations CLOSED by a terminator is a header; a proc
       // without locals starts straight into its first expression
@@ -326,7 +391,7 @@
           await this._call(t, stack, frame);
           stack = [];
         } else if (op === 'calluser') {
-          await this._callUser(t, stack);
+          await this._callUser(t, stack, frame);
           stack = [];
         } else if (op === 'ret') {
           // In the A_ (coding dispatcher) dialect, 0e is a per-statement
@@ -344,17 +409,33 @@
     }
 
     /**
-     * Call a user proc with the operand stack as its positional locals.
+     * Call a user proc with the operand stack as its positional locals. An
+     * argument passed by reference (a procref, or a variable not yet set)
+     * goes in as the variable's value and comes back out: what the proc
+     * leaves in that parameter is written to the caller's variable. BMW's
+     * PABDs depend on it -- TestApiFehlerNoExit clears the caller's error
+     * variable through it, and MDS43Prog stops on a stale one otherwise.
      * @param {DispatchToken} t - the `calluser` token.
      * @param {unknown[]} stack - the operand stack.
+     * @param {Map<number, unknown>} caller - the caller's local frame.
      * @returns {Promise<void>} resolves when the proc ends.
      */
-    async _callUser(t, stack) {
+    async _callUser(t, stack, caller) {
       const name = this.byid('func', t.n);
       if (!name || !this.procs[name]) return;
       const frame = new Map();
-      stack.forEach((v, i) => frame.set(i, v));
+      const refs = new Map();
+      stack.forEach((v, i) => {
+        if (isRef(v)) {
+          refs.set(i, v);
+          const cur = v[1] === 0 ? this.globals.get(v[2]) : caller.get(v[2]);
+          if (cur != null) frame.set(i, cur);
+        } else frame.set(i, v);
+      });
       await this._exec(this.procs[name], this._locals(this.procs[name], frame));
+      for (const [i, ref] of refs)
+        if (frame.has(i) && !isRef(frame.get(i)))
+          this._writeRef(ref, caller, frame.get(i));
     }
 
     /**
@@ -366,7 +447,7 @@
      * @returns {Promise<void>} resolves when the callback has run.
      */
     async _call(t, stack, frame) {
-      const name = t.name;
+      const name = CALL_ALIASES[t.name] || t.name;
       const host = this.host;
       // `exit` ends the whole run, wherever it is called from. BMW's error
       // checks record the failure and then call it, so nothing after a failed
@@ -382,7 +463,9 @@
           if (dir === 'in') bins.push(bargs[k]);
           else dest = bargs[k];
         });
-        if (dest != null) this._writeRef(dest, frame, builtin.fn(...bins));
+        let value = builtin.fn.apply(this, bins);
+        if (value && typeof value.then === 'function') value = await value;
+        if (dest != null) this._writeRef(dest, frame, value);
         return;
       }
       const fn = host[name];
@@ -407,6 +490,9 @@
       });
       let result = fn.apply(host, ins);
       if (result && typeof result.then === 'function') result = await result;
+      // a callback that could not serve the script (no vehicle order, another
+      // module to code ...) ends the run here, before the script acts on it
+      if (host.hostFault) throw new DispatchAbort(host.hostFault, true);
       // distribute results to out-refs
       const multi = OUT_MULTI[name];
       if (multi && result && typeof result === 'object') {
@@ -436,6 +522,16 @@
 
   // ---- binop (subset the dispatcher uses) ---------------------------------
   /**
+   * A string that is not a number's text ('0x', ';', '0x23;'): an operand
+   * that makes + concatenate.
+   * @param {unknown} x - an operand.
+   * @returns {boolean}
+   */
+  function isText(x) {
+    return typeof x === 'string' && x !== '' && !/^\s*-?\d+\s*$/.test(x);
+  }
+
+  /**
    * Evaluate a binary operator on two stack values.
    * @param {string} name - operator name.
    * @param {unknown} a - left operand.
@@ -445,6 +541,18 @@
   function binop(name, a, b) {
     switch (name) {
       case 'add':
+        // + on strings is concatenation: the ARS70 PABD's SetEcuAdr builds
+        // FLASH_PARAMETER_SETZEN's "0x23;2;18;1;simple" this way, and summing
+        // the pieces sent "355". Numbers, and numeric text beside a number,
+        // still add. Two strings always join, digits or not: 12MDS451 pads
+        // the dealer number as "000000" + AIF_HAENDLER_NR, and summing
+        // "000000" + "" sent "0" (the DME refused it, ERROR_REPAIR_SHOP_NR).
+        if (
+          (typeof a === 'string' && typeof b === 'string') ||
+          isText(a) ||
+          isText(b)
+        )
+          return String(a ?? '') + String(b ?? '');
         return asInt(a) + asInt(b);
       case 'sub':
         return asInt(a) - asInt(b);
@@ -522,9 +630,14 @@
     // the wire as the block number, its write job divides the address by 20
     // first. Which address the factory tool hands them is not known, so such
     // a module is not written through here until it is.
+    // A description the coding path has laid flat (write.js flattenBlocked:
+    // address = block * 256 + offset, `blockStride` set) is dealt out a
+    // whole block per request by the host; only a raw, still-numbered one
+    // is refused here.
     const cabd = opts.cabd || null;
     const blocked =
       cabd &&
+      !cabd.blockStride &&
       (cabd.typ === 'BLOCK' ||
         (cabd.fields || []).some((f) => (f.block | 0) > 0) ||
         (cabd.groups || []).some((g) => (g.block | 0) > 0));
@@ -535,6 +648,24 @@
       );
     }
     const mode = opts.mode === 'read' ? 'read' : 'write';
+    // EVERY CALL SERVED, OR NOTHING SENT. A write run that reaches a call
+    // this host does not have stops there -- possibly after its first write
+    // telegrams. So a write is refused up front when the script calls one
+    // anywhere, or goes on to code another module (CDHSetSgName).
+    if (mode === 'write') {
+      const missing = scriptCalls(exec).filter(
+        (n) =>
+          n !== 'exit' &&
+          !BUILTINS[n] &&
+          (typeof CdhHost.prototype[n] !== 'function' || n === 'CDHSetSgName')
+      );
+      if (missing.length) {
+        throw new Error(
+          `coding dispatch refused: the coding script calls ${missing.join(', ')}, ` +
+            'which a coding run here cannot serve, so nothing is sent'
+        );
+      }
+    }
     const host = new CdhHost({
       sgbd: opts.sgbd,
       netto: opts.netto,
@@ -543,6 +674,8 @@
       held: opts.held,
       readAddrs: opts.readAddrs,
       systemData: opts.systemData,
+      sget: opts.sget,
+      fa: opts.fa,
       mode,
       runJob: opts.runJob,
     });
@@ -580,8 +713,15 @@
     try {
       await interp.run(entry);
     } catch (e) {
-      if (!e || !e.dispatchAbort) throw e;
-      aborted = e;
+      if (e && e.dispatchAbort) aborted = e;
+      else {
+        // Anything else -- the cable gone, a module that stopped answering,
+        // a job the VM could not run -- ends the run as a failure like any
+        // other, so the caller still learns what had been sent by then.
+        aborted = new DispatchAbort(String((e && e.message) || e), true);
+        if (!host.err) host.err = -1;
+        host.errInfo = `the run stopped: ${aborted.message}`;
+      }
     }
     // An `exit` after a clean handler is how some scripts end; what makes a
     // run a failure is what was recorded before it: an error number, a
@@ -597,7 +737,11 @@
       slots: host.slots,
       netto: Array.from(host.netto),
       written: host.writtenAddrs(),
+      writesTried: host.writesTried,
       read: host.readAddrs(),
+      // what the script handed back (CDHSetCabdPar): a key or order read's
+      // GM/SA/VN_SCHLUESSEL, FAHRGESTELL_NR, FA_STREAM, ...
+      pars: Object.fromEntries(host.cabdPar),
     };
   }
 
@@ -607,6 +751,8 @@
     Interp,
     DispatchAbort,
     ERR_UNSUPPORTED_CALL,
+    scriptCalls,
+    scriptCallArgs,
     _makeBinBuf: Host.makeBinBuf,
     _bytesToArgString: Host.bytesToArgString,
     _binWriteWord: Host.binWriteWord,

@@ -92,11 +92,21 @@ function blockName(sgbd, block) {
  * @param {string} sgbd - the module.
  * @param {number|null} [ci] - the car's coding index, when the scan named it.
  * @param {string[]|null} [saCodes] - the car's SA codes for the field filter.
+ * @param {object|null} [file] - the coding file itself, as NCS names it
+ *   (ncs-slots.js: SGET's SGNAME for the module's slot and index); without
+ *   it the description is looked up by the diagnostic SGBD's name.
  * @returns {Promise<FunctionList>} the fields, with the resolution carried
  *   alongside (see {@link FunctionList}).
  */
-async function moduleFunctions(chassisId, sgbd, ci = null, saCodes = null) {
-  const daten = typeof datenFor === 'function' ? await datenFor(sgbd) : null;
+async function moduleFunctions(
+  chassisId,
+  sgbd,
+  ci = null,
+  saCodes = null,
+  file = null
+) {
+  const daten =
+    file || (typeof datenFor === 'function' ? await datenFor(sgbd) : null);
   const byKey = new Map();
   let resolved = false; // did ci pick exactly the variants carrying it?
   let variants = []; // which variant keys the fields came from
@@ -212,6 +222,29 @@ function codingCabdOf(fns) {
       block: block || 0,
       kind: kind || null,
     })),
+    // the unused bits and their fill value (UNBELEGT1/2), when the data
+    // build carries them
+    ...(Array.isArray(lay.own)
+      ? {
+          own: lay.own.map(([block, start, length, masks]) => ({
+            block: block || 0,
+            start,
+            length,
+            masks,
+          })),
+        }
+      : {}),
+    ...(Array.isArray(lay.fill)
+      ? {
+          fill: lay.fill.map(([block, start, length, masks, values]) => ({
+            block: block || 0,
+            start,
+            length,
+            masks,
+            values,
+          })),
+        }
+      : {}),
     codingIndex: lay.index || [],
     typ: lay.typ || 'FREI',
   };

@@ -22,21 +22,23 @@ the field's own value, already shifted down past the mask's trailing zeros
 (byte & ~mask) | (value << shift) and reading one is the inverse. The
 renderer does that arithmetic; this file only has to preserve it exactly.
 
-NAMING IS BY SGBD, not by DATEN's own filename, because the app opens ECUs
-by SGBD. Most match outright (LSZ, LCM, EWS, RDC); a few are the same box
-under two names and are aliased below, each one verified by token overlap
-against that SGBD's own coding map rather than assumed from the spelling.
+NO NAMES ARE MATCHED. The coding files travel under NCS's own names, one
+file per chassis (daten_files.py -> data/daten/<CHASSIS>.json), and the app
+reaches them the way NCS Expert does: module list, coding index, selection
+table. This file is what the two share: read_module() (one module's rows)
+and the English labels. datenmap.js now carries only those labels
+(BMW_DATEN_I18N), for every keyword any chassis's coding files use;
+BMW_DATEN_MAP is left empty -- nothing looks a coding file up by an SGBD's
+name any more.
 
 Read-only: reads files on disk, never talks to a car.
 """
 
 import csv
-import glob
 import json
 import os
 import re
 import sys
-from typing import Set
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import ncs_daten as N                                    # noqa: E402
@@ -49,45 +51,11 @@ OUT = 'app/renderer/data/datenmap.js'
 # dictionary was built for E39/E46 result names and word-for-words the rest.
 TRANSLATIONS = 'vendor/NCSDummy/Translations.csv'
 
-# DATEN module -> the SGBD the app knows it as. Only where the two names
-# differ and the pairing is EVIDENCED: the percentage is how much of the
-# SGBD's own coding vocabulary the DATEN file's keywords cover (--audit
-# recomputes them). GM4 is left out at 13%, IHKA_E38 at 8%: a rename that
-# cannot be corroborated is a guess, and a guess here mislabels a car.
-ALIASES = {
-    'MK20E_I': 'ascmk20',   # 81%
-    'KMB_E46': 'kombi46',   # 69%
-    'GM5': 'zke5',          # 51%
-    'GM3': 'zke4',          # 50%
-    'KMB_E36': 'kombi36',   # 39%
-}
-
 # Every chassis SP-Daten v74 ships coding data for. Each carries its own
 # keyword tables, which is why ncs_daten.rows() is told the directory.
 CHASSIS = ('E36', 'E38', 'E39', 'E46', 'E52', 'E53', 'E60', 'E65',
            'E70', 'E83', 'E85', 'E89', 'K1X', 'K24', 'KH2', 'R50',
            'R56', 'RR1')
-
-
-def sgbd_tokens(cm: dict, name: str) -> Set[str]:
-    """The keyword vocabulary of one SGBD's own coding map (binary fields
-    carry no names and are skipped)."""
-    out = set()
-    for f in cm.get(name, {}).get('fields', []):
-        if f.get('type') != 'binary':
-            out |= N.stem_tokens(f['name'])
-    return out
-
-
-def coverage(daten_tokens, sgbd_toks):
-    """How much of the SGBD's vocabulary the DATEN keywords account for.
-    Prefix-tolerant, because the two abbreviate differently (FEHLER vs
-    FEHLERMELDUNG, RUECKLICHT vs SL_HINTEN)."""
-    if not sgbd_toks:
-        return None
-    hits = sum(1 for w in sgbd_toks
-               if any(t.startswith(w) or w.startswith(t) for t in daten_tokens))
-    return round(100 * hits / len(sgbd_toks))
 
 
 def load_translations():
@@ -225,128 +193,41 @@ def read_module(paths):
 
 
 def main():
-    """CLI entry: build datenmap.js from every DATEN module the app ships an
-    SGBD for, and report what was covered. Run from the repository root.
-    `--same-modules` keeps the module set of the map already on disk."""
-    cm = {}
-    try:
-        cm = json.load(open('data/inpa-screens/_codingmap.json'))
-    except OSError:
-        # not fatal, but not nothing either: without the coding map the
-        # SGBD cross-refs are absent and every alias audit reads 0%
-        print('WARNING: no data/inpa-screens/_codingmap.json -- coding '
-              'cross-refs will be absent; run tools/decompile/coding_map.py '
-              'first', file=sys.stderr)
-
-    sgbds = {os.path.basename(p).split('.')[0].lower()
-             for p in glob.glob('data/ecu-src/*.meta.json.gz')}
-    if not sgbds:
-        sys.exit('no data/ecu-src: run the SGBD export first')
-
-    # gather DATEN files per module per chassis
-    mods = {}
+    """CLI entry: datenmap.js -- the English labels of every keyword any
+    chassis's coding files use. Run from the repository root."""
+    trans = load_translations()
+    words = set()
     for ch in CHASSIS:
         d = f'{N.DATEN}/{ch}'
         if not os.path.isdir(d):
             continue
+        by_mod = {}
         for fn in sorted(os.listdir(d)):
-            if '.C' not in fn.upper():
-                continue
-            mods.setdefault(fn.split('.')[0].upper(), {}) \
-                .setdefault(ch, []).append(f'{d}/{fn}')
-
-    out = {}
-    skipped = []
-    for mod, by_ch in sorted(mods.items()):
-        target = ALIASES.get(mod, mod.lower())
-        if target not in sgbds:
-            skipped.append(mod)
-            continue
-        entry = out.setdefault(target, {'sgbd': target, 'daten': mod,
-                                        'chassis': {}})
-        for ch, paths in by_ch.items():
-            variants, blocks, lay = read_module(paths)
-            if variants:
-                entry['chassis'][ch] = variants
-                # beside the fields, not inside them: every reader of
-                # chassis[ch][variant] takes it for the list of functions
-                entry.setdefault('layout', {})[ch] = lay
-                # names are per-module; merge across chassis (identical where
-                # they overlap, and a chassis-specific block simply adds one)
-                if blocks:
-                    entry.setdefault('blocks', {}).update(
-                        {str(k): v for k, v in blocks.items()})
-
-    out = {k: v for k, v in out.items() if v['chassis']}
-
-    # --same-modules: keep the set of modules the shipped map already has.
-    # data/ecu-src grows as SGBDs are exported, and every one that gains a
-    # DATEN description makes the lazy-loaded map bigger; a run that is about
-    # the CONTENT of the rows should not also change which modules ship.
-    if '--same-modules' in sys.argv[1:]:
-        try:
-            text = open(OUT).read()
-            head = text.index('window.BMW_DATEN_MAP=') + len('window.BMW_DATEN_MAP=')
-            have = set(json.JSONDecoder().raw_decode(text[head:])[0])
-        except (OSError, ValueError):
-            sys.exit(f'--same-modules: no readable {OUT} to take the set from')
-        dropped = sorted(set(out) - have)
-        out = {k: v for k, v in out.items() if k in have}
-        print(f'--same-modules: kept {len(out)}, left out {len(dropped)} '
-              f'newly coverable ({", ".join(dropped[:8])}'
-              f'{", ..." if len(dropped) > 8 else ""})')
-
-    # English labels ride in the same file, keyed once by keyword rather
-    # than repeated per row: the same FSW appears in dozens of variants
-    # across chassis, and per-row labels would triple the payload. Only
-    # keywords the map actually uses travel.
-    trans = load_translations()
-    fsw, psw = set(), set()
-    for e in out.values():
-        # block designations are keywords too ("Grundkonfiguration_ALC-SG" ->
-        # "Basic configuration adaptive headlights (AHL) control unit"), so
-        # they ride in the same i18n table the field names use
-        for bez in (e.get('blocks') or {}).values():
-            fsw.add(str(bez).lower())
-        for variants in e['chassis'].values():
+            if '.C' in fn.upper():
+                by_mod.setdefault(fn.split('.')[0].upper(), []).append(
+                    f'{d}/{fn}')
+        for paths in by_mod.values():
+            variants, blocks, _ = read_module(paths)
+            words.update(str(b).lower() for b in (blocks or {}).values())
             for fields in variants.values():
                 for r in fields:
-                    fsw.add(r['name'].lower())
-                    for n, _ in r['values']:
-                        psw.add(str(n).lower())
-    i18n = {k: trans[k] for k in (fsw | psw) if k in trans}
-
+                    words.add(r['name'].lower())
+                    words.update(str(n).lower() for n, _ in r['values'])
+    i18n = {k: trans[k] for k in sorted(words) if k in trans}
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     with open(OUT, 'w') as fh:
-        fh.write('// GENERATED by tools/decompile/daten_map.py -- what a '
-                 "module's coding blob\n// MEANS, from BMW's DATEN files: "
-                 'address, mask and the values each\n// function may hold. '
-                 'Lazy-loaded by loadDatenMap().\n'
+        fh.write('// GENERATED by tools/decompile/daten_map.py.\n'
                  '// BMW_DATEN_I18N: keyword -> English, from NCS Dummy\'s '
-                 'Translations.csv.\n'
-                 'window.BMW_DATEN_MAP=')
-        json.dump(out, fh, separators=(',', ':'), sort_keys=True)
-        fh.write(';\nwindow.BMW_DATEN_I18N=')
+                 'Translations.csv, for every\n// keyword the coding files '
+                 '(data/daten/<CHASSIS>.json) use. BMW_DATEN_MAP is empty:\n'
+                 '// coding files are reached by NCS\'s own tables, never by '
+                 'an SGBD\'s name.\n'
+                 'window.BMW_DATEN_MAP={};\nwindow.BMW_DATEN_I18N=')
         json.dump(i18n, fh, separators=(',', ':'), sort_keys=True,
                   ensure_ascii=False)
         fh.write(';\n')
-
-    n_var = sum(len(v) for e in out.values() for v in e['chassis'].values())
-    n_row = sum(len(f) for e in out.values() for v in e['chassis'].values()
-                for f in v.values())
-    n_enum = sum(1 for e in out.values() for v in e['chassis'].values()
-                 for f in v.values() for r in f if len(r['values']) > 1)
-    print(f'{len(out)} ECUs carry a DATEN coding description')
-    print(f'  {n_var} coding variants, {n_row} named functions, '
-          f'{n_enum} with a value list')
-    if trans:
-        print(f'  {len(i18n)} English labels: '
-              f'{sum(1 for k in fsw if k in i18n)}/{len(fsw)} function '
-              f'keywords, {sum(1 for k in psw if k in i18n)}/{len(psw)} '
-              'value keywords')
-    print(f'  {len(skipped)} DATEN modules match no SGBD the app ships')
-    size = os.path.getsize(OUT)
-    print(f'-> {OUT} ({size // 1024} KB)')
+    print(f'{len(i18n)} English labels for {len(words)} keywords '
+          f'-> {OUT} ({os.path.getsize(OUT) // 1024} KB)')
 
 
 if __name__ == '__main__':
