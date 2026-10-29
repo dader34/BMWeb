@@ -4,7 +4,7 @@
  * screens/sweep/.
  */
 
-/* exported backToModules */
+/* exported backToModules, codingReady */
 
 /**
  * One control module as the chassis config lists it.
@@ -67,7 +67,6 @@ async function showChassis() {
         <div class="inpa-vlist">${main.map((id, i) => fnRow(i + 1, id, `${dispChassis(id)}${CHASSIS_TAG[id] ? ` · ${CHASSIS_TAG[id]}` : ''}`)).join('')}</div>
         <div class="inpa-vlist inpa-vlist-right">
           ${old.length ? `<button class="inpa-fn inpa-fn-more" id="vsel-old"><span class="inpa-fn-key">&lt; F9 &gt;</span><span class="inpa-fn-label">Other models …</span></button>` : ''}
-          <button class="inpa-fn inpa-fn-lookup" id="vsel-apps"><span class="inpa-fn-key">▦</span><span class="inpa-fn-label">Apps …</span></button>
         </div>
       </div>`;
     view.appendChild(panel);
@@ -76,7 +75,6 @@ async function showChassis() {
       .forEach((b) => (b.onclick = () => showScriptSelection(b.dataset.id)));
     const oldBtn = panel.querySelector('#vsel-old');
     if (oldBtn) oldBtn.onclick = () => showOtherModels(old);
-    panel.querySelector('#vsel-apps').onclick = () => showApps();
     sbRight.textContent = `${main.length} common · ${old.length} more`;
     syncVselState();
     const acts = main.slice(0, 8).map((id, i) => ({
@@ -90,7 +88,8 @@ async function showChassis() {
         label: 'Other models',
         fn: () => showOtherModels(old),
       });
-    acts.push({ key: '0', label: 'Apps', fn: () => showApps() });
+    // INPA is an app now: out to Home, nothing else from here
+    acts.push(chassisBackAction());
     setActions(acts);
     return;
   }
@@ -102,44 +101,6 @@ async function showChassis() {
     'Choose a chassis to load its diagnostic modules.'
   );
 
-  // Apps: reference tools, offline. Fault lookup and the ported dealer-software
-  // apps (WDS wiring, ETK parts catalogue, ...) all live under one hub card. It
-  // sits at the TOP of the home screen (like the VIN Decoder card atop the
-  // parts page) so the door to everything is the first thing in reach.
-  const appsCard = document.createElement('button');
-  appsCard.className = 'lookup-entry etk-vin-entry';
-  appsCard.innerHTML = `
-    <span class="lookup-entry-icon">▦</span>
-    <span class="lookup-entry-text">
-      <span class="lookup-entry-title">Apps</span>
-      <span class="lookup-entry-desc">Fault lookup, wiring diagrams, parts catalogue and more</span>
-    </span>
-    <span class="lookup-entry-arrow">→</span>`;
-  appsCard.onclick = () => showApps();
-  if (!_mine()) return;
-  view.appendChild(appsCard);
-
-  // Garage: the cars this user keeps, and the scan history read from each.
-  // Above the chassis grid because a returning owner wants their own car, not
-  // the list of every chassis the app supports.
-  if (typeof showGarage === 'function') {
-    const garageCard = document.createElement('button');
-    garageCard.className = 'lookup-entry etk-vin-entry';
-    const n = typeof garageCars === 'function' ? garageCars().length : 0;
-    garageCard.innerHTML = `
-      <span class="lookup-entry-icon">⌂</span>
-      <span class="lookup-entry-text">
-        <span class="lookup-entry-title">Garage</span>
-        <span class="lookup-entry-desc">${esc(
-          n
-            ? `${n} saved vehicle${n === 1 ? '' : 's'} and their scan history`
-            : 'Save your car and keep the scans read from it'
-        )}</span>
-      </span>
-      <span class="lookup-entry-arrow">→</span>`;
-    garageCard.onclick = () => showGarage();
-    view.appendChild(garageCard);
-  }
   const filterRow = document.createElement('div');
   filterRow.className = 'chassis-filter-row';
   // CHASSIS_TAG is lower-case, so match case-insensitively: an earlier .includes('3-SERIES') never matched and left the tag clause dead
@@ -235,13 +196,24 @@ async function showChassis() {
     label: id,
     fn: () => showSections(id),
   }));
-  acts.push({
-    key: String(quick.length + 1),
-    label: 'Apps',
-    fn: () => showApps(),
-  });
+  // INPA is an app now: out to Home, nothing else from here
+  acts.push(chassisBackAction());
   if (!_mine()) return;
   setActions(acts);
+}
+
+/**
+ * The vehicle picker's Esc: back out of INPA to the home screen.
+ * @returns {{key: string, keyLabel: string, label: string, kind: string, fn: () => void}}
+ */
+function chassisBackAction() {
+  return {
+    key: 'Escape',
+    keyLabel: 'Esc',
+    label: 'Back',
+    kind: 'back',
+    fn: () => showApps(),
+  };
 }
 
 // INPA script-selection popup: left lists section categories, right shows the section's ECUs
@@ -312,7 +284,6 @@ async function showScriptSelection(chassisId, onAbort) {
         <div class="inpa-ss-left" id="ss-left">
           <button class="inpa-ss-item inpa-ss-chassis" data-i="-1">${esc(dispChassis(chassisId))}</button>
           ${ch.sections.map((s, i) => `<button class="inpa-ss-item" data-i="${i}">${esc(s.name)}</button>`).join('')}
-          ${typeof showCodingHub === 'function' && codingReady() ? '<button class="inpa-ss-item inpa-ss-coding" data-i="-2">Coding</button>' : ''}
           ${typeof showVehicleIdentity === 'function' ? '<button class="inpa-ss-item inpa-ss-identity" data-i="-3" hidden>Identity</button>' : ''}
         </div>
         <div class="inpa-ss-right" id="ss-right">
@@ -668,19 +639,7 @@ async function showSections(id, selectIndex = 0) {
     nav.appendChild(item);
   });
 
-  // Coding hub entry, shown only when the chassis has codeable modules
-  if (
-    codingReady() &&
-    typeof chassisHasCoding === 'function' &&
-    (await chassisHasCoding(id))
-  ) {
-    const code = document.createElement('button');
-    code.className = 'sys-item sys-coding';
-    code.innerHTML = `<span class="nav-name">Coding</span>
-                      <span class="nav-count">edit</span>`;
-    code.onclick = () => showCodingHub(id);
-    nav.appendChild(code);
-  }
+  // Coding lives in its own app (Apps > Coding, screens/coding/app.js).
 
   // Vehicle identity, shown only where a module can actually answer. The test
   // is the same one the screen uses -- an ECU declaring a job that returns the

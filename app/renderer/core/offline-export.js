@@ -106,6 +106,9 @@ const OFFLINE_SHELL = [
   'core/flash/fast-flasher.js',
   'core/flash/fast-flasher-wire.js',
   'core/flash/aif.js',
+  'core/flash/eeprom.js',
+  'core/flash/ews.js',
+  'core/flash/isn-pairing.js',
   'core/flash/push-resume.js',
   'core/generated/bl14-blob.js',
   'core/flash/bl14.js',
@@ -126,6 +129,7 @@ const OFFLINE_SHELL = [
 
   'ui/typed-block.js',
   'ui/dropdown.js',
+  'ui/konami.js',
   'ui/listbox.js',
 
   'screens/sweep/plan.js',
@@ -267,6 +271,7 @@ const OFFLINE_SHELL = [
   'screens/flashing/dme-flash.js',
   'screens/flashing/dme-fast.js',
   'screens/flashing/aif-editor.js',
+  'screens/flashing/isn-ews.js',
   'screens/flashing/bl14-install.js',
   'screens/flashing/livetune-install.js',
   'screens/tuning/memory-spec.js',

@@ -797,19 +797,26 @@ html[data-theme='gt1'] .btn.danger {
   border-color: #7a1e12 !important;
   color: #fff !important;
 }
-html[data-theme='gt1'] input[type='text']:not(.tn-cell):not(.tn-axis-cell),
-html[data-theme='gt1'] input[type='search'],
-html[data-theme='gt1'] select,
-html[data-theme='gt1'] textarea {
+/* WebKFP and Tool32 draw classic Windows controls of their own (.wkfp-win,
+   .t32-win): the theme's forced input colours stop at their edge. The
+   search boxes (.lookup-input) draw their border on the box around them. */
+html[data-theme='gt1']
+  input[type='text']:not(.tn-cell, .tn-axis-cell, .lookup-input):not(
+    :is(.wkfp-win, .t32-win) *
+  ),
+html[data-theme='gt1'] input[type='search']:not(:is(.wkfp-win, .t32-win) *),
+html[data-theme='gt1'] select:not(:is(.wkfp-win, .t32-win) *),
+html[data-theme='gt1'] textarea:not(:is(.wkfp-win, .t32-win) *) {
   background: #fff !important;
   border: 1px solid var(--line-bright) !important;
   border-radius: 2px !important;
   color: var(--ink) !important;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08) inset !important;
 }
-html[data-theme='gt1'] input:not(.tn-cell):not(.tn-axis-cell):focus,
-html[data-theme='gt1'] select:focus,
-html[data-theme='gt1'] textarea:focus {
+html[data-theme='gt1']
+  input:not(.tn-cell):not(.tn-axis-cell):focus:not(:is(.wkfp-win, .t32-win) *),
+html[data-theme='gt1'] select:focus:not(:is(.wkfp-win, .t32-win) *),
+html[data-theme='gt1'] textarea:focus:not(:is(.wkfp-win, .t32-win) *) {
   border-color: #8f7400 !important;
   box-shadow: 0 0 0 2px var(--amber-glow) !important;
   outline: none !important;
@@ -1087,28 +1094,32 @@ html[data-theme='brackets'] .sidebar {
 /* clean flat inputs. Not the tuning grid's cells: their colour IS the data
    (the heat map is an inline background), and an !important skin colour
    painted every table black. */
-html[data-theme='brackets'] input[type='text']:not(.tn-cell):not(.tn-axis-cell),
-html[data-theme='brackets'] input[type='search'],
-html[data-theme='brackets'] select,
-html[data-theme='brackets'] textarea {
+/* WebKFP and Tool32 draw classic Windows controls of their own (.wkfp-win,
+   .t32-win): the theme's forced input colours stop at their edge. The
+   search boxes (.lookup-input) draw their border on the box around them. */
+html[data-theme='brackets']
+  input[type='text']:not(.tn-cell, .tn-axis-cell, .lookup-input):not(
+    :is(.wkfp-win, .t32-win) *
+  ),
+html[data-theme='brackets']
+  input[type='search']:not(:is(.wkfp-win, .t32-win) *),
+html[data-theme='brackets'] select:not(:is(.wkfp-win, .t32-win) *),
+html[data-theme='brackets'] textarea:not(:is(.wkfp-win, .t32-win) *) {
   background: var(--bg) !important;
   border: 1px solid var(--line) !important;
   border-radius: 0 !important;
   color: var(--ink) !important;
 }
-html[data-theme='brackets'] input[type='text']:not(.tn-cell):not(.tn-axis-cell):focus,
-html[data-theme='brackets'] input[type='search']:focus,
-html[data-theme='brackets'] select:focus,
-html[data-theme='brackets'] textarea:focus {
+html[data-theme='brackets']
+  input[type='text']:not(.tn-cell, .tn-axis-cell, .lookup-input):focus:not(
+    :is(.wkfp-win, .t32-win) *
+  ),
+html[data-theme='brackets']
+  input[type='search']:focus:not(:is(.wkfp-win, .t32-win) *),
+html[data-theme='brackets'] select:focus:not(:is(.wkfp-win, .t32-win) *),
+html[data-theme='brackets'] textarea:focus:not(:is(.wkfp-win, .t32-win) *) {
   border-color: var(--amber) !important;
   outline: none !important;
-}
-/* the fault-lookup / job-search box draws the border itself; its inner input
-   must not draw a second one (a boxed icon cell and a doubled outline) */
-html[data-theme='brackets'] .lookup-search .lookup-input,
-html[data-theme='brackets'] .lookup-search .lookup-input:focus {
-  background: none !important;
-  border: none !important;
 }
 html[data-theme='brackets'] .lookup-search {
   border-radius: 0;
@@ -1274,19 +1285,26 @@ html[data-theme='gt1'] .btn.danger {
   border-color: #7a1e12 !important;
   color: #fff !important;
 }
-html[data-theme='gt1'] input[type='text']:not(.tn-cell):not(.tn-axis-cell),
-html[data-theme='gt1'] input[type='search'],
-html[data-theme='gt1'] select,
-html[data-theme='gt1'] textarea {
+/* WebKFP and Tool32 draw classic Windows controls of their own (.wkfp-win,
+   .t32-win): the theme's forced input colours stop at their edge. The
+   search boxes (.lookup-input) draw their border on the box around them. */
+html[data-theme='gt1']
+  input[type='text']:not(.tn-cell, .tn-axis-cell, .lookup-input):not(
+    :is(.wkfp-win, .t32-win) *
+  ),
+html[data-theme='gt1'] input[type='search']:not(:is(.wkfp-win, .t32-win) *),
+html[data-theme='gt1'] select:not(:is(.wkfp-win, .t32-win) *),
+html[data-theme='gt1'] textarea:not(:is(.wkfp-win, .t32-win) *) {
   background: #fff !important;
   border: 1px solid var(--line-bright) !important;
   border-radius: 2px !important;
   color: var(--ink) !important;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08) inset !important;
 }
-html[data-theme='gt1'] input:not(.tn-cell):not(.tn-axis-cell):focus,
-html[data-theme='gt1'] select:focus,
-html[data-theme='gt1'] textarea:focus {
+html[data-theme='gt1']
+  input:not(.tn-cell):not(.tn-axis-cell):focus:not(:is(.wkfp-win, .t32-win) *),
+html[data-theme='gt1'] select:focus:not(:is(.wkfp-win, .t32-win) *),
+html[data-theme='gt1'] textarea:focus:not(:is(.wkfp-win, .t32-win) *) {
   border-color: #8f7400 !important;
   box-shadow: 0 0 0 2px var(--amber-glow) !important;
   outline: none !important;

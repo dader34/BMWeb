@@ -1,4 +1,4 @@
-/* exported phraseText, envLabel, ortNrCode, pCode, ortNrFull, loadPcodes, loadFaultMeta, loadFaultInfo, loadCodingMap, loadDatenMap, loadSget, loadTables, loadSaNames, variantsForHex, faultInfoFor, pcodeForHex, hexForPcode */
+/* exported phraseText, envLabel, ortNrCode, pCode, ortNrFull, loadPcodes, loadFaultMeta, loadFaultInfo, loadCodingMap, loadDatenMap, loadSget, loadCvt, loadTables, loadSaNames, variantsForHex, faultInfoFor, pcodeForHex, hexForPcode */
 
 // Exact-match English lookups for text the SGBD sends at runtime, plus the
 // fault-code helpers. Pure lookup, no DOM, no word-level rewriting: a string
@@ -446,6 +446,10 @@ const loadDatenMap = _lazyScript(
 const _sgetHolder = {};
 /** Load the SGET fitment rows (window.BMW_SGET). @type {() => Promise<void>} */
 const loadSget = _lazyScript('data/sget.js', 'BMW_SGET', _sgetHolder);
+/** @type {LazyScriptHolder} */
+const _cvtHolder = {};
+/** Load the CVT, each coding function's value per car (window.BMW_CVT). @type {() => Promise<void>} */
+const loadCvt = _lazyScript('data/cvt.js', 'BMW_CVT', _cvtHolder);
 // SGFAM (which ECU holds the vehicle order / the central coding key), AT
 // (SA number -> equipment keywords) and ZST (ZCS key bits -> keywords)
 /** @type {LazyScriptHolder} */

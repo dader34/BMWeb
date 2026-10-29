@@ -259,21 +259,18 @@ html.no-chrome .topbar {
   height: 22px;
   display: block;
 }
-.brand-logo .logo-ring {
+/* the bolt B on its tile, in the theme's four logo colours (the roles the
+   roundel's ring, disc and quadrants had): ground, border, accent, white */
+.brand-logo .logo-tile {
   fill: var(--logo-bg);
   stroke: var(--logo-border);
   stroke-width: 3px;
 }
-.brand-logo .logo-quad-white {
-  fill: var(--logo-quad-1);
-}
-.brand-logo .logo-quad-color {
+.brand-logo .logo-b {
   fill: var(--logo-quad-2);
 }
-.brand-logo .logo-inner-ring {
-  fill: none;
-  stroke: var(--logo-inner-border);
-  stroke-width: 2px;
+.brand-logo .logo-bolt {
+  fill: var(--logo-quad-1);
 }
 .brand-name {
   font-weight: 900;
@@ -319,21 +316,18 @@ html.no-chrome .topbar {
   filter: drop-shadow(0 14px 30px rgba(0, 0, 0, 0.55));
   animation: splash-pop 0.6s cubic-bezier(0.2, 0.9, 0.25, 1.1) both;
 }
-.splash-logo .logo-ring {
+/* the bolt B on its tile, in the theme's four logo colours (the roles the
+   roundel's ring, disc and quadrants had): ground, border, accent, white */
+.splash-logo .logo-tile {
   fill: var(--logo-bg);
   stroke: var(--logo-border);
   stroke-width: 3px;
 }
-.splash-logo .logo-quad-white {
-  fill: var(--logo-quad-1);
-}
-.splash-logo .logo-quad-color {
+.splash-logo .logo-b {
   fill: var(--logo-quad-2);
 }
-.splash-logo .logo-inner-ring {
-  fill: none;
-  stroke: var(--logo-inner-border);
-  stroke-width: 2px;
+.splash-logo .logo-bolt {
+  fill: var(--logo-quad-1);
 }
 .splash-name {
   font-family: var(--display);
@@ -508,8 +502,11 @@ body.apps-section .nav-back .nav-back-label {
    build (html.no-chrome) only lays out 3 columns [brand | breadcrumbs | right],
    so the extra child wrapped and shoved the breadcrumbs off the right edge.
    When Back is showing, restore the 4-column shape [back | brand | crumbs | right]
-   so the breadcrumbs keep the 1fr slack and topbar-right stays pinned right. */
-html.no-chrome body.apps-section .topbar {
+   so the breadcrumbs keep the 1fr slack and topbar-right stays pinned right.
+   Only while Back really shows: the home screen is in the Apps section with
+   no Back, and four columns over three cells put the right group on the 1fr
+   column, flush left. */
+html.no-chrome body.apps-section .topbar:has(.nav-back:not([hidden])) {
   grid-template-columns: auto auto 1fr auto;
 }
 /* the top-right nav action mirrors nav-back: desktop hides it (the F-key bar
@@ -608,6 +605,44 @@ html.no-chrome body.apps-section .topbar {
 #flash-btn:hover {
   color: var(--red);
   border-color: var(--red);
+}
+/* the screen layout switch: Classic (INPA-style) | Modern, a segmented pair
+   drawn like the bar's buttons. Phones are always modern (inpaMode), so it
+   is not offered there. */
+.layout-toggle {
+  -webkit-app-region: no-drag;
+  display: inline-flex;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--panel);
+}
+.layout-toggle button {
+  cursor: pointer;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  background: transparent;
+  border: 0;
+  padding: 7px 10px;
+  transition: all 0.15s;
+}
+.layout-toggle button + button {
+  border-left: 1px solid var(--line);
+}
+.layout-toggle button:hover {
+  color: var(--amber);
+}
+.layout-toggle button.active {
+  color: var(--amber-ink);
+  background: var(--amber);
+}
+@media (max-width: 760px) {
+  .layout-toggle {
+    display: none;
+  }
 }
 
 /* settings */
@@ -5924,6 +5959,131 @@ select.modal-input {
 .wds-frame .empty div {
   color: #333;
 }
+/* WDS's series-selection page (the wiring picker in the classic layout):
+   its toolbar and title bar, the "Series selection" bar, then a white page
+   of captioned picture tiles */
+.view:has(> .wds-series) {
+  padding: 0;
+}
+.wds-series {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  background: #fff;
+}
+.wds-sectionbar {
+  flex: none;
+  padding: 5px 10px;
+  font:
+    bold 15px Arial,
+    Helvetica,
+    sans-serif;
+  color: #fff;
+  background: #4d4d4d;
+}
+.wds-series-body {
+  flex: 1;
+  padding: 26px 52px 40px;
+  color: #000;
+  background: #fff;
+}
+.wds-series-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 18px;
+  font:
+    16px Arial,
+    Helvetica,
+    sans-serif;
+}
+.wds-series-body .wiring-vin,
+.wds-series-body .etk-idcard {
+  margin-bottom: 26px;
+}
+/* the VIN entry as one more WDS button, not a modern card */
+:root .wds-series-body .wiring-vin-entry {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  width: auto;
+  max-width: 520px;
+  margin-bottom: 30px;
+  padding: 7px 16px;
+  font-family: Arial, Helvetica, sans-serif;
+  color: #000 !important;
+  background: #c0c0c0 !important;
+  border: 2px solid !important;
+  border-color: #ffffff #404040 #404040 #ffffff !important;
+  border-radius: 0 !important;
+  box-shadow:
+    inset 1px 1px 0 #dfdfdf,
+    inset -1px -1px 0 #808080 !important;
+}
+:root .wds-series-body .wiring-vin-entry:active {
+  border-color: #404040 #ffffff #ffffff #404040 !important;
+}
+:root .wds-series-body .wiring-vin-entry * {
+  color: #000 !important;
+}
+:root .wds-series-body .wiring-vin-entry-title {
+  font:
+    bold 13px Arial,
+    Helvetica,
+    sans-serif;
+}
+:root .wds-series-body .wiring-vin-entry-desc {
+  font:
+    12px Arial,
+    Helvetica,
+    sans-serif;
+  color: #333 !important;
+}
+.wds-series-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(152px, 1fr));
+  gap: 56px 64px;
+}
+.wds-car {
+  display: flex;
+  flex-direction: column;
+  width: 152px;
+  padding: 0;
+  cursor: pointer;
+  background: #fff;
+  border: 1px solid #555;
+}
+.wds-car:hover,
+.wds-car:focus-visible {
+  outline: 2px solid #4da6ff;
+  outline-offset: 1px;
+}
+.wds-car-cap {
+  padding: 2px 6px;
+  font:
+    bold 15px Arial,
+    Helvetica,
+    sans-serif;
+  color: #fff;
+  text-align: center;
+  white-space: nowrap;
+  background: #6e6e6e;
+}
+.wds-car-pic {
+  display: grid;
+  place-items: center;
+  height: 80px;
+  background: linear-gradient(#f4f6fa, #c9d0dc);
+}
+.wds-car-pic img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.wds-car-svg {
+  width: 136px;
+  height: 60px;
+}
 .wds-footer {
   display: flex;
   align-items: center;
@@ -9621,22 +9781,6 @@ body.remote-helper::after {
   flex-direction: column;
   gap: 14px;
 }
-.job-search-hints {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  justify-content: center;
-  margin-top: 12px;
-}
-.job-search-hints code {
-  padding: 3px 8px;
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  background: var(--panel);
-  font-family: var(--mono);
-  font-size: 11px;
-  color: var(--ink-dim);
-}
 .search-msg {
   padding: 14px 12px;
   border: 1px solid var(--line);
@@ -9823,6 +9967,179 @@ body.remote-helper::after {
   color: var(--amber);
 }
 
+/* ---- ETK vehicle identification, INPA-style layout ---------------------------
+   ETK's own kind of window in Web32's grey: the VIN and attribute boxes as
+   group boxes, the lists as list views (the .t32-win list rules already
+   cover .etk-lb), the dropdowns, field and Go button as Windows controls.
+   Forced over the themes, which paint the shared ETK parts. */
+.t32-win.etk-win {
+  max-width: 1100px;
+  margin-top: 8px;
+}
+.etk-win-body {
+  padding: 12px;
+}
+:root .etk-win :is(.etk-fs, .etk-saved-panel) {
+  color: #000 !important;
+  background: transparent !important;
+  border: 1px solid var(--t32-sh) !important;
+  border-radius: 0 !important;
+  box-shadow:
+    inset 1px 1px 0 var(--t32-hi),
+    1px 1px 0 var(--t32-hi) !important;
+}
+:root .etk-win .etk-fs > legend,
+:root .etk-win .etk-saved-head {
+  padding: 0 4px;
+  font:
+    12px Tahoma,
+    'Segoe UI',
+    sans-serif;
+  letter-spacing: 0;
+  text-transform: none;
+  color: #000 !important;
+  background: var(--t32-face) !important;
+  border: 0 !important;
+}
+:root
+  .etk-win
+  :is(
+    .etk-vin-label,
+    .etk-idflabel,
+    .etk-idlabel,
+    .etk-vin-hint,
+    .etk-vin-note,
+    .etk-idhint,
+    .etk-idreq,
+    .etk-idradio
+  ) {
+  font:
+    12px Tahoma,
+    'Segoe UI',
+    sans-serif;
+  letter-spacing: 0;
+  text-transform: none;
+  color: #000 !important;
+}
+:root .etk-win :is(.etk-vin-hint, .etk-vin-note, .etk-idhint, .etk-idreq) {
+  color: #444 !important;
+}
+:root .etk-win .etk-vin-input {
+  height: 24px;
+  padding: 0 6px;
+  font:
+    13px Tahoma,
+    'Segoe UI',
+    sans-serif;
+  letter-spacing: 0;
+  text-transform: none;
+  color: #000 !important;
+  background: #fff !important;
+  border: 1px solid #7a7a7a !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+:root .etk-win .etk-vin-go {
+  height: 24px;
+  min-width: 72px;
+  padding: 0 14px;
+  font:
+    12px Tahoma,
+    'Segoe UI',
+    sans-serif;
+  color: #000 !important;
+  background: linear-gradient(#f6f6f6, #dddddd) !important;
+  border: 1px solid #707070 !important;
+  border-radius: 3px !important;
+  box-shadow: none !important;
+}
+:root .etk-win .etk-vin-go:hover {
+  background: linear-gradient(#eaf6fd, #bee6fd) !important;
+  border-color: #3c7fb1 !important;
+}
+:root .etk-win .etk-sel-btn {
+  min-height: 22px;
+  padding: 2px 8px;
+  font:
+    12px Tahoma,
+    'Segoe UI',
+    sans-serif;
+  color: #000 !important;
+  background: #fff !important;
+  border: 1px solid #7a7a7a !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+:root .etk-win :is(.etk-sel-ph, .etk-sel-caret) {
+  color: #444 !important;
+}
+:root .etk-win .etk-sel-menu {
+  background: #fff !important;
+  border: 1px solid #828790 !important;
+  border-radius: 0 !important;
+  box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3) !important;
+}
+:root .etk-win .etk-sel-opt {
+  font:
+    12px Tahoma,
+    'Segoe UI',
+    sans-serif;
+  color: #000 !important;
+  border-radius: 0 !important;
+}
+:root .etk-win .etk-sel-opt:hover {
+  color: #fff !important;
+  background: var(--t32-sel) !important;
+}
+/* Windows option buttons, drawn rather than themed */
+:root .etk-win .etk-idradio input {
+  appearance: none;
+  width: 13px;
+  height: 13px;
+  margin: 0;
+  background: #fff !important;
+  border: 1px solid #333 !important;
+  border-radius: 50% !important;
+  box-shadow: none !important;
+}
+:root .etk-win .etk-idradio input:checked {
+  background: radial-gradient(circle, #000 0 2.5px, #fff 3px) !important;
+}
+:root .etk-win .etk-idradio input::after {
+  display: none;
+}
+:root .etk-win .etk-lb {
+  color: #000 !important;
+  background: #fff !important;
+  border: 1px solid #828790 !important;
+  border-radius: 0 !important;
+}
+:root .etk-win .etk-saved-row {
+  color: #000 !important;
+  background: none !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+}
+:root .etk-win .etk-saved-open {
+  color: #000 !important;
+  background: none !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  font-family: Tahoma, 'Segoe UI', sans-serif;
+}
+:root .etk-win .etk-saved-row:hover {
+  color: #fff !important;
+  background: var(--t32-sel) !important;
+}
+:root .etk-win .etk-saved-row:hover * {
+  color: #fff !important;
+}
+:root .etk-win :is(.etk-saved-veh, .etk-saved-vin, .etk-saved-empty) {
+  font-family: Tahoma, 'Segoe UI', sans-serif;
+  color: inherit !important;
+}
+
 /* ---- Script runner ------------------------------------------------------ */
 /* The drop zone is .empty's dashed box, which already reads as "put something
    here"; only the drag state and the pointer are new. */
@@ -9906,6 +10223,559 @@ body.remote-helper::after {
 /* a compile failure is the one card the eye should land on first */
 .result-card.sr-bad {
   border-left-color: var(--red);
+}
+/* the modern layout: a drop card, then the report beside the Run card */
+.sr-modern {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 860px;
+}
+.sr-mdrop {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 18px 20px;
+  cursor: pointer;
+  background: var(--panel);
+  border: 1px dashed var(--line-bright);
+  border-radius: 10px;
+  transition:
+    border-color 0.12s ease,
+    background 0.12s ease;
+}
+.sr-mdrop:hover,
+.sr-mdrop:focus-visible {
+  border-color: var(--amber);
+  outline: none;
+}
+.sr-mdrop.is-over {
+  border-style: solid;
+  border-color: var(--amber);
+  background: var(--amber-glow);
+}
+.sr-mdrop-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 48px;
+  height: 48px;
+  font-size: 22px;
+  color: var(--amber);
+  background: var(--amber-glow);
+  border-radius: 10px;
+}
+.sr-mdrop-text {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+.sr-mdrop-title {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 17px;
+}
+.sr-mdrop-sub {
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: var(--ink-dim);
+}
+.sr-chip {
+  display: inline-block;
+  margin: 0 2px;
+  padding: 0 6px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink);
+  border: 1px solid var(--line-bright);
+  border-radius: 4px;
+}
+/* loaded: the invitation gives way to the file's name */
+.sr-mdrop.sr-loaded {
+  padding: 12px 16px;
+}
+.sr-mdrop.sr-loaded :is(.sr-mdrop-title, .sr-mdrop-sub) {
+  display: none;
+}
+.sr-mdrop.sr-loaded .sr-mdrop-icon {
+  width: 36px;
+  height: 36px;
+  font-size: 17px;
+}
+.sr-mdrop .sr-loaded-line {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.sr-mgrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+.sr-mgrid #sr-report {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.sr-mgrid #sr-run .result-card {
+  border-left-color: var(--amber);
+}
+.sr-mgrid #sr-run .sr-run-row {
+  flex-direction: column;
+  align-items: stretch;
+}
+.sr-mgrid #sr-run .kv-v {
+  text-align: left;
+}
+@media (max-width: 860px) {
+  .sr-mgrid {
+    grid-template-columns: 1fr;
+  }
+  .sr-mdrop {
+    flex-wrap: wrap;
+  }
+}
+
+/* the INPA-style layout: a Windows tool in Web32's window -- a file field
+   with Open..., the report as group boxes, a status line */
+/* over .t32-win's own width, which comes later in this file */
+.t32-win.sr-win {
+  max-width: 640px;
+  margin-top: 8px;
+}
+.sr-win.is-over {
+  outline: 2px dashed #000080;
+  outline-offset: -6px;
+}
+.sr-win-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+}
+.sr-win-group {
+  margin: 0;
+  padding: 8px 12px 12px;
+  cursor: default;
+  border: 1px solid var(--t32-sh);
+  box-shadow:
+    inset 1px 1px 0 var(--t32-hi),
+    1px 1px 0 var(--t32-hi);
+}
+.sr-win-group:focus-visible {
+  outline: 1px dotted #000;
+  outline-offset: -4px;
+}
+.sr-win-group legend {
+  padding: 0 4px;
+}
+.sr-win-file {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.sr-win-field {
+  flex: 1;
+  min-width: 0;
+  height: 22px;
+  padding: 2px 6px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  background: #fff;
+  border: 1px solid #7a7a7a;
+}
+.sr-win-field .sr-loaded-hint {
+  display: none;
+}
+.sr-win-field .sr-loaded-name {
+  font-family: inherit;
+  font-size: inherit;
+  color: #000;
+}
+.sr-win-btn,
+:root .sr-win .btn,
+:root .sr-win .btn.primary {
+  height: 24px;
+  padding: 0 14px;
+  font: inherit;
+  font-weight: normal;
+  color: #000 !important;
+  background: linear-gradient(#f6f6f6, #dddddd) !important;
+  border: 1px solid #707070 !important;
+  border-radius: 3px !important;
+  cursor: default;
+  transform: none;
+}
+.sr-win-btn:hover,
+:root .sr-win .btn:hover,
+:root .sr-win .btn.primary:hover {
+  color: #000 !important;
+  background: linear-gradient(#eaf6fd, #bee6fd) !important;
+  border-color: #3c7fb1 !important;
+}
+.sr-win-hint {
+  margin-top: 6px;
+  color: #444;
+}
+.sr-win-results {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.sr-win-results #sr-report {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+:root .sr-win .result-card {
+  position: relative;
+  padding: 14px 12px 10px;
+  color: #000 !important;
+  background: transparent !important;
+  border: 1px solid var(--t32-sh) !important;
+  border-radius: 0 !important;
+  box-shadow:
+    inset 1px 1px 0 var(--t32-hi),
+    1px 1px 0 var(--t32-hi) !important;
+}
+:root .sr-win .result-card.sr-bad {
+  border-color: #c00000 !important;
+}
+/* the card's heading as a group box caption, cut into the frame */
+:root .sr-win .result-head {
+  position: absolute;
+  top: -8px;
+  left: 8px;
+  margin: 0;
+  padding: 0 4px;
+  font:
+    12px Tahoma,
+    'Segoe UI',
+    sans-serif;
+  letter-spacing: 0;
+  text-transform: none;
+  color: #000 !important;
+  background: var(--t32-face) !important;
+}
+:root .sr-win .kv {
+  border-bottom-color: #e0e0e0;
+}
+:root .sr-win :is(.kv-k, .kv-v) {
+  font:
+    12px Tahoma,
+    'Segoe UI',
+    sans-serif;
+  color: #000 !important;
+}
+:root .sr-win .kv-k {
+  color: #444 !important;
+}
+.sr-win-status {
+  display: flex;
+  padding: 2px;
+  border-top: 1px solid var(--t32-hi);
+}
+.sr-win-status span {
+  flex: 1;
+  padding: 1px 6px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  box-shadow:
+    inset 1px 1px 0 var(--t32-sh),
+    inset -1px -1px 0 var(--t32-hi);
+}
+
+/* ---- Job search, INPA-style layout ----------------------------------------
+   A Windows tool in Web32's window: a sunken search field and the chassis
+   filter, the results as a list view, the count on the status line. Forced
+   over the themes, which paint the shared search parts. */
+.t32-win.js-win {
+  max-width: 900px;
+  margin-top: 8px;
+}
+.js-win-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px 12px;
+}
+:root .js-win .lookup-controls {
+  gap: 8px;
+  align-items: center;
+  margin: 0;
+}
+:root .js-win .lookup-search {
+  flex: 1 1 260px;
+  min-width: 200px;
+  background: #fff !important;
+  border: 1px solid #7a7a7a !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+:root .js-win .lookup-search-icon {
+  color: #444 !important;
+}
+:root .js-win .lookup-input {
+  padding: 4px 6px;
+  font:
+    12px Tahoma,
+    'Segoe UI',
+    sans-serif;
+  color: #000 !important;
+}
+:root .js-win .lookup-input::placeholder {
+  color: #8d8d8d !important;
+}
+:root .js-win .lookup-clear {
+  color: #000 !important;
+  background: none !important;
+  border: 0 !important;
+}
+:root .js-win .lookup-filter {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+}
+:root .js-win .lookup-filter-lbl {
+  font:
+    12px Tahoma,
+    'Segoe UI',
+    sans-serif;
+  letter-spacing: 0;
+  text-transform: none;
+  color: #000 !important;
+}
+:root .js-win .lkd-btn {
+  min-height: 22px;
+  padding: 2px 8px;
+  font:
+    12px Tahoma,
+    'Segoe UI',
+    sans-serif;
+  color: #000 !important;
+  background: #fff !important;
+  border: 1px solid #7a7a7a !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+:root .js-win .lkd-menu {
+  background: #fff !important;
+  border: 1px solid #828790 !important;
+  border-radius: 0 !important;
+  box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3) !important;
+}
+:root .js-win .lkd-opt {
+  font:
+    12px Tahoma,
+    'Segoe UI',
+    sans-serif;
+  color: #000 !important;
+  border-radius: 0 !important;
+}
+:root .js-win :is(.lkd-opt:hover, .lkd-opt.active) {
+  color: #fff !important;
+  background: var(--t32-sel) !important;
+}
+/* the results pane: a sunken white list, scrolled inside the window */
+:root .js-win .job-search-results {
+  min-height: 220px;
+  max-height: min(62vh, 640px);
+  overflow: auto;
+  padding: 6px;
+  color: #000;
+  background: #fff;
+  border: 1px solid #828790;
+}
+:root .js-win .empty {
+  padding: 18px 12px;
+  color: #000 !important;
+  background: none !important;
+  border: 0 !important;
+  font:
+    12px Tahoma,
+    'Segoe UI',
+    sans-serif;
+}
+:root .js-win .empty-big {
+  font:
+    bold 13px Tahoma,
+    'Segoe UI',
+    sans-serif;
+  color: #000080 !important;
+}
+:root .js-win :root .js-win .search-group-head {
+  padding: 2px 6px;
+  background: var(--t32-face);
+  border: 1px solid var(--t32-sh);
+  box-shadow: inset 1px 1px 0 var(--t32-hi);
+}
+:root .js-win :is(.search-group-name, .search-group-count) {
+  font:
+    bold 12px Tahoma,
+    'Segoe UI',
+    sans-serif;
+  letter-spacing: 0;
+  text-transform: none;
+  color: #000 !important;
+}
+:root .js-win .search-group-count {
+  font-weight: normal;
+}
+:root .js-win .search-module-head {
+  padding: 4px 4px 2px;
+  font:
+    12px Tahoma,
+    'Segoe UI',
+    sans-serif;
+  color: #444 !important;
+}
+:root .js-win .search-row {
+  padding: 2px 6px;
+  color: #000 !important;
+  background: none !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  font:
+    12px Tahoma,
+    'Segoe UI',
+    sans-serif;
+  cursor: default;
+}
+:root .js-win .search-row:is(:hover, :focus-visible) {
+  color: #fff !important;
+  background: var(--t32-sel) !important;
+  outline: none;
+}
+:root .js-win .search-row:is(:hover, :focus-visible) * {
+  color: #fff !important;
+}
+:root .js-win .search-row-label {
+  color: #000 !important;
+}
+:root .js-win .search-row-jobs code {
+  color: #000 !important;
+  background: var(--t32-face) !important;
+  border: 1px solid var(--t32-sh) !important;
+  border-radius: 0 !important;
+}
+:root .js-win .search-row-key {
+  color: #000080 !important;
+}
+:root .js-win :is(.search-row-sub, .search-row-jobs, .search-module-sgbd) {
+  color: #555 !important;
+}
+:root .js-win .search-tag-write {
+  color: #c00000 !important;
+  border-color: #c00000 !important;
+  border-radius: 0 !important;
+}
+:root .js-win .search-msg {
+  padding: 12px;
+  color: #000 !important;
+}
+:root .lk-win .lookup-results {
+  min-height: 220px;
+  max-height: min(62vh, 640px);
+  overflow: auto;
+  padding: 6px;
+  color: #000;
+  background: #fff;
+  border: 1px solid #828790;
+}
+:root .lk-win .lookup-group {
+  /* a flex child of the scrolling list: never squashed below its rows (the
+     list scrolls instead) */
+  flex: none;
+  margin: 0 0 8px;
+  background: none !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+:root .lk-win .lookup-group-head {
+  padding: 2px 6px;
+  background: var(--t32-face) !important;
+  border: 1px solid var(--t32-sh) !important;
+  border-radius: 0 !important;
+  box-shadow: inset 1px 1px 0 var(--t32-hi) !important;
+}
+:root .lk-win :is(.lookup-group-name, .lookup-group-count, .lookup-group-sgbd) {
+  font:
+    12px Tahoma,
+    'Segoe UI',
+    sans-serif;
+  letter-spacing: 0;
+  text-transform: none;
+  color: #000 !important;
+}
+:root .lk-win .lookup-group-name {
+  font-weight: bold;
+}
+:root .lk-win .lookup-rows {
+  border: 0 !important;
+}
+:root .lk-win .lookup-row {
+  padding: 2px 6px;
+  font:
+    12px Tahoma,
+    'Segoe UI',
+    sans-serif;
+  color: #000 !important;
+  background: none !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  cursor: default;
+}
+:root .lk-win .lookup-row:hover {
+  color: #fff !important;
+  background: var(--t32-sel) !important;
+}
+:root .lk-win .lookup-row:hover * {
+  color: #fff !important;
+}
+:root .lk-win :is(.lookup-code, .lookup-hex, .lookup-pcode) {
+  color: #000080 !important;
+  background: none !important;
+  border: 0 !important;
+}
+:root .lk-win :is(.lookup-en, .lookup-more) {
+  color: #000 !important;
+}
+:root .lk-win .lookup-chip {
+  color: #000 !important;
+  background: var(--t32-face) !important;
+  border: 1px solid var(--t32-sh) !important;
+  border-radius: 0 !important;
+}
+.js-win-status {
+  display: flex;
+  padding: 2px;
+  border-top: 1px solid var(--t32-hi);
+}
+:root .js-win-status .lookup-count {
+  flex: 1;
+  margin: 0;
+  padding: 1px 6px;
+  font:
+    12px Tahoma,
+    'Segoe UI',
+    sans-serif;
+  letter-spacing: 0;
+  text-transform: none;
+  color: #000 !important;
+  box-shadow:
+    inset 1px 1px 0 var(--t32-sh),
+    inset -1px -1px 0 var(--t32-hi);
+}
+.js-win-status .lookup-count:empty::before {
+  content: 'Ready';
 }
 
 /* ---- Flashing/Tuning (screens/flashing/) --------------------------------------
@@ -13218,6 +14088,2163 @@ html[data-theme='inpa'] .ipo-key:hover {
   outline-offset: 1px;
 }
 
+/* Tool32 as EDIABAS ToolSet 32 draws it: a classic Windows window in its
+   own grey, whatever the app's theme. The layout is Tool32's own (the
+   .t32-* rules above); this only changes how it is drawn. */
+.t32-win {
+  --t32-face: #f0f0f0;
+  --t32-hi: #ffffff;
+  --t32-sh: #a0a0a0;
+  --t32-dk: #696969;
+  --t32-sel: #3399ff;
+  max-width: 1180px;
+  margin: 0 auto 24px;
+  background: var(--t32-face);
+  color: #000;
+  font:
+    12px Tahoma,
+    'Segoe UI',
+    Verdana,
+    sans-serif;
+  border: 1px solid var(--t32-dk);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+  color-scheme: light;
+  accent-color: #0078d7;
+}
+.t32-win button,
+.t32-win input,
+.t32-win select {
+  font: inherit;
+}
+.t32-titlebar {
+  background: linear-gradient(#5b5b5b, #3a3a3a);
+  color: #fff;
+  font-weight: bold;
+  font-size: 13px;
+  padding: 6px 8px;
+}
+.t32-banner {
+  display: flex;
+  justify-content: center;
+  padding: 14px 10px;
+  border-bottom: 1px solid var(--t32-sh);
+}
+.t32-banner-name {
+  padding: 2px 10px;
+  font:
+    bold 30px 'Times New Roman',
+    Times,
+    serif;
+  color: #1a1aa8;
+  border: 1px solid var(--t32-sh);
+  box-shadow:
+    inset 1px 1px 0 var(--t32-hi),
+    1px 1px 0 var(--t32-hi);
+}
+.t32-win .t32-card {
+  max-width: none;
+  margin: 0;
+  padding: 10px;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+.t32-win .t32-cols {
+  gap: 8px;
+}
+.t32-win .etk-idcol {
+  gap: 4px;
+}
+/* the grey header strips over each pane: Jobs, Arguments, Results */
+.t32-win .etk-idlabel {
+  display: block;
+  padding: 1px 4px;
+  text-align: center;
+  font:
+    12px Tahoma,
+    'Segoe UI',
+    sans-serif;
+  color: #000;
+  text-transform: none;
+  letter-spacing: 0;
+  background: var(--t32-face);
+  border: 1px solid var(--t32-sh);
+  box-shadow: inset 1px 1px 0 var(--t32-hi);
+}
+.t32-win .etk-lb {
+  padding: 0;
+  background: #fff;
+  border: 1px solid #828790;
+  border-radius: 0;
+}
+.t32-win .etk-lb-row {
+  padding: 0 3px;
+  font:
+    12px Tahoma,
+    'Segoe UI',
+    sans-serif;
+  color: #000;
+  line-height: 1.4;
+  border-radius: 0;
+}
+.t32-win .etk-lb-row:hover {
+  background: none;
+}
+.t32-win .etk-lb-row.active,
+.t32-win .etk-lb-row.t32-row-write.active {
+  background: var(--t32-sel);
+  color: #fff;
+  font-weight: normal;
+}
+.t32-win .etk-lb-row.t32-row-write {
+  color: #c00000;
+}
+.t32-win .etk-lb-empty {
+  color: #6d6d6d;
+}
+.t32-win .t32-rowtag,
+.t32-win .t32-writetag {
+  color: #c00000;
+  border-color: #c00000;
+  border-radius: 0;
+}
+.t32-win .etk-lb-row.active .t32-rowtag {
+  color: #fff;
+  border-color: #fff;
+}
+.t32-win .t32-filter,
+.t32-win .t32-arg,
+.t32-win .t32-repms {
+  height: 22px;
+  padding: 0 4px;
+  color: #000;
+  background: #fff;
+  border: 1px solid #7a7a7a;
+  border-radius: 0;
+}
+.t32-win .t32-filter:focus,
+.t32-win .t32-arg:focus,
+.t32-win .t32-repms:focus {
+  border-color: #0078d7;
+  box-shadow: none;
+}
+.t32-win .t32-filter:disabled,
+.t32-win .t32-arg:disabled {
+  opacity: 1;
+  color: #6d6d6d;
+  background: #f4f4f4;
+}
+/* buttons: Run, the trace's switches */
+.t32-win .t32-run,
+.t32-win .t32-tracebtn,
+.t32-win .t32-tracetoggle,
+.t32-win .t32-select,
+.t32-win .t32-tracelayer .lkd-btn {
+  height: 24px;
+  padding: 0 14px;
+  font:
+    12px Tahoma,
+    'Segoe UI',
+    sans-serif;
+  font-weight: normal;
+  color: #000;
+  background: linear-gradient(#f6f6f6, #dddddd);
+  border: 1px solid #707070;
+  border-radius: 3px;
+  cursor: default;
+}
+.t32-win .t32-run:not(:disabled):hover,
+.t32-win .t32-tracebtn:hover,
+.t32-win .t32-tracetoggle:hover,
+.t32-win .t32-tracelayer .lkd-btn:hover {
+  color: #000;
+  background: linear-gradient(#eaf6fd, #bee6fd);
+  border-color: #3c7fb1;
+}
+.t32-win .t32-run:disabled {
+  opacity: 1;
+  color: #8d8d8d;
+  background: #f4f4f4;
+  border-color: #adb2b5;
+}
+.t32-win .t32-tracetoggle.on {
+  background: linear-gradient(#cde8fb, #a6d3f5);
+  border-color: #3c7fb1;
+  color: #000;
+}
+/* the layer dropdown's list, as a Windows list */
+.t32-win .t32-tracelayer .lkd-menu {
+  background: #fff;
+  border: 1px solid #828790;
+  border-radius: 0;
+  box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+}
+.t32-win .t32-tracelayer .lkd-opt {
+  font:
+    12px Tahoma,
+    'Segoe UI',
+    sans-serif;
+  color: #000;
+  border-radius: 0;
+}
+.t32-win .t32-tracelayer .lkd-opt:hover,
+.t32-win .t32-tracelayer .lkd-opt.active {
+  color: #fff;
+  background: var(--t32-sel);
+}
+.t32-win .t32-run.t32-stop {
+  color: #c00000;
+}
+
+/* The Apps hub under the INPA-style layout: a launcher in Web32's window,
+   group boxes of raised buttons the way WinKFP and NCS Expert laid out their
+   process buttons, and a sunken status line that reads out the focused app. */
+.apps-win {
+  max-width: 980px;
+  margin-top: 8px;
+}
+.apps-win-body {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  padding: 12px;
+}
+.apps-win-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 10px 10px 12px;
+  border: 1px solid var(--t32-sh);
+  box-shadow:
+    1px 1px 0 var(--t32-hi) inset,
+    1px 1px 0 var(--t32-hi);
+}
+.apps-win-group legend {
+  padding: 0 4px;
+  font-weight: normal;
+}
+.apps-win-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  padding: 4px 10px 4px 6px;
+  text-align: left;
+  color: #000;
+  background: var(--t32-face);
+  border: 0;
+  border-radius: 0;
+  /* the Windows 3D button: light top-left, dark bottom-right, two deep */
+  box-shadow:
+    inset -1px -1px 0 var(--t32-dk),
+    inset 1px 1px 0 var(--t32-hi),
+    inset -2px -2px 0 var(--t32-sh),
+    inset 2px 2px 0 #e3e3e3;
+  cursor: default;
+}
+.apps-win-btn:not(:disabled):hover {
+  background: #e5f1fb;
+}
+.apps-win-btn:not(:disabled):active {
+  box-shadow:
+    inset 1px 1px 0 var(--t32-dk),
+    inset -1px -1px 0 var(--t32-hi),
+    inset 2px 2px 0 var(--t32-sh);
+  padding: 5px 9px 3px 7px;
+}
+.apps-win-btn:focus-visible {
+  outline: 1px dotted #000;
+  outline-offset: -5px;
+}
+.apps-win-btn:disabled {
+  color: #8d8d8d;
+  text-shadow: 1px 1px 0 var(--t32-hi);
+}
+.apps-win-icon {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  font-size: 16px;
+  color: #1a1aa8;
+  background: #fff;
+  box-shadow:
+    inset 1px 1px 0 var(--t32-sh),
+    inset -1px -1px 0 var(--t32-hi);
+}
+.apps-win-btn:disabled .apps-win-icon {
+  color: #8d8d8d;
+  background: var(--t32-face);
+}
+.apps-win-label {
+  flex: 1;
+  min-width: 0;
+}
+.apps-win-key {
+  flex: none;
+  min-width: 16px;
+  padding: 0 3px;
+  font-size: 11px;
+  text-align: center;
+  color: #444;
+  border: 1px solid var(--t32-sh);
+}
+.apps-win-status {
+  display: flex;
+  gap: 4px;
+  padding: 2px;
+  border-top: 1px solid var(--t32-hi);
+}
+.apps-win-status > span {
+  padding: 1px 6px;
+  box-shadow:
+    inset 1px 1px 0 var(--t32-sh),
+    inset -1px -1px 0 var(--t32-hi);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.apps-win-status-text {
+  flex: 1;
+  min-width: 0;
+}
+@media (max-width: 860px) {
+  .apps-win-body {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Flashing/Tuning & Logging under the INPA-style layout: the whole app as a
+   classic Windows tool. Every page draws with the theme's tokens, so a
+   Windows palette scoped here carries into all of them (the tuning editor
+   and the logger included); the rules after it add the period chrome --
+   title bar, raised buttons, sunken panes, the block progress bar. */
+.fb.fb-classic,
+body.fb-classic-on .modal-overlay {
+  --face: #f0f0f0;
+  --hi: #ffffff;
+  --sh: #a0a0a0;
+  --dk: #696969;
+  --bg: var(--face);
+  --panel: var(--face);
+  --panel-2: #ffffff;
+  --raised: #e3e3e3;
+  --line: #a0a0a0;
+  --line-bright: #696969;
+  --line-hover: #696969;
+  --ink: #000000;
+  --ink-dim: #1a1a1a;
+  --ink-faint: #555555;
+  --dim: #555555;
+  --amber: #000080;
+  --amber-soft: #000060;
+  --amber-glow: #cce4f7;
+  --amber-ink: #ffffff;
+  --red: #c00000;
+  --green: #008000;
+  --cyan: #000080;
+  --shadow: none;
+  --display: Tahoma, 'Segoe UI', Verdana, sans-serif;
+  --mono: Consolas, 'Courier New', monospace;
+  --sb-size: 16px;
+  --sb-radius: 0;
+  --sb-track: #f0f0f0;
+  --sb-thumb: #c8c4bc;
+  --sb-thumb-hover: #b3afa6;
+  --gauge-track: #ffffff;
+  --gauge-fill: #000080;
+  color: #000;
+  font:
+    12px Tahoma,
+    'Segoe UI',
+    Verdana,
+    sans-serif;
+  color-scheme: light;
+  accent-color: #0078d7;
+}
+.fb.fb-classic {
+  grid-template-rows: auto minmax(0, 1fr);
+  border: 1px solid var(--dk);
+}
+:root :is(.fb.fb-classic, body.fb-classic-on .modal-overlay) .fb-titlebar {
+  grid-column: 1 / -1;
+  padding: 6px 8px;
+  font-weight: bold;
+  font-size: 13px;
+  color: #fff;
+  background: linear-gradient(#5b5b5b, #3a3a3a);
+}
+/* the rail: a vertical toolbar, the page's name under each icon */
+:root :is(.fb.fb-classic, body.fb-classic-on .modal-overlay) .fb-rail {
+  gap: 2px;
+  padding: 6px 4px;
+  background: var(--face);
+  border-right: 1px solid var(--sh);
+  box-shadow: 1px 0 0 var(--hi);
+}
+:root :is(.fb.fb-classic, body.fb-classic-on .modal-overlay) .fb-rail-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 46px;
+  height: auto;
+  padding: 4px 0 3px;
+  font-size: 16px;
+  color: #000;
+  border: 0;
+  border-radius: 0;
+  cursor: default;
+}
+:root
+  :is(.fb.fb-classic, body.fb-classic-on .modal-overlay)
+  .fb-rail-btn::after {
+  content: attr(title);
+  font-size: 9.5px;
+  line-height: 1.15;
+  margin-top: 2px;
+  text-align: center;
+}
+:root
+  :is(.fb.fb-classic, body.fb-classic-on .modal-overlay)
+  .fb-rail-btn:hover {
+  box-shadow:
+    inset -1px -1px 0 var(--sh),
+    inset 1px 1px 0 var(--hi);
+}
+:root
+  :is(.fb.fb-classic, body.fb-classic-on .modal-overlay)
+  .fb-rail-btn.current {
+  color: #000080;
+  background: #e3e3e3;
+  box-shadow:
+    inset 1px 1px 0 var(--sh),
+    inset -1px -1px 0 var(--hi);
+}
+:root :is(.fb.fb-classic, body.fb-classic-on .modal-overlay) .fb-topbar {
+  padding: 6px 8px;
+  background: var(--face);
+  border-bottom: 1px solid var(--sh);
+  box-shadow: 0 1px 0 var(--hi);
+}
+/* sunken fields: the module box, the log, inputs */
+:root :is(.fb.fb-classic, body.fb-classic-on .modal-overlay) .fb-ecu,
+:root :is(.fb.fb-classic, body.fb-classic-on .modal-overlay) .fb-log,
+:root :is(.fb.fb-classic, body.fb-classic-on .modal-overlay) .fb-table-wrap,
+:root :is(.fb.fb-classic, body.fb-classic-on .modal-overlay) input[type='text'],
+:root
+  :is(.fb.fb-classic, body.fb-classic-on .modal-overlay)
+  input[type='number'],
+:root
+  :is(.fb.fb-classic, body.fb-classic-on .modal-overlay)
+  input[type='search'],
+:root :is(.fb.fb-classic, body.fb-classic-on .modal-overlay) select,
+:root :is(.fb.fb-classic, body.fb-classic-on .modal-overlay) textarea {
+  color: #000;
+  background: #fff;
+  border: 0;
+  border-radius: 0;
+  box-shadow:
+    inset 1px 1px 0 var(--sh),
+    inset 2px 2px 0 var(--dk),
+    inset -1px -1px 0 var(--hi),
+    inset -2px -2px 0 #e3e3e3;
+}
+:root :is(.fb.fb-classic, body.fb-classic-on .modal-overlay) .fb-ecu {
+  padding: 6px 10px;
+}
+:root :is(.fb.fb-classic, body.fb-classic-on .modal-overlay) .fb-log {
+  color: #000;
+  padding: 6px 8px;
+}
+/* buttons: the Windows 3D button, pressed in when held */
+:root :is(.fb.fb-classic, body.fb-classic-on .modal-overlay) .btn,
+:root :is(.fb.fb-classic, body.fb-classic-on .modal-overlay) .lkd-btn,
+:root :is(.fb.fb-classic, body.fb-classic-on .modal-overlay) .fb-x,
+:root :is(.fb.fb-classic, body.fb-classic-on .modal-overlay) .fb-log-clear {
+  font:
+    12px Tahoma,
+    'Segoe UI',
+    sans-serif;
+  font-weight: normal;
+  letter-spacing: 0;
+  text-transform: none;
+  color: #000 !important;
+  background: var(--face) !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  opacity: 1;
+  transform: none;
+  transition: none;
+  cursor: default;
+  box-shadow:
+    inset -1px -1px 0 var(--dk),
+    inset 1px 1px 0 var(--hi),
+    inset -2px -2px 0 var(--sh),
+    inset 2px 2px 0 #e3e3e3 !important;
+}
+:root :is(.fb.fb-classic, body.fb-classic-on .modal-overlay) .btn {
+  padding: 6px 12px;
+}
+/* the dropdown's open list: black rows, the chosen one white on navy */
+:root :is(.fb.fb-classic, body.fb-classic-on .modal-overlay) .lkd-item {
+  color: #000 !important;
+}
+:root :is(.fb.fb-classic, body.fb-classic-on .modal-overlay) .lkd-item.active,
+:root
+  :is(.fb.fb-classic, body.fb-classic-on .modal-overlay)
+  .lkd-item.active
+  .lkd-item-label {
+  color: #fff !important;
+  background: #000080;
+}
+:root :is(.fb.fb-classic, body.fb-classic-on .modal-overlay) .btn:hover,
+:root :is(.fb.fb-classic, body.fb-classic-on .modal-overlay) .lkd-btn:hover {
+  color: #000 !important;
+  background: #e5f1fb !important;
+  border-color: transparent !important;
+  transform: none;
+}
+:root :is(.fb.fb-classic, body.fb-classic-on .modal-overlay) .btn:active,
+:root :is(.fb.fb-classic, body.fb-classic-on .modal-overlay) .lkd-btn:active {
+  box-shadow:
+    inset 1px 1px 0 var(--dk),
+    inset -1px -1px 0 var(--hi),
+    inset 2px 2px 0 var(--sh) !important;
+}
+:root
+  :is(.fb.fb-classic, body.fb-classic-on .modal-overlay)
+  .btn:focus-visible {
+  outline: 1px dotted #000;
+  outline-offset: -5px;
+}
+:root :is(.fb.fb-classic, body.fb-classic-on .modal-overlay) .btn.primary {
+  font-weight: bold;
+  color: #000 !important;
+  background: var(--face) !important;
+  box-shadow:
+    0 0 0 1px #000,
+    inset -1px -1px 0 var(--dk),
+    inset 1px 1px 0 var(--hi),
+    inset -2px -2px 0 var(--sh),
+    inset 2px 2px 0 #e3e3e3 !important;
+}
+:root :is(.fb.fb-classic, body.fb-classic-on .modal-overlay) .btn.danger {
+  color: #c00000 !important;
+}
+:root :is(.fb.fb-classic, body.fb-classic-on .modal-overlay) .btn[disabled],
+:root :is(.fb.fb-classic, body.fb-classic-on .modal-overlay) .btn:disabled {
+  color: #8d8d8d !important;
+  text-shadow: 1px 1px 0 var(--hi);
+  opacity: 1;
+}
+/* sections as Windows group boxes, their label a caption, not a code */
+:root :is(.fb.fb-classic, body.fb-classic-on .modal-overlay) .fb-section {
+  background: transparent;
+  border: 1px solid var(--sh);
+  border-radius: 0;
+  box-shadow:
+    inset 1px 1px 0 var(--hi),
+    1px 1px 0 var(--hi);
+}
+:root :is(.fb.fb-classic, body.fb-classic-on .modal-overlay) .fb-code {
+  font:
+    bold 12px Tahoma,
+    'Segoe UI',
+    sans-serif;
+  letter-spacing: 0;
+  text-transform: none;
+  color: #000080;
+}
+:root :is(.fb.fb-classic, body.fb-classic-on .modal-overlay) .fb-custom {
+  border-top: 1px solid var(--sh);
+  box-shadow: inset 0 1px 0 var(--hi);
+}
+:root :is(.fb.fb-classic, body.fb-classic-on .modal-overlay) .fb-pill {
+  border-radius: 0;
+  border-color: var(--sh);
+  background: #fff;
+}
+/* the status bar: a sunken line, and the block progress bar Windows drew */
+:root :is(.fb.fb-classic, body.fb-classic-on .modal-overlay) .fb-statusbar {
+  gap: 4px;
+  padding: 4px 6px 5px;
+  margin-top: 8px;
+  background: var(--face);
+  border-top: 1px solid var(--hi);
+  box-shadow: 0 -1px 0 var(--sh);
+}
+:root :is(.fb.fb-classic, body.fb-classic-on .modal-overlay) .fb-status {
+  padding: 2px 6px;
+  font:
+    12px Tahoma,
+    'Segoe UI',
+    sans-serif;
+  box-shadow:
+    inset 1px 1px 0 var(--sh),
+    inset -1px -1px 0 var(--hi);
+}
+:root :is(.fb.fb-classic, body.fb-classic-on .modal-overlay) .fb-bar {
+  height: 18px;
+  padding: 2px;
+  border-radius: 0;
+  background: #fff;
+  box-shadow:
+    inset 1px 1px 0 var(--sh),
+    inset -1px -1px 0 var(--hi);
+}
+:root :is(.fb.fb-classic, body.fb-classic-on .modal-overlay) .fb-bar-fill,
+:root
+  :is(.fb.fb-classic, body.fb-classic-on .modal-overlay)
+  .fb-bar-fill.flashing {
+  background: repeating-linear-gradient(
+    90deg,
+    #000080 0 9px,
+    transparent 9px 11px
+  );
+}
+:root
+  :is(.fb.fb-classic, body.fb-classic-on .modal-overlay)
+  .fb-bar-fill.flashing {
+  background: repeating-linear-gradient(
+    90deg,
+    #c00000 0 9px,
+    transparent 9px 11px
+  );
+}
+/* History: a Windows list view */
+:root :is(.fb.fb-classic, body.fb-classic-on .modal-overlay) .fb-table th {
+  color: #000;
+  font-weight: normal;
+  background: var(--face);
+  box-shadow:
+    inset -1px -1px 0 var(--sh),
+    inset 1px 1px 0 var(--hi);
+}
+:root
+  :is(.fb.fb-classic, body.fb-classic-on .modal-overlay)
+  .fb-table
+  tr.active
+  td {
+  color: #fff;
+  background: #000080;
+}
+/* the accent fills that carried dark text for the orange accent: white
+   on the classic navy */
+:root :is(.fb.fb-classic, body.fb-classic-on .modal-overlay) .seg-btn.active,
+:root
+  :is(.fb.fb-classic, body.fb-classic-on .modal-overlay)
+  .coding-tab.active {
+  color: #fff !important;
+}
+/* checkboxes and radios as Windows drew them: a white sunken box, a black
+   tick or dot */
+:root
+  :is(.fb.fb-classic, body.fb-classic-on .modal-overlay)
+  input[type='checkbox'],
+:root
+  :is(.fb.fb-classic, body.fb-classic-on .modal-overlay)
+  input[type='radio'] {
+  background: #fff !important;
+  border: 0 !important;
+  box-shadow:
+    inset 1px 1px 0 var(--sh),
+    inset 2px 2px 0 var(--dk),
+    inset -1px -1px 0 var(--hi),
+    inset -2px -2px 0 #e3e3e3 !important;
+}
+:root
+  :is(.fb.fb-classic, body.fb-classic-on .modal-overlay)
+  input[type='checkbox'] {
+  border-radius: 0 !important;
+}
+:root
+  :is(.fb.fb-classic, body.fb-classic-on .modal-overlay)
+  input[type='checkbox']:checked::after {
+  border-color: #000 !important;
+}
+:root
+  :is(.fb.fb-classic, body.fb-classic-on .modal-overlay)
+  input[type='radio']:checked::after {
+  background: #000 !important;
+}
+/* dialogs and the session log: a Windows dialog, its title in the bar */
+body.fb-classic-on .modal-overlay .modal,
+body.fb-classic-on .modal-overlay .fb-logview {
+  color: #000;
+  background: var(--face);
+  border: 1px solid var(--dk);
+  border-radius: 0;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+}
+body.fb-classic-on .modal-overlay .modal-title {
+  margin: -1px -1px 10px;
+  padding: 6px 8px;
+  font:
+    bold 13px Tahoma,
+    'Segoe UI',
+    sans-serif;
+  letter-spacing: 0;
+  text-transform: none;
+  color: #fff;
+  background: linear-gradient(#5b5b5b, #3a3a3a);
+}
+body.fb-classic-on .modal-overlay .fb-logview-bar {
+  color: #fff;
+  background: linear-gradient(#5b5b5b, #3a3a3a);
+}
+body.fb-classic-on
+  .modal-overlay
+  .fb-logview-bar
+  :is(.fb-logview-title, .fb-logview-when) {
+  color: #fff;
+}
+/* the session log in the classic skin: the dialog's greys, black ink, a
+   single muted red for what failed -- no neon on white */
+body.fb-classic-on .modal-overlay .fb-logview {
+  --lv-ok: #9a9fa6;
+  --lv-bad: #a3271f;
+  --lv-note: #b4b8bd;
+  --lv-tick: #5e636a;
+  --lv-pick: #0a246a;
+  --lv-pick-bg: #e3e7ee;
+  --ink: #000;
+  --ink-dim: #2a2d31;
+  --ink-faint: #5e636a;
+  --line: #b9bcc1;
+  --line-hover: #9a9da3;
+  --panel-2: #e9eaec;
+  --amber: #0a246a;
+}
+body.fb-classic-on .modal-overlay .fb-logview-fact {
+  background: #fff;
+  border-color: #b9bcc1;
+  border-radius: 0;
+}
+body.fb-classic-on .modal-overlay .fb-logview-result {
+  border-radius: 0;
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.55);
+}
+body.fb-classic-on .modal-overlay .fb-logview-tip {
+  background: #fffde7;
+  color: #000;
+  border-color: #8a8f96;
+  border-radius: 0;
+}
+body.fb-classic-on .modal-overlay .fb-logview-row:hover {
+  background: #eef0f3;
+}
+body.fb-classic-on .modal-overlay .fb-logview-filter .seg-btn {
+  border-radius: 0;
+}
+.t32-win .t32-check {
+  appearance: none;
+  width: 13px;
+  height: 13px;
+  margin: 0;
+  background: #fff center / 11px 11px no-repeat;
+  border: 1px solid #333;
+  border-radius: 0;
+  box-shadow: none;
+}
+.t32-win .t32-check:checked {
+  background-color: #fff;
+  border-color: #333;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 11 11'%3E%3Cpath d='M2 5.5l2.2 2.2L9 2.8' fill='none' stroke='%23000' stroke-width='1.6'/%3E%3C/svg%3E");
+}
+.t32-win .t32-check:checked::after {
+  display: none;
+}
+.t32-win .t32-reprow,
+.t32-win .t32-repunit,
+.t32-win .t32-runhead,
+.t32-win .t32-comment {
+  color: #000;
+}
+.t32-win .t32-jobname {
+  font:
+    bold 12px 'Courier New',
+    Courier,
+    monospace;
+  color: #000;
+}
+.t32-win .t32-comment {
+  color: #444;
+}
+/* the results: EDIABAS's text window */
+.t32-win .t32-out {
+  margin-top: 0;
+  min-height: 200px;
+  max-height: 380px;
+  overflow: auto;
+  padding: 4px 6px;
+  background: #fff;
+  border: 1px solid #828790;
+  font:
+    12px 'Courier New',
+    Courier,
+    monospace;
+  color: #000;
+}
+.t32-win .t32-outhead,
+.t32-win .t32-running,
+.t32-win .t32-unit,
+.t32-win .t32-pending .t32-v {
+  color: #555;
+  font-family: 'Courier New', Courier, monospace;
+}
+.t32-win .t32-err {
+  color: #c00000;
+  font-family: 'Courier New', Courier, monospace;
+}
+.t32-win .t32-table td {
+  padding: 0 8px 0 0;
+  border: 0;
+  font:
+    12px 'Courier New',
+    Courier,
+    monospace;
+  color: #000;
+}
+.t32-win .t32-k,
+.t32-win .t32-v {
+  color: #000;
+}
+/* the trace: a child window under the panes */
+.t32-win .t32-tracesec {
+  margin-top: 10px;
+  padding: 0;
+  border: 1px solid var(--t32-sh);
+  box-shadow: inset 1px 1px 0 var(--t32-hi);
+}
+.t32-win .t32-tracebar {
+  padding: 3px 6px;
+  background: linear-gradient(#e3eaf3, #c9d6e6);
+  border-bottom: 1px solid var(--t32-sh);
+}
+.t32-win .t32-tracetitle {
+  font:
+    12px Tahoma,
+    'Segoe UI',
+    sans-serif;
+  color: #000;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.t32-win .t32-tracelog {
+  margin: 6px;
+  background: #fff;
+  border: 1px solid #828790;
+  border-radius: 0;
+  font:
+    11.5px 'Courier New',
+    Courier,
+    monospace;
+  color: #000;
+}
+.t32-win .t32-traceempty {
+  color: #6d6d6d;
+}
+.t32-win .t32-tms,
+.t32-win .t32-tnote {
+  color: #555;
+}
+.t32-win .t32-thex,
+.t32-win .t32-tapi,
+.t32-win .t32-tinfo {
+  color: #000;
+}
+.t32-win .t32-tx .t32-ttag {
+  color: #00008b;
+}
+.t32-win .t32-rx .t32-ttag {
+  color: #006400;
+}
+.t32-win .t32-terr .t32-ttag,
+.t32-win .t32-terr .t32-thex {
+  color: #c00000;
+}
+.t32-win .t32-apitag {
+  color: #000;
+  background: #ffd27a;
+  border-radius: 0;
+}
+
+/* WebKFP's programming, followed around BMWeb: the app's own look, since
+   it sits on every other screen while a module is being programmed */
+.wkfp-badge {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 50;
+  padding: 8px 14px;
+  font: 600 12px var(--mono);
+  color: var(--ink);
+  background: var(--bg);
+  border: 1px solid var(--amber);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+}
+.wkfp-badge:hover {
+  color: var(--amber);
+}
+
+/* WebKFP: WinKFP 5.3's window -- a classic Windows dialog in its own grey,
+   whatever the app's theme, because it is drawn to look like the tool. */
+.wkfp-win {
+  --wk-face: #f0f0f0;
+  --wk-hi: #ffffff;
+  --wk-sh: #a0a0a0;
+  --wk-dk: #696969;
+  --wk-ink: #000000;
+  --wk-dis: #8d8d8d;
+  --wk-sel: #3399ff;
+  position: relative;
+  max-width: 740px;
+  margin: 8px auto 24px;
+  background: var(--wk-face);
+  color: var(--wk-ink);
+  font:
+    12px Tahoma,
+    'Segoe UI',
+    Verdana,
+    sans-serif;
+  border: 1px solid var(--wk-dk);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+  user-select: none;
+  /* the app's dark scheme and amber accent stop at the window's edge */
+  color-scheme: light;
+  accent-color: #0078d7;
+}
+/* classic Windows check boxes and option buttons, drawn rather than left
+   to the browser so no theme reaches them */
+.wkfp-win input[type='checkbox'],
+.wkfp-win input[type='radio'] {
+  appearance: none;
+  flex: none;
+  width: 13px;
+  height: 13px;
+  margin: 0;
+  background: #fff center / 11px 11px no-repeat;
+  border: 1px solid #333;
+}
+.wkfp-win input[type='radio'] {
+  border-radius: 50%;
+}
+.wkfp-win input[type='checkbox']:checked {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 11 11'%3E%3Cpath d='M2 5.5l2.2 2.2L9 2.8' fill='none' stroke='%23000' stroke-width='1.6'/%3E%3C/svg%3E");
+}
+.wkfp-win input[type='radio']:checked {
+  background-image: radial-gradient(circle, #000 0 2.5px, transparent 3px);
+  background-size: auto;
+}
+.wkfp-win input[type='checkbox']:disabled,
+.wkfp-win input[type='radio']:disabled {
+  background-color: #f4f4f4;
+  border-color: #bcbcbc;
+}
+.wkfp-win input[type='checkbox']:disabled:checked {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 11 11'%3E%3Cpath d='M2 5.5l2.2 2.2L9 2.8' fill='none' stroke='%23a0a0a0' stroke-width='1.6'/%3E%3C/svg%3E");
+}
+.wkfp-win input[type='checkbox']:focus-visible,
+.wkfp-win input[type='radio']:focus-visible {
+  outline: 1px dotted #000;
+  outline-offset: 2px;
+}
+.wkfp-win select:focus-visible,
+.wkfp-win .wkfp-input:focus-visible {
+  outline: none;
+  border-color: #0078d7;
+}
+.wkfp-win button,
+.wkfp-win input,
+.wkfp-win select {
+  font: inherit;
+  color: inherit;
+}
+.wkfp-titlebar {
+  background: linear-gradient(#5b5b5b, #3a3a3a);
+  color: #fff;
+  font-weight: bold;
+  font-size: 13px;
+  padding: 6px 8px;
+}
+.wkfp-menubar {
+  position: relative;
+  display: flex;
+  gap: 2px;
+  padding: 2px 4px;
+  border-bottom: 1px solid var(--wk-sh);
+  min-height: 22px;
+}
+.wkfp-menu,
+.wkfp-drop-item {
+  background: none;
+  border: 0;
+  padding: 3px 8px;
+  cursor: default;
+  text-align: left;
+}
+.wkfp-menu:hover,
+.wkfp-drop-item:not(:disabled):hover {
+  background: var(--wk-sel);
+  color: #fff;
+}
+.wkfp-drop {
+  position: absolute;
+  top: 100%;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  min-width: 190px;
+  padding: 2px;
+  background: var(--wk-face);
+  border: 1px solid var(--wk-sh);
+  box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+}
+.wkfp-drop-item:disabled {
+  color: var(--wk-dis);
+}
+.wkfp-drop-sep {
+  height: 0;
+  margin: 3px 2px;
+  border-top: 1px solid var(--wk-sh);
+  border-bottom: 1px solid var(--wk-hi);
+}
+.wkfp-client {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+}
+.wkfp-panel {
+  margin: 0;
+  padding: 10px 14px;
+  border: 1px solid var(--wk-sh);
+  box-shadow:
+    inset 1px 1px 0 var(--wk-hi),
+    1px 1px 0 var(--wk-hi);
+}
+.wkfp-info {
+  padding: 16px 20px 12px;
+}
+.wkfp-grid {
+  display: grid;
+  grid-template-columns: 205px 1fr;
+  row-gap: 6px;
+}
+.wkfp-ifrow {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 14px;
+  padding-right: 160px;
+}
+.wkfp-msgpanel {
+  min-height: 130px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.wkfp-pabd {
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  row-gap: 8px;
+  margin: 18px 0 0 165px;
+}
+.wkfp-pabd[hidden] {
+  display: none;
+}
+.wkfp-stage {
+  min-height: 1.3em;
+}
+.wkfp-progpanel {
+  min-height: 58px;
+  display: flex;
+  align-items: center;
+}
+.wkfp-bar {
+  position: relative;
+  flex: 1;
+  height: 36px;
+  background: #fff;
+  border: 1px solid var(--wk-sh);
+}
+.wkfp-bar[hidden] {
+  display: none;
+}
+.wkfp-bar-fill {
+  height: 100%;
+  width: 0;
+  background: #0000ff;
+}
+.wkfp-bar-text {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-weight: bold;
+  color: #fff;
+  mix-blend-mode: difference;
+}
+.wkfp-fkeys {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  row-gap: 12px;
+  padding: 14px 20px;
+}
+.wkfp-fkey {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.wkfp-btn {
+  min-width: 96px;
+  height: 24px;
+  padding: 0 10px;
+  background: linear-gradient(#f6f6f6, #dddddd);
+  border: 1px solid #707070;
+  border-radius: 3px;
+  cursor: default;
+}
+.wkfp-btn:not(:disabled):hover {
+  background: linear-gradient(#eaf6fd, #bee6fd);
+  border-color: #3c7fb1;
+}
+.wkfp-btn:disabled {
+  color: var(--wk-dis);
+  border-color: #adb2b5;
+  background: #f4f4f4;
+}
+.wkfp-btn:focus-visible {
+  outline: 1px dotted #000;
+  outline-offset: -4px;
+}
+.wkfp-statusbar {
+  display: flex;
+  gap: 4px;
+  padding: 3px 4px;
+  border-top: 1px solid var(--wk-sh);
+}
+.wkfp-statusbar #wkfp-status {
+  flex: 1;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.wkfp-lock {
+  padding: 0 4px;
+  color: var(--wk-dis);
+  border-left: 1px solid var(--wk-sh);
+}
+
+/* the dialogs */
+.wkfp-shade {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.08);
+}
+.wkfp-dlg {
+  min-width: 260px;
+  max-width: calc(100% - 24px);
+  background: var(--wk-face);
+  border: 1px solid var(--wk-dk);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+}
+.wkfp-dlg-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 4px 4px 8px;
+  background: #fff;
+  border-bottom: 1px solid #ddd;
+}
+/* the title bar moves the dialog (wkfpDraggable) */
+.wkfp-dlg-title.wkfp-drag {
+  cursor: move;
+  touch-action: none;
+  user-select: none;
+}
+.wkfp-x {
+  width: 28px;
+  height: 20px;
+  background: none;
+  border: 0;
+}
+.wkfp-x:hover {
+  background: #e81123;
+  color: #fff;
+}
+.wkfp-dlg-body {
+  padding: 14px;
+}
+.wkfp-dlg-btns {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 10px 14px;
+}
+.wkfp-msg .wkfp-dlg-body {
+  background: #fff;
+  padding: 22px 26px;
+}
+.wkfp-msg-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.wkfp-msg-text {
+  white-space: pre-wrap;
+  max-width: 440px;
+  padding-top: 6px;
+  user-select: text;
+}
+.wkfp-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  color: #fff;
+  font:
+    bold 17px Georgia,
+    serif;
+}
+.wkfp-icon-info {
+  background: radial-gradient(circle at 35% 30%, #6fa8ff, #1f5fcf);
+}
+.wkfp-icon-question {
+  background: radial-gradient(circle at 35% 30%, #6fa8ff, #1f5fcf);
+}
+.wkfp-icon-error {
+  background: radial-gradient(circle at 35% 30%, #ff6b5b, #c41e0e);
+  font-family: inherit;
+}
+.wkfp-icon-warn {
+  background: #f1c40f;
+  color: #000;
+  border-radius: 3px;
+}
+.wkfp-input {
+  height: 22px;
+  padding: 0 4px;
+  background: #fff;
+  border: 1px solid #7a7a7a;
+}
+.wkfp-input:disabled {
+  background: #f4f4f4;
+  color: #6d6d6d;
+}
+.wkfp-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.wkfp-vin {
+  width: 200px;
+  font-family: var(--mono);
+  letter-spacing: 0.05em;
+}
+.wkfp-choose {
+  display: grid;
+  grid-template-columns: 130px 110px 1fr;
+  gap: 12px;
+  min-width: 520px;
+}
+.wkfp-choose label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.wkfp-choose select {
+  height: 220px;
+  background: #fff;
+  border: 1px solid #7a7a7a;
+}
+.wkfp-choose-file {
+  grid-template-columns: 130px 1fr;
+  min-width: 420px;
+}
+.wkfp-pick {
+  min-width: 260px;
+  height: 240px;
+  background: #fff;
+  border: 1px solid #7a7a7a;
+}
+.wkfp-adr-in {
+  width: 48px;
+  font-family: var(--mono);
+}
+.wkfp-hint {
+  margin-top: 8px;
+}
+.wkfp-expfiles {
+  grid-template-columns: 90px 1fr;
+  margin-top: 0;
+}
+.wkfp-nofile {
+  color: var(--wk-dis);
+}
+.wkfp-err {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 620px;
+  max-width: 100%;
+}
+.wkfp-err-head {
+  min-height: 90px;
+  padding: 8px;
+  border: 1px solid var(--wk-sh);
+  box-shadow: inset 1px 1px 0 var(--wk-dk);
+}
+.wkfp-list {
+  height: 200px;
+  overflow: auto;
+  background: #fff;
+  border: 1px solid #828790;
+  user-select: text;
+}
+.wkfp-list table {
+  border-collapse: collapse;
+  white-space: nowrap;
+}
+.wkfp-list th {
+  position: sticky;
+  top: 0;
+  padding: 2px 6px;
+  text-align: left;
+  font-weight: normal;
+  background: #fff;
+  border-right: 1px solid #e5e5e5;
+  border-bottom: 1px solid #e5e5e5;
+}
+.wkfp-list td {
+  padding: 1px 6px;
+}
+.wkfp-ext {
+  display: none;
+}
+.wkfp-extended .wkfp-ext {
+  display: table-cell;
+}
+.wkfp-views {
+  display: flex;
+  gap: 40px;
+}
+.wkfp-logview {
+  width: 640px;
+  max-width: 100%;
+  height: 340px;
+  margin: 0;
+  overflow: auto;
+  padding: 6px;
+  background: #fff;
+  border: 1px solid #828790;
+  font: 11px var(--mono);
+  user-select: text;
+}
+.wkfp-ini {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 560px;
+  max-width: 100%;
+}
+.wkfp-group {
+  padding: 10px 14px;
+  border: 1px solid var(--wk-sh);
+  box-shadow:
+    inset 1px 1px 0 var(--wk-hi),
+    1px 1px 0 var(--wk-hi);
+}
+.wkfp-lang {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 40px;
+}
+.wkfp-ini-cols {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 10px;
+}
+.wkfp-ini-cols .wkfp-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.wkfp-cb {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.wkfp-off {
+  color: var(--wk-dis);
+}
+.wkfp-gap {
+  height: 6px;
+}
+.wkfp-levels {
+  display: flex;
+  justify-content: center;
+  gap: 30px;
+}
+.wkfp-levels label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.wkfp-dir {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-bottom: 8px;
+}
+.wkfp-dir > div {
+  display: flex;
+  gap: 8px;
+}
+.wkfp-dir .wkfp-input {
+  flex: 1;
+}
+.wkfp-dir .wkfp-btn {
+  min-width: 36px;
+}
+
+@media (max-width: 640px) {
+  .wkfp-grid {
+    grid-template-columns: 1fr;
+  }
+  .wkfp-ifrow {
+    flex-direction: column;
+    padding-right: 0;
+  }
+  .wkfp-pabd {
+    margin-left: 0;
+  }
+  .wkfp-fkeys {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .wkfp-choose {
+    grid-template-columns: 1fr 1fr;
+    min-width: 0;
+  }
+  .wkfp-choose-pos {
+    display: none !important;
+  }
+  .wkfp-ini-cols {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* The maximise button (screens/window-max.js), over the title bar's right end */
+.t32-win {
+  position: relative;
+}
+.win-max-btn {
+  position: absolute;
+  top: 3px;
+  right: 4px;
+  width: 22px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #fff;
+  font-size: 15px;
+  line-height: 20px;
+  cursor: default;
+}
+.win-max-btn:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+/* maximised: the window is the whole screen and its middle takes the room */
+.t32-win:fullscreen,
+.wkfp-win:fullscreen,
+.win-max {
+  display: flex;
+  flex-direction: column;
+  max-width: none;
+  width: 100%;
+  margin: 0;
+  overflow: auto;
+  border: 0;
+  box-shadow: none;
+}
+.win-max {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+}
+:is(.t32-win:fullscreen, .win-max) .t32-card,
+:is(.wkfp-win:fullscreen, .win-max) .wkfp-client {
+  flex: 1;
+}
+:is(.wkfp-win:fullscreen, .win-max) :is(.wkfp-msgpanel, .ncs-msgpanel) {
+  flex: 1;
+}
+
+/* BMWeb Coding (NCS Expert recreation) — its own panels over the wkfp window chrome. */
+.ncs-win {
+  width: 700px;
+  max-width: 100%;
+  margin: 0 auto;
+}
+.ncs-win .wkfp-client {
+  gap: 6px;
+}
+.ncs-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 14px 20px;
+  min-height: 96px;
+  font-family: var(--mono);
+}
+.ncs-car {
+  display: grid;
+  grid-template-columns: 70px minmax(0, 1fr);
+  row-gap: 2px;
+  column-gap: 12px;
+  /* the vehicle order is one long unbroken string: it wraps in the panel */
+  flex: 1;
+  min-width: 0;
+}
+.ncs-car span {
+  overflow-wrap: anywhere;
+}
+.ncs-car span:nth-child(odd) {
+  color: #333;
+}
+.ncs-nrcl {
+  display: flex;
+  gap: 8px;
+  white-space: nowrap;
+}
+.ncs-msgpanel {
+  min-height: 130px;
+}
+.ncs-msg {
+  white-space: pre-wrap;
+  font-family: var(--mono);
+  line-height: 1.5;
+}
+.ncs-fkeys {
+  grid-template-columns: repeat(3, 1fr);
+  row-gap: 18px;
+  column-gap: 40px;
+  padding: 18px 28px;
+}
+.ncs-fkeys .wkfp-fkey {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 5px;
+}
+.ncs-fkeys .wkfp-fkey > span {
+  font-size: 11px;
+  color: #444;
+}
+.ncs-fkeys .wkfp-btn {
+  width: 100%;
+  min-width: 0;
+  height: 30px;
+}
+.ncs-form {
+  display: grid;
+  gap: 10px;
+  min-width: 320px;
+}
+.ncs-form label {
+  display: grid;
+  grid-template-columns: 40px 1fr;
+  align-items: center;
+  gap: 10px;
+}
+.ncs-form input {
+  font-family: var(--mono);
+}
+.ncs-choose {
+  display: grid;
+  gap: 8px;
+  min-width: 420px;
+}
+.ncs-pick {
+  width: 100%;
+  min-width: 0;
+  height: 240px;
+  font-family: var(--mono);
+}
+.ncs-textdlg .wkfp-dlg-body,
+.ncs-text {
+  width: 640px;
+  max-width: 100%;
+}
+.ncs-text {
+  height: 360px;
+  font-family: var(--mono);
+  white-space: pre;
+}
+.ncsd-dlg {
+  width: 980px;
+}
+.ncsd-body {
+  display: grid;
+  gap: 8px;
+}
+.ncsd-bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.ncsd-filter {
+  flex: 1 1 260px;
+  min-width: 0;
+}
+.ncsd-only {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.ncsd-count,
+.ncsd-origin,
+.ncsd-kw {
+  color: #555;
+  font-size: 12px;
+}
+.ncsd-kw {
+  font-family: var(--mono);
+  overflow-wrap: anywhere;
+}
+.ncsd-scroll {
+  height: min(60vh, 520px);
+  overflow: auto;
+  background: #fff;
+  border: 1px solid #7a7a7a;
+}
+.ncsd-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.ncsd-table th {
+  position: sticky;
+  top: 0;
+  background: var(--wk-face);
+  text-align: left;
+  padding: 4px 8px;
+  border-bottom: 1px solid #aaa;
+}
+.ncsd-table td {
+  padding: 5px 8px;
+  border-bottom: 1px solid #eee;
+  vertical-align: top;
+}
+.ncsd-table td:first-child {
+  width: 42%;
+}
+.ncsd-sel {
+  width: 100%;
+  max-width: 340px;
+}
+.ncsd-changed-row td {
+  background: #fff6d6;
+}
+.ncs-profile {
+  display: grid;
+  gap: 14px;
+  min-width: 460px;
+}
+.ncs-profile > label {
+  display: grid;
+  grid-template-columns: 60px 1fr;
+  align-items: center;
+  gap: 10px;
+}
+.ncs-fieldset {
+  border: 1px solid var(--wk-sh);
+  padding: 10px 14px 12px;
+  min-inline-size: 0;
+}
+.ncs-fieldset legend {
+  padding: 0 4px;
+}
+.ncs-radio,
+.ncs-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0;
+  white-space: nowrap;
+}
+.ncs-radio input,
+.ncs-check input {
+  margin: 0;
+  flex: 0 0 auto;
+}
+
+/* BMWeb Coding in the modern layout: NCS Expert's flow (the same keys, menu,
+   dialogs and actions, ncs.js) drawn as a BMWeb screen. The dialogs are the
+   WinKFP ones the flow opens inside the window; here they take the app's
+   theme instead of the Windows grey. */
+.ncs-modern {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 4px 0 24px;
+  color: var(--ink);
+}
+.ncsm-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.ncsm-eyebrow,
+.ncsm-label {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--amber);
+}
+.ncsm-title {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 30px;
+  letter-spacing: -0.01em;
+}
+.ncsm-menubar {
+  position: relative;
+  display: flex;
+  gap: 8px;
+}
+.ncsm-menu {
+  padding: 8px 14px;
+  font-size: 12.5px;
+}
+/* the progress line: vehicle, module, job */
+.ncsm-steps {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.ncsm-step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  opacity: 0.6;
+}
+.ncsm-step.done,
+.ncsm-step.current {
+  opacity: 1;
+}
+.ncsm-step-n {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 24px;
+  height: 24px;
+  font-family: var(--mono);
+  font-size: 11px;
+  border: 1px solid var(--line-bright);
+  border-radius: 50%;
+}
+.ncsm-step.done .ncsm-step-n {
+  color: var(--amber-ink);
+  background: var(--amber);
+  border-color: var(--amber);
+}
+.ncsm-step.current .ncsm-step-n {
+  color: var(--amber);
+  border-color: var(--amber);
+}
+.ncsm-step-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.ncsm-step-name {
+  font-size: 11px;
+  color: var(--ink-faint);
+}
+.ncsm-step-val {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 260px;
+}
+.ncsm-step-sep {
+  color: var(--ink-faint);
+}
+.ncsm-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 340px) minmax(0, 1fr);
+  gap: 14px;
+}
+.ncsm-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  padding: 14px 16px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.ncsm-car {
+  grid-template-columns: 74px minmax(0, 1fr);
+  row-gap: 6px;
+  font-family: var(--mono);
+  font-size: 12.5px;
+}
+.ncs-modern .ncs-car span:nth-child(odd) {
+  color: var(--ink-faint);
+}
+.ncsm-nrcl {
+  margin-top: auto;
+  font-size: 11.5px;
+  color: var(--ink-faint);
+}
+.ncsm-msgcard {
+  min-height: 190px;
+}
+.ncsm-msg {
+  flex: 1;
+  font-size: 12.5px;
+  color: var(--ink-dim);
+}
+.ncsm-msg:empty::before {
+  content: 'Messages from the module and the coding run appear here.';
+  color: var(--ink-faint);
+  font-family: var(--display);
+}
+.ncsm-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.ncsm-key {
+  justify-content: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+}
+.ncsm-key kbd {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  padding: 1px 6px;
+  color: var(--ink-faint);
+  border: 1px solid var(--line-bright);
+  border-radius: 4px;
+}
+.ncsm-key.primary kbd {
+  color: inherit;
+  border-color: currentColor;
+}
+.ncsm-status {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--ink-dim);
+  padding: 8px 2px 0;
+  border-top: 1px solid var(--line);
+}
+@media (max-width: 760px) {
+  .ncsm-grid,
+  .ncsm-actions {
+    grid-template-columns: 1fr;
+  }
+}
+/* the menu's drop-down */
+.ncs-modern .wkfp-drop {
+  min-width: 240px;
+  padding: 6px;
+  background: var(--panel);
+  border: 1px solid var(--line-bright);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+}
+.ncs-modern .wkfp-drop-item {
+  padding: 7px 10px;
+  color: var(--ink);
+  border-radius: 5px;
+  cursor: pointer;
+}
+.ncs-modern .wkfp-drop-item:not(:disabled):hover {
+  color: var(--ink);
+  background: var(--amber-glow);
+}
+.ncs-modern .wkfp-drop-item:disabled {
+  color: var(--ink-faint);
+}
+.ncs-modern .wkfp-drop-sep {
+  border-top-color: var(--line);
+  border-bottom: 0;
+}
+/* the flow's dialogs, as the app's own */
+.ncs-modern .wkfp-shade {
+  position: fixed;
+  z-index: 900;
+  background: rgba(0, 0, 0, 0.55);
+}
+.ncs-modern .wkfp-dlg {
+  color: var(--ink);
+  background: var(--panel);
+  border: 1px solid var(--line-bright);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.ncs-modern .wkfp-dlg-title {
+  padding: 10px 10px 10px 16px;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 14px;
+  background: var(--panel-2);
+  border-bottom: 1px solid var(--line);
+}
+.ncs-modern .wkfp-x {
+  color: var(--ink-dim);
+  border-radius: 4px;
+}
+.ncs-modern .wkfp-dlg-body,
+.ncs-modern .wkfp-msg .wkfp-dlg-body {
+  padding: 16px 18px;
+  background: transparent;
+}
+.ncs-modern .wkfp-dlg-btns {
+  padding: 12px 16px;
+  border-top: 1px solid var(--line);
+}
+.ncs-modern .wkfp-btn {
+  min-width: 90px;
+  height: auto;
+  padding: 8px 14px;
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 12.5px;
+  color: var(--ink);
+  background: var(--raised);
+  border: 1px solid var(--line-bright);
+  border-radius: 5px;
+  cursor: pointer;
+}
+.ncs-modern .wkfp-btn:not(:disabled):hover {
+  background: var(--raised);
+  border-color: var(--amber);
+}
+.ncs-modern .wkfp-dlg-btns .wkfp-btn:first-child {
+  color: var(--amber-ink);
+  background: var(--amber);
+  border-color: var(--amber);
+}
+.ncs-modern .wkfp-btn:disabled {
+  color: var(--ink-faint);
+  background: transparent;
+  border-color: var(--line);
+}
+.ncs-modern
+  :is(
+    .wkfp-input,
+    .ncs-pick,
+    .ncs-text,
+    .wkfp-pick,
+    .wkfp-choose select,
+    .ncsd-sel,
+    .ncsd-filter
+  ),
+.ncs-modern .wkfp-dlg select,
+.ncs-modern .wkfp-dlg textarea {
+  color: var(--ink);
+  background: var(--panel-2);
+  border: 1px solid var(--line-bright);
+  border-radius: 5px;
+  font-family: var(--mono);
+}
+.ncs-modern .wkfp-input {
+  height: 30px;
+  padding: 0 8px;
+}
+/* the pickers' list rows: the theme's accent for the chosen one, not the
+   browser's pale system blue (a gradient is what Chrome lets a listbox's
+   selected option take) */
+.ncs-modern .wkfp-dlg select option {
+  padding: 3px 8px;
+  color: var(--ink);
+}
+.ncs-modern .wkfp-dlg select option:checked {
+  color: var(--amber-ink);
+  background: linear-gradient(var(--amber), var(--amber));
+}
+.ncs-modern .wkfp-dlg select:focus {
+  outline: none;
+  border-color: var(--amber);
+}
+.ncs-modern .wkfp-msg-text {
+  padding-top: 4px;
+}
+.ncs-modern :is(.ncsd-count, .ncsd-origin, .ncsd-kw) {
+  color: var(--ink-faint);
+}
+.ncs-modern .ncsd-scroll {
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.ncs-modern .ncsd-table th {
+  color: var(--ink-faint);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: normal;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  background: var(--panel);
+  border-bottom-color: var(--line);
+}
+.ncs-modern .ncsd-table td {
+  border-bottom-color: var(--line);
+}
+.ncs-modern .ncsd-changed-row td {
+  background: var(--amber-glow);
+}
+.ncs-modern .ncs-fieldset {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.ncs-modern .ncs-fieldset legend {
+  color: var(--ink-faint);
+}
+
+/* WebKFP in the modern layout: the same skin (.ncs-modern), its own panels */
+.wkfpm-mode {
+  padding: 10px 14px;
+  font-size: 13px;
+  color: var(--ink-dim);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--amber);
+  border-radius: 8px;
+}
+.wkfp-modern .ncsm-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.wkfpm-kv {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr);
+  row-gap: 6px;
+  column-gap: 12px;
+  font-family: var(--mono);
+  font-size: 12.5px;
+}
+.wkfpm-kv[hidden] {
+  display: none;
+}
+.wkfpm-kv > span {
+  overflow-wrap: anywhere;
+}
+.wkfpm-kv > span:nth-child(odd) {
+  color: var(--ink-faint);
+}
+.wkfpm-bsu {
+  font-size: 12.5px;
+  color: var(--ink-dim);
+}
+.wkfpm-bsu span {
+  font-family: var(--mono);
+  color: var(--ink);
+}
+.wkfpm-stage {
+  min-height: 1.4em;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  white-space: pre-wrap;
+}
+.wkfpm-bar {
+  position: relative;
+  height: 22px;
+  margin-top: auto;
+  overflow: hidden;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.wkfpm-bar[hidden] {
+  display: none;
+}
+.wkfpm-fill {
+  height: 100%;
+  width: 0;
+  background: var(--amber);
+  transition: width 0.2s linear;
+}
+.wkfpm-pct {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--ink);
+  mix-blend-mode: difference;
+}
+.wkfpm-actions {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+@media (max-width: 760px) {
+  .wkfp-modern .ncsm-grid,
+  .wkfpm-actions {
+    grid-template-columns: 1fr;
+  }
+}
+/* its dialogs' own parts: the module list, the error log, the INI options */
+.ncs-modern .wkfp-list {
+  color: var(--ink);
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.ncs-modern .wkfp-list th {
+  color: var(--ink-faint);
+  background: var(--panel);
+  border-color: var(--line);
+}
+.ncs-modern .wkfp-list td {
+  border-color: var(--line);
+}
+.ncs-modern .wkfp-logview {
+  color: var(--ink);
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-family: var(--mono);
+}
+.ncs-modern :is(.wkfp-group, .wkfp-err) {
+  border-color: var(--line);
+  border-radius: 6px;
+}
+.ncs-modern :is(.wkfp-hint, .wkfp-nofile, .wkfp-off) {
+  color: var(--ink-faint);
+}
+
 /* the programming log (AIF) editor, a bench page of the flasher's rail */
 #fb-page-aif {
   gap: 8px;
@@ -13265,6 +16292,20 @@ html[data-theme='inpa'] .ipo-key:hover {
 }
 .fb-aif-badge.fb-aif-warn {
   color: var(--amber);
+}
+/* The ISN/EWS matcher's match chip (the same badge skin) */
+.fb-aif-badge.fb-isn-match {
+  color: var(--green);
+}
+.fb-aif-badge.fb-isn-unknown {
+  color: var(--dim, #888);
+}
+.fb-isn #fb-isn-match {
+  font-size: 13px;
+}
+.fb-isn tr.active td {
+  background: var(--amber);
+  color: #fff;
 }
 .fb-aif-fields .modal-input {
   margin-bottom: 0;

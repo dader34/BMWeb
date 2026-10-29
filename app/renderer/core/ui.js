@@ -179,6 +179,35 @@ function screenOwner() {
 }
 
 /**
+ * Root every trail at the home screen. The screens still name the roots they
+ * were written against -- "Vehicles" (the chassis picker the app used to open
+ * on) and "Apps" under it -- so: Vehicles / Apps / X reads Home / X; the
+ * picker itself, and a trail into a car (Vehicles / E46 / ...), read
+ * Home / Diagnostics / ..., the picker being the Diagnostics app now; any other screen
+ * hung off the old root (Settings, Garage) reads Home / X. Home itself
+ * passes through.
+ * @param {Crumb[]} items - Crumbs, root first.
+ * @returns {Crumb[]}
+ */
+function homeCrumbs(items) {
+  if (!items.length || items[0].label !== 'Vehicles') return items;
+  const home = {
+    label: 'Home',
+    fn: typeof showApps === 'function' ? showApps : undefined,
+  };
+  const next = items[1];
+  if (next && next.label === 'Apps') return [home, ...items.slice(2)];
+  // a chassis crumb: a known chassis code, or one shaped like one (E46, F30)
+  const isCar =
+    next &&
+    (Object.prototype.hasOwnProperty.call(CHASSIS_TAG, next.label) ||
+      /^[A-Z]{1,2}\d{2,3}$/.test(next.label));
+  if (!next || isCar)
+    return [home, { ...items[0], label: 'Diagnostics' }, ...items.slice(1)];
+  return [home, ...items.slice(1)];
+}
+
+/**
  * Draw the breadcrumb strip and mirror the screen into the URL.
  * @param {Crumb[]} items - Crumbs, root first.
  * @returns {void}
@@ -192,6 +221,11 @@ function setCrumbs(items) {
   // ETK screens tag the body so CSS can drop the F-key bar on mobile; cleared
   // here so it only applies while an ETK screen is up
   document.body.classList.remove('apps-section');
+  // the classic Flashing app tags the body so its dialogs follow its look
+  document.body.classList.remove('fb-classic-on');
+  // the top bar's layout switch follows the setting, wherever it was changed
+  if (typeof paintLayoutToggle === 'function') paintLayoutToggle();
+  items = homeCrumbs(items);
   crumbs = items;
   crumbsEl.innerHTML = '';
   items.forEach((c, i) => {

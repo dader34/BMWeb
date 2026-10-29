@@ -99,11 +99,8 @@ function showSettings() {
           { val: 'off', label: 'Modern' },
         ],
         Settings.get('inpaScreens', 'off'),
-        // re-render: this screen is itself laid out differently per mode
-        (v) => {
-          Settings.set('inpaScreens', v);
-          showSettings();
-        }
+        // the top bar's switch does the same, redrawing this screen too
+        (v) => setScreenLayout(v)
       )
     );
   }
@@ -482,12 +479,60 @@ function setupMobileTabbar() {
 }
 
 /**
+ * Mark the top bar's layout switch with the setting as it stands.
+ * @returns {void}
+ */
+function paintLayoutToggle() {
+  // what the screen showing is in (its own default until a choice is saved)
+  const now = inpaScreensNow();
+  document.querySelectorAll('#layout-toggle button').forEach((b) => {
+    const on = b.dataset.layout === now;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+}
+
+/**
+ * Switch the screen layout (INPA-style 'on' / modern 'off') and redraw what
+ * is showing in it. The Flashing app is restyled in place instead: a redraw
+ * would forget the identified module and the loaded files, and it must never
+ * happen mid-flash. A coding read or write in flight is not interrupted.
+ * @param {'on'|'off'} v
+ * @returns {void}
+ */
+function setScreenLayout(v) {
+  if (
+    typeof ncsLive === 'object' &&
+    ncsLive.state &&
+    ncsLive.state.busy &&
+    ncsLive.win &&
+    document.body.contains(ncsLive.win)
+  ) {
+    paintLayoutToggle();
+    return;
+  }
+  Settings.set('inpaScreens', v);
+  paintLayoutToggle();
+  if (document.querySelector('#view .fb')) {
+    if (typeof fbApplyLayout === 'function') fbApplyLayout();
+    return;
+  }
+  // Settings is not a screen lastScreen names (it is where you come back from)
+  if (document.querySelector('#view .settings-list')) showSettings();
+  else if (typeof lastScreen === 'function') lastScreen();
+}
+
+/**
  * Boot: wire the topbar, mobile tabbar, router and print hotkey, resolve the
  * offline folder, wait for the engine behind the splash, then open the startup
  * screen (a deep link, a preselected vehicle, or the chassis picker).
  */
 (async function boot() {
   document.getElementById('settings-btn').onclick = showSettings;
+  document.querySelectorAll('#layout-toggle button').forEach((b) => {
+    b.onclick = () => setScreenLayout(b.dataset.layout);
+  });
+  paintLayoutToggle();
   tipify(document.querySelector('.topbar'));
   setupMobileTabbar();
   window.addEventListener('resize', setupMobileTabbar);
@@ -568,7 +613,7 @@ function setupMobileTabbar() {
   // route Cmd/Ctrl+P to the active screen's clean print (see core/print.js)
   if (typeof installPrintHotkey === 'function') installPrintHotkey();
 
-  // jump straight to a preselected startup vehicle (and module), else the picker
+  // jump straight to a preselected startup vehicle (and module), else home
   const startChassis = Settings.get('startChassis', '');
   const startEcu = Settings.get('startEcu', '');
   const openStart = async () => {
@@ -593,7 +638,8 @@ function setupMobileTabbar() {
         return;
       }
     }
-    await showChassis();
+    // the home screen: every tool, INPA's vehicle picker one of them
+    await showApps();
   };
 
   const start = async () => {
