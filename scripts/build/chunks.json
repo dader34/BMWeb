@@ -18,7 +18,8 @@
       "showTuning": "load",
       "showLogging": "load",
       "showLoggingChassis": "load",
-      "stopDataLogging": "noop"
+      "stopDataLogging": "noop",
+      "fbApplyLayout": "noop"
     }
   }
 }

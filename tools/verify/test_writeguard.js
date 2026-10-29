@@ -42,6 +42,56 @@ for (const [name, want] of [
   check(`${want ? 'write' : 'read '} ${name}`, isWriteJob(name) === want);
 }
 
+// ---- an unrecognised job runs but sends nothing; a named write is refused
+//
+// FA.PRG's FA_STREAM2STRUCT names no read verb, so it is a write to the
+// classifier (default-deny). It never talks to a module -- it decodes a
+// vehicle order -- and a coding script calls it while reading the order, so
+// it must run with writes off; the transmit check still holds it off the bus.
+{
+  // FA.PRG serves no module, so it is not in a car's tree: read it from
+  // data/ecu-src, where the generated SGBDs live
+  const zlib = require('zlib');
+  const src = (n) => {
+    const f = path.join(ROOT, 'data/ecu-src', `fa.${n}.json.gz`);
+    return fs.existsSync(f)
+      ? JSON.parse(zlib.gunzipSync(fs.readFileSync(f)).toString())
+      : null;
+  };
+  const fa = src('job-code');
+  if (!fa) {
+    check('FA.PRG job code present (data/ecu-src/fa.job-code.json.gz)', false);
+  } else {
+    let sent = 0;
+    const m = new Best2Vm(fa, {
+      tables: src('tables') || {},
+      allowWrites: false,
+      send: () => {
+        sent++;
+        return [];
+      },
+    });
+    let ran;
+    try {
+      ran = Array.isArray(m.run('FA_STREAM2STRUCT', '1;00'));
+    } catch {
+      ran = false;
+    }
+    check('unrecognised FA_STREAM2STRUCT runs with writes off', ran);
+    check('...and sends nothing', sent === 0);
+    let refused = false;
+    try {
+      m.run('C_FA_LOESCHEN');
+    } catch (e) {
+      refused = /refusing to run write job/.test(String(e.message));
+    }
+    check(
+      'a named write (C_FA_LOESCHEN) is still refused before it runs',
+      refused
+    );
+  }
+}
+
 // ---- behaviour, against a real job with real captured telegrams
 //
 // This half is the reason the file exists ("throws having sent NOTHING") and

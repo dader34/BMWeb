@@ -145,6 +145,18 @@ run node tools/verify/test_ms45_protect.js
 run node tools/verify/test_flash_ops.js
 
 echo
+echo "== EWS/ISN matcher client: DS2 0x44 dialect, ISN read/write, sync, match state =="
+run node tools/verify/test_ews.js
+
+echo
+echo "== DME identity vault: EEPROM dump through READ bit 30, 3-copy scan, blocks =="
+run node tools/verify/test_eeprom.js
+
+echo
+echo "== ISN alignment: voting triples picked and rewritten, both repair flows =="
+run node tools/verify/test_pairing.js
+
+echo
 echo "== MS45 image validation math: CRC-32/MPEG-2, RSA signature, region/address =="
 run node tools/verify/test_ms45_bin.js
 
@@ -204,6 +216,9 @@ run node tools/verify/test_coding_custom.js
 echo
 echo "== coding dispatch: derived A_<cabd> program runs end-to-end, frames the request =="
 run node tools/verify/test_coding_dispatch.js
+
+echo "== every shipped coding script: no unserved call mid-write, order/ident preflight =="
+run node tools/verify/test_coding_scripts.js
 
 echo
 echo "== coding UI -> write flow: review builds the payload, write needs confirmed =="

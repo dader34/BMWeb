@@ -9,7 +9,7 @@
     <title>BMWeb in pictures</title>
     <link
       rel="icon"
-      href="data:image/svg+xml,%3Csvg%20width%3D%22100%22%20height%3D%22100%22%20viewBox%3D%220%200%20100%20100%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%20%3Ccircle%20cx%3D%2250%22%20cy%3D%2250%22%20r%3D%2248%22%20fill%3D%22%2311161c%22%20stroke%3D%22%239aa6b2%22%20stroke-width%3D%223%22%2F%3E%20%3CclipPath%20id%3D%22disc%22%3E%3Ccircle%20cx%3D%2250%22%20cy%3D%2250%22%20r%3D%2231%22%2F%3E%3C%2FclipPath%3E%20%3Cg%20clip-path%3D%22url%28%23disc%29%22%3E%20%3Crect%20x%3D%2219%22%20y%3D%2219%22%20width%3D%2231%22%20height%3D%2231%22%20fill%3D%22%23eef2f5%22%2F%3E%20%3Crect%20x%3D%2250%22%20y%3D%2250%22%20width%3D%2231%22%20height%3D%2231%22%20fill%3D%22%23eef2f5%22%2F%3E%20%3Crect%20x%3D%2250%22%20y%3D%2219%22%20width%3D%2231%22%20height%3D%2231%22%20fill%3D%22%23ff9e2c%22%2F%3E%20%3Crect%20x%3D%2219%22%20y%3D%2250%22%20width%3D%2231%22%20height%3D%2231%22%20fill%3D%22%23ff9e2c%22%2F%3E%20%3C%2Fg%3E%20%3Ccircle%20cx%3D%2250%22%20cy%3D%2250%22%20r%3D%2231%22%20fill%3D%22none%22%20stroke%3D%22%230a0d11%22%20stroke-width%3D%222%22%2F%3E%20%3C%2Fsvg%3E"
+      href="data:image/svg+xml,%3Csvg%20width%3D%22100%22%20height%3D%22100%22%20viewBox%3D%220%200%20100%20100%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Crect%20x%3D%221.5%22%20y%3D%221.5%22%20width%3D%2297%22%20height%3D%2297%22%20rx%3D%2221%22%20fill%3D%22%2311161c%22%20stroke%3D%22%239aa6b2%22%20stroke-width%3D%223%22%2F%3E%3Cg%20transform%3D%22translate%2817%2018.5%29%20scale%280.126%29%22%3E%3Cpath%20fill%3D%22%23ff9e2c%22%20d%3D%22M88%200%20H400%20C470%200%20520%2040%20516%20100%20C512%20160%20480%20196%20432%20214%20C488%20236%20512%20290%20500%20352%20C486%20440%20420%20490%20320%20490%20H0%20Z%22%2F%3E%3Cpath%20fill%3D%22%23eef2f5%22%20d%3D%22M318%2026%20L128%20262%20L230%20262%20L176%20452%20L384%20210%20L282%20210%20Z%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E"
     />
     <meta name="theme-color" content="#0d1217" />
 
@@ -292,15 +292,26 @@
       <div class="wrap wrap-wide masthead-in">
         <a class="brand" href="install.html" data-link="home">
           <svg class="logo" viewBox="0 0 100 100" role="img" aria-label="BMWeb">
-            <circle class="logo-ring" cx="50" cy="50" r="48" />
-            <clipPath id="d"><circle cx="50" cy="50" r="31" /></clipPath>
-            <g clip-path="url(#d)">
-              <rect class="q-white" x="19" y="19" width="31" height="31" />
-              <rect class="q-white" x="50" y="50" width="31" height="31" />
-              <rect class="q-color" x="50" y="19" width="31" height="31" />
-              <rect class="q-color" x="19" y="50" width="31" height="31" />
+            <rect
+              x="1.5"
+              y="1.5"
+              width="97"
+              height="97"
+              rx="21"
+              fill="#11161c"
+              stroke="#9aa6b2"
+              stroke-width="3"
+            />
+            <g transform="translate(17 18.5) scale(0.126)">
+              <path
+                fill="#ff9e2c"
+                d="M88 0 H400 C470 0 520 40 516 100 C512 160 480 196 432 214 C488 236 512 290 500 352 C486 440 420 490 320 490 H0 Z"
+              />
+              <path
+                fill="#eef2f5"
+                d="M318 26 L128 262 L230 262 L176 452 L384 210 L282 210 Z"
+              />
             </g>
-            <circle class="logo-ring" cx="50" cy="50" r="31" />
           </svg>
           <span class="name"
             >BMWeb
@@ -311,6 +322,7 @@
         </a>
         <nav class="nav-links">
           <a href="docs.html" class="nav-btn">Docs</a>
+          <a href="wiki/index.html" class="nav-btn">Wiki</a>
           <a href="demo.html" class="nav-btn" aria-current="page">Photos</a>
           <a href="index.html" class="nav-btn" data-link="app">Open the app</a>
         </nav>
@@ -338,7 +350,10 @@
             <a href="#search">Job search</a>
             <a href="#wiring">Wiring</a>
             <a href="#parts">Parts</a>
+            <a href="#flashing">Flashing</a>
             <a href="#tuning">Tuning</a>
+            <a href="#coding">Coding</a>
+            <a href="#webkfp">WebKFP</a>
             <a href="#tool32">Job runner</a>
             <a href="#script">Script runner</a>
             <a href="#remote">Remote sessions</a>
@@ -613,6 +628,68 @@
                   box.
                 </figcaption>
               </figure>
+              <figure class="wide">
+                <img
+                  src="img/demo/logging-comfort-inpa.webp"
+                  alt="Data logging in the classic layout: Comfort readings ticked on the left, chart cards on the right, the rate in the summary."
+                  width="1440"
+                  height="749"
+                  loading="lazy"
+                  decoding="async"
+                />
+                <figcaption>
+                  <b>Data logging.</b> The same Comfort list and charts.<span
+                    class="tag"
+                    >classic</span
+                  >
+                </figcaption>
+              </figure>
+              <figure class="wide">
+                <img
+                  src="img/demo/logging-replay-split-modern.webp"
+                  alt="A recorded run in the viewer's Split mode: the channels with min, average and max, one chart per group."
+                  width="1092"
+                  height="749"
+                  loading="lazy"
+                  decoding="async"
+                />
+                <figcaption>
+                  <b>Replay, Split.</b> One chart per group of readings, the
+                  channel list with min, average and max.<span class="tag"
+                    >modern</span
+                  >
+                </figcaption>
+              </figure>
+              <figure class="wide">
+                <img
+                  src="img/demo/logging-replay-split-inpa.webp"
+                  alt="A recorded run in the viewer's Split mode: the channels with min, average and max, one chart per group."
+                  width="1440"
+                  height="749"
+                  loading="lazy"
+                  decoding="async"
+                />
+                <figcaption>
+                  <b>Replay, Split.</b> One chart per group of readings, the
+                  channel list with min, average and max.<span class="tag"
+                    >classic</span
+                  >
+                </figcaption>
+              </figure>
+              <figure class="wide">
+                <img
+                  src="img/demo/logging-replay-map-inpa.webp"
+                  alt="A recorded run in Map mode in the classic layout, over the base ignition map."
+                  width="1440"
+                  height="749"
+                  loading="lazy"
+                  decoding="async"
+                />
+                <figcaption>
+                  <b>Replay and Map mode.</b> The run over a table from the
+                  tune.<span class="tag">classic</span>
+                </figcaption>
+              </figure>
             </div>
           </section>
 
@@ -867,7 +944,7 @@
               <figure class="wide">
                 <img
                   src="img/demo/apps-tiles.webp"
-                  alt="The Apps hub as a grid of square tiles: diagnostic plans, job search, wiring, parts, ECU backup, Tool32, tuning, data logging and the script runner."
+                  alt="The Apps hub as a grid of square tiles: diagnostic plans, job search, wiring, parts, ECU backup, Web32, tuning, data logging and the script runner."
                   width="1440"
                   height="900"
                   loading="lazy"
@@ -878,6 +955,38 @@
                   and service data, job search, wiring and repair documents, the
                   parts catalogue, a read-only firmware backup, a raw job
                   runner, a firmware editor, data logging and the script runner.
+                </figcaption>
+              </figure>
+              <figure class="wide">
+                <img
+                  src="img/demo/home-modern.webp"
+                  alt="The home screen as tiles: diagnostics, workshop, fault codes, job search, wiring, parts, flashing, tuning and logging, WebKFP, coding, Web32 and the script runner."
+                  width="1092"
+                  height="749"
+                  loading="lazy"
+                  decoding="async"
+                />
+                <figcaption>
+                  <b>Home.</b> Every tool on one screen, one tile each.<span
+                    class="tag"
+                    >modern</span
+                  >
+                </figcaption>
+              </figure>
+              <figure class="wide">
+                <img
+                  src="img/demo/home-inpa.webp"
+                  alt="The home screen as a classic window: Diagnose, Program and Expert groups, each tool a button with its number key."
+                  width="1440"
+                  height="749"
+                  loading="lazy"
+                  decoding="async"
+                />
+                <figcaption>
+                  <b>Home.</b> The same tools in three groups, Diagnose, Program
+                  and Expert, each on a number key.<span class="tag"
+                    >classic</span
+                  >
                 </figcaption>
               </figure>
             </div>
@@ -1077,6 +1186,172 @@
             </div>
           </section>
 
+          <section id="flashing">
+            <h2>Flashing</h2>
+            <p class="section-note">
+              Identify the engine computer, read it, and write a program or a
+              tune back. On an MS45 carrying the fast flash bootloader the same
+              buttons go through it. The bootloader, live tune install and the
+              AIF editor are bench features of the local build.
+            </p>
+            <div class="shots">
+              <figure class="wide">
+                <img
+                  src="img/demo/flashing-identify-modern.webp"
+                  alt="Identify on an MS45: the coding data, the programming log entries left, the programming status, the fast flasher present and a live-tune program recognised."
+                  width="1092"
+                  height="749"
+                  loading="lazy"
+                  decoding="async"
+                />
+                <figcaption>
+                  <b>Identify.</b> The DME's coding data, its programming
+                  status, and what it carries: here the fast flasher and a
+                  live-tune program.<span class="tag">modern</span>
+                </figcaption>
+              </figure>
+              <figure class="wide">
+                <img
+                  src="img/demo/flashing-identify-inpa.webp"
+                  alt="Identify on an MS45: the coding data, the programming log entries left, the programming status, the fast flasher present and a live-tune program recognised."
+                  width="1440"
+                  height="749"
+                  loading="lazy"
+                  decoding="async"
+                />
+                <figcaption>
+                  <b>Identify.</b> The DME's coding data, its programming
+                  status, and what it carries: here the fast flasher and a
+                  live-tune program.<span class="tag">classic</span>
+                </figcaption>
+              </figure>
+              <figure class="wide">
+                <img
+                  src="img/demo/flashing-options-modern.webp"
+                  alt="Custom Options: EWS delete, the fast flash bootloader section with Install and Restore stock bootloader, and Install live tune with the line saying it will upgrade live tune 6 to 7."
+                  width="1092"
+                  height="749"
+                  loading="lazy"
+                  decoding="async"
+                />
+                <figcaption>
+                  <b>Custom Options.</b> Install the fast flash bootloader or
+                  put the stock one back, and install live tune on the loaded
+                  program, each with one confirmation and a line saying whether
+                  it can run and why.<span class="tag">modern</span>
+                </figcaption>
+              </figure>
+              <figure class="wide">
+                <img
+                  src="img/demo/flashing-options-inpa.webp"
+                  alt="Custom Options: EWS delete, the fast flash bootloader section with Install and Restore stock bootloader, and Install live tune with the line saying it will upgrade live tune 6 to 7."
+                  width="1440"
+                  height="749"
+                  loading="lazy"
+                  decoding="async"
+                />
+                <figcaption>
+                  <b>Custom Options.</b> Install the fast flash bootloader or
+                  put the stock one back, and install live tune on the loaded
+                  program, each with one confirmation and a line saying whether
+                  it can run and why.<span class="tag">classic</span>
+                </figcaption>
+              </figure>
+              <figure class="wide">
+                <img
+                  src="img/demo/flashing-read-modern.webp"
+                  alt="Read DME through the fast flasher, part way: the log and the progress bar."
+                  width="1092"
+                  height="749"
+                  loading="lazy"
+                  decoding="async"
+                />
+                <figcaption>
+                  <b>Read DME.</b> Through the fast flasher: the whole external
+                  flash and the MPC in one pass, with progress in the log and
+                  the bar.<span class="tag">modern</span>
+                </figcaption>
+              </figure>
+              <figure class="wide">
+                <img
+                  src="img/demo/flashing-read-inpa.webp"
+                  alt="Read DME through the fast flasher, part way: the log and the progress bar."
+                  width="1440"
+                  height="749"
+                  loading="lazy"
+                  decoding="async"
+                />
+                <figcaption>
+                  <b>Read DME.</b> Through the fast flasher: the whole external
+                  flash and the MPC in one pass, with progress in the log and
+                  the bar.<span class="tag">classic</span>
+                </figcaption>
+              </figure>
+              <figure class="wide">
+                <img
+                  src="img/demo/flashing-read-done-modern.webp"
+                  alt="Read DME finished: the full flash and MPC saved, with the time it took in the log."
+                  width="1092"
+                  height="749"
+                  loading="lazy"
+                  decoding="async"
+                />
+                <figcaption>
+                  <b>Read finished.</b> Both images saved together, the time it
+                  took in the log.<span class="tag">modern</span>
+                </figcaption>
+              </figure>
+              <figure class="wide">
+                <img
+                  src="img/demo/flashing-read-done-inpa.webp"
+                  alt="Read DME finished: the full flash and MPC saved, with the time it took in the log."
+                  width="1440"
+                  height="749"
+                  loading="lazy"
+                  decoding="async"
+                />
+                <figcaption>
+                  <b>Read finished.</b> Both images saved together, the time it
+                  took in the log.<span class="tag">classic</span>
+                </figcaption>
+              </figure>
+              <figure class="wide">
+                <img
+                  src="img/demo/aif-editor-modern.webp"
+                  alt="The AIF editor: the programming log with four entries and ten free slots, one entry open with its VIN, date, assembly, calibration, office, dealer, tester, mileage and program reference."
+                  width="1092"
+                  height="749"
+                  loading="lazy"
+                  decoding="async"
+                />
+                <figcaption>
+                  <b>AIF editor.</b> The DME's programming log, read in seconds
+                  through the bootloader: each entry's VIN, date, numbers,
+                  tester and mileage, field by field.<span class="tag"
+                    >modern</span
+                  >
+                </figcaption>
+              </figure>
+              <figure class="wide">
+                <img
+                  src="img/demo/aif-editor-inpa.webp"
+                  alt="The AIF editor: the programming log with four entries and ten free slots, one entry open with its VIN, date, assembly, calibration, office, dealer, tester, mileage and program reference."
+                  width="1440"
+                  height="749"
+                  loading="lazy"
+                  decoding="async"
+                />
+                <figcaption>
+                  <b>AIF editor.</b> The DME's programming log, read in seconds
+                  through the bootloader: each entry's VIN, date, numbers,
+                  tester and mileage, field by field.<span class="tag"
+                    >classic</span
+                  >
+                </figcaption>
+              </figure>
+            </div>
+          </section>
+
           <section id="tuning">
             <h2>Tuning</h2>
             <p class="section-note">
@@ -1153,6 +1428,235 @@
                   live values.
                 </figcaption>
               </figure>
+              <figure class="wide">
+                <img
+                  src="img/demo/tuning-live-on-inpa.webp"
+                  alt="The tuning editor in the classic layout with LIVE ON, armed, the UI apps menu and the Save to ECU on key off switch."
+                  width="1440"
+                  height="749"
+                  loading="lazy"
+                  decoding="async"
+                />
+                <figcaption>
+                  <b>Live tuning.</b> LIVE ON, armed, with the key-off save
+                  switch.<span class="tag">classic</span>
+                </figcaption>
+              </figure>
+              <figure class="wide">
+                <img
+                  src="img/demo/tuning-live-cursor-inpa.webp"
+                  alt="The base ignition map open while live, the cell the engine is reading shaded."
+                  width="1440"
+                  height="749"
+                  loading="lazy"
+                  decoding="async"
+                />
+                <figcaption>
+                  <b>Live cursor.</b> The base ignition map with the cell the
+                  engine is reading shaded.<span class="tag">classic</span>
+                </figcaption>
+              </figure>
+              <figure class="wide">
+                <img
+                  src="img/demo/tuning-3d-modern.webp"
+                  alt="The base ignition map as a 3D surface in its own window over the table, with the live cursor as a dot."
+                  width="1092"
+                  height="749"
+                  loading="lazy"
+                  decoding="async"
+                />
+                <figcaption>
+                  <b>3D surface.</b> Graph opens the table as a surface in its
+                  own window, the live cursor on it.<span class="tag"
+                    >modern</span
+                  >
+                </figcaption>
+              </figure>
+              <figure class="wide">
+                <img
+                  src="img/demo/tuning-3d-inpa.webp"
+                  alt="The base ignition map as a 3D surface in its own window over the table, with the live cursor as a dot."
+                  width="1440"
+                  height="749"
+                  loading="lazy"
+                  decoding="async"
+                />
+                <figcaption>
+                  <b>3D surface.</b> Graph opens the table as a surface in its
+                  own window, the live cursor on it.<span class="tag"
+                    >classic</span
+                  >
+                </figcaption>
+              </figure>
+              <figure class="wide">
+                <img
+                  src="img/demo/tuning-always-live-inpa.webp"
+                  alt="The Comfort tree in the classic layout with the Always live group open on battery voltage values."
+                  width="1440"
+                  height="749"
+                  loading="lazy"
+                  decoding="async"
+                />
+                <figcaption>
+                  <b>Always live.</b> The single values that are live together,
+                  under plain names.<span class="tag">classic</span>
+                </figcaption>
+              </figure>
+              <figure class="wide">
+                <img
+                  src="img/demo/tuning-live-windows-inpa.webp"
+                  alt="Four windows over the editor in the classic layout: fault memory, adaptations, a rev gauge and live values."
+                  width="1440"
+                  height="749"
+                  loading="lazy"
+                  decoding="async"
+                />
+                <figcaption>
+                  <b>Live windows.</b> Fault memory, adaptations, a rev gauge
+                  and the live values beside the editor.<span class="tag"
+                    >classic</span
+                  >
+                </figcaption>
+              </figure>
+            </div>
+          </section>
+
+          <section id="coding">
+            <h2>Coding</h2>
+            <p class="section-note">
+              Coding laid out the way the factory tool does it: the vehicle,
+              then the module, then the job.
+            </p>
+            <div class="shots">
+              <figure class="wide">
+                <img
+                  src="img/demo/coding-expertmode-modern.webp"
+                  alt="Coding Expertmode: the vehicle fields, the messages area, and VIN/ZCS/FA, Process ECU, Clear fields and Exit on the F-keys."
+                  width="1440"
+                  height="749"
+                  loading="lazy"
+                  decoding="async"
+                />
+                <figcaption>
+                  <b>Expertmode.</b> Chassis, FA and VIN above, the module's
+                  messages beside, the steps on the F-keys.<span class="tag"
+                    >modern</span
+                  >
+                </figcaption>
+              </figure>
+              <figure class="wide">
+                <img
+                  src="img/demo/coding-expertmode-inpa.webp"
+                  alt="Coding Expertmode: the vehicle fields, the messages area, and VIN/ZCS/FA, Process ECU, Clear fields and Exit on the F-keys."
+                  width="1440"
+                  height="749"
+                  loading="lazy"
+                  decoding="async"
+                />
+                <figcaption>
+                  <b>Expertmode.</b> Chassis, FA and VIN above, the module's
+                  messages beside, the steps on the F-keys.<span class="tag"
+                    >classic</span
+                  >
+                </figcaption>
+              </figure>
+              <figure class="wide">
+                <img
+                  src="img/demo/coding-choose-ecu-modern.webp"
+                  alt="Choose ECU for an E46: every module with its coding file."
+                  width="1440"
+                  height="749"
+                  loading="lazy"
+                  decoding="async"
+                />
+                <figcaption>
+                  <b>Choose ECU.</b> Every module of the chosen chassis, with
+                  the coding file it uses.<span class="tag">modern</span>
+                </figcaption>
+              </figure>
+              <figure class="wide">
+                <img
+                  src="img/demo/coding-choose-ecu-inpa.webp"
+                  alt="Choose ECU for an E46: every module with its coding file."
+                  width="1440"
+                  height="749"
+                  loading="lazy"
+                  decoding="async"
+                />
+                <figcaption>
+                  <b>Choose ECU.</b> Every module of the chosen chassis, with
+                  the coding file it uses.<span class="tag">classic</span>
+                </figcaption>
+              </figure>
+            </div>
+          </section>
+
+          <section id="webkfp">
+            <h2>WebKFP</h2>
+            <p class="section-note">
+              Stock programs from BMW's own data, flashed the factory way.
+            </p>
+            <div class="shots">
+              <figure class="wide">
+                <img
+                  src="img/demo/webkfp-modes-modern.webp"
+                  alt="WebKFP: the control unit and its programming data, with Comfort mode, Expert mode, Program, Special and Diagnosis on the F-keys."
+                  width="1440"
+                  height="749"
+                  loading="lazy"
+                  decoding="async"
+                />
+                <figcaption>
+                  <b>WebKFP.</b> The control unit, its programming data, and the
+                  modes on the F-keys.<span class="tag">modern</span>
+                </figcaption>
+              </figure>
+              <figure class="wide">
+                <img
+                  src="img/demo/webkfp-modes-inpa.webp"
+                  alt="WebKFP: the control unit and its programming data, with Comfort mode, Expert mode, Program, Special and Diagnosis on the F-keys."
+                  width="1440"
+                  height="749"
+                  loading="lazy"
+                  decoding="async"
+                />
+                <figcaption>
+                  <b>WebKFP.</b> The control unit, its programming data, and the
+                  modes on the F-keys.<span class="tag">classic</span>
+                </figcaption>
+              </figure>
+              <figure class="wide">
+                <img
+                  src="img/demo/webkfp-zusb-modern.webp"
+                  alt="Choose assembly identification number: ECU family, ZB number and integration position lists."
+                  width="1440"
+                  height="749"
+                  loading="lazy"
+                  decoding="async"
+                />
+                <figcaption>
+                  <b>Choose ZUSB.</b> ECU family, assembly number and
+                  integration position, from the data.<span class="tag"
+                    >modern</span
+                  >
+                </figcaption>
+              </figure>
+              <figure class="wide">
+                <img
+                  src="img/demo/webkfp-zusb-inpa.webp"
+                  alt="Choose assembly identification number: ECU family, ZB number and integration position lists."
+                  width="1440"
+                  height="749"
+                  loading="lazy"
+                  decoding="async"
+                />
+                <figcaption>
+                  <b>Choose ZUSB.</b> ECU family, assembly number and
+                  integration position, from the data.<span class="tag"
+                    >classic</span
+                  >
+                </figcaption>
+              </figure>
             </div>
           </section>
 
@@ -1167,14 +1671,14 @@
               <figure class="wide">
                 <img
                   src="img/demo/tool32.webp"
-                  alt="Tool32: a filterable list of definition files, the jobs of the selected one with write jobs marked, and the result of STATUS_MOTORDREHZAHL: 752 rpm, setpoint 720."
+                  alt="Web32: a filterable list of definition files, the jobs of the selected one with write jobs marked, and the result of STATUS_MOTORDREHZAHL: 752 rpm, setpoint 720."
                   width="1440"
                   height="900"
                   loading="lazy"
                   decoding="async"
                 />
                 <figcaption>
-                  <b>Tool32.</b> The engine speed job run against the engine
+                  <b>Web32.</b> The engine speed job run against the engine
                   module: three result values, a repeat timer, and a wire trace
                   underneath.
                 </figcaption>

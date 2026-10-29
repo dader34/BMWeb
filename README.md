@@ -63,7 +63,7 @@ the port and the app reopens it on every load with no picker. Opening a module
 with no cable shows "No adapter connected" rather than an offline view: the
 module's script asks the car first, and nothing is drawn from a guess. On macOS the port is `cu.usbserial*`, `cu.SLAB*` or
 `cu.wchusbserial*`; on Linux `ttyUSB*` or `ttyACM*`
-(`scripts/setup/99-bmacw-kdcan.rules` grants the permission). The app opens
+(`scripts/setup/99-bmweb-kdcan.rules` grants the permission). The app opens
 at 115200 8N1 and re-opens at 9600 8E1 for DS2/KWP2000 modules on its own.
 FTDI cables want a 1 ms latency timer; the app cannot set it but will tell
 you when `IFH-0003` looks like that.
