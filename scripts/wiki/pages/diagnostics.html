@@ -1,0 +1,96 @@
+<!--
+title: Diagnostics and the K line
+nav: Diagnostics
+lead: How the E46-era units talk on the K line, what their answers mean, and what the cables and adapters in between can carry.
+group: topics
+cat: K line
+see: ms45
+see: gs20
+see: coding
+-->
+<section id="line">
+  <h2>The line</h2>
+  <p>
+    The K line is one wire, half duplex. Everything a tester sends comes back
+    to it as an echo before the unit answers, so a cable that does not hear its
+    own echo is not on the line. The usual serial format is 8 data bits, even
+    parity, 1 stop bit.
+  </p>
+</section>
+
+<section id="ds2">
+  <h2>DS2 telegrams</h2>
+  <p>
+    Used by the gearboxes, the cluster and most body modules. A telegram is the
+    unit's address, the total length (address, length and checksum included),
+    the data, and an XOR of every byte before it.
+    <span class="ev car">car</span>
+  </p>
+  <pre><code>32 04 00 36                  GS20 (address 0x32), identification (00); 0x32 ^ 0x04 ^ 0x00 = 0x36
+32 2E A0 ... B6              its answer; A0 = done</code></pre>
+  <table>
+    <thead><tr><th scope="col">Status</th><th scope="col">Seen meaning</th></tr></thead>
+    <tbody>
+      <tr><th scope="row"><code>A0</code></th><td>Done</td></tr>
+      <tr><th scope="row"><code>A2</code></th><td>Not now. The GS20 says it for 10 s after power-up or a wrong key, and when it has no program and is already in its boot loader.</td></tr>
+      <tr><th scope="row"><code>B0</code></th><td>Refused. The GS20 says it for a write to a region not erased in this session.</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section id="kwp">
+  <h2>KWP2000 telegrams</h2>
+  <p>
+    Used by the MS45.1 DME. A telegram is <code>B8</code>, the target, the
+    source, a length byte, the data and a checksum. <code>B8</code> is a fixed
+    format byte, not <code>0x80</code> plus a length, so the length is always
+    byte 3. The tester is <code>F1</code> and the DME <code>12</code>.
+    <span class="ev car">car</span>
+  </p>
+  <pre><code>B8 12 F1 02 1A 89 ..          tester to DME: read the serial number
+B8 F1 12 03 7F 31 23 ..       DME to tester: routine not finished yet</code></pre>
+  <p>
+    A positive answer is the request's service plus <code>0x40</code>. A
+    negative one is <code>7F</code>, the service, and a reason:
+  </p>
+  <table>
+    <thead><tr><th scope="col">Reason</th><th scope="col">Meaning</th><th scope="col">What to do</th></tr></thead>
+    <tbody>
+      <tr><th scope="row"><code>23</code></th><td>Routine not complete</td><td>Ask again. An erase says this for about 10 s.</td></tr>
+      <tr><th scope="row"><code>78</code></th><td>Answer pending</td><td>Wait. The answer follows on its own.</td></tr>
+      <tr><th scope="row"><code>22</code></th><td>Conditions not correct</td><td>A real refusal. An erase refuses this way when the supply voltage is too low.</td></tr>
+      <tr><th scope="row"><code>80</code></th><td>Refused</td><td>A real refusal.</td></tr>
+    </tbody>
+  </table>
+  <p>
+    Some answers are positive in form and still a refusal. The DME's key answer
+    <code>71 08 00</code> means the key was rejected; only <code>71 08 01</code>
+    unlocks it. See <a href="ms45.html#session">the MS45.1 session</a>.
+  </p>
+</section>
+
+<section id="adapters">
+  <h2>Cables and adapters</h2>
+  <ul>
+    <li>
+      <b>A K+DCAN USB cable</b> carried the DME's programming session at 115200
+      and, with the DME's port set higher, up to 250000 cleanly and 312500 for
+      short exchanges. <a href="ms45.html#line">Measurements</a>.
+      <span class="ev car">car</span>
+    </li>
+    <li>
+      <b>WiFi adapters</b> need care. One common adapter firmware only does
+      parity between 980 and 25000 baud, and its 115200 mode has no parity. The
+      DME's programming mode is 115200 with even parity, so its answers come
+      back torn. Asking for programming mode at 19200 instead (<code>10 85 02</code>)
+      works, and the DME keeps that rate through erase and write. 38400 and above
+      did not. <span class="ev car">car</span>
+    </li>
+    <li>
+      <b>Answer time grows with a slow line.</b> At 19200 a flash block is usually
+      answered in about 200 ms but occasionally in 670 ms, so block timeouts need
+      to follow the negotiated P2max of 3 s, not a guess.
+      <span class="ev car">car</span>
+    </li>
+  </ul>
+</section>

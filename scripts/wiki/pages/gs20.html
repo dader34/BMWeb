@@ -1,0 +1,122 @@
+<!--
+title: GS20 automatic gearbox
+nav: GS20 gearbox
+lead: The control unit of the E46's five-speed GM automatic. A Siemens C167CR with an 8-bit external flash, programmed over DS2. Read from program 7552700 (release 90) and run in an emulator.
+group: units
+infobox: GS20
+info: Unit = Automatic gearbox computer
+info: Gearbox = GM 5L40-E, five speeds
+info: CPU = Siemens C167CR
+info: Flash = AMD Am29F400BB on an 8-bit bus
+info: Program read = 7552700, release 90
+info: Diagnostics = DS2 on the K line, address <code>0x32</code>
+cat: Gearbox computers
+cat: Flashing
+cat: K line
+see: ms45
+see: diagnostics
+-->
+<section id="memory">
+  <h2>Memory</h2>
+  <p>
+    A 512 KB read is the boot block at <code>0x080000</code>, the calibration at
+    <code>0x090000</code> and the program at <code>0x0A0000</code>. The flash is
+    an Am29F400BB on an 8-bit bus. <span class="ev code">firmware</span>
+  </p>
+  <ul>
+    <li><b>The first 48 KB of the flash also appear at <code>0x000000</code>.</b> That is where the trap vectors are, so every interrupt enters the boot block first. The 1 ms tick and the K-line interrupts stay in the boot block whichever of boot block and program is running; the rest go to stubs in the program.</li>
+    <li><b>Address bit 20 is ignored:</b> the program sends its flash commands at <code>0x18xxxx</code>, a byte at a time.</li>
+    <li><b>The calibration carries a CRC-16</b>, stored at <code>0x09000D</code>.</li>
+  </ul>
+</section>
+
+<section id="ident">
+  <h2>Identification</h2>
+  <p>
+    A DS2 identification <code>32 04 00 36</code> is answered like this. A real
+    module with the same software answered the same bytes on the bench except
+    its production date and serial number. <span class="ev car">car</span>
+    <span class="ev emu">emulator</span>
+  </p>
+  <pre><code>32 2E A0 "7552700" "29" "001060" "3905" "0000000000" "90" "10001399364" B6</code></pre>
+  <p>
+    With the program region erased, the boot block answers the same telegram
+    with the program's fields reading <code>FF</code>.
+  </p>
+  <h3>Releases</h3>
+  <p>
+    The boot block, K line and flash are the same for every release. Each of
+    the thirteen programs in SP-Daten starts on the same boot block, with a
+    calibration the boot block accepts for it, and runs without a fault.
+    <span class="ev emu">emulator</span>
+  </p>
+  <table>
+    <thead><tr><th scope="col">Release</th><th scope="col">Program</th></tr></thead>
+    <tbody>
+      <tr><th scope="row">42</th><td>1423690</td></tr>
+      <tr><th scope="row">55</th><td>1423862</td></tr>
+      <tr><th scope="row">57</th><td>1423886</td></tr>
+      <tr><th scope="row">63</th><td>4455028</td></tr>
+      <tr><th scope="row">64</th><td>1423955, 7508145</td></tr>
+      <tr><th scope="row">74</th><td>7506226</td></tr>
+      <tr><th scope="row">76</th><td>7521759</td></tr>
+      <tr><th scope="row">85</th><td>7518709</td></tr>
+      <tr><th scope="row">86</th><td>7526396</td></tr>
+      <tr><th scope="row">88</th><td>7532988</td></tr>
+      <tr><th scope="row">89</th><td>7544721</td></tr>
+      <tr><th scope="row">90</th><td>7552700</td></tr>
+    </tbody>
+  </table>
+  <p>Of the 219 calibrations, the boot block takes between one and 48 with each program.</p>
+</section>
+
+<section id="session">
+  <h2>The programming session</h2>
+  <p>
+    Compared against the wire log of a real calibration write: the emulated
+    module answers with the same bytes. <span class="ev car">car</span>
+    <span class="ev emu">emulator</span>
+  </p>
+  <ul>
+    <li><b>No unlock for 10 s</b> after power-up, and for 10 s after a wrong key. The answer while it waits is <code>A2</code>.</li>
+    <li><b>The program answers the session open</b> and hands over to the boot block at the first flash command. A module with no program is in its boot loader already and answers the open with <code>A2</code>.</li>
+    <li><b>A write to a region not erased in this session is refused</b> with <code>B0</code>, even if it is blank. A write over bytes already programmed is answered with sub-status 3.</li>
+    <li><b>A blank program region</b> gives validity code <code>0x0B</code>, the flash status sub-code a flasher sees for it.</li>
+    <li><b>The pace is the module's:</b> it wants 25 ms of quiet before it takes a telegram. A calibration write is about 44 s of the module's time and a program write about 175 s, at 80 ms a chunk.</li>
+  </ul>
+</section>
+
+<section id="bootloop">
+  <h2>Why a bad program boot-loops</h2>
+  <p>
+    The boot block checks a program's three ID blocks, not its code. A program
+    with good IDs and broken code is started, crashes, is reset by the trap
+    handler and started again, about every 70 ms, and never answers on the K
+    line. <span class="ev emu">emulator</span>
+  </p>
+  <p>
+    The boot loader's own loop, which is what takes a new program over the K
+    line, only runs when the IDs do not match. Writing such a program goes
+    through without complaint, because the session is served by the boot block
+    and routines in RAM. It is the power cycle afterwards that bricks it.
+  </p>
+  <div class="callout">
+    <h4>One way this happens</h4>
+    <p>
+      An early patched build erased the last 32 bytes of three program segments.
+      A routine near the end of one is called at start-up; the CPU ran through
+      the <code>FF</code>s off the end of the segment, wrapped to the program
+      header and hit an undefined opcode. The way back is the CPU's bootstrap
+      loader in mask ROM, not the flash.
+    </p>
+  </div>
+</section>
+
+<section id="kline">
+  <h2>The K-line driver</h2>
+  <p>
+    The boot block's driver reads the RxD pin as well as the UART. While the
+    pin is low it holds a 300 ms quiet timer and takes no telegram. It has both
+    the 5-baud wake-up and KWP2000 built in. <span class="ev code">firmware</span>
+  </p>
+</section>
