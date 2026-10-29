@@ -85,6 +85,52 @@ const IPO_PROLOGUE_ADVISORY_TITLES = new Set([
 ]);
 
 /**
+ * The labels of the fault protocol INPAapiFsLesen writes. INPA wrote them in
+ * German; the file is BMWeb's, so they follow the language setting and stay
+ * German only in Original mode (github #260: an MSS54 read showed
+ * "Fehlerart:" beside an English fault name).
+ * @returns {{readFailed: string, none: string, count: (n: number) => string,
+ *   type: string, frequency: string, counter: string}}
+ */
+function ipoFaultFileLabels() {
+  if (typeof lang === 'function' && lang() === 'orig')
+    return {
+      readFailed: 'Fehlerspeicher lesen',
+      none: 'Kein Fehler im Fehlerspeicher',
+      count: (n) => `${n} Fehler im Fehlerspeicher`,
+      type: 'Fehlerart',
+      frequency: 'Häufigkeit',
+      counter: 'Logistikzähler',
+    };
+  return {
+    readFailed: 'Read fault memory',
+    none: 'No fault in the fault memory',
+    count: (n) => `${n} fault${n === 1 ? '' : 's'} in the fault memory`,
+    type: 'Fault type',
+    frequency: 'Frequency',
+    counter: 'Logistics counter',
+  };
+}
+
+/**
+ * One freeze-frame value of that protocol, formatted as the fault screen
+ * formats it (envValueText): a real rounded to two places, so the SGBD's
+ * 0.1 h steps do not print as "1.7000000000000002 h".
+ * @param {*} v - F_UWn_WERT
+ * @param {*} u - F_UWn_EINH
+ * @returns {string}
+ */
+function ipoEnvValueText(v, u) {
+  if (v == null) return '';
+  if (typeof envValueText === 'function') return envValueText(v, u);
+  const s = String(v);
+  const n = parseFloat(s);
+  const shown =
+    isFinite(n) && !Number.isInteger(n) && /^-?\d/.test(s) ? n.toFixed(2) : s;
+  return `${shown}${u ? ` ${u}` : ''}`;
+}
+
+/**
  * The context a run is driven in: what it is, for confirm dialogs and the
  * confirm cache, and whether the user already confirmed it.
  * @typedef {object} IpoRunContext
@@ -515,21 +561,18 @@ class IpoProgram {
     );
     const name = String(sgbd || this.ecu.sgbd || '').toUpperCase();
     const lines = [name, ''];
+    // the file's labels are ours, not the script's: German only in Original
+    // mode, so the protocol does not read German beside its translated texts
+    const L = ipoFaultFileLabels();
     if (String(fed.get('JOB_STATUS') || 'OKAY') !== 'OKAY') {
-      lines.push(`Fehlerspeicher lesen: ${fed.get('JOB_STATUS')}`);
+      lines.push(`${L.readFailed}: ${fed.get('JOB_STATUS')}`);
       return lines;
     }
     if (!faults.length) {
-      lines.push('Kein Fehler im Fehlerspeicher');
+      lines.push(L.none);
       return lines;
     }
-    lines.push(
-      `${faults.length} Fehler im Fehlerspeicher`.replace(
-        /^1 Fehler/,
-        '1 Fehler'
-      ),
-      ''
-    );
+    lines.push(L.count(faults.length), '');
     let hasDetail = true; // until a module proves it has no FS_LESEN_DETAIL
     for (const f of faults) {
       const nr = f.F_ORT_NR != null ? String(f.F_ORT_NR) : '';
@@ -562,9 +605,9 @@ class IpoProgram {
         `${nr}${hex ? ` (${hex})` : ''}  ${det.F_ORT_TEXT || ''}`.trim()
       );
       const bits = [];
-      if (det.F_ART1_TEXT) bits.push(`Fehlerart: ${det.F_ART1_TEXT}`);
-      if (det.F_HFK != null) bits.push(`Häufigkeit: ${det.F_HFK}`);
-      if (det.F_LZ != null) bits.push(`Logistikzähler: ${det.F_LZ}`);
+      if (det.F_ART1_TEXT) bits.push(`${L.type}: ${det.F_ART1_TEXT}`);
+      if (det.F_HFK != null) bits.push(`${L.frequency}: ${det.F_HFK}`);
+      if (det.F_LZ != null) bits.push(`${L.counter}: ${det.F_LZ}`);
       if (det.F_VORHANDEN_TEXT) bits.push(det.F_VORHANDEN_TEXT);
       if (bits.length) lines.push(`    ${bits.join('  ')}`);
       const n = Number(det.F_UW_ANZ) || 0;
@@ -573,7 +616,7 @@ class IpoProgram {
         if (t == null) continue;
         const v = det[`F_UW${i}_WERT`];
         const u = det[`F_UW${i}_EINH`];
-        lines.push(`    ${t}: ${v != null ? v : ''}${u ? ` ${u}` : ''}`);
+        lines.push(`    ${t}: ${ipoEnvValueText(v, u)}`);
       }
       lines.push('');
     }
