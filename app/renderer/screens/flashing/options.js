@@ -200,11 +200,11 @@ function fbOptionsShowFor(module) {
   fbEls['opt-protect-section'].hidden = tcu || !fbProtectTesting();
   fbEls['opt-ms-section'].hidden = tcu;
   fbEls['opt-upshift-section'].hidden = !tcu;
-  fbEls['opt-aif-section'].hidden = tcu || !fbProtectTesting();
+  fbEls['opt-aif-section'].hidden = tcu;
   // the EEPROM read only for a DME identified with the fast flash bootloader
   fbEls['opt-eeprom-section'].hidden =
-    tcu || !fbProtectTesting() || !(fbState.dme && fbState.dme.bootLoader);
-  fbEls['opt-livetune-section'].hidden = tcu || !fbProtectTesting();
+    tcu || !(fbState.dme && fbState.dme.bootLoader);
+  fbEls['opt-livetune-section'].hidden = tcu;
   if (tcu) fbOptionsRefreshUpshiftGate();
   else {
     fbOptionsRefreshEwsGate();

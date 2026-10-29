@@ -481,7 +481,6 @@ async function fbDmeReadCarFastFlasher() {
   d.fastFlasher = null;
   // identify got answers from the DME's own program: no flasher is running
   if (d.identified) fbDmeSetFastLive(false);
-  if (!fbProtectTesting()) return;
   if (!fbDmeIsMs451()) return;
   try {
     const stamp = await ms45ReadCarBytes(

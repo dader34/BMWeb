@@ -447,13 +447,12 @@ const FB_AIF_ED_LOADER_BOOT_WINDOW = 0x02;
 /**
  * Identify's read of the bootloader's stamp, on its KWP session (one
  * telegram an address; a stock boot sector answers 0xFF there). Found, it
- * is remembered for a DME that later stops in its loader. Bench builds only.
+ * is remembered for a DME that later stops in its loader.
  * @returns {Promise<void>}
  */
 async function fbAifEdReadLoader() {
   const d = fbState.dme;
   d.bootLoader = null;
-  if (!fbProtectTesting()) return;
   let answered = false;
   if (fbDmeIsMs451())
     for (const at of FB_AIF_ED_LOADER_AT) {
@@ -597,7 +596,6 @@ function fbAifEdAvailable() {
   const d = fbState.dme;
   const bl = d && d.bootLoader;
   return !!(
-    fbProtectTesting() &&
     fbState.module === 'dme' &&
     d.identified &&
     bl &&
@@ -609,7 +607,6 @@ function fbAifEdAvailable() {
 function fbAifEdWhyNot(write) {
   const d = fbState.dme;
   const bl = d && d.bootLoader;
-  if (!fbProtectTesting()) return 'Bench only.';
   if (fbState.module !== 'dme' || !d.identified)
     return 'Identify the DME first.';
   if (!bl || bl.version < FB_AIF_ED_LOADER_FROM)

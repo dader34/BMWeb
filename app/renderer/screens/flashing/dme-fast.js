@@ -15,7 +15,6 @@
  */
 async function fbDmeFastFlashTune() {
   const d = fbState.dme;
-  if (!fbProtectTesting()) return;
   if (!d.identified || !d.flash) return;
   if (!(await fbDmeFastFlasherAvailable('Fast Flash Tune'))) return;
   await fbDmeFastFlash({
@@ -55,7 +54,6 @@ async function fbDmeFastFlashTune() {
  */
 async function fbDmeFastRead() {
   const d = fbState.dme;
-  if (!fbProtectTesting()) return;
   if (!d.identified) return;
   if (!(await fbDmeFastFlasherAvailable('Read DME'))) return;
   const full = !!d.fullBin;
@@ -783,7 +781,6 @@ async function fbDmeFastFlasherAvailable(title) {
  */
 async function fbDmeFastFlashProgram(opts = {}) {
   const d = fbState.dme;
-  if (!fbProtectTesting()) return;
   if (!d.identified || !d.flash || !d.mpc) return;
   if (!(await fbDmeFastFlasherAvailable('Fast Flash Program'))) return;
 

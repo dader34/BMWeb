@@ -63,41 +63,11 @@ function fbAifWanted() {
 
 /**
  * Whether Flash Tune and Flash Program go through the resident fast flasher
- * when the DME has a ready one (Settings, on unless switched off). Testing
- * builds only, like the rest of the flasher.
+ * when the DME has a ready one (Settings, on unless switched off).
  * @returns {boolean}
  */
 function fbFastFlasherWanted() {
-  return (
-    fbProtectTesting() && Settings.get('flashUseFastFlasher', true) === true
-  );
-}
-
-/** Whether this is the published site rather than a developer's local build. */
-function fbIsLiveSite() {
-  if (typeof location === 'undefined') return false;
-  return !/^(localhost|127\.0\.0\.1|\[::1\]|.*\.local)$/.test(
-    location.hostname
-  );
-}
-
-/**
- * The beta warning in front of the Flashing/Tuning app: what it does, what
- * can go wrong, and what to do first. Resolves true only when the reader
- * has ticked the acknowledgement and confirmed.
- * @returns {Promise<boolean>}
- */
-function fbBetaWarning() {
-  return fbConfirmAck(
-    'This app ERASES and REWRITES the program and calibration in your DME or transmission.\n\n' +
-      'Before you write anything:\n' +
-      '\u2022 Take a FULL read of the module first (Read DME / Read Full, Full Binary ticked) and keep the files somewhere safe. That read is the only guaranteed way back.\n' +
-      '\u2022 Battery charger connected, ignition on, engine off. Do not switch off, unplug or close this page until it reports success.\n' +
-      '\u2022 Flash only files you understand: a tune or program for exactly this control unit and program version. Reading never hurts; writing does.\n' +
-      '\u2022 Options such as EWS delete change how the car behaves and what it protects against. Know what they do before ticking them.',
-    'I have read this. I will take a full read before I write anything, and I accept that what I flash is my responsibility.',
-    'Flashing/Tuning & Logging beta'
-  );
+  return Settings.get('flashUseFastFlasher', true) === true;
 }
 
 /** The tester serial every programming-log entry carries. */
@@ -148,13 +118,6 @@ function fbDevUi() {
  * @returns {Promise<void>}
  */
 async function showFlashing(page) {
-  // BETA: this app writes to a car's control units. On the live site every
-  // entry goes through the warning, every time, so nobody lands here on a
-  // wrong click and nobody flashes without having read it.
-  if (fbIsLiveSite() && !(await fbBetaWarning())) {
-    showApps();
-    return;
-  }
   lastScreen = showFlashing;
   setCrumbs([
     { label: 'Vehicles', fn: showChassis },
@@ -344,7 +307,7 @@ async function showFlashing(page) {
 
   fbEls['set-keep'].checked = !!Settings.get('flashKeepFiles', false);
   fbEls['set-aif'].checked = fbAifWanted();
-  fbEls['set-fast-section'].hidden = !fbProtectTesting();
+  fbEls['set-fast-section'].hidden = false;
   fbEls['set-fast'].checked = fbFastFlasherWanted();
   fbEls['set-fast'].onchange = () =>
     Settings.set('flashUseFastFlasher', fbEls['set-fast'].checked);

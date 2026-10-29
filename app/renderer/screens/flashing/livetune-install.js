@@ -61,7 +61,6 @@ function fbLtInstallRefresh() {
 
 /** Install live tune: the loaded pair, live tune spliced in, as a program flash. */
 async function fbLtInstall() {
-  if (!fbProtectTesting()) return;
   const why = fbLtInstallWhyNot();
   if (why) {
     await fbMessage(why, 'Install live tune');

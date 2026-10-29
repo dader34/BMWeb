@@ -34,7 +34,6 @@ function fbIsnAvailable() {
   const d = fbState.dme;
   const bl = d && d.bootLoader;
   return !!(
-    fbProtectTesting() &&
     fbState.module === 'dme' &&
     d.identified &&
     bl &&
@@ -50,7 +49,6 @@ function fbIsnAvailable() {
 function fbIsnWhyNot(eeprom) {
   const d = fbState.dme;
   const bl = d && d.bootLoader;
-  if (!fbProtectTesting()) return 'Bench only.';
   if (fbState.module !== 'dme' || !d.identified)
     return 'Identify the DME first.';
   if (!fbDmeIsMs451()) return 'The ISN tools are MS45.1 only.';
@@ -102,9 +100,7 @@ function fbIsnEepromRefresh() {
   // the section follows the identification (an Identify while Custom
   // Options is open), not only the view's opening
   fbEls['opt-eeprom-section'].hidden = !(
-    fbState.module === 'dme' &&
-    fbProtectTesting() &&
-    fbState.dme.bootLoader
+    fbState.module === 'dme' && fbState.dme.bootLoader
   );
   if (!btn.dataset.wired) {
     btn.dataset.wired = '1';
