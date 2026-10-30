@@ -174,7 +174,7 @@ async function showFlashing(page) {
       <button class="fb-rail-btn" id="fb-rail-logging" title="Data logging">&#x223F;</button>
       <button class="fb-rail-btn" id="fb-rail-history" title="History">&#x27F2;</button>
       <button class="fb-rail-btn" id="fb-rail-aif" title="AIF" hidden>&#x25A4;</button>
-      <button class="fb-rail-btn" id="fb-rail-isn" title="ISN / EWS" hidden>&#x1F511;&#xFE0E;</button>
+      <button class="fb-rail-btn fb-rail-word" id="fb-rail-isn" title="ISN / EWS" hidden><span>EWS</span><span>ISN</span></button>
       <button class="fb-rail-btn" id="fb-rail-settings" title="Settings">&#x2699;&#xFE0E;</button>
     </div>
     <div class="fb-main">

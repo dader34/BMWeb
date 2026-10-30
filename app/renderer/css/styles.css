@@ -10825,6 +10825,24 @@ body.remote-helper::after {
   border-color: var(--amber);
   background: var(--panel);
 }
+/* a rail entry named in small letters rather than drawn: two stacked words
+   split by a hairline, in the button's own colour */
+.fb-rail-word {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  font-family: var(--mono);
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  line-height: 1;
+}
+.fb-rail-word span + span {
+  padding-top: 2px;
+  border-top: 1px solid currentColor;
+}
 .fb-main {
   display: flex;
   flex-direction: column;
@@ -14506,6 +14524,17 @@ body.fb-classic-on .modal-overlay {
   line-height: 1.15;
   margin-top: 2px;
   text-align: center;
+}
+:root :is(.fb.fb-classic, body.fb-classic-on .modal-overlay) .fb-rail-word {
+  /* the stacked words are its name already: no caption under them */
+  justify-content: center;
+  min-height: 40px;
+  font-size: 9.5px;
+}
+:root
+  :is(.fb.fb-classic, body.fb-classic-on .modal-overlay)
+  .fb-rail-word::after {
+  content: none;
 }
 :root
   :is(.fb.fb-classic, body.fb-classic-on .modal-overlay)
