@@ -131,7 +131,7 @@ const WS_SCALES = [
 ];
 
 const WS_DEFAULT = {
-  layout: 'four',
+  layout: 'two-lr',
   routes: ['apps/tuning', 'apps/logging', '', 'apps/tool32'],
   scale: 1200,
 };
@@ -174,11 +174,16 @@ function wsSave(state) {
 
 /**
  * A pane's URL: this same page, marked as pane N (install.js reads the
- * mark for body.pane), at the route.
+ * mark for body.pane), at the route. The page's own file name, not a fixed
+ * one: the hosted site serves the app as app.html, and its index.html is
+ * the landing page.
  * @param {number} i @param {string} route @returns {string}
  */
 function wsPaneUrl(i, route) {
-  return `index.html?pane=${i + 1}#${route}`;
+  const page =
+    (typeof location !== 'undefined' && location.pathname.split('/').pop()) ||
+    'index.html';
+  return `${page}?pane=${i + 1}#${route}`;
 }
 
 /** @param {string} route @returns {{icon: string, title: string}} */

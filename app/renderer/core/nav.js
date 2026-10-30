@@ -15,19 +15,15 @@
  * @property {string} [group] - Diagnostic-address group SGBD, when grouped.
  */
 
-// Coding is not ready for the public build yet, so it is hidden on the
-// deployed site (bmweb.danner.ink and any *.github.io mirror). It stays
-// available everywhere else -- localhost dev and the macOS app -- where it is
-// being worked on. Host-based, not build-flag, so the same bundle serves both.
+// Coding was hidden on the deployed site while it was being proven; it is
+// open everywhere now. The helper stays so callers (the Apps hub, ISTA's
+// dev-only tabs) keep one place to gate on should that change again.
 /**
  * Whether the Coding entries may be shown on this host.
  * @returns {boolean}
  */
 function codingReady() {
-  if (typeof location === 'undefined') return true; // packaged app
-  const h = String(location.hostname || '').toLowerCase();
-  const hidden = h === 'bmweb.danner.ink' || h.endsWith('.github.io');
-  return !hidden;
+  return true;
 }
 
 /**
@@ -640,29 +636,6 @@ async function showSections(id, selectIndex = 0) {
   });
 
   // Coding lives in its own app (Apps > Coding, screens/coding/app.js).
-
-  // Vehicle identity, shown only where a module can actually answer. The test
-  // is the same one the screen uses -- an ECU declaring a job that returns the
-  // coding key or the vehicle order -- so the tile never opens a dead end.
-  // Drawn hidden in its place and revealed when the probe answers (it
-  // settles at the first module that carries an identity job), so the
-  // sections never wait on it.
-  if (typeof chassisHasIdentity === 'function') {
-    const ident = document.createElement('button');
-    ident.className = 'sys-item sys-identity';
-    ident.hidden = true;
-    ident.innerHTML = `<span class="nav-name">Identity</span>
-                      <span class="nav-count">read</span>`;
-    ident.onclick = () => showVehicleIdentity(id);
-    nav.appendChild(ident);
-    chassisHasIdentity(id)
-      .then((has) => {
-        if (has) ident.hidden = false;
-      })
-      .catch(() => {
-        /* the row stays hidden */
-      });
-  }
 
   // INPA's whole-vehicle script (every module's fault memory as a report),
   // reachable from the modern layout too, where one ships for this car

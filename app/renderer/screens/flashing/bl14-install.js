@@ -1,6 +1,6 @@
 // Flashing/Tuning: installing the BL15 boot loader (core/flash/bl14.js) --
 // "Install fast flash bootloader" -- one guided button in Custom Options.
-// BENCH ONLY (localhost), like the fast flasher it rides on.
+// On the hosted site too, like the fast flasher it rides on.
 //
 // One confirmation, then up to two sessions without another question:
 //   1. the installer body: the loaded pair written with the installer
@@ -207,7 +207,6 @@ function fbBl14Refresh() {
 /** Install fast flash bootloader (BL15): the installer body if needed, then the ring, one confirmation. */
 async function fbBl14Install() {
   const d = fbState.dme;
-  if (!fbProtectTesting()) return;
   const why = fbBl14WhyNot();
   if (why) {
     await fbMessage(why, 'Install fast flash bootloader');
@@ -321,7 +320,6 @@ async function fbBl14Install() {
 /** Repair fast flash bootloader: the late installer through the DME's own loader if needed, then the ring rewritten through it, one confirmation. */
 async function fbBl14Repair() {
   const d = fbState.dme;
-  if (!fbProtectTesting()) return;
   const why = fbBl14RepairWhyNot();
   if (why) {
     await fbMessage(why, 'Repair fast flash bootloader');
@@ -399,7 +397,6 @@ async function fbBl14Repair() {
 /** Restore stock bootloader: BL15 swapped for the installer ring if needed, then the boot region put back to stock, one confirmation. */
 async function fbBl14Restore() {
   const d = fbState.dme;
-  if (!fbProtectTesting()) return;
   const why = fbBl14RestoreWhyNot();
   if (why) {
     await fbMessage(why, 'Restore stock bootloader');

@@ -88,8 +88,8 @@ const ISTA_HOME_SUB3 = 'vin';
  * says that instead, so the difference stays visible.
  *
  * WHAT IS DEV-ONLY. A sub-tab with `dev: true` exists only where Coding does
- * (codingReady in core/nav.js: not on the public site): the public build
- * never lists it, never routes to it and never resolves a pin to it.
+ * (codingReady in core/nav.js): where that is off, the build never lists
+ * it, never routes to it and never resolves a pin to it.
  * @type {IstaTab[]}
  */
 const ISTA_TABS = [
