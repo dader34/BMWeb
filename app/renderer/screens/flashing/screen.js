@@ -563,6 +563,15 @@ function fbFlashingBar(flashing) {
   if (fbEls.fill) fbEls.fill.classList.toggle('flashing', !!flashing);
 }
 
+if (typeof window !== 'undefined')
+  // a reload or a closed tab would cut the module off mid-run (a flash can
+  // leave it unbootable): the browser asks first
+  window.addEventListener('beforeunload', (e) => {
+    if (!fbState.running) return;
+    e.preventDefault();
+    e.returnValue = '';
+  });
+
 /**
  * Mark the screen busy: Identify and the module choice lock while the car is
  * being talked to.
