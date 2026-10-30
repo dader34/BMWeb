@@ -15,7 +15,8 @@
 // the bundle and writes each as bundle-<name>.js beside it, loaded the first
 // time one of its entry functions is called: the bundle carries a stub of
 // that name which loads the part, whose own declaration then replaces it.
-// A stub marked "noop" just returns (the part cannot be running yet).
+// A stub marked "noop" just returns (the part cannot be running yet); its
+// body is not empty, or the minifier deletes the calls to it.
 //
 // --minify (the deployed site) shrinks it with esbuild and writes
 // <outfile>.map beside it. Top-level names are kept as they are -- the files
@@ -109,7 +110,9 @@ function loaderCode() {
     for (const [fn, how] of Object.entries(spec.entries))
       out.push(
         how === 'noop'
-          ? `function ${fn}() {}`
+          ? // not an empty body: the minifier deletes calls to an empty
+            // function, so the part's own declaration would never be reached
+            `function ${fn}() {\n  return __bmwebChunks.__noop;\n}`
           : `function ${fn}(...args) {\n` +
               `  const stub = ${fn};\n` +
               `  return __bmwebChunk(${JSON.stringify(chunk)}).then(() => {\n` +
