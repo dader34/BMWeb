@@ -1,6 +1,6 @@
 // Byte helpers shared by the flashing code: big-endian words, hex, and the
 // two CRC-32s the DME and the tools use. Until now each file that needed
-// one carried its own copy under its own prefix (_bl14Be32, _ltBe32,
+// one carried its own copy under its own prefix (_blBe32, _ltBe32,
 // _ffBe32, ...), the cost of 300 scripts sharing one global scope.
 //
 // This is the first ES module directory. It is not loaded as a module by

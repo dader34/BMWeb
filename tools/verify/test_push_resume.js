@@ -3,7 +3,7 @@
 // the tail discriminator's three branches, the prefix search, the
 // torn-chunk guard, the would-not-take fallback and its bound. The
 // PROTOCOL is proven on the emulator (ms45-emu tools/flash_resume_test.py,
-// ALL OK on the BL15 image, 2026-10-27); this proves the client emits that
+// ALL OK on the BL image, 2026-10-27); this proves the client emits that
 // sequence and converges. No hardware, no NRV2B (the mock takes plain
 // bytes).
 //

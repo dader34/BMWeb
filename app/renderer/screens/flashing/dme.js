@@ -442,6 +442,7 @@ async function fbDmeReadCar() {
     await fbDmeReadCarResetRecord();
     await fbDmeReadCarFastFlasher();
     await fbAifEdReadLoader();
+    await fbBlHealthRead();
   };
   // identify may have left the session at the cable's rate already
   let baud = d.ident.baud || 9600;
@@ -505,7 +506,6 @@ async function fbDmeReadCarFastFlasher() {
     const status = d.ident.programmingStatus;
     if (d.fastFlasher && status && status !== 'Normalbetrieb') {
       d.fastFlasher.ready = false;
-      d.fastFlasher.upgradable = false;
       d.fastFlasher.notRunning = fbDmeProgrammingStatus(status);
     }
   } catch (e) {

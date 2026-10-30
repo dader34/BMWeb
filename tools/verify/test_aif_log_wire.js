@@ -3,7 +3,7 @@
 // the marker ladder's rules, the AND-physics backstop on direct writes,
 // the rewrite's trusted-sector check and read fallback. The PROTOCOL is
 // proven on the emulator (ms45-emu tools/aif_editor_test.py, ALL OK
-// 2026-10-27, on the BL14 image); this proves the client emits that
+// 2026-10-27, on the bootloader image); this proves the client emits that
 // sequence and converges. No hardware, no NRV2B (the mock client takes
 // plain bytes).
 //

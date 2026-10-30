@@ -29,11 +29,11 @@ const ISN_FLASH_LEN = 6;
 const ISN_BOOT = 0x8000;
 const ISN_BOOT_LEN = 0x18000; // [0x8000, 0x20000)
 
-// bl14.js loads AFTER this file (it depends on isnFlash), so the reference
+// bl.js loads AFTER this file (it depends on isnFlash), so the reference
 // is resolved lazily, not captured at load time.
-function isnFlashBl14() {
-  if (typeof bl14 !== 'undefined') return bl14;
-  return require('./bl14.js').bl14;
+function isnFlashBl() {
+  if (typeof bl !== 'undefined') return bl;
+  return require('./bl.js').bl;
 }
 
 /**
@@ -106,7 +106,7 @@ function isnSpliceBoot(low, sect8k, mid, boot, isn) {
   nb.set(triple, at);
   // the CRC word is outside 0x1FB00's reach, but keep every boot-sector
   // write consistent: recompute it over the final content
-  const withCrc = isnFlashBl14().withBootCrc(low, sect8k, mid, nb);
+  const withCrc = isnFlashBl().withBootCrc(low, sect8k, mid, nb);
   const same = withCrc.every((x, i) => x === boot[i]);
   return { boot: withCrc, was, changed: !same };
 }
@@ -128,7 +128,7 @@ function isnBlankBoot(low, sect8k, mid, boot) {
   const was = isnFromTriple(boot.subarray(at, at + ISN_FLASH_LEN));
   const nb = Uint8Array.from(boot);
   nb.fill(0xff, at, at + ISN_FLASH_LEN);
-  const withCrc = isnFlashBl14().withBootCrc(low, sect8k, mid, nb);
+  const withCrc = isnFlashBl().withBootCrc(low, sect8k, mid, nb);
   const same = withCrc.every((x, i) => x === boot[i]);
   return { boot: withCrc, was, changed: !same };
 }

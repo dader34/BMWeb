@@ -1,5 +1,5 @@
 // Flashing/Tuning: the programming log (AIF/UIF) editor, a page of the rail.
-// BENCH ONLY (localhost), and only for a DME identified with the BL14
+// BENCH ONLY (localhost), and only for a DME identified with the
 // boot loader, whose boot-region flasher it rides on.
 //
 // The log is the tail of the boot sector, ext 0x1FB34-0x1FFFF, in 64-byte
@@ -405,7 +405,7 @@ function fbAifEdPageHtml() {
 function fbAifEdShow() {
   const page = fbEls['page-aif'];
   if (!page) return;
-  // reopened on this page (its address) before a BL14 DME is identified
+  // reopened on this page (its address) before a bootloader DME is identified
   if (!fbAifEdAvailable()) {
     fbShowPage('flashing');
     return;
@@ -431,12 +431,12 @@ function fbAifEdShow() {
 
 // ---- the fast flash bootloader ------------------------------------------------------------------------------
 /**
- * The editor runs on the boot-region flasher (ms45-emu tools/bl14.py,
- * tools/bl15.py): a ring in the boot sector's blank span, entered at key-on
+ * The editor runs on the boot-region flasher (ms45-emu tools/bl.py,
+ * tools/build/bl.py): a ring in the boot sector's blank span, entered at key-on
  * with the line held, whose 16-byte stamp reads "MS45BL", the version, the
  * flags (bit 1 the boot-sector window the log needs) and two CPU addresses.
- * BL15 keeps it at ext 0x17140 (its park window took 0x17080), BL14 at
- * 0x17080; BL15's is looked for first. The body is the v13 one, READ
+ * the current ring keeps it at ext 0x17140 (its park window took 0x17080), the old layout at
+ * 0x17080; BL's is looked for first. The body is the v13 one, READ
  * included.
  */
 const FB_AIF_ED_LOADER_AT = [0x17140, 0x17080];
@@ -486,11 +486,21 @@ async function fbAifEdReadLoader() {
   }
   // a DME stopped in its loader (a push cut by a power loss) may answer
   // neither its part number nor the stamp read: the bootloader identified
-  // on the last DME that had one stands in. Only BL15 is reachable from
+  // on the last DME that had one stands in. Only BL is reachable from
   // there (its park window); a wrong guess costs one entry attempt, which
   // finds no flasher and writes nothing.
   const r = fbAifEdRemembered();
   if (!r || r.version < 15) return;
+  // ...but only for the DME it was seen on: a stopped DME that still tells
+  // its hardware number or VIN, and tells a different one, is another unit
+  // (an MS45.0 on the bench after the car's MS45.1 had BL, say)
+  if (
+    [
+      [d.ident.hwRef, r.hwRef],
+      [d.ident.vin, r.vin],
+    ].some(([now, then]) => now && then && now !== then)
+  )
+    return;
   d.bootLoader = {
     version: r.version,
     flags: r.flags,
@@ -510,13 +520,13 @@ async function fbAifEdReadLoader() {
 /** Where the last identified bootloader is kept (this browser only). */
 const FB_AIF_ED_LOADER_KEY = 'bmweb-fast-bootloader';
 
-/** @param {{version: number, flags: number, stampAt: number}} bl */
-function fbAifEdRemember(bl) {
+/** @param {{version: number, flags: number, stampAt: number}} have */
+function fbAifEdRemember(have) {
   const id = fbState.dme.ident;
   try {
     localStorage.setItem(
       FB_AIF_ED_LOADER_KEY,
-      JSON.stringify({ ...bl, hwRef: id.hwRef || '', vin: id.vin || '' })
+      JSON.stringify({ ...have, hwRef: id.hwRef || '', vin: id.vin || '' })
     );
   } catch (e) {
     /* private window: only the stopped-DME fallback is lost */
@@ -544,14 +554,14 @@ function fbAifEdRemembered() {
  * The bootloader IS a fast flasher (its body is the v13 one, entered the
  * same way): Fast Flash Tune / Program / Read go through it when the DME
  * carries no ready resident flasher of its own -- and on a DME stopped in
- * its loader only BL15 (the park window) can be reached at all.
- * @param {{version: number, flags: number}} bl
+ * its loader only BL (the park window) can be reached at all.
+ * @param {{version: number, flags: number}} have
  */
-function fbAifEdAdopt(bl) {
+function fbAifEdAdopt(have) {
   const d = fbState.dme;
   const status = d.ident.programmingStatus;
   const stopped = !!status && status !== 'Normalbetrieb';
-  if (stopped && bl.version < 15) return;
+  if (stopped && have.version < 15) return;
   // the bootloader comes first in the boot path, so a held line lands in it
   // even beside an old resident flasher: it is the fast flasher. The
   // resident one is noted, and the next program flash leaves it out
@@ -559,7 +569,7 @@ function fbAifEdAdopt(bl) {
     d.fastFlasher && !d.fastFlasher.bootLoader && d.fastFlasher.hooked
       ? d.fastFlasher.version
       : 0;
-  d.fastFlasher = fbAifEdLoaderAsFlasher(bl);
+  d.fastFlasher = fbAifEdLoaderAsFlasher(have);
   if (resident) d.fastFlasher.resident = resident;
 }
 
@@ -568,53 +578,49 @@ function fbAifEdAdopt(bl) {
  * (core/flash/fast-flasher.js parseDetection's shape): its body is v13 with
  * every v13 feature, it is reached by the same reset-and-break entry, and it
  * needs no MPC hook. `bootLoader` carries its own version (14 or 15).
- * @param {{version: number, flags: number}} bl
+ * @param {{version: number, flags: number}} have
  * @returns {object}
  */
-function fbAifEdLoaderAsFlasher(bl) {
+function fbAifEdLoaderAsFlasher(have) {
   return {
-    version: 13,
-    flags: bl.flags,
-    bootLoader: bl.version,
+    version: have.version,
+    flags: have.flags,
+    bootLoader: have.version,
     hooked: true,
+    ours: true,
     supported: true,
-    outdated: false,
     mpc: true,
-    mpcSafe: true,
-    pagesets: true,
-    fastLine: true,
     reads: true,
-    aifWipe: !!(bl.flags & FB_AIF_ED_LOADER_BOOT_WINDOW),
+    aifWipe: !!(have.flags & FB_AIF_ED_LOADER_BOOT_WINDOW),
     ready: true,
-    upgradable: false,
   };
 }
 
-/** Whether the rail offers the editor: a DME identified with the fast flash bootloader (BL14 or BL15). */
+/** Whether the rail offers the editor: a DME identified with the fast flash bootloader (either ring layout). */
 function fbAifEdAvailable() {
   if (fbDevUi()) return true; // the dev UI toggle forces the rail page on
   const d = fbState.dme;
-  const bl = d && d.bootLoader;
+  const have = d && d.bootLoader;
   return !!(
     fbState.module === 'dme' &&
     d.identified &&
-    bl &&
-    bl.version >= FB_AIF_ED_LOADER_FROM
+    have &&
+    have.version >= FB_AIF_ED_LOADER_FROM
   );
 }
 
 /** Why the DME cannot be read or written from here, or null. */
 function fbAifEdWhyNot(write) {
   const d = fbState.dme;
-  const bl = d && d.bootLoader;
+  const have = d && d.bootLoader;
   if (fbState.module !== 'dme' || !d.identified)
     return 'Identify the DME first.';
-  if (!bl || bl.version < FB_AIF_ED_LOADER_FROM)
+  if (!have || have.version < FB_AIF_ED_LOADER_FROM)
     return 'Needs the fast flash bootloader on the DME.';
   if (typeof webBus === 'undefined' || !webBus.port || !webBus.port.setSignals)
     return 'Needs a cable that can hold the break line (Web Serial or a gateway).';
   if (!write) return null;
-  if (!(bl.flags & FB_AIF_ED_LOADER_BOOT_WINDOW))
+  if (!(have.flags & FB_AIF_ED_LOADER_BOOT_WINDOW))
     return 'This fast flasher was built without the boot-sector window: it can read the log but not write it.';
   if (typeof aifLog === 'undefined')
     return 'The AIF protocol client (core/flash/aif.js) is not loaded in this build.';

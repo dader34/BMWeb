@@ -566,116 +566,46 @@ const be32 = (b, at) =>
   {
     const hook = (w) =>
       Uint8Array.from([w >>> 24, (w >>> 16) & 255, (w >>> 8) & 255, w & 255]);
+    // this build's body: ready; any other version: left alone, not ready
     const stamp = Buffer.from('4d53343551460d03ffffd300ffffd400', 'hex');
+    stamp[6] = fastFlasher.VERSION;
     const det = fastFlasher.parseDetection(
       hook(fastFlasherBlob.hookWord),
       stamp
     );
-    assert(det && det.ready && det.version === 13 && det.mpc && !det.outdated);
-    assert(det.mpcSafe, "v8 writes the MPC through the loader's driver");
-    assert.strictEqual(fastFlasher.describe(det), 'Fast flasher v13 present');
-    assert(det.pagesets && det.fastLine, 'v9+: pagesets and a safe SET_BAUD');
-    assert(det.aifWipe, 'v12+ carries the AIF wipe');
-    assert(det.reads, 'v13 carries READ');
-    // v12: the AIF wipe, but its READ read the wrong address -- never asked
-    const v12 = Buffer.from(stamp);
-    v12[6] = 12;
-    const twelve = fastFlasher.parseDetection(
-      hook(fastFlasherBlob.hookWord),
-      v12
-    );
-    assert(twelve.aifWipe && !twelve.reads && twelve.upgradable);
-    // the shipped v9 before it: upgraded by a Fast Flash Program
-    const v9 = Buffer.from(stamp);
-    v9[6] = 9;
-    v9[7] = 0x01;
-    const nine = fastFlasher.parseDetection(hook(fastFlasherBlob.hookWord), v9);
-    assert(nine.outdated && nine.upgradable && !nine.aifWipe && nine.fastLine);
-    const v8 = Buffer.from(stamp);
-    v8[6] = 8;
-    const eight = fastFlasher.parseDetection(
-      hook(fastFlasherBlob.hookWord),
-      v8
-    );
-    assert(
-      eight &&
-        eight.pagesets &&
-        !eight.fastLine &&
-        eight.outdated &&
-        eight.upgradable
-    );
-    const v7 = Buffer.from(stamp);
-    v7[6] = 7;
-    const seven = fastFlasher.parseDetection(
-      hook(fastFlasherBlob.hookWord),
-      v7
-    );
-    assert(
-      seven &&
-        seven.mpcSafe &&
-        !seven.pagesets &&
-        seven.outdated &&
-        seven.upgradable
-    );
-    // v6 is MPC-capable on paper but its own CMF sequence reset the car:
-    // it is upgraded, never asked to write the MPC
-    const v6 = Buffer.from(stamp);
-    v6[6] = 6;
-    const six = fastFlasher.parseDetection(hook(fastFlasherBlob.hookWord), v6);
-    assert(six && six.mpc && !six.mpcSafe && six.outdated && six.upgradable);
-    const v2 = Buffer.from(stamp);
-    v2[6] = 5; // v5: the echo drain ate the next request
-    const old = fastFlasher.parseDetection(hook(fastFlasherBlob.hookWord), v2);
-    assert(old && old.hooked && old.outdated && !old.ready);
-    assert.throws(() => fastFlasher.assertReady(old));
-    assert(/fast flash bootloader/.test(fastFlasher.describe(old)));
-    // detection still marks v5+ upgradable, but the app no longer upgrades
-    // old bodies: the fast flash bootloader replaces them
-    assert(old.upgradable);
-    const v4 = Buffer.from(stamp);
-    v4[6] = 4;
-    const v4det = fastFlasher.parseDetection(
-      hook(fastFlasherBlob.hookWord),
-      v4
-    );
-    assert(v4det.outdated && !v4det.upgradable && !v4det.ready);
-    const v1 = Buffer.from(stamp);
-    v1[6] = 1;
-    v1[7] = 0;
-    assert.strictEqual(
-      fastFlasher.parseDetection(hook(fastFlasherBlob.hookWord), v1).mpc,
-      false
-    );
+    assert(det && det.ready && det.ours && det.mpc && det.reads);
+    assert.strictEqual(fastFlasher.describe(det), 'Fast flasher present');
+    for (const other of [13, 9, 5, 1, fastFlasher.VERSION + 1]) {
+      const st = Buffer.from(stamp);
+      st[6] = other;
+      const d = fastFlasher.parseDetection(hook(fastFlasherBlob.hookWord), st);
+      assert(
+        d && d.hooked && !d.ours && !d.ready && !d.supported,
+        `v${other} is not used`
+      );
+      assert.throws(() => fastFlasher.assertReady(d));
+      assert(/left alone/.test(fastFlasher.describe(d)));
+    }
     const orphan = fastFlasher.parseDetection(
       hook(fastFlasher.STOCK_HOOK),
       stamp
     );
     assert(orphan && !orphan.hooked && !orphan.ready);
     assert.throws(() => fastFlasher.assertReady(orphan), /no longer leads/);
-    const newer = Buffer.from(stamp);
-    newer[6] = fastFlasher.VERSION + 1;
-    assert(
-      !fastFlasher.parseDetection(hook(fastFlasherBlob.hookWord), newer)
-        .supported
-    );
-    // v12+ carries the AIF wipe (stamp flag bit 1); the bench bodies v10/v11
-    // had it too but are older: upgradable, and not offered the wipe
+    // the AIF window (stamp flag bit 1) only counts on this build's body
     const aifBody = Buffer.from(stamp);
     aifBody[7] = 0x03;
     const aifDet = fastFlasher.parseDetection(
       hook(fastFlasherBlob.hookWord),
       aifBody
     );
-    assert(aifDet.supported && aifDet.ready && aifDet.aifWipe);
-    for (const bench of [10, 11]) {
-      const old = Buffer.from(aifBody);
-      old[6] = bench;
-      const det = fastFlasher.parseDetection(
-        hook(fastFlasherBlob.hookWord),
-        old
-      );
-      assert(det.supported && det.outdated && det.upgradable && !det.aifWipe);
-    }
+    assert(aifDet.ready && aifDet.aifWipe);
+    const oldAif = Buffer.from(aifBody);
+    oldAif[6] = 12;
+    assert(
+      !fastFlasher.parseDetection(hook(fastFlasherBlob.hookWord), oldAif)
+        .aifWipe
+    );
     const malformed = Buffer.from(stamp);
     malformed[8] = 0;
     assert.strictEqual(

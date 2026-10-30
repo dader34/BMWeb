@@ -2,7 +2,7 @@
 // the AIF editor page drives. BENCH ONLY (localhost), like the fast flasher
 // it rides on.
 //
-// Everything here was proven on the emulator against the BL14 loader image
+// Everything here was proven on the emulator against the bootloader image
 // (ms45-emu tools/aif_editor_test.py, 2026-10-27, ALL OK) over the same
 // services the page can already reach -- READ anywhere, SECTOR_QUERY,
 // CHUNK, VERIFY and the v11+ marker ladder the AIF wipe uses:

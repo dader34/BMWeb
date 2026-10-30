@@ -59,7 +59,7 @@ const FF_EXT_SIZE = 0x100000;
 // ext 0x387EC (blank to 0x40000, so it survives a boot-sector erase). An
 // erase of the boot sector is refused unless a slot is armed; the AIF
 // editor's rewrite and the bootloader install arm one around their erases
-// (core/flash/aif.js, core/flash/bl14.js).
+// (core/flash/aif.js, core/flash/bl.js).
 const FF_AIF = { READ: 0, ARM: 1, DONE: 2 };
 const FF_MARK = { FRESH: 0xffff, ARMED: 0xa55a, DONE: 0xa558 };
 const FF_SVC_NAME = Object.fromEntries(

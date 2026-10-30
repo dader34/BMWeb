@@ -1,11 +1,11 @@
 // Flashing/Tuning: the interruptible push, ported from the emulator proof
-// (ms45-emu tools/flash_resume_test.py, ALL OK on the BL15 image,
+// (ms45-emu tools/flash_resume_test.py, ALL OK on the BL image,
 // 2026-10-27). BENCH ONLY (localhost), like the fast flasher it rides on.
 //
 // The app's in-push resume assumed the connection died but the DME stayed
 // powered. A power cut -- cable pull, laptop battery, ignition cycle --
 // kills that knowledge. This driver derives everything from what the DME
-// itself reports after BL15's line-hold re-entry (the handoff window on a
+// itself reports after BL's line-hold re-entry (the handoff window on a
 // bootable DME, the park window on a cut one), so ONE code path handles
 // every stop:
 //
@@ -28,10 +28,10 @@
 //      idempotent (bit-clear of the same halfwords), so resuming an
 //      already-finished session writes nothing extra.
 //
-// The BL15 loader carries both windows; on BL14 the park window is absent
+// The BL loader carries both windows; on the old ring layout the park window is absent
 // and a mid-push power cut leaves the DME in its factory-KWP park, which
 // only a factory-dialect reflash can reach. fbDmeFastPushWithResume's
-// power-loss message still says that; on a BL15 DME this driver resumes
+// power-loss message still says that; on a BL DME this driver resumes
 // instead.
 
 // the wire's constants and CRC: a later classic script sees the page's

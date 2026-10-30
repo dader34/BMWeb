@@ -67,7 +67,7 @@ function fbOptionsHtml() {
     </div>
 
     <div class="fb-section" id="fb-opt-aif-section" hidden>
-      ${fbBl14Html()}
+      ${fbBlHtml()}
     </div>
 
     <div class="fb-section" id="fb-opt-eeprom-section" hidden>
@@ -296,11 +296,11 @@ function fbOptionsRefreshEwsGate() {
 // ---- the bench sections: bootloader and live tune ---------------------------------------------------------
 /**
  * BENCH ONLY (localhost, like the fast flasher they ride on): the
- * bootloader section (screens/flashing/bl14-install.js) and the live tune
+ * bootloader section (screens/flashing/bl-install.js) and the live tune
  * one (screens/flashing/livetune-install.js), refreshed together.
  */
 function fbOptionsRefreshBenchGate() {
-  fbBl14Refresh();
+  fbBlRefresh();
   fbIsnEepromRefresh();
   fbLtInstallRefresh();
 }

@@ -173,7 +173,7 @@ async function showFlashing(page) {
       <button class="fb-rail-btn" id="fb-rail-tuning" title="Tuning">&#x26C3;</button>
       <button class="fb-rail-btn" id="fb-rail-logging" title="Data logging">&#x223F;</button>
       <button class="fb-rail-btn" id="fb-rail-history" title="History">&#x27F2;</button>
-      <button class="fb-rail-btn" id="fb-rail-aif" title="AIF" hidden>&#x25A4;</button>
+      <button class="fb-rail-btn fb-rail-word" id="fb-rail-aif" title="AIF" hidden><span>AIF</span></button>
       <button class="fb-rail-btn fb-rail-word" id="fb-rail-isn" title="ISN / EWS" hidden><span>EWS</span><span>ISN</span></button>
       <button class="fb-rail-btn" id="fb-rail-settings" title="Settings">&#x2699;&#xFE0E;</button>
     </div>
@@ -1045,7 +1045,7 @@ function fbRefreshAll() {
   fbTcuRefresh();
   fbRefreshCustomOptionsGate();
   fbEls['verify-program'].disabled = !(fbState.dme && fbState.dme.identified);
-  // the log editor only for a DME identified with the BL14 loader
+  // the log editor only for a DME identified with the bootloader
   fbEls['rail-aif'].hidden = !fbAifEdAvailable();
   if (fbState.page === 'aif') {
     if (fbEls['rail-aif'].hidden) fbShowPage('flashing');

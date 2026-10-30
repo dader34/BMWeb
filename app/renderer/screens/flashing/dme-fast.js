@@ -26,7 +26,7 @@ async function fbDmeFastFlashTune() {
       'Keep the ignition on, a charger on the battery and the cable plugged in until it has finished. ' +
       'An interrupted write leaves the calibration without its valid marks, and the DME stays in the flasher until a flash completes.\n\n' +
       'Write the tune?',
-    note: `DME ${d.ident.hwRef} / prog ${d.ident.progRef} / fast flasher v${d.fastFlasher.version}${d.flashName ? ` / file ${d.flashName}` : ''}`,
+    note: `DME ${d.ident.hwRef} / prog ${d.ident.progRef} / fast flasher${d.flashName ? ` / file ${d.flashName}` : ''}`,
     async prepare() {
       // the same bytes Flash Tune would write, signed the same way
       const cal = await fbDmePrepareTuneCal();
@@ -35,7 +35,7 @@ async function fbDmeFastFlashTune() {
       );
       return { attach: ['fast_tune_cal_0x40000.bin', signedCal], signedCal };
     },
-    // through BL15 the push is the resumable one: run again after a power
+    // through BL the push is the resumable one: run again after a power
     // cut, it asks the DME what is already written and sends only the rest
     push: (client, cb, p) =>
       fbDmeResumes()
@@ -117,7 +117,7 @@ async function fbDmeFastRead() {
  */
 async function fbDmeFastFlash(spec) {
   const d = fbState.dme;
-  // `confirmed`: a guided flow (Install BL14) asked once for all its steps
+  // `confirmed`: a guided flow (Install bootloader) asked once for all its steps
   if (!spec.confirmed && !(await fbConfirm(spec.confirm, spec.title))) {
     flashLog.note(`${spec.title} not confirmed: nothing was sent to the car`);
     return;
@@ -147,7 +147,7 @@ async function fbDmeFastFlash(spec) {
     prepared.link = link;
     // v8: the fastest line the cable and the K-line carry (the body falls
     // back to 115200 by itself when a rate carries nothing)
-    if (d.fastFlasher && d.fastFlasher.fastLine && !spec.noFasterLine) {
+    if (d.fastFlasher && d.fastFlasher.ready && !spec.noFasterLine) {
       ui.stage('Trying a faster line');
       const rate = await fastFlashWire.fasterLine(
         client,
@@ -426,7 +426,7 @@ async function fbDmeFastPushWithResume(client, ui, push) {
 
 /**
  * Whether a push to this DME can be resumed after a power loss: its fast
- * flasher is the BL15 bootloader, whose park window still lets the fast
+ * flasher is the BL bootloader, whose park window still lets the fast
  * path in when the loader will not start a half-written program or tune.
  * @returns {boolean}
  */
@@ -474,7 +474,7 @@ const FB_FAST_ENTRY_TRIES = 2;
 const FB_FAST_REBOOT_MS = 2500;
 /**
  * The late hold (spec.lateHold): how long after the reset's reply the line
- * goes low, per attempt, ms. Past the BL15 ring's ~1 ms window (the DME
+ * goes low, per attempt, ms. Past the BL ring's ~1 ms window (the DME
  * reboots within a few ms of its reply: an entry whose break came a couple
  * of USB transfers late missed the old gate) and well inside the late
  * installer gate's ~2 s. A hold that comes after that gate has let go is a
@@ -545,7 +545,7 @@ async function fbDmeEnterFastFlasher(owner, ui, opts = {}) {
     const link = fastFlashWire.webLink(webBus);
     try {
       const stamp = await link.resume();
-      // the resident body (MS45QF) or the BL14 boot-region ring (MS45BL)
+      // the resident body (MS45QF) or the boot-region ring (MS45BL)
       if (/^MS45(QF|BL)$/.test(String.fromCharCode(...stamp.subarray(0, 6)))) {
         flashLog.note(
           'Reconnected to the fast flasher left running by an interrupted session'
@@ -599,7 +599,7 @@ async function fbDmeEnterFastFlasher(owner, ui, opts = {}) {
     }
     // the line goes low NOW, before any bookkeeping or screen update: the
     // gate's window opens whenever the DME gets round to rebooting. A late
-    // hold waits first: the BL15 ring's window must see the line idle and
+    // hold waits first: the BL ring's window must see the line idle and
     // let the boot by, so only the late gate behind it is held
     if (opts.late) {
       const ms = FB_FAST_LATE_MS[Math.min(attempt, FB_FAST_LATE_MS.length) - 1];
@@ -774,7 +774,7 @@ async function fbDmeFastFlasherAvailable(title) {
  *   patchName?: string, title?: string, confirmed?: boolean,
  *   after?: () => Promise<void>}} [opts]
  *   - carry: the body the pair is given in place of the shipped one (the
- *   BL14 installer); patch: applied after it, last of all (live tune);
+ *   bootloader installer); patch: applied after it, last of all (live tune);
  *   title and confirmed: a guided flow's own name, and
  *   that it already asked; after: what runs in place of the Identify that
  *   follows a successful push.
@@ -797,7 +797,7 @@ async function fbDmeFastFlashProgram(opts = {}) {
       opts.carry ||
       // the repair installer only exists on a DME with the bootloader (and
       // is what it was put there to replace): it comes out the same way
-      (d.fastFlasher.bootLoader || bl14.isLateInstaller(d.fastFlasher)
+      (d.fastFlasher.bootLoader || bl.isLateInstaller(d.fastFlasher)
         ? fastFlasher.withoutFlasher
         : fastFlasher.withFlasher);
     const carried = carry(images.source, images.mpc);
@@ -853,7 +853,7 @@ async function fbDmeFastFlashProgram(opts = {}) {
         },
         {
           mpc,
-          pagesets: !!d.fastFlasher.pagesets,
+          pagesets: true,
         }
       );
     },

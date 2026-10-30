@@ -8,7 +8,7 @@ repo's own `npm run build`. Rerun the tool, then commit the result here.
 | File | Generator (ms45-emu) | Target |
 | --- | --- | --- |
 | `fast-flasher-blob.js` | `tools/export/fast_flasher_js.py` | `make export` |
-| `bl14-blob.js` | `tools/export/bl14_js.py` (installs BL15) | `make export` |
+| `bl-blob.js` | `tools/export/bl_js.py` (installs BL) | `make export` |
 | `livetune-blob.js` | `tools/export/livetune_js.py` | `make export` |
 | `comfort-live.js` | `tools/export/comfort_live.py` | `make export` |
 | `ms45-cursor-map.js` | `tools/export/livetune_cursor.py` | `make maps` |

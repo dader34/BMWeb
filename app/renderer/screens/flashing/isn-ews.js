@@ -6,7 +6,7 @@
 // started): the DME's flash ISN at ext 0x1FB00 must equal the ISN the
 // car's EWS holds, then the EWS start-value sync realigns the rolling code.
 // That is all. Write ISN (flash, through the fast flash bootloader's
-// boot-sector ladder, core/flash/isn-flash.js + bl14.burnIsn) followed by
+// boot-sector ladder, core/flash/isn-flash.js + bl.burnIsn) followed by
 // Sync EWS (the DME SGBD's start-value jobs) started both donors.
 //
 // WHAT DOES NOT: the 12-byte record in the serial EEPROM (0x04 / 0x14) is a
@@ -32,8 +32,13 @@ const FB_ISN_EE_READ = 0x10;
 function fbIsnAvailable() {
   if (fbDevUi()) return true;
   const d = fbState.dme;
-  const bl = d && d.bootLoader;
-  return !!(fbState.module === 'dme' && d.identified && bl && bl.version >= 14);
+  const have = d && d.bootLoader;
+  return !!(
+    fbState.module === 'dme' &&
+    d.identified &&
+    have &&
+    have.version >= 14
+  );
 }
 
 /**
@@ -43,16 +48,16 @@ function fbIsnAvailable() {
  */
 function fbIsnWhyNot(eeprom) {
   const d = fbState.dme;
-  const bl = d && d.bootLoader;
+  const have = d && d.bootLoader;
   if (fbState.module !== 'dme' || !d.identified)
     return 'Identify the DME first.';
   if (!fbDmeIsMs451()) return 'The ISN tools are MS45.1 only.';
-  if (!bl || bl.version < 14)
+  if (!have || have.version < 14)
     return 'Needs the fast flash bootloader on the DME.';
   if (typeof webBus === 'undefined' || !webBus.port || !webBus.port.setSignals)
     return 'Needs a cable that can hold the break line (Web Serial or a gateway).';
   if (!eeprom) return null;
-  if (!(bl.flags & FB_ISN_EE_READ))
+  if (!(have.flags & FB_ISN_EE_READ))
     return 'This bootloader has no EEPROM read window: update it first.';
   if (typeof eepromDump === 'undefined')
     return 'The EEPROM client (core/flash/eeprom.js) is not loaded in this build.';
@@ -323,7 +328,7 @@ async function fbIsnBurn(title, operation, isn) {
     confirm: '',
     note: `DME ${fbState.dme.ident.hwRef} / burn ISN ${isnFlash.text(isn)} at flash 0x1FB00`,
     push: async (client, cb) => {
-      const r = await bl14.burnIsn(client, isn, cb);
+      const r = await bl.burnIsn(client, isn, cb);
       holds = true;
       cb.stage('Restarting the DME');
       await client.reset();
@@ -382,7 +387,7 @@ async function fbIsnFlashVirginize() {
     confirm: '',
     note: `DME ${fbState.dme.ident.hwRef} / blank ISN at flash 0x1FB00`,
     push: async (client, cb) => {
-      const r = await bl14.virginize(client, cb);
+      const r = await bl.virginize(client, cb);
       cb.stage('Restarting the DME');
       await client.reset();
       return r;

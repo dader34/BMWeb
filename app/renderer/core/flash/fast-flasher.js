@@ -32,60 +32,18 @@ const FAST_FLASHER_MAGIC = 'MS45QF';
 const FAST_FLASHER_HOOK_AT = 0x8; // MPC, the loader's reset word
 const FAST_FLASHER_STOCK_HOOK = 0x4bf717b6; // `ba 0xFFF717B4`
 const FAST_FLASHER_EXT_CPU = 0xfff00000; // where the external chip is mapped
-const FAST_FLASHER_VERSION = 18; // the highest stamp version this app speaks
+const FAST_FLASHER_VERSION = 19; // the highest stamp version this app speaks
 /**
- * The oldest body used as it stands: v13 is the first with a READ that
- * reads the right bytes, and the one proven on the car. Anything older is
- * reinstalled before it is used (v14 added the EEPROM read window and v15
- * the EEPROM write service -- the ISN screen asks for those by their
- * stamp flags, not here).
+ * A resident body in the program area is used only when it is THIS build's
+ * (the installer the bootloader rides in on, or the shipped body); any
+ * other version is noted and left alone -- the next program flash takes it
+ * out, and the fast flash bootloader is what carries the fast path. No
+ * version eras: there is one body, the current one.
  */
-const FAST_FLASHER_CURRENT_FROM = 13;
-/**
- * The first body with READ: raw bytes of the chip or the MPC, 4 KB a
- * request, each block with its CRC (Fast Read). A v12 build carried a READ
- * that read from the wrong address, so it is never asked.
- */
-const FAST_FLASHER_READS_FROM = 13;
-/**
- * The first body that carries the AIF wipe (stamp flag bit 1): the boot
- * sector window, shut to writes until the wipe arms a marker slot. v10 and
- * v11 were bench-only bodies with it; they are older, and upgradable.
- */
-const FAST_FLASHER_AIFWIPE_FROM = 12;
-const FAST_FLASHER_FLAG_BOOT_WINDOW = 0x02;
-/**
- * The first body whose MPC (internal flash) writes go through the boot
- * loader's own CMF driver. v2-v6 carried a hand-written sequence that read
- * the array mid-pulse; on the car (2026-10-21) its first MPC ERASE reset the
- * DME. Only a body from here on is asked to write the MPC -- and it is the
- * body already on the DME that does the writing, so an upgrade push to v7
- * itself stays external-only.
- */
-const FAST_FLASHER_MPC_WRITES_FROM = 7;
-/**
- * The first body with the v8 services: CHUNK_SET (pagesets -- one page in
- * each of up to fourteen MPC blocks per pulse sequence), ERASE with a block
- * mask, SET_BAUD (a faster line, with the body's own fallback to 115200)
- * and the table CRC. Older bodies get the sequential push at 115200.
- */
-const FAST_FLASHER_PAGESETS_FROM = 8;
-/**
- * The first body whose SET_BAUD is safe on a one-way line: it holds a new
- * rate only once the tester confirms (a SET_BAUD naming that rate) that it
- * HEARD an answer there, else falls back to 115200 by itself. v8 held any
- * rate it could read telegrams at, and a rate the cable drove into the DME
- * but whose answers came back garbled stranded the car (2026-10-21).
- */
-const FAST_FLASHER_LINE_FROM = 9;
-/**
- * The oldest body a Fast Flash Program may run on to replace itself: v5 is
- * the first that works on a real cable (the link pauses after each reply for
- * its echo drain); v3/v4 never got past HELLO on the car.
- */
-const FAST_FLASHER_UPGRADE_FROM = 5;
 /** Stamp flags bit 0: the body can write the MPC (internal flash) too -- v2. */
 const FAST_FLASHER_FLAG_MPC = 0x01;
+/** Stamp flags bit 1: the body carries the boot-sector (AIF) window. */
+const FAST_FLASHER_FLAG_BOOT_WINDOW = 0x02;
 const FAST_FLASHER_CHUNK = 0x1000; // bytes per stop-and-wait chunk, unpacked
 
 /**
@@ -103,10 +61,6 @@ const fastFlasher = {
   HOOK_AT: FAST_FLASHER_HOOK_AT,
   STOCK_HOOK: FAST_FLASHER_STOCK_HOOK,
   VERSION: FAST_FLASHER_VERSION,
-  MPC_WRITES_FROM: FAST_FLASHER_MPC_WRITES_FROM,
-  PAGESETS_FROM: FAST_FLASHER_PAGESETS_FROM,
-  LINE_FROM: FAST_FLASHER_LINE_FROM,
-  READS_FROM: FAST_FLASHER_READS_FROM,
   CHUNK: FAST_FLASHER_CHUNK,
 
   /**
@@ -142,38 +96,20 @@ const fastFlasher = {
       hook.length >= 4 &&
       ffBytes.be32(hook, 0) === _fastFlasherBranch(gateCpu);
     const bootWindow = (flags & FAST_FLASHER_FLAG_BOOT_WINDOW) !== 0;
-    const aifWipe = version >= FAST_FLASHER_AIFWIPE_FROM && bootWindow;
-    const supported = version <= FAST_FLASHER_VERSION;
-    // older bodies wedge on a real cable (a stray byte after the reopen made
-    // v2 swallow every HELLO): they are reinstalled, not used
-    const outdated = version < FAST_FLASHER_CURRENT_FROM;
+    // this build's body, or not: nothing in between
+    const ours = version === FAST_FLASHER_VERSION;
     return {
       version,
       flags,
       gateCpu,
       entryCpu,
       hooked,
-      supported,
-      outdated,
-      // v2 bodies write the MPC as well (the window 0x80000000 | offset)
-      mpc: version >= 2 || (flags & FAST_FLASHER_FLAG_MPC) !== 0,
-      // and may be trusted to: the loader's driver does the CMF writes
-      mpcSafe:
-        version >= FAST_FLASHER_MPC_WRITES_FROM &&
-        (version >= 2 || (flags & FAST_FLASHER_FLAG_MPC) !== 0),
-      // pagesets, mask erase: the v8 wire
-      pagesets: version >= FAST_FLASHER_PAGESETS_FROM,
-      // a line-speed change that cannot strand the DME: v9
-      fastLine: version >= FAST_FLASHER_LINE_FROM,
-      // READ: the whole chip and the MPC at the line's rate
-      reads: version >= FAST_FLASHER_READS_FROM,
-      // the bench body that can erase the boot sector (Wipe AIF)
-      aifWipe,
-      ready: hooked && supported && !outdated,
-      // an outdated body that can still carry the program push which
-      // replaces it (Fast Flash Program splices the current body in)
-      upgradable:
-        hooked && supported && outdated && version >= FAST_FLASHER_UPGRADE_FROM,
+      ours,
+      supported: ours,
+      mpc: ours,
+      reads: ours,
+      aifWipe: ours && bootWindow,
+      ready: hooked && ours,
     };
   },
 
@@ -185,18 +121,14 @@ const fastFlasher = {
   describe(det) {
     if (!det) return 'Fast flasher: not on this DME';
     // the boot-region bootloader standing in for the resident flasher
-    if (det.bootLoader)
-      return `Fast flasher present${det.resident ? ' (an older copy is still in the program: the next Fast Flash Program removes it)' : ''}`;
-    const v = `v${det.version}`;
+    if (det.bootLoader) return 'Fast flasher present';
     if (det.notRunning)
-      return `Fast flasher ${v} found, but the DME is not running its program (${det.notRunning}), so the flasher cannot be reached. Run a full Flash Program (or Install fast flasher) to finish the DME first.`;
+      return `Fast flasher found, but the DME is not running its program (${det.notRunning}), so the flasher cannot be reached. Run a full Flash Program (or Install fast flasher) to finish the DME first.`;
     if (!det.hooked)
-      return `Fast flasher ${v} body found, but the reset word at MPC 0x8 no longer leads to it (the internal flash was rewritten whole). Bootstrap again to use it.`;
-    if (!det.supported)
-      return `Fast flasher ${v} found; this app speaks up to v${FAST_FLASHER_VERSION}. Update BMWeb to use it.`;
-    if (det.outdated)
-      return `Fast flasher ${v} present, older than this app's v${FAST_FLASHER_VERSION}: install the fast flash bootloader (Custom Options) to fast flash`;
-    return `Fast flasher ${v} present`;
+      return 'Fast flasher body found, but the reset word at MPC 0x8 no longer leads to it (the internal flash was rewritten whole). Bootstrap again to use it.';
+    if (!det.ours)
+      return 'An old fast flasher is in the program: it is left alone (the next Fast Flash Program removes it). Install or update the fast flash bootloader from Custom Options to fast flash.';
+    return 'Fast flasher present';
   },
 
   /**
