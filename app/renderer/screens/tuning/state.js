@@ -92,7 +92,7 @@
  * @typedef {Object} TuningEls
  * The screen's live DOM handles, looked up once in showTuning.
  * @property {HTMLButtonElement} loadBin
- * @property {HTMLButtonElement} readEcu
+ * @property {HTMLButtonElement|null} readEcu - absent off the bench
  * @property {HTMLButtonElement} loadXdf
  * @property {HTMLButtonElement} browseXdf
  * @property {HTMLButtonElement} clear

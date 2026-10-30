@@ -12,9 +12,14 @@
  * @returns {string}
  */
 function tnToolbarHtml() {
+  // Read tune from ECU stays on the bench (localhost) only
+  const readEcu =
+    typeof fbProtectTesting === 'function' && fbProtectTesting()
+      ? `<button class="btn tn-read-ecu" title="Read the DME's calibration and open it here">Read tune from ECU…</button>`
+      : '';
   return `
     <button class="btn tn-load-bin">Load BIN…</button>
-    <button class="btn tn-read-ecu" title="Read the DME's calibration and open it here">Read tune from ECU…</button>
+    ${readEcu}
     <button class="btn tn-load-xdf" disabled>Load .xdf…</button>
     <button class="btn tn-browse-xdf" title="Browse the shared community definition library">Browse XDFs…</button>
     <button class="btn primary tn-save" disabled>Save BIN…</button>
@@ -370,7 +375,7 @@ function tnMount(host, backAction) {
     };
   }
 
-  els.readEcu.onclick = () => tnOpenReadTune(ed);
+  if (els.readEcu) els.readEcu.onclick = () => tnOpenReadTune(ed);
   els.loadBin.onclick = () => els.binInput.click();
   els.loadXdf.onclick = () => els.xdfInput.click();
   // iOS turns the accept list into document types and greys out a .xdf it
