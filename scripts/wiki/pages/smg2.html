@@ -1,7 +1,7 @@
 <!--
 title: Getrag SMG2 gearbox (E46 M3)
 nav: SMG2 gearbox
-lead: The M3's automated-manual gearbox computer and its private CAN bus to the engine computer. Read from program 7843260K (April 2009, calibrations Y7843256-59), a Siemens C167.
+lead: The M3's automated-manual gearbox computer and its private CAN bus to the engine computer. Read from program 7843260K (April 2009, calibrations Y7843256-59), a Siemens C167; the engine computer's side from the MSS54's own software.
 group: units
 infobox: Getrag SMG2
 info: Unit = Automated manual gearbox computer
@@ -176,7 +176,103 @@ see: ms43
   </table>
   <p>
     A replacement for the engine computer's side of this bus should start its
-    torque intervention on 0x411 byte 2 bit 5, follow 0x410 byte 6 as the torque
-    wanted, and count 0x313 byte 0 from that moment.
+    torque intervention on 0x411 byte 2 bit 5 and count 0x313 byte 0 from that
+    moment. 0x410 byte 6 is the torque the gearbox asks for, but the M3's own
+    DME never reads it: it matches engine speed to the target gear's
+    synchronous speed in bytes 4-5 instead (below).
+  </p>
+</section>
+
+<section id="dme">
+  <h2>The M3 DME's side of a shift</h2>
+  <p>
+    How the MSS54 fills the frames above and runs its half of the
+    intervention, from its own software (release J429 and three others, all
+    the same here). The gearbox bus is handled by its second processor.
+    <span class="ev code">firmware</span>
+  </p>
+
+  <h3>What it reads from the gearbox</h3>
+  <table>
+    <thead><tr><th scope="col">Message</th><th scope="col">Byte</th><th scope="col">Meaning to the DME</th></tr></thead>
+    <tbody>
+      <tr><th scope="row"><code>0x410</code></th><td>1 bits 0-2</td><td>A gear field; 0 is one of the conditions that advance the intervention</td></tr>
+      <tr><th scope="row"><code>0x410</code></th><td>1 bits 3-6</td><td>The gear actuator's step (the SMG2's sequence state, some values folded together). Steps 3, 4, 9 and 10 advance the intervention.</td></tr>
+      <tr><th scope="row"><code>0x410</code></th><td>2-3</td><td>Gearbox input speed, rpm</td></tr>
+      <tr><th scope="row"><code>0x410</code></th><td>4-5</td><td>The target gear's synchronous speed (output speed × ratio), rpm. The DME matches engine speed to it.</td></tr>
+      <tr><th scope="row"><code>0x410</code></th><td>6</td><td>Torque request. Stored, never read.</td></tr>
+      <tr><th scope="row"><code>0x410</code></th><td>7</td><td>Read as a flag: 0 ends the request</td></tr>
+      <tr><th scope="row"><code>0x411</code></th><td>2 bit 5</td><td>Intervention active. Forces the request type to 2.</td></tr>
+      <tr><th scope="row"><code>0x411</code></th><td>7 bits 0-3</td><td>Shift phase, the request type when bit 5 is clear</td></tr>
+    </tbody>
+  </table>
+  <p>
+    Speeds on this bus are in rpm: the DME subtracts its own engine speed from
+    them directly, and its lock-up windows are 50 and 150 rpm.
+  </p>
+
+  <h3>The intervention state machine</h3>
+  <p>
+    The DME's state goes out as the high nibble of 0x312 byte 7. It runs only
+    while the request type is 2; otherwise it is cleared.
+  </p>
+  <table>
+    <thead><tr><th scope="col">State</th><th scope="col">Sent as</th><th scope="col">Leaves when</th></tr></thead>
+    <tbody>
+      <tr><th scope="row">0</th><td><code>0</code></td><td>At once, to 1</td></tr>
+      <tr><th scope="row">1</th><td><code>1</code></td><td>0x410 byte 1 bits 0-2 are 0, or the actuator step is 3, 4, 9 or 10; or 2.0 s pass</td></tr>
+      <tr><th scope="row">2</th><td><code>3</code></td><td>The step is 0 or 0x410 byte 7 is 0; or 2.0 s (4.0 s with a flag) pass</td></tr>
+      <tr><th scope="row">3</th><td><code>5</code></td><td>The speed-match ramp is done, or the torque has crossed its target more than five times; or 4.0 s pass</td></tr>
+      <tr><th scope="row">4</th><td><code>6</code></td><td>Back to 0 after 4.0 s. A new request (step not 0 and byte 7 not 0) from 3 or 4 goes back to 1</td></tr>
+    </tbody>
+  </table>
+  <p>
+    The timeouts are calibration values in 10 ms cycles: 200 for states 1 and
+    2, 400 for 3 and 4, 1000 under one flag. On a timeout 1 and 2 go to 3 if
+    the step is 0, 3 goes to 4, 4 goes to 0. That is why the SMG2 only tests
+    the nibble for 0, 5 and 6: 5 and 6 are the states in which the DME has
+    stopped following, 0 means it was never asked.
+  </p>
+
+  <h3>What it puts in 0x313</h3>
+  <ul>
+    <li><b>Byte 0</b> is the cycle count of the state machine above, cleared when it is initialised or enters state 3; bit 7 is set in state 3 only.</li>
+    <li><b>Bytes 1-4 and 6</b> all carry the <em>actual</em> engine torque on the 0-255 scale (torque × 256 / reference, clamped), not the request. The SMG2 picks a sample by age, so a DME that fills all four with one value loses nothing.</li>
+    <li><b>Byte 7</b> is a time in 10 ms from a map by gear (0x411 byte 1 bits 0-2) and a shift class (1-12, from torque, oil temperature and speed): in first gear 121 down to 10, in fifth 87 down to 18, never below 1.</li>
+  </ul>
+
+  <h3>The other frames</h3>
+  <table>
+    <thead><tr><th scope="col">Message</th><th scope="col">Byte</th><th scope="col">Source in the DME</th></tr></thead>
+    <tbody>
+      <tr><th scope="row"><code>0x515</code></th><td>3</td><td>Oil temperature, the same value as 0x545 byte 4 on the car bus</td></tr>
+      <tr><th scope="row"><code>0x515</code></th><td>4</td><td>Coolant temperature, the filtered sensor behind 0x329 byte 1 (raw minus 48 °C). The only one of the three the SMG2 uses in its strategy: cold offsets below 93, a different return value below 123.</td></tr>
+      <tr><th scope="row"><code>0x515</code></th><td>5</td><td>Intake air temperature. Each reads <code>FF</code> on a sensor fault.</td></tr>
+      <tr><th scope="row"><code>0x311</code></th><td>6 bits 0-1</td><td>The ASC's torque-reduction and drag-torque requests, 0x153 byte 0 bits 0 and 1</td></tr>
+      <tr><th scope="row"><code>0x311</code></th><td>6 bit 2</td><td>0x153 byte 1 bit 1</td></tr>
+      <tr><th scope="row"><code>0x311</code></th><td>6 bit 3</td><td>A latch set by 0x153 byte 0 bit 2, held while 0x153 byte 1 bit 1</td></tr>
+      <tr><th scope="row"><code>0x311</code></th><td>6 bit 4</td><td>0x1F3 byte 4 bit 2</td></tr>
+      <tr><th scope="row"><code>0x311</code></th><td>6 bit 5</td><td>Cold start (coolant at start)</td></tr>
+      <tr><th scope="row"><code>0x311</code></th><td>6 bit 6</td><td>0x153 byte 7 bit 1</td></tr>
+    </tbody>
+  </table>
+  <p>
+    In the SMG2, 0x311 byte 6 bit 1 blocks several strategy calculations and
+    bit 3 only counts after a 3 s timer; what each flag is called is not
+    established. The SMG2's gear ratios, from its calibration: 4.23, 2.51,
+    1.67, 1.23, 1.00, 0.83, reverse 3.75.
+  </p>
+
+  <h3>Clutch and torque during a shift</h3>
+  <p>
+    While the SMG2's intervention is active and its clutch is opening, its
+    clutch torque target follows the 0x313 torque sample, rate-limited, but
+    only while 0x313 byte 0 bit 7 is clear and the DME's nibble is not 0;
+    otherwise it holds and waits. During re-engagement the target is again
+    taken from the 0x313 sample when 0x314 byte 1 bit 3 is 0, else from its
+    own slip control; lock-up comes when engine and input speed are within
+    50 rpm (150 once locked). The gearbox's own torque request in 0x410
+    byte 6 ramps down at the start of a shift and is for the DME to follow,
+    which the M3's does not.
   </p>
 </section>

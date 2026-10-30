@@ -41,7 +41,7 @@ const PAGES = [
   'index',
   'ms45',
   'ms43',
-  'smg2',
+  // 'smg2' is written but held back for now (scripts/wiki/pages/smg2.html).
   'gs20',
   'diagnostics',
   'coding',

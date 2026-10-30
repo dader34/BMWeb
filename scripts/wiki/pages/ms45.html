@@ -1,16 +1,18 @@
 <!--
 title: Siemens MS45.1 DME
 nav: MS45.1 DME
-lead: The engine computer of the 2003-on E46 six-cylinders. Its memory, how its boot loader takes a flash, and what decides whether the result starts.
+lead: The engine computer of the 2003-on E46 six-cylinders. Its memory, how its boot loader takes a flash, what decides whether the result starts, what it checks about itself while it runs, and how it is married to the immobiliser.
 group: units
 infobox: Siemens MS45.1
 info: Unit = Engine computer (DME)
 info: Cars = E46 six-cylinders, 2003 on
 info: CPU = Motorola MPC555, 448 KB internal flash, 26 KB SRAM
 info: External flash = AMD Am29BL802CB, 1 MB
+info: EEPROM = 4 KB serial, on the QSPI
 info: Diagnostics = KWP2000 on the K line, address <code>0x12</code>
 info: Programming = 115200 8E1 by default, any rate by value
 info: Validity = CRC-32/MPEG-2 and an RSA signature
+info: Immobiliser = EWS3, a 16-bit ISN kept in flash
 cat: Engine computers
 cat: Flashing
 cat: K line
@@ -23,6 +25,7 @@ see: gs20
     A Motorola MPC555 with an external AMD Am29BL802CB, a 1 MB bottom-boot
     flash on a 16-bit bus. The program lives across both: part in the MPC555's
     internal flash (448 KB), the rest and the calibration in the external chip.
+    A small serial EEPROM on the MPC555's QSPI holds what the DME learns.
   </p>
   <h3>RAM is 26 KB, not 32</h3>
   <p>
@@ -56,7 +59,10 @@ see: gs20
       <tr><th scope="col">Offset</th><th scope="col">Size</th><th scope="col">Holds</th></tr>
     </thead>
     <tbody>
-      <tr><th scope="row"><code>0x00000</code></th><td>16 + 8 + 8 + 96 KB</td><td>Boot block and boot loader</td></tr>
+      <tr><th scope="row"><code>0x00000</code></th><td>16 KB</td><td>The reset vector at <code>0x100</code>, the exception table and the first of the boot loader</td></tr>
+      <tr><th scope="row"><code>0x04000</code></th><td>8 KB</td><td>Boot loader: the hand-off to the program and the entry of its 9600 baud server, see <a href="#session-handoff">below</a></td></tr>
+      <tr><th scope="row"><code>0x06000</code></th><td>8 KB</td><td>Boot loader</td></tr>
+      <tr><th scope="row"><code>0x08000</code></th><td>96 KB</td><td>Boot loader, including the flash drivers it copies to RAM, blank from <code>0x16934</code> to <code>0x1F7FF</code>. At the top: the boot block checksum (<code>0x1F800</code>), the sector table (<code>0x1F900</code>), the immobiliser's ISN (<code>0x1FB00</code>) and the programming log (<code>0x1FB34</code> up)</td></tr>
       <tr><th scope="row"><code>0x20000</code></th><td>128 KB</td><td>More boot loader code (about 230 functions up to <code>0x37E8C</code>), blank from about <code>0x38800</code>. Erasing it destroys the loader.</td></tr>
       <tr><th scope="row"><code>0x40000</code></th><td>128 KB</td><td>Calibration, <code>0x1D000</code> bytes of data, valid marks at the top</td></tr>
       <tr><th scope="row"><code>0x60000</code></th><td>128 KB</td><td>Program</td></tr>
@@ -72,6 +78,57 @@ see: gs20
     so the chip cannot be erased with the engine running.
     <span class="ev code">firmware</span>
   </p>
+  <p>
+    The boot loader is not one build. Two DMEs of the same part number differ
+    in their boot blocks from <code>0x285B</code> on; the flash driver inside
+    is byte for byte the same but sits <code>0x24</code> further along in one
+    of them. Code that looks for something in the boot region by address will
+    find it in one unit and not the other. <span class="ev car">car</span>
+  </p>
+  <h3>The internal flash</h3>
+  <p>
+    The MPC555's 448 KB is 14 blocks of 32 KB in two modules, programmed in
+    64-byte pages. The DME programs it with the chip maker's own driver, which
+    the loader keeps in the 96 KB boot sector (<code>0x14AFC</code>-
+    <code>0x162F8</code>) and copies to RAM for the job. That driver programs
+    one page in every selected block per pulse sequence: a page takes about
+    24.6 ms on silicon whether it is one block or twelve, so the same data
+    goes in about four times faster when the blocks are written side by side.
+    Programming needs the EPEE pin, which the loader raises on a MIOS port pin
+    (<code>0x306100</code> bit <code>0x40</code>) before any flash work;
+    without it the driver refuses with <code>0x87</code>.
+    <span class="ev car">car</span> <span class="ev code">firmware</span>
+  </p>
+  <h3>The serial EEPROM</h3>
+  <p>
+    A 4 KB (32 Kbit) part on QSPI chip select 1. Reading 64 KB of it gives
+    the same 4 KB sixteen times, because the address wraps, so a write past
+    <code>0xFFF</code> lands on real data. <span class="ev car">car</span>
+  </p>
+  <ul>
+    <li>
+      <b>Read at boot, written in the after-run.</b> The stored data (adaptions,
+      faults, mileage, the immobiliser record) is read once at start-up and
+      written back only after the ignition goes off, each record twice with a
+      read-back: about 1200 writes on a blank part, 35 s of after-run.
+      <span class="ev emu">emulator</span>
+    </li>
+    <li>
+      <b>Only the program sets the QSPI up.</b> The boot loader never touches
+      the QSPI module, so anything that runs before the program finds it at
+      its reset state: slave mode, pins as plain I/O. A read started in that
+      state waits for ever and the watchdog resets the DME.
+      <span class="ev car">car</span>
+    </li>
+    <li>
+      <b>"RAM check" means the EEPROM.</b> Fault 2869 (P16A3, "self-test: RAM
+      check") is set when the stored-data restore at boot fails: one block
+      is kept three times and must agree two of three, another must hold a
+      valid record. A blank or torn EEPROM fails it; a DME with its own
+      EEPROM passes. It is not about the SRAM. <span class="ev emu">emulator</span>
+      <span class="ev car">car</span>
+    </li>
+  </ul>
 </section>
 
 <section id="session">
@@ -104,6 +161,13 @@ see: gs20
       sectors and all of the internal flash. <span class="ev emu">emulator</span>
     </li>
     <li>
+      <b>The erase is categorical.</b> The range in the request is ignored:
+      asked for the top 64 KB, the first 64 KB or the internal window, the
+      loader wipes the same whole program area plus all of the internal flash
+      every time. Only the calibration erase is its own category, so there is
+      no partial program flash. <span class="ev emu">emulator</span>
+    </li>
+    <li>
       <b>The key answer</b> is <code>71 08 01</code> for accepted. A positive
       answer <code>71 08 00</code> means the key was refused, so checking only for
       <code>71</code> passes a wrong key. <span class="ev car">car</span>
@@ -122,6 +186,13 @@ see: gs20
       request, shuts itself down and jumps into the boot loader. That request is
       never answered; the next one is served by the loader.
       <span class="ev emu">emulator</span>
+    </li>
+    <li>
+      <b>The log entry comes last, and only then.</b> The programming log write
+      (<code>3D</code>) is accepted only after an erase and a download in the
+      same programming session; at any other time it is refused with
+      <code>7F 3D 22</code>. A tool that only checks signatures can never add
+      an entry. <span class="ev emu">emulator</span>
     </li>
   </ul>
 
@@ -144,6 +215,7 @@ see: gs20
       <tr><th scope="row">One 253-byte block at 19200</th><td>About 200 ms, occasionally 670 ms. A 500 ms timeout aborts a program flash part way.</td><td><span class="ev car">car</span></td></tr>
       <tr><th scope="row">One block at 115200</th><td>About 47 ms: 24.6 ms on the wire, about 10 ms in the loader, the answer and the 12 ms gap</td><td><span class="ev emu">emulator</span></td></tr>
       <tr><th scope="row">Internal flash on silicon</th><td>About 24.6 ms per 64-byte page when programmed one page at a time. Its driver can program the same page in every selected block in one pulse sequence, about 6 ms per page across 12 blocks.</td><td><span class="ev car">car</span></td></tr>
+      <tr><th scope="row">Erasing the internal flash</th><td>Under a second for any set of blocks, done as one job: 875 ms for one block, 956 ms for twelve.</td><td><span class="ev car">car</span></td></tr>
     </tbody>
   </table>
   <p>
@@ -168,6 +240,62 @@ see: gs20
       clamp them to the region it erased. <span class="ev emu">emulator</span>
     </p>
   </div>
+
+  <h3 id="session-handoff">Hand-off or park</h3>
+  <p>
+    At every reset the loader runs first, from the vector at <code>0x100</code>.
+    About 117 µs in, it has checked the flash and takes one of two roads.
+    <span class="ev emu">emulator</span>
+  </p>
+  <ul>
+    <li>
+      <b>Hand-off.</b> With a valid program and calibration it jumps to the
+      program through one branch at <code>0x4EBC</code>. Nothing else in the
+      loader runs again until the next reset or the next programming session.
+    </li>
+    <li>
+      <b>Park.</b> When the checks fail it waits a moment, then calls its
+      9600 baud server at <code>0x5228</code>: an idle loop over a countdown
+      table and a list of callbacks that answers identification, the status
+      job and a new flash for as long as the power stays on. A valid boot never
+      executes that call.
+    </li>
+  </ul>
+  <p>
+    Content decides, not the marks on their own. Blank valid marks with a
+    good calibration still start the program, because the loader re-verifies
+    the checksums; invalid content parks it. A read over diagnostics shows the
+    marks as <code>FF</code> anyway, so a dump never tells you whether they
+    are set. <span class="ev emu">emulator</span> <span class="ev car">car</span>
+  </p>
+  <p>
+    Parked, the loader answers a tester at 9600 like a running DME would:
+    <code>3E</code> (tester present), the hardware reference
+    (<code>22 25 02</code>, "0044570" on this unit), the other reference
+    numbers, and <code>31 0A</code> with status <code>0C</code>. A read of
+    the programming log then comes back all <code>FF</code> if the top sector
+    was erased. <span class="ev car">car</span>
+  </p>
+
+  <h3>A factory flash leaves the loader alone</h3>
+  <p>
+    The whole-program session above writes the external program
+    (<code>0x60000</code>-<code>0xFFF3F</code>), the internal flash and the
+    calibration. Nothing in it touches the boot region below
+    <code>0x40000</code>, and nothing could: the loader's sector table at
+    <code>0x1F900</code> gives the boot sector no write permission, so no
+    erase or download request reaches it, whatever address it names. The
+    only writes into that sector are the loader's own, its programming log
+    entries. <span class="ev emu">emulator</span> <span class="ev code">firmware</span>
+  </p>
+  <p>
+    The other way round, code running on the DME itself can rewrite the boot
+    sector: the chip has no hardware protection there. A power loss between
+    erasing the 96 KB sector and writing it back leaves a DME that neither
+    boots nor flashes, because the loader that would serve a new flash is what
+    was erased. Only a hardware programmer brings such a unit back.
+    <span class="ev emu">emulator</span>
+  </p>
 </section>
 
 <section id="validity">
@@ -183,8 +311,7 @@ see: gs20
   <p>
     <code>31 09</code> then checks the references and an RSA signature over the
     MD5 of the listed segments. On success it writes marks into the last bytes of
-    the sector. At reset the loader starts the program only when all four are
-    there. <span class="ev emu">emulator</span>
+    the sector. <span class="ev emu">emulator</span>
   </p>
   <table>
     <thead><tr><th scope="col"></th><th scope="col">Complete</th><th scope="col">Signature checked</th></tr></thead>
@@ -193,10 +320,6 @@ see: gs20
       <tr><th scope="row">Calibration</th><td><code>0x5FF80</code> = <code>48249042</code></td><td><code>0x5FFC0</code> = <code>90482442</code></td></tr>
     </tbody>
   </table>
-  <p>
-    A read over diagnostics shows the marks as <code>FF</code>, so a dump never
-    tells you whether they are set. <span class="ev car">car</span>
-  </p>
   <h3>Status after a flash</h3>
   <p><code>31 0A</code> reports where the loader stands. <span class="ev emu">emulator</span></p>
   <table>
@@ -207,11 +330,191 @@ see: gs20
       <tr><th scope="row"><code>06</code></th><td>Data signature not checked</td></tr>
       <tr><th scope="row"><code>07</code></th><td>Interrupted, still in the programming session at 115200 and deaf to a tester at 9600</td></tr>
       <tr><th scope="row"><code>0C</code></th><td>Program not complete, after an ignition cycle at 9600; a new flash is taken</td></tr>
+      <tr><th scope="row"><code>0F</code></th><td>The calibration's stored checksum does not match its content; <code>31 09 04</code> answers <code>71 09 00</code></td></tr>
     </tbody>
   </table>
   <p>
     A half-written program is recoverable: after an erase the DME stays in its
     boot loader and accepts a new program flash. <span class="ev car">car</span>
+  </p>
+</section>
+
+<section id="selftest">
+  <h2>What the program checks about itself</h2>
+  <p>
+    Once running, the program keeps testing its own memory. Two of those
+    tests matter to anyone who changes the flash. <span class="ev code">firmware</span>
+    <span class="ev emu">emulator</span>
+  </p>
+  <h3>ROM test level 1: three checksums, including the boot block</h3>
+  <p>
+    A background task walks a CRC-32/MPEG-2 over three ranges in turn, each
+    described by a small table in the flash with its seed and stored word
+    beside it. One full walk takes about 5 s.
+  </p>
+  <table>
+    <thead><tr><th scope="col">Phase</th><th scope="col">Range</th><th scope="col">Stored word</th></tr></thead>
+    <tbody>
+      <tr><th scope="row">Boot block</th><td>External <code>0x0</code>-<code>0x1EFFF</code>, from the words at <code>0x1F808</code> and <code>0x1F80C</code>, seed at <code>0x1F9F0</code></td><td><code>0x1F800</code></td></tr>
+      <tr><th scope="row">Program</th><td>Internal <code>0x0</code>-<code>0x6FFFF</code>, then external <code>0x60608</code>-<code>0xFFF3F</code>, header at <code>0x60004</code>-<code>0x60014</code></td><td><code>0x60000</code></td></tr>
+      <tr><th scope="row">Calibration</th><td>From the table at <code>0x40108</code>; skipped when the halfword at <code>0x40114</code> is blank</td><td>in the header</td></tr>
+    </tbody>
+  </table>
+  <div class="callout">
+    <h4>A changed boot block with an old checksum resets the car every 5 s</h4>
+    <p>
+      Any phase failing sets the self-reset's code 11. The DME resets at the
+      end of every walk and stores fault 28B2 (P16C3, "engine speed limitation:
+      reset") with reason "11 ROM Test Level 1". A DME that ran fine on the
+      bench and reset every 5-10 s in the car had exactly this: its boot
+      region had been changed and the word at <code>0x1F800</code> had not.
+      A program flash cannot cure it, because a program flash never writes the
+      boot region; only rewriting the boot sector with a matching word does.
+      The loader carries the same walker but boots the program with a stale
+      word all the same, which is why the fault shows up only with the engine
+      running. <span class="ev car">car</span>
+    </p>
+  </div>
+  <p>
+    The range excludes the top 2 KB of the sector: the sector table, the ISN
+    and the programming log can change without touching the word. The safety
+    monitor's own code sum ("ROM test level 2", stored at <code>0x60600</code>)
+    is a separate, simpler sum over the program and is what a patched program
+    has to correct as well.
+  </p>
+  <h3>Reset reasons</h3>
+  <p>
+    The DME keeps a record of its own resets in RAM with a reason code. A
+    reset without a record came from outside the program: the watchdog, or
+    the monitoring module. Code 11 is the checksum walk above; the watchdog is
+    serviced at the very end of the 10 ms task chain, so a watchdog reset
+    means the chain did not finish, an unexpected exception or a jump into
+    erased flash. A program patch that ran correctly at idle on the emulator
+    and reset the real car at 3100-3400 rpm under load left no record: it ran
+    its extra code from the external chip on paths the idle run never took,
+    and the 10 ms budget was exceeded. <span class="ev car">car</span>
+    <span class="ev code">firmware</span>
+  </p>
+</section>
+
+<section id="aif">
+  <h2>The programming log</h2>
+  <p>
+    Every successful flash leaves an entry (the AIF, in the diagnostic
+    description's terms) in the tail of the boot sector, external
+    <code>0x1FB34</code>-<code>0x1FFFF</code>, in 64-byte slots. A slot is
+    empty when its first byte is <code>FF</code>; every reader walks from the
+    first slot and stops at the first empty one. <span class="ev code">firmware</span>
+    <span class="ev emu">emulator</span>
+  </p>
+  <ul>
+    <li>
+      <b>14 entries, not 19.</b> 19 slots fit in the area, but the DME's log
+      read (a window of service <code>23</code>, what the description's
+      AIF_LESEN uses) answers offsets below <code>0x380</code> and refuses
+      the rest with <code>7F 23 52</code>, even with 19 slots written. The
+      description counts 14 free, and so does the DME.
+      <span class="ev emu">emulator</span>
+    </li>
+    <li>
+      <b>The identity lives here.</b> The VIN, the programming date, the
+      software and assembly numbers that a tester shows for the DME come from
+      the newest entry. A DME whose log is blank identifies with those fields
+      empty, and its next entry gets software number 0000000, because the
+      previous one was the only copy. <span class="ev car">car</span>
+    </li>
+    <li>
+      <b>The boot block checksum excludes it</b>, so entries can be added
+      without changing anything else, which is how the loader itself adds
+      them. Flash only clears bits: a change that only clears bits can be
+      programmed over a slot in place, anything else means rewriting the
+      sector. <span class="ev emu">emulator</span>
+    </li>
+  </ul>
+  <h3>A slot</h3>
+  <p>
+    Decoded by running AIF_LESEN on marked slots; all fields round-trip.
+    Offsets are into the slot. <span class="ev data">BMW data</span>
+    <span class="ev emu">emulator</span>
+  </p>
+  <table>
+    <thead><tr><th scope="col">Offset</th><th scope="col">Field</th><th scope="col">Form</th></tr></thead>
+    <tbody>
+      <tr><th scope="row"><code>0x01</code>-<code>0x07</code></th><td>VIN, the last 7 characters</td><td>ASCII</td></tr>
+      <tr><th scope="row"><code>0x09</code>-<code>0x0B</code></th><td>Date</td><td>BCD YY MM DD</td></tr>
+      <tr><th scope="row"><code>0x0C</code>-<code>0x11</code></th><td>Assembly number (ZB)</td><td>BCD, 6 bytes</td></tr>
+      <tr><th scope="row"><code>0x12</code>-<code>0x17</code></th><td>Software number</td><td>BCD, 6 bytes</td></tr>
+      <tr><th scope="row"><code>0x18</code>-<code>0x1D</code></th><td>Approval (authority) number</td><td>BCD, 6 bytes</td></tr>
+      <tr><th scope="row"><code>0x1E</code>-<code>0x20</code></th><td>Dealer number</td><td>BCD</td></tr>
+      <tr><th scope="row"><code>0x21</code>-<code>0x25</code></th><td>Tester serial</td><td>ASCII</td></tr>
+      <tr><th scope="row"><code>0x26</code></th><td>Mileage</td><td>one byte, × 600 km</td></tr>
+      <tr><th scope="row"><code>0x27</code>-<code>0x32</code></th><td>Programming reference</td><td>ASCII</td></tr>
+      <tr><th scope="row"><code>0x33</code>-<code>0x3C</code></th><td>VIN, the first 10 characters</td><td>ASCII</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section id="ews">
+  <h2>The immobiliser</h2>
+  <p>
+    The DME is married to the car's EWS3 by a 16-bit number, the ISN. The two
+    talk over their own wire with a rolling code; the number itself never
+    goes over the K line in plain. Found on three DMEs and settled by pairing
+    two of them to one car. <span class="ev car">car</span> <span class="ev code">firmware</span>
+  </p>
+  <h3>Where the ISN is</h3>
+  <p>
+    In the external flash at <code>0x1FB00</code>, as three transformed copies
+    of the value V that the boot code votes on, after a marker halfword
+    (<code>FEFE</code>, <code>ECEC</code> or <code>C8C8</code>):
+  </p>
+  <table>
+    <thead><tr><th scope="col">Bytes</th><th scope="col">Holds</th><th scope="col">For V = <code>A356</code></th></tr></thead>
+    <tbody>
+      <tr><th scope="row">0-1</th><td>~V, both bytes inverted</td><td><code>5C A9</code></td></tr>
+      <tr><th scope="row">2-3</th><td>V with the high byte inverted</td><td><code>5C 56</code></td></tr>
+      <tr><th scope="row">4-5</th><td>V with the low byte inverted</td><td><code>A3 A9</code></td></tr>
+    </tbody>
+  </table>
+  <p>
+    Bytes 2-3 read raw give the wrong number, which is an easy mistake: only
+    the low byte of that copy is straight. <code>0x1FB00</code> sits above the
+    boot block checksum's range, so writing it changes no checksum.
+  </p>
+  <div class="callout">
+    <h4>The EEPROM record is not the ISN</h4>
+    <p>
+      The DME also keeps a 12-byte identity record in its EEPROM at
+      <code>0x04</code> (a copy at <code>0x14</code>): a 32-bit value and two
+      masked copies of it. It is a per-unit number. Two DMEs with different
+      values there both started the same car once their flash ISNs matched
+      the EWS; the record never changed through pairing. Reading the ISN from
+      the EEPROM gives a number that means nothing to the EWS.
+      <span class="ev car">car</span>
+    </p>
+  </div>
+  <h3>The EWS3 will not tell you its ISN</h3>
+  <p>
+    The EWS3 (DS2 address <code>0x44</code>) answers identification (part
+    6905670) and its status, and refuses ISN_LESEN and PASSWORT_LESEN with
+    <code>A2</code> on a paired car with the ignition on. There is no
+    precondition it waits for: in BMW's own description both jobs are one
+    bare telegram each, with no login or state job in front. A paired EWS3
+    declines by policy, so the car's ISN has to come from its original DME,
+    read from <code>0x1FB00</code> of a dump. <span class="ev car">car</span>
+    <span class="ev data">BMW data</span>
+  </p>
+  <h3>Pairing a used DME</h3>
+  <ol>
+    <li>Write the car's ISN into the used DME's triple at <code>0x1FB00</code>.</li>
+    <li>Run the EWS start-value sync (the EWS3 description's WECHSELCODE_SYNC_DME and the DME's start-value jobs), which realigns the rolling code. The telegram to the EWS is <code>44 04 67</code>; nothing secret crosses the K line.</li>
+    <li>Ignition off for 20 s, then crank. The pairing is committed by a real start; it may take two attempts.</li>
+  </ol>
+  <p>
+    The DME's lock flag (STATUS_EWS_LOCK, <code>21 49</code>, LV_LOCK_IMOB)
+    reads 1 right up until the engine actually starts. A 1 after a good sync
+    is not a failure. Done twice with two different donor DMEs; the car
+    started both times. <span class="ev car">car</span>
   </p>
 </section>
 
@@ -232,6 +535,37 @@ see: gs20
   <p>
     The K-line transceivers documented for this era are rated to about 200 kBaud,
     so anything above that is outside spec and depends on the cable and the car.
+    A line that is one-way at a high rate is a trap: the DME takes the request
+    to switch and the tester never hears the confirmation, so a tool must fall
+    back on its own when no answer comes.
+  </p>
+</section>
+
+<section id="live">
+  <h2>Reading values while it runs</h2>
+  <p>
+    The stock program serves a logger in the default session, with no
+    authentication. Measured on the emulated DME with the engine stopped.
+    <span class="ev emu">emulator</span>
+  </p>
+  <table>
+    <thead><tr><th scope="col">Request</th><th scope="col">Gives</th></tr></thead>
+    <tbody>
+      <tr><th scope="row"><code>10 81 05</code></th><td>The default session at 115200 baud (<code>03</code> is 38400). Answered at the old rate, then the line switches.</td></tr>
+      <tr><th scope="row"><code>83 03 04 01 18 14 00</code></th><td>Access timing at the session's limits: the DME answers after 2 ms instead of 25 and takes the next request 12 ms after its answer instead of about 27. Only exactly these values are accepted; anything else is <code>7F 83 22</code>. <code>83 00</code> reads the limits, <code>83 01</code> goes back to the defaults.</td></tr>
+      <tr><th scope="row"><code>2C F0</code> then <code>03 &lt;pos&gt; &lt;size&gt; &lt;addr24&gt;</code> per piece</th><td>Defines local identifier <code>F0</code> from memory: up to 42 pieces in one request, <code>pos</code> the 1-based position in the packet. A second request replaces the first; <code>2C F0 04</code> clears it.</td></tr>
+      <tr><th scope="row"><code>21 F0</code></th><td>The packet.</td></tr>
+      <tr><th scope="row"><code>23 &lt;addr24&gt; &lt;size&gt;</code></th><td>Memory: RAM from <code>0x3F9800</code> and the internal flash, up to 250 bytes. 251 to 254 get no answer at all; the external flash is refused with <code>7F 23 52</code>.</td></tr>
+    </tbody>
+  </table>
+  <p>
+    A 30-byte packet read back to back: 103 ms a read at 9600 (10 Hz), 57 ms
+    at 115200 (17 Hz), 20 ms at 115200 with the timing set (50 Hz). About
+    9 ms is the floor; the diagnostic task comes round no sooner. The
+    programming session has the same timing limits but refuses <code>21</code>,
+    <code>22</code>, <code>2C</code> and <code>18</code>, so it is no use for
+    logging. A real cable has to turn round in 2 ms for the fast timing: an
+    FTDI adapter needs its latency timer at 1 ms, not the default 16.
   </p>
 </section>
 

@@ -8,7 +8,7 @@
       content="width=device-width, initial-scale=1, viewport-fit=cover"
     />
     <title>Coding - BMWeb Wiki</title>
-    <meta name="description" content="How BMW's coding jobs talk to an E46 instrument cluster, and the traps in the coding files. Worked out by running BMW's own coding jobs and scripts offline against a simulated cluster, then on a car." />
+    <meta name="description" content="How BMW's coding jobs talk to an E46 instrument cluster, what the factory coding tool does with the coding files, and the traps in them. Worked out by running BMW's own coding jobs and scripts offline against a simulated cluster, reading the factory tool, then on a car." />
     <link rel="icon" href="data:image/svg+xml,%3Csvg%20width%3D%22100%22%20height%3D%22100%22%20viewBox%3D%220%200%20100%20100%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Crect%20x%3D%221.5%22%20y%3D%221.5%22%20width%3D%2297%22%20height%3D%2297%22%20rx%3D%2221%22%20fill%3D%22%2311161c%22%20stroke%3D%22%239aa6b2%22%20stroke-width%3D%223%22%2F%3E%3Cg%20transform%3D%22translate%2817%2018.5%29%20scale%280.126%29%22%3E%3Cpath%20fill%3D%22%23ff9e2c%22%20d%3D%22M88%200%20H400%20C470%200%20520%2040%20516%20100%20C512%20160%20480%20196%20432%20214%20C488%20236%20512%20290%20500%20352%20C486%20440%20420%20490%20320%20490%20H0%20Z%22%2F%3E%3Cpath%20fill%3D%22%23eef2f5%22%20d%3D%22M318%2026%20L128%20262%20L230%20262%20L176%20452%20L384%20210%20L282%20210%20Z%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E">
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -53,7 +53,6 @@
           <ul>
             <li><a href="ms45.html">MS45.1 DME</a></li>
             <li><a href="ms43.html">MS43 DME</a></li>
-            <li><a href="smg2.html">SMG2 gearbox</a></li>
             <li><a href="gs20.html">GS20 gearbox</a></li>
           </ul>
         </nav>
@@ -91,7 +90,7 @@
           <h1 class="firstHeading">Coding</h1>
           <p class="tagline">From BMWeb Wiki</p>
           <div class="body">
-            <p class="lead">How BMW's coding jobs talk to an E46 instrument cluster, and the traps in the coding files. Worked out by running BMW's own coding jobs and scripts offline against a simulated cluster, then on a car.</p>
+            <p class="lead">How BMW's coding jobs talk to an E46 instrument cluster, what the factory coding tool does with the coding files, and the traps in them. Worked out by running BMW's own coding jobs and scripts offline against a simulated cluster, reading the factory tool, then on a car.</p>
             <nav class="toc" id="toc" aria-label="Contents">
               <p class="toc-title">Contents <button type="button" class="toc-toggle">[hide]</button></p>
               <ol>
@@ -101,7 +100,9 @@
                 </ol></li>
               <li><a href="#scripts"><span class="num">2</span>Key-coded and order-coded cars</a></li>
               <li><a href="#files"><span class="num">3</span>Coding files</a></li>
-              <li><a href="#open"><span class="num">4</span>Not settled yet</a></li>
+              <li><a href="#jobs"><span class="num">4</span>How a coding job is asked</a></li>
+              <li><a href="#factory"><span class="num">5</span>What the factory tool writes</a></li>
+              <li><a href="#open"><span class="num">6</span>Not settled yet</a></li>
               </ol>
             </nav>
 <section id="cluster">
@@ -157,11 +158,56 @@
   </ul>
 </section>
 
+<section id="jobs">
+  <h2>How a coding job is asked</h2>
+  <p>
+    The coding jobs (C_S_LESEN, C_C_LESEN, C_S_AUFTRAG and their relatives)
+    take one buffer, and the module's job code reads it by offset. Measured by
+    running the jobs, and read from the factory tool that builds it.
+    <span class="ev data">BMW data</span>
+  </p>
+  <div class="table-wrap"><table class="wikitable">
+    <thead><tr><th scope="col">Offset</th><th scope="col">Holds</th></tr></thead>
+    <tbody>
+      <tr><th scope="row">0</th><td>Type: 1 for whole words (the mask all <code>FF</code>), 2 for one word with a partial mask</td></tr>
+      <tr><th scope="row">1</th><td>Word width, 1, 2 or 4 bytes</td></tr>
+      <tr><th scope="row">2, 3</th><td>Byte order and address mode</td></tr>
+      <tr><th scope="row">9 up</th><td>The mask, one byte per byte of the word</td></tr>
+      <tr><th scope="row"><code>0x0D</code></th><td>Byte count, 16 bit (the body module's jobs read this)</td></tr>
+      <tr><th scope="row"><code>0x0F</code></th><td>Word count, 16 bit (the cluster's jobs read this)</td></tr>
+      <tr><th scope="row"><code>0x11</code></th><td>Word address, 32 bit, little endian: the byte address divided by the word width, with the block number in the upper bytes</td></tr>
+      <tr><th scope="row"><code>0x15</code></th><td>Data, then a closing <code>03</code></td></tr>
+    </tbody>
+  </table></div>
+  <ul>
+    <li><b>The answer echoes the header.</b> A read comes back as the same 21-byte header, the data and <code>03</code>. A buffer one byte short of that is answered ERROR_BIN_BUFFER.</li>
+    <li><b>Type 2 is for clusters only.</b> Of 313 coding job sets, only the cluster ones (C_KMB*, KOMBI46R, KOMBI85, C_SHD) accept a partial-mask word; the rest answer ERROR_DATA_TYPE. Everything else is written as whole words, which is why the factory tool reads the module first.</li>
+    <li><b>Blocks are the address's upper bytes.</b> A module that organises its coding memory in blocks (the body module, the light module, the parking aid, the airbag module) gets the block number folded into the word address: width × block × 256, so a 16-bit address overflows for the higher blocks. Each module's jobs pick the block out of the byte they expect (most from byte <code>0x12</code> of the buffer, the ALC from two). The old <code>09 &lt;address / 20&gt;</code> write job only serves the body module's C01/C02 variants, whose coding is one 20-byte region; a C05/C06 car codes its body module through the ZKE5_S12 jobs. <span class="ev data">BMW data</span></li>
+    <li><b>Some blocks are the manufacturer's.</b> A module refuses a coding job on its HERSTELLER and RESERVIERT blocks with ERROR_ECU_PARAMETER.</li>
+  </ul>
+</section>
+
+<section id="factory">
+  <h2>What the factory tool writes</h2>
+  <p>
+    Read from the factory coding tool itself, against the E46 coding files.
+    <span class="ev data">BMW data</span>
+  </p>
+  <ul>
+    <li><b>The written set</b> is the OR of every active function's mask with the <code>UNBELEGT1</code> fill rows (<code>UNBELEGT2</code> gives the fill value). A byte whose mask is all set is sent as data, a partial one as a type-2 word, a clear one not at all. 115 of the 129 E46 descriptions come out fully covered, all type 1.</li>
+    <li><b>What it never writes:</b> the cluster's coding date, VIN, key-code block and mileage bytes, two equipment bytes, and the airbag module's VIN and manufacturer data. A tool that writes the whole region sends them back as the module holds them.</li>
+    <li><b>Values.</b> A reset codes every function to its active value. A function with no decision and one possible value gets it; with several the tool stops with an error. A condition table (CVT) is strict: exactly one rule per group must hold, later entries overwrite earlier ones.</li>
+    <li><b>Order to keywords.</b> The option table (AT) has rows typed W, E, H, K, Z and A; Z and <code>A #MMYY</code> rows carry a date and continue on <code>&gt;&gt;&gt;</code> lines, and the order's time criterion picks among them. In the ZST table a module-field value is matched nibble by nibble with 0 as a wildcard, and an all-zero row matches everything. The condition expression grammar is NOT above AND above OR, <code>,</code> for OR and <code>+</code> for AND.</li>
+    <li><b>The module's selection table</b> (SGET) takes the first row whose conditions hold. Its <code>S&lt;id&gt;</code> entries are equipment keyword ids (on the E46, S37 is AUTOMATIK, S121 KMBI_CI_07).</li>
+  </ul>
+</section>
+
 <section id="open">
   <h2>Not settled yet</h2>
   <ul>
-    <li><b>Block-addressed modules</b> such as the GM5 body module and the light module address their coding memory in blocks. Their read job sends <code>08 &lt;address&gt;</code> and their write job <code>09 &lt;address / 20&gt;</code>, but which address convention the factory tool uses is not known. A wire trace of a real coding run would settle it.</li>
+    <li><b>Coding a block-addressed module</b> with the rules above has been run offline against the jobs, not yet on a car.</li>
     <li><b>The equipment filter</b>, which hides functions a car's options do not have, needs the option ids measured on a car.</li>
+    <li><b>The option table's V and N dates</b> and its <code>=</code> conditions are read approximately; whether a date on such a row means on-or-after or before has not been checked against a car.</li>
   </ul>
 </section>
             <section id="see-also">

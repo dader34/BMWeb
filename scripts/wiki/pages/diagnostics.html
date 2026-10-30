@@ -16,6 +16,16 @@ see: coding
     own echo is not on the line. The usual serial format is 8 data bits, even
     parity, 1 stop bit.
   </p>
+  <div class="callout">
+    <h4>An echo proves nothing about the car</h4>
+    <p>
+      A USB K-line cable echoes every byte it sends with nothing plugged into
+      it at all, at any rate from 9600 to 312500: the echo is the adapter's
+      own loopback. Echo and no answer means no unit heard you. Check the plug
+      and the key before suspecting a loader state or a baud rate.
+      <span class="ev car">car</span>
+    </p>
+  </div>
 </section>
 
 <section id="ds2">
@@ -32,10 +42,16 @@ see: coding
     <thead><tr><th scope="col">Status</th><th scope="col">Seen meaning</th></tr></thead>
     <tbody>
       <tr><th scope="row"><code>A0</code></th><td>Done</td></tr>
-      <tr><th scope="row"><code>A2</code></th><td>Not now. The GS20 says it for 10 s after power-up or a wrong key, and when it has no program and is already in its boot loader.</td></tr>
-      <tr><th scope="row"><code>B0</code></th><td>Refused. The GS20 says it for a write to a region not erased in this session.</td></tr>
+      <tr><th scope="row"><code>A2</code></th><td>Not now, or not for you. The GS20 says it for 10 s after power-up or a wrong key, and when it has no program and is already in its boot loader. The EWS3 (address <code>0x44</code>) says it to ISN_LESEN and PASSWORT_LESEN on a paired car, ignition on, and there is no job that unlocks them: it declines by policy. See <a href="ms45.html#ews">the immobiliser</a>.</td></tr>
+      <tr><th scope="row"><code>B0</code></th><td>Refused. The GS20 says it for a write to a region not erased in this session, and for a programming record written outside the state that allows it.</td></tr>
     </tbody>
   </table>
+  <p>
+    A positive answer can carry a sub-status after <code>A0</code>: the GS20
+    answers a write over bytes already programmed with sub-status 3, and the
+    end of a programming whose calibration does not match the program with
+    <code>0E</code>. <span class="ev emu">emulator</span>
+  </p>
 </section>
 
 <section id="kwp">
@@ -58,7 +74,8 @@ B8 F1 12 03 7F 31 23 ..       DME to tester: routine not finished yet</code></pr
     <tbody>
       <tr><th scope="row"><code>23</code></th><td>Routine not complete</td><td>Ask again. An erase says this for about 10 s.</td></tr>
       <tr><th scope="row"><code>78</code></th><td>Answer pending</td><td>Wait. The answer follows on its own.</td></tr>
-      <tr><th scope="row"><code>22</code></th><td>Conditions not correct</td><td>A real refusal. An erase refuses this way when the supply voltage is too low.</td></tr>
+      <tr><th scope="row"><code>22</code></th><td>Conditions not correct</td><td>A real refusal. An erase refuses this way when the supply voltage is too low; an access-timing request with any value but the unit's own limits; a programming log write outside a session that erased and downloaded something.</td></tr>
+      <tr><th scope="row"><code>52</code></th><td>Address not served</td><td>A memory read (<code>23</code>) of an address the unit does not hand out: the MS45.1's external flash, or its programming log past the 14th entry.</td></tr>
       <tr><th scope="row"><code>80</code></th><td>Refused</td><td>A real refusal.</td></tr>
     </tbody>
   </table>
@@ -66,6 +83,23 @@ B8 F1 12 03 7F 31 23 ..       DME to tester: routine not finished yet</code></pr
     Some answers are positive in form and still a refusal. The DME's key answer
     <code>71 08 00</code> means the key was rejected; only <code>71 08 01</code>
     unlocks it. See <a href="ms45.html#session">the MS45.1 session</a>.
+  </p>
+  <h3>Timing</h3>
+  <p>
+    The unit's answer delay and the gap it wants before the next request are
+    set by <code>83</code>. <code>83 00</code> reads the limits, <code>83 03</code>
+    sets values and <code>83 01</code> returns to the defaults. The MS45.1
+    accepts exactly its limits and nothing in between: its running program
+    answers after 25 ms and wants about 27 ms of quiet by default, 2 ms and
+    12 ms at its limits (<code>83 03 04 01 18 14 00</code>); its boot loader
+    wants 12 ms of quiet and gives itself 3 s to answer
+    (<code>83 03 00 78 18 F0 00</code>). A request sent into the gap is
+    silently dropped, not refused. <span class="ev emu">emulator</span>
+  </p>
+  <p>
+    A memory read of 251 to 254 bytes gets no answer at all from the MS45.1,
+    where 250 is served. Silence is a fourth kind of answer and a tool should
+    time it out, not wait. <span class="ev emu">emulator</span>
   </p>
 </section>
 
@@ -91,6 +125,59 @@ B8 F1 12 03 7F 31 23 ..       DME to tester: routine not finished yet</code></pr
       answered in about 200 ms but occasionally in 670 ms, so block timeouts need
       to follow the negotiated P2max of 3 s, not a guess.
       <span class="ev car">car</span>
+    </li>
+    <li>
+      <b>A fast turnaround needs a fast adapter.</b> With the MS45.1's timing at
+      its limits the tester has 2 ms to answer. An FTDI cable buffers received
+      bytes for 16 ms by default; its latency timer has to be set to 1 ms.
+      <span class="ev emu">emulator</span>
+    </li>
+    <li>
+      <b>A one-way line looks like a dead unit.</b> At a rate the cable cannot
+      carry back (416667 and up on the K+DCAN cable tried) the DME still hears
+      the request to switch and switches, and its garbled answers never
+      confirm it. Only an ignition cycle brings it back to 9600 unless the unit
+      falls back on its own. <span class="ev car">car</span>
+    </li>
+    <li>
+      <b>The transceivers.</b> The MS43's K-line driver is an MC33199-class part
+      rated to 200 kBaud; the MS45.1's could not be identified from the board.
+      The MS45.1 carried 250000 and 312500 on one car, which says more about
+      the margin in the parts than about any guarantee.
+      <span class="ev car">car</span>
+    </li>
+  </ul>
+</section>
+
+<section id="kfp">
+  <h2>Flashing with BMW's own descriptions</h2>
+  <p>
+    BMW's flash descriptions for the DS2 units (the GS20 and SMG2 among 37)
+    and the scripts that drive them were run offline against the emulated
+    units. Three things in them are easy to get wrong. <span class="ev data">BMW data</span>
+    <span class="ev emu">emulator</span>
+  </p>
+  <ul>
+    <li>
+      <b>The erase job has no timeout.</b> Every DS2 flash description sets
+      the standard timeout of FLASH_LOESCHEN to 0, which means no limit, not
+      the default. A runtime that reads 0 as unset waits 2 s and gives up on an
+      erase that takes longer; the flashing script then reports that failure
+      as its battery-voltage error (2022), which is the script's own mapping of
+      the job status, not a measurement. <span class="ev car">car</span>
+    </li>
+    <li>
+      <b>One log record, after the last file.</b> The factory flasher writes a
+      programming record once, after the last of the files it programs, not
+      after each one. A GS20 given a record after every file refuses the later
+      ones. <span class="ev data">BMW data</span>
+    </li>
+    <li>
+      <b>No script checks the battery or the ignition.</b> None of the 522
+      flashing scripts reads the supply voltage or terminal 15. The checks a
+      factory tool performs before a flash are the tool's, and an erase that
+      the unit refuses for low voltage comes back as the unit's own answer
+      (<code>7F 31 22</code> from the MS45.1). <span class="ev data">BMW data</span>
     </li>
   </ul>
 </section>

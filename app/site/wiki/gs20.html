@@ -53,7 +53,6 @@
           <ul>
             <li><a href="ms45.html">MS45.1 DME</a></li>
             <li><a href="ms43.html">MS43 DME</a></li>
-            <li><a href="smg2.html">SMG2 gearbox</a></li>
             <li class="here"><a href="gs20.html">GS20 gearbox</a></li>
           </ul>
         </nav>
@@ -181,6 +180,8 @@
     <li><b>A write to a region not erased in this session is refused</b> with <code>B0</code>, even if it is blank. A write over bytes already programmed is answered with sub-status 3.</li>
     <li><b>A blank program region</b> gives validity code <code>0x0B</code>, the flash status sub-code a flasher sees for it.</li>
     <li><b>The pace is the module's:</b> it wants 25 ms of quiet before it takes a telegram. A calibration write is about 44 s of the module's time and a program write about 175 s, at 80 ms a chunk.</li>
+    <li><b>The finish checks the pair.</b> The end-of-programming command (<code>07 0F</code>) compares the calibration's ID blocks with the installed program's. A mismatch is answered with sub-status <code>0E</code> and the module stays in programming state 3, so a calibration written onto a program it was not released for never completes.</li>
+    <li><b>The programming record has its own window.</b> The record area is <code>0x08F000</code>-<code>0x08FFFF</code>, 46-byte records written in turn (<code>0x08F000</code>, <code>0x08F02E</code>, <code>0x08F05C</code>, ...), read first and written after the data. It can only be written in programming state 1; in any other state the write is refused with <code>B0</code>. The factory flasher writes one record after the last file. <span class="ev data">BMW data</span></li>
   </ul>
 </section>
 
