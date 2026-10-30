@@ -15015,7 +15015,7 @@ body.fb-classic-on .modal-overlay .fb-logview-filter .seg-btn {
     sans-serif;
   border: 1px solid var(--wk-dk);
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
-  user-select: none;
+  /* its text copies like the rest of the app's; the bars and buttons do not */
   /* the app's dark scheme and amber accent stop at the window's edge */
   color-scheme: light;
   accent-color: #0078d7;
@@ -15067,6 +15067,8 @@ body.fb-classic-on .modal-overlay .fb-logview-filter .seg-btn {
   color: inherit;
 }
 .wkfp-titlebar {
+  user-select: none;
+  -webkit-user-select: none;
   background: linear-gradient(#5b5b5b, #3a3a3a);
   color: #fff;
   font-weight: bold;
@@ -15074,6 +15076,8 @@ body.fb-classic-on .modal-overlay .fb-logview-filter .seg-btn {
   padding: 6px 8px;
 }
 .wkfp-menubar {
+  user-select: none;
+  -webkit-user-select: none;
   position: relative;
   display: flex;
   gap: 2px;

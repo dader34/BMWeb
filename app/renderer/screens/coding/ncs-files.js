@@ -191,13 +191,14 @@ function ncsParseMan(text) {
  * @param {object[]} fns - the module's functions.
  * @param {object|null} image - what it holds.
  * @param {string} man - the file.
- * @returns {{edits: object[], changes: object[], unknown: string[]}}
+ * @returns {{edits: object[], changes: object[], unknown: string[], same: string[]}}
  */
 function ncsManEdits(fns, image, man) {
   const byName = new Map(fns.map((f) => [String(f.name).toUpperCase(), f]));
   const edits = [];
   const changes = [];
   const unknown = [];
+  const same = [];
   const value = (f) =>
     typeof codingImageValue === 'function' ? codingImageValue(f, image) : null;
   for (const [fsw, psw] of ncsParseMan(man)) {
@@ -216,7 +217,17 @@ function ncsManEdits(fns, image, man) {
       continue;
     }
     const cur = value(f);
-    if (cur != null && String(cur).toLowerCase() === hex) continue;
+    if (cur != null && String(cur).toLowerCase() === hex) {
+      // a parameter can share its data with another name: picking it
+      // changes nothing in the module
+      const held = ncsParamName(f, cur);
+      same.push(
+        held && String(held).toLowerCase() !== String(psw).toLowerCase()
+          ? `${f.name}: ${psw} is the same data (${hex}) as ${held}, which it holds`
+          : `${f.name}: already ${psw}`
+      );
+      continue;
+    }
     edits.push({ rule: f, hex });
     changes.push({
       fsw: f.name,
@@ -224,7 +235,7 @@ function ncsManEdits(fns, image, man) {
       to: ncsParamName(f, hex),
     });
   }
-  return { edits, changes, unknown };
+  return { edits, changes, unknown, same };
 }
 
 /**

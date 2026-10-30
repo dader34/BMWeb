@@ -81,6 +81,9 @@ function ncsDummyMan(rows, picks) {
   for (const r of rows) {
     const p = picks.get(r.fsw);
     if (p == null || p.toLowerCase() === r.psw.toLowerCase()) continue;
+    // another name for the data it holds writes nothing
+    const o = r.options.find((x) => x.name.toLowerCase() === p.toLowerCase());
+    if (o && r.hex && o.hex === r.hex) continue;
     out.push(r.fsw, `\t${p}`);
   }
   return {
@@ -330,7 +333,12 @@ function ncsBindDummy(ctx, actions) {
         });
         sel.onchange = () => {
           const o = r.options[Number(sel.value)];
-          if (o.name.toLowerCase() === r.psw.toLowerCase()) picks.delete(r.fsw);
+          // the held parameter, or another name for the same data
+          if (
+            o.name.toLowerCase() === r.psw.toLowerCase() ||
+            (r.hex && o.hex === r.hex)
+          )
+            picks.delete(r.fsw);
           else picks.set(r.fsw, o.name);
           tr.classList.toggle('ncsd-changed-row', picks.has(r.fsw));
           refresh();

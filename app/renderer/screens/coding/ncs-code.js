@@ -436,7 +436,7 @@ function ncsBindActions2(ctx, base) {
       );
       return;
     }
-    const { edits, changes, unknown } = ncsManEdits(
+    const { edits, changes, unknown, same } = ncsManEdits(
       state.read.fns,
       state.read.image,
       man
@@ -444,8 +444,8 @@ function ncsBindActions2(ctx, base) {
     if (unknown.length) log(`MAN warnings: ${unknown.join('; ')}`);
     if (!edits.length) {
       await ncsError(
-        'Nothing in FSW_PSW.MAN differs from the control unit.\n' +
-          (unknown.length ? unknown.join('\n') : 'Nothing to code.')
+        'Nothing in FSW_PSW.MAN differs from the control unit.\n\n' +
+          ([...same, ...unknown].join('\n') || 'Nothing to code.')
       );
       return;
     }
