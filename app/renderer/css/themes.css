@@ -1071,7 +1071,8 @@ html[data-theme='brackets'] .icon-btn {
   border: 1px solid var(--line) !important;
   box-shadow: none !important;
 }
-html[data-theme='brackets'] .btn.primary {
+html[data-theme='brackets'] .btn.primary,
+html[data-theme='brackets'] .log-win-btn.on {
   background: var(--amber) !important;
   color: var(--amber-ink) !important;
   border-color: var(--amber-soft) !important;
@@ -1079,7 +1080,8 @@ html[data-theme='brackets'] .btn.primary {
 html[data-theme='brackets'] .btn:hover {
   background: var(--line-bright) !important;
 }
-html[data-theme='brackets'] .btn.primary:hover {
+html[data-theme='brackets'] .btn.primary:hover,
+html[data-theme='brackets'] .log-win-btn.on:hover {
   background: var(--amber-soft) !important;
 }
 html[data-theme='brackets'] .topbar,
