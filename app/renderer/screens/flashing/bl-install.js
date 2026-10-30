@@ -95,6 +95,9 @@ async function fbBlIdentifyAfterLateGate() {
 /** Why Install / update fast flash bootloader cannot start, or null. */
 function fbBlWhyNot() {
   const d = fbState.dme;
+  // putting the bootloader on is bench-only for now (the hosted site keeps
+  // Restore, the way off)
+  if (!fbProtectTesting()) return 'Bench only.';
   if (!d.identified) return 'Identify the DME first.';
   if (
     bl.isCurrent(d.bootLoader) &&
@@ -238,6 +241,7 @@ function fbBlRestoreWhyNot() {
  * program flash itself needs. The bootloader's state is not consulted. */
 function fbBlRepairWhyNot() {
   const d = fbState.dme;
+  if (!fbProtectTesting()) return 'Bench only.';
   if (!d.identified) return 'Identify the DME first.';
   if (fbBlInLateInstaller()) return null;
   if (!(d.fullBin && d.flash && d.mpc))
@@ -259,6 +263,12 @@ function _fbBlWire(btn, title, run) {
 function fbBlRefresh() {
   const btn = fbEls['opt-bl-install'];
   if (!btn) return;
+  // Install / update and Repair are not shown on the hosted site
+  const bench = fbProtectTesting();
+  for (const id of ['opt-bl-install', 'opt-bl-repair'])
+    fbEls[id].parentElement.hidden = !bench;
+  fbEls['opt-bl-reason'].hidden = !bench;
+  fbEls['opt-bl-repair-reason'].hidden = !bench;
   _fbBlWire(btn, 'Install / update fast flash bootloader', fbBlPut);
   const why = fbBlWhyNot();
   btn.disabled = !!why;
