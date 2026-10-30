@@ -38,6 +38,8 @@ on:
       - 'tools/export/**'
       - 'tools/sgbd/ecu_tree.py'
       - 'scripts/build/build-web.sh'
+      - 'scripts/build/bundle-renderer.mjs'
+      - 'scripts/build/chunks.json'
       - 'scripts/build/ci-fetch-hf-data.sh'
       - 'scripts/build/fetch_wiring.py'
       - '.github/workflows/pages.yml'
