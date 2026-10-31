@@ -14943,12 +14943,13 @@ body.fb-skin-rail-on .modal-overlay {
   --skin-rail-hi: #3a4258;
   accent-color: #3b6fd4;
 }
-/* a window of its own size in the middle of the view, the way WebKFP sits;
-   the tuning editor and the logger want the room, so on their pages it
-   opens out to the whole view */
+/* a window of its own size in the middle of the view, the way WebKFP sits,
+   the same on every page but the tuning editor's and the logger's: they
+   want the room, so there it opens out to the whole view */
 .fb.fb-skin-tabs,
 .fb.fb-skin-rail {
-  max-width: 780px;
+  /* a set width: left to its content, a page could narrow it */
+  width: min(780px, 100%);
   height: min(620px, calc(100% - 48px));
   margin: 24px auto;
   border: 1px solid #696969;
@@ -14956,7 +14957,7 @@ body.fb-skin-rail-on .modal-overlay {
 }
 .fb.fb-skin-tabs.fb-page-wide,
 .fb.fb-skin-rail.fb-page-wide {
-  max-width: none;
+  width: auto;
   height: 100%;
   margin: 0;
 }
