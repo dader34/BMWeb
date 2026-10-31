@@ -14948,8 +14948,8 @@ body.fb-skin-rail-on .modal-overlay {
    opens out to the whole view */
 .fb.fb-skin-tabs,
 .fb.fb-skin-rail {
-  max-width: 900px;
-  height: min(660px, calc(100% - 48px));
+  max-width: 780px;
+  height: min(620px, calc(100% - 48px));
   margin: 24px auto;
   border: 1px solid #696969;
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
@@ -15297,18 +15297,20 @@ body:is(.fb-skin-tabs-on, .fb-skin-rail-on) .modal-overlay .fb-logview {
   /* out past the tab panel's sides and foot: the line sits on the window's
      own face under the panel, the way such a tool's status row did */
   margin: 10px -11px -11px;
-  padding: 8px 10px;
+  padding: 8px 21px 10px;
   background: #f0f0f0;
   border: 0;
   border-top: 1px solid #d9d9d9;
 }
 :root .fb.fb-skin-tabs .fb-status {
-  flex: 0 1 38%;
+  /* a narrow column; the bar takes the rest, to the buttons' right edge */
+  flex: 0 0 130px;
   min-width: 0;
   font:
     12px 'Segoe UI',
     Tahoma,
     sans-serif;
+  line-height: 1.35;
   color: #000;
 }
 :root .fb.fb-skin-tabs .fb-bar {
