@@ -629,6 +629,10 @@ html.no-chrome body.apps-section .topbar:has(.nav-back:not([hidden])) {
   padding: 7px 10px;
   transition: all 0.15s;
 }
+/* the Flashing app picks its look on its own Settings page */
+body.fb-screen-on .layout-toggle {
+  display: none;
+}
 .layout-toggle button + button {
   border-left: 1px solid var(--line);
 }
@@ -14939,10 +14943,22 @@ body.fb-skin-rail-on .modal-overlay {
   --skin-rail-hi: #3a4258;
   accent-color: #3b6fd4;
 }
+/* a window of its own size in the middle of the view, the way WebKFP sits;
+   the tuning editor and the logger want the room, so on their pages it
+   opens out to the whole view */
 .fb.fb-skin-tabs,
 .fb.fb-skin-rail {
-  border: 1px solid #8a8a8a;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+  max-width: 900px;
+  height: min(660px, calc(100% - 48px));
+  margin: 24px auto;
+  border: 1px solid #696969;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+}
+.fb.fb-skin-tabs.fb-page-wide,
+.fb.fb-skin-rail.fb-page-wide {
+  max-width: none;
+  height: 100%;
+  margin: 0;
 }
 
 /* the title bar: white, the caption buttons drawn as text */
@@ -15251,6 +15267,9 @@ body:is(.fb-skin-tabs-on, .fb-skin-rail-on) .modal-overlay .fb-logview {
   border-bottom-color: #fff;
 }
 :root .fb.fb-skin-tabs .fb-main {
+  /* the grid row sizes it: a 100% height plus this margin ran it off the
+     window's foot */
+  height: auto;
   margin: 0 10px 10px;
   background: #fff;
   border: 1px solid #d9d9d9;
@@ -15275,10 +15294,13 @@ body:is(.fb-skin-tabs-on, .fb-skin-rail-on) .modal-overlay .fb-logview {
   flex-direction: row;
   align-items: center;
   gap: 14px;
-  margin-top: 8px;
-  padding: 8px 10px 10px;
-  background: #fff;
+  /* out past the tab panel's sides and foot: the line sits on the window's
+     own face under the panel, the way such a tool's status row did */
+  margin: 10px -11px -11px;
+  padding: 8px 10px;
+  background: #f0f0f0;
   border: 0;
+  border-top: 1px solid #d9d9d9;
 }
 :root .fb.fb-skin-tabs .fb-status {
   flex: 0 1 38%;

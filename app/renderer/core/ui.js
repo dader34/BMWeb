@@ -224,6 +224,7 @@ function setCrumbs(items) {
   // the classic or skinned Flashing app tags the body so its dialogs follow
   // its look
   document.body.classList.remove(
+    'fb-screen-on',
     'fb-classic-on',
     'fb-skin-tabs-on',
     'fb-skin-rail-on'

@@ -15,46 +15,51 @@
 /* exported showFlashing, fbApplyLayout, fbState, fbEls, fbSetStatus, fbSetStage, fbSetStatusInPlace, fbLog, fbProgress, fbFlashingBar, fbBusy, fbConfirm, fbMessage, fbChoose, fbConfirmAck, fbPickFile, fbIsIos, fbReadBytes, fbReadText, fbSaveBytes, fbEnsureCable, fbDescribeError, fbProgrammingCounter, fbRefreshCustomOptionsGate, fbShowOptions, fbAifArgs, fbOnSharedCar, fbRemoteAction, fbFlashRun, fbAifWanted, fbFastFlasherWanted, fbSetEcuBox, fbRefreshAll, fbDevUi, fbWriteAif, fbTesterSerial, fbSessionStart, fbSessionStop */
 
 /**
- * The app's skins beyond the Classic/Modern switch (Settings > Skin): each a
- * Windows look of its own (styles.css, .fb-skin-*), worn in place of the
- * switch's while chosen.
+ * The app's looks, chosen on its own Settings page (not the top bar's
+ * Classic/Modern switch, which this screen hides): the modern panel, the
+ * classic Windows tool, and two other Windows skins (styles.css, .fb-skin-*).
  */
 const FB_SKINS = {
+  modern: 'Modern',
+  classic: 'Classic',
   tabs: 'Light, tabs across the top',
   rail: 'Light, dark rail down the side',
 };
 
 /**
- * The chosen skin, or '' to follow the Classic/Modern switch.
+ * The chosen look (modern unless one was picked).
  * @returns {string}
  */
 function fbSkin() {
-  const s = Settings.get('flashSkin', '');
-  return Object.prototype.hasOwnProperty.call(FB_SKINS, s) ? s : '';
+  const s = Settings.get('flashSkin', 'modern');
+  return Object.prototype.hasOwnProperty.call(FB_SKINS, s) ? s : 'modern';
 }
 
 /**
- * Follow the screen layout setting and the skin without a redraw (the top
- * bar's switch, the Settings page): the window's classes, title bar and body
- * tags on or off. A redraw would forget the identified module and the loaded
- * files, and must never happen mid-flash.
+ * Follow the chosen look without a redraw (the Settings page): the window's
+ * classes, title bar and body tags on or off. A redraw would forget the
+ * identified module and the loaded files, and must never happen mid-flash.
  * @returns {void}
  */
 function fbApplyLayout() {
   const wrap = document.querySelector('#view .fb');
   if (!wrap) return;
   const skin = fbSkin();
-  const classic = !skin && inpaMode();
+  const classic = skin === 'classic';
+  const other = skin === 'tabs' || skin === 'rail' ? skin : '';
+  // the top bar's Classic/Modern switch does not steer this screen: hidden
+  // while it shows (cleared by setCrumbs on the next screen)
+  document.body.classList.add('fb-screen-on');
   wrap.classList.toggle('fb-classic', classic);
   // dialogs and the log viewer open on the body, outside .fb: these tags
   // give them the same look (cleared by setCrumbs on the next screen)
   document.body.classList.toggle('fb-classic-on', classic);
-  for (const s of Object.keys(FB_SKINS)) {
-    wrap.classList.toggle(`fb-skin-${s}`, s === skin);
-    document.body.classList.toggle(`fb-skin-${s}-on`, s === skin);
+  for (const s of ['tabs', 'rail']) {
+    wrap.classList.toggle(`fb-skin-${s}`, s === other);
+    document.body.classList.toggle(`fb-skin-${s}-on`, s === other);
   }
   let bar = wrap.querySelector('#fb-titlebar');
-  if ((classic || skin) && !bar) {
+  if ((classic || other) && !bar) {
     bar = document.createElement('div');
     bar.className = 'fb-titlebar';
     bar.id = 'fb-titlebar';
@@ -63,7 +68,7 @@ function fbApplyLayout() {
     const cur = wrap.querySelector('.fb-rail-btn.current');
     const page = cur ? cur.id.slice('fb-rail-'.length) : 'flashing';
     bar.textContent = `BMWeb Flasher - ${FB_PAGE_TITLES[page] || page}`;
-  } else if (!classic && !skin && bar) {
+  } else if (!classic && !other && bar) {
     bar.remove();
     delete fbEls.titlebar;
   }
@@ -259,12 +264,11 @@ async function showFlashing(page) {
         <div class="fb-section">
           <div class="fb-code">SKIN</div>
           <select id="fb-set-skin">
-            <option value="">Follow the Classic / Modern switch</option>
             ${Object.entries(FB_SKINS)
               .map(([v, label]) => `<option value="${v}">${label}</option>`)
               .join('')}
           </select>
-          <div class="fb-dim">How this app looks. A skin changes nothing about what it does.</div>
+          <div class="fb-dim">How this app looks; the top bar's Classic / Modern switch does not change it. A skin changes nothing about what it does.</div>
         </div>
         <div class="fb-section">
           <div class="fb-code">FILES</div>
@@ -484,6 +488,9 @@ function fbShowPage(page) {
   // the editor and the logger bring their own bars: the control-unit bar and
   // the status line make way for both
   fbEls.topbar.hidden = tuning || logging;
+  // a skinned window opens out to the whole view for them (styles.css)
+  const wrap = document.querySelector('#view .fb');
+  if (wrap) wrap.classList.toggle('fb-page-wide', tuning || logging);
   fbEls.statusbar.hidden = tuning || logging;
   if (tuning && !fbState.tuningActions && typeof tnMount === 'function')
     fbState.tuningActions = tnMount(fbEls['page-tuning'], fbState.actions[0]);
