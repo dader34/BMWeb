@@ -94,6 +94,27 @@ async function fbBlIdentifyAfterLateGate() {
   await fbDmeIdentify(true);
 }
 
+/** The one program the bootloader is built and proven on. */
+const FB_BL_PROGRAM = '0044570LO02S';
+
+/** Why the DME, or the pair the long way would flash, is not the program
+ * the bootloader is for, or null. A DME stopped in its loader reports no
+ * program: then the loaded pair decides. */
+function fbBlProgramWhyNot(longWay) {
+  const d = fbState.dme;
+  const id = d.ident || {};
+  if (!fbDmeIsMs451())
+    return `The fast flash bootloader is MS45.1 only; this DME reports ${id.hwRef || 'no hardware number'}.`;
+  if (id.progRef && !id.progRef.includes(FB_BL_PROGRAM))
+    return `The fast flash bootloader is only for program ${FB_BL_PROGRAM}; this DME reports ${id.progRef}.`;
+  if (longWay && d.flash) {
+    const v = ewsDelete.readProgramVersion(d.flash);
+    if (v !== FB_BL_PROGRAM)
+      return `The fast flash bootloader is only for program ${FB_BL_PROGRAM}; the loaded pair is ${v || 'an unreadable version'}.`;
+  }
+  return null;
+}
+
 /** Why Install / update fast flash bootloader cannot start, or null. */
 function fbBlWhyNot() {
   const d = fbState.dme;
@@ -104,12 +125,14 @@ function fbBlWhyNot() {
   )
     return 'The bootloader is up to date.';
   // through the ring, or through the late installer already there: no file
-  if (fbBlRingReachable() || fbBlHasLateInstaller() || fbBlInLateInstaller())
-    return null;
+  if (fbBlInLateInstaller()) return null;
+  const notOurs = fbBlProgramWhyNot(false);
+  if (notOurs) return notOurs;
+  if (fbBlRingReachable() || fbBlHasLateInstaller()) return null;
   // the long way writes the pair through the DME's own loader
   if (!(d.fullBin && d.flash && d.mpc))
     return 'Needs Full Binary with the DME’s pair loaded (the bootloader goes in with a program flash).';
-  return null;
+  return fbBlProgramWhyNot(true);
 }
 
 /**
@@ -249,7 +272,7 @@ function fbBlRepairWhyNot() {
   if (fbBlInLateInstaller()) return null;
   if (!(d.fullBin && d.flash && d.mpc))
     return 'Needs Full Binary with the DME’s pair loaded (the program is flashed with the installer in it).';
-  return null;
+  return fbBlProgramWhyNot(true);
 }
 
 /** Wire one button once: back to the flashing view, where the run shows. */
