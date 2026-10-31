@@ -485,10 +485,9 @@ function fbShowPage(page) {
   const logging = page === 'logging';
   // the editor's floating windows (gauges, graphs, faults) go with its page
   document.body.classList.toggle('tn-away', !tuning);
-  // the editor and the logger bring their own bars: the control-unit bar and
-  // the status line make way for both; Settings has no use for the
-  // control-unit bar
-  fbEls.topbar.hidden = tuning || logging || page === 'settings';
+  // the control-unit bar belongs to the flashing page alone; the editor and
+  // the logger bring their own bars, so the status line makes way for both
+  fbEls.topbar.hidden = page !== 'flashing';
   // a skinned window opens out to the whole view for them (styles.css)
   const wrap = document.querySelector('#view .fb');
   if (wrap) wrap.classList.toggle('fb-page-wide', tuning || logging);

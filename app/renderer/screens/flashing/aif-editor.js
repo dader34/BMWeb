@@ -614,7 +614,7 @@ function fbAifEdWhyNot(write) {
   const d = fbState.dme;
   const have = d && d.bootLoader;
   if (fbState.module !== 'dme' || !d.identified)
-    return 'Identify the DME first.';
+    return 'Identify the DME on the Flashing tab first.';
   if (!have || have.version < FB_AIF_ED_LOADER_FROM)
     return 'Needs the fast flash bootloader on the DME.';
   if (typeof webBus === 'undefined' || !webBus.port || !webBus.port.setSignals)

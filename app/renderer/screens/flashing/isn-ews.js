@@ -50,7 +50,7 @@ function fbIsnWhyNot(eeprom) {
   const d = fbState.dme;
   const have = d && d.bootLoader;
   if (fbState.module !== 'dme' || !d.identified)
-    return 'Identify the DME first.';
+    return 'Identify the DME on the Flashing tab first.';
   if (!fbDmeIsMs451()) return 'The ISN tools are MS45.1 only.';
   if (!have || have.version < 14)
     return 'Needs the fast flash bootloader on the DME.';
