@@ -102,7 +102,7 @@ function fbBlWhyNot() {
     bl.isCurrent(d.bootLoader) &&
     !(d.bootLoader.health && d.bootLoader.health.broken)
   )
-    return 'The current fast flash bootloader is on this DME.';
+    return 'The bootloader is up to date.';
   // through the ring, or through the late installer already there: no file
   if (fbBlRingReachable() || fbBlHasLateInstaller() || fbBlInLateInstaller())
     return null;
@@ -343,7 +343,7 @@ async function fbBlDone(title, after) {
   const have = fbState.dme.bootLoader;
   fbSetStatus(
     bl.isCurrent(have)
-      ? `${title}: done, the current bootloader is on the DME`
+      ? `${title}: done, the bootloader is up to date`
       : `${title}: written. Switch the ignition off and on, then Identify.`
   );
 }

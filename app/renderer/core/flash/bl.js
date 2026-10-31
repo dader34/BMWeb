@@ -507,7 +507,7 @@ async function blPut(client, cb, force = false) {
   cb.progress(100);
   return {
     skipped: false,
-    summary: 'the current bootloader is on the DME, programming log kept',
+    summary: 'the bootloader is up to date, programming log kept',
   };
 }
 
