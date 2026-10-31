@@ -372,7 +372,12 @@ const FB_BL_STAGE_GAP_MS = 1000;
  */
 async function fbBlPutLongWay(title, force) {
   const waiting = fbBlInLateInstaller();
-  if (!waiting) {
+  // the installer already in the program (a stage 2 that did not finish):
+  // the install goes straight to the reset with the late hold, which is
+  // what fbBlWhyNot promised by not asking for the pair. Repair always
+  // flashes the pair first.
+  const present = !waiting && !force && fbBlHasLateInstaller();
+  if (!waiting && !present) {
     fbSetStatus(
       `${title}, stage 1 of 2: the installer, through the DME’s own loader`
     );
@@ -392,14 +397,17 @@ async function fbBlPutLongWay(title, force) {
     }
     await new Promise((r) => setTimeout(r, FB_BL_STAGE_GAP_MS));
   }
-  // the installer has the line already, or takes it on the first byte: the
-  // session reconnects to it before it tries a reset
-  fbDmeSetFastLive(true);
+  // straight after stage 1, or with the DME sitting in it, the installer has
+  // the line already or takes it on the first byte: the session reconnects
+  // to it before it tries a reset. One that is only in the program gets the
+  // reset and the late hold at once.
+  if (!present) fbDmeSetFastLive(true);
+  const one = waiting || present;
   fbSetStatus(
-    `${title}${waiting ? '' : ', stage 2 of 2'}: connecting to the installer…`
+    `${title}${one ? '' : ', stage 2 of 2'}: connecting to the installer…`
   );
   await fbBlWrite(title, force, {
-    title: waiting ? title : `${title} (2/2: bootloader)`,
+    title: one ? title : `${title} (2/2: bootloader)`,
     intoInstaller: true,
     // past any ring's window: a line held after the reset lands in the gate
     lateHold: true,
