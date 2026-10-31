@@ -394,7 +394,7 @@ async function showFlashing(page) {
         ? "Remote: using the shared car's cable"
         : webBus.connected
           ? 'Cable connected'
-          : 'No cable connected: Identify will ask for the port'
+          : 'No cable connected'
     );
   // the cable reconnects on its own after a page load, usually a moment after
   // this screen opens; follow it rather than freeze the first answer
