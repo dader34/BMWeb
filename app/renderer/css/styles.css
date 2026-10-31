@@ -15304,15 +15304,30 @@ body:is(.fb-skin-tabs-on, .fb-skin-rail-on) .modal-overlay .fb-logview {
   border-top: 1px solid #d9d9d9;
 }
 :root .fb.fb-skin-tabs .fb-status {
-  /* a narrow column; the bar takes the rest, to the buttons' right edge */
-  flex: 0 0 130px;
-  min-width: 0;
+  display: none;
+}
+/* the time the operation has run over the cable's state, the cable green
+   when connected */
+.fb-status-pair {
+  display: none;
+}
+:root .fb.fb-skin-tabs .fb-status-pair {
+  display: block;
+  flex: 0 0 auto;
+  min-width: 100px;
   font:
     12px 'Segoe UI',
     Tahoma,
     sans-serif;
-  line-height: 1.35;
+  line-height: 1.45;
   color: #000;
+  white-space: nowrap;
+}
+:root .fb.fb-skin-tabs #fb-status-cable {
+  color: #c42b1c;
+}
+:root .fb.fb-skin-tabs #fb-status-cable.on {
+  color: #107c10;
 }
 :root .fb.fb-skin-tabs .fb-bar {
   flex: 1;

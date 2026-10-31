@@ -116,6 +116,8 @@ const fbState = {
   module: null,
   /** True while anything talks to the car. */
   running: false,
+  /** How long the last (or running) operation has taken, ms. */
+  elapsed: 0,
   page: 'flashing',
   /** The action bar's entries for the flashing pages, and for the tuning page once mounted. */
   actions: [],
@@ -301,6 +303,10 @@ async function showFlashing(page) {
 
       <div class="fb-statusbar" id="fb-statusbar">
         <div class="fb-status" id="fb-status">ready</div>
+        <div class="fb-status-pair">
+          <div id="fb-status-time">Time: ${fbClock(fbState.elapsed || 0)}</div>
+          <div id="fb-status-cable"></div>
+        </div>
         <div class="fb-bar"><span class="fb-bar-fill" id="fb-fill"></span></div>
       </div>
     </div>`;
@@ -387,6 +393,7 @@ async function showFlashing(page) {
   fbRefreshAll();
   fbHistoryRefresh();
   // the status line as it was left (not logged again)
+  fbPaintCable();
   if (returning && fbState.status) fbEls.status.textContent = fbState.status;
   else
     fbSetStatus(
@@ -400,6 +407,7 @@ async function showFlashing(page) {
   // this screen opens; follow it rather than freeze the first answer
   if (!fbCableListener) {
     fbCableListener = (e) => {
+      if (lastScreen === showFlashing) fbPaintCable();
       if (
         lastScreen !== showFlashing ||
         fbState.running ||
@@ -626,12 +634,54 @@ if (typeof window !== 'undefined')
  * @param {boolean} busy - True while running.
  */
 function fbBusy(busy) {
+  if (busy && !fbState.running) fbTimerStart();
+  else if (!busy && fbState.running) fbTimerStop();
   fbState.running = !!busy;
   if (!fbEls.identify) return;
   fbEls.identify.disabled = busy || !fbState.module;
   fbEls.module.querySelector('.lkd-btn').disabled = !!busy;
   if (busy) fbModuleDd.close();
   fbEls.actions.classList.toggle('fb-locked', !!busy);
+}
+
+// ---- the skin's status pair: how long the operation has run, and the cable --------------------------
+// Shown by the tabs skin in place of the status line (styles.css); the
+// status messages are in the log either way.
+let fbTimer = null;
+
+/** mm:ss. */
+function fbClock(ms) {
+  const t = Math.floor(ms / 1000);
+  const p = (n) => String(n).padStart(2, '0');
+  return `${p(Math.floor(t / 60))}:${p(t % 60)}`;
+}
+
+/** The clock from zero, ticking each second while an operation runs. */
+function fbTimerStart() {
+  const t0 = Date.now();
+  const tick = () => {
+    fbState.elapsed = Date.now() - t0;
+    if (fbEls['status-time'])
+      fbEls['status-time'].textContent = `Time: ${fbClock(fbState.elapsed)}`;
+  };
+  clearInterval(fbTimer);
+  tick();
+  fbTimer = setInterval(tick, 1000);
+}
+
+/** Stop the clock; it keeps showing how long the last operation took. */
+function fbTimerStop() {
+  clearInterval(fbTimer);
+  fbTimer = null;
+}
+
+/** The cable line: green when one is connected (or the shared car's). */
+function fbPaintCable() {
+  const el = fbEls['status-cable'];
+  if (!el) return;
+  const on = fbOnSharedCar() || webBus.connected;
+  el.textContent = on ? 'Cable connected!' : 'No cable connected';
+  el.classList.toggle('on', !!on);
 }
 
 /**
