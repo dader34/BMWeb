@@ -10899,6 +10899,12 @@ body.remote-helper::after {
   gap: 12px;
   overflow-y: auto;
 }
+#fb-set-skin {
+  align-self: flex-start;
+  min-width: 280px;
+  padding: 5px 8px;
+  font: inherit;
+}
 .fb-flashing {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 236px;
@@ -14868,6 +14874,515 @@ body.fb-classic-on .modal-overlay .fb-logview-row:hover {
 }
 body.fb-classic-on .modal-overlay .fb-logview-filter .seg-btn {
   border-radius: 0;
+}
+
+/* Flashing app skins (Settings > Skin): two more Windows looks, chosen in
+   place of the Classic/Modern switch's. Like the classic skin, each scopes a
+   palette over the app (and its dialogs) and adds its own chrome on top.
+   "tabs": a small light Windows 10 tool -- the pages as tabs across the top,
+   flat grey buttons, a white log, a solid red progress bar.
+   "rail": a light window with a dark icon rail down the left, flat buttons,
+   a proportional log and a tall lime progress bar over the status line. */
+.fb.fb-skin-tabs,
+body.fb-skin-tabs-on .modal-overlay,
+.fb.fb-skin-rail,
+body.fb-skin-rail-on .modal-overlay {
+  --bg: #f0f0f0;
+  --panel: #f0f0f0;
+  --panel-2: #ffffff;
+  --raised: #e1e1e1;
+  --line: #d0d0d0;
+  --line-bright: #9a9a9a;
+  --line-hover: #0078d7;
+  --ink: #000000;
+  --ink-dim: #1f1f1f;
+  --ink-faint: #6d6d6d;
+  --dim: #6d6d6d;
+  --amber: #0067c0;
+  --amber-soft: #005a9e;
+  --amber-glow: #cce4f7;
+  --amber-ink: #ffffff;
+  --red: #c42b1c;
+  --green: #107c10;
+  --cyan: #0067c0;
+  --shadow: none;
+  --display: 'Segoe UI', Tahoma, system-ui, sans-serif;
+  --mono: Consolas, 'Courier New', monospace;
+  --sb-radius: 0;
+  --sb-track: #f0f0f0;
+  --sb-thumb: #c2c2c2;
+  --sb-thumb-hover: #a8a8a8;
+  --gauge-track: #ffffff;
+  --gauge-fill: #0067c0;
+  --skin-accent: #0078d7;
+  --skin-fill: #e3242b;
+  color: #000;
+  font:
+    12px 'Segoe UI',
+    Tahoma,
+    system-ui,
+    sans-serif;
+  color-scheme: light;
+  accent-color: #0078d7;
+}
+.fb.fb-skin-rail,
+body.fb-skin-rail-on .modal-overlay {
+  --panel: #f3f3f3;
+  --line: #cdcdcd;
+  --amber: #3b6fd4;
+  --amber-soft: #2f5cb4;
+  --cyan: #3b6fd4;
+  --gauge-fill: #3b6fd4;
+  --skin-accent: #3b6fd4;
+  --skin-fill: #b8e01c;
+  --skin-rail: #2b3142;
+  --skin-rail-hi: #3a4258;
+  accent-color: #3b6fd4;
+}
+.fb.fb-skin-tabs,
+.fb.fb-skin-rail {
+  border: 1px solid #8a8a8a;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+}
+
+/* the title bar: white, the caption buttons drawn as text */
+:root :is(.fb.fb-skin-tabs, .fb.fb-skin-rail) .fb-titlebar {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 0 0 10px;
+  height: 30px;
+  font-size: 12px;
+  color: #000;
+  background: #fff;
+}
+:root :is(.fb.fb-skin-tabs, .fb.fb-skin-rail) .fb-titlebar::before {
+  content: '';
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  background: linear-gradient(135deg, var(--skin-accent) 0 50%, #f4b400 50%);
+}
+:root :is(.fb.fb-skin-tabs, .fb.fb-skin-rail) .fb-titlebar::after {
+  content: '\2500\00A0\00A0\00A0\00A0\00A0\2610\00A0\00A0\00A0\00A0\00A0\2715';
+  margin-left: auto;
+  padding: 0 14px;
+  font-size: 13px;
+  color: #333;
+  white-space: pre;
+}
+:root .fb.fb-skin-rail .fb-titlebar::before {
+  background: var(--skin-rail);
+}
+
+/* buttons: flat Windows 10 buttons */
+:root
+  :is(
+    .fb.fb-skin-tabs,
+    body.fb-skin-tabs-on .modal-overlay,
+    .fb.fb-skin-rail,
+    body.fb-skin-rail-on .modal-overlay
+  )
+  :is(.btn, .fb-x, .fb-log-clear) {
+  font:
+    12px 'Segoe UI',
+    Tahoma,
+    sans-serif;
+  font-weight: normal;
+  letter-spacing: 0;
+  text-transform: none;
+  color: #000 !important;
+  background: #e1e1e1 !important;
+  border: 1px solid #adadad !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  opacity: 1;
+  transform: none;
+  transition: none;
+}
+:root
+  :is(
+    .fb.fb-skin-tabs,
+    body.fb-skin-tabs-on .modal-overlay,
+    .fb.fb-skin-rail,
+    body.fb-skin-rail-on .modal-overlay
+  )
+  .btn {
+  padding: 6px 12px;
+}
+:root
+  :is(
+    .fb.fb-skin-tabs,
+    body.fb-skin-tabs-on .modal-overlay,
+    .fb.fb-skin-rail,
+    body.fb-skin-rail-on .modal-overlay
+  )
+  :is(.btn, .fb-x, .fb-log-clear):hover {
+  background: #e5f1fb !important;
+  border-color: var(--skin-accent) !important;
+}
+:root
+  :is(
+    .fb.fb-skin-tabs,
+    body.fb-skin-tabs-on .modal-overlay,
+    .fb.fb-skin-rail,
+    body.fb-skin-rail-on .modal-overlay
+  )
+  .btn:active {
+  background: #cce4f7 !important;
+  border-color: #005499 !important;
+}
+:root
+  :is(
+    .fb.fb-skin-tabs,
+    body.fb-skin-tabs-on .modal-overlay,
+    .fb.fb-skin-rail,
+    body.fb-skin-rail-on .modal-overlay
+  )
+  .btn.primary {
+  border-color: var(--skin-accent) !important;
+  box-shadow: inset 0 0 0 1px var(--skin-accent) !important;
+}
+:root
+  :is(
+    .fb.fb-skin-tabs,
+    body.fb-skin-tabs-on .modal-overlay,
+    .fb.fb-skin-rail,
+    body.fb-skin-rail-on .modal-overlay
+  )
+  .btn.danger {
+  color: #c42b1c !important;
+}
+:root
+  :is(
+    .fb.fb-skin-tabs,
+    body.fb-skin-tabs-on .modal-overlay,
+    .fb.fb-skin-rail,
+    body.fb-skin-rail-on .modal-overlay
+  )
+  :is(.btn[disabled], .btn:disabled) {
+  color: #a0a0a0 !important;
+  background: #f4f4f4 !important;
+  border-color: #d5d5d5 !important;
+}
+.fb.fb-skin-rail .btn,
+body.fb-skin-rail-on .modal-overlay .btn {
+  border-color: #e5e5e5 !important;
+  background: #e5e5e5 !important;
+}
+.fb.fb-skin-rail .btn:hover,
+body.fb-skin-rail-on .modal-overlay .btn:hover {
+  background: #d9d9d9 !important;
+  border-color: #d9d9d9 !important;
+}
+
+/* text boxes, the module combo box and its list */
+:root
+  :is(
+    .fb.fb-skin-tabs,
+    body.fb-skin-tabs-on .modal-overlay,
+    .fb.fb-skin-rail,
+    body.fb-skin-rail-on .modal-overlay
+  )
+  :is(
+    .fb-ecu,
+    .lkd-btn,
+    input[type='text'],
+    input[type='number'],
+    select,
+    textarea
+  ) {
+  color: #000 !important;
+  background: #fff !important;
+  border: 1px solid #7a7a7a !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  font-family: 'Segoe UI', Tahoma, sans-serif;
+}
+:root
+  :is(.fb.fb-skin-rail, body.fb-skin-rail-on .modal-overlay)
+  :is(
+    .fb-ecu,
+    .lkd-btn,
+    input[type='text'],
+    input[type='number'],
+    select,
+    textarea
+  ) {
+  border-color: #cdcdcd !important;
+}
+:root :is(.fb.fb-skin-tabs, .fb.fb-skin-rail) .fb-ecu {
+  padding: 6px 10px;
+  font-size: 13px;
+}
+:root :is(.fb.fb-skin-tabs, .fb.fb-skin-rail) .lkd-item {
+  color: #000 !important;
+}
+:root :is(.fb.fb-skin-tabs, .fb.fb-skin-rail) .lkd-item.active,
+:root :is(.fb.fb-skin-tabs, .fb.fb-skin-rail) .lkd-item.active .lkd-item-label {
+  color: #fff !important;
+  background: var(--skin-accent);
+}
+
+/* the log: a white list box */
+:root :is(.fb.fb-skin-tabs, .fb.fb-skin-rail) .fb-log {
+  color: #000;
+  background: #fff;
+  border: 1px solid #828790;
+  border-radius: 0;
+  padding: 4px 8px;
+  font-size: 12px;
+  line-height: 15px;
+}
+:root .fb.fb-skin-rail .fb-log {
+  border-color: #cdcdcd;
+  font:
+    12.5px 'Segoe UI',
+    Tahoma,
+    sans-serif;
+  line-height: 19px;
+  color: #1b1b1b;
+}
+
+/* sections and the Custom Options sheet: plain white group boxes */
+:root
+  :is(
+    .fb.fb-skin-tabs,
+    body.fb-skin-tabs-on .modal-overlay,
+    .fb.fb-skin-rail,
+    body.fb-skin-rail-on .modal-overlay
+  )
+  .fb-section {
+  background: #fff;
+  border: 1px solid #dcdcdc;
+  border-radius: 0;
+}
+:root
+  :is(
+    .fb.fb-skin-tabs,
+    body.fb-skin-tabs-on .modal-overlay,
+    .fb.fb-skin-rail,
+    body.fb-skin-rail-on .modal-overlay
+  )
+  .fb-code {
+  font:
+    600 12px 'Segoe UI',
+    Tahoma,
+    sans-serif;
+  letter-spacing: 0;
+  text-transform: none;
+  color: #000;
+}
+:root :is(.fb.fb-skin-tabs, .fb.fb-skin-rail) .fb-pill {
+  border-radius: 0;
+  background: #fff;
+}
+:root :is(.fb.fb-skin-tabs, .fb.fb-skin-rail) .fb-table th {
+  color: #000;
+  font-weight: normal;
+  background: #fff;
+  border-bottom: 1px solid #e5e5e5;
+}
+:root :is(.fb.fb-skin-tabs, .fb.fb-skin-rail) .fb-table tr.active td {
+  color: #000;
+  background: #cce8ff;
+}
+body:is(.fb-skin-tabs-on, .fb-skin-rail-on) .modal-overlay .modal,
+body:is(.fb-skin-tabs-on, .fb-skin-rail-on) .modal-overlay .fb-logview {
+  color: #000;
+  background: #f0f0f0;
+  border: 1px solid #8a8a8a;
+  border-radius: 0;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+}
+
+/* ---- tabs: the pages as a tab strip across the top ---- */
+.fb.fb-skin-tabs {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr);
+  background: #f0f0f0;
+}
+:root .fb.fb-skin-tabs .fb-rail {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 0;
+  padding: 6px 10px 0;
+  border: 0;
+  background: transparent;
+}
+:root .fb.fb-skin-tabs .fb-rail-btn {
+  display: block;
+  width: auto;
+  height: auto;
+  min-height: 0;
+  margin: 0 -1px -1px 0;
+  padding: 3px 11px 4px;
+  font-size: 0;
+  color: #000;
+  background: #f0f0f0;
+  border: 1px solid #d9d9d9;
+  border-radius: 0;
+  position: relative;
+}
+:root .fb.fb-skin-tabs .fb-rail-btn::after {
+  content: attr(title);
+  font:
+    12px 'Segoe UI',
+    Tahoma,
+    sans-serif;
+  letter-spacing: 0;
+}
+:root .fb.fb-skin-tabs .fb-rail-word span {
+  display: none;
+}
+:root .fb.fb-skin-tabs .fb-rail-btn:hover {
+  color: #000;
+  background: #e5f1fb;
+  border-color: #d9d9d9;
+}
+:root .fb.fb-skin-tabs .fb-rail-btn.current {
+  z-index: 1;
+  margin-top: -2px;
+  padding-bottom: 6px;
+  color: #000;
+  background: #fff;
+  border-color: #d9d9d9;
+  border-bottom-color: #fff;
+}
+:root .fb.fb-skin-tabs .fb-main {
+  margin: 0 10px 10px;
+  background: #fff;
+  border: 1px solid #d9d9d9;
+}
+:root .fb.fb-skin-tabs .fb-topbar {
+  padding: 8px 10px 0;
+  background: transparent;
+  border: 0;
+}
+:root .fb.fb-skin-tabs .fb-page {
+  padding: 8px 10px 0;
+}
+:root .fb.fb-skin-tabs .fb-flashing {
+  grid-template-columns: minmax(0, 1fr) 150px;
+  gap: 10px;
+}
+:root .fb.fb-skin-tabs .fb-custom {
+  border-top: 0;
+}
+/* the status line beside the bar, a tall solid red bar */
+:root .fb.fb-skin-tabs .fb-statusbar {
+  flex-direction: row;
+  align-items: center;
+  gap: 14px;
+  margin-top: 8px;
+  padding: 8px 10px 10px;
+  background: #fff;
+  border: 0;
+}
+:root .fb.fb-skin-tabs .fb-status {
+  flex: 0 1 38%;
+  min-width: 0;
+  font:
+    12px 'Segoe UI',
+    Tahoma,
+    sans-serif;
+  color: #000;
+}
+:root .fb.fb-skin-tabs .fb-bar {
+  flex: 1;
+  height: 32px;
+  border-radius: 0;
+  background: #e6e6e6;
+  border: 1px solid #bcbcbc;
+}
+:root .fb.fb-skin-tabs .fb-bar-fill,
+:root .fb.fb-skin-tabs .fb-bar-fill.flashing {
+  background: var(--skin-fill);
+}
+
+/* ---- rail: a dark icon rail, the settings at its foot ---- */
+.fb.fb-skin-rail {
+  grid-template-columns: 48px minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+  background: #f3f3f3;
+}
+:root .fb.fb-skin-rail .fb-rail {
+  gap: 0;
+  padding: 0;
+  border: 0;
+  background: var(--skin-rail);
+}
+:root .fb.fb-skin-rail .fb-rail::before {
+  content: '\2630';
+  flex: none;
+  height: 44px;
+  line-height: 44px;
+  text-align: center;
+  font-size: 20px;
+  color: #fff;
+  background: var(--skin-accent);
+}
+:root .fb.fb-skin-rail .fb-rail-btn {
+  width: 48px;
+  height: 46px;
+  font-size: 19px;
+  color: #e8ecf4;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+}
+:root .fb.fb-skin-rail .fb-rail-word {
+  font-size: 9px;
+}
+:root .fb.fb-skin-rail .fb-rail-btn:hover {
+  color: #fff;
+  background: var(--skin-rail-hi);
+}
+:root .fb.fb-skin-rail .fb-rail-btn.current {
+  color: #fff;
+  background: var(--skin-rail-hi);
+  box-shadow: inset 3px 0 0 var(--skin-accent);
+}
+:root .fb.fb-skin-rail #fb-rail-settings {
+  margin-top: auto;
+}
+:root .fb.fb-skin-rail .fb-topbar {
+  padding: 8px 10px 6px;
+  background: transparent;
+  border: 0;
+}
+:root .fb.fb-skin-rail .fb-page {
+  padding: 4px 10px 0;
+}
+:root .fb.fb-skin-rail .fb-custom {
+  border-top-color: #dcdcdc;
+}
+/* the bar above the status line: tall, lime, edge to edge */
+:root .fb.fb-skin-rail .fb-statusbar {
+  gap: 6px;
+  margin-top: 8px;
+  padding: 0 10px 8px;
+  background: transparent;
+  border: 0;
+}
+:root .fb.fb-skin-rail .fb-bar {
+  order: -1;
+  height: 26px;
+  border-radius: 0;
+  background: #fff;
+  border: 1px solid #cdcdcd;
+}
+:root .fb.fb-skin-rail .fb-bar-fill,
+:root .fb.fb-skin-rail .fb-bar-fill.flashing {
+  background: var(--skin-fill);
+}
+:root .fb.fb-skin-rail .fb-status {
+  font:
+    12px 'Segoe UI',
+    Tahoma,
+    sans-serif;
+  color: #1b1b1b;
 }
 .t32-win .t32-check {
   appearance: none;

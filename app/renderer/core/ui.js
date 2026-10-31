@@ -221,8 +221,13 @@ function setCrumbs(items) {
   // ETK screens tag the body so CSS can drop the F-key bar on mobile; cleared
   // here so it only applies while an ETK screen is up
   document.body.classList.remove('apps-section');
-  // the classic Flashing app tags the body so its dialogs follow its look
-  document.body.classList.remove('fb-classic-on');
+  // the classic or skinned Flashing app tags the body so its dialogs follow
+  // its look
+  document.body.classList.remove(
+    'fb-classic-on',
+    'fb-skin-tabs-on',
+    'fb-skin-rail-on'
+  );
   // the top bar's layout switch follows the setting, wherever it was changed
   if (typeof paintLayoutToggle === 'function') paintLayoutToggle();
   items = homeCrumbs(items);
