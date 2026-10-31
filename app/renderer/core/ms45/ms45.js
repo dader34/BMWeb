@@ -871,7 +871,7 @@ const ms45AifFields = [
  * DME has answered once and stays up (ms45RaiseBaud): the caller reads more
  * on the same session and brings the rate back down (ms45DefaultBaud) --
  * `baud` in the result says what the session is at.
- * @param {{raise?: boolean}} [opts]
+ * @param {{raise?: boolean, onSilent?: () => Promise<boolean>}} [opts] - onSilent: asked once the first read goes unanswered; true ends Identify there (the caller found the DME another way).
  */
 async function ms45Identify(opts = {}) {
   // the first job after a flash's reset can land while the DME is still
@@ -885,6 +885,23 @@ async function ms45Identify(opts = {}) {
     if (typeof webDropSession === 'function') webDropSession(MS45_SGBD);
     aifRes = await ms45Job('aif_lesen', '');
   }
+  // silent on KWP: the caller may know another way to ask (a DME sitting
+  // in a flasher answers nothing else), before the retry below waits out
+  // another timeout
+  if (!aifRes.ok && opts.onSilent && (await opts.onSilent()))
+    return {
+      answered: false,
+      vin: '',
+      hwRef: '',
+      swRef: '',
+      progRef: '',
+      programmingStatus: '',
+      diagProtocol: '',
+      diagProblem: 'no answer',
+      type: 'Unknown / Unsupported',
+      aif: {},
+      baud: 9600,
+    };
   if (!aifRes.ok) {
     await new Promise((resolve) => setTimeout(resolve, 1500));
     aifRes = await ms45Job('aif_lesen', '');
@@ -909,6 +926,24 @@ async function ms45Identify(opts = {}) {
     (await ms45Job('hardware_referenz_lesen', '')).res,
     'HARDWARE_REFERENZ'
   );
+  // neither the AIF nor the hardware reference: the DME is not on its
+  // program (silent, or sitting in a flasher). The four questions below
+  // would each wait out their own timeout -- tens of seconds -- before the
+  // caller can ask the flasher, so say so now
+  if (!aifRes.ok && !hwRef)
+    return {
+      answered: false,
+      vin: '',
+      hwRef: '',
+      swRef: '',
+      progRef: '',
+      programmingStatus: '',
+      diagProtocol: '',
+      diagProblem: 'no answer',
+      type: 'Unknown / Unsupported',
+      aif,
+      baud,
+    };
   const swRef = _ms45Field(
     (await ms45Job('daten_referenz_lesen', '')).res,
     'DATEN_REFERENZ'

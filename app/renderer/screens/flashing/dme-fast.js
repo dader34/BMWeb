@@ -138,6 +138,7 @@ async function fbDmeFastFlash(spec) {
     if (prepared.attach) flashLog.attach(...prepared.attach);
     ({ claim, link } = await fbDmeEnterFastFlasher(spec.title, ui, {
       late: !!spec.lateHold,
+      intoInstaller: !!spec.intoInstaller,
     }));
     ui.entry(FB_FAST_ENTRY_PCT);
     const client = new fastFlashWire.Client(link, {
@@ -539,7 +540,9 @@ async function fbDmeEnterFastFlasher(owner, ui, opts = {}) {
   // it up finishes the push; a reset would drop to the loader instead
   if (fbDmeFastLive()) {
     ui.notice(
-      'A fast flash was interrupted earlier: reconnecting to the flasher…'
+      opts.intoInstaller
+        ? 'Reconnecting to the installer…'
+        : 'A fast flash was interrupted earlier: reconnecting to the flasher…'
     );
     const claim = await webClaimBus(owner);
     const link = fastFlashWire.webLink(webBus);

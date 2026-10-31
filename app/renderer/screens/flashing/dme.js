@@ -243,7 +243,14 @@ async function fbDmeIdentifyRun(afterFlash) {
   // the line rate goes up once the DME answers and stays up through the
   // car reads below (fbDmeReadCar lowers it); a DME that never answered
   // was never raised
-  const ident = await ms45Identify({ raise: true });
+  // a DME silent on KWP may be sitting in a flasher: it is asked right
+  // after the first unanswered read, not after every retry has timed out
+  let inFlasher = false;
+  const ident = await ms45Identify({
+    raise: true,
+    onSilent: async () => (inFlasher = await fbDmeIdentifyThroughFlasher()),
+  });
+  if (inFlasher) return;
   d.ident = ident;
   d.aif = ident.aif || {};
   // after a flash the coding data has just been printed and the flash's own
@@ -309,6 +316,11 @@ async function fbDmeIdentifyRun(afterFlash) {
  * detection. The KWP identity is not readable there, so the last one this
  * screen saw stands in, marked as such; Fast Flash Program then reconnects
  * and finishes the push.
+ *
+ * The bootloader installer a long-way install leaves in the program is
+ * reached the same way: it listens after every reset (the first, counted
+ * build for 20 s and more on the car) and Identify's own first bytes land
+ * in it. Flash Program reconnects to it and writes the program without it.
  * @returns {Promise<boolean>} Whether the flasher answered.
  */
 async function fbDmeIdentifyThroughFlasher() {
@@ -347,12 +359,21 @@ async function fbDmeIdentifyThroughFlasher() {
     // the next fast operation must reconnect: a reset request goes unheard
     // here (sent anyway, its session seed gets the body's noise back)
     fbDmeSetFastLive(true);
-    fbSetEcuBox(`MS45.1  ${d.ident.hwRef}  ·  in the fast flasher`);
+    // the bootloader installer a program flash put in: it took the line
+    // during its window at boot, and it is there to write the bootloader
+    const installer = bl.isLateInstaller(d.fastFlasher);
+    fbSetEcuBox(
+      `MS45.1  ${d.ident.hwRef}  ·  ${installer ? 'in the bootloader installer' : 'in the fast flasher'}`
+    );
     fbLog(
-      `The DME is in its fast flasher (${fastFlasher.describe(d.fastFlasher)}): a push cut short can be finished -- load the same files and run the same fast flash; it reconnects. Nothing of KWP answers until a flash completes or the ignition is cycled.`
+      installer
+        ? 'The DME is in the bootloader installer.'
+        : `The DME is in its fast flasher (${fastFlasher.describe(d.fastFlasher)}): a push cut short can be finished -- load the same files and run the same fast flash; it reconnects. Nothing of KWP answers until a flash completes or the ignition is cycled.`
     );
     fbSetStatus(
-      'The DME is in its fast flasher: run the same fast flash to finish'
+      installer
+        ? 'The DME is in the bootloader installer'
+        : 'The DME is in its fast flasher: run the same fast flash to finish'
     );
     fbRefreshAll();
     return true;
@@ -499,6 +520,25 @@ async function fbDmeReadCarFastFlasher() {
       fbDmeReadProtocol()
     );
     d.fastFlasher = fastFlasher.parseDetection(hook, stamp);
+    // a late installer switched off once the bootloader went on: its gate
+    // lets every boot by, so nothing gets into it (the next program flash
+    // takes it out, and the long way puts a fresh one in)
+    if (bl.hasLateOff(d.fastFlasher)) {
+      try {
+        const off = await ms45ReadCarBytes(
+          bl.LATE_OFF_AT,
+          bl.LATE_OFF_AT + bl.LATE_OFF_LEN - 1,
+          'ROMX',
+          fbDmeReadProtocol()
+        );
+        if (off && off.some((b) => b !== 0xff)) {
+          d.fastFlasher.lateOff = true;
+          d.fastFlasher.ready = false;
+        }
+      } catch (e) {
+        // unread: taken as armed, the way it went in
+      }
+    }
     // the gate only runs once the loader accepts the program and jumps
     // through MPC 0x8: a DME left in its loader (an interrupted flash) has
     // the stamp and the hook but no way into the flasher until a full flash

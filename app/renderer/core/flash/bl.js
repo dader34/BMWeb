@@ -70,6 +70,14 @@ const BL_INSTALLER_FLAG = 0x04;
 /** The resident body's stamp flag for the LATE gate (~2 s of polls): it is
  * entered by a line held after the ring's window (blBlob.lateInstaller). */
 const BL_LATE_FLAG = 0x20;
+/** The late gate's off switch (ms45-emu flasher_gate.LATE_OFF_AT): a blank
+ * word past the program's CRC and signature. Written to zero once the
+ * bootloader is on, the gate goes straight to the program at every key-on;
+ * a program flash erases it with its sector. Stamp flag bit 6 says the gate
+ * reads it (the first late gates did not). */
+const BL_LATE_OFF_AT = 0xfffe0;
+const BL_LATE_OFF_LEN = 8; // CHUNK lengths go in 8s; the gate reads the first word
+const BL_LATE_OFF_FLAG = 0x40;
 /** Ext offsets the ring's two variants cover between them. */
 const BL_RING_SPAN_END = 0x1f700;
 /** The two sectors below the boot sector that the boot block's CRC also
@@ -504,6 +512,33 @@ async function blPut(client, cb, force = false) {
 }
 
 /**
+ * Switch the late installer off once the bootloader is on: zeros over its
+ * blank off-switch word (no erase -- the CHUNK programs and reads back), so
+ * the DME starts its program at every key-on instead of listening ~2 s.
+ * Only on a session in a late installer whose gate reads the switch; any
+ * other session is left alone.
+ * @param {FastFlashClient} client
+ * @param {{note: (s: string) => void}} cb
+ * @returns {Promise<boolean>} Whether the switch was written.
+ */
+async function blLateOff(client, cb) {
+  const st = await client.hello();
+  const flags = st[7];
+  if (!(flags & BL_INSTALLER_FLAG && flags & BL_LATE_FLAG)) return false;
+  if (!(flags & BL_LATE_OFF_FLAG)) {
+    cb.note(
+      'this installer has no off switch: it stays in the program until the next program flash'
+    );
+    return false;
+  }
+  await client.chunk(BL_LATE_OFF_AT, new Uint8Array(BL_LATE_OFF_LEN));
+  cb.note(
+    'installer switched off: the DME starts its program straight away at every key-on'
+  );
+  return true;
+}
+
+/**
  * Burn a new DME ISN into the flash triple at ext 0x1FB00, through the
  * boot-sector ladder this file already uses (ARM -> ERASE -> CHUNK ->
  * VERIFY -> DONE). BENCH ONLY. The read-back is the boot sector re-read and
@@ -750,7 +785,6 @@ const BL_BODY_VERSION = parseInt(blData.installer.stamp.slice(12, 14), 16);
  * installer bit is a variant, not a feature). */
 const BL_RING_FLAGS = parseInt(blData.ring.stamp.slice(14, 16), 16);
 
-/** The hardware-number triple in the tail. */
 /** The loader's CMF driver as the body finds it: the data start S of the
  * three known builds (A, B, C), the signature at S+4, code at S+0x7C, the
  * wrappers (erase_job +0x148, program_job +0x21C) and the window the body
@@ -839,6 +873,12 @@ function blHealth(h) {
   const notes = [];
   if (h.stamp) {
     if (blIsCurrent(h.stamp)) notes.push('bootloader current');
+    // this build's installer or swap ring: a step of Restore or Update boot
+    // sector, not an old bootloader
+    else if (blIsOurs(h.stamp))
+      notes.push(
+        h.stamp.flags & BL_INSTALLER_FLAG ? 'installer ring' : 'swap ring'
+      );
     else problems.push('an old bootloader is on the DME');
   }
   if (h.words) {
@@ -889,7 +929,7 @@ function blHealth(h) {
 function blHealthText(r) {
   return r.broken
     ? `Bootloader check: PROBLEM -- ${r.problems.join('; ')}. Install / update the fast flash bootloader puts the boot region right.`
-    : `Bootloader check: OK (${r.notes.join(', ')})`;
+    : 'Bootloader check: OK';
 }
 
 const bl = {
@@ -911,6 +951,9 @@ const bl = {
   bootCrc: blBootCrc,
   withBootCrc: blWithBootCrc,
   put: blPut,
+  lateOff: blLateOff,
+  LATE_OFF_AT: BL_LATE_OFF_AT,
+  LATE_OFF_LEN: BL_LATE_OFF_LEN,
   health: blHealth,
   healthText: blHealthText,
   driverEntries: blDriverEntries,
@@ -932,16 +975,24 @@ const bl = {
   isLateInstaller(det) {
     return !!(bl.isInstaller(det) && det.flags & BL_LATE_FLAG);
   },
+  /** Whether that late installer's gate reads its off switch. */
+  hasLateOff(det) {
+    return !!(bl.isLateInstaller(det) && det.flags & BL_LATE_OFF_FLAG);
+  },
   /**
    * The pair with the installer behind the LATE gate spliced in: the way
    * past a ring that takes a held line and cannot serve. Written by the
-   * DME's own loader; every boot listens ~2 s at MPC 0x8 until the next
-   * program flash takes it out (the caller signs).
+   * DME's own loader; every boot listens ~2 s at MPC 0x8 until the
+   * bootloader write switches it off (bl.lateOff) or the next program flash
+   * takes it out (the caller signs). The off switch is blanked: a read of a
+   * DME whose installer was switched off carries the zeros.
    * @param {Uint8Array} flash @param {Uint8Array} mpc
    * @returns {{flash: Uint8Array, mpc: Uint8Array}}
    */
   withLateInstaller(flash, mpc) {
-    return _blCarry(blData.lateInstaller, flash, mpc);
+    const r = _blCarry(blData.lateInstaller, flash, mpc);
+    r.flash.fill(0xff, BL_LATE_OFF_AT, BL_LATE_OFF_AT + BL_LATE_OFF_LEN);
+    return r;
   },
 };
 

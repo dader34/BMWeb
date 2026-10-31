@@ -67,7 +67,7 @@ function fbBlRingReachable() {
 /** Whether the DME carries the late installer, ready to use. */
 function fbBlHasLateInstaller() {
   const det = fbState.dme.fastFlasher;
-  return bl.isLateInstaller(det) && det.ready;
+  return bl.isLateInstaller(det) && det.ready && !det.lateOff;
 }
 
 /**
@@ -82,12 +82,14 @@ function fbBlInLateInstaller() {
 }
 
 /** How long a reset DME is left alone before Identify: past the late
- * gate's ~2 s (more if the car runs its poll loop slower), ms. */
-const FB_BL_LATE_SETTLE_MS = 10000;
+ * gate (~2 s on the emulator, ~10 s on the car), ms. */
+const FB_BL_LATE_SETTLE_MS = 20000;
 
 /** Identify once the late gate has let the boot by. */
 async function fbBlIdentifyAfterLateGate() {
-  fbSetStatus('Waiting 10 s…');
+  fbSetStatus(
+    `Waiting ${FB_BL_LATE_SETTLE_MS / 1000} s for the DME to start its program…`
+  );
   await new Promise((r) => setTimeout(r, FB_BL_LATE_SETTLE_MS));
   await fbDmeIdentify(true);
 }
@@ -189,12 +191,17 @@ async function fbBlHealthRead() {
 
 /**
  * The battery before a boot-region write: the DME's own reading
- * (STATUS_UBATT). Below 12.0 V the write is refused -- a brown-out between
- * an erase and its verify is the one failure nothing recovers from. A
- * reading that cannot be had is logged and lets the write go on.
+ * (STATUS_UBATT). Below FB_BL_MIN_VOLTS the write is refused -- a brown-out
+ * between an erase and its verify is the one failure nothing recovers from.
+ * The DME reads a few tenths under the battery terminals (its wiring and
+ * input protection: 12.3 V at the battery read just under 12.0 on the car),
+ * so the floor sits well below a healthy resting battery. A reading that
+ * cannot be had is logged and lets the write go on.
  * @param {string} title
  * @returns {Promise<boolean>}
  */
+const FB_BL_MIN_VOLTS = 11.5;
+
 async function fbBlBatteryOk(title) {
   let volts = null;
   try {
@@ -210,10 +217,10 @@ async function fbBlBatteryOk(title) {
     flashLog.note('battery voltage not read: going on without the check');
     return true;
   }
-  flashLog.note(`battery ${volts.toFixed(1)} V`);
-  if (volts >= 12.0) return true;
+  flashLog.note(`battery ${volts.toFixed(2)} V (DME reading)`);
+  if (volts >= FB_BL_MIN_VOLTS) return true;
   await fbMessage(
-    `The DME reads ${volts.toFixed(1)} V. Put a charger on the battery before writing the boot region: a drop mid-write leaves a DME only a BDM rig can recover.`,
+    `The DME reads ${volts.toFixed(2)} V, under ${FB_BL_MIN_VOLTS.toFixed(1)} V. Put a charger on the battery before writing the boot region: a drop mid-write leaves a DME only a BDM rig can recover.`,
     title
   );
   return false;
@@ -309,6 +316,9 @@ function fbBlRefresh() {
       : 'Ready.');
 }
 
+/** Whether the last write switched the late installer off (bl.lateOff). */
+let fbBlLateSwitchedOff = false;
+
 /** The bootloader write on one session (bl.put), as a fast-flash run.
  * @param {string} title
  * @param {boolean} force - Overwrite whatever the ring span holds (Repair).
@@ -326,6 +336,9 @@ function fbBlWrite(title, force, opts) {
     note: `DME ${d.ident.hwRef} / ${d.bootLoader ? (bl.isCurrent(d.bootLoader) ? 'current bootloader' : 'old bootloader') : 'no bootloader'} / bootloader ${force ? 'repair' : 'put'}`,
     push: async (client, cb) => {
       const r = await bl.put(client, cb, force);
+      // through the late installer: switch it off, so key-on no longer waits
+      fbBlLateSwitchedOff =
+        !!(opts && opts.intoInstaller) && (await bl.lateOff(client, cb));
       cb.stage('Restarting the DME');
       await client.reset();
       return r;
@@ -345,12 +358,25 @@ async function fbBlDone(title, after) {
   );
 }
 
+/** After stage 1's reset, how long before stage 2 asks for the installer,
+ * ms: past any ring's ~1 ms window at boot (a byte there could land in a
+ * ring that hangs), well inside the late gate's (~2 s on the emulator,
+ * ~10 s on the car). */
+const FB_BL_STAGE_GAP_MS = 1000;
+
 /**
- * The long way in: the loaded pair flashed by the DME's own loader with the
- * installer behind the LATE gate, then the write through that installer (a
- * line held after the reset lands in its ~2 s window), then 10 s before
- * Identify so the gate has let the boot by. A DME already sitting in the
- * installer skips the flash: the session reconnects to it.
+ * The long way in, two stages and no Identify in between:
+ *   1. the loaded pair flashed by the DME's own loader with the installer
+ *      behind the LATE gate (bl.withLateInstaller);
+ *   2. the bootloader written through that installer (bl.put): the session
+ *      first asks it for HELLO -- the gate has the DME for ~10 s after the
+ *      reset on the car (its poll loop runs from external flash, ~5x the
+ *      emulator's 2 s), so the first byte lands in it -- and if the gate has
+ *      already let the boot by, resets the DME and holds the line late.
+ * Stage 2 ends by switching the installer off (bl.lateOff), so the DME
+ * starts its program at every key-on again and the one Identify at the end
+ * runs straight away; an installer without the switch is waited past. A
+ * DME already sitting in the installer skips stage 1.
  * @param {string} title
  * @param {boolean} force - Overwrite whatever the ring span holds (Repair).
  */
@@ -360,32 +386,37 @@ async function fbBlPutLongWay(title, force) {
     fbSetStatus(
       `${title}, stage 1 of 2: the installer, through the DME’s own loader`
     );
-    await fbDmeFlashProgram({
+    const flashed = await fbDmeFlashProgram({
       carry: bl.withLateInstaller,
       title: `${title} (1/2: installer)`,
       confirmed: true,
-      // an Identify inside the late gate's window enters the installer
-      after: fbBlIdentifyAfterLateGate,
+      // no Identify here: it would only be caught by the installer's gate
+      after: async () => {},
     });
-    if (!fbBlHasLateInstaller()) {
+    if (!flashed) {
       await fbMessage(
         'Stage 1 failed (see the log). Nothing else was written.',
         title
       );
       return;
     }
+    await new Promise((r) => setTimeout(r, FB_BL_STAGE_GAP_MS));
   }
-  // sitting in the installer already: the session reconnects to it (a
-  // reset request would go unheard)
-  if (waiting) fbDmeSetFastLive(true);
+  // the installer has the line already, or takes it on the first byte: the
+  // session reconnects to it before it tries a reset
+  fbDmeSetFastLive(true);
   fbSetStatus(
-    `${title}${waiting ? '' : ', stage 2 of 2'}: ${waiting ? 'reconnecting to' : 'resetting the DME into'} the installer…`
+    `${title}${waiting ? '' : ', stage 2 of 2'}: connecting to the installer…`
   );
   await fbBlWrite(title, force, {
     title: waiting ? title : `${title} (2/2: bootloader)`,
+    intoInstaller: true,
     // past any ring's window: a line held after the reset lands in the gate
     lateHold: true,
-    after: () => fbBlDone(title, fbBlIdentifyAfterLateGate),
+    after: () =>
+      fbBlDone(title, () =>
+        fbBlLateSwitchedOff ? fbDmeIdentify(true) : fbBlIdentifyAfterLateGate()
+      ),
   });
 }
 

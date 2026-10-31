@@ -72,7 +72,7 @@ const fastFlasher = {
    * @param {Uint8Array|null} stamp
    * @returns {{version: number, flags: number, gateCpu: number,
    *   entryCpu: number, hooked: boolean, supported: boolean, mpc: boolean,
-   *   ready: boolean}|null}
+   *   ready: boolean, lateOff?: boolean}|null}
    */
   parseDetection(hook, stamp) {
     if (!stamp || stamp.length < FAST_FLASHER_STAMP_LENGTH) return null;
@@ -124,6 +124,9 @@ const fastFlasher = {
     if (det.bootLoader) return 'Fast flasher present';
     if (det.notRunning)
       return `Fast flasher found, but the DME is not running its program (${det.notRunning}), so the flasher cannot be reached. Run a full Flash Program (or Install fast flasher) to finish the DME first.`;
+    // the bootloader installer, switched off once the bootloader went on
+    if (det.lateOff)
+      return 'Bootloader installer in the program, switched off: the DME starts normally (the next program flash removes it)';
     if (!det.hooked)
       return 'Fast flasher body found, but the reset word at MPC 0x8 no longer leads to it (the internal flash was rewritten whole). Bootstrap again to use it.';
     if (!det.ours)

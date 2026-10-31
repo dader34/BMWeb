@@ -475,27 +475,34 @@ const blBlob = {
       ],
     ],
   },
-  // the same body behind the LATE gate (~2 s of polls, stamp flags bit
-  // 5): put on by the DME's own loader, entered by a line held after
+  // the same body behind the LATE gate (~2 s by the time base, stamp
+  // flags bit 5, bit 6 = it reads its off switch at ext 0xFFFE0): put on
+  // by the DME's own loader, entered by a line held after
   // the ring's window -- past a ring that takes the line and hangs
   lateInstaller: {
     hookAt: 0x8,
     hookWord: 0x4bffd302,
-    stamp: '4d53343551461337',
+    stamp: '4d53343551461377',
     runs: [
-      [0xfd26c, '4d53343551461337'],
+      [0xfd26c, '4d53343551461377'],
       [0xfd276, 'd300'],
       [0xfd27a, 'd400'],
       [0xfd280, '003fa4f0'],
+      [0xfd300, '3d00'],
+      [0xfd304, '6108'],
+      [0xfd307, 'e0810800003920'],
       [
-        0xfd300,
-        '3c6000306063500a3c8000306084500ca0a3000060a60004b0c300003d20002f6129c00e3940556c3960aa393ce0000060e79c40b1490000b1690000390003e83508',
+        0xfd310,
+        '7c084840408200883c6000306063500a3c8000306084500ca0a3000060a60004b0c300003d20002f6129c00e3940556c3960aa393cc0004c60c64b403ce0000f60e742407d8c42e6b1490000b1690000390000643508',
       ],
-      [0xfd344, '4082'],
-      [0xfd347, 'fca1040000710800204082001434e7'],
-      [0xfd358, '4082'],
-      [0xfd35b, 'dcb0a300004bf717b64b'],
-      [0xfd366, 'd402'],
+      [0xfd368, '4082'],
+      [
+        0xfd36b,
+        'fca104000071080020408200247d0c42e67d0c40507c0830404080000c34e7',
+      ],
+      [0xfd38c, '4082'],
+      [0xfd38f, 'ccb0a300004bf717b64b'],
+      [0xfd39a, 'd4024bf717b6'],
       [0xfd400, '3c60'],
       [
         0xfd404,

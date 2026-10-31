@@ -257,15 +257,17 @@ function fbDmeChipImage(source, mpcOut, hasCal) {
 
 async function fbDmeFlashProgram(opts = {}) {
   const d = fbState.dme;
-  if (!d.identified || !d.flash || !d.mpc) return;
+  if (!d.identified || !d.flash || !d.mpc) return false;
   const title = opts.title || 'Flash Program';
   // what the pair carries besides itself: the caller's body (the bootloader
   // install's installer), else nothing -- an old resident flasher left in a
   // read is taken out with its MPC hook (the bootloader is the fast path)
   const carry = opts.carry || fastFlasher.withoutFlasher;
   const prompts = await fbDmeProgramMatchPrompts(title);
-  if (!prompts) return;
-  let success = true;
+  if (!prompts) return false;
+  // true once the flash itself has gone through (the caller's next step
+  // depends on it); an early way out below leaves it false
+  let success = false;
   fbFlashingBar(true);
   await fbSessionStart('flash-program', {
     vin: d.ident.vin,
@@ -275,7 +277,7 @@ async function fbDmeFlashProgram(opts = {}) {
     flashLog.note(
       `DME ${d.ident.hwRef} / prog ${d.ident.progRef} / diag ${d.ident.diagProtocol} / EWS delete ${d.ews}${d.flashName ? ` / ${d.flashName}` : ''}${d.mpcName && d.mpcName !== d.flashName ? ` + ${d.mpcName}` : ''}`
     );
-    if (!(await fbProgrammingCounter(false))) return;
+    if (!(await fbProgrammingCounter(false))) return false;
     let images;
     try {
       images = fbDmeApplyProgramEdits(prompts);
@@ -291,7 +293,7 @@ async function fbDmeFlashProgram(opts = {}) {
       }
     } catch (e) {
       await fbMessage(e.message, e.title || title);
-      return;
+      return false;
     }
     const { source, mpc } = images;
     const hasCal = d.flash.length >= 0x5d000 && !fbDmeProgramHasNoTune();
@@ -319,6 +321,7 @@ async function fbDmeFlashProgram(opts = {}) {
     if (success) await (opts.after ? opts.after() : fbDmeIdentify(true));
     await fbSessionStop();
   }
+  return success;
 }
 
 // ---- Finish Programming (Settings) ---------------------------------------------------------------------------
