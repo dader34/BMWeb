@@ -195,6 +195,9 @@ def extract_dlls(names, dll_dir):
     missing = [n for n in names if not os.path.exists(os.path.join(dll_dir, n))]
     if not missing:
         return 0
+    for n in missing:
+        if n != os.path.basename(n) or n in ("", ".", ".."):
+            raise ValueError("unsafe dll name from archive entry: %r" % n)
     os.makedirs(dll_dir, exist_ok=True)
     with tempfile.NamedTemporaryFile("w", suffix=".list", delete=False) as fh:
         for n in missing:
