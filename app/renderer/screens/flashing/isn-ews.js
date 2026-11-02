@@ -104,7 +104,10 @@ function fbIsnEepromRefresh() {
   );
   if (!btn.dataset.wired) {
     btn.dataset.wired = '1';
-    btn.onclick = () => fbDmeGuard('Read EEPROM', fbIsnDump);
+    btn.onclick = () => {
+      fbShowPage('flashing');
+      fbDmeGuard('Read EEPROM', fbIsnDump);
+    };
   }
   const why = fbIsnWhyNot(true);
   btn.disabled = !!why;

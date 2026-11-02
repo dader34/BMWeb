@@ -10899,7 +10899,8 @@ body.remote-helper::after {
   display: flex;
   flex-direction: column;
 }
-#fb-page-settings {
+#fb-page-settings,
+#fb-page-fast {
   gap: 12px;
   overflow-y: auto;
 }
@@ -15130,8 +15131,20 @@ body.fb-skin-rail-on .modal-overlay .btn:hover {
   border-color: #cdcdcd !important;
 }
 :root :is(.fb.fb-skin-tabs, .fb.fb-skin-rail) .fb-ecu {
-  padding: 6px 10px;
+  padding: 0 10px;
   font-size: 13px;
+  line-height: 30px;
+}
+/* the module box, the ECU box and Identify one height, so the bar lines up */
+:root
+  :is(.fb.fb-skin-tabs, .fb.fb-skin-rail)
+  .fb-topbar
+  :is(.lkd-btn, .fb-ecu, .fb-identify) {
+  box-sizing: border-box;
+  height: 32px;
+  min-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
 }
 :root :is(.fb.fb-skin-tabs, .fb.fb-skin-rail) .lkd-item {
   color: #000 !important;

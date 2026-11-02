@@ -39,7 +39,6 @@
 
 function fbBlHtml() {
   return `
-      <hr class="fb-sep">
       <div class="fb-code">FAST FLASH BOOTLOADER</div>
       <div class="fb-dim">Install fast flashing program to the DME</div>
       <div class="fb-row">
@@ -280,7 +279,8 @@ function _fbBlWire(btn, title, run) {
   if (btn.dataset.wired) return;
   btn.dataset.wired = '1';
   btn.onclick = () => {
-    fbShowOptions(false);
+    // the run's log and progress are on the flashing page
+    fbShowPage('flashing');
     fbDmeGuard(title, run);
   };
 }

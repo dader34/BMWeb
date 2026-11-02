@@ -66,14 +66,6 @@ function fbOptionsHtml() {
       <div class="fb-faint" id="fb-opt-ews-reason"></div>
     </div>
 
-    <div class="fb-section" id="fb-opt-aif-section" hidden>
-      ${fbBlHtml()}
-    </div>
-
-    <div class="fb-section" id="fb-opt-eeprom-section" hidden>
-      ${fbIsnEepromHtml()}
-    </div>
-
     <div class="fb-section" id="fb-opt-livetune-section" hidden>
       ${fbLtInstallHtml()}
     </div>
@@ -200,10 +192,6 @@ function fbOptionsShowFor(module) {
   fbEls['opt-protect-section'].hidden = tcu || !fbProtectTesting();
   fbEls['opt-ms-section'].hidden = tcu;
   fbEls['opt-upshift-section'].hidden = !tcu;
-  fbEls['opt-aif-section'].hidden = tcu;
-  // the EEPROM read only for a DME identified with the fast flash bootloader
-  fbEls['opt-eeprom-section'].hidden =
-    tcu || !(fbState.dme && fbState.dme.bootLoader);
   fbEls['opt-livetune-section'].hidden = tcu;
   if (tcu) fbOptionsRefreshUpshiftGate();
   else {

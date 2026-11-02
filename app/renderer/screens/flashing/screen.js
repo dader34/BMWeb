@@ -82,6 +82,7 @@ const FB_PAGE_TITLES = {
   history: 'History',
   aif: 'AIF editor',
   isn: 'ISN / EWS',
+  fast: 'Fast flasher',
   settings: 'Settings',
 };
 
@@ -206,6 +207,7 @@ async function showFlashing(page) {
       <button class="fb-rail-btn" id="fb-rail-history" title="History">&#x27F2;</button>
       <button class="fb-rail-btn fb-rail-word" id="fb-rail-aif" title="AIF" hidden><span>AIF</span></button>
       <button class="fb-rail-btn fb-rail-word" id="fb-rail-isn" title="ISN / EWS" hidden><span>EWS</span><span>ISN</span></button>
+      <button class="fb-rail-btn fb-rail-word" id="fb-rail-fast" title="Fast flasher" hidden><span>FAST</span></button>
       <button class="fb-rail-btn" id="fb-rail-settings" title="Settings">&#x2699;&#xFE0E;</button>
     </div>
     <div class="fb-main">
@@ -262,6 +264,8 @@ async function showFlashing(page) {
 
       ${fbIsnPageHtml()}
 
+      ${fbFastPageHtml()}
+
       <div class="fb-page" id="fb-page-settings" hidden>
         <div class="fb-section">
           <div class="fb-code">SKIN</div>
@@ -283,11 +287,6 @@ async function showFlashing(page) {
           <div class="fb-code">PROGRAMMING RECORD</div>
           <label class="fb-check"><input type="checkbox" id="fb-set-aif"> Log every flash in the module (AIF)</label>
           <div class="fb-dim">A module keeps 14 entries and they cannot be erased. Before a flash the app says how many are left and asks whether to go on. With this off, nothing is written to the log and no question is asked.</div>
-        </div>
-        <div class="fb-section" id="fb-set-fast-section" hidden>
-          <div class="fb-code">FAST FLASHER</div>
-          <label class="fb-check"><input type="checkbox" id="fb-set-fast"> Use the fast flasher</label>
-          <div class="fb-dim">When the DME has a ready fast flasher, Flash Tune and Flash Program write through it (compressed, only what differs); otherwise, and with this off, they use the DME's stock flashing loader. A fast flash writes no programming record (AIF).</div>
         </div>
         <div class="fb-section">
           <div class="fb-code">TESTING ONLY</div>
@@ -325,6 +324,7 @@ async function showFlashing(page) {
   fbEls['rail-history'].onclick = () => fbShowPage('history');
   fbEls['rail-aif'].onclick = () => fbShowPage('aif');
   fbEls['rail-isn'].onclick = () => fbShowPage('isn');
+  fbEls['rail-fast'].onclick = () => fbShowPage('fast');
   fbEls['rail-settings'].onclick = () => fbShowPage('settings');
 
   // the app's own dropdown, in the skin the chassis and module pickers wear;
@@ -358,10 +358,6 @@ async function showFlashing(page) {
   };
   fbEls['set-keep'].checked = !!Settings.get('flashKeepFiles', false);
   fbEls['set-aif'].checked = fbAifWanted();
-  fbEls['set-fast-section'].hidden = false;
-  fbEls['set-fast'].checked = fbFastFlasherWanted();
-  fbEls['set-fast'].onchange = () =>
-    Settings.set('flashUseFastFlasher', fbEls['set-fast'].checked);
   fbEls['set-dev'].checked = fbDevUi();
   fbEls['set-keep'].onchange = () =>
     Settings.set('flashKeepFiles', fbEls['set-keep'].checked);
@@ -389,6 +385,7 @@ async function showFlashing(page) {
   fbDmeWire();
   fbTcuWire();
   fbOptionsWire();
+  fbFastWire();
   if (returning) fbRestoreView();
   fbRefreshAll();
   fbHistoryRefresh();
@@ -484,6 +481,7 @@ function fbShowPage(page) {
     'history',
     'aif',
     'isn',
+    'fast',
     'settings',
   ]) {
     fbEls[`page-${p}`].hidden = p !== page;
@@ -513,6 +511,7 @@ function fbShowPage(page) {
   if (page === 'history') fbHistoryRefresh();
   if (page === 'aif') fbAifEdShow();
   if (page === 'isn') fbIsnShow();
+  if (page === 'fast') fbFastShow();
 }
 
 /**
@@ -1154,6 +1153,12 @@ function fbRefreshAll() {
   if (fbState.page === 'isn') {
     if (fbEls['rail-isn'].hidden) fbShowPage('flashing');
     else fbIsnPaint();
+  }
+  // the bootloader, the flasher and their setting, for a DME
+  fbEls['rail-fast'].hidden = !fbFastAvailable();
+  if (fbState.page === 'fast') {
+    if (fbEls['rail-fast'].hidden) fbShowPage('flashing');
+    else fbFastPaint();
   }
 }
 
