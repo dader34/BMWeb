@@ -93,16 +93,21 @@ const FF_TIMEOUT = {
  * The faster lines a v8 body is asked for after the probe, in order: the
  * DME's SCI makes 40 MHz / (32 x SCBR) exactly, and an FTDI cable makes
  * these from its 3 MHz clock (exactly, or within 0.2 %). A rate the K-line
- * cannot carry costs one try: the body falls back to 115200 by itself when
- * nothing it can parse arrives within ~2.4 s. What the line carries is the
+ * cannot carry at all strands the session: the body holds whatever SET_BAUD
+ * named (its fallback to 115200 went with v14), so only a restart of the
+ * DME brings it back -- a rate that carries HELLO but garbles now and then
+ * is fine, the client steps down a rate mid-job. What the line carries is the
  * transceivers' edge rate into the harness capacitance: an Si9241-class
  * driver is "typically 200 kBaud" with a short bus (<= 1.3 nF, 510 ohm),
  * 10.4 kBaud at ISO's 10 nF worst case -- so 250 k is a try, 156 k likely.
  */
 const FF_FAST_LINES = [
-  // sessions start here: 416667 carried the car's line (2026-10-26) but
-  // dropped a frame mid-MPC push (2026-10-27); a garbled line steps down
-  // from here one rate at a time
+  // sessions start here, every session; a garbled line steps down from
+  // here one rate at a time, for that session only. 416667 carried HELLO on
+  // 2026-10-26; one try on 2026-11-02 came back garbled (our frames heard,
+  // the replies not) -- a rate that fails is now left by a blind SET_BAUD,
+  // so trying it costs seconds, not the session
+  [416667, 3],
   [312500, 4],
   [250000, 5],
   [208333, 6],
@@ -112,9 +117,17 @@ const FF_FAST_LINES = [
  * The rates a running flasher may be holding when a cut session is picked up
  * again: the session rates, and the faster ones earlier builds started on.
  */
-const FF_RESUME_RATES = [625000, 416667, ...FF_FAST_LINES.map(([r]) => r)];
+const FF_RESUME_RATES = [625000, ...FF_FAST_LINES.map(([r]) => r)];
 /** Garbled replies in a session before the line is stepped down a rate. */
 const FF_LINE_ERRORS_STEP = 2;
+/**
+ * Tries of one request whose reply comes back damaged (a bad sum, a cut-short
+ * frame, a READ whose CRC fails) before the job gives up on it. Every
+ * service but RESET is idempotent. Two was too few on the car (2026-11-02):
+ * READ 0x4000 garbled twice running and stopped a read before the line had
+ * stepped down once.
+ */
+const FF_GARBLE_TRIES = 3;
 /** How long the body's own fallback to 115200 is waited for after a dead rate. */
 const FF_FALLBACK_PATIENCE_MS = 15000;
 /** A pageset is one 64-byte page per MPC block. */
@@ -295,8 +308,30 @@ class FastFlashClient {
     this.lineErrors = 0;
     /** The line rate the session is on (ffFasterLine and a step-down move it). */
     this.baud = FF_BAUD;
-    /** Set by the session: moves the line down a rate; called once at FF_LINE_ERRORS_STEP. */
+    /**
+     * Set by the session: moves the line down a rate. Called at every
+     * FF_LINE_ERRORS_STEP line errors (the count starts over after each),
+     * so a line that keeps garbling keeps going down, to 115200 at the end.
+     */
     this.stepDown = null;
+  }
+
+  /**
+   * One damaged reply: counted, and every FF_LINE_ERRORS_STEP of them the
+   * line steps down a rate. The step-down's own SET_BAUDs go through call()
+   * with stepDown unset, so a garble there cannot step down again inside it.
+   */
+  async _lineError() {
+    this.lineErrors++;
+    if (this.lineErrors < FF_LINE_ERRORS_STEP || !this.stepDown) return;
+    const down = this.stepDown;
+    this.stepDown = null;
+    this.lineErrors = 0;
+    try {
+      await down();
+    } finally {
+      this.stepDown = down;
+    }
   }
 
   /**
@@ -329,10 +364,17 @@ class FastFlashClient {
         reply.svc === 0x7f &&
         (reply.data[1] === 2 || reply.data[1] === 6) &&
         (svc === FF_SVC.CHUNK || svc === FF_SVC.CHUNK_SET);
+      // ... and a reply cut short: it started arriving and stopped (the car,
+      // 2026-11-02: READ 0xDF000 and 0x21000 at 250000, the body back
+      // answering HELLO at once -- the bytes went missing on the way)
       const garbled =
-        (err && /checksum|frame is not one/.test(err.message || '')) ||
+        (err &&
+          /checksum|frame is not one|after the echo, \d+ byte/.test(
+            err.message || ''
+          )) ||
         refusedAsDamaged;
-      const again = garbled && svc !== FF_SVC.RESET && attempt === 1;
+      const again =
+        garbled && svc !== FF_SVC.RESET && attempt < FF_GARBLE_TRIES;
       if (this.trace)
         this.trace(
           _ffTraceLine(svc, data, reply, Date.now() - t0) +
@@ -340,12 +382,7 @@ class FastFlashClient {
         );
       if (!err && !again) break;
       if (!again) throw err;
-      this.lineErrors++;
-      if (this.lineErrors >= FF_LINE_ERRORS_STEP && this.stepDown) {
-        const down = this.stepDown;
-        this.stepDown = null;
-        await down();
-      }
+      await this._lineError();
     }
     if (!reply)
       throw new Error(`fast flasher: no reply to ${FF_SVC_NAME[svc]}`);
@@ -522,20 +559,15 @@ class FastFlashClient {
         return bytes;
       if (this.trace)
         this.trace(
-          `FF READ 0x${off.toString(16).toUpperCase()} ${len}B -> ${bytes.length}B, CRC mismatch${attempt === 1 ? ' -- once more' : ''}`
+          `FF READ 0x${off.toString(16).toUpperCase()} ${len}B -> ${bytes.length}B, CRC mismatch${attempt < FF_GARBLE_TRIES ? ' -- once more' : ''}`
         );
-      if (attempt > 1)
+      if (attempt >= FF_GARBLE_TRIES)
         throw new Error(
-          `fast flasher: READ 0x${off.toString(16)} came back damaged twice`
+          `fast flasher: READ 0x${off.toString(16)} came back damaged ${attempt} times`
         );
       // damaged data is a marginal line just as a garbled reply is: it
       // counts toward the same step-down
-      this.lineErrors++;
-      if (this.lineErrors >= FF_LINE_ERRORS_STEP && this.stepDown) {
-        const down = this.stepDown;
-        this.stepDown = null;
-        await down();
-      }
+      await this._lineError();
     }
   }
 }
@@ -546,13 +578,28 @@ class FastFlashClient {
  * @param {number} base - An ext offset, or FF_MPC_WINDOW | an MPC offset.
  * @param {number} size
  * @param {(done: number) => void} [progress] - Bytes read so far.
+ * @param {{out?: Uint8Array, at?: number}} [keep] - Carried across attempts:
+ *   the bytes so far and where they end, so a read the connection dropped
+ *   out of picks up at the block that failed instead of at the start (every
+ *   block is already checked by its own CRC).
  * @returns {Promise<Uint8Array>}
  */
-async function ffReadArea(client, base, size, progress = () => {}) {
-  const out = new Uint8Array(size);
-  for (let at = 0; at < size; at += FF_READ_MAX) {
+async function ffReadArea(
+  client,
+  base,
+  size,
+  progress = () => {},
+  keep = null
+) {
+  if (keep && !(keep.out && keep.out.length === size)) {
+    keep.out = new Uint8Array(size);
+    keep.at = 0;
+  }
+  const out = keep ? keep.out : new Uint8Array(size);
+  for (let at = keep ? keep.at : 0; at < size; at += FF_READ_MAX) {
     const n = Math.min(FF_READ_MAX, size - at);
     out.set(await client.read((base + at) >>> 0, n), at);
+    if (keep) keep.at = at + n;
     progress(at + n);
   }
   return out;
@@ -564,22 +611,46 @@ async function ffReadArea(client, base, size, progress = () => {}) {
  * of the loader's 9600 baud.
  * @param {FastFlashClient} client
  * @param {{mpc?: boolean, stage?: (s: string) => void,
- *   progress?: (pct: number) => void}} [cb]
+ *   progress?: (pct: number) => void,
+ *   resume?: {ext?: object, mpc?: object}}} [cb] - `resume`: the same
+ *   object on every attempt of one read (ffReadArea's `keep`, per area).
  * @returns {Promise<{flash: Uint8Array, mpc: Uint8Array|null}>}
  */
 async function ffReadImage(client, cb = {}) {
   const stage = cb.stage || (() => {});
   const progress = cb.progress || (() => {});
   const total = FF_EXT_SIZE + (cb.mpc ? FF_MPC_SIZE : 0);
-  stage('Reading the external flash');
-  const flash = await ffReadArea(client, 0, FF_EXT_SIZE, (n) =>
-    progress(Math.floor((n * 100) / total))
-  );
+  const resume = cb.resume || null;
+  if (resume) {
+    resume.ext = resume.ext || {};
+    resume.mpc = resume.mpc || {};
+  }
+  const from = (keep, size) =>
+    keep && keep.at && keep.at < size
+      ? `, carrying on at 0x${keep.at.toString(16)}`
+      : '';
+  let flash = resume && resume.ext.at === FF_EXT_SIZE ? resume.ext.out : null;
+  if (!flash) {
+    stage(
+      `Reading the external flash${from(resume && resume.ext, FF_EXT_SIZE)}`
+    );
+    flash = await ffReadArea(
+      client,
+      0,
+      FF_EXT_SIZE,
+      (n) => progress(Math.floor((n * 100) / total)),
+      resume && resume.ext
+    );
+  }
   let mpc = null;
   if (cb.mpc) {
-    stage('Reading the MPC');
-    mpc = await ffReadArea(client, FF_MPC_WINDOW, FF_MPC_SIZE, (n) =>
-      progress(Math.floor(((FF_EXT_SIZE + n) * 100) / total))
+    stage(`Reading the MPC${from(resume && resume.mpc, FF_MPC_SIZE)}`);
+    mpc = await ffReadArea(
+      client,
+      FF_MPC_WINDOW,
+      FF_MPC_SIZE,
+      (n) => progress(Math.floor(((FF_EXT_SIZE + n) * 100) / total)),
+      resume && resume.mpc
     );
   }
   return { flash, mpc };
@@ -618,6 +689,21 @@ async function ffFasterLine(client, link, note = () => {}, preferred = 0) {
       return rate;
     } catch (e) {
       note(`No HELLO at ${rate} baud (${e.message}); back to ${FF_BAUD}`);
+      // the body holds the rate SET_BAUD named (no fallback since v14), but
+      // the tester's direction can carry where the DME's does not: at 416667
+      // on the car (2026-11-02) our frames got through and the replies came
+      // back garbled. So tell it to go back while the cable is still on the
+      // dead rate, the answer ignored -- an unheard request costs nothing,
+      // the body only ever answers
+      if (link.exchange)
+        try {
+          await link.exchange(
+            ffFrame(FF_SVC.SET_BAUD, _ffU16(11)),
+            FF_TIMEOUT.SET_BAUD
+          );
+        } catch (e2) {
+          // garbled or silent, as expected on a rate that does not carry
+        }
       await link.rebaud(FF_BAUD, { patience: FF_FALLBACK_PATIENCE_MS });
       await client.setBaud(11); // confirmed at 115200
     }
@@ -1133,7 +1219,7 @@ function ffWebLink(bus, opts = {}) {
             ? 'fast flasher: no echo from the cable'
             : `fast flasher: the DME did not answer (${
                 rx.length
-                  ? `after the echo: ${rx
+                  ? `after the echo, ${rx.length} byte(s)${_ffFrameTotal(rx) ? ` of ${_ffFrameTotal(rx)}` : ''}: ${rx
                       .slice(0, 32)
                       .map((b) => b.toString(16).padStart(2, '0'))
                       .join(' ')}`
@@ -1353,6 +1439,18 @@ function ffWebLink(bus, opts = {}) {
       bus.config = null;
     },
   };
+}
+
+/**
+ * How long a frame whose first bytes are `rx` is, length byte(s) included
+ * (the u16 escape when the first byte is 0; the span counts the checksum),
+ * or 0 before that is known.
+ * @param {number[]} rx @returns {number}
+ */
+function _ffFrameTotal(rx) {
+  if (!rx.length) return 0;
+  if (rx[0]) return 1 + rx[0];
+  return rx.length >= 3 ? 3 + ((rx[1] << 8) | rx[2]) : 0;
 }
 
 /** @param {number[]} hay @param {number[]} needle @returns {number} */

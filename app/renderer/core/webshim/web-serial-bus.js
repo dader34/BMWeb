@@ -12,6 +12,25 @@
 const TIMED_OUT = Symbol('timed-out');
 
 /**
+ * The browser's read buffer for the port. The Web Serial default is 255
+ * bytes -- ~11 ms of a 250000-baud reply -- and a busy main thread (a GC,
+ * the log redrawing) stalls the reader longer than that: the rest of a 4 KB
+ * fast-flasher READ was lost on the car (2026-11-02, READ 0xDF000: header
+ * in, data gone, the DME already back answering HELLO). 64 KB holds ~3 s.
+ */
+const SERIAL_BUFFER_BYTES = 1 << 16;
+
+/**
+ * Open the port with `cfg` and the larger read buffer.
+ * @param {SerialPort} port
+ * @param {object} cfg - A PortConfig (baudRate, dataBits, stopBits, parity).
+ * @returns {Promise<void>}
+ */
+function _wsbOpen(port, cfg) {
+  return port.open({ ...cfg, bufferSize: SERIAL_BUFFER_BYTES });
+}
+
+/**
  * The reference interface's DtrTimeCorrCom: how much longer than the
  * telegram's byte time DTR stays up, in ms. No more -- DTR is the transmit
  * enable, so holding it longer keeps the cable talking while the ECU answers
@@ -116,7 +135,7 @@ class WebSerialBus extends SerialTransportBase {
    */
   async connect() {
     this.port = await this._acquirePort();
-    await this.port.open(KDCAN);
+    await _wsbOpen(this.port, KDCAN);
     this.config = KDCAN;
     this.writer = this.port.writable.getWriter();
     this.reader = this.port.readable.getReader();
@@ -265,7 +284,7 @@ class WebSerialBus extends SerialTransportBase {
     // fail to open. Fall back to the first if the flag is unavailable.
     this.port = ports.find((p) => p.connected !== false) || ports[0];
     try {
-      await this.port.open(KDCAN);
+      await _wsbOpen(this.port, KDCAN);
     } catch (e) {
       // The commonest cause is the port being held by another tab/app, or the
       // device unplugged. Say which, rather than a silent "no cable".
@@ -336,7 +355,7 @@ class WebSerialBus extends SerialTransportBase {
     } catch {
       /* already closed (or closing): open() reopens it below */
     }
-    await this.port.open(cfg);
+    await _wsbOpen(this.port, cfg);
     this.config = cfg;
     this.writer = this.port.writable.getWriter();
     this.reader = this.port.readable.getReader();

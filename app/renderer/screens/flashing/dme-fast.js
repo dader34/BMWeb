@@ -57,6 +57,10 @@ async function fbDmeFastRead() {
   if (!d.identified) return;
   if (!(await fbDmeFastFlasherAvailable('Read DME'))) return;
   const full = !!d.fullBin;
+  // what has been read so far, kept across the push's resume: a dropped
+  // connection carries on at the block that failed (2026-11-02: a full read
+  // dropped at 60% started over from 0x0)
+  const resume = { ext: {}, mpc: {} };
   await fbDmeFastFlash({
     title: 'Read DME',
     operation: 'fast-read',
@@ -71,7 +75,11 @@ async function fbDmeFastRead() {
       let flash;
       let mpc = null;
       if (full) {
-        const r = await fastFlashWire.readImage(client, { ...cb, mpc: true });
+        const r = await fastFlashWire.readImage(client, {
+          ...cb,
+          mpc: true,
+          resume,
+        });
         flash = r.flash;
         mpc = r.mpc;
       } else {
@@ -80,7 +88,8 @@ async function fbDmeFastRead() {
           client,
           fastFlashWire.CAL_SECTOR,
           fastFlashWire.CAL_LENGTH,
-          (n) => cb.progress(Math.floor((n * 100) / fastFlashWire.CAL_LENGTH))
+          (n) => cb.progress(Math.floor((n * 100) / fastFlashWire.CAL_LENGTH)),
+          resume.ext
         );
       }
       const s = Math.round((Date.now() - t0) / 1000);
@@ -146,40 +155,39 @@ async function fbDmeFastFlash(spec) {
     });
     await fbDmeFastProbe(client, ui);
     prepared.link = link;
-    // v8: the fastest line the cable and the K-line carry (the body falls
-    // back to 115200 by itself when a rate carries nothing)
+    // the fastest line the cable and the K-line carry, from the top of the
+    // list every session: a step-down is not remembered (the remembered one,
+    // fastLineBest, kept every later session at 250000 after host-side byte
+    // loss at 312500 -- 2026-11-02 -- and the slow path writes it too)
     if (d.fastFlasher && d.fastFlasher.ready && !spec.noFasterLine) {
       ui.stage('Trying a faster line');
       const rate = await fastFlashWire.fasterLine(
         client,
         link,
         (s) => flashLog.note(s),
-        // a rate remembered above where sessions start (a Baud Test, an
-        // older build) is not tried first: the list starts at its top
-        Math.min(
-          Number(
-            Settings.get('fastLineBest', fastFlashWire.FAST_LINES[0][0])
-          ) || 0,
-          fastFlashWire.FAST_LINES[0][0]
-        )
+        fastFlashWire.FAST_LINES[0][0]
       );
       ui.stage(`Line at ${rate} baud`);
-      // a line that garbles replies steps down one rate, once, and the
-      // next session starts from there
+      // a line that garbles replies steps down a rate each time it does,
+      // for this session, to 115200 at the end (and no further)
       client.stepDown = async () => {
-        const lines = fastFlashWire.FAST_LINES.filter(([r]) => r < rate);
+        const from = client.baud;
+        if (from <= fastFlashWire.BAUD) return;
+        const lines = fastFlashWire.FAST_LINES.filter(([r]) => r < from);
         const [lower, scbr] = lines.length
           ? lines[0]
           : [fastFlashWire.BAUD, 11];
         flashLog.note(
-          `Garbled replies at ${rate} baud: stepping the line down to ${lower}`
+          `Garbled replies at ${from} baud: stepping the line down to ${lower}`
         );
         await client.setBaud(scbr);
         await link.rebaud(lower, { patience: 15000 });
         await client.setBaud(scbr);
         client.baud = lower;
-        Settings.set('fastLineBest', lower);
-        ui.stage(`Line at ${lower} baud`);
+        // the log, not ui.stage: a step-down happens mid-read or mid-push,
+        // and staging it left the status on "setting the line speed" for
+        // the rest of the job
+        flashLog.note(`Line at ${lower} baud`);
       };
     }
     const cb = {

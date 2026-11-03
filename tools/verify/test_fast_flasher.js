@@ -475,7 +475,7 @@ const be32 = (b, at) =>
     );
   }
 
-  // ---- 4d. a garbled reply is asked for once more ------------------------------
+  // ---- 4d. a garbled reply is asked for again ------------------------------------
   console.log('\ngarbled replies');
   {
     const ack = (svc) => {
@@ -502,9 +502,9 @@ const be32 = (b, at) =>
     assert.strictEqual(client.lineErrors, 1);
     await client.hello();
     assert.strictEqual(n, 4);
-    assert.strictEqual(client.lineErrors, 2);
     assert.strictEqual(stepped, 1, 'the line steps down at the second error');
-    assert.strictEqual(client.stepDown, null, 'and only once');
+    assert.strictEqual(client.lineErrors, 0, 'the count starts over');
+    assert.ok(client.stepDown, 'and can step down again (2026-11-02)');
     n = 0;
     const bad = {
       async exchange() {
@@ -515,9 +515,9 @@ const be32 = (b, at) =>
       },
     };
     await assert.rejects(() => new W.Client(bad).hello(), /checksum/);
-    assert.strictEqual(n, 2, 'two tries, then the error');
+    assert.strictEqual(n, 3, 'three tries, then the error');
     ok(
-      'a garbled reply is asked for once more; two of them step the line down once; a line that garbles every reply still fails'
+      'a garbled reply is asked for again; every two step the line down; a line that garbles every reply still fails after three tries'
     );
   }
 
@@ -734,8 +734,8 @@ const be32 = (b, at) =>
     );
     let stepped = 0;
     client.stepDown = async () => stepped++;
-    damage = 2;
-    await assert.rejects(client.read(0x40000, 4096), /damaged twice/);
+    damage = 3;
+    await assert.rejects(client.read(0x40000, 4096), /damaged 3 times/);
     assert.strictEqual(
       stepped,
       1,

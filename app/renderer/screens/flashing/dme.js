@@ -301,8 +301,9 @@ async function fbDmeIdentifyRun(afterFlash) {
   fbOptionsRefreshBenchGate();
   const summary = fbDmeImmobilizerSummary() + fbDmeMapSwitchSummary();
   const carRead = d.carProgramEwsDeleted !== null || d.carMapSwitch !== null;
-  // after a flash the flash's own result stays up
-  if (!afterFlash && carRead) fbSetStatus(summary);
+  // after a flash the flash's own result stays up; a bare "Identified"
+  // (nothing installed to report) is not said at all
+  if (!afterFlash && carRead && summary !== 'Identified') fbSetStatus(summary);
   if (!d.identified)
     await fbMessage(
       `This DME (${ident.hwRef || 'no hardware reference'}) is not an MS45.0 / MS45.1, so the flashing tools stay shut.`,
@@ -717,12 +718,11 @@ function fbDmeImmobilizerSummary() {
       ? 'Identified, DME already EWS deleted, but its tune still has the immobilizer on'
       : 'Identified, DME already EWS deleted';
   }
-  if (d.carProgramEwsDeleted === false) {
-    return d.carTuneEwsDeleted === true
-      ? 'Identified, DME not EWS deleted, but its tune has the immobilizer off'
-      : 'Identified, DME not EWS deleted';
-  }
-  return 'Identified, EWS state not read';
+  // only what the DME HAS is said: a stock immobilizer (or one not read)
+  // is the plain "Identified"
+  if (d.carProgramEwsDeleted === false && d.carTuneEwsDeleted === true)
+    return 'Identified, the tune has the immobilizer off';
+  return 'Identified';
 }
 
 /**
@@ -840,7 +840,7 @@ function fbDmeMapSwitchSummary() {
   const d = fbState.dme;
   switch (d.carMapSwitch) {
     case 'notInstalled':
-      return ', no map switch';
+      return ''; // only an installed one is mentioned
     case 'current':
     case 'earlier':
       return (
