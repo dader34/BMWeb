@@ -32,34 +32,36 @@ const FB_ISN_EE_READ = 0x10;
 function fbIsnAvailable() {
   if (fbDevUi()) return true;
   const d = fbState.dme;
-  const have = d && d.bootLoader;
   return !!(
-    fbState.module === 'dme' &&
-    d.identified &&
-    have &&
-    have.version >= 14
+    fbState.module === 'dme' && d && d.identified && fbDmeIsMs451()
   );
 }
 
 /**
  * Why the DME cannot be worked on from here, or null.
- * @param {boolean} eeprom - true for the EEPROM dump, which also needs the
- *   body's read window; the flash-ISN tools and the sync do not.
+ *
+ * Previously this required the FFBL ring installed (`d.bootLoader.version
+ * >= 14` plus the EEPROM-read capability flag for the dump). That gate is
+ * gone: the triggered v21 body (one-click into SRAM) already serves ISN
+ * read/write/virginize (boot-sector window), EEPROM dump (read window)
+ * and every tool in this tab -- see tools/build/flasher_body.py. The
+ * button handlers pass {autoEnter: true} to fbDmeGuard, which triggers
+ * the one-click on first click; dme-oneclick.js then synthesises
+ * d.bootLoader so any downstream check still sees it as "live". EWS sync
+ * stays off the autoEnter path (it is a stock KWP job on the application
+ * side, no fast flasher involved).
+ * @param {boolean} eeprom - was: EEPROM-dump-specific gate; now the same
+ *   null-check as the other tools, kept for call-site compatibility.
  */
+// eslint-disable-next-line no-unused-vars
 function fbIsnWhyNot(eeprom) {
   const d = fbState.dme;
-  const have = d && d.bootLoader;
-  if (fbState.module !== 'dme' || !d.identified)
+  if (fbState.module !== 'dme' || !d || !d.identified)
     return 'Identify the DME on the Flashing tab first.';
   if (!fbDmeIsMs451()) return 'The ISN tools are MS45.1 only.';
-  if (!have || have.version < 14)
-    return 'Needs the fast flash bootloader on the DME.';
   if (typeof webBus === 'undefined' || !webBus.port || !webBus.port.setSignals)
     return 'Needs a cable that can hold the break line (Web Serial or a gateway).';
-  if (!eeprom) return null;
-  if (!(have.flags & FB_ISN_EE_READ))
-    return 'This bootloader has no EEPROM read window: update it first.';
-  if (typeof eepromDump === 'undefined')
+  if (eeprom && typeof eepromDump === 'undefined')
     return 'The EEPROM client (core/flash/eeprom.js) is not loaded in this build.';
   return null;
 }
@@ -99,14 +101,16 @@ function fbIsnEepromRefresh() {
   if (!btn) return;
   // the section follows the identification (an Identify while Custom
   // Options is open), not only the view's opening
+  // Ungated: the EEPROM read is available on any identified DME. If no
+  // ring is installed, the button handler auto-enters via the one-click.
   fbEls['opt-eeprom-section'].hidden = !(
-    fbState.module === 'dme' && fbState.dme.bootLoader
+    fbState.module === 'dme' && fbState.dme && fbState.dme.identified
   );
   if (!btn.dataset.wired) {
     btn.dataset.wired = '1';
     btn.onclick = () => {
       fbShowPage('flashing');
-      fbDmeGuard('Read EEPROM', fbIsnDump);
+      fbDmeGuard('Read EEPROM', fbIsnDump, { autoEnter: true });
     };
   }
   const why = fbIsnWhyNot(true);
@@ -343,20 +347,37 @@ async function fbIsnBurn(title, operation, isn) {
 }
 
 /** Write ISN: ask for the value in a modal, then burn it into the boot sector. */
-async function fbIsnFlashWrite() {
+/** Prompt for the ISN up front. Returns the ISN bytes, or null when
+ * cancelled/blocked. The caller (onclick wiring) uses this BEFORE
+ * fbDmeGuard so the dialog appears before the fast flasher enters -- a
+ * triggered one-click entry takes seconds and the user asked to pick the
+ * ISN first. */
+async function fbIsnPromptWrite() {
   const why = fbIsnWhyNot(false);
   if (why) {
     await fbMessage(why, 'Write ISN');
-    return;
+    return null;
   }
-  const isn = await fbIsnPrompt({
+  return fbIsnPrompt({
     title: 'Write ISN',
     action: 'Write',
     body: `<p>Burns a new ISN into the DME's flash boot sector (erase + rewrite). The program, tune and log are kept.</p>
           <p>Keep the ignition on, a charger on the battery and the cable plugged in until it has finished. A power or cable loss mid-write can leave the DME unbootable.</p>
           <p>The car starts only when this matches the EWS's ISN and the rolling code has been synced (Sync EWS).</p>`,
   });
-  if (isn === null) {
+}
+
+async function fbIsnFlashWrite(isn) {
+  // Callable two ways:
+  //   onclick (preferred) passes `isn` already asked for before fbDmeGuard;
+  //   older callers invoke with no args and get the prompt here as before.
+  // Prompting here (post-autoEnter) would ask the user to choose the ISN
+  // AFTER the fast flasher has already spent seconds entering, which the
+  // user flagged as the wrong order.
+  if (isn === undefined) {
+    isn = await fbIsnPromptWrite();
+  }
+  if (isn === null || isn === undefined) {
     flashLog.note('Write ISN not confirmed: nothing was sent to the car');
     return;
   }
@@ -482,13 +503,33 @@ function fbIsnShow() {
   }
   if (!page.dataset.wired) {
     page.dataset.wired = '1';
-    fbEls['isnp-read'].onclick = () => fbDmeGuard('Read ISN', fbIsnFlashRead);
-    fbEls['isnp-write'].onclick = () =>
-      fbDmeGuard('Write ISN', fbIsnFlashWrite);
+    // autoEnter: true -- fbDmeGuard pre-runs the one-click to enter the
+    // fast flasher if no ring is already installed, then runs the action.
+    // The tab is ungated: clicking a button works on any identified DME.
+    fbEls['isnp-read'].onclick = () =>
+      fbDmeGuard('Read ISN', fbIsnFlashRead, { autoEnter: true });
+    // Prompt for the ISN FIRST, then fbDmeGuard -- so the user picks the
+    // ISN before the one-click spends seconds entering the fast flasher,
+    // not after. A cancelled prompt returns null and skips the entry
+    // entirely (nothing is sent). The handler won't re-prompt because
+    // fbIsnFlashWrite(isn) is called with isn already in hand.
+    fbEls['isnp-write'].onclick = async () => {
+      const isn = await fbIsnPromptWrite();
+      if (isn === null || isn === undefined) {
+        flashLog.note('Write ISN not confirmed: nothing was sent to the car');
+        return;
+      }
+      await fbDmeGuard('Write ISN', () => fbIsnFlashWrite(isn), {
+        autoEnter: true,
+      });
+    };
     fbEls['isnp-virgin'].onclick = () =>
-      fbDmeGuard('Virginize', fbIsnFlashVirginize);
+      fbDmeGuard('Virginize', fbIsnFlashVirginize, { autoEnter: true });
+    // EWS sync is a stock KWP job on the application side -- no fast
+    // flasher involved -- so it stays off the autoEnter path.
     fbEls['isnp-sync'].onclick = () => fbDmeGuard('Sync EWS', fbIsnSyncEws);
-    fbEls['isnp-dump'].onclick = () => fbDmeGuard('Read EEPROM', fbIsnDump);
+    fbEls['isnp-dump'].onclick = () =>
+      fbDmeGuard('Read EEPROM', fbIsnDump, { autoEnter: true });
   }
   fbIsnPaint();
 }

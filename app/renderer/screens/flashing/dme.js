@@ -68,12 +68,15 @@ function fbDmePanelHtml() {
 
 function fbDmeWire() {
   // with the fast flasher wanted and one on the DME that reads, Read DME
-  // reads through it (the same files, at the line's rate)
+  // reads through it (the same files, at the line's rate); with the flasher
+  // wanted but NOT on the DME, the one-click starts it (dme-oneclick.js)
   fbEls['dme-read'].onclick = () =>
     fbDmeGuard('Read DME', () =>
       fbDmeUseFastFlasher() && fbState.dme.fastFlasher.reads
         ? fbDmeFastRead()
-        : fbDmeRead()
+        : fbDmeOneClickDue()
+          ? fbDmeOneClickRead()
+          : fbDmeRead()
     );
   fbEls['dme-read-maps'].onclick = () =>
     fbDmeGuard('Read Installed Maps', fbDmeReadInstalledMaps);
@@ -89,14 +92,24 @@ function fbDmeWire() {
     fbSetStatus('Removed the tune. The tune on the car will be left as it is.');
   };
   // with "Use the fast flasher" on and a ready flasher on the DME, the two
-  // write buttons go through it; otherwise through the stock loader
+  // write buttons go through it; with it on and NO flasher on the DME, the
+  // one-click starts one (selector-5 grant, nothing installed); otherwise
+  // through the stock loader
   fbEls['dme-flash-tune'].onclick = () =>
     fbDmeGuard('Flash Tune', () =>
-      fbDmeUseFastFlasher() ? fbDmeFastFlashTune() : fbDmeFlashTune()
+      fbDmeUseFastFlasher()
+        ? fbDmeFastFlashTune()
+        : fbDmeOneClickDue()
+          ? fbDmeOneClickFlashTune()
+          : fbDmeFlashTune()
     );
   fbEls['dme-flash-program'].onclick = () =>
     fbDmeGuard('Flash Program', () =>
-      fbDmeUseFastFlasher() ? fbDmeFastFlashProgram() : fbDmeFlashProgram()
+      fbDmeUseFastFlasher()
+        ? fbDmeFastFlashProgram()
+        : fbDmeOneClickDue()
+          ? fbDmeOneClickFlashProgram()
+          : fbDmeFlashProgram()
     );
   fbEls['dme-fullbin'].onchange = () => fbDmeFullBinChanged();
 }
@@ -104,7 +117,9 @@ function fbDmeWire() {
 /**
  * Whether Read DME, Flash Tune and Flash Program go through the fast
  * flasher: the setting is on, identify found a ready one and the cable can
- * hold the break the entry needs. Anything else uses the stock loader.
+ * hold the break the entry needs. With the setting on and no flasher on
+ * the DME they take the one-click route instead (fbDmeOneClickDue); with
+ * it off, the stock loader.
  * @returns {boolean}
  */
 function fbDmeUseFastFlasher() {
@@ -192,11 +207,58 @@ function fbDmeRefresh() {
  * @param {string} title - The dialog title.
  * @param {() => Promise<void>} fn - The action.
  */
-async function fbDmeGuard(title, fn) {
+async function fbDmeGuard(title, fn, opts = {}) {
   if (fbState.running) return;
   if (!(await fbEnsureCable())) return;
   fbBusy(true);
   try {
+    // Opt-in auto-entry to the fast flasher: the AIF/ISN tabs pass
+    // {autoEnter: true} so a tab action on a DME with no installed body
+    // transparently triggers the one-click first, then runs the action.
+    //
+    // "Live" detection, three cases - any of them skips the one-click:
+    //   * BL ring in the boot region: d.bootLoader.version && !triggered
+    //     (populated by fbAifEdReadLoader reading the ring stamp around
+    //     ext 0x17080); survives resets, always ready via reset+break.
+    //   * Resident fast-flasher body at ext 0xFD26C: d.fastFlasher.ready
+    //     and NOT triggered (populated by fbDmeReadCarFastFlasher from the
+    //     MS45QF stamp + hook word at MPC 0x8). Also reachable via
+    //     reset+break at 9600 - this is what the regular Fast Flash
+    //     Program button uses, and the one Fast Flash Program leaves
+    //     behind by default (withFlasher splices the body into every
+    //     program write). Missing this case made the autoEnter run the
+    //     one-click right after Identify said "Fast flasher present",
+    //     which was contradictory.
+    //   * Triggered body kept alive since a previous one-click this
+    //     session: d.bootLoader.triggered AND fbDmeFastLive(). The flag
+    //     flips to false after each push's client.reset() (via
+    //     fbDmeFastPushWithResume), which clears the stale d.bootLoader
+    //     in fbDmeSetFastLive - so this pair is authoritative.
+    //
+    // All three skip the one-click: fbDmeFastFlash (-> fbDmeEnterFastFlasher
+    // in dme-fast.js) does the reset+break HELLO itself.
+    if (opts.autoEnter) {
+      const d = fbState.dme;
+      const hasRing =
+        d && d.bootLoader && d.bootLoader.version && !d.bootLoader.triggered;
+      const hasResidentBody =
+        d && d.fastFlasher && d.fastFlasher.ready && !d.fastFlasher.triggered;
+      const bodyLive =
+        d &&
+        d.bootLoader &&
+        d.bootLoader.triggered &&
+        typeof fbDmeFastLive === 'function' &&
+        fbDmeFastLive();
+      if (!hasRing && !hasResidentBody && !bodyLive) {
+        // fbDmeOneClickTrigger is the sel-5 + fire + HELLO chain from
+        // dme-oneclick.js (returns a synthetic det). NOT the name-close
+        // fbDmeEnterFastFlasher in dme-fast.js, which is reset + break
+        // on an already-installed ring/body (returns {claim, link}).
+        if (typeof fbDmeOneClickTrigger === 'function')
+          await fbDmeOneClickTrigger(title);
+        else throw new Error('the one-click trigger chain is not loaded');
+      }
+    }
     await fn();
   } catch (e) {
     fbSetStatus(`${title} failed: ${(e && e.message) || e}`);

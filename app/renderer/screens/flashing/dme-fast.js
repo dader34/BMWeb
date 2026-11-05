@@ -126,8 +126,15 @@ async function fbDmeFastRead() {
  */
 async function fbDmeFastFlash(spec) {
   const d = fbState.dme;
-  // `confirmed`: a guided flow (Install bootloader) asked once for all its steps
-  if (!spec.confirmed && !(await fbConfirm(spec.confirm, spec.title))) {
+  // `confirmed`: a guided flow (Install bootloader) asked once for all its steps.
+  // Also treat the one-click-triggered body as already-confirmed: the tab
+  // button's autoEnter guard fired fbDmeOneClickTrigger with no dialog
+  // (the user already clicked "Read AIF" / "Write ISN" / etc), and a
+  // second dialog ("Read the log?") right after the triggered body is
+  // live is just a repeat of the first click's intent.
+  const preConfirmed =
+    spec.confirmed || !!(d && d.bootLoader && d.bootLoader.triggered);
+  if (!preConfirmed && !(await fbConfirm(spec.confirm, spec.title))) {
     flashLog.note(`${spec.title} not confirmed: nothing was sent to the car`);
     return;
   }
@@ -372,6 +379,19 @@ function fbDmeSetFastLive(live) {
   } catch (e) {
     // storage blocked: the in-push resume still covers the common case
   }
+  // When fast-live flips to false, a one-click-triggered body is gone
+  // from SRAM (the operation ended with client.reset(), which hands the
+  // DME back to its stock program -- there is no ring in ext flash to
+  // catch the next action). Clear the synthetic d.bootLoader we planted
+  // in dme-oneclick.js so the autoEnter guard knows to re-trigger
+  // instead of assuming a live body.
+  if (!live) {
+    const d =
+      typeof fbState !== 'undefined' && fbState && fbState.dme
+        ? fbState.dme
+        : null;
+    if (d && d.bootLoader && d.bootLoader.triggered) d.bootLoader = null;
+  }
 }
 
 /** @returns {boolean} */
@@ -547,19 +567,44 @@ async function fbDmeEnterFastFlasher(owner, ui, opts = {}) {
   // a session cut short earlier: the flasher may still be running -- picking
   // it up finishes the push; a reset would drop to the loader instead
   if (fbDmeFastLive()) {
+    // Two reasons fast-live is true here: (1) a fast flash was interrupted
+    // earlier this session and the body stayed alive waiting to resume,
+    // or (2) we JUST triggered the body via one-click (dme-oneclick.js's
+    // fbDmeOneClickTrigger sets fast-live and tags d.bootLoader.triggered).
+    // Case 2 is the normal AIF/ISN path; the old "interrupted earlier"
+    // wording for both cases misled users of the one-click flow.
+    const justTriggered = !!(
+      fbState &&
+      fbState.dme &&
+      fbState.dme.bootLoader &&
+      fbState.dme.bootLoader.triggered
+    );
     ui.notice(
       opts.intoInstaller
         ? 'Reconnecting to the installer…'
-        : 'A fast flash was interrupted earlier: reconnecting to the flasher…'
+        : justTriggered
+          ? 'Taking the fast flasher live…'
+          : 'A fast flash was interrupted earlier: reconnecting to the flasher…'
     );
     const claim = await webClaimBus(owner);
     const link = fastFlashWire.webLink(webBus);
     try {
       const stamp = await link.resume();
-      // the resident body (MS45QF) or the boot-region ring (MS45BL)
-      if (/^MS45(QF|BL)$/.test(String.fromCharCode(...stamp.subarray(0, 6)))) {
+      // The resident body (MS45QF) or the boot-region ring (MS45BL);
+      // ALSO a TRIGGERED body (blank-ext stamp = all 0xFF), which has
+      // no flashed stamp to carry its magic -- its HELLO payload reads
+      // ext 0xFD26C (tools/build/flasher_body.py:1309) and that slot is
+      // unwritten on a trigger install. A body that answered HELLO at
+      // 115200 at all IS the body: the one-click just triggered and
+      // flipped fbDmeSetFastLive(true). Accept blank-stamp as the
+      // triggered case; dme-oneclick.js uses the same synthesis.
+      const magic = String.fromCharCode(...stamp.subarray(0, 6));
+      const blank = stamp.subarray(0, 16).every((b) => b === 0xff);
+      if (/^MS45(QF|BL)$/.test(magic) || blank) {
         flashLog.note(
-          'Reconnected to the fast flasher left running by an interrupted session'
+          blank
+            ? 'Reconnected to the triggered fast flasher (blank ext stamp)'
+            : 'Reconnected to the fast flasher left running by an interrupted session'
         );
         return { claim, link };
       }
@@ -865,6 +910,12 @@ async function fbDmeFastFlashProgram(opts = {}) {
         {
           mpc,
           pagesets: true,
+          // block 0 in the pagesets only where the bootloader can always
+          // reach the DME: its handoff window runs before MPC 0x8, so a cut
+          // with block 0 erased is repaired through the ring. A DME on the
+          // old resident flasher keeps block 0 alone and last.
+          block0InSets:
+            typeof fbBlRingReachable === 'function' && fbBlRingReachable(),
         }
       );
     },

@@ -32,7 +32,7 @@ const FAST_FLASHER_MAGIC = 'MS45QF';
 const FAST_FLASHER_HOOK_AT = 0x8; // MPC, the loader's reset word
 const FAST_FLASHER_STOCK_HOOK = 0x4bf717b6; // `ba 0xFFF717B4`
 const FAST_FLASHER_EXT_CPU = 0xfff00000; // where the external chip is mapped
-const FAST_FLASHER_VERSION = 20; // the highest stamp version this app speaks
+const FAST_FLASHER_VERSION = 21; // the highest stamp version this app speaks
 /**
  * A resident body in the program area is used only when it is THIS build's
  * (the installer the bootloader rides in on, or the shipped body); any
@@ -129,8 +129,9 @@ const fastFlasher = {
       return 'Bootloader installer in the program, switched off: the DME starts normally (the next program flash removes it)';
     if (!det.hooked)
       return 'Fast flasher body found, but the reset word at MPC 0x8 no longer leads to it (the internal flash was rewritten whole). Bootstrap again to use it.';
-    if (!det.ours)
-      return 'An old fast flasher is in the program: it is left alone (the next Fast Flash Program removes it). Install or update the fast flash bootloader from Custom Options to fast flash.';
+    // Older "!det.ours" branch (announcing a non-matching installed body)
+    // removed per user request; the one-click/AIF tools no longer gate on
+    // installed version matching, so the line was only noise.
     return 'Fast flasher present';
   },
 

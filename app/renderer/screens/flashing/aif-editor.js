@@ -412,7 +412,10 @@ function fbAifEdShow() {
   }
   if (!page.dataset.wired) {
     page.dataset.wired = '1';
-    fbEls['aif-read'].onclick = () => fbDmeGuard('Read AIF', fbAifEdRead);
+    // autoEnter: true -- fbDmeGuard pre-runs the one-click to enter the
+    // fast flasher if no ring is already installed, then runs the action
+    fbEls['aif-read'].onclick = () =>
+      fbDmeGuard('Read AIF', fbAifEdRead, { autoEnter: true });
     fbEls['aif-import'].onclick = () => fbAifEdImport();
     fbEls['aif-export'].onclick = () => fbAifEdExport();
     fbEls['aif-revert'].onclick = () => {
@@ -424,7 +427,8 @@ function fbAifEdShow() {
       fbAifEd().edit.fill(0xff);
       fbAifEdPaint();
     };
-    fbEls['aif-write'].onclick = () => fbDmeGuard('Write AIF', fbAifEdWrite);
+    fbEls['aif-write'].onclick = () =>
+      fbDmeGuard('Write AIF', fbAifEdWrite, { autoEnter: true });
   }
   fbAifEdPaint();
 }
@@ -596,33 +600,33 @@ function fbAifEdLoaderAsFlasher(have) {
   };
 }
 
-/** Whether the rail offers the editor: a DME identified with the fast flash bootloader (either ring layout). */
+/** Whether the rail offers the editor: an identified DME. Entry into
+ * the fast flasher happens on click (fbDmeGuard autoEnter), so neither
+ * a pre-installed ring nor a prior one-click this session is required. */
 function fbAifEdAvailable() {
   if (fbDevUi()) return true; // the dev UI toggle forces the rail page on
   const d = fbState.dme;
-  const have = d && d.bootLoader;
-  return !!(
-    fbState.module === 'dme' &&
-    d.identified &&
-    have &&
-    have.version >= FB_AIF_ED_LOADER_FROM
-  );
+  return !!(fbState.module === 'dme' && d && d.identified);
 }
 
-/** Why the DME cannot be read or written from here, or null. */
+/** Why the DME cannot be read or written from here, or null.
+ *
+ * Previously this required `d.bootLoader.version >= FB_AIF_ED_LOADER_FROM`
+ * and `FB_AIF_ED_LOADER_BOOT_WINDOW` -- i.e. the FFBL ring installed in
+ * ext flash. That gate is gone: the triggered v21 body (one-click into
+ * SRAM) already serves the full AIF ladder and the boot-sector window
+ * (PERM_LOW=0x8000, AIF-marker-armed writes). fbDmeGuard's {autoEnter}
+ * triggers it on first click, and dme-oneclick.js then synthesises
+ * d.bootLoader so this gate's version/flags look true to any downstream
+ * code too.
+ */
 function fbAifEdWhyNot(write) {
   const d = fbState.dme;
-  const have = d && d.bootLoader;
-  if (fbState.module !== 'dme' || !d.identified)
+  if (fbState.module !== 'dme' || !d || !d.identified)
     return 'Identify the DME on the Flashing tab first.';
-  if (!have || have.version < FB_AIF_ED_LOADER_FROM)
-    return 'Needs the fast flash bootloader on the DME.';
   if (typeof webBus === 'undefined' || !webBus.port || !webBus.port.setSignals)
     return 'Needs a cable that can hold the break line (Web Serial or a gateway).';
-  if (!write) return null;
-  if (!(have.flags & FB_AIF_ED_LOADER_BOOT_WINDOW))
-    return 'This fast flasher was built without the boot-sector window: it can read the log but not write it.';
-  if (typeof aifLog === 'undefined')
+  if (write && typeof aifLog === 'undefined')
     return 'The AIF protocol client (core/flash/aif.js) is not loaded in this build.';
   return null;
 }
