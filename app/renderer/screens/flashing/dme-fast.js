@@ -366,10 +366,12 @@ function fbDmeFastUi(title) {
       paint();
     },
     // Called by the runner after prepare() resolves and the link is
-    // open. From here on the painter owns the status line.
+    // open. From here on the painter owns the status line. Don't paint
+    // immediately: prepare() may have just written "Entering fast flasher:
+    // 100%" and pct is still 0 here. The first ui.entry() or ui.push()
+    // call will paint the correct value.
     active() {
       quiet = false;
-      paint();
     },
     elapsed,
     stop() {
