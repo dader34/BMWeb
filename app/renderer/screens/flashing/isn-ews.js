@@ -32,9 +32,7 @@ const FB_ISN_EE_READ = 0x10;
 function fbIsnAvailable() {
   if (fbDevUi()) return true;
   const d = fbState.dme;
-  return !!(
-    fbState.module === 'dme' && d && d.identified && fbDmeIsMs451()
-  );
+  return !!(fbState.module === 'dme' && d && d.identified && fbDmeIsMs451());
 }
 
 /**
@@ -105,7 +103,9 @@ function fbIsnEepromRefresh() {
   // Ungated: the EEPROM read is available on any identified DME. If no
   // ring is installed, the button handler auto-enters via the one-click.
   fbEls['opt-eeprom-section'].hidden = !(
-    fbState.module === 'dme' && fbState.dme && fbState.dme.identified
+    fbState.module === 'dme' &&
+    fbState.dme &&
+    fbState.dme.identified
   );
   if (!btn.dataset.wired) {
     btn.dataset.wired = '1';

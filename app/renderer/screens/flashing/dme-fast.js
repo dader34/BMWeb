@@ -407,7 +407,14 @@ function fbDmeSetFastLive(live) {
       typeof fbState !== 'undefined' && fbState && fbState.dme
         ? fbState.dme
         : null;
-    if (d && d.bootLoader && d.bootLoader.triggered) d.bootLoader = null;
+    if (d) {
+      if (d.bootLoader && d.bootLoader.triggered) d.bootLoader = null;
+      // The one-click trigger also plants a synthetic d.fastFlasher with
+      // reads/ready true (dme-oneclick.js). Once the session ends the body
+      // is gone from SRAM; clear it so the next Read DME does not try
+      // reset+break to reconnect to a flasher that no longer exists.
+      if (d.fastFlasher && d.fastFlasher.triggered) d.fastFlasher = null;
+    }
   }
 }
 

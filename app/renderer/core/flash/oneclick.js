@@ -245,15 +245,7 @@ async function oneClickLogin(sender, cb = {}) {
       // on the wire matters until it's done), they just add log noise and
       // delay. Shaves ~1.3 s off the entry.
       const r = await sender(
-        [
-          0x31,
-          0x08,
-          0x00,
-          0x00,
-          0x00,
-          0x10,
-          ...oneClickLimbsLe(x),
-        ],
+        [0x31, 0x08, 0x00, 0x00, 0x00, 0x10, ...oneClickLimbsLe(x)],
         { timeout: 3000 }
       );
       // the loader echoes 71 08 whatever happened -- read the slots, the

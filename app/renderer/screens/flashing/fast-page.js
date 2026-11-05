@@ -48,7 +48,8 @@ function fbFastAvailable() {
   if (fbDevUi()) return true;
   const d = fbState.dme;
   return !!(
-    d && d.identified &&
+    d &&
+    d.identified &&
     fbDmeIsMs451() &&
     d.ident.progRef &&
     d.ident.progRef.includes('0044570LO02S')

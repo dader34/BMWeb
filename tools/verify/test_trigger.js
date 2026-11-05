@@ -77,7 +77,7 @@ check(
   String.fromCharCode(...image.img.slice(0x66, 0x70)) === '004457MTOS'
 );
 check(
-  "image: the entry branch word is b 0x3FBAA0 (0x4800192C)",
+  'image: the entry branch word is b 0x3FBAA0 (0x4800192C)',
   be32(image.img, 0x70) === 0x4800192c
 );
 check(
@@ -124,7 +124,11 @@ const tgs = triggerWire.triggerStageTelegrams(
   [image.img, T.DESC],
   [image.stub, T.STUB_AT]
 );
-check('staging: 3 telegrams (1 image + 2 receiver)', tgs.length === 3, `${tgs.length}`);
+check(
+  'staging: 3 telegrams (1 image + 2 receiver)',
+  tgs.length === 3,
+  `${tgs.length}`
+);
 check(
   'staging: every telegram <= 255 B for the length byte',
   tgs.every((t) => t.length <= 255)
@@ -237,7 +241,9 @@ const progressed = [];
     }
     check(
       `write enable: ${what} stops the chain, nothing staged`,
-      !!err && /write enable was not answered/.test(err.message) && !staged.length,
+      !!err &&
+        /write enable was not answered/.test(err.message) &&
+        !staged.length,
       err && err.message
     );
   }
