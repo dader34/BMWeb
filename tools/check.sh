@@ -108,6 +108,7 @@ run node tools/verify/test_bytes.js
 run node tools/verify/test_workspace_bus.js
 run node tools/verify/test_modules_built.js
 run node tools/verify/test_fast_flasher.js
+run node tools/verify/test_trigger.js
 
 echo
 echo "== GS20 calibration engine: checksum pinned, write sequence, rails, baud change =="

@@ -152,6 +152,10 @@ async function fbDmeFastFlash(spec) {
     const prepared = spec.prepare ? await spec.prepare() : {};
     if (spec.counter && !(await fbProgrammingCounter(false))) return;
     if (prepared.attach) flashLog.attach(...prepared.attach);
+    // prepare() is done; the painter now owns the status line (it was
+    // quiet during prepare so a slow pre-read's status writes were not
+    // overwritten by a placeholder "entering the fast flasher… 0%")
+    ui.active();
     ({ claim, link } = await fbDmeEnterFastFlasher(spec.title, ui, {
       late: !!spec.lateHold,
       intoInstaller: !!spec.intoInstaller,
@@ -308,8 +312,15 @@ function fbDmeFastUi(title) {
   const started = Date.now();
   let phase = 'entering the fast flasher';
   let pct = 0;
+  // Start QUIET: during the caller's prepare() (e.g. the one-click entry,
+  // which paints its own "Entering fast flasher" line) the status line
+  // belongs to prepare. Activated by the runner right before the push.
+  let quiet = true;
   const elapsed = () => Math.round((Date.now() - started) / 1000);
-  const paint = () => fbSetStatusInPlace(`${title}: ${phase}… ${pct}%`);
+  const paint = () => {
+    if (quiet) return;
+    fbSetStatusInPlace(`${title}: ${phase}… ${pct}%`);
+  };
   const phaseOf = (s) =>
     /^Checking the flasher/.test(s)
       ? 'checking the flasher'
@@ -354,6 +365,12 @@ function fbDmeFastUi(title) {
       fbProgress(pct);
       paint();
     },
+    // Called by the runner after prepare() resolves and the link is
+    // open. From here on the painter owns the status line.
+    active() {
+      quiet = false;
+      paint();
+    },
     elapsed,
     stop() {
       clearInterval(timer);
@@ -392,6 +409,66 @@ function fbDmeSetFastLive(live) {
         : null;
     if (d && d.bootLoader && d.bootLoader.triggered) d.bootLoader = null;
   }
+}
+
+/**
+ * Keep-alive mode: once the DME has entered the fast flasher, read/write
+ * ops skip the closing RESET so the body stays running in SRAM. Subsequent
+ * ops (Read ISN, Read AIF, Write ISN, Write AIF, Read EEPROM) reuse the
+ * live body instead of re-staging through a fresh sel-5 one-click.
+ *
+ * Flipped on by fbDmeOneClickTrigger after a successful fire, and off by
+ * fbDmeFastRelease (explicit teardown) or by any stock-path diag that
+ * finds the body gone. Survives tab reload via localStorage. Clears on
+ * key-off since the body only lives in SRAM.
+ */
+const FB_FAST_KEEP_KEY = 'bmweb-fast-flasher-keep-alive';
+
+function fbDmeFastKeepAlive() {
+  try {
+    return localStorage.getItem(FB_FAST_KEEP_KEY) === '1';
+  } catch (e) {
+    return false;
+  }
+}
+
+/** @param {boolean} on */
+function fbDmeSetFastKeepAlive(on) {
+  try {
+    if (on) localStorage.setItem(FB_FAST_KEEP_KEY, '1');
+    else localStorage.removeItem(FB_FAST_KEEP_KEY);
+  } catch (e) {}
+}
+
+/**
+ * Called from every op's push() in place of client.reset(): honours the
+ * keep-alive flag. The op's progress tracker expects the RESET unit to be
+ * added either way, so we always report the stage change; we just skip
+ * the wire call when keep-alive is on.
+ * @param {{reset: () => Promise<void>}} client
+ * @param {{stage?: (s: string) => void}} [cb]
+ */
+async function fbDmeFastMaybeReset(client, cb) {
+  if (fbDmeFastKeepAlive()) {
+    if (cb && cb.stage) cb.stage('Leaving the flasher running (keep-alive)');
+    return;
+  }
+  if (cb && cb.stage) cb.stage('Restarting the DME');
+  await client.reset();
+}
+
+/**
+ * Explicit teardown: drop the keep-alive flag and run one more one-click
+ * op whose only job is to RESET the body. Safe to call when nothing is
+ * live: it just clears the flag.
+ */
+async function fbDmeFastRelease() {
+  if (!fbDmeFastKeepAlive()) return;
+  fbDmeSetFastKeepAlive(false);
+  // The next op the user starts will see keep-alive=false and let its
+  // client.reset() land, handing the DME back to its stock program. The
+  // flag is now off, so fbDmeFastLive() won't lie if a one-click chain
+  // re-detects the body.
 }
 
 /** @returns {boolean} */
@@ -845,17 +922,11 @@ async function fbDmeFastFlashProgram(opts = {}) {
   let images;
   try {
     images = fbDmeApplyProgramEdits(prompts);
-    // with the bootloader the pair goes without a resident body (an old
-    // body and its MPC hook come out together); a DME whose only fast
-    // flasher is a resident body keeps it, or this push would remove it;
-    // the bootloader install hands its installer body in as opts.carry
-    const carry =
-      opts.carry ||
-      // the repair installer only exists on a DME with the bootloader (and
-      // is what it was put there to replace): it comes out the same way
-      (d.fastFlasher.bootLoader || bl.isLateInstaller(d.fastFlasher)
-        ? fastFlasher.withoutFlasher
-        : fastFlasher.withFlasher);
+    // One-click-only mode: every Fast Flash Program leaves the DME clean
+    // (no resident body, no MPC hook). The user re-enters via the sel-5
+    // one-click next time. opts.carry is still honoured so the BL-install
+    // path can hand in its own installer body.
+    const carry = opts.carry || fastFlasher.withoutFlasher;
     const carried = carry(images.source, images.mpc);
     images = { source: carried.flash, mpc: carried.mpc };
     // last of all: a patch that redoes a sum of its own (live tune)

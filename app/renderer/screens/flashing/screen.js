@@ -101,7 +101,7 @@ function fbAifWanted() {
  * @returns {boolean}
  */
 function fbFastFlasherWanted() {
-  return Settings.get('flashUseFastFlasher', true) === true;
+  return Settings.get('flashUseFastFlasher', false) === true;
 }
 
 /** The tester serial every programming-log entry carries. */

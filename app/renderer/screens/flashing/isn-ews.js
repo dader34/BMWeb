@@ -71,6 +71,7 @@ function fbIsnPageHtml() {
   return `
     <div class="fb-page fb-isn" id="fb-page-isn" hidden>
       <div class="fb-section">
+        <div class="fb-code">ONE-CLICK TOOLS</div>
         <div class="fb-row">
           <button class="btn" id="fb-isnp-read" disabled title="Reads the ISN off the DME's flash. Nothing is written.">Read ISN</button>
           <button class="btn danger" id="fb-isnp-write" disabled title="Burns a new ISN into the DME's flash boot sector.">Write ISN</button>

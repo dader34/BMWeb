@@ -1619,7 +1619,7 @@ function ms45LiveTuneSender(timing) {
     typeof withBusLock !== 'function'
   )
     throw new Error('the K-line bus is not available');
-  return (data) => {
+  return (data, opts) => {
     const askedAt = Date.now();
     return withBusLock(async () => {
       // where a slow telegram spent its time: queued behind someone else's
@@ -1630,7 +1630,12 @@ function ms45LiveTuneSender(timing) {
         timing.wireMs = 0;
       }
       try {
-        return await _ms45RawTelegram(data);
+        // opts (optional, second arg): per-call hints forwarded to the
+        // raw transport. {noRetransmit:true} is the one triggerFire's
+        // fire-pass uses to skip the default retry-on-garbled policy
+        // (the body is up and talking 115200; waiting for a 9600 reply
+        // that never comes burns ~6 s otherwise).
+        return await _ms45RawTelegram(data, opts || {});
       } finally {
         if (timing) timing.wireMs = Date.now() - gotBusAt;
       }
@@ -1644,7 +1649,7 @@ function ms45LiveTuneSender(timing) {
  * @param {number[]|Uint8Array} data - The service and its bytes.
  * @returns {Promise<number[]|Uint8Array|null>} null when the DME said nothing.
  */
-async function _ms45RawTelegram(data) {
+async function _ms45RawTelegram(data, opts = {}) {
   await switchSession(MS45_SGBD);
   let comm = sessionFor(MS45_SGBD).comm;
   if (!comm) {
@@ -1665,7 +1670,25 @@ async function _ms45RawTelegram(data) {
   // again and reverts the value (seen on a bench, 2026-10-11). Send it
   // with retransmission disabled; every other op keeps the normal cover.
   const isSave = data[0] === 0x2c && data[1] === 0x6c && data[2] === 0x05;
-  const txComm = isSave ? { ...comm, noRetransmit: true } : comm;
+  // Callers can also tweak the sender per-telegram via an opts argument:
+  //   {noRetransmit: true}  -- used by triggerFire for the SECOND 31 FA
+  //     of the arm+fire pair (the handoff pre-empts the KWP reply on
+  //     real HW; the client reads IFH-0019 and the retries each burn ~3 s
+  //     for a reply that will never come, since the body is up at 115200
+  //     by then). Arm has the same telegram shape and must still get its
+  //     71 FA sig-verify reply at 9600, so this can't be inferred from
+  //     bytes; triggerFire passes the flag explicitly. See trigger.js
+  //     stage('Firing').
+  //   {timeout: N_ms}  -- raise the per-attempt reply budget (SGBD's
+  //     default ParTimeoutStd is 500 ms). oneclick.js's 31 08 answer
+  //     passes 3000 ms because the DME's RSA verify takes ~1.5 s; without
+  //     the override the sender re-sends 3x at 500 ms each before the
+  //     real reply lands, wasting ~1.3 s.
+  const noTx = !!(opts && opts.noRetransmit);
+  let txComm = isSave || noTx ? { ...comm, noRetransmit: true } : comm;
+  if (opts && opts.timeout) {
+    txComm = { ...txComm, timeout: opts.timeout };
+  }
   let frame;
   try {
     frame = await webBusRawExchange(out, txComm);

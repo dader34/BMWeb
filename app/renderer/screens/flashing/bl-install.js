@@ -35,24 +35,20 @@
 //   2. on the installer ring: both words stock, the ring blanked
 //      (bl.restore). Program, tune and MPC are not touched, and no file
 //      needs loading.
+//
+// "Update boot sector" (bench only) is at the end of this file.
 /* exported fbBlHtml, fbBlRefresh */
 
 function fbBlHtml() {
-  return `
-      <div class="fb-code">FAST FLASH BOOTLOADER</div>
-      <div class="fb-dim">Install fast flashing program to the DME</div>
-      <div class="fb-row">
-        <button class="btn danger" id="fb-opt-bl-install" disabled>Install fast flash bootloader</button>
-      </div>
-      <div class="fb-faint" id="fb-opt-bl-reason"></div>
-      <div class="fb-row">
-        <button class="btn danger" id="fb-opt-bl-repair" disabled>Repair fast flash bootloader</button>
-      </div>
-      <div class="fb-faint" id="fb-opt-bl-repair-reason"></div>
-      <div class="fb-row">
-        <button class="btn danger" id="fb-opt-bl-restore" disabled>Restore stock bootloader</button>
-      </div>
-      <div class="fb-faint" id="fb-opt-bl-restore-reason"></div>`;
+  // The FAST FLASH BOOTLOADER section (Install / Repair / Restore stock
+  // bootloader / Update boot sector) was hidden per user request: once the
+  // selector-5 one-click lands any-stock-DME ISN/AIF/EEPROM/Flash operations
+  // without a permanent BL ring install, the install/repair/restore flow
+  // is a brick-risk step the user no longer wants exposed in the UI.
+  // fbBlRefresh and all handlers remain in this file as dead code that
+  // no-ops on missing DOM; restore the HTML here if the section is ever
+  // needed again.
+  return '';
 }
 
 /** Whether Identify found a ring of ours that a session can reach: the
@@ -289,6 +285,7 @@ function _fbBlWire(btn, title, run) {
 function fbBlRefresh() {
   const btn = fbEls['opt-bl-install'];
   if (!btn) return;
+  fbBlOverwriteRefresh();
   _fbBlWire(btn, 'Install / update fast flash bootloader', fbBlPut);
   const why = fbBlWhyNot();
   btn.disabled = !!why;
@@ -569,6 +566,141 @@ async function fbBlRestore() {
         fbState.dme.bootLoader
           ? 'Restore stock bootloader: written. Switch the ignition off and on, then Identify.'
           : 'Restore stock bootloader: done, the DME runs the stock loader'
+      );
+    }
+  );
+}
+
+// ---- Update boot sector (bench) ---------------------------------------------
+//
+// Provide a boot file and the DME's boot region becomes that file, byte for
+// byte: ext [0x0, 0x20000) of a full read or a 128 KB boot dump -- loader,
+// variant tag, tail (CRC word, hardware number, ISN, programming log), and
+// a flasher ring only if the file carries one. Two sessions on the ring:
+//   1. the 96 KB sector takes the SWAP ring (bl.toSwapRing: its body's write
+//      window opens at ext 0x0);
+//   2. on the swap ring, the four sectors are written from the file, the
+//      16 KB one (the reset vector's) first (bl.overwriteBoot).
+// Between that sector's erase and its verify nothing boots and nothing
+// resumes: a cut there is a BDM job. What boots afterwards is the file's
+// loader; the swap ring goes with the 96 KB sector. ms45-emu
+// tools/build/bootwrite.py, proven by tools/proofs/bootwrite_test.py.
+
+/** Whether the swap ring is on the DME (its stamp flag). */
+function fbBlHasSwapRing() {
+  const have = fbState.dme.bootLoader;
+  return !!(have && have.flags & bl.SWAP_FLAG);
+}
+
+/** Why Update boot sector cannot start, or null. BENCH ONLY. */
+function fbBlOverwriteWhyNot() {
+  const d = fbState.dme;
+  if (!fbProtectTesting()) return 'Bench only.';
+  if (!d.identified) return 'Identify the DME first.';
+  if (!d.bootLoader)
+    return 'The fast flash bootloader is not on this DME: install it first (the write goes through it).';
+  if (d.bootLoader.stampAt !== bl.STAMP_AT)
+    return 'This DME carries the old ring layout: update the bootloader first.';
+  if (!bl.isCurrent(d.bootLoader))
+    return 'This DME carries an old bootloader: update it first.';
+  return null;
+}
+
+/** The button's state and the line under it (bench only; hidden elsewhere). */
+function fbBlOverwriteRefresh() {
+  const row = fbEls['opt-bl-overwrite-row'];
+  const btn = fbEls['opt-bl-overwrite'];
+  const reason = fbEls['opt-bl-overwrite-reason'];
+  if (!btn) return;
+  const bench = fbProtectTesting();
+  row.hidden = !bench;
+  reason.hidden = !bench;
+  if (!bench) return;
+  _fbBlWire(btn, 'Update boot sector', fbBlOverwrite);
+  const why = fbBlOverwriteWhyNot();
+  btn.disabled = !!why;
+  reason.textContent =
+    why ||
+    (fbBlHasSwapRing()
+      ? 'Ready: the swap ring is already on the DME, so only the write runs.'
+      : 'Bench: the whole boot region, reset vector and all, becomes the file (a full read or a 128 KB boot dump). A cut mid-write needs a BDM rig.');
+}
+
+/** Update boot sector: pick the file, the swap ring if needed, then the four sectors. */
+async function fbBlOverwrite() {
+  const d = fbState.dme;
+  const why = fbBlOverwriteWhyNot();
+  if (why) {
+    await fbMessage(why, 'Update boot sector');
+    return;
+  }
+  const file = await fbPickFile('.bin,.ori,application/octet-stream');
+  if (!file) return;
+  const bytes = await fbReadBytes(file);
+  let r;
+  try {
+    r = bl.bootRegionOf(bytes);
+  } catch (e) {
+    await fbMessage(e.message, 'Update boot sector');
+    return;
+  }
+  const facts = `${file.name}: ${bl.bootFileFacts(r)}`;
+  const ok = await fbConfirm(
+    `Writes the DME's whole boot region, reset vector and all, from this file exactly. Its loader, tag, hardware number, ISN and programming log replace the DME's own; a flasher ring stays only if the file has one.\n\n${facts}\n\nKeep the ignition on, a charger on the battery and the cable plugged in until it has finished. A power or cable loss while the 16 KB sector is erased leaves a DME only a BDM rig can recover.\n\nUpdate the boot sector?`,
+    'Update boot sector'
+  );
+  if (!ok) {
+    flashLog.note(
+      'Update boot sector not confirmed: nothing was sent to the car'
+    );
+    return;
+  }
+  if (!(await fbBlBatteryOk('Update boot sector'))) return;
+  const session = (title, operation, push, after) =>
+    fbDmeFastFlash({
+      title,
+      operation,
+      what: 'boot region',
+      noFasterLine: true,
+      confirmed: true,
+      confirm: '',
+      note: `DME ${d.ident.hwRef} / ${bl.isCurrent(d.bootLoader) ? 'current' : 'old'} bootloader / ${operation}`,
+      push: async (client, cb) => {
+        const res = await push(client, cb);
+        cb.stage('Restarting the DME');
+        await client.reset();
+        return res;
+      },
+      after,
+    });
+
+  if (!fbBlHasSwapRing()) {
+    fbSetStatus('Update boot sector, stage 1 of 2: the swap ring');
+    await session(
+      'Update boot sector (1/2: swap ring)',
+      'bl-to-swap-ring',
+      bl.toSwapRing,
+      () => fbDmeIdentify(true)
+    );
+    if (!fbBlHasSwapRing()) {
+      await fbMessage(
+        'Stage 1 failed (see the log). The DME still boots as before.',
+        'Update boot sector'
+      );
+      return;
+    }
+  }
+  fbSetStatus(
+    'Update boot sector, stage 2 of 2: resetting the DME into the swap ring…'
+  );
+  await session(
+    'Update boot sector (2/2: the file)',
+    'boot-sector-update',
+    (client, cb) => bl.overwriteBoot(client, bytes, cb),
+    async () => {
+      await fbDmeIdentify(true);
+      fbSetStatus(
+        'Update boot sector: written. Switch the ignition off and on, then Identify.'
       );
     }
   );

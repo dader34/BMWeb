@@ -103,11 +103,9 @@ const FF_TIMEOUT = {
  */
 const FF_FAST_LINES = [
   // sessions start here, every session; a garbled line steps down from
-  // here one rate at a time, for that session only. 416667 carried HELLO on
-  // 2026-10-26; one try on 2026-11-02 came back garbled (our frames heard,
-  // the replies not) -- a rate that fails is now left by a blind SET_BAUD,
-  // so trying it costs seconds, not the session
-  [416667, 3],
+  // here one rate at a time, for that session only. 416667 is not in the
+  // list: its HELLO failed in all three car sessions of 2026-11-02/03 (our
+  // frames heard, the DME's replies garbled), ~4.9 s lost each time
   [312500, 4],
   [250000, 5],
   [208333, 6],
@@ -117,7 +115,7 @@ const FF_FAST_LINES = [
  * The rates a running flasher may be holding when a cut session is picked up
  * again: the session rates, and the faster ones earlier builds started on.
  */
-const FF_RESUME_RATES = [625000, ...FF_FAST_LINES.map(([r]) => r)];
+const FF_RESUME_RATES = [625000, 416667, ...FF_FAST_LINES.map(([r]) => r)];
 /** Garbled replies in a session before the line is stepped down a rate. */
 const FF_LINE_ERRORS_STEP = 2;
 /**
@@ -913,8 +911,8 @@ function ffProgramUnits(signedFull, mpc) {
  * Push the program through an open flasher session: per unit (the external
  * program's sectors, and the MPC's blocks when `opts.mpc` is given), compare
  * its CRC and skip it when it already matches, else erase and rewrite it
- * compressed, verifying each as soon as it is written; then mark the program
- * valid. Without `opts.mpc` the MPC is left alone, so the caller must have
+ * compressed (every chunk and pageset page read back by the body as it is
+ * written, a mismatch a NAK); then mark the program valid. Without `opts.mpc` the MPC is left alone, so the caller must have
  * checked the DME's MPC is the one `signedFull` was signed against (the
  * signature covers MPC segments).
  *
@@ -925,7 +923,13 @@ function ffProgramUnits(signedFull, mpc) {
  * @param {FastFlashClient} client
  * @param {Uint8Array} signedFull - The signed 1 MB external image.
  * @param {{stage?: Function, progress?: Function, note?: Function}} [cb]
- * @param {{mpc?: Uint8Array}} [opts] - mpc: also write the MPC (a v2 flasher).
+ * @param {{mpc?: Uint8Array, pagesets?: boolean, block0InSets?: boolean}} [opts]
+ *   mpc: also write the MPC (a v2 flasher). pagesets: the differing blocks
+ *   bar 0 as pagesets (v8). block0InSets: block 0 joins them -- erased in
+ *   the same job, written in the same pagesets -- with only its first page,
+ *   the one holding the reset word at 0x8, held back and written alone after
+ *   every other page; for a DME the bootloader can always reach (a cut
+ *   anywhere is repaired through the ring), ~12 s off a full MPC push.
  * @returns {Promise<{ok: true, skipped: boolean, sent: number,
  *   chunks: number, sectorsWritten: number, mpcBlocksWritten: number}>}
  */
@@ -937,8 +941,12 @@ async function ffPushProgram(client, signedFull, cb = {}, opts = {}) {
   const units = ffProgramUnits(signedFull, opts.mpc || null);
   const U = FF_UNITS;
   const slotsOf = (size) => Math.ceil(size / 0x1000);
-  const unitWork = (u) =>
-    U.ERASE + slotsOf(u.bytes.length) * U.CHUNK + U.VERIFY;
+  // no VERIFY per unit (2026-11-03): the body reads every chunk and every
+  // pageset page back against the decoded data -- which it checked against
+  // our CRC first -- and NAKs a mismatch, so a unit that took all its writes
+  // IS the target; the whole-unit CRC after it read the same bytes again,
+  // ~150-430 ms a unit, ~20 units a full push
+  const unitWork = (u) => U.ERASE + slotsOf(u.bytes.length) * U.CHUNK;
   // until the compare says which units differ, assume all of them do
   const track = _ffTracker(
     cb.progress || (() => {}),
@@ -1005,11 +1013,17 @@ async function ffPushProgram(client, signedFull, cb = {}, opts = {}) {
   // one job and programmed a page in every block per pulse sequence (the
   // CMF's own parallelism; on the car a sequential block was ~16 s, a
   // pageset of thirteen pages costs what one page did). Block 0 keeps its
-  // own erase and write, last: the word that boots the DME stays until then.
+  // own erase and write, last: the word that boots the DME stays until then
+  // -- or, with opts.block0InSets, joins the sets with only its first page
+  // held back (the pagesets per CHUNK_SET stay 4 at 13 or 14 blocks, so
+  // block 0 rides along for nothing).
   const blockOf = (u) => (u.addr - FF_MPC_WINDOW) / FF_MPC_BLOCK;
+  const block0InSets = !!(opts.pagesets && opts.mpc && opts.block0InSets);
   const parallel =
     opts.pagesets && opts.mpc
-      ? order.filter((u) => u.addr >= FF_MPC_WINDOW && blockOf(u) !== 0)
+      ? order.filter(
+          (u) => u.addr >= FF_MPC_WINDOW && (block0InSets || blockOf(u) !== 0)
+        )
       : [];
   const sequential = order.filter((u) => !parallel.includes(u));
   const pagesets = parallel.length
@@ -1050,14 +1064,6 @@ async function ffPushProgram(client, signedFull, cb = {}, opts = {}) {
       }
       track.add(U.CHUNK, `Writing ${which}, chunk ${i + 1} of ${slots}`);
     }
-    // verified as soon as it is written: a failure names its unit
-    stage(`Verifying ${which}`);
-    await client.verify(
-      u.addr,
-      u.write.length,
-      ffWireBytes.crc32Mpeg2(u.write)
-    );
-    track.add(U.VERIFY, `Verified ${which}`);
   };
   const total = todo.length;
   if (marksUnit) {
@@ -1087,6 +1093,9 @@ async function ffPushProgram(client, signedFull, cb = {}, opts = {}) {
     stage(`Writing ${which}`);
     const span = pagesets * FF_PAGE;
     const steps = Math.ceil(FF_MPC_BLOCK / span);
+    // block 0 in the sets: its first page (the reset word at 0x8) goes as
+    // 0xFF -- an erased page the pulses leave as it is -- and alone, last
+    let heldPage = null;
     for (let i = 0; i < steps; i++) {
       const off = i * span;
       // the last set is shorter when the pagesets do not divide the block
@@ -1096,7 +1105,10 @@ async function ffPushProgram(client, signedFull, cb = {}, opts = {}) {
       for (let p = 0; p < ps; p++)
         for (const b of blocks) {
           const from = b * FF_MPC_BLOCK + off + p * FF_PAGE;
-          plain.set(opts.mpc.subarray(from, from + FF_PAGE), at);
+          if (b === 0 && from === 0) {
+            heldPage = opts.mpc.subarray(0, FF_PAGE);
+            plain.fill(0xff, at, at + FF_PAGE);
+          } else plain.set(opts.mpc.subarray(from, from + FF_PAGE), at);
           at += FF_PAGE;
         }
       if (!plain.every((x) => x === 0xff)) {
@@ -1108,14 +1120,10 @@ async function ffPushProgram(client, signedFull, cb = {}, opts = {}) {
         `Writing ${which}, pageset ${i + 1} of ${steps}`
       );
     }
-    for (const u of parallel) {
-      stage(`Verifying ${u.name}`);
-      await client.verify(
-        u.addr,
-        u.write.length,
-        ffWireBytes.crc32Mpeg2(u.write)
-      );
-      track.add(U.VERIFY, `Verified ${u.name}`);
+    if (heldPage && !heldPage.every((x) => x === 0xff)) {
+      stage('Writing MPC block 0, first page (the reset word), last');
+      sent += await client.chunkSet(1, 0, 1, heldPage);
+      chunks++;
     }
     n += blocks.length;
     for (const u of sequential) {
@@ -1384,6 +1392,66 @@ function ffWebLink(bus, opts = {}) {
         }
       }
       throw last || new Error('fast flasher: no HELLO at any rate');
+    },
+    /**
+     * The one-click's second stage: the trigger left the receiver stub
+     * waiting at 115200 for `frame` (A5 5A len body sum, triggerUploadFrame).
+     * The body it jumps to sends a HELLO unprompted, right after our echo.
+     * A receiver that saw a bad sum is back hunting for A5 5A, so the whole
+     * frame is sent once more before giving up.
+     * @param {Uint8Array} frame
+     * @returns {Promise<Uint8Array>} The stamp the body's HELLO carries.
+     */
+    async upload(frame) {
+      await bus.reopen({
+        baudRate: FF_BAUD,
+        dataBits: 8,
+        stopBits: 1,
+        parity: 'even',
+      });
+      let last = null;
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        rx = [];
+        heard = [];
+        step(`Uploading the fast flasher${attempt > 1 ? ' (try 2)' : ''}`);
+        await bus.writer.write(frame);
+        // the echo comes back first (a wired K line hears itself); what
+        // follows it is the body's unprompted HELLO
+        const txMs = Math.ceil((frame.length * 11 * 1000) / FF_BAUD);
+        const deadline = Date.now() + (txMs + 1500) * scale;
+        let got = 0;
+        while (got < frame.length && Date.now() < deadline) {
+          const { value, done } = await bus.readSome(deadline);
+          if (done) throw new Error('fast flasher: the port closed');
+          if (value && value.length) {
+            got += value.length;
+            rx.push(...value);
+          }
+        }
+        rx = got >= frame.length ? rx.slice(frame.length) : [];
+        try {
+          const hello = ffParse(await readFrame(FF_TIMEOUT.HELLO, null));
+          if (hello && hello.svc === (FF_SVC.HELLO | 0x40)) {
+            learn(hello);
+            step(`The flasher answered at ${FF_BAUD} baud`);
+            return hello.data;
+          }
+        } catch (e) {
+          last = e;
+        }
+        // no unprompted HELLO seen (an adapter without echo, a lost byte):
+        // ask for one before sending the frame again
+        rx = [];
+        try {
+          const hello = await askHello(this);
+          learn(hello);
+          step(`The flasher answered at ${FF_BAUD} baud`);
+          return hello.data;
+        } catch (e) {
+          last = e;
+        }
+      }
+      throw last || new Error('fast flasher: no HELLO after the upload');
     },
     /**
      * v8: the port to another rate mid-session (after SET_BAUD), then the

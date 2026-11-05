@@ -254,9 +254,9 @@ async function fbDmeGuard(title, fn, opts = {}) {
         // dme-oneclick.js (returns a synthetic det). NOT the name-close
         // fbDmeEnterFastFlasher in dme-fast.js, which is reset + break
         // on an already-installed ring/body (returns {claim, link}).
-        if (typeof fbDmeOneClickTrigger === 'function')
-          await fbDmeOneClickTrigger(title);
-        else throw new Error('the one-click trigger chain is not loaded');
+        if (typeof fbDmeOneClickTrigger !== 'function')
+          throw new Error('the one-click trigger chain is not loaded');
+        await fbDmeOneClickTrigger(title);
       }
     }
     await fn();

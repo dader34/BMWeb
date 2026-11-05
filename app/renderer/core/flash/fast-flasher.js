@@ -144,6 +144,12 @@ const fastFlasher = {
   assertReady(det) {
     if (!det)
       throw new Error('No fast flasher on this DME (no stamp at ext 0xFD26C).');
+    // describe() no longer names an old body (dropped from the identify
+    // line), so the refusal says it here instead of "Fast flasher present"
+    if (det.hooked && !det.ours)
+      throw new Error(
+        "The fast flasher in this DME's program is an older version this build cannot use; it is left alone (the next Fast Flash Program removes it)."
+      );
     if (!det.ready) throw new Error(fastFlasher.describe(det));
   },
 

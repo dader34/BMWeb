@@ -125,6 +125,12 @@ function blSwapRing() {
 
 /** The swap ring's stamp flag (bl.SWAP_FLAG). */
 const BL_SWAP_FLAG = blData.swapRing ? blData.swapRing.flag : 0x80;
+/** The loader: ext [0x0, 0x1F800), the four sectors below the tail. */
+const BL_LOADER_END = BL_BOOT_CRC_AT;
+/** The loader's three-byte variant tag (`1C` on an MS45.1, `CE` on an
+ * MS45.0): the DME's own, kept through a swap. */
+const BL_TAG_AT = 0x2208;
+const BL_TAG_LEN = 3;
 
 const _blSame = (a, b) =>
   a.length === b.length && a.every((x, i) => x === b[i]);
@@ -785,6 +791,181 @@ const BL_BODY_VERSION = parseInt(blData.installer.stamp.slice(12, 14), 16);
  * installer bit is a variant, not a feature). */
 const BL_RING_FLAGS = parseInt(blData.ring.stamp.slice(14, 16), 16);
 
+/** The hardware-number triple in the tail. */
+const BL_HW_AT = 0x1f9f4;
+
+/**
+ * A boot file's four sectors: ext [0x0, 0x20000) of a full external-flash
+ * read or a bare 128 KB boot-region dump -- the loader, its variant tag,
+ * and the tail with the CRC word, the hardware number, the ISN and the
+ * programming log. Nothing is kept from the DME and nothing spliced in:
+ * the DME ends up with the file's boot region exactly, a flasher ring only
+ * if the file carries one. BENCH ONLY (ms45-emu tools/build/bootwrite.py,
+ * proven by tools/proofs/bootwrite_test.py).
+ * @param {Uint8Array} file
+ * @returns {{low: Uint8Array, sect8k: Uint8Array, mid: Uint8Array,
+ *   boot: Uint8Array, crcOk: boolean|null, ring: boolean, hwRef: string,
+ *   site: number|undefined}} The sectors, whether the file's CRC word
+ *   matches its own content (null: no check on that loader), whether it
+ *   carries a ring, its hardware number, and where its loader parks by
+ *   call (undefined: at none of the sites the ring is built for).
+ */
+function blBootRegionOf(file) {
+  if (file.length < BL_BOOT + BL_BOOT_LEN)
+    throw new Error(
+      `bl: a boot file is a full flash read or a 128 KB boot-region dump; this one is ${file.length} bytes. Nothing was written.`
+    );
+  const cut = (at, ln) => Uint8Array.from(file.subarray(at, at + ln));
+  const low = cut(BL_LOW, BL_LOW_LEN);
+  const sect8k = cut(BL_SECT8K, BL_SECT8K_LEN);
+  const mid = cut(BL_MID, BL_MID_LEN);
+  const boot = cut(BL_BOOT, BL_BOOT_LEN);
+  const crc = blBootCrc(low, sect8k, mid, boot);
+  const crcOk =
+    crc === null ? null : crc === blBytes.be32(boot, BL_BOOT_CRC_AT - BL_BOOT);
+  const stampAt = blData.ring.stampAt - BL_BOOT;
+  const ring =
+    String.fromCharCode(...boot.subarray(stampAt, stampAt + 6)) === BL_MAGIC;
+  const hw = BL_HW_AT - BL_BOOT;
+  const hwRef = String.fromCharCode(...boot.subarray(hw, hw + 7));
+  const at = _blGuardSiteIn(low);
+  const site = at < 0 ? undefined : at;
+  return { low, sect8k, mid, boot, crcOk, ring, hwRef, site };
+}
+
+/** One line on what a boot file would put on the DME. */
+function blBootFileFacts(r) {
+  return (
+    `hardware number ${r.hwRef}, ${r.ring ? 'a flasher ring' : 'no flasher ring'}, ` +
+    `park call ${r.site !== undefined ? 'at 0x' + r.site.toString(16) : 'at none of the known sites'}, ` +
+    `boot CRC ${
+      r.crcOk === false
+        ? 'DOES NOT MATCH its content (the DME would reset itself every ~5 s)'
+        : r.crcOk
+          ? 'matches'
+          : 'not checked by that loader'
+    }`
+  );
+}
+
+/**
+ * Stage 1 of the boot overwrite, on the ring that is there: the 96 KB
+ * sector rewritten with the SWAP ring (its body's write window from ext
+ * 0x0, so the four boot sectors can be erased and written).
+ * @param {object} client - The fast flasher wire client.
+ * @param {{stage: (s: string) => void, progress: (pct: number) => void,
+ *   note: (s: string) => void}} cb
+ * @returns {Promise<{skipped: boolean, summary: string}>}
+ */
+async function blToSwapRing(client, cb) {
+  const { low, sect8k, mid, boot } = await _blReadRegion(client, cb);
+  const v = blSurvey(boot, sect8k);
+  if (
+    v.words !== 'patched' ||
+    (v.ring !== 'ring' && v.ring !== 'installer' && v.ring !== 'swap')
+  )
+    throw new Error(
+      `bl: the boot region is not BL as BMWeb installs it (ring ${v.ring || 'unknown'}, words ${v.words || 'unknown'}). Nothing was written.`
+    );
+  const nb = Uint8Array.from(boot);
+  const at = blData.ring.at - BL_BOOT;
+  nb.fill(0xff, at, at + BL_RING_LEN);
+  nb.set(blSwapRing(), at);
+  const img = blWithBootCrc(low, sect8k, mid, nb);
+  if (_blSame(img, boot)) {
+    cb.note('the swap ring is already on the DME: nothing written');
+    return { skipped: true, summary: 'the swap ring was already on' };
+  }
+  await aifLadderArm(client, cb.note);
+  await _blRewrite(
+    client,
+    BL_BOOT,
+    img,
+    cb,
+    20,
+    95,
+    'the boot sector (the swap ring)'
+  );
+  await aifLadderDone(client);
+  const st = await _blStamp(client);
+  if (st.magic !== BL_MAGIC || !(st.flags & BL_SWAP_FLAG))
+    throw new Error(
+      `the stamp reads "${st.magic}" flags 0x${st.flags.toString(16)} after the swap ring went in`
+    );
+  cb.progress(100);
+  return { skipped: false, summary: 'swap ring in, programming log kept' };
+}
+
+/**
+ * Stage 2 of the boot overwrite, on the swap ring: the four boot sectors
+ * written from the file, 16 KB first. Between that sector's erase and its
+ * verify the DME has no reset vector: a cut there is a BDM job. What the
+ * DME boots afterwards is the file's loader; a ring only if the file has
+ * one -- the swap ring itself goes with the 96 KB sector.
+ * @param {object} client
+ * @param {Uint8Array} file - A full flash read or a 128 KB boot dump.
+ * @param {{stage: (s: string) => void, progress: (pct: number) => void,
+ *   note: (s: string) => void}} cb
+ * @returns {Promise<{skipped: boolean, summary: string}>}
+ */
+async function blOverwriteBoot(client, file, cb) {
+  const st0 = await _blStamp(client);
+  if (st0.magic !== BL_MAGIC || !(st0.flags & BL_SWAP_FLAG))
+    throw new Error(
+      'bl: the swap ring is not on the DME (stage 1 first). Nothing was written.'
+    );
+  const r = blBootRegionOf(file);
+  cb.note(`the file: ${blBootFileFacts(r)}`);
+  await aifLadderArm(client, cb.note);
+  await _blRewrite(
+    client,
+    BL_LOW,
+    r.low,
+    cb,
+    20,
+    35,
+    'the 16 KB sector (the reset vector)'
+  );
+  await _blRewrite(
+    client,
+    BL_SECT8K,
+    r.sect8k,
+    cb,
+    35,
+    42,
+    'the 8 KB sector at 0x4000'
+  );
+  await _blRewrite(
+    client,
+    BL_MID,
+    r.mid,
+    cb,
+    42,
+    48,
+    'the 8 KB sector at 0x6000'
+  );
+  await _blRewrite(
+    client,
+    BL_BOOT,
+    r.boot,
+    cb,
+    48,
+    95,
+    'the 96 KB boot sector'
+  );
+  await aifLadderDone(client);
+  const st = await _blStamp(client);
+  cb.progress(100);
+  return {
+    skipped: false,
+    summary:
+      'boot region written from the file: ' +
+      (st.magic === BL_MAGIC
+        ? `${blIsCurrent(st) ? 'the current' : 'an old'} bootloader on it`
+        : 'no bootloader on it'),
+  };
+}
+
 /** The loader's CMF driver as the body finds it: the data start S of the
  * three known builds (A, B, C), the signature at S+4, code at S+0x7C, the
  * wrappers (erase_job +0x148, program_job +0x21C) and the window the body
@@ -937,6 +1118,10 @@ const bl = {
   /** The swap ring's stamp flag (ms45-emu bl.SWAP_FLAG): its body may
    * rewrite every boot sector. Bench only. */
   SWAP_FLAG: BL_SWAP_FLAG,
+  bootRegionOf: blBootRegionOf,
+  bootFileFacts: blBootFileFacts,
+  toSwapRing: blToSwapRing,
+  overwriteBoot: blOverwriteBoot,
   STAMP_AT: blData.ring.stampAt,
   INSTALLER_FLAG: BL_INSTALLER_FLAG,
   /** This build's ring version: what "current" means (bl.isCurrent). */

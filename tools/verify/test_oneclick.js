@@ -147,7 +147,8 @@ function miniDme(seedHexes, opts = {}) {
       return [0x71, 0x07, ...seed];
     }
     if (data[0] === 0x31 && data[1] === 0x08) {
-      if (data.length !== 71) return [0x7f, 0x31, 0x08, 0x31];
+      // 31 08 00 00 00 10 + 64 limb bytes (the proven six-byte header)
+      if (data.length !== 70) return [0x7f, 0x31, 0x12];
       // the seed the DME is currently holding
       const seed = Array.from(
         seedHexes[(state.seedNo - 1) % seedHexes.length].match(/../g),
@@ -169,7 +170,7 @@ function miniDme(seedHexes, opts = {}) {
       r.set(T.subarray(0, 4), 12);
       let rv = 0n;
       for (let i = 0; i < 16; i++) rv = (rv << 8n) | BigInt(r[i]);
-      const x = oneClick.limbsLeToBigInt(data.slice(7));
+      const x = oneClick.limbsLeToBigInt(data.slice(6));
       const x7 = pow(x, 7n, oneClick.N);
       state.answers++;
       const pass =
@@ -207,13 +208,13 @@ function miniDme(seedHexes, opts = {}) {
     m1.state.telegrams.length === 4 &&
       hex(m1.state.telegrams[0]).startsWith('310705') &&
       hex(m1.state.telegrams[1]).startsWith('233f9939') &&
-      hex(m1.state.telegrams[2]).startsWith('31080000000010') &&
+      hex(m1.state.telegrams[2]).startsWith('310800000010') &&
       hex(m1.state.telegrams[3]).startsWith('233f99c4'),
     m1.state.telegrams.map((tg) => hex(tg).slice(0, 4)).join(' ')
   );
   check(
     'login: the answer telegram carries the li form of the real x',
-    hex(m1.state.telegrams[2].slice(7, 15)) === 'd586c84747427a3a'
+    hex(m1.state.telegrams[2].slice(6, 14)) === 'd586c84747427a3a'
   );
 
   // 1b: the bench build's field ('104M', staged by the ask -- zeros before
@@ -292,7 +293,7 @@ function miniDme(seedHexes, opts = {}) {
       );
       return [0x50, 0x86, 0x00, 0x32];
     }
-    if (data[0] === 0x31 && data[1] === 0x02) return [0x71, 0x02, 0x01];
+    if (data[0] === 0x31 && data[1] === 0x02) return [0x7f, 0x31, 0x22];
     if (data[0] === 0x3d) {
       tgI++;
       return [0x7d];
@@ -314,7 +315,7 @@ function miniDme(seedHexes, opts = {}) {
     hex(r.replied) === '71fa'
   );
   check(
-    'chain: login (4 telegrams) then every staged chunk (28)',
+    'chain: login (4 telegrams) then every staged chunk (3)',
     tgI === tgs.length && chain.state.telegrams.length === 4,
     `${chain.state.telegrams.length} login, ${tgI} staged of ${tgs.length}`
   );

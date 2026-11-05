@@ -55,6 +55,13 @@ const RESPONSE_PENDING = 0x78;
 const BUSY_REPEAT = 0x23;
 /** How many times a "busy, ask again" is re-sent before it is given up on. */
 const MAX_BUSY_REPEATS = 30;
+/**
+ * The most a busy re-send waits for its answer. A caller may give the FIRST
+ * ask a long budget (the one-click's 31 08 waits 3 s for an RSA check that
+ * a car answers directly), but a busy re-send the ECU ignores mid-computation
+ * must come round again quickly or every silent one costs that whole budget.
+ */
+const BUSY_RESEND_MS = 500;
 /** KWP TransferData: one block of a flash write. */
 const TRANSFER_DATA = 0x36;
 /**
@@ -405,7 +412,11 @@ async function runExchange(bus, out, comm) {
         await paceBeforeWrite(bus, comm);
         busTrace.add('tx', framed, `busy, re-sending (${busy + 1})`);
         try {
-          frame = await bus.exchangeRaw(framed, timeoutMs, comm);
+          frame = await bus.exchangeRaw(
+            framed,
+            Math.min(timeoutMs, BUSY_RESEND_MS),
+            comm
+          );
           for (
             let pending = 0;
             pending < MAX_PENDING_POLLS && isResponsePending(frame, comm);

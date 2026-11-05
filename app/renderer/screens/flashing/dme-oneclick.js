@@ -14,33 +14,26 @@
 // table; see ms45-emu tools/experiments/noinstall_v5r.py and
 // noinstall_oneclick_sim.py):
 //   1. the stock KWP session: selector-5 login -> grant -> 10 86 -> the
-//      trigger's write-enable erase (the WHOLE calibration sector
-//      0x40000-0x60000 goes blank -- a stock sector's tail holds nothing
-//      but the two valid-mark dwords, which the closing push rewrites) ->
-//      3D staging -> 31 FA fire;
+//      trigger's write enable (a 31 02 the loader refuses: it stops the
+//      app and completes the MO3 handshake, and erases nothing) -> 3D
+//      staging -> 31 FA arm + fire;
 //   2. the body owns the line from SRAM: picked up like a session that was
 //      cut short (fastFlashWire webLink resume -- no reset, no break, and
 //      unlike the installed-flasher entry, NO break-capable cable needed);
 //   3. the operation runs through the resident protocol (the shared
 //      fbDmeFastFlash session machinery, entered via its live-flash resume
-//      branch), and what the trigger erased is either rewritten by the
-//      flash itself or -- for everything that is not a flash -- pushed back
-//      byte-identical through the body's own cal push, marks included.
+//      branch). The flash is untouched by the entry, so a read writes
+//      nothing at all.
 //
-// RECOVERY, because the erase in step 1 is real: a failure after it leaves
-// the calibration blank. If the body answered, run the SAME operation
-// again -- the entry finds the live flasher and resumes, the push compares,
-// and only the missing part is sent. If it did not, switch the ignition
-// off for ten seconds and back on (the DME drops to its stock loader) and
-// complete a stock Flash Tune. Nothing else on the DME is touched at any
-// point: the ISN, the EEPROM, the program and the AIF stay as they are.
-/* exported fbDmeOneClickDue, fbDmeOneClickGate, fbDmeOneClickInto, fbDmeOneClickTrigger, fbDmeOneClickFlashTune, fbDmeOneClickFlashProgram, fbDmeOneClickRead, fbDmeOneClickIsnRead, fbDmeOneClickIsnWrite, fbDmeOneClickEepromDump, fbOneClickToolsHtml, fbOneClickToolsRefresh */
+// RECOVERY: the entry writes nothing, so a failure anywhere in it is cured
+// by switching the ignition off for ten seconds -- the DME comes back on
+// its own program. A failure DURING a flash is resumed by running the same
+// operation again.
 
-/** Appended to every failure that may have left the calibration blank. */
+/** Appended to every one-click entry failure. */
 const FB_OC_RECOVERY =
-  'The calibration is blank until a flash completes: run the SAME operation ' +
-  'again -- it resumes the running flasher and finishes -- or switch the ' +
-  'ignition off for ten seconds and complete a stock Flash Tune.';
+  'The one-click writes nothing to the DME: switch the ignition off for ' +
+  'ten seconds and it comes back on its own program.';
 
 /**
  * Whether an operation on this DME takes the one-click route: the fast
@@ -66,6 +59,20 @@ function fbDmeOneClickDue() {
 function fbDmeOneClickGateWhy(opts = {}) {
   const d = fbState.dme;
   if (!d || !d.identified) return 'Identify the DME first.';
+  // Loader-family gate. The sel-5 chain is proven on all three MS45
+  // factory loader builds (A, B, C -- corpus fingerprints 62c6262b /
+  // 5742c1fd / 69b86cba) and the two hw variants (MS45.0 "0044560" + CE
+  // tag, MS45.1 "0044570" + 1C tag; both run the same loader byte-for-byte
+  // for a given build). We proved the chain works identically on all three
+  // builds in tools/experiments (sim_abc matrix + real-key login) and on
+  // the real car for loader B 2026-11-05. Any hwRef outside the MS45
+  // family is a DME we haven't validated the one-click on; refuse rather
+  // than fire against unknown firmware.
+  if (!d.ident || !d.ident.hwRef)
+    return 'Identify did not report a hardware reference; the one-click needs it to confirm this is an MS45 DME.';
+  const hw = String(d.ident.hwRef);
+  if (!(hw === '0044570' || hw === '0044560'))
+    return `The one-click is validated for MS45 DMEs only (hw 0044570 or 0044560); this DME reports hw ${hw}. Not running it.`;
   if (opts.ms451 && !fbDmeIsMs451()) return 'This tool is MS45.1 only.';
   if (typeof webBus === 'undefined' || !webBus.port)
     return 'Needs a cable (a Web Serial port or a gateway).';
@@ -106,10 +113,11 @@ function fbDmeOneClickBody() {
 const FB_ENTRY_STAGE_PCT = [
   [/^Answering the selector-5 login \(seed (\d+)\)/, (m) => 4 + +m[1] * 5], // 9, 14, 19, 24
   [/^Opening the programming session/, 28],
-  [/^Erasing one calibration block/, 32],
-  [/^Staging the fast flasher/, 36], // bumps to 36 at start; progress callback carries 36..80
-  [/^Arming the fast flasher/, 82],
-  [/^Firing/, 88],
+  [/^Stopping the DME program/, 32],
+  [/^Staging the fast flasher/, 36], // progress callback carries 36..48
+  [/^Arming the fast flasher/, 50],
+  [/^Firing/, 55],
+  [/^Uploading the fast flasher/, 60],
   [/^Asking the flasher for its HELLO/, 92],
   [/^The flasher answered at/, 98],
 ];
@@ -130,28 +138,78 @@ function fbOneClickStage(s) {
 // flasher: x%" that only moves forward; the first call writes a "Entering
 // fast flasher…" note to the log, and the last call writes an
 // "Entered" note. Shared across the whole fbDmeOneClickTrigger chain.
+//
+// A real stage event (fbEntryProgressSet) jumps the bar to the stage's
+// known pct and sets a DRIFT CAP one short of the next expected stage.
+// A 100 ms timer ticks the bar up by 1 toward the cap, so pauses between
+// stages (sel-5 modexp, erase wait, staging between chunks, HELLO probe)
+// still look like forward motion. When the next real stage fires, it
+// clamps to its own pct and advances the cap. fbEntryProgressDone
+// clears the timer and jumps to 100.
 let fbEntryPct = 0;
+let fbEntryCap = 0;
 let fbEntryNoted = false;
+let fbEntryTimer = null;
+
 function fbEntryProgressReset() {
   fbEntryPct = 0;
+  fbEntryCap = 0;
   fbEntryNoted = false;
+  if (fbEntryTimer) {
+    clearInterval(fbEntryTimer);
+    fbEntryTimer = null;
+  }
 }
+
+function fbEntryProgressPaint() {
+  fbSetStatusInPlace(`Entering fast flasher: ${fbEntryPct}%`);
+  if (typeof fbProgress === 'function') fbProgress(fbEntryPct);
+}
+
+function fbEntryProgressStartDrift() {
+  if (fbEntryTimer) return;
+  fbEntryTimer = setInterval(() => {
+    // Stop drifting once the bar has reached its cap; the next real
+    // stage event will raise the cap and restart movement. Also stop
+    // after a hard ceiling so a hung chain doesn't tick forever.
+    if (fbEntryPct >= fbEntryCap || fbEntryPct >= 99) return;
+    fbEntryPct += 1;
+    fbEntryProgressPaint();
+  }, 100);
+}
+
 function fbEntryProgressSet(p) {
-  const was = fbEntryPct;
-  fbEntryPct = Math.max(fbEntryPct, Math.min(100, Math.round(p)));
+  const target = Math.max(0, Math.min(100, Math.round(p)));
+  // Real stage events never move backward. Jump the bar to this stage's
+  // known pct (if higher than where drift has taken us), then set the
+  // drift cap to just below the next expected stage.
+  fbEntryPct = Math.max(fbEntryPct, target);
+  fbEntryCap = Math.max(fbEntryCap, fbEntryProgressNextCap(target));
   if (!fbEntryNoted) {
     flashLog.note('Entering the fast flasher…');
     fbEntryNoted = true;
   }
-  if (fbEntryPct !== was) {
-    fbSetStatusInPlace(`Entering fast flasher: ${fbEntryPct}%`);
-    if (typeof fbProgress === 'function') fbProgress(fbEntryPct);
-  }
+  fbEntryProgressPaint();
+  fbEntryProgressStartDrift();
 }
+
+// Given a real stage pct, return the cap drift may climb to (one short
+// of the next known stage's pct, so drift never passes a real event).
+// The list is FB_ENTRY_STAGE_PCT's stage values in order.
+function fbEntryProgressNextCap(pct) {
+  const nexts = [9, 14, 19, 24, 28, 32, 36, 50, 55, 60, 92, 98, 100];
+  for (const n of nexts) if (n > pct) return n - 1;
+  return 99;
+}
+
 function fbEntryProgressDone() {
+  if (fbEntryTimer) {
+    clearInterval(fbEntryTimer);
+    fbEntryTimer = null;
+  }
   fbEntryPct = 100;
-  fbSetStatusInPlace('Entering fast flasher: 100%');
-  if (typeof fbProgress === 'function') fbProgress(100);
+  fbEntryCap = 100;
+  fbEntryProgressPaint();
   flashLog.note('Entered the fast flasher');
 }
 
@@ -180,6 +238,18 @@ function fbEntryProgressDone() {
 // name already belongs to dme-fast.js's installed-flasher entry (reset +
 // break + HELLO) -- a different function with a different return shape.
 async function fbDmeOneClickTrigger(title, ui = {}) {
+  // Belt-and-suspenders hardware check: fbDmeOneClickGateWhy already
+  // gates by hwRef when called from the UI, but the Tune/Program/AIF/ISN
+  // tabs can autoEnter via fbDmeGuard without going through the gate
+  // first. The one-click's blob is MS45-only; firing it against a
+  // different Siemens ECU could brick on the 31 02 erase of the cal
+  // block. Refuse up front with a clear error.
+  const d = fbState.dme;
+  const hw = d && d.ident && d.ident.hwRef ? String(d.ident.hwRef) : '';
+  if (!(hw === '0044570' || hw === '0044560'))
+    throw new Error(
+      `The one-click is validated for MS45 DMEs only (hw 0044570 or 0044560); this DME reports hw "${hw || '(none)'}". Not sending the chain.`
+    );
   fbEntryProgressReset();
   const stage = ui.stage || fbOneClickStage;
   const sender = ms45LiveTuneSender({});
@@ -191,24 +261,15 @@ async function fbDmeOneClickTrigger(title, ui = {}) {
       // single-line progress; per-stage notes (seed fields, slot values,
       // "granted") would re-introduce the old spammy log
       note: () => {},
-      // 28 chunks of 3D staging happen in a tight loop, each triggering
-      // this callback. Map 0..total onto the 36..80 slice of the entry
-      // bar so the UI visibly advances through the one slow step.
+      // the 3D staging chunks: map 0..total onto the 36..48 slice
       progress: (n, total) => {
-        const pct = 36 + Math.floor(((80 - 36) * n) / Math.max(1, total));
+        const pct = 36 + Math.floor(((48 - 36) * n) / Math.max(1, total));
         fbEntryProgressSet(pct);
         if (ui.entry) ui.entry(Math.max(1, Math.floor((n * 4) / total)));
       },
     });
   } catch (e) {
-    // triggerFire's own words name the step: a staging or fire refusal is
-    // PAST the write-enable erase (the calibration is blank); everything
-    // earlier -- the login, the 10 86, a refused erase -- wrote nothing
-    const pastErase = /staging|fire/.test(e.message);
-    throw new Error(
-      `${e.message}.${pastErase ? ' ' + FB_OC_RECOVERY : ' Nothing was written.'}`,
-      pastErase ? { cause: e } : undefined
-    );
+    throw new Error(`${e.message}. ${FB_OC_RECOVERY}`, { cause: e });
   }
   // the body owns the line; nothing KWP can be sent again. Pick it up like
   // a cut-short session: claim, resume at the body's rates, read the stamp
@@ -220,7 +281,8 @@ async function fbDmeOneClickTrigger(title, ui = {}) {
       onStep: (s) => stage(s),
     });
     try {
-      const stamp = await link.resume();
+      // the receiver is waiting at 115200: send it the body, take its HELLO
+      const stamp = await link.upload(triggerWire.triggerUploadFrame(body));
       // A body that answered HELLO at this 115200 rate IS the body we
       // just triggered: we staged it ourselves one function call ago,
       // the staging chunks landed byte-identical, and the KWP line
@@ -271,6 +333,10 @@ async function fbDmeOneClickTrigger(title, ui = {}) {
       }
     }
   } catch (e) {
+    // Kill the drift ticker before re-throwing so it doesn't keep
+    // overwriting the next op's progress number while the caller
+    // bubbles an error up the UI.
+    fbEntryProgressReset();
     throw new Error(
       `The one-click fired, but the flasher did not answer its HELLO (${e.message}). ${FB_OC_RECOVERY}`,
       { cause: e }
@@ -315,52 +381,10 @@ async function fbDmeOneClickTrigger(title, ui = {}) {
 // alias keeps anything older working without a cross-file rename.
 const fbDmeOneClickInto = fbDmeOneClickTrigger;
 
-/**
- * Read the calibration off the stock DME and sign it for the restore push.
- * Every one-click operation that is not itself a cal flash calls this in
- * its prepare, BEFORE any exploit traffic: after the fire the sector is
- * blank, so this read is the only copy. A healthy calibration re-signs to
- * itself -- what goes back is what came off.
- * @returns {Promise<Uint8Array>} The signed calibration.
- * @throws {Error} When the stock read comes back short (nothing was sent).
- */
-async function fbOneClickReadCal() {
-  fbOneClickStage('Reading the calibration at the stock rate');
-  const cal = await ms45ReadMemory(
-    MS45_CAL_START,
-    MS45_CAL_START + MS45_CAL_LENGTH - 1,
-    'ROMX',
-    {
-      onProgress: (p) => {
-        fbProgress(p);
-        fbSetStatusInPlace(`calibration ${p}%`);
-      },
-    }
-  );
-  if (cal.length !== MS45_CAL_LENGTH)
-    throw new Error(
-      `the stock read returned ${cal.length} B of the calibration, not ${MS45_CAL_LENGTH}: nothing was sent`
-    );
-  const signed = ms45Checksums.signParameters(
-    ms45Checksums.correctParameterChecksums(cal)
-  );
-  return { cal, signedCal: signed };
-}
-
-/** The calibration back through the body's own push, marks included. */
-async function fbOneClickRestoreCal(client, signedCal, cb, share) {
-  cb.stage('Rewriting the calibration unchanged');
-  await fastFlashWire.pushCal(client, signedCal, {
-    ...cb,
-    progress: (pct) =>
-      cb.progress(share + Math.floor((pct * (100 - share)) / 100)),
-  });
-}
-
 /** One confirm that covers BOTH halves (the exploit's erase and the flash). */
 function fbDmeOneClickConfirm(tune) {
   return fbConfirm(
-    'The moment the flasher starts, the old calibration is erased (the write enable); from there the flash must complete. An interrupted write is resumed by running the same operation again.\n\n' +
+    'The one-click starts the flasher without writing anything; once the write begins it must complete. An interrupted write is resumed by running the same operation again.\n\n' +
       'Keep the ignition on, a charger on the battery and the cable plugged in until it has finished.\n\n' +
       `Write the ${tune ? 'tune' : 'program'}?`,
     tune ? 'Flash Tune (one-click)' : 'Flash Program (one-click)'
@@ -434,15 +458,8 @@ async function fbDmeOneClickFlashProgram() {
 }
 
 /**
- * Read DME through the one-click. Reads change nothing -- so the
- * calibration the trigger must erase is read FIRST, at the stock rate
- * (nothing faster can have it: after the fire it is blank), everything
- * else comes off the fast line, and the calibration is pushed back
- * byte-identical through the body's own cal push (checksums, signature and
- * valid marks with it) before the DME restarts on its program. A tune read
- * is the calibration alone and never touches the fast line -- it is the
- * stock read plus the rewrite; a full read rides the fast line for the
- * other 1.3 MB.
+ * Read DME through the one-click: the trigger writes nothing, so the whole
+ * read -- calibration included -- comes off the body's fast line.
  */
 async function fbDmeOneClickRead() {
   const d = fbState.dme;
@@ -451,8 +468,7 @@ async function fbDmeOneClickRead() {
   const full = !!d.fullBin;
   if (
     !(await fbConfirm(
-      `Read DME (one-click) starts the flasher on this STOCK DME with the selector-5 login -- nothing is installed -- reads ${full ? 'the full flash and the MPC' : 'the tune'}, and writes the calibration back unchanged before the DME restarts.\n\n` +
-        "The old calibration is read at the stock rate first (that is the slow part), erased as the flasher's write enable, then rewritten byte-identical through the flasher. Nothing else is written.\n\n" +
+      `Read DME (one-click) starts the flasher on this STOCK DME with the selector-5 login -- nothing is installed or written -- and reads ${full ? 'the full flash and the MPC' : 'the tune'} through it before the DME restarts.\n\n` +
         'Read the DME?',
       'Read DME (one-click)'
     ))
@@ -460,63 +476,52 @@ async function fbDmeOneClickRead() {
     flashLog.note('Read DME (one-click) not confirmed: nothing was sent');
     return;
   }
-  let cal = null; // the bytes as read, for the saved file
   await fbDmeFastFlash({
     title: 'Read DME (one-click)',
     operation: 'oneclick-read',
     what: 'read',
-    noFasterLine: !full,
     confirmed: true,
     note: `DME ${d.ident.hwRef} / prog ${d.ident.progRef} / one-click read, ${full ? 'full' : 'tune'}`,
     async prepare() {
-      const r = await fbOneClickReadCal();
-      cal = r.cal; // what the saved file holds: the calibration as it was
-      flashLog.attach('oneclick_read_cal_0x40000.bin', r.signedCal);
       await fbDmeOneClickInto('Read DME (one-click)');
-      return { signedCal: r.signedCal };
+      return {};
     },
-    push: async (client, cb, p) => {
+    push: async (client, cb) => {
       const t0 = Date.now();
-      let flash = cal;
+      let flash;
       let mpc = null;
       if (full) {
-        // the external chip around the (erased) calibration + the MPC
-        const ext = new Uint8Array(0x100000);
-        const readInto = async (at, len, off) => {
-          const b = await fastFlashWire.readArea(client, at, len, (n) =>
-            cb.progress(Math.floor((n * 70) / 0x100000))
-          );
-          ext.set(b, off);
-        };
         cb.stage('Reading the external flash');
-        await readInto(0, MS45_CAL_START, 0);
-        ext.set(cal, MS45_CAL_START);
-        await readInto(
-          MS45_CAL_START + MS45_CAL_LENGTH,
-          0x100000 - MS45_CAL_START - MS45_CAL_LENGTH,
-          MS45_CAL_START + MS45_CAL_LENGTH
+        flash = await fastFlashWire.readArea(client, 0, 0x100000, (n) =>
+          cb.progress(Math.floor((n * 85) / 0x100000))
         );
         cb.stage('Reading the MPC');
         mpc = await fastFlashWire.readArea(
           client,
           fastFlashWire.MPC_WINDOW,
           MS45_MPC_LENGTH,
-          (n) => cb.progress(70 + Math.floor((n * 10) / MS45_MPC_LENGTH))
+          (n) => cb.progress(85 + Math.floor((n * 15) / MS45_MPC_LENGTH))
         );
-        flash = ext;
+      } else {
+        cb.stage('Reading the calibration');
+        flash = await fastFlashWire.readArea(
+          client,
+          MS45_CAL_START,
+          MS45_CAL_LENGTH,
+          (n) => cb.progress(Math.floor((n * 100) / MS45_CAL_LENGTH))
+        );
       }
-      await fbOneClickRestoreCal(client, p.signedCal, cb, 80);
       cb.stage('Restarting the DME');
       await client.reset();
       fbDmeSaveRead(flash, mpc);
       const s = Math.round((Date.now() - t0) / 1000);
       flashLog.note(
-        `One-click read: ${flash.length + (mpc ? mpc.length : 0)} bytes, calibration restored, in ${s} s`
+        `One-click read: ${flash.length + (mpc ? mpc.length : 0)} bytes in ${s} s`
       );
       return {
         ok: true,
         skipped: false,
-        summary: `${full ? 'saved the full flash and MPC' : 'saved the tune'}, calibration rewritten unchanged`,
+        summary: full ? 'saved the full flash and MPC' : 'saved the tune',
       };
     },
     after: async () => {},
@@ -539,11 +544,10 @@ async function fbDmeOneClickIsnRead() {
     confirm: '',
     note: `DME ${fbState.dme.ident.hwRef} / one-click flash ISN read`,
     async prepare() {
-      const { signedCal } = await fbOneClickReadCal();
       await fbDmeOneClickInto('Read ISN (one-click)');
-      return { signedCal };
+      return {};
     },
-    push: async (client, cb, p) => {
+    push: async (client, cb) => {
       cb.stage('Reading the ISN');
       const six = await client.read(isnFlash.AT, isnFlash.LEN);
       const isn = isnFlash.fromTriple(six);
@@ -555,7 +559,6 @@ async function fbDmeOneClickIsnRead() {
           ? `Read ISN: the triple did not vote (0x1FB00 = ${hex})`
           : `Read ISN: ${isnFlash.text(isn)} (0x1FB00 = ${hex})`
       );
-      await fbOneClickRestoreCal(client, p.signedCal, cb, 90);
       cb.stage('Restarting the DME');
       await client.reset();
       return {
@@ -579,7 +582,7 @@ async function fbDmeOneClickIsnWrite() {
     title: 'Write ISN (one-click)',
     action: 'Write',
     body: `<p>Burns a new ISN into the DME's flash boot sector through the one-click-started flasher -- no bootloader needed on the DME.</p>
-          <p>The calibration is erased as the flasher's write enable and rewritten unchanged after the burn. The program, EEPROM and log are kept.</p>
+          <p>Only the ISN is written: the calibration, program, EEPROM and log are kept.</p>
           <p>Keep the ignition on, a charger on the battery and the cable plugged in until it has finished. The car starts only when this matches the EWS's ISN and the rolling code has been synced.</p>`,
   });
   if (isn === null) {
@@ -595,16 +598,11 @@ async function fbDmeOneClickIsnWrite() {
     confirm: '',
     note: `DME ${fbState.dme.ident.hwRef} / one-click burn ISN ${isnFlash.text(isn)} at flash 0x1FB00`,
     async prepare() {
-      const { signedCal } = await fbOneClickReadCal();
       await fbDmeOneClickInto('Write ISN (one-click)');
-      return { signedCal };
+      return {};
     },
-    push: async (client, cb, p) => {
-      const r = await bl.burnIsn(client, isn, {
-        ...cb,
-        progress: (pct) => cb.progress(Math.floor((pct * 80) / 100)),
-      });
-      await fbOneClickRestoreCal(client, p.signedCal, cb, 80);
+    push: async (client, cb) => {
+      const r = await bl.burnIsn(client, isn, cb);
       cb.stage('Restarting the DME');
       await client.reset();
       fbSetStatus(`Write ISN: done, ${isnFlash.text(isn)} is on the DME`);
@@ -635,20 +633,18 @@ async function fbDmeOneClickEepromDump() {
     confirm: '',
     note: `DME ${d.ident.hwRef} / one-click EEPROM read`,
     async prepare() {
-      const { signedCal } = await fbOneClickReadCal();
       const det = await fbDmeOneClickInto('Read EEPROM (one-click)');
       if (!(det.flags & 0x10))
         throw new Error(
           `this body has no EEPROM read window (stamp flags ${det.flags.toString(16)}); ${FB_OC_RECOVERY}`
         );
-      return { signedCal };
+      return {};
     },
-    push: async (client, cb, p) => {
+    push: async (client, cb) => {
       cb.stage('Reading the EEPROM');
       img = await eepromDump.dump(client, {
-        progress: (n) => cb.progress(Math.floor((n * 80) / eepromDump.SIZE)),
+        progress: (n) => cb.progress(Math.floor((n * 100) / eepromDump.SIZE)),
       });
-      await fbOneClickRestoreCal(client, p.signedCal, cb, 80);
       cb.stage('Restarting the DME');
       await client.reset();
       return {
@@ -668,27 +664,41 @@ async function fbDmeOneClickEepromDump() {
  * The tools the one-click adds to the Fast flasher page on a stock DME:
  * the ISN and EEPROM reads (and the ISN write) that otherwise need the
  * installed flasher. Hidden whenever the normal lanes cover them.
+ *
+ * Also includes the "Restore stock bootloader" section, which appears
+ * whenever Identify found a resident fast flasher body on the DME
+ * (d.fastFlasher.hooked). It runs Fast Flash Program with the default
+ * carry (fastFlasher.withoutFlasher), which rewrites the program without
+ * the body -- returning the DME to stock.
  */
 function fbOneClickToolsHtml() {
   return `
       <div class="fb-section" id="fb-oneclick-section" hidden>
         <div class="fb-code">ONE-CLICK TOOLS</div>
-        <div class="fb-dim">Through the selector-5 grant, on this stock DME directly -- nothing installed, the calibration rewritten unchanged.</div>
         <div class="fb-row">
           <button class="btn" id="fb-oc-isn-read" disabled title="Reads the ISN off the DME's flash through the one-click-started flasher. Nothing but the unchanged calibration is written.">Read ISN</button>
           <button class="btn danger" id="fb-oc-isn-write" disabled title="Burns an ISN into the DME's flash boot sector through the one-click-started flasher.">Write ISN</button>
-          <button class="btn" id="fb-oc-eeprom" disabled title="Reads the whole 4 KB EEPROM through the one-click-started flasher and saves it as a file.">Read EEPROM to file</button>
         </div>
         <div class="fb-faint" id="fb-oc-reason"></div>
+      </div>
+      <div class="fb-section" id="fb-restore-stock-section" hidden>
+        <div class="fb-code">BOOTLOADER</div>
+        <div class="fb-row">
+          <button class="btn danger" id="fb-restore-stock-btn" disabled
+            title="Takes the fast flash bootloader ring off the boot sector. No files needed — the program, tune and MPC are kept.">Restore stock bootloader</button>
+        </div>
+        <div class="fb-faint" id="fb-restore-stock-reason"></div>
       </div>`;
 }
 
 /** Wire the row once, then gate it from the state (called by fbFastPaint). */
 function fbOneClickToolsRefresh() {
   const sec = fbEls['oneclick-section'];
-  if (!sec) return;
+  // The one-click tools (Read ISN / Write ISN) live on the ISN/EWS tab,
+  // not here. Always hide the section on the Fast flasher tab.
+  if (sec) sec.hidden = true;
+  fbRestoreStockRefresh();
   const due = fbDmeOneClickDue();
-  sec.hidden = !due;
   if (!due) return;
   if (!fbEls['oc-isn-read'].dataset.wired) {
     fbEls['oc-isn-read'].dataset.wired = '1';
@@ -706,4 +716,42 @@ function fbOneClickToolsRefresh() {
     fbEls[id].disabled = !!why || !!fbState.running;
   fbEls['oc-reason'].textContent =
     why || 'Ready: the calibration is read first and rewritten unchanged.';
+
+  // Restore stock bootloader section: show when a resident body is detected.
+  fbRestoreStockRefresh();
+}
+
+/**
+ * Gate the "Restore stock bootloader" section.
+ * Shows when Identify found a BL ring in the boot sector (d.bootLoader).
+ * Delegates to fbBlRestore / fbBlRestoreWhyNot from bl-install.js --
+ * the same two-stage ring removal that used to live in Custom Options.
+ * No program files are needed: the removal runs entirely on the boot sector
+ * via the resident fast flasher.
+ */
+function fbRestoreStockRefresh() {
+  const sec = fbEls['restore-stock-section'];
+  if (!sec) return;
+  const d = fbState.dme;
+  const hasBl = !!(d && d.bootLoader);
+  sec.hidden = !hasBl;
+  if (!hasBl) return;
+
+  if (!fbEls['restore-stock-btn'].dataset.wired) {
+    fbEls['restore-stock-btn'].dataset.wired = '1';
+    fbEls['restore-stock-btn'].onclick = () => {
+      fbShowPage('flashing');
+      fbDmeGuard('Restore stock bootloader', fbBlRestore);
+    };
+  }
+
+  const why =
+    (typeof fbBlRestoreWhyNot === 'function' ? fbBlRestoreWhyNot() : null) ||
+    (fbState.running ? 'Busy.' : null);
+  fbEls['restore-stock-btn'].disabled = !!why;
+  fbEls['restore-stock-reason'].textContent =
+    why ||
+    (typeof fbBlHasInstallerRing === 'function' && fbBlHasInstallerRing()
+      ? 'Ready: the installer ring is already on the DME, so only the second stage runs.'
+      : 'Ready: takes the BL ring off the boot sector. No files needed — the program and tune are kept.');
 }

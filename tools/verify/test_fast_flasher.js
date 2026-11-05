@@ -269,10 +269,16 @@ const be32 = (b, at) =>
     const firstMarksChunk = k.findIndex(
       (e) => e[0] === 'chunk' && e[1] >= 0xc0000
     );
-    const verify80 = k.findIndex((e) => e[0] === 'verify' && e[1] === 0x80000);
+    const lastChunk80 = k.findLastIndex(
+      (e) => e[0] === 'chunk' && e[1] >= 0x80000 && e[1] < 0xc0000
+    );
     assert(
-      firstMarksChunk > verify80,
-      'the marks sector is written after every other unit is verified'
+      firstMarksChunk > lastChunk80,
+      'the marks sector is written after every other unit'
+    );
+    assert(
+      !k.some((e) => e[0] === 'verify'),
+      'no VERIFY per unit: the body reads every chunk back'
     );
     assert(
       Buffer.from(c.mem.subarray(0x60000)).equals(
@@ -454,6 +460,59 @@ const be32 = (b, at) =>
       'block 0 after the pagesets'
     );
     assert.deepStrictEqual(kinds.slice(-2), ['marks', 'reset']);
+    // block0InSets: block 0 erased and written with the others, only its
+    // first page (the reset word) held back and written alone, last
+    c = mpcChip(ext, mpcOnChip);
+    const seen0 = [];
+    const inner = c.client.chunkSet;
+    c.client.chunkSet = async (mask, offset, ps, plain) => {
+      seen0.push(Array.from(c.mpc.subarray(0, 64))); // page 0 before this write
+      return inner(mask, offset, ps, plain);
+    };
+    r = await W.pushProgram(
+      c.client,
+      target,
+      {},
+      { mpc: mpcTarget, pagesets: true, block0InSets: true }
+    );
+    assert.strictEqual(r.mpcBlocksWritten, 4);
+    assert(Buffer.from(c.mpc).equals(Buffer.from(mpcTarget)), 'MPC == target');
+    const all = 1 | (1 << 3) | (1 << 5) | (1 << 12);
+    const eb0 = c.events.filter((e) => e[0] === 'eraseBlocks');
+    assert.deepStrictEqual(
+      eb0.map((e) => e[1]),
+      [all],
+      'one erase job, block 0 in it'
+    );
+    assert(
+      !c.events.some((e) => e[0] === 'erase' && e[1] >= WIN),
+      'no MPC block erased on its own'
+    );
+    const cs0 = c.events.filter((e) => e[0] === 'chunkSet');
+    const held = cs0[cs0.length - 1];
+    assert.deepStrictEqual(
+      held.slice(1),
+      [1, 0, 1],
+      'the held page: block 0, offset 0, one pageset, last'
+    );
+    assert(
+      cs0.slice(0, -1).every((e) => e[1] === all && e[3] <= 16),
+      'every other set covers all four blocks, 16 pagesets at most'
+    );
+    assert(
+      seen0[seen0.length - 1].every((b) => b === 0xff),
+      'page 0 of block 0 still blank until its own write'
+    );
+    const kinds0 = c.events.map((e) => e[0]);
+    assert(
+      !kinds0.includes('verify'),
+      'no VERIFY per unit: the body reads every page back'
+    );
+    assert.deepStrictEqual(kinds0.slice(-2), ['marks', 'reset']);
+    ok(
+      'block0InSets: block 0 in the one erase job and the pagesets, its reset-word page blank until written alone after every other page; chip == target'
+    );
+
     // the sequential wire (pagesets off): the same four blocks one by one
     c = mpcChip(ext, mpcOnChip);
     r = await W.pushProgram(
@@ -583,8 +642,7 @@ const be32 = (b, at) =>
         d && d.hooked && !d.ours && !d.ready && !d.supported,
         `v${other} is not used`
       );
-      assert.throws(() => fastFlasher.assertReady(d));
-      assert(/left alone/.test(fastFlasher.describe(d)));
+      assert.throws(() => fastFlasher.assertReady(d), /left alone/);
     }
     const orphan = fastFlasher.parseDetection(
       hook(fastFlasher.STOCK_HOOK),

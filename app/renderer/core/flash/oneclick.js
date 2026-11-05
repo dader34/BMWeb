@@ -234,15 +234,28 @@ async function oneClickLogin(sender, cb = {}) {
       // a malformed body and refuses pre-verify with 7f 31 12. The proven
       // chain (tools/experiments/noinstall_v5r.py:176, PASS on stock) uses
       // the six-byte form; keep it in lockstep.
-      const r = await sender([
-        0x31,
-        0x08,
-        0x00,
-        0x00,
-        0x00,
-        0x10,
-        ...oneClickLimbsLe(x),
-      ]);
+      //
+      // {timeout: 3000}: the DME's RSA verify takes ~1.5 s wall (observed
+      // real-car 2026-11-05: ask→answer landed at 1700 ms). The SGBD's
+      // default ParTimeoutStd (500 ms) kicks a retransmit at 500/1000/1500
+      // ms during that wait -- three re-sends for one reply, each eating
+      // ~500 ms before the real answer finally lands. A larger single
+      // timeout lets the first attempt catch the reply directly. Retries
+      // during the verify don't help (the DME is busy computing; nothing
+      // on the wire matters until it's done), they just add log noise and
+      // delay. Shaves ~1.3 s off the entry.
+      const r = await sender(
+        [
+          0x31,
+          0x08,
+          0x00,
+          0x00,
+          0x00,
+          0x10,
+          ...oneClickLimbsLe(x),
+        ],
+        { timeout: 3000 }
+      );
       // the loader echoes 71 08 whatever happened -- read the slots, the
       // only honest witness. One read spans VARIANT..a37 (0x74 B).
       const slots = await oneClickRead(sender, OC.VARIANT, 0x74);
