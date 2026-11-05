@@ -690,6 +690,7 @@ async function fbDmeEnterFastFlasher(owner, ui, opts = {}) {
             ? 'Reconnected to the triggered fast flasher (blank ext stamp)'
             : 'Reconnected to the fast flasher left running by an interrupted session'
         );
+        ui.entry(FB_FAST_ENTRY_PCT);
         return { claim, link };
       }
     } catch (e) {
