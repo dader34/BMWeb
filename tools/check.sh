@@ -377,11 +377,13 @@ run node tools/verify/test_wiring_applicability.js
 
 echo
 echo "== parts diagrams: callout hotspot file shape, the pos join, scale mapping =="
-run node tools/verify/test_etk_hotspots.js
-run node tools/verify/test_etk_lines.js
-run node tools/verify/test_etk_identify.js
+run node tools/verify/test_etk_hotspots.mjs
+run node tools/verify/test_etk_lines.mjs
+run node tools/verify/test_etk_identify.mjs
 run node tools/verify/test_router_vin.js
 run python3 tools/verify/test_etk_lines.py
+run node tools/verify/test_etk_rules.mjs
+run python3 tools/verify/test_etk_rules.py
 
 echo
 echo "== workshop documents: validity rules, the car filter, tree, renderers =="

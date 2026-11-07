@@ -618,6 +618,223 @@ def build_lines(con, chassis, names, out_dir, quiet=False):
     return (len(ln), nlines, size)
 
 
+def build_rules(con, chassis, names, out_dir, quiet=False, only_btnr=None):
+    """Write <chassis>.rules.json.gz: the catalogue's own line filter data for
+    every diagram the chassis's bundle carries -- what screens/etk/rules.js
+    evaluates the way the ETK program does (docs/etk-filter-rules.md).
+
+        {"v": 1, "chassis": "E46",
+         "el": {"<elemid>": [kind, code, name, group, saz, valid_from, valid_to]},
+         "dg": {"<btnr>": {
+             "ln": [[sachnr, callout, key, group, block, from, to, side, gear, pg, extras?], ...],
+             "rules": [{"k": "D", "vz": "+", "t": "TEXT", "fit": [variant idx...]|null,
+                        "og": [[ogid, vart, fzeile, [[vz, elemid], ...]], ...]}, ...],
+             "ueber": {"B": ["D"]}, "bed": "C", "cp": [["FROM", 20060901], ...]}}}
+
+    THE LINES RIDE IN THE BUNDLE'S OWN ORDER. The bundle lists one part row
+    per catalogue line, sorted by line number then part number (see build),
+    but it replaced the line number by the callout, so a line can only be
+    named by its position: ln[i] belongs to diagram.parts[i], and carries the
+    part number so the viewer can prove the alignment before trusting it.
+    key is the rule letter plus the rule number (D, AR4); from/to are YYYYMM;
+    extras, when present, hold what differs per variant: alt (the variants
+    whose line is a wiring-harness age row), age ({variant: [art, months]}),
+    cp (the line's changepoints: [[variants|null, typ, plant, art, date, vin,
+    vin date, vin min, vin max, age], ...]).
+
+    rules are the rules the catalogue loads for the diagram: fit is the list
+    of variants (model columns) a rule applies to, null when the diagram
+    itself is under it (then every variant). el names every element the
+    rules mention: kind S (option), A (paint/upholstery) or T (text), its
+    code (S760A), name, exclusive-group id, retrofittable flag, and the
+    option's validity window (YYYYMMDD) so a car's own codes resolve by
+    build date.
+
+    Returns (diagrams, rules, bytes) or None when the chassis has no lines."""
+    import gzip
+    variants = []          # the type keys, in the bundle's variant order
+    mospid_vidx = {}
+    for mospid, key in con.execute(
+            "SELECT fztyp_mospid, fztyp_typschl FROM w_fztyp WHERE fztyp_baureihe=?",
+            (chassis,)):
+        mospid_vidx.setdefault(mospid, []).append(len(variants))
+        variants.append(key)
+    mospids = list(mospid_vidx)
+    if not mospids:
+        return None
+    every = list(range(len(variants)))
+
+    # 1. the lines, (btnr, pos, sachnr), with what the fitment row says per
+    #    variant (harness-age mark, car-age rule)
+    lines = {}   # btnr -> {(pos, sachnr): {'alt': set, 'age': {vidx: [art, months]}}}
+    for btnr, pos, sachnr, mospid, alt, art, alter in chunked_in(con,
+            "SELECT btzeilenv_btnr, btzeilenv_pos, btzeilenv_sachnr, btzeilenv_mospid, "
+            "btzeilenv_alter_kz, btzeilenv_bed_art, btzeilenv_bed_alter "
+            "FROM w_btzeilen_verbauung WHERE btzeilenv_mospid IN (%s)", mospids):
+        if only_btnr and btnr != only_btnr:
+            continue
+        rec = lines.setdefault(btnr, {}).setdefault((pos, sachnr), {})
+        if alt:
+            rec.setdefault('alt', set()).update(mospid_vidx[mospid])
+        if art and alter:
+            for vi in mospid_vidx[mospid]:
+                rec.setdefault('age', {})[vi] = [art, int(alter)]
+    btnrs = sorted(lines)
+    if not btnrs:
+        return None
+
+    # 2. the line's own columns
+    attrs = {}
+    for row in chunked_in(con,
+            "SELECT btzeilen_btnr, btzeilen_pos, btzeilen_bildposnr, btzeilen_automatik, "
+            "btzeilen_lenkg, btzeilen_eins, btzeilen_auslf, btzeilen_bedkez, btzeilen_regelnr, "
+            "btzeilen_gruppeid, btzeilen_blocknr, btzeilen_bedkez_pg "
+            "FROM w_btzeilen WHERE btzeilen_btnr IN (%s)", btnrs):
+        attrs[(row[0], row[1])] = row[2:]
+
+    # 3. which rules apply to which variants, plus the diagram-level rule
+    rule_fit = {}   # (btnr, kez) -> set(vidx) | None for every variant
+    for btnr, mospid, kez in chunked_in(con,
+            "SELECT btebk_btnr, btebk_mospid, btebk_kez FROM w_bte_bedkurz "
+            "WHERE btebk_mospid IN (%s)", mospids):
+        if btnr in lines:
+            s = rule_fit.setdefault((btnr, kez), set())
+            if s is not None:
+                s.update(mospid_vidx[mospid])
+    bed_of = {}
+    for btnr, kez in chunked_in(con,
+            "SELECT bildtaf_btnr, bildtaf_bedkez FROM w_bildtaf WHERE bildtaf_btnr IN (%s)", btnrs):
+        if kez:
+            bed_of[btnr] = kez
+            rule_fit[(btnr, kez)] = None
+    gesamt = {}
+    for btnr, kez, vz, term in chunked_in(con,
+            "SELECT btebg_btnr, btebg_kez, btebg_vz, btebg_gesamtterm FROM w_bte_bedgesamt "
+            "WHERE btebg_btnr IN (%s)", btnrs):
+        if (btnr, kez) in rule_fit:
+            gesamt[(btnr, kez)] = (vz or '+', term or '')
+    ogs = {}
+    for btnr, kez, ogid, vart, fz in chunked_in(con,
+            "SELECT btebo_btnr, btebo_kez, btebo_ogid, btebo_vart, btebo_fzeile FROM w_bte_bedog "
+            "WHERE btebo_btnr IN (%s)", btnrs):
+        if (btnr, kez) in gesamt:
+            ogs.setdefault((btnr, kez), {})[ogid] = [vart or '', fz or '']
+    elems = {}
+    for btnr, kez, ogid, pos, vz, elemid in chunked_in(con,
+            "SELECT btebe_btnr, btebe_kez, btebe_ogid, btebe_pos, btebe_vz, btebe_elemid "
+            "FROM w_bte_bedelem WHERE btebe_btnr IN (%s)", btnrs):
+        if (btnr, kez) in gesamt:
+            elems.setdefault((btnr, kez, ogid), []).append((pos or 0, vz or '+', elemid))
+    ueber = {}
+    for btnr, kez, kezu in chunked_in(con,
+            "SELECT DISTINCT btebu_btnr, btebu_kez, btebu_kezueber FROM w_bte_bedueber "
+            "WHERE btebu_btnr IN (%s)", btnrs):
+        ueber.setdefault(btnr, {}).setdefault(kez, []).append(kezu)
+    bte_cp = {}
+    for btnr, art, datum in chunked_in(con,
+            "SELECT bildtafc_btnr, bildtafc_art, bildtafc_datum FROM w_bildtaf_cp "
+            "WHERE bildtafc_btnr IN (%s)", btnrs):
+        bte_cp.setdefault(btnr, []).append([art, datum])
+    line_cp = {}
+    for mospid, btnr, pos, typ, werk, art, datum, vin, vinprod, vmin, vmax, alter in chunked_in(con,
+            "SELECT btzeilenc_mospid, btzeilenc_btnr, btzeilenc_pos, btzeilenc_typschl, "
+            "btzeilenc_werk, btzeilenc_art, btzeilenc_datum, btzeilenc_vin, btzeilenc_vin_proddatum, "
+            "btzeilenc_vin_min, btzeilenc_vin_max, btzeilenc_alter FROM w_btzeilen_cp "
+            "WHERE btzeilenc_mospid IN (%s)", mospids):
+        if btnr in lines:
+            line_cp.setdefault((btnr, pos), []).append(
+                [sorted(mospid_vidx[mospid]), typ, werk, art, datum, vin, vinprod, vmin, vmax, alter])
+
+    # 4. the elements the rules mention
+    elemids = {e for rows in elems.values() for (_, _, e) in rows}
+    el = {}
+    for elemid, tc, egid, ogid, excl, art, pnr, hz, saz, gv, gb, afl in chunked_in(con,
+            "SELECT b.bed_elemid, b.bed_textcode, b.bed_egid, b.bed_ogid, e.eg_exklusiv, "
+            "s.bedsala_art, s.bedsala_pnr, s.bedsala_hz, s.bedsala_saz, s.bedsala_gilt_v, "
+            "s.bedsala_gilt_b, a.bedafl_code FROM w_bed b LEFT JOIN w_eg e ON e.eg_id=b.bed_egid "
+            "LEFT JOIN w_bed_sala s ON s.bedsala_id=b.bed_elemid "
+            "LEFT JOIN w_bed_afl a ON a.bedafl_id=b.bed_elemid WHERE b.bed_elemid IN (%s)", elemids):
+        if str(elemid) in el:
+            continue
+        if ogid == 'AFL':
+            kind, code = 'A', afl or ''
+        elif ogid == 'TEXT':
+            kind, code = 'T', ''
+        else:
+            kind, code = 'S', (art or '') + (pnr or '') + (hz or '')
+        el[str(elemid)] = [kind, code, (names.get(tc) or '').strip(),
+                           str(egid) if (excl or '').upper() == 'J' else None,
+                           1 if (saz or '').upper() == 'J' else 0, gv, gb]
+
+    # 5. assemble, per diagram, in the bundle's order
+    dg = {}
+    nrules = 0
+    for btnr in btnrs:
+        rows = []
+        for (pos, sachnr), rec in sorted(lines[btnr].items()):
+            a = attrs.get((btnr, pos)) or (None,) * 10
+            callout, auto, lenkg, eins, auslf, bedkez, regelnr, gruppe, block, pg = a
+            key = (str(bedkez) + ('' if regelnr is None else str(regelnr))) if bedkez else None
+            row = [(sachnr or '').strip(), pos if callout is None else callout, key, gruppe or 0, block or 0,
+                   int(eins) // 100 if eins else 0, int(auslf) // 100 if auslf else 0,
+                   lenkg if lenkg in ('L', 'R') else '', auto if auto in ('A', 'M') else '',
+                   pg or '']
+            extras = {}
+            if rec.get('alt'):
+                extras['alt'] = sorted(rec['alt'])
+            if rec.get('age'):
+                extras['age'] = {str(k): v for k, v in sorted(rec['age'].items())}
+            if (btnr, pos) in line_cp:
+                extras['cp'] = line_cp[(btnr, pos)]
+            if extras:
+                row.append(extras)
+            rows.append(row)
+        entry = {'ln': rows}
+        rules = []
+        for (b, kez), fit in sorted(rule_fit.items(), key=lambda kv: (kv[0][0], len(kv[0][1]), kv[0][1])):
+            if b != btnr or (b, kez) not in gesamt:
+                continue
+            vz, term = gesamt[(b, kez)]
+            og_list = []
+            for ogid, (vart, fz) in sorted(ogs.get((b, kez), {}).items()):
+                members = [[evz, eid] for (_, evz, eid) in sorted(elems.get((b, kez, ogid), []))]
+                og_list.append([ogid, vart, fz, members])
+            rules.append({'k': kez, 'vz': vz, 't': term,
+                          'fit': None if fit is None or len(fit) == len(every) else sorted(fit),
+                          'og': og_list})
+        if rules:
+            entry['rules'] = rules
+            nrules += len(rules)
+        if btnr in ueber:
+            entry['ueber'] = ueber[btnr]
+        if btnr in bed_of:
+            entry['bed'] = bed_of[btnr]
+        if btnr in bte_cp:
+            entry['cp'] = bte_cp[btnr]
+        dg[btnr] = entry
+    payload = json.dumps({'v': 1, 'chassis': chassis, 'el': el, 'dg': dg},
+                         ensure_ascii=False, separators=(',', ':')).encode('utf-8')
+    os.makedirs(out_dir, exist_ok=True)
+    path = os.path.join(out_dir, f'{chassis}.rules.json.gz')
+    tmp_path = path + '.tmp'
+    try:
+        with open(tmp_path, 'wb') as f:
+            with gzip.GzipFile(fileobj=f, mode='wb', mtime=0) as g:
+                g.write(payload)
+    except BaseException:
+        try:
+            os.remove(tmp_path)
+        except OSError:
+            pass
+        raise
+    os.replace(tmp_path, path)
+    size = os.path.getsize(path)
+    if not quiet:
+        print(f"  {chassis}: {len(dg)} diagrams, {nrules} rules, {len(el)} elements "
+              f"-> {size/1e3:.1f} KB")
+    return (len(dg), nrules, size)
+
+
 def build_hotspots(con, chassis, out_dir, quiet=False):
     """Write <chassis>.hs.json.gz: the clickable callout rectangles of every
     diagram that chassis's bundle carries.
@@ -847,6 +1064,10 @@ def main():
                     help='write only <chassis>.lines.json.gz (each parts line\'s '
                          'validity: dates, steering, gearbox, condition, note) '
                          'and exit; a bundle built by a full run carries them inline')
+    ap.add_argument('--rules', action='store_true',
+                    help='write only <chassis>.rules.json.gz (the catalogue\'s own line '
+                         'filter: equipment rules, line keys, changepoints) and exit')
+    ap.add_argument('--only-btnr', help='with --rules: one diagram only (fixtures)')
     args = ap.parse_args()
 
     if not os.path.exists(args.db):
@@ -878,6 +1099,22 @@ def main():
                 nbytes += r[2]
         print(f"done: {nch}/{len(targets)} chassis, {ndiag:,} diagrams, "
               f"{nln:,} conditioned lines, {nbytes/1e6:.2f} MB total")
+        return
+
+    if args.rules:
+        targets = [args.chassis] if args.chassis else chassis_list(con)
+        names = resolve_names(con, args.iso)
+        print(f"writing line filter rules for {len(targets)} chassis...")
+        nch = ndiag = nrul = nbytes = 0
+        for ch in targets:
+            r = build_rules(con, ch, names, args.out, quiet=False, only_btnr=args.only_btnr)
+            if r:
+                nch += 1
+                ndiag += r[0]
+                nrul += r[1]
+                nbytes += r[2]
+        print(f"done: {nch}/{len(targets)} chassis, {ndiag:,} diagrams, "
+              f"{nrul:,} rules, {nbytes/1e6:.2f} MB total")
         return
 
     if args.hotspots:
