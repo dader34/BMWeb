@@ -37,7 +37,7 @@
 //      needs loading.
 //
 // "Update boot sector" (bench only) is at the end of this file.
-/* exported fbBlHtml, fbBlRefresh */
+/* exported fbBlHtml, fbBlRefresh, fbBlHealthRead */
 
 function fbBlHtml() {
   // The FAST FLASH BOOTLOADER section (Install / Repair / Restore stock

@@ -9,7 +9,7 @@
 // helpers, the dialogs the flows ask with, the module choice and Identify, and
 // the History and Settings pages. The DME flows live in dme.js, the
 // transmission's in tcu.js, Custom Options (EWS delete, map switch, no auto
-// upshift) in options.js. The engines underneath are core/ms45/ms45.js (the DME
+// upshift) in options.js, the fault memory page in faults-page.js. The engines underneath are core/ms45/ms45.js (the DME
 // over the SGBD's jobs), core/flash/gs20.js + core/flash/gs20-program.js (the
 // transmission over raw DS2), core/flash/mapswitch.js and core/flash/flash-history.js.
 /* exported showFlashing, fbApplyLayout, fbState, fbEls, fbSetStatus, fbSetStage, fbSetStatusInPlace, fbLog, fbProgress, fbFlashingBar, fbBusy, fbConfirm, fbMessage, fbChoose, fbConfirmAck, fbPickFile, fbIsIos, fbReadBytes, fbReadText, fbSaveBytes, fbEnsureCable, fbDescribeError, fbProgrammingCounter, fbRefreshCustomOptionsGate, fbShowOptions, fbAifArgs, fbOnSharedCar, fbRemoteAction, fbFlashRun, fbAifWanted, fbFastFlasherWanted, fbSetEcuBox, fbRefreshAll, fbDevUi, fbWriteAif, fbTesterSerial, fbSessionStart, fbSessionStop */
@@ -79,6 +79,7 @@ const FB_PAGE_TITLES = {
   flashing: 'Flashing',
   tuning: 'Tuning',
   logging: 'Data logging',
+  faults: 'Fault codes',
   history: 'History',
   aif: 'AIF editor',
   isn: 'ISN / EWS',
@@ -204,6 +205,7 @@ async function showFlashing(page) {
       <button class="fb-rail-btn current" id="fb-rail-flashing" title="Flashing">&#x21AF;</button>
       <button class="fb-rail-btn" id="fb-rail-tuning" title="Tuning">&#x26C3;</button>
       <button class="fb-rail-btn" id="fb-rail-logging" title="Data logging">&#x223F;</button>
+      <button class="fb-rail-btn" id="fb-rail-faults" title="Fault codes">&#x26A0;&#xFE0E;</button>
       <button class="fb-rail-btn" id="fb-rail-history" title="History">&#x27F2;</button>
       <button class="fb-rail-btn fb-rail-word" id="fb-rail-aif" title="AIF" hidden><span>AIF</span></button>
       <button class="fb-rail-btn fb-rail-word" id="fb-rail-isn" title="ISN / EWS" hidden><span>EWS</span><span>ISN</span></button>
@@ -242,6 +244,8 @@ async function showFlashing(page) {
       <div class="fb-page" id="fb-page-tuning" hidden></div>
 
       <div class="fb-page fb-page-logging" id="fb-page-logging" hidden></div>
+
+      ${fbFaultsPageHtml()}
 
       <div class="fb-page" id="fb-page-history" hidden>
         <div class="fb-row">
@@ -289,6 +293,11 @@ async function showFlashing(page) {
           <div class="fb-dim">A module keeps 14 entries and they cannot be erased. Before a flash the app says how many are left and asks whether to go on. With this off, nothing is written to the log and no question is asked.</div>
         </div>
         <div class="fb-section">
+          <div class="fb-code">AFTER A FLASH</div>
+          <label class="fb-check"><input type="checkbox" id="fb-set-clearfaults"> Clear the DME's and the TCU's fault memories after a flash</label>
+          <div class="fb-dim">Once Flash Tune, Flash Program or a transmission write has finished and the module answers again, both modules' stored faults are cleared: a programming session leaves faults in the module written, and the other one logs losing it on the bus meanwhile. A transmission not identified is tried by variant. Nothing is cleared after a read or after a write that failed.</div>
+        </div>
+        <div class="fb-section">
           <div class="fb-code">TESTING ONLY</div>
           <button class="btn" id="fb-verify-program" disabled>Finish Programming</button>
           <div class="fb-dim">Runs the DME's program and calibration signature checks and resets it; nothing is written. For a DME left in the bootloader by a flash that stopped part-way. Needs an identified DME.</div>
@@ -321,6 +330,7 @@ async function showFlashing(page) {
   fbEls['rail-flashing'].onclick = () => fbShowPage('flashing');
   fbEls['rail-tuning'].onclick = () => fbShowPage('tuning');
   fbEls['rail-logging'].onclick = () => fbShowPage('logging');
+  fbEls['rail-faults'].onclick = () => fbShowPage('faults');
   fbEls['rail-history'].onclick = () => fbShowPage('history');
   fbEls['rail-aif'].onclick = () => fbShowPage('aif');
   fbEls['rail-isn'].onclick = () => fbShowPage('isn');
@@ -368,6 +378,9 @@ async function showFlashing(page) {
   };
   fbEls['set-aif'].onchange = () =>
     Settings.set('flashWriteAif', fbEls['set-aif'].checked);
+  fbEls['set-clearfaults'].checked = fbFaultsClearAfterFlashWanted();
+  fbEls['set-clearfaults'].onchange = () =>
+    Settings.set('flashClearFaults', fbEls['set-clearfaults'].checked);
   fbEls['set-dev'].onchange = () => {
     Settings.set('flashDevUi', fbEls['set-dev'].checked);
     fbRefreshAll();
@@ -386,6 +399,7 @@ async function showFlashing(page) {
   fbTcuWire();
   fbOptionsWire();
   fbFastWire();
+  fbFaultsWire();
   if (returning) fbRestoreView();
   fbRefreshAll();
   fbHistoryRefresh();
@@ -478,6 +492,7 @@ function fbShowPage(page) {
     'flashing',
     'tuning',
     'logging',
+    'faults',
     'history',
     'aif',
     'isn',
@@ -491,9 +506,10 @@ function fbShowPage(page) {
   const logging = page === 'logging';
   // the editor's floating windows (gauges, graphs, faults) go with its page
   document.body.classList.toggle('tn-away', !tuning);
-  // the control-unit bar belongs to the flashing page alone; the editor and
-  // the logger bring their own bars, so the status line makes way for both
-  fbEls.topbar.hidden = page !== 'flashing';
+  // the control-unit bar belongs to the flashing page and the fault page
+  // (its reads follow the module chosen there); the editor and the logger
+  // bring their own bars, so the status line makes way for both
+  fbEls.topbar.hidden = page !== 'flashing' && page !== 'faults';
   // a skinned window opens out to the whole view for them (styles.css)
   const wrap = document.querySelector('#view .fb');
   if (wrap) wrap.classList.toggle('fb-page-wide', tuning || logging);
@@ -509,6 +525,9 @@ function fbShowPage(page) {
     logMount(fbEls['page-logging'], fbState.actions[0]);
   if (page === 'flashing') fbShowOptions(false);
   if (page === 'history') fbHistoryRefresh();
+  // the fault page's live scan runs only while it shows
+  if (page === 'faults') fbFaultsShow();
+  else fbFaultsLeave();
   if (page === 'aif') fbAifEdShow();
   if (page === 'isn') fbIsnShow();
   if (page === 'fast') fbFastShow();
@@ -1063,6 +1082,8 @@ const FB_REMOTE_LABELS = {
   'flash-tune': 'Flashing: Flash Tune (DME calibration)',
   'flash-program': 'Flashing: Flash Program (DME program + calibration)',
   'verify-program': 'Flashing: verify the programming',
+  'read-faults': 'Flashing: read the fault memory',
+  'clear-faults': 'Flashing: clear the fault memory',
   'tcu-cal-read': 'Flashing: read the TCU calibration',
   'tcu-full-read': 'Flashing: read the whole TCU',
   'tcu-cal-write': 'Flashing: write the TCU calibration',
@@ -1090,6 +1111,7 @@ function fbModuleChanged() {
   fbShowOptions(false);
   fbDmeReset();
   fbTcuReset();
+  fbFaultsReset();
   fbEls.identify.disabled = !m;
   fbEls.identify.textContent = 'Identify';
   fbSetEcuBox(
@@ -1140,6 +1162,7 @@ function fbRefreshAll() {
   fbEls['tcu-panel'].hidden = fbState.module !== 'tcu';
   fbDmeRefresh();
   fbTcuRefresh();
+  fbFaultsPaint();
   fbRefreshCustomOptionsGate();
   fbEls['verify-program'].disabled = !(fbState.dme && fbState.dme.identified);
   // the log editor only for a DME identified with the bootloader

@@ -29,6 +29,7 @@
 // by switching the ignition off for ten seconds -- the DME comes back on
 // its own program. A failure DURING a flash is resumed by running the same
 // operation again.
+/* exported fbDmeOneClickDue, fbDmeOneClickFlashTune, fbDmeOneClickFlashProgram, fbDmeOneClickRead, fbOneClickToolsHtml, fbOneClickToolsRefresh */
 
 /** Appended to every one-click entry failure. */
 const FB_OC_RECOVERY =
@@ -292,9 +293,6 @@ async function fbDmeOneClickTrigger(title, ui = {}) {
       // written, so the stamp-magic and parseDetection checks that
       // apply to a FLASHED body do not apply here. Build the detection
       // from what we know (the version we just triggered) instead.
-      let magic = '';
-      if (stamp && stamp.length >= 6)
-        magic = String.fromCharCode(...stamp.subarray(0, 6));
       det = fastFlasher.parseDetection(null, stamp);
       if (!det || !det.supported) {
         // blank/garbage stamp: synthesise from the known triggered body.
@@ -381,16 +379,6 @@ async function fbDmeOneClickTrigger(title, ui = {}) {
 // alias keeps anything older working without a cross-file rename.
 const fbDmeOneClickInto = fbDmeOneClickTrigger;
 
-/** One confirm that covers BOTH halves (the exploit's erase and the flash). */
-function fbDmeOneClickConfirm(tune) {
-  return fbConfirm(
-    'The one-click starts the flasher without writing anything; once the write begins it must complete. An interrupted write is resumed by running the same operation again.\n\n' +
-      'Keep the ignition on, a charger on the battery and the cable plugged in until it has finished.\n\n' +
-      `Write the ${tune ? 'tune' : 'program'}?`,
-    tune ? 'Flash Tune (one-click)' : 'Flash Program (one-click)'
-  );
-}
-
 /**
  * Flash Tune through the one-click: the shared fast-flash session with the
  * one-click entry in place of the reset, and a confirm that discloses the
@@ -403,18 +391,14 @@ async function fbDmeOneClickFlashTune() {
   const d = fbState.dme;
   if (!d.identified || !d.flash) return;
   if (!(await fbDmeOneClickGate('Flash Tune'))) return;
-  if (!(await fbDmeOneClickConfirm(true))) {
-    flashLog.note('Flash Tune (one-click) not confirmed: nothing was sent');
-    return;
-  }
   await fbDmeFastFlash({
-    title: 'Flash Tune (one-click)',
+    title: 'Flash Tune',
     operation: 'oneclick-flash-tune',
     what: 'calibration',
     confirmed: true,
     note: `DME ${d.ident.hwRef} / prog ${d.ident.progRef} / one-click (selector-5 grant)${d.flashName ? ` / file ${d.flashName}` : ''}`,
     async prepare() {
-      await fbDmeOneClickInto('Flash Tune (one-click)');
+      await fbDmeOneClickInto('Flash Tune');
       // the same bytes Flash Tune would write, signed the same way
       const cal = await fbDmePrepareTuneCal();
       const signedCal = ms45Checksums.signParameters(
@@ -437,23 +421,17 @@ async function fbDmeOneClickFlashProgram() {
   const d = fbState.dme;
   if (!d.identified || !d.flash || !d.mpc) return;
   if (!(await fbDmeOneClickGate('Flash Program'))) return;
-  if (!(await fbDmeOneClickConfirm(false))) {
-    flashLog.note('Flash Program (one-click) not confirmed: nothing was sent');
-    return;
-  }
   try {
-    await fbDmeOneClickInto('Flash Program (one-click)');
+    await fbDmeOneClickInto('Flash Program');
   } catch (e) {
-    fbSetStatus(`Flash Program (one-click) failed: ${fbDescribeError(e)}`);
-    flashLog.note(`Flash Program (one-click) failed: ${e.message}`);
+    fbSetStatus(`Flash Program failed: ${fbDescribeError(e)}`);
+    flashLog.note(`Flash Program failed: ${e.message}`);
     return;
   }
-  // confirmed:true skips the Fast Flash Program dialog: the one-click
-  // already asked ("Flash Program" above via fbDmeOneClickConfirm), and
-  // the DME has by now been fired into the resident body -- there is no
-  // choice to make here, only the push to run. The Flash Tune (one-click)
-  // path has always used the same opt-in; this match drops a redundant
-  // "Write the program?" prompt after the one-click has already started.
+  // confirmed:true skips the Fast Flash Program dialog: ticking "Use the
+  // fast flasher" IS the acknowledgement, and the DME has by now been
+  // fired into the resident body -- there is no choice to make here, only
+  // the push to run.
   await fbDmeFastFlashProgram({ confirmed: true });
 }
 
@@ -466,24 +444,14 @@ async function fbDmeOneClickRead() {
   if (!d.identified) return;
   if (!(await fbDmeOneClickGate('Read DME'))) return;
   const full = !!d.fullBin;
-  if (
-    !(await fbConfirm(
-      `Read DME (one-click) starts the flasher on this STOCK DME with the selector-5 login -- nothing is installed or written -- and reads ${full ? 'the full flash and the MPC' : 'the tune'} through it before the DME restarts.\n\n` +
-        'Read the DME?',
-      'Read DME (one-click)'
-    ))
-  ) {
-    flashLog.note('Read DME (one-click) not confirmed: nothing was sent');
-    return;
-  }
   await fbDmeFastFlash({
-    title: 'Read DME (one-click)',
+    title: 'Read DME',
     operation: 'oneclick-read',
     what: 'read',
     confirmed: true,
     note: `DME ${d.ident.hwRef} / prog ${d.ident.progRef} / one-click read, ${full ? 'full' : 'tune'}`,
     async prepare() {
-      await fbDmeOneClickInto('Read DME (one-click)');
+      await fbDmeOneClickInto('Read DME');
       return {};
     },
     push: async (client, cb) => {
@@ -528,159 +496,17 @@ async function fbDmeOneClickRead() {
   });
 }
 
+// ---- the Fast flasher page's bootloader section ---------------------------------
 /**
- * Read ISN through the one-click: the six bytes at ext 0x1FB00 voted the
- * DME's own way, through the triggered body -- the same read the rail page
- * makes through an installed flasher, with the calibration put back after.
- */
-async function fbDmeOneClickIsnRead() {
-  if (!(await fbDmeOneClickGate('Read ISN', { ms451: true }))) return;
-  await fbDmeFastFlash({
-    title: 'Read ISN (one-click)',
-    operation: 'oneclick-isn-read',
-    what: 'read',
-    noFasterLine: true,
-    confirmed: true,
-    confirm: '',
-    note: `DME ${fbState.dme.ident.hwRef} / one-click flash ISN read`,
-    async prepare() {
-      await fbDmeOneClickInto('Read ISN (one-click)');
-      return {};
-    },
-    push: async (client, cb) => {
-      cb.stage('Reading the ISN');
-      const six = await client.read(isnFlash.AT, isnFlash.LEN);
-      const isn = isnFlash.fromTriple(six);
-      const hex = Array.from(six)
-        .map((b) => b.toString(16).padStart(2, '0'))
-        .join(' ');
-      fbSetStatus(
-        isn === null
-          ? `Read ISN: the triple did not vote (0x1FB00 = ${hex})`
-          : `Read ISN: ${isnFlash.text(isn)} (0x1FB00 = ${hex})`
-      );
-      cb.stage('Restarting the DME');
-      await client.reset();
-      return {
-        skipped: false,
-        summary: isn === null ? 'no vote' : isnFlash.text(isn),
-      };
-    },
-    after: async () => {},
-  });
-}
-
-/**
- * Write ISN through the one-click: the same boot-sector ladder the rail
- * page's Write ISN drives (bl.burnIsn), served by the triggered body. The
- * burn rewrites the BOOT sector only, so the calibration the trigger
- * erased is put back after it, exactly as the read does.
- */
-async function fbDmeOneClickIsnWrite() {
-  if (!(await fbDmeOneClickGate('Write ISN', { ms451: true }))) return;
-  const isn = await fbIsnPrompt({
-    title: 'Write ISN (one-click)',
-    action: 'Write',
-    body: `<p>Burns a new ISN into the DME's flash boot sector through the one-click-started flasher -- no bootloader needed on the DME.</p>
-          <p>Only the ISN is written: the calibration, program, EEPROM and log are kept.</p>
-          <p>Keep the ignition on, a charger on the battery and the cable plugged in until it has finished. The car starts only when this matches the EWS's ISN and the rolling code has been synced.</p>`,
-  });
-  if (isn === null) {
-    flashLog.note('Write ISN (one-click) not confirmed: nothing was sent');
-    return;
-  }
-  await fbDmeFastFlash({
-    title: 'Write ISN (one-click)',
-    operation: 'oneclick-isn-write',
-    what: 'boot loader',
-    noFasterLine: true,
-    confirmed: true,
-    confirm: '',
-    note: `DME ${fbState.dme.ident.hwRef} / one-click burn ISN ${isnFlash.text(isn)} at flash 0x1FB00`,
-    async prepare() {
-      await fbDmeOneClickInto('Write ISN (one-click)');
-      return {};
-    },
-    push: async (client, cb) => {
-      const r = await bl.burnIsn(client, isn, cb);
-      cb.stage('Restarting the DME');
-      await client.reset();
-      fbSetStatus(`Write ISN: done, ${isnFlash.text(isn)} is on the DME`);
-      return r;
-    },
-    after: async () => {},
-  });
-}
-
-/**
- * Read EEPROM through the one-click: the 4 KB serial EEPROM off the
- * triggered body's own read window (a body feature, no ee_write module
- * needed), with the calibration put back after. EEPROM WRITES stay on the
- * installed-flasher lane: the write service is served by a module the
- * bootstrap parks in ext flash at 0xFF000, which a stock DME does not
- * carry.
- */
-async function fbDmeOneClickEepromDump() {
-  if (!(await fbDmeOneClickGate('Read EEPROM', { ms451: true }))) return;
-  const d = fbState.dme;
-  let img = null;
-  await fbDmeFastFlash({
-    title: 'Read EEPROM (one-click)',
-    operation: 'oneclick-eeprom-read',
-    what: 'read',
-    noFasterLine: true,
-    confirmed: true,
-    confirm: '',
-    note: `DME ${d.ident.hwRef} / one-click EEPROM read`,
-    async prepare() {
-      const det = await fbDmeOneClickInto('Read EEPROM (one-click)');
-      if (!(det.flags & 0x10))
-        throw new Error(
-          `this body has no EEPROM read window (stamp flags ${det.flags.toString(16)}); ${FB_OC_RECOVERY}`
-        );
-      return {};
-    },
-    push: async (client, cb) => {
-      cb.stage('Reading the EEPROM');
-      img = await eepromDump.dump(client, {
-        progress: (n) => cb.progress(Math.floor((n * 100) / eepromDump.SIZE)),
-      });
-      cb.stage('Restarting the DME');
-      await client.reset();
-      return {
-        skipped: false,
-        summary: `the EEPROM read, ${img.length >> 10} KB`,
-      };
-    },
-    after: async () => {},
-  });
-  if (!img) return;
-  const who = [d.ident.vin, d.ident.hwRef].filter(Boolean).join('_') || 'dme';
-  fbSaveBytes(`${who}_EEPROM_${img.length >> 10}K.bin`, img);
-}
-
-// ---- the Fast flasher page's one-click tools row --------------------------------
-/**
- * The tools the one-click adds to the Fast flasher page on a stock DME:
- * the ISN and EEPROM reads (and the ISN write) that otherwise need the
- * installed flasher. Hidden whenever the normal lanes cover them.
- *
- * Also includes the "Restore stock bootloader" section, which appears
- * whenever Identify found a resident fast flasher body on the DME
- * (d.fastFlasher.hooked). It runs Fast Flash Program with the default
- * carry (fastFlasher.withoutFlasher), which rewrites the program without
- * the body -- returning the DME to stock.
+ * The "Restore stock bootloader" section, which appears whenever Identify
+ * found a resident fast flasher body on the DME (d.fastFlasher.hooked). It
+ * runs Fast Flash Program with the default carry
+ * (fastFlasher.withoutFlasher), which rewrites the program without the
+ * body -- returning the DME to stock. (The ISN and EEPROM one-click tools
+ * live on the ISN/EWS rail tab; the Fast page carries only this.)
  */
 function fbOneClickToolsHtml() {
   return `
-      <div class="fb-section" id="fb-oneclick-section" hidden>
-        <div class="fb-code">ONE-CLICK TOOLS</div>
-        <div class="fb-row">
-          <button class="btn" id="fb-oc-isn-read" disabled title="Reads the ISN off the DME's flash through the one-click-started flasher. Nothing but the unchanged calibration is written.">Read ISN</button>
-          <button class="btn danger" id="fb-oc-isn-write" disabled title="Burns an ISN into the DME's flash boot sector through the one-click-started flasher.">Write ISN</button>
-        </div>
-        <div class="fb-faint" id="fb-oc-reason"></div>
-      </div>
       <div class="fb-section" id="fb-restore-stock-section" hidden>
         <div class="fb-code">BOOTLOADER</div>
         <div class="fb-row">
@@ -691,33 +517,11 @@ function fbOneClickToolsHtml() {
       </div>`;
 }
 
-/** Wire the row once, then gate it from the state (called by fbFastPaint). */
+/**
+ * The Fast page's bootloader section, gated from the state (called by
+ * fbFastPaint). Shown when a resident fast flasher body is detected.
+ */
 function fbOneClickToolsRefresh() {
-  const sec = fbEls['oneclick-section'];
-  // The one-click tools (Read ISN / Write ISN) live on the ISN/EWS tab,
-  // not here. Always hide the section on the Fast flasher tab.
-  if (sec) sec.hidden = true;
-  fbRestoreStockRefresh();
-  const due = fbDmeOneClickDue();
-  if (!due) return;
-  if (!fbEls['oc-isn-read'].dataset.wired) {
-    fbEls['oc-isn-read'].dataset.wired = '1';
-    fbEls['oc-isn-read'].onclick = () =>
-      fbDmeGuard('Read ISN', fbDmeOneClickIsnRead);
-    fbEls['oc-isn-write'].dataset.wired = '1';
-    fbEls['oc-isn-write'].onclick = () =>
-      fbDmeGuard('Write ISN', fbDmeOneClickIsnWrite);
-    fbEls['oc-eeprom'].dataset.wired = '1';
-    fbEls['oc-eeprom'].onclick = () =>
-      fbDmeGuard('Read EEPROM', fbDmeOneClickEepromDump);
-  }
-  const why = fbDmeOneClickGateWhy({ ms451: true });
-  for (const id of ['oc-isn-read', 'oc-isn-write', 'oc-eeprom'])
-    fbEls[id].disabled = !!why || !!fbState.running;
-  fbEls['oc-reason'].textContent =
-    why || 'Ready: the calibration is read first and rewritten unchanged.';
-
-  // Restore stock bootloader section: show when a resident body is detected.
   fbRestoreStockRefresh();
 }
 

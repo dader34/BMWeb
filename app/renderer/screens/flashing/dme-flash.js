@@ -46,7 +46,10 @@ async function fbDmeFlashTune() {
   } finally {
     fbFlashingBar(false);
     fbProgress(0);
-    if (success) await fbDmeIdentify(true);
+    if (success) {
+      await fbDmeIdentify(true);
+      await fbFaultsClearAfterFlash('dme');
+    }
     await fbSessionStop();
   }
 }
@@ -318,7 +321,13 @@ async function fbDmeFlashProgram(opts = {}) {
   } finally {
     fbFlashingBar(false);
     fbProgress(0);
-    if (success) await (opts.after ? opts.after() : fbDmeIdentify(true));
+    if (success) {
+      if (opts.after) await opts.after();
+      else {
+        await fbDmeIdentify(true);
+        await fbFaultsClearAfterFlash('dme');
+      }
+    }
     await fbSessionStop();
   }
   return success;

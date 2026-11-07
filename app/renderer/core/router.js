@@ -49,6 +49,8 @@ const APPS_ROUTES = {
   // the app's other two pages: its history of sessions, and its settings
   'apps/history': () =>
     typeof showFlashing === 'function' ? showFlashing('history') : null,
+  'apps/faults': () =>
+    typeof showFlashing === 'function' ? showFlashing('faults') : null,
   'apps/flashing-settings': () =>
     typeof showFlashing === 'function' ? showFlashing('settings') : null,
   garage: () => (typeof showGarage === 'function' ? showGarage() : null),
@@ -576,13 +578,14 @@ const FLASHING_PAGE_ROUTES = {
   flashing: 'apps/flashing',
   tuning: 'apps/tuning',
   logging: 'apps/logging',
+  faults: 'apps/faults',
   history: 'apps/history',
   settings: 'apps/flashing-settings',
 };
 
 /**
  * Set the hash to the Flashing/Tuning & Logging page that is showing.
- * @param {string} page - 'flashing', 'tuning', 'logging', 'history' or 'settings'.
+ * @param {string} page - 'flashing', 'tuning', 'logging', 'faults', 'history' or 'settings'.
  * @returns {void}
  */
 function routeSetFlashingPage(page) {

@@ -20,10 +20,6 @@
 // its flash dump.
 /* exported fbIsnPageHtml, fbIsnShow, fbIsnAvailable, fbIsnEepromHtml, fbIsnEepromRefresh */
 
-/** Stamp flag bit the v15+ bodies set (stamp byte 7): bit 4 = the EEPROM
- * read window (in the body itself). Only the EEPROM dump needs it. */
-const FB_ISN_EE_READ = 0x10;
-
 /**
  * Whether the rail offers the page: a DME identified with the fast flash
  * bootloader (the ISN tools ride on its boot-sector ladder, which every
@@ -48,10 +44,9 @@ function fbIsnAvailable() {
  * d.bootLoader so any downstream check still sees it as "live". EWS sync
  * stays off the autoEnter path (it is a stock KWP job on the application
  * side, no fast flasher involved).
- * @param {boolean} eeprom - was: EEPROM-dump-specific gate; now the same
- *   null-check as the other tools, kept for call-site compatibility.
+ * @param {boolean} eeprom - true for the EEPROM dump, which also needs the
+ *   EEPROM client loaded; the other tools pass it falsy.
  */
-// eslint-disable-next-line no-unused-vars
 function fbIsnWhyNot(eeprom) {
   const d = fbState.dme;
   if (fbState.module !== 'dme' || !d || !d.identified)

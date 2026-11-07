@@ -10904,6 +10904,51 @@ body.remote-helper::after {
   gap: 12px;
   overflow-y: auto;
 }
+/* the Fault codes page: its bar in a section, the fault list filling the
+   rest (the wrap scrolls, as the History page's does) */
+#fb-page-faults .fb-table-wrap {
+  margin-top: 0;
+}
+/* the buttons in a row as the History page's, the read's outcome after
+   them; the two options on a line of their own under it */
+.fb-faults-status {
+  margin-left: 6px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--ink-dim);
+}
+.fb-faults-status.err {
+  color: var(--red);
+}
+.fb-faults-opts {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  flex-wrap: wrap;
+}
+/* the table is the tuning editor's fault window's (css/tuning.css,
+   .tn-faults-table); only the freeze-frame line under a row is this page's */
+.fb-faults-table td.mono {
+  white-space: nowrap;
+}
+.fb-faults-table tr.fb-faults-has-env td {
+  border-bottom: 0;
+  padding-bottom: 2px;
+}
+.fb-faults-table tr.fb-faults-env td {
+  padding-top: 0;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  line-height: 1.7;
+  color: var(--ink-dim);
+}
+.fb-faults-kv {
+  display: inline-block;
+  margin-right: 16px;
+}
+.fb-faults-k {
+  color: var(--ink-faint);
+}
 #fb-set-skin {
   align-self: flex-start;
   min-width: 280px;
@@ -14601,7 +14646,6 @@ body.fb-classic-on .modal-overlay {
 }
 /* buttons: the Windows 3D button, pressed in when held */
 :root :is(.fb.fb-classic, body.fb-classic-on .modal-overlay) .btn,
-:root :is(.fb.fb-classic, body.fb-classic-on .modal-overlay) .lkd-btn,
 :root :is(.fb.fb-classic, body.fb-classic-on .modal-overlay) .fb-x,
 :root :is(.fb.fb-classic, body.fb-classic-on .modal-overlay) .fb-log-clear {
   font:
@@ -14629,8 +14673,26 @@ body.fb-classic-on .modal-overlay {
   padding: 6px 12px;
 }
 /* the dropdown's open list: black rows, the chosen one white on navy */
-:root :is(.fb.fb-classic, body.fb-classic-on .modal-overlay) .lkd-item {
+/* the open list itself (not just the rows): a Win95 listbox -- square, a flat
+   sunken border, a hard 1px shadow, no rounded corners and no soft blur */
+:root :is(.fb.fb-classic, body.fb-classic-on .modal-overlay) .lkd-pop {
+  background: #fff !important;
+  border: 1px solid #000 !important;
+  border-radius: 0 !important;
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.35) !important;
+  padding: 1px !important;
+}
+:root :is(.fb.fb-classic, body.fb-classic-on .modal-overlay) .lkd-item,
+:root
+  :is(.fb.fb-classic, body.fb-classic-on .modal-overlay)
+  .lkd-item
+  .lkd-item-label {
   color: #000 !important;
+  border-radius: 0 !important;
+  font:
+    12px Tahoma,
+    'Segoe UI',
+    sans-serif;
 }
 :root :is(.fb.fb-classic, body.fb-classic-on .modal-overlay) .lkd-item.active,
 :root
@@ -14640,15 +14702,119 @@ body.fb-classic-on .modal-overlay {
   color: #fff !important;
   background: #000080;
 }
-:root :is(.fb.fb-classic, body.fb-classic-on .modal-overlay) .btn:hover,
-:root :is(.fb.fb-classic, body.fb-classic-on .modal-overlay) .lkd-btn:hover {
+/* the closed control: a Win95 combo box -- a sunken white field with the
+   raised arrow button set into its right edge, the button pressing in while
+   the list is down */
+:root :is(.fb.fb-classic, body.fb-classic-on .modal-overlay) .lkd-btn {
+  position: relative;
+  font:
+    12px Tahoma,
+    'Segoe UI',
+    sans-serif;
+  color: #000;
+  background: #fff;
+  border: 0;
+  border-radius: 0;
+  padding: 6px 26px 6px 6px;
+  cursor: default;
+  transition: none;
+  box-shadow:
+    inset 1px 1px 0 var(--sh),
+    inset 2px 2px 0 var(--dk),
+    inset -1px -1px 0 var(--hi),
+    inset -2px -2px 0 #e3e3e3;
+}
+:root
+  :is(.fb.fb-classic, body.fb-classic-on .modal-overlay)
+  :is(.lkd-btn:hover, .lkd.open .lkd-btn) {
+  border-color: transparent;
+}
+:root :is(.fb.fb-classic, body.fb-classic-on .modal-overlay) .lkd-val {
+  padding: 1px 2px;
+}
+:root
+  :is(.fb.fb-classic, body.fb-classic-on .modal-overlay)
+  .lkd-btn:focus-visible
+  .lkd-val {
+  color: #fff;
+  background: #000080;
+  outline: 1px dotted #fff;
+  outline-offset: -1px;
+}
+:root :is(.fb.fb-classic, body.fb-classic-on .modal-overlay) .lkd-caret {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  bottom: 2px;
+  width: 17px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #000;
+  font-size: 9px;
+  background: var(--face);
+  transform: none !important;
+  transition: none;
+  box-shadow:
+    inset -1px -1px 0 var(--dk),
+    inset 1px 1px 0 #e3e3e3,
+    inset -2px -2px 0 var(--sh),
+    inset 2px 2px 0 var(--hi);
+}
+:root
+  :is(.fb.fb-classic, body.fb-classic-on .modal-overlay)
+  .lkd.open
+  .lkd-caret {
+  padding: 2px 0 0 2px;
+  box-shadow: inset 0 0 0 1px var(--sh);
+}
+:root :is(.fb.fb-classic, body.fb-classic-on .modal-overlay) .lkd-pop {
+  top: 100%;
+  min-width: 100%;
+}
+:root
+  :is(.fb.fb-classic, body.fb-classic-on .modal-overlay)
+  .lkd.drop-up
+  .lkd-pop {
+  top: auto;
+  bottom: 100%;
+}
+:root :is(.fb.fb-classic, body.fb-classic-on .modal-overlay) .lkd-list {
+  padding: 0;
+}
+/* listbox rows: tight, no dividers, the highlight follows the pointer */
+:root :is(.fb.fb-classic, body.fb-classic-on .modal-overlay) .lkd-item {
+  min-height: 0;
+  padding: 2px 4px;
+  box-shadow: none !important;
+}
+:root
+  :is(.fb.fb-classic, body.fb-classic-on .modal-overlay)
+  .lkd-list:hover
+  .lkd-item.active:not(:hover),
+:root
+  :is(.fb.fb-classic, body.fb-classic-on .modal-overlay)
+  .lkd-list:hover
+  .lkd-item.active:not(:hover)
+  .lkd-item-label {
+  color: #000 !important;
+  background: none;
+}
+:root :is(.fb.fb-classic, body.fb-classic-on .modal-overlay) .lkd-item:hover,
+:root
+  :is(.fb.fb-classic, body.fb-classic-on .modal-overlay)
+  .lkd-item:hover
+  .lkd-item-label {
+  color: #fff !important;
+  background: #000080;
+}
+:root :is(.fb.fb-classic, body.fb-classic-on .modal-overlay) .btn:hover {
   color: #000 !important;
   background: #e5f1fb !important;
   border-color: transparent !important;
   transform: none;
 }
-:root :is(.fb.fb-classic, body.fb-classic-on .modal-overlay) .btn:active,
-:root :is(.fb.fb-classic, body.fb-classic-on .modal-overlay) .lkd-btn:active {
+:root :is(.fb.fb-classic, body.fb-classic-on .modal-overlay) .btn:active {
   box-shadow:
     inset 1px 1px 0 var(--dk),
     inset -1px -1px 0 var(--hi),
@@ -15146,13 +15312,167 @@ body.fb-skin-rail-on .modal-overlay .btn:hover {
   padding-top: 0;
   padding-bottom: 0;
 }
-:root :is(.fb.fb-skin-tabs, .fb.fb-skin-rail) .lkd-item {
-  color: #000 !important;
+/* the open list, per light skin. Tabs is the flatter Fluent look: square, a
+   hard grey border, a crisp drop shadow. Rail is softer: a hairline border
+   and a gentler shadow, matching its lighter chrome. */
+:root :is(.fb.fb-skin-tabs, body.fb-skin-tabs-on .modal-overlay) .lkd-pop {
+  background: #fff !important;
+  border: 1px solid #7a7a7a !important;
+  border-radius: 0 !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3) !important;
+  padding: 0 !important;
 }
-:root :is(.fb.fb-skin-tabs, .fb.fb-skin-rail) .lkd-item.active,
-:root :is(.fb.fb-skin-tabs, .fb.fb-skin-rail) .lkd-item.active .lkd-item-label {
+:root :is(.fb.fb-skin-rail, body.fb-skin-rail-on .modal-overlay) .lkd-pop {
+  background: #fff !important;
+  border: 1px solid #cdcdcd !important;
+  border-radius: 3px !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.14) !important;
+  padding: 2px !important;
+}
+:root :is(.fb.fb-skin-tabs, .fb.fb-skin-rail) .lkd-item,
+:root :is(.fb.fb-skin-tabs, .fb.fb-skin-rail) .lkd-item .lkd-item-label {
+  color: #000 !important;
+  /* match the skin's button face, not the base mono */
+  font-family: 'Segoe UI', Tahoma, sans-serif;
+}
+:root :is(.fb.fb-skin-tabs, .fb.fb-skin-rail) .lkd-item {
+  box-shadow: none !important;
+}
+
+/* ---- tabs: the Windows 10 combo box. A grey-bordered white field that
+   darkens on hover and goes accent blue while down; a thin chevron that does
+   not spin; the list hangs flush under it, rows highlight pale blue under the
+   pointer and the chosen one is solid accent. ---- */
+:root :is(.fb.fb-skin-tabs, body.fb-skin-tabs-on .modal-overlay) .lkd-btn {
+  font-size: 12px;
+  transition: none;
+}
+:root
+  :is(.fb.fb-skin-tabs, body.fb-skin-tabs-on .modal-overlay)
+  .lkd-btn:hover {
+  border-color: #000 !important;
+}
+:root
+  :is(.fb.fb-skin-tabs, body.fb-skin-tabs-on .modal-overlay)
+  .lkd.open
+  .lkd-btn {
+  border-color: var(--skin-accent) !important;
+  box-shadow: inset 0 0 0 1px var(--skin-accent) !important;
+}
+:root :is(.fb.fb-skin-tabs, body.fb-skin-tabs-on .modal-overlay) .lkd-caret {
+  color: #000;
+  font-size: 10px;
+  transform: scaleX(1.6) !important;
+  transition: none;
+}
+:root :is(.fb.fb-skin-tabs, body.fb-skin-tabs-on .modal-overlay) .lkd-pop {
+  top: calc(100% - 1px);
+  min-width: 100%;
+}
+:root
+  :is(.fb.fb-skin-tabs, body.fb-skin-tabs-on .modal-overlay)
+  .lkd.drop-up
+  .lkd-pop {
+  top: auto;
+  bottom: calc(100% - 1px);
+}
+:root :is(.fb.fb-skin-tabs, body.fb-skin-tabs-on .modal-overlay) .lkd-list {
+  padding: 0;
+}
+:root :is(.fb.fb-skin-tabs, body.fb-skin-tabs-on .modal-overlay) .lkd-item {
+  min-height: 0;
+  padding: 5px 8px;
+  font-size: 12px;
+  border-radius: 0 !important;
+}
+:root
+  :is(.fb.fb-skin-tabs, body.fb-skin-tabs-on .modal-overlay)
+  .lkd-item:hover {
+  background: #e5f1fb;
+}
+:root
+  :is(.fb.fb-skin-tabs, body.fb-skin-tabs-on .modal-overlay)
+  .lkd-item.active,
+:root
+  :is(.fb.fb-skin-tabs, body.fb-skin-tabs-on .modal-overlay)
+  .lkd-item.active
+  .lkd-item-label {
   color: #fff !important;
   background: var(--skin-accent);
+}
+
+/* ---- rail: the softer, lighter look. A rounded hairline field with an
+   accent focus ring while open; the list floats a few pixels below as a
+   rounded card; rows are rounded pills, hover a cool grey, the chosen one a
+   pale accent tint in accent ink with a check mark rather than a solid bar. */
+:root :is(.fb.fb-skin-rail, body.fb-skin-rail-on .modal-overlay) .lkd-btn {
+  border-radius: 4px !important;
+  font-size: 12.5px;
+}
+:root
+  :is(.fb.fb-skin-rail, body.fb-skin-rail-on .modal-overlay)
+  .lkd-btn:hover {
+  border-color: #a9b4c8 !important;
+}
+:root
+  :is(.fb.fb-skin-rail, body.fb-skin-rail-on .modal-overlay)
+  .lkd.open
+  .lkd-btn {
+  border-color: var(--skin-accent) !important;
+  box-shadow: 0 0 0 3px rgba(59, 111, 212, 0.18) !important;
+}
+:root :is(.fb.fb-skin-rail, body.fb-skin-rail-on .modal-overlay) .lkd-caret {
+  color: #6b7488;
+}
+:root
+  :is(.fb.fb-skin-rail, body.fb-skin-rail-on .modal-overlay)
+  .lkd.open
+  .lkd-caret {
+  color: var(--skin-accent);
+}
+:root :is(.fb.fb-skin-rail, body.fb-skin-rail-on .modal-overlay) .lkd-pop {
+  border-radius: 6px !important;
+  padding: 4px !important;
+  min-width: 100%;
+}
+:root :is(.fb.fb-skin-rail, body.fb-skin-rail-on .modal-overlay) .lkd-list {
+  padding: 0;
+}
+:root :is(.fb.fb-skin-rail, body.fb-skin-rail-on .modal-overlay) .lkd-item {
+  min-height: 0;
+  padding: 7px 10px;
+  font-size: 12.5px;
+  border-radius: 4px;
+}
+:root
+  :is(.fb.fb-skin-rail, body.fb-skin-rail-on .modal-overlay)
+  .lkd-item
+  + .lkd-item {
+  margin-top: 2px;
+}
+:root
+  :is(.fb.fb-skin-rail, body.fb-skin-rail-on .modal-overlay)
+  .lkd-item:hover {
+  background: #eef1f6;
+}
+:root
+  :is(.fb.fb-skin-rail, body.fb-skin-rail-on .modal-overlay)
+  .lkd-item.active,
+:root
+  :is(.fb.fb-skin-rail, body.fb-skin-rail-on .modal-overlay)
+  .lkd-item.active
+  .lkd-item-label {
+  color: var(--skin-accent) !important;
+  font-weight: 600;
+  background: #e8eefb;
+}
+:root
+  :is(.fb.fb-skin-rail, body.fb-skin-rail-on .modal-overlay)
+  .lkd-item.active::after {
+  content: '\2713';
+  flex: none;
+  font-weight: 700;
+  color: var(--skin-accent);
 }
 
 /* the log: a white list box */

@@ -608,6 +608,7 @@ async function fbTcuWriteCal() {
     if (res.ok) {
       eraseStarted = !!res.eraseStarted;
       if (res.aifLeft != null) t.aif.AIF_ANZ_FREI = String(res.aifLeft);
+      await fbFaultsClearAfterFlash('tcu');
       fbSetStatus('Calibration written. Cycle the ignition before driving.');
       await fbMessage(
         'The calibration was written and the transmission confirmed it.\n\nCycle the ignition, then check for stored faults before driving.',
@@ -946,6 +947,7 @@ async function fbTcuWriteProgram() {
     if (res.ok) {
       if (res.aifLeft != null) t.aif.AIF_ANZ_FREI = String(res.aifLeft);
       flashLog.note('RESULT: written and committed');
+      await fbFaultsClearAfterFlash('tcu');
       if (calImage) {
         t.identSw = release;
         fbSetStatus('Calibration written. Cycle the ignition before driving.');

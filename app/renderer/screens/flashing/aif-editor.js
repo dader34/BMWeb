@@ -445,7 +445,6 @@ function fbAifEdShow() {
  */
 const FB_AIF_ED_LOADER_AT = [0x17140, 0x17080];
 const FB_AIF_ED_LOADER_MAGIC = 'MS45BL';
-const FB_AIF_ED_LOADER_FROM = 14;
 const FB_AIF_ED_LOADER_BOOT_WINDOW = 0x02;
 
 /**
@@ -611,8 +610,8 @@ function fbAifEdAvailable() {
 
 /** Why the DME cannot be read or written from here, or null.
  *
- * Previously this required `d.bootLoader.version >= FB_AIF_ED_LOADER_FROM`
- * and `FB_AIF_ED_LOADER_BOOT_WINDOW` -- i.e. the FFBL ring installed in
+ * Previously this required a bootloader version of 14+ and the
+ * boot-window flag (FB_AIF_ED_LOADER_BOOT_WINDOW) -- i.e. the FFBL ring installed in
  * ext flash. That gate is gone: the triggered v21 body (one-click into
  * SRAM) already serves the full AIF ladder and the boot-sector window
  * (PERM_LOW=0x8000, AIF-marker-armed writes). fbDmeGuard's {autoEnter}

@@ -237,7 +237,17 @@ async function fbDmeFastFlash(spec) {
     fbFlashingBar(false);
     fbProgress(0);
     // `after` replaces the identify (the AIF wipe asks for a key cycle first)
-    if (ok) await (spec.after ? spec.after() : fbDmeIdentify(true));
+    if (ok) {
+      if (spec.after) await spec.after();
+      else {
+        await fbDmeIdentify(true);
+        // the plain tune and program writes only: the flows that bring an
+        // `after` of their own (bootloader, relay, AIF, the reads) are not
+        // flashes to clean up after
+        if (spec.what === 'calibration' || spec.what === 'program')
+          await fbFaultsClearAfterFlash('dme');
+      }
+    }
     await fbSessionStop();
   }
 }
@@ -418,66 +428,6 @@ function fbDmeSetFastLive(live) {
       if (d.fastFlasher && d.fastFlasher.triggered) d.fastFlasher = null;
     }
   }
-}
-
-/**
- * Keep-alive mode: once the DME has entered the fast flasher, read/write
- * ops skip the closing RESET so the body stays running in SRAM. Subsequent
- * ops (Read ISN, Read AIF, Write ISN, Write AIF, Read EEPROM) reuse the
- * live body instead of re-staging through a fresh sel-5 one-click.
- *
- * Flipped on by fbDmeOneClickTrigger after a successful fire, and off by
- * fbDmeFastRelease (explicit teardown) or by any stock-path diag that
- * finds the body gone. Survives tab reload via localStorage. Clears on
- * key-off since the body only lives in SRAM.
- */
-const FB_FAST_KEEP_KEY = 'bmweb-fast-flasher-keep-alive';
-
-function fbDmeFastKeepAlive() {
-  try {
-    return localStorage.getItem(FB_FAST_KEEP_KEY) === '1';
-  } catch (e) {
-    return false;
-  }
-}
-
-/** @param {boolean} on */
-function fbDmeSetFastKeepAlive(on) {
-  try {
-    if (on) localStorage.setItem(FB_FAST_KEEP_KEY, '1');
-    else localStorage.removeItem(FB_FAST_KEEP_KEY);
-  } catch (e) {}
-}
-
-/**
- * Called from every op's push() in place of client.reset(): honours the
- * keep-alive flag. The op's progress tracker expects the RESET unit to be
- * added either way, so we always report the stage change; we just skip
- * the wire call when keep-alive is on.
- * @param {{reset: () => Promise<void>}} client
- * @param {{stage?: (s: string) => void}} [cb]
- */
-async function fbDmeFastMaybeReset(client, cb) {
-  if (fbDmeFastKeepAlive()) {
-    if (cb && cb.stage) cb.stage('Leaving the flasher running (keep-alive)');
-    return;
-  }
-  if (cb && cb.stage) cb.stage('Restarting the DME');
-  await client.reset();
-}
-
-/**
- * Explicit teardown: drop the keep-alive flag and run one more one-click
- * op whose only job is to RESET the body. Safe to call when nothing is
- * live: it just clears the flag.
- */
-async function fbDmeFastRelease() {
-  if (!fbDmeFastKeepAlive()) return;
-  fbDmeSetFastKeepAlive(false);
-  // The next op the user starts will see keep-alive=false and let its
-  // client.reset() land, handing the DME back to its stock program. The
-  // flag is now off, so fbDmeFastLive() won't lie if a one-click chain
-  // re-detects the body.
 }
 
 /** @returns {boolean} */
@@ -669,7 +619,7 @@ async function fbDmeEnterFastFlasher(owner, ui, opts = {}) {
       opts.intoInstaller
         ? 'Reconnecting to the installer…'
         : justTriggered
-          ? 'Taking the fast flasher live…'
+          ? 'Fast flasher started…'
           : 'A fast flash was interrupted earlier: reconnecting to the flasher…'
     );
     const claim = await webClaimBus(owner);
