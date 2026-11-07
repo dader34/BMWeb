@@ -20,7 +20,6 @@ const BOOT = 0x8000;
 const BOOT_END = 0x20000;
 const AIF = 0x1fb34;
 const LOG_LEN = BOOT_END - AIF;
-const SLOTS = Math.floor(LOG_LEN / 64);
 
 let failures = 0;
 const check = (what, ok) => {

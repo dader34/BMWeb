@@ -515,7 +515,7 @@ const be32 = (b, at) =>
 
     // the sequential wire (pagesets off): the same four blocks one by one
     c = mpcChip(ext, mpcOnChip);
-    r = await W.pushProgram(
+    await W.pushProgram(
       c.client,
       target,
       {},

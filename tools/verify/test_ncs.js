@@ -21,7 +21,6 @@
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
-const zlib = require('zlib');
 
 const ROOT = path.join(__dirname, '..', '..');
 const R = (...p) => path.join(ROOT, 'app/renderer', ...p);

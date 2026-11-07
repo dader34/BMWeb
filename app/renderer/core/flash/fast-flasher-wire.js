@@ -1436,8 +1436,8 @@ function ffWebLink(bus, opts = {}) {
             step(`The flasher answered at ${FF_BAUD} baud`);
             return hello.data;
           }
-        } catch (e) {
-          last = e;
+        } catch {
+          // the asked-for HELLO below reports the failure instead
         }
         // no unprompted HELLO seen (an adapter without echo, a lost byte):
         // ask for one before sending the frame again

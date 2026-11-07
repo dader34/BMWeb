@@ -123,8 +123,8 @@ const Remote = {
   waiters: [], // helper: resolvers parked until the channel opens
 
   // ---- OWNER-SIDE ACCESS POLICY (the security boundary) --------------------
-  // The helper's browser is attacker-controllable, so NONE of the safety
-  // decisions may live there. These are set by the OWNER at host() time and
+  // The helper's browser is outside this host's control, so NONE of the
+  // safety decisions may live there. These are set by the OWNER at host() time and
   // enforced in _ownerHandle before a single telegram touches the car:
   //   access        'rw' | 'ro'  -- 'ro' refuses every write/actuator route
   //   confirmActions bool         -- writes/actuators wait for owner approval
@@ -299,7 +299,7 @@ const Remote = {
 
     // (3) PER-ACTION CONFIRM. When on (default), a write/actuator waits for the
     // owner's approval before it runs -- the confirm lives here, not in the
-    // helper's UI which the attacker controls. Reads never prompt, so a
+    // helper's UI which this side cannot trust. Reads never prompt, so a
     // normal session stays frictionless.
     //
     // The unit of consent is the USER ACTION, not the job: one INPA key

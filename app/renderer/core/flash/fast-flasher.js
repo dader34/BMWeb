@@ -62,6 +62,8 @@ const fastFlasher = {
   STOCK_HOOK: FAST_FLASHER_STOCK_HOOK,
   VERSION: FAST_FLASHER_VERSION,
   CHUNK: FAST_FLASHER_CHUNK,
+  FLAG_MPC: FAST_FLASHER_FLAG_MPC,
+  FLAG_BOOT_WINDOW: FAST_FLASHER_FLAG_BOOT_WINDOW,
 
   /**
    * Interpret the two reads: the 4 bytes at MPC 0x8 and the 16-byte stamp at

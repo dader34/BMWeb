@@ -115,7 +115,7 @@ async function prPush(client, spec, cb) {
   const blank = crc(new Uint8Array(chunk).fill(0xff)) >>> 0;
   let sent = 0;
   let erased = false;
-  let verdict = '';
+  let verdict;
   let restarts = 0;
 
   const erase = async () => {

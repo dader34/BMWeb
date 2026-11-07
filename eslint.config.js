@@ -19,6 +19,9 @@ module.exports = [
       'vendor/**',
       'app/renderer/vendor/**',
       'src/**',
+      // the built renderer bundle (scripts/build/bundle-renderer): generated
+      'app/renderer/bundle.js',
+      'app/renderer/core/generated/**',
       // generated data blobs: machine-authored, never linted
       'app/renderer/data/faultdb.js',
       'app/renderer/data/pcodes.js',
@@ -52,10 +55,10 @@ module.exports = [
       ...js.configs.recommended.rules,
       // pre-ESM: cross-file references are "undefined" to a per-file linter
       'no-undef': 'off',
-      // unused vars: warn (not error) -- there are legitimate _-prefixed and
-      // signature-position unused args; error would be noise pre-cleanup
+      // unused vars: an error (the tree is clean); _-prefixed names and
+      // signature-position args stay allowed
       'no-unused-vars': [
-        'warn',
+        'error',
         { args: 'none', varsIgnorePattern: '^_', caughtErrors: 'none' },
       ],
       // empty catch is a deliberate pattern here (best-effort teardown); allow
@@ -72,9 +75,8 @@ module.exports = [
       'no-redeclare': 'error',
       'valid-typeof': 'error',
       'use-isnan': 'error',
-      // dead stores and multi-space regexes are worth surfacing but are not
-      // breakage -- keep them visible without blocking the build
-      'no-useless-assignment': 'warn',
+      // dead stores are bugs in waiting; multi-space regexes are just odd
+      'no-useless-assignment': 'error',
       'no-regex-spaces': 'warn',
     },
   },
@@ -103,11 +105,11 @@ module.exports = [
     rules: {
       ...js.configs.recommended.rules,
       'no-unused-vars': [
-        'warn',
+        'error',
         { args: 'none', varsIgnorePattern: '^_', caughtErrors: 'none' },
       ],
       'no-empty': ['error', { allowEmptyCatch: true }],
-      'no-useless-assignment': 'warn',
+      'no-useless-assignment': 'error',
       'no-regex-spaces': 'warn',
     },
   },

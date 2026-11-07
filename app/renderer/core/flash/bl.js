@@ -1118,6 +1118,9 @@ const bl = {
   /** The swap ring's stamp flag (ms45-emu bl.SWAP_FLAG): its body may
    * rewrite every boot sector. Bench only. */
   SWAP_FLAG: BL_SWAP_FLAG,
+  LOADER_END: BL_LOADER_END,
+  TAG_AT: BL_TAG_AT,
+  TAG_LEN: BL_TAG_LEN,
   bootRegionOf: blBootRegionOf,
   bootFileFacts: blBootFileFacts,
   toSwapRing: blToSwapRing,

@@ -156,7 +156,7 @@ const main = async () => {
 
   // the ops: three words, votes preserved, the triple's addresses only
   {
-    const { img, writes } = mockPart();
+    const { img } = mockPart();
     const triple = isnPair.votingTriples(img).find((t) => t.val === DONOR_ISN);
     const ops = isnPair.tripleOps(triple, CAR_ISN);
     check(
