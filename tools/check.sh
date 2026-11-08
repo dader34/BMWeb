@@ -222,6 +222,9 @@ run node tools/verify/test_coding_dispatch.js
 echo "== every shipped coding script: no unserved call mid-write, order/ident preflight =="
 run node tools/verify/test_coding_scripts.js
 
+echo "== WebKFP: flash-file reader, ZB table, CDH host data pump, WinKFP's own logic, every exported script served =="
+run node tools/verify/test_kfp.js
+
 echo
 echo "== coding UI -> write flow: review builds the payload, write needs confirmed =="
 run node tools/verify/test_coding_ui_flow.js

@@ -281,8 +281,9 @@
    * @param {boolean} [opts.forceProgram] - PROGRAMM_ERZWINGEN: the program
    *   goes as well, even where the module would take the data alone.
    * @param {'program'|'data'} [opts.only] - Expert mode's Prog. Program /
-   *   Prog. Data: that one file goes, without SG_STATUS_LESEN asking the
-   *   module what it needs.
+   *   Prog. Data: only that file was given. The module is still asked
+   *   (SG_STATUS_LESEN) and must want just that kind; WinKFP refuses
+   *   otherwise (error 208), and so does this.
    * @param {boolean} [opts.aifAfterData=true] - AIF_SCHREIBEN_NACH_DATEN.
    * @param {boolean} [opts.aifAfterProgram=true] - AIF_SCHREIBEN_NACH_PROGRAMM.
    * @param {boolean} [opts.aifLastOnly] - Comfort mode: the record is written
@@ -329,32 +330,37 @@
       written,
     });
 
-    let order;
-    if (opts.only) {
-      order = [opts.only];
-    } else {
-      stage('Reading what the module needs');
-      const status = await runJob(opts.exec, 'SG_STATUS_LESEN', {
-        ...base,
-        params: { HWNR_IS_NEW: opts.programIsNew || opts.forceProgram ? 1 : 0 },
+    // The module is always asked what it needs -- expert mode too. WinKFP's
+    // programming routine (winkfpt.exe FUN_004169a0) runs
+    // coapiKfGetProgOrderBsuD2 (SG_STATUS_LESEN) for every key, then works
+    // through the module's order with the files it was given; an order the
+    // files cannot satisfy is its error 208, "List of files to flash does
+    // not decrease". So Prog. Data on a module that wants program and data
+    // is refused, not sent half.
+    stage('Reading what the module needs');
+    const status = await runJob(opts.exec, 'SG_STATUS_LESEN', {
+      ...base,
+      params: { HWNR_IS_NEW: opts.programIsNew || opts.forceProgram ? 1 : 0 },
+    });
+    if (!status.ok) return fail('SG_STATUS_LESEN', status);
+    let order = progOrder(
+      Number(status.params.PROG_TYP),
+      Number(status.params.PROG_ORDER)
+    );
+    // WinKFP's forced program: a data-only answer becomes program, then data
+    if (opts.forceProgram && order && order.join() === 'data')
+      order = ['program', 'data'];
+    if (!order)
+      return fail('SG_STATUS_LESEN', {
+        info: `the module answered PROG_TYP ${status.params.PROG_TYP}, PROG_ORDER ${status.params.PROG_ORDER}`,
       });
-      if (!status.ok) return fail('SG_STATUS_LESEN', status);
-      order = progOrder(
-        Number(status.params.PROG_TYP),
-        Number(status.params.PROG_ORDER)
-      );
-      // WinKFP's forced program: a data-only answer becomes program, then data
-      if (opts.forceProgram && order && order.join() === 'data')
-        order = ['program', 'data'];
-      if (!order)
-        return fail('SG_STATUS_LESEN', {
-          info: `the module answered PROG_TYP ${status.params.PROG_TYP}, PROG_ORDER ${status.params.PROG_ORDER}`,
-        });
-    }
     const missing = order.filter((k) => !opts.files[k]);
     if (missing.length)
       return fail('SG_STATUS_LESEN', {
-        info: `the module needs the ${missing.join(' and ')} file, and this ZB number has none`,
+        info: opts.only
+          ? `the module wants the ${order.join(' and then the ')}, not the ${opts.only} alone: ` +
+            'List of files to flash does not decrease (WinKFP error 208)'
+          : `the module needs the ${missing.join(' and ')} file, and this ZB number has none`,
       });
 
     // Where the next programming record goes. Asked again before every

@@ -585,7 +585,7 @@ function showWebKfp() {
   const state =
     wkfpLive.state ||
     (wkfpLive.state = {
-      /** 'main' | 'comfort' | 'expert' | 'diag' | 'special' | 'vs20' */
+      /** 'main' | 'comfort' | 'expert' | 'diag' | 'special' | 'vs20' | 'abgl' */
       mode: 'main',
       /**
        * expert mode's configuration: {pabd: KfpModule (the family whose PABD),
@@ -766,6 +766,7 @@ function showWebKfp() {
         diag: 'Diagnosis',
         special: 'Special functions',
         vs20: 'Special functions · VS20/DS2 mode',
+        abgl: 'Special functions · calibration values',
       };
       $('wkfpm-mode').textContent = names[state.mode] || state.mode;
     }
@@ -816,14 +817,32 @@ function showWebKfp() {
       ];
     if (state.mode === 'special')
       return [
+        // WinKFP's Special keys (winkfpt.exe FUN_0042ede0). Its
+        // EWS-Alignment key sets the job name SG_EWS_ABGLEICH and then shows
+        // "not implemented" (FUN_004310c0), so this does the same. HDDownload
+        // and HDD-Test appear there only with a download server configured
+        // (no SP-Daten set carries the HDDownload script), so they are not
+        // offered here.
         ['Read UIF', idle, specialAif],
         ['ECU baudrates', idle, specialBaud],
-        ['Adjustment values', idle, notImplemented],
+        ['Calibration values', idle, () => setMode('abgl')],
         ['VS20/DS2 mode', idle, () => setMode('vs20')],
-        ['EWS adjustment', idle, notImplemented],
-        ['HD download', idle, notImplemented],
+        ['EWS-Alignment', idle, notImplemented],
+        ['', false],
         ['', false],
         ['Done', idle, () => setMode('main')],
+      ];
+    if (state.mode === 'abgl')
+      return [
+        ['Read Calib.', idle, specialAbglRead],
+        // WinKFP offers Write Calib. once a read has left its file behind
+        ['Write Calib.', idle && abglStored() != null, specialAbglWrite],
+        ['', false],
+        ['', false],
+        ['', false],
+        ['', false],
+        ['', false],
+        ['Done', idle, () => setMode('special')],
       ];
     if (state.mode === 'vs20')
       return [
@@ -2413,6 +2432,7 @@ function showWebKfp() {
    * @param {string} done - What is said when it worked.
    */
   async function specialWrite(job, question, done) {
+    const name = Array.isArray(job) ? job[0] : job;
     const mod = diagModule();
     if (!mod || state.running) return;
     if (typeof webOnSharedCar === 'function' && webOnSharedCar())
@@ -2432,7 +2452,7 @@ function showWebKfp() {
     let fail = null;
     try {
       [r] = await diagJobs(mod, [job]);
-      if (r && !r.ok) fail = { step: job, ...r };
+      if (r && !r.ok) fail = { step: name, ...r };
     } catch (e) {
       fail = {
         step: 'WebKFP',
@@ -2446,6 +2466,68 @@ function showWebKfp() {
     if (fail) return showError(fail);
     if (!r) return notImplemented();
     return wkfpMessage(wkfpLive.win, 'info', done);
+  }
+
+  /** Where Read Calib. keeps a module's values between visits (WinKFP: KFCO<family>.DAT beside the exe). */
+  const WKFP_ABGL_STORE = 'bmweb.webkfp.abgleich.';
+
+  /** @returns {string} The store key of a module's calibration values. */
+  function abglKey(mod) {
+    return WKFP_ABGL_STORE + String(mod.folder || mod.id).toUpperCase();
+  }
+
+  /**
+   * The calibration values Read Calib. kept for the module Special talks
+   * to, or null when none were read.
+   * @param {KfpModule} [mod] - The module (the Special one by default).
+   * @returns {string|null}
+   */
+  function abglStored(mod) {
+    const m = mod || diagModule();
+    if (!m) return null;
+    try {
+      return localStorage.getItem(abglKey(m));
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /**
+   * Read Calib. (coapikfDDeAbgleichwerteLesen): the script's
+   * ABGLEICHWERTE_LESEN, whose ABGLEICHWERTE_LESEN_WERT WinKFP writes to a
+   * file for Write Calib. to send back after a programming -- the diesel
+   * DDE scripts keep injector and sensor calibration this way. The value
+   * is kept here per module; WinKFP's file holds at most 1023 characters.
+   */
+  function specialAbglRead() {
+    return diagRun(['ABGLEICHWERTE_LESEN'], ([r]) => {
+      if (!r) return null;
+      const v = String(r.params.ABGLEICHWERTE_LESEN_WERT ?? '').trim();
+      if (v.length >= 1024)
+        throw new Error('AbgleichDaten > COAPIKF_MAX_DDE_ABGLEICHWERTE');
+      const mod = diagModule();
+      try {
+        localStorage.setItem(abglKey(mod), v);
+      } catch (e) {
+        /* storage unavailable: the values last for this visit's dialog only */
+      }
+      paint();
+      return ['Calibration values:', DIAG_RULE, v || '(none)'].join('\n');
+    });
+  }
+
+  /**
+   * Write Calib. (coapikfDDeAbgleichwerteSchreiben): the kept values back
+   * into the module, as the script's ABGLEICHWERTE_SCHREIBEN_WERT.
+   */
+  function specialAbglWrite() {
+    const v = abglStored();
+    if (v == null) return notImplemented();
+    return specialWrite(
+      ['ABGLEICHWERTE_SCHREIBEN', { ABGLEICHWERTE_SCHREIBEN_WERT: v }],
+      `Write the calibration values read earlier back into the ECU?\n\n${v}`,
+      'Calibration values written.'
+    );
   }
 
   /**

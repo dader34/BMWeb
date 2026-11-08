@@ -139,6 +139,11 @@
     // (src, dst, srcPos, dstPos, len, ->ret): WASBufferKopieren's copy,
     // Authentisierung's key into the job data at 21
     builtin_64: 'CDHBinBufCopy',
+    // (src, dst, srcPos, len, ->ret): the CCC/CIC download scripts
+    // (50CC6360, 51CCA060 FlashDLE) append a data block's bytes from 21 to
+    // the end of the telegram they are building -- the slot before
+    // CDHBinBufCopy in CABI.H, named here by what it does
+    builtin_63: 'CDHBinBufAppend',
     // the PC text file the diesel PABDs (05DDE608, 14DDE60x ...) keep a value
     // in across a programming run (WerteDDE.txt): fileopen(name, mode),
     // filewrite(line), fileread(->line, ->eof), fileclose()

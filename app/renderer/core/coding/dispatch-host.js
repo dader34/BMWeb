@@ -778,6 +778,26 @@
       return CDH_OK;
     }
     /**
+     * Append `len` bytes of one buffer, from `srcPos`, to the end of
+     * another (the IR's builtin_63; see CALL_ALIASES in dispatch.js).
+     * @param {unknown} src - source handle.
+     * @param {unknown} dst - destination handle.
+     * @param {unknown} srcPos - first source byte.
+     * @param {unknown} len - byte count.
+     * @returns {number} 0, or 1 for a bad handle.
+     */
+    CDHBinBufAppend(src, dst, srcPos, len) {
+      const s = this.bufs.get(asInt(src));
+      const d = this.bufs.get(asInt(dst));
+      if (!s || !d) return CDH_UNKNOWN_NAME;
+      const from = asInt(srcPos);
+      const bytes = [];
+      for (let k = 0; k < asInt(len); k++) bytes.push(binReadByte(s, from + k));
+      const to = d.size;
+      bytes.forEach((b, k) => binWriteByte(d, to + k, b));
+      return CDH_OK;
+    }
+    /**
      * @param {unknown} h - handle.
      * @param {unknown} pos - position.
      * @returns {number} the byte.
@@ -1435,6 +1455,7 @@
     CDHBinBufWriteByte: ['in', 'in', 'in', 'out'],
     CDHBinBufWriteWord: ['in', 'in', 'in', 'out'],
     CDHBinBufCopy: ['in', 'in', 'in', 'in', 'in', 'out'],
+    CDHBinBufAppend: ['in', 'in', 'in', 'in', 'out'],
     CDHBinBufReadByte: ['in', 'out', 'in', 'out'],
     CDHBinBufReadWord: ['in', 'out', 'in', 'out'],
     CDHBinBufToStr: ['in', 'out', 'out'],
