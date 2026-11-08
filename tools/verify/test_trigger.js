@@ -30,7 +30,7 @@ const check = (what, ok, detail) => {
 
 // ---- the body out of the bootstrap blob ------------------------------------
 const body = triggerWire.triggerBodyFromBlob(fastFlasherBlob);
-check('body from blob: 6368 B', body.length === 6368, `${body.length} B`);
+check('body from blob: 6400 B', body.length === 6400, `${body.length} B`);
 check('body from blob: whole words', body.length % 4 === 0);
 check(
   'body from blob: starts with the flasher prologue (lis r3,0x3F9800)',
@@ -77,8 +77,8 @@ check(
   String.fromCharCode(...image.img.slice(0x66, 0x70)) === '004457MTOS'
 );
 check(
-  'image: the entry branch word is b 0x3FBAA0 (0x4800192C)',
-  be32(image.img, 0x70) === 0x4800192c
+  'image: the entry branch word is b 0x3FBAC0 (0x4800194C)',
+  be32(image.img, 0x70) === 0x4800194c
 );
 check(
   'image: the dead gap the branch skips is zero',
@@ -138,9 +138,9 @@ check(
   hex(tgs[0].slice(0, 6)) === '3d3fa1040' + '0b4'
 );
 check(
-  'staging: the receiver heads 0x3FBAA0',
-  hex(tgs[1].slice(0, 6)) === '3d3fbaa000f9' &&
-    hex(tgs[2].slice(0, 4)) === '3d3fbb99'
+  'staging: the receiver heads 0x3FBAC0',
+  hex(tgs[1].slice(0, 6)) === '3d3fbac000f9' &&
+    hex(tgs[2].slice(0, 4)) === '3d3fbbb9'
 );
 
 // ---- the fire sequence against a mock line ----------------------------------

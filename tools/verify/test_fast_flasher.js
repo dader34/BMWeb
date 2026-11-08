@@ -799,7 +799,7 @@ const be32 = (b, at) =>
       1,
       'the second damaged block steps the line down'
     );
-    await assert.rejects(client.read(0x40000, 4097), W.Nak);
+    await assert.rejects(client.read(0x40000, W.READ_MAX + 1), W.Nak);
     asked.length = 0;
     let last = -1;
     const img = await W.readImage(client, {
@@ -811,13 +811,17 @@ const be32 = (b, at) =>
     });
     assert(Buffer.from(img.flash).equals(Buffer.from(ext)), 'the chip, whole');
     assert(Buffer.from(img.mpc).equals(Buffer.from(mpc)), 'the MPC, whole');
-    assert.strictEqual(asked.length, (0x100000 + 0x70000) / 0x1000);
-    assert(asked.every(([, n]) => n === 0x1000) && last === 100);
-    assert.strictEqual(asked[256][0], 0x80000000, 'the MPC through its window');
+    assert.strictEqual(asked.length, (0x100000 + 0x70000) / W.READ_MAX);
+    assert(asked.every(([, n]) => n === W.READ_MAX) && last === 100);
+    assert.strictEqual(
+      asked[0x100000 / W.READ_MAX][0],
+      0x80000000,
+      'the MPC through its window'
+    );
     const tune = await W.readImage(client, {});
     assert(tune.mpc === null && tune.flash.length === 0x100000);
     ok(
-      'READ: a block checked against its CRC, a damaged one asked once more, twice is an error; readImage tiles 1 MB + 448 KB in 4 KB'
+      'READ: a block checked against its CRC, a damaged one asked once more, twice is an error; readImage tiles 1 MB + 448 KB in 16 KB'
     );
   }
 

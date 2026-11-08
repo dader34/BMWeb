@@ -21,7 +21,7 @@
 //   MARKS        05 which:u8  (0 cal 0x5FF80/0x5FFC0, 1 program) -- the
 //                commit point, always last before RESET
 //   RESET        06  (the reply goes out, then a watchdog reset)
-//   READ         0A off:u32 len:u16 (1..4096)      -> 4A crc:u32 <len bytes>
+//   READ         0A off:u32 len:u16 (1..16384)     -> 4A crc:u32 <len bytes>
 //                (v13; crc over the bytes; any ext offset, or the MPC
 //                window 0x80000000 | offset -- boot block and loader too)
 //
@@ -49,10 +49,16 @@ const FF_SVC = {
   SET_BAUD: 0x07, // v8: u16 SCBR; the body answers at the old rate, then switches
   CHUNK_SET: 0x08, // v8: pagesets over several MPC blocks at once
   AIF: 0x09, // v10 bench body only: the AIF-wipe resume marker (read/arm/done)
-  READ: 0x0a, // v13: raw bytes of the chip or the MPC, 4 KB a request
+  READ: 0x0a, // v13: raw bytes of the chip or the MPC; 16 KB a request since v22
 };
 /** READ: bytes per request (the body refuses more), and the external chip. */
-const FF_READ_MAX = 0x1000;
+/**
+ * Bytes per READ request. v22 streams up to 16 KB a request (the data comes
+ * straight from the array, the cap was the host's patience); with the
+ * ~46 ms a frame costs on the USB side, four times fewer frames is a third
+ * off a full read. The app only reads from a body of its own version.
+ */
+const FF_READ_MAX = 0x4000;
 const FF_EXT_SIZE = 0x100000;
 
 // The AIF marker ladder (S_AIF): READ/ARM/DONE a row of marker slots from
@@ -82,12 +88,12 @@ const FF_BAUD = 115200;
 const FF_TIMEOUT = {
   HELLO: 2000,
   ERASE: 20000,
-  CHUNK: 3000,
+  CHUNK: 3000, // the ceiling; _chunkMs() fits the budget to the line
   MARKS: 2000,
   RESET: 1000,
   SET_BAUD: 2000,
-  CHUNK_SET: 3000,
-  READ: 3000, // 4 KB is ~0.4 s at 115200 8E1, plus the body's CRC pass
+  CHUNK_SET: 3000, // the ceiling; _chunkMs() fits the budget to the line
+  READ: 6000, // the ceiling; _readReplyMs() fits the budget to the line
 };
 /**
  * The faster lines a v8 body is asked for after the probe, in order: the
@@ -398,6 +404,45 @@ class FastFlashClient {
     return FF_READ_BASE_MS + Math.ceil(len / 0x10000) * FF_READ_PER_64K_MS;
   }
 
+  /**
+   * The wire time of `bytes` at the session's rate, 8E1 (11 bits a byte).
+   * @param {number} bytes
+   * @returns {number} ms
+   */
+  _wireMs(bytes) {
+    return (bytes * 11 * 1000) / (this.baud || FF_BAUD);
+  }
+
+  /**
+   * A CHUNK / CHUNK_SET's budget: twice its wire time (the request and its
+   * echo) plus a second for the body's work and the USB floor, never under
+   * 1.2 s and never over the ceiling. The car's slowest answers are ~0.4 s
+   * (CHUNK_SET at 312500: median 328 ms, max 415 ms; CHUNK 199 ms); the
+   * old flat 3 s cost 2.3 s on every lost frame, one a run.
+   * @param {number} packed - the compressed payload's size
+   * @param {number} ceiling - FF_TIMEOUT.CHUNK or .CHUNK_SET
+   * @returns {number} ms
+   */
+  _chunkMs(packed, ceiling) {
+    return Math.min(
+      ceiling,
+      Math.max(1200, Math.round(1000 + 2 * this._wireMs(packed + 24)))
+    );
+  }
+
+  /**
+   * A READ's budget: the reply's wire time plus the request's echo, doubled,
+   * plus a second for the body's CRC pass and the USB floor.
+   * @param {number} len - bytes asked for
+   * @returns {number} ms
+   */
+  _readReplyMs(len) {
+    return Math.min(
+      FF_TIMEOUT.READ,
+      Math.max(1200, Math.round(1000 + 2 * this._wireMs(len + 32)))
+    );
+  }
+
   /** @returns {Promise<Uint8Array>} The stamp the flasher echoes. */
   async hello() {
     return this.call(FF_SVC.HELLO, [], FF_TIMEOUT.HELLO);
@@ -435,7 +480,7 @@ class FastFlashClient {
         ..._ffU32(ffWireBytes.crc32Mpeg2(packed)),
         ...packed,
       ],
-      FF_TIMEOUT.CHUNK
+      this._chunkMs(packed.length, FF_TIMEOUT.CHUNK)
     );
     return packed.length;
   }
@@ -510,7 +555,7 @@ class FastFlashClient {
         0,
         ...packed,
       ],
-      FF_TIMEOUT.CHUNK_SET
+      this._chunkMs(packed.length, FF_TIMEOUT.CHUNK_SET)
     );
     return packed.length;
   }
@@ -539,7 +584,7 @@ class FastFlashClient {
    * mismatch is a byte the line mangled inside the data (the frame sum is
    * one byte over 4 KB): asked once more, like a garbled reply.
    * @param {number} off - Ext offset, or FF_MPC_WINDOW | MPC offset.
-   * @param {number} len - 1..4096.
+   * @param {number} len - 1..FF_READ_MAX.
    * @returns {Promise<Uint8Array>}
    */
   async read(off, len) {
@@ -547,7 +592,7 @@ class FastFlashClient {
       const d = await this.call(
         FF_SVC.READ,
         [..._ffU32(off), ..._ffU16(len)],
-        FF_TIMEOUT.READ
+        this._readReplyMs(len)
       );
       const bytes = d.subarray(4);
       if (
@@ -571,7 +616,7 @@ class FastFlashClient {
 }
 
 /**
- * An area through READ, 4 KB a request.
+ * An area through READ, FF_READ_MAX bytes a request.
  * @param {FastFlashClient} client
  * @param {number} base - An ext offset, or FF_MPC_WINDOW | an MPC offset.
  * @param {number} size
