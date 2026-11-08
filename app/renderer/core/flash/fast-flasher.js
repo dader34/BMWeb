@@ -32,7 +32,7 @@ const FAST_FLASHER_MAGIC = 'MS45QF';
 const FAST_FLASHER_HOOK_AT = 0x8; // MPC, the loader's reset word
 const FAST_FLASHER_STOCK_HOOK = 0x4bf717b6; // `ba 0xFFF717B4`
 const FAST_FLASHER_EXT_CPU = 0xfff00000; // where the external chip is mapped
-const FAST_FLASHER_VERSION = 23; // the highest stamp version this app speaks
+const FAST_FLASHER_VERSION = 21; // the highest stamp version this app speaks
 /**
  * A resident body in the program area is used only when it is THIS build's
  * (the installer the bootloader rides in on, or the shipped body); any

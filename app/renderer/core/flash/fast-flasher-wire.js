@@ -21,7 +21,7 @@
 //   MARKS        05 which:u8  (0 cal 0x5FF80/0x5FFC0, 1 program) -- the
 //                commit point, always last before RESET
 //   RESET        06  (the reply goes out, then a watchdog reset)
-//   READ         0A off:u32 len:u16 (1..16384)     -> 4A crc:u32 <len bytes>
+//   READ         0A off:u32 len:u16 (1..4096)      -> 4A crc:u32 <len bytes>
 //                (v13; crc over the bytes; any ext offset, or the MPC
 //                window 0x80000000 | offset -- boot block and loader too)
 //
@@ -49,19 +49,10 @@ const FF_SVC = {
   SET_BAUD: 0x07, // v8: u16 SCBR; the body answers at the old rate, then switches
   CHUNK_SET: 0x08, // v8: pagesets over several MPC blocks at once
   AIF: 0x09, // v10 bench body only: the AIF-wipe resume marker (read/arm/done)
-  READ: 0x0a, // v13: raw bytes of the chip or the MPC; 16 KB a request since v22
-  ERASE_Q: 0x0c, // v23: external sectors erased in the background, up to 8 a job
+  READ: 0x0a, // v13: raw bytes of the chip or the MPC, 4 KB a request
 };
 /** READ: bytes per request (the body refuses more), and the external chip. */
-/**
- * Bytes per READ request. v22 streams up to 16 KB a request (the data comes
- * straight from the array, the cap was the host's patience); with the
- * ~46 ms a frame costs on the USB side, four times fewer frames is a third
- * off a full read. The app only reads from a body of its own version.
- */
-const FF_READ_MAX = 0x4000;
-/** A damaged wide READ is read again in pieces this big. */
-const FF_READ_PIECE = 0x1000;
+const FF_READ_MAX = 0x1000;
 const FF_EXT_SIZE = 0x100000;
 
 // The AIF marker ladder (S_AIF): READ/ARM/DONE a row of marker slots from
@@ -91,13 +82,12 @@ const FF_BAUD = 115200;
 const FF_TIMEOUT = {
   HELLO: 2000,
   ERASE: 20000,
-  CHUNK: 3000, // the floor; _chunkMs() stretches it on a slow line
+  CHUNK: 3000,
   MARKS: 2000,
   RESET: 1000,
   SET_BAUD: 2000,
-  CHUNK_SET: 3000, // the floor; _chunkMs() stretches it on a slow line
-  ERASE_Q: 20000, // ACKed at once, unless an earlier job is still running
-  READ: 3000, // the floor; _readReplyMs() stretches it for 16 KB on a slow line
+  CHUNK_SET: 3000,
+  READ: 3000, // 4 KB is ~0.4 s at 115200 8E1, plus the body's CRC pass
 };
 /**
  * The faster lines a v8 body is asked for after the probe, in order: the
@@ -113,12 +103,10 @@ const FF_TIMEOUT = {
  */
 const FF_FAST_LINES = [
   // sessions start here, every session; a garbled line steps down from
-  // here one rate at a time, for that session only. 416667 and 312500 are
-  // not in the list: 416667's HELLO failed in all three car sessions of
-  // 2026-11-02/03, and 312500 garbled replies in both November reads and
-  // cost the 2026-11-08 read a reconnect at 5 % -- each garble is a
-  // re-read and two of them a step-down, which costs more than the 20 %
-  // of wire time 250000 gives up. 250000 has carried every frame so far.
+  // here one rate at a time, for that session only. 416667 is not in the
+  // list: its HELLO failed in all three car sessions of 2026-11-02/03 (our
+  // frames heard, the DME's replies garbled), ~4.9 s lost each time
+  [312500, 4],
   [250000, 5],
   [208333, 6],
   [156250, 8],
@@ -127,36 +115,9 @@ const FF_FAST_LINES = [
  * The rates a running flasher may be holding when a cut session is picked up
  * again: the session rates, and the faster ones earlier builds started on.
  */
-const FF_RESUME_RATES = [
-  625000,
-  416667,
-  312500,
-  ...FF_FAST_LINES.map(([r]) => r),
-];
-/**
- * Garbled replies before the line is stepped down a rate, at the 115200
- * floor where no rate gain can be weighed (see Client._lineError).
- */
+const FF_RESUME_RATES = [625000, 416667, ...FF_FAST_LINES.map(([r]) => r)];
+/** Garbled replies in a session before the line is stepped down a rate. */
 const FF_LINE_ERRORS_STEP = 2;
-/**
- * What one garble costs, ms: a damaged 4 KB piece read again, or a lost
- * frame found out by its first-byte deadline and sent again. The line steps
- * down only when the garbles of the last FF_LINE_WINDOW frames cost more
- * than the rate gains over the next lower one -- a 16 KB read gains ~0.15 s
- * a frame at 312500 over 250000 and can carry a garble in three; a 2.3 KB
- * chunk gains ~0.02 s and cannot carry one in twenty.
- */
-const FF_GARBLE_COST_MS = 400;
-const FF_LINE_WINDOW = 24;
-/**
- * A READ's reply starts within the USB floor plus the body's CRC pass over
- * the span (~30 ms for 16 KB): nothing by then means the request was lost
- * on the line, and asking again at once beats waiting out the whole budget
- * (3 s -- the November reads lost 0.23 s frames that way, three seconds
- * each). ERASE, CHUNK and CHUNK_SET answer only after their work and get
- * no such limit.
- */
-const FF_READ_FIRST_BYTE_MS = 500;
 /**
  * Tries of one request whose reply comes back damaged (a bad sum, a cut-short
  * frame, a READ whose CRC fails) before the job gives up on it. Every
@@ -197,18 +158,7 @@ const FF_HELLO_ASKS = 2; // a missed entry is retried whole anyway (reset + brea
 const FF_ECHO_DRAIN_MS = 150; // the real chip's timeout runs longer than its 20 ms nominal
 /** The first body that reads each echo as it sends: no pause needed. */
 const FF_ECHO_AS_SENT_VERSION = 6;
-/** The line rate a body was last heard on in this page, 0 for none (see ffWebLink's learn). */
-let ffLastHeardRate = 0;
 const FF_HELLO_GAP_MS = 250;
-/**
- * The quick pass of a resume: one HELLO at each rate a running body may be
- * holding, likeliest first, with this much patience each -- a body answers
- * in ~50 ms, and at the wrong rate the line is garbage or silent within
- * that. The patient pass (every ask, every rate) follows only if nothing
- * answered. A flasher left waiting is found in well under a second instead
- * of after ~4.5 s a rate.
- */
-const FF_HELLO_QUICK_MS = 400;
 
 /** The cal sector, and what of it a calibration write fills. */
 const FF_CAL_SECTOR = 0x40000;
@@ -260,34 +210,6 @@ function ffFrame(svc, data, tgt = FF_TGT, src = FF_SRC) {
   const span = body.length + 1;
   const head = span > 0xff ? [0x00, ..._ffU16(span)] : [span];
   return Uint8Array.from([...head, ...body, sum]);
-}
-
-/**
- * A whole HELLO reply in the last bytes of a stream (after an upload's
- * echo, however much of the echo the cable kept): the ACK head, then the
- * frame parsing with its checksum. The body's bytes never contain that
- * head followed by a valid 21-byte frame by accident.
- * @param {number[]} buf
- * @returns {{svc: number, data: Uint8Array}|null}
- */
-function _ffHelloInTail(buf) {
-  const from = Math.max(0, buf.length - 48);
-  for (let i = from; i + 4 <= buf.length; i++) {
-    if (
-      buf[i] !== 16 + 4 || // span: tgt src svc + 16-byte stamp + sum
-      buf[i + 1] !== FF_TGT ||
-      buf[i + 2] !== FF_SRC ||
-      buf[i + 3] !== (FF_SVC.HELLO | 0x40)
-    )
-      continue;
-    try {
-      const f = ffParse(buf.slice(i));
-      if (f && f.svc === (FF_SVC.HELLO | 0x40)) return f;
-    } catch {
-      // a checksum that does not add up: not the frame
-    }
-  }
-  return null;
 }
 
 /**
@@ -382,8 +304,6 @@ class FastFlashClient {
       typeof nrv2b !== 'undefined' ? nrv2b : require('./nrv2b.js').nrv2b;
     /** Garbled replies so far (a marginal line shows here first). */
     this.lineErrors = 0;
-    /** The last FF_LINE_WINDOW frames: {bad, wireMs}, for the step-down decision. */
-    this._recent = [];
     /** The line rate the session is on (ffFasterLine and a step-down move it). */
     this.baud = FF_BAUD;
     /**
@@ -401,22 +321,10 @@ class FastFlashClient {
    */
   async _lineError() {
     this.lineErrors++;
-    this._note(true, 0);
-    if (!this.stepDown) return;
-    // the rate below this one, and the share of wire time it would cost
-    const lower = (FF_FAST_LINES.find(([r]) => r < this.baud) || [FF_BAUD])[0];
-    const gain = this.baud > FF_BAUD ? 1 - lower / this.baud : 0;
-    const bad = this._recent.filter((f) => f.bad).length;
-    const kept = this._recent.reduce((n, f) => n + f.wireMs, 0) * gain;
-    // never on a single garble: a step clears the window, and one bad
-    // frame right after it would step again on an empty ledger
-    const step =
-      bad >= FF_LINE_ERRORS_STEP && (!gain || bad * FF_GARBLE_COST_MS > kept);
-    if (!step) return;
+    if (this.lineErrors < FF_LINE_ERRORS_STEP || !this.stepDown) return;
     const down = this.stepDown;
     this.stepDown = null;
     this.lineErrors = 0;
-    this._recent = [];
     try {
       await down();
     } finally {
@@ -425,32 +333,19 @@ class FastFlashClient {
   }
 
   /**
-   * One frame for the step-down window.
-   * @param {boolean} bad - garbled or lost
-   * @param {number} wireMs - the frame's wire time, request and reply
-   */
-  _note(bad, wireMs) {
-    this._recent.push({ bad, wireMs });
-    if (this._recent.length > FF_LINE_WINDOW) this._recent.shift();
-  }
-
-  /**
    * @param {number} svc
    * @param {number[]} data
    * @param {number} timeoutMs
-   * @param {{firstByteMs?: number}} [opts] - firstByteMs: the reply must
-   *   start within this long after the echo, or the request counts as lost
    * @returns {Promise<Uint8Array>} The ACK's payload.
    */
-  async call(svc, data, timeoutMs, opts = {}) {
+  async call(svc, data, timeoutMs) {
     const frame = ffFrame(svc, data);
     let reply = null;
     for (let attempt = 1; ; attempt++) {
       const t0 = Date.now();
       let err = null;
       try {
-        reply = ffParse(await this.link.exchange(frame, timeoutMs, opts));
-        if (reply) this._note(false, this._wireMs(frame.length + reply.used));
+        reply = ffParse(await this.link.exchange(frame, timeoutMs));
       } catch (e) {
         err = e;
       }
@@ -503,45 +398,6 @@ class FastFlashClient {
     return FF_READ_BASE_MS + Math.ceil(len / 0x10000) * FF_READ_PER_64K_MS;
   }
 
-  /**
-   * The wire time of `bytes` at the session's rate, 8E1 (11 bits a byte).
-   * @param {number} bytes
-   * @returns {number} ms
-   */
-  _wireMs(bytes) {
-    return (bytes * 11 * 1000) / (this.baud || FF_BAUD);
-  }
-
-  /**
-   * A CHUNK / CHUNK_SET's budget: the old 3 s, stretched to twice the
-   * frame's wire time plus a second when the line is slow enough to need
-   * it (a 4.6 KB chunk at 115200 is 0.44 s of wire each way). NEVER
-   * SHORTER THAN 3 S: a 1.2 s floor was tried on 2026-11-08 and the first
-   * car run lost a CHUNK_SET to it -- the ACK arrived after the budget and
-   * was read as the answer to the recovery HELLO ("answered with service
-   * 48"). The car's answers are ~0.2-0.4 s but a 2 s outlier shows up once
-   * in a few hundred frames (1955 ms at 416667, 2106 ms at 115200).
-   * @param {number} packed - the compressed payload's size
-   * @param {number} floor - FF_TIMEOUT.CHUNK or .CHUNK_SET
-   * @returns {number} ms
-   */
-  _chunkMs(packed, floor) {
-    return Math.max(floor, Math.round(1000 + 2 * this._wireMs(packed + 24)));
-  }
-
-  /**
-   * A READ's budget: the old 3 s, or the reply's wire time doubled plus a
-   * second when that is longer (16 KB at 115200 is 1.6 s of wire).
-   * @param {number} len - bytes asked for
-   * @returns {number} ms
-   */
-  _readReplyMs(len) {
-    return Math.max(
-      FF_TIMEOUT.READ,
-      Math.round(1000 + 2 * this._wireMs(len + 32))
-    );
-  }
-
   /** @returns {Promise<Uint8Array>} The stamp the flasher echoes. */
   async hello() {
     return this.call(FF_SVC.HELLO, [], FF_TIMEOUT.HELLO);
@@ -579,7 +435,7 @@ class FastFlashClient {
         ..._ffU32(ffWireBytes.crc32Mpeg2(packed)),
         ...packed,
       ],
-      this._chunkMs(packed.length, FF_TIMEOUT.CHUNK)
+      FF_TIMEOUT.CHUNK
     );
     return packed.length;
   }
@@ -609,23 +465,6 @@ class FastFlashClient {
    */
   async setBaud(scbr) {
     await this.call(FF_SVC.SET_BAUD, _ffU16(scbr), FF_TIMEOUT.SET_BAUD);
-  }
-
-  /**
-   * v23: external sectors erased in the background. The body issues the
-   * chip's queued sector-erase for all of them and answers at once; the
-   * chip erases them on its own (~2 s a sector on the car) while the body
-   * goes on with the MPC phase, and the body's next external access waits
-   * for the chip. The marks sector must have been erased alone, before:
-   * that is what keeps an interruption loader-recoverable.
-   * @param {number[]} offsets - 1..8 ext sector offsets (0x40000-0xFFFFF)
-   */
-  async eraseQueue(offsets) {
-    await this.call(
-      FF_SVC.ERASE_Q,
-      offsets.flatMap((o) => _ffU32(o)),
-      FF_TIMEOUT.ERASE_Q
-    );
   }
 
   /**
@@ -671,7 +510,7 @@ class FastFlashClient {
         0,
         ...packed,
       ],
-      this._chunkMs(packed.length, FF_TIMEOUT.CHUNK_SET)
+      FF_TIMEOUT.CHUNK_SET
     );
     return packed.length;
   }
@@ -700,7 +539,7 @@ class FastFlashClient {
    * mismatch is a byte the line mangled inside the data (the frame sum is
    * one byte over 4 KB): asked once more, like a garbled reply.
    * @param {number} off - Ext offset, or FF_MPC_WINDOW | MPC offset.
-   * @param {number} len - 1..FF_READ_MAX.
+   * @param {number} len - 1..4096.
    * @returns {Promise<Uint8Array>}
    */
   async read(off, len) {
@@ -708,8 +547,7 @@ class FastFlashClient {
       const d = await this.call(
         FF_SVC.READ,
         [..._ffU32(off), ..._ffU16(len)],
-        this._readReplyMs(len),
-        { firstByteMs: FF_READ_FIRST_BYTE_MS }
+        FF_TIMEOUT.READ
       );
       const bytes = d.subarray(4);
       if (
@@ -717,22 +555,6 @@ class FastFlashClient {
         ffWireBytes.crc32Mpeg2(bytes) === ffWireBytes.be32(d, 0)
       )
         return bytes;
-      // a damaged wide read: the rest of it was fine, and one bad byte in
-      // 16 KB should not cost 16 KB again -- read the span in 4 KB pieces,
-      // each with its own tries (this one damage still counts for the line)
-      if (len > FF_READ_PIECE) {
-        if (this.trace)
-          this.trace(
-            `FF READ 0x${off.toString(16).toUpperCase()} ${len}B -> CRC mismatch; in ${FF_READ_PIECE / 1024} KB pieces`
-          );
-        await this._lineError();
-        const out = new Uint8Array(len);
-        for (let at = 0; at < len; at += FF_READ_PIECE) {
-          const n = Math.min(FF_READ_PIECE, len - at);
-          out.set(await this.read((off + at) >>> 0, n), at);
-        }
-        return out;
-      }
       if (this.trace)
         this.trace(
           `FF READ 0x${off.toString(16).toUpperCase()} ${len}B -> ${bytes.length}B, CRC mismatch${attempt < FF_GARBLE_TRIES ? ' -- once more' : ''}`
@@ -749,7 +571,7 @@ class FastFlashClient {
 }
 
 /**
- * An area through READ, FF_READ_MAX bytes a request.
+ * An area through READ, 4 KB a request.
  * @param {FastFlashClient} client
  * @param {number} base - An ext offset, or FF_MPC_WINDOW | an MPC offset.
  * @param {number} size
@@ -1252,20 +1074,8 @@ async function ffPushProgram(client, signedFull, cb = {}, opts = {}) {
     track.add(U.ERASE, `Erased ${marksUnit.name}`);
   }
   let n = 0;
-  // v23: with a background erase, the external sectors are queued on the
-  // chip before the MPC phase and written after it -- the chip erases
-  // them (~2 s each) under the CMF's pulses instead of on the clock. The
-  // marks sector was erased alone above, so an interruption still leaves
-  // the loader in charge. The MPC erase goes first: its driver staging
-  // reads the boot block, which the body refuses to do while the chip
-  // erases.
-  const background =
-    !!opts.backgroundErase && parallel.length > 0 && !!client.eraseQueue;
-  const extUnits = sequential.filter((u) => u.addr < FF_MPC_WINDOW);
-  const deferred = background ? extUnits : [];
   for (const u of sequential) {
     if (parallel.length && u.addr >= FF_MPC_WINDOW && blockOf(u) === 0) break;
-    if (deferred.includes(u)) continue;
     n++;
     const which = `${u.name} (${n} of ${total})`;
     stage(`Erasing ${which}`);
@@ -1280,14 +1090,6 @@ async function ffPushProgram(client, signedFull, cb = {}, opts = {}) {
     stage(`Erasing ${which}`);
     await client.eraseBlocks(mask);
     track.add(U.ERASE * blocks.length, `Erased ${which}`);
-    if (deferred.length) {
-      stage(
-        `Erasing ${deferred.map((u) => u.name).join(', ')} in the background`
-      );
-      for (let i = 0; i < deferred.length; i += 8)
-        await client.eraseQueue(deferred.slice(i, i + 8).map((u) => u.addr));
-      // the chip's time, not the wire's: the bar moves when the writes land
-    }
     stage(`Writing ${which}`);
     const span = pagesets * FF_PAGE;
     const steps = Math.ceil(FF_MPC_BLOCK / span);
@@ -1333,14 +1135,6 @@ async function ffPushProgram(client, signedFull, cb = {}, opts = {}) {
       track.add(U.ERASE, `Erased ${last}`);
       await writeUnit(u, last);
     }
-  }
-  // v23: the external units whose erase ran in the background, written
-  // now that the MPC phase is over (the first chunk waits for the chip)
-  for (const u of deferred) {
-    n++;
-    const which = `${u.name} (${n} of ${total})`;
-    track.add(U.ERASE, `Erased ${which} (in the background)`);
-    await writeUnit(u, which);
   }
   if (marksUnit)
     await writeUnit(
@@ -1392,11 +1186,6 @@ function ffWebLink(bus, opts = {}) {
   const learn = (hello) => {
     if (hello && hello.data && hello.data[6] >= FF_ECHO_AS_SENT_VERSION)
       drainMs = 0;
-    // the rate the body was heard on: a later resume (the shared session
-    // right after a one-click entry, a push picked up after a drop) asks
-    // there first instead of walking the ladder
-    if (hello && bus.config && bus.config.baudRate)
-      ffLastHeardRate = bus.config.baudRate;
   };
   // every byte the cable heard since the last reopen, for the failure text:
   // on a real cable "no answer" and "garbage" need telling apart
@@ -1411,14 +1200,9 @@ function ffWebLink(bus, opts = {}) {
       : 'nothing heard';
   const scale = bus.port.device === 'ms45-emu' ? FF_EMULATOR_SCALE : 1;
 
-  /**
-   * Read until one whole frame (after the echo) is in. With firstByteMs,
-   * a reply that has not started that long after the echo is a lost
-   * request: reported at once, not at the budget's end.
-   */
-  async function readFrame(timeoutMs, echo, firstByteMs = 0) {
+  /** Read until one whole frame (after `skip` echo bytes) is in. */
+  async function readFrame(timeoutMs, echo) {
     const deadline = Date.now() + timeoutMs * scale;
-    let replyBy = !echo && firstByteMs ? Date.now() + firstByteMs * scale : 0;
     for (;;) {
       if (echo) {
         // the echo is exactly what was written; anything before it is
@@ -1427,13 +1211,8 @@ function ffWebLink(bus, opts = {}) {
         if (at >= 0) {
           rx = rx.slice(at + echo.length);
           echo = null;
-          if (firstByteMs) replyBy = Date.now() + firstByteMs * scale;
         }
       }
-      if (!echo && replyBy && !rx.length && Date.now() >= replyBy)
-        throw new Error(
-          'fast flasher: the DME did not answer (nothing after the echo)'
-        );
       if (!echo) {
         const f = ffParse(rx);
         if (f) {
@@ -1455,9 +1234,7 @@ function ffWebLink(bus, opts = {}) {
                   : 'nothing after the echo'
               })`
         );
-      const { value, done } = await bus.readSome(
-        !echo && replyBy && !rx.length ? Math.min(deadline, replyBy) : deadline
-      );
+      const { value, done } = await bus.readSome(deadline);
       if (done) throw new Error('fast flasher: the port closed');
       if (value && value.length) {
         rx.push(...value);
@@ -1471,27 +1248,16 @@ function ffWebLink(bus, opts = {}) {
    * can be lost (the reopen's line glitch, the transmit-enable timing), and
    * an unanswered ask costs nothing: the flasher only ever answers.
    */
-  async function askHello(
-    self,
-    asks = FF_HELLO_ASKS,
-    timeoutMs = FF_TIMEOUT.HELLO
-  ) {
+  async function askHello(self) {
     let last = null;
-    for (let i = 1; i <= asks; i++) {
+    for (let i = 1; i <= FF_HELLO_ASKS; i++) {
       step(`Asking the flasher for its HELLO${i > 1 ? ` (try ${i})` : ''}`);
       try {
         const hello = ffParse(
-          await self.exchange(ffFrame(FF_SVC.HELLO, []), timeoutMs)
+          await self.exchange(ffFrame(FF_SVC.HELLO, []), FF_TIMEOUT.HELLO)
         );
         if (hello && hello.svc === (FF_SVC.HELLO | 0x40)) return hello;
-        // a frame that is not a HELLO: the late answer to the command a
-        // cut session was waiting for (the car, 2026-11-08: a CHUNK_SET's
-        // ACK read as "answered with service 48"). The body is alive and
-        // has said its piece; ask once more after the line goes quiet
-        last = new Error(
-          `fast flasher: an answer that was not a HELLO (service ${hello ? hello.svc.toString(16) : '?'})`
-        );
-        if (i === asks) asks++;
+        last = new Error('fast flasher: an answer that was not a HELLO');
       } catch (e) {
         last = e;
       }
@@ -1605,40 +1371,24 @@ function ffWebLink(bus, opts = {}) {
      */
     async resume() {
       // the body may be holding a confirmed faster line from the session
-      // that was cut short. A quick pass first: one ask at each rate,
-      // likeliest first (the session rates in the order sessions try
-      // them, then 115200, then the rates older builds held), with
-      // FF_HELLO_QUICK_MS of patience each; then the patient pass
+      // that was cut short: 115200 first, then each rate it could be on
       let last = null;
-      const likely = [
-        ...new Set([
-          ...(ffLastHeardRate ? [ffLastHeardRate] : []),
-          ...FF_FAST_LINES.map(([r]) => r),
-          FF_BAUD,
-          ...FF_RESUME_RATES,
-        ]),
-      ];
-      for (const [asks, timeoutMs] of [
-        [1, FF_HELLO_QUICK_MS],
-        [FF_HELLO_ASKS, FF_TIMEOUT.HELLO],
-      ]) {
-        for (const rate of likely) {
-          await bus.reopen({
-            baudRate: rate,
-            dataBits: 8,
-            stopBits: 1,
-            parity: 'even',
-          });
-          rx = [];
-          heard = [];
-          try {
-            const hello = await askHello(this, asks, timeoutMs);
-            learn(hello);
-            step(`The flasher answered at ${rate} baud`);
-            return hello.data;
-          } catch (e) {
-            last = e;
-          }
+      for (const rate of [FF_BAUD, ...FF_RESUME_RATES]) {
+        await bus.reopen({
+          baudRate: rate,
+          dataBits: 8,
+          stopBits: 1,
+          parity: 'even',
+        });
+        rx = [];
+        heard = [];
+        try {
+          const hello = await askHello(this);
+          learn(hello);
+          step(`The flasher answered at ${rate} baud`);
+          return hello.data;
+        } catch (e) {
+          last = e;
         }
       }
       throw last || new Error('fast flasher: no HELLO at any rate');
@@ -1669,32 +1419,18 @@ function ffWebLink(bus, opts = {}) {
         // follows it is the body's unprompted HELLO
         const txMs = Math.ceil((frame.length * 11 * 1000) / FF_BAUD);
         const deadline = Date.now() + (txMs + 1500) * scale;
-        // the body's HELLO is taken the moment it is in the stream, echo
-        // complete or not: the cable has dropped echo bytes on the car, and
-        // waiting for the whole echo and then for a HELLO that was already
-        // in the buffer cost the one-click ~4 s after "100 %" (2026-11-08)
         let got = 0;
-        let hello = null;
-        while (!hello && Date.now() < deadline) {
+        while (got < frame.length && Date.now() < deadline) {
           const { value, done } = await bus.readSome(deadline);
           if (done) throw new Error('fast flasher: the port closed');
           if (value && value.length) {
             got += value.length;
             rx.push(...value);
           }
-          hello = _ffHelloInTail(rx);
-          if (!hello && got >= frame.length && rx.length > frame.length + 64)
-            break; // the echo is all here and more: nothing that is a HELLO
-        }
-        if (hello) {
-          rx = [];
-          learn(hello);
-          step(`The flasher answered at ${FF_BAUD} baud`);
-          return hello.data;
         }
         rx = got >= frame.length ? rx.slice(frame.length) : [];
         try {
-          hello = ffParse(await readFrame(FF_TIMEOUT.HELLO, null));
+          const hello = ffParse(await readFrame(FF_TIMEOUT.HELLO, null));
           if (hello && hello.svc === (FF_SVC.HELLO | 0x40)) {
             learn(hello);
             step(`The flasher answered at ${FF_BAUD} baud`);
@@ -1752,7 +1488,7 @@ function ffWebLink(bus, opts = {}) {
         }
       }
     },
-    async exchange(frame, timeoutMs, opts = {}) {
+    async exchange(frame, timeoutMs) {
       // DTR stays low. The bus raises it around every K-line write (the
       // reference's transmit enable), but on the car a break with DTR low
       // reached the line, and with the DTR toggle the flasher answered
@@ -1760,11 +1496,7 @@ function ffWebLink(bus, opts = {}) {
       // the drop's USB transfer lands as the reply starts. Without DTR a
       // cable that needed it would give no echo -- an error that says so.
       await bus.writer.write(frame);
-      const reply = await readFrame(
-        timeoutMs,
-        Array.from(frame),
-        opts.firstByteMs || 0
-      );
+      const reply = await readFrame(timeoutMs, Array.from(frame));
       if (drainMs) await sleep(reply.length * drainMs);
       return reply;
     },

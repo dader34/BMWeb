@@ -331,11 +331,6 @@ function fbDmeFastUi(title) {
     if (quiet) return;
     fbSetStatusInPlace(`${title}: ${phase}… ${pct}%`);
   };
-  // the session's own stages before the push (the resume HELLO, the
-  // probes, the line speed) come while the painter is still quiet: said
-  // without a percentage, so the entry's "100 %" does not sit there for
-  // the seconds they take (the one-click, 2026-11-08)
-  const paintQuiet = (p) => fbSetStatusInPlace(`${title}: ${p}…`);
   const phaseOf = (s) =>
     /^Checking the flasher/.test(s)
       ? 'checking the flasher'
@@ -358,10 +353,8 @@ function fbDmeFastUi(title) {
   return {
     stage(s) {
       flashLog.note(s);
-      const p = phaseOf(s);
-      phase = p || phase;
-      if (quiet && p) paintQuiet(p);
-      else paint();
+      phase = phaseOf(s) || phase;
+      paint();
     },
     notice(s) {
       fbSetStatus(s);
@@ -948,9 +941,6 @@ async function fbDmeFastFlashProgram(opts = {}) {
         {
           mpc,
           pagesets: true,
-          // v23: the external sectors erase on the chip while the MPC
-          // phase runs (~2 s a sector off the clock)
-          backgroundErase: true,
           // block 0 in the pagesets only where the bootloader can always
           // reach the DME: its handoff window runs before MPC 0x8, so a cut
           // with block 0 erased is repaired through the ring. A DME on the

@@ -13,7 +13,7 @@
 //      MO3 handshake, which is all the staging needs; nothing is erased
 //      (emu-proven on loaders A, B and C, 2026-11-05);
 //   3. 3D stages the MTOS descriptor + entry branch at the pool 0x3FA104
-//      and the receiver stub at 0x3FBCE0 (3 telegrams; the body itself is
+//      and the receiver stub at 0x3FBAA0 (3 telegrams; the body itself is
 //      NOT staged at 9600 any more);
 //   4. 31 FA arm, then 31 FA fire: the gate calls the entry branch, which
 //      jumps to the receiver;
@@ -25,7 +25,7 @@
 //
 // The staged image (build it with triggerImage):
 //   [MTOS descriptor 0x70 B][entry branch 4 B][dead gap 0x40 B] at the pool
-//   0x3FA104, plus the receiver at 0x3FBCE0 -- above the body's whole SRAM
+//   0x3FA104, plus the receiver at 0x3FBAA0 -- above the body's whole SRAM
 //   span, so nothing the upload writes can reach the code doing the writing.
 //
 // Preconditions and limits, all enforced or documented:
@@ -59,7 +59,7 @@ const trigBytes =
 const TRIGGER = {
   DESC: 0x3fa104, // the loader's table-A descriptor pool
   D_ENTRY: 0x3fa174, // desc+0x70, the address the stock gate computes+calls
-  STUB_AT: 0x3fbce0, // the receiver: above everything the body occupies (v23 body ends 0x3fbcd3)
+  STUB_AT: 0x3fbaa0, // the receiver: above everything the body occupies
   SRAM_BASE: 0x3f9800, // where the body runs relocated
   POOL_END: 0x3fc003, // table-A pool range, inclusive
   // the write enable: a 31 02 the loader REFUSES (7F 31 22, a RAM address
@@ -70,7 +70,7 @@ const TRIGGER = {
   ENABLE_AT: 0x3f9800,
   ENABLE_LEN: 0x80,
   CHUNK: 249, // 6 telegram bytes + chunk <= the length byte's 255
-  BODY_WORDS: 1713, // the body the emu proof staged (v23) -- a change must re-run it
+  BODY_WORDS: 1592, // the body the emu proof staged -- a change must re-run it
   MARKER1: 0x1f9c2, // the boot-sector markers the one-time unlock blanks
   MARKER2: 0x1fb18,
   MTOS_SEED: 0x4d544f53, // 'MTOS', big-endian: the gate CRC's seed
@@ -110,9 +110,7 @@ const MTOS_DESC_SIG = new Uint8Array([
  */
 function triggerReceiver() {
   return {
-    // b STUB_AT, relative from D_ENTRY (0x4800192C for the v21 stub at 0x3FBAA0)
-    entry:
-      (0x48000000 | ((TRIGGER.STUB_AT - TRIGGER.D_ENTRY) & 0x03fffffc)) >>> 0,
+    entry: 0x4800192c, // b STUB_AT, relative from D_ENTRY
     words: [
       0x7cc000a6, 0x54c6045e, 0x7cc00124, 0x4c00012c, 0x3e20002f, 0x6231c00e,
       0x3a40556c, 0x3a60aa39, 0x3f800030, 0x639c500c, 0x3fa00030, 0x63bd500e,

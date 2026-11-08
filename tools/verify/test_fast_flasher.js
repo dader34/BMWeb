@@ -350,16 +350,6 @@ const be32 = (b, at) =>
                 { 0x60000: 0x20000, 0x80000: 0x40000, 0xc0000: 0x40000 }[off]
             );
         },
-        async eraseQueue(offsets) {
-          events.push(['eraseQueue', offsets.slice()]);
-          for (const off of offsets)
-            mem.fill(
-              0xff,
-              off,
-              off +
-                { 0x60000: 0x20000, 0x80000: 0x40000, 0xc0000: 0x40000 }[off]
-            );
-        },
         async eraseBlocks(mask) {
           events.push(['eraseBlocks', mask]);
           for (let b = 0; b < 14; b++)
@@ -541,56 +531,6 @@ const be32 = (b, at) =>
     );
     ok(
       'v8 push: the differing MPC blocks bar 0 erased in one job and written as pagesets, block 0 alone and last; the v7 wire still sequential; chip == target both ways'
-    );
-
-    // v23: with a background erase the external sectors are queued on the
-    // chip after the MPC erase and written after the pagesets; the marks
-    // sector is still erased alone and first, block 0 still last of the MPC.
-    // From a blank external chip, so every program sector differs
-    c = mpcChip(new Uint8Array(0x100000).fill(0xff), mpcOnChip);
-    await W.pushProgram(
-      c.client,
-      target,
-      {},
-      { mpc: mpcTarget, pagesets: true, backgroundErase: true }
-    );
-    assert(Buffer.from(c.mpc).equals(Buffer.from(mpcTarget)), 'MPC == target');
-    assert(
-      Buffer.from(c.mem.subarray(0x60000)).equals(
-        Buffer.from(W.programAreaImage(target))
-      ),
-      'ext == target'
-    );
-    const kindsB = c.events.map((e) => e[0]);
-    const firstErase = kindsB.indexOf('erase');
-    assert.strictEqual(c.events[firstErase][1], 0xc0000, 'marks sector first');
-    const iBlocks = kindsB.indexOf('eraseBlocks');
-    const iQueue = kindsB.indexOf('eraseQueue');
-    const iSet = kindsB.indexOf('chunkSet');
-    const iExtChunk = c.events.findIndex(
-      (e) => e[0] === 'chunk' && e[1] >= 0x60000 && e[1] < WIN
-    );
-    assert(
-      firstErase < iBlocks && iBlocks < iQueue && iQueue < iSet,
-      'marks erase, then the MPC erase, then the queue, then the pagesets'
-    );
-    assert(
-      iExtChunk > c.events.map((e) => e[0]).lastIndexOf('chunkSet'),
-      'the external chunks come after the pagesets'
-    );
-    assert.deepStrictEqual(
-      c.events[iQueue][1],
-      [0x60000, 0x80000],
-      'the two other sectors queued, the marks sector not again'
-    );
-    assert.strictEqual(
-      c.events.filter((e) => e[0] === 'erase' && e[1] < WIN).length,
-      1,
-      'no external sector erased one by one'
-    );
-    assert.deepStrictEqual(kindsB.slice(-2), ['marks', 'reset']);
-    ok(
-      'v23 push: external sectors queued on the chip after the MPC erase, written after the pagesets, marks sector still first and alone'
     );
   }
 
@@ -859,34 +799,7 @@ const be32 = (b, at) =>
       1,
       'the second damaged block steps the line down'
     );
-    await assert.rejects(client.read(0x40000, W.READ_MAX + 1), W.Nak);
-    // a damaged wide read is re-read in 4 KB pieces, not whole
-    damage = 1;
-    asked.length = 0;
-    const wide = await client.read(0x44000, W.READ_MAX);
-    assert(
-      Buffer.from(wide).equals(Buffer.from(ext.subarray(0x44000, 0x48000))),
-      'the pieces add up to the span'
-    );
-    assert.deepStrictEqual(
-      asked.map(([, n]) => n),
-      [W.READ_MAX, 0x1000, 0x1000, 0x1000, 0x1000],
-      'one wide ask, then the four pieces'
-    );
-    // the step-down weighs garbles against what the rate gains: on a fast
-    // line carrying wide reads one garble in six frames is kept, three in
-    // a row are not
-    client.baud = 312500;
-    stepped = 0;
-    client._recent = [];
-    for (let i = 0; i < 6; i++) await client.read(0x50000 + i * 0x4000, 0x4000);
-    damage = 1;
-    await client.read(0x70000, 0x4000);
-    assert.strictEqual(stepped, 0, 'one garble in six wide frames is carried');
-    damage = 3;
-    await client.read(0x74000, 0x4000);
-    assert.strictEqual(stepped, 1, 'three garbles running step the line down');
-    client.baud = W.BAUD;
+    await assert.rejects(client.read(0x40000, 4097), W.Nak);
     asked.length = 0;
     let last = -1;
     const img = await W.readImage(client, {
@@ -898,17 +811,13 @@ const be32 = (b, at) =>
     });
     assert(Buffer.from(img.flash).equals(Buffer.from(ext)), 'the chip, whole');
     assert(Buffer.from(img.mpc).equals(Buffer.from(mpc)), 'the MPC, whole');
-    assert.strictEqual(asked.length, (0x100000 + 0x70000) / W.READ_MAX);
-    assert(asked.every(([, n]) => n === W.READ_MAX) && last === 100);
-    assert.strictEqual(
-      asked[0x100000 / W.READ_MAX][0],
-      0x80000000,
-      'the MPC through its window'
-    );
+    assert.strictEqual(asked.length, (0x100000 + 0x70000) / 0x1000);
+    assert(asked.every(([, n]) => n === 0x1000) && last === 100);
+    assert.strictEqual(asked[256][0], 0x80000000, 'the MPC through its window');
     const tune = await W.readImage(client, {});
     assert(tune.mpc === null && tune.flash.length === 0x100000);
     ok(
-      'READ: a block checked against its CRC, a damaged one asked once more, twice is an error; readImage tiles 1 MB + 448 KB in 16 KB'
+      'READ: a block checked against its CRC, a damaged one asked once more, twice is an error; readImage tiles 1 MB + 448 KB in 4 KB'
     );
   }
 
