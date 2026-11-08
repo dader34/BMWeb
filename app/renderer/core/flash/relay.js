@@ -3,9 +3,18 @@
 // external image and hooks the 10 ms frame task into it; booted, the DME
 // alone drives the whole GS20 service over PT-CAN (0x7DD out, 0x7DC back)
 // while its own diagnostics stay alive -- it stages the transmission's RAM
-// monitor word by word, redirects its stack pointer mid-answer, then echo,
-// write, read, a DPP window and a flash read. Emu-proven ALL PASS
-// 2026-11-06 (gs20-emu tools/dme_relay_p1.py).
+// monitor word by word, redirects its stack pointer mid-answer, then
+// write, read, a DPP window, a flash read, the echo, and LAST a stock
+// 0x20 readback of the payload's own first word. The readback is the
+// post-mortem: a live monitor answers [20 9F 00...] -- its unknown-
+// command tag, which the stock program never sends -- and a dead one
+// leaves the post-reset stock program answering instead, its reply
+// carrying the staged word itself: intact bytes (the blob's probeWord)
+// mean the payload was fine and the monitor died on entry; zeros mean
+// the payload never survived in the transmission's RAM. One step, three
+// verdicts. Emu-proven ALL PASS 2026-11-07 (gs20-emu tools/
+// dme_relay_p1.py) on these exact bytes: one build for chip and
+// emulator, watchdog in the firmware-proven 4-byte form.
 //
 // This side's whole job: patch a read pair (relayPatchPair), flash it by
 // the usual program path (flash-ops checksums and signs the result like
@@ -16,7 +25,7 @@
 //
 // Load relay-blob.js (core/generated) before this file.
 /* exported relayPatchPair, relayDecodeState, relayReadState, relayVerdict,
-   relayServiceMs, relayAwaitVerdict */
+   relayDiagnoseLast, relayServiceMs, relayAwaitVerdict */
 
 const relayBlob_ =
   typeof relayBlob !== 'undefined'
@@ -147,6 +156,11 @@ async function relayReadState(sender) {
  * the flash, so a failed read is retried, not fatal -- but the last error is
  * kept and named, so silence, a refusal and a busy cable are told apart.
  *
+ * Patient by default: the service itself is seconds, but the real
+ * transmission can sit minutes on a single answer (the 2026-11-07 car run
+ * stalled at step 127/240 and self-healed -- the stub's bounded resend
+ * carried it; a 25 s poll window would have called it dead).
+ *
  * NO BUS CLAIM here, deliberately: the sender's telegrams already queue
  * through the bus lock, which refuses EVERYONE while a claim stands -- a
  * claim here would refuse our own reads before a byte left the machine
@@ -159,7 +173,7 @@ async function relayReadState(sender) {
  *   attempts: number, lastWhy: string}>} state null when nothing was read
  */
 async function relayAwaitVerdict(sender, opts = {}) {
-  const deadlineMs = opts.deadlineMs ?? 25000;
+  const deadlineMs = opts.deadlineMs ?? 300000;
   const sleepMs = opts.sleepMs ?? 1500;
   const deadline = Date.now() + deadlineMs;
   let state;
@@ -191,12 +205,63 @@ async function relayAwaitVerdict(sender, opts = {}) {
 }
 
 /**
+ * Name what the last answer says about the run, whatever it is. The final
+ * step is the post-mortem readback (a stock 0x20 read of the payload's
+ * own first word), so the answer is a three-way verdict: the monitor's
+ * [20 9F] unknown-command tag (stock never sends it -- liveness), the
+ * stock reply carrying the staged word intact (payload fine, the monitor
+ * died on entry), or the stock reply carrying zeros (the payload never
+ * survived in RAM). Older and odder flavors are named too.
+ * @param {number[]} last
+ * @returns {string}
+ */
+function relayDiagnoseLast(last) {
+  const b = relayBlob_;
+  if (last.length >= 8 && last.every((v, i) => v === b.expectLast[i]))
+    return (
+      'the monitor itself answered the readback probe -- alive at ' +
+      'the final step'
+    );
+  if (
+    last[0] === 0x20 &&
+    last[1] === 0x81 &&
+    last[2] === b.probeWord[0] &&
+    last[3] === b.probeWord[1]
+  )
+    return (
+      'the staged payload is intact and even survived the reset -- ' +
+      'the monitor died on entry (the killer is execution, not staging)'
+    );
+  if (last[0] === 0x20 && last[1] === 0x81 && last[2] === 0 && last[3] === 0)
+    return (
+      "the staged payload is gone from the transmission's RAM -- " +
+      'corrupted in the supposedly quiet span, or cleared by the reset ' +
+      'after the monitor died'
+    );
+  if (last[0] === 0x2a && last[1] === 0x81)
+    return (
+      'an echo answer: this verdict block is from the previous ' +
+      "build's run (its table ended at the echo; re-run to refresh it)"
+    );
+  if (last[1] === 0x81)
+    return (
+      'the stock program is answering (class ' +
+      `${last[0].toString(16)} reply), not the monitor`
+    );
+  if (last.every((v) => v === 0)) return 'no answer was ever recorded';
+  return 'an answer neither the monitor nor the stock program formats';
+}
+
+/**
  * Judge a read state block against the blob's expectations: the service
- * ran to its last step and finished, every answering step was answered and
- * acked (the SP-redirect step answers nothing by design, hence steps - 1),
- * and the last answer is a monitor flash-read ack.
+ * ran to its last step and finished, every answering step was answered,
+ * and all but two were acked -- the SP-redirect step answers nothing by
+ * design, and the final readback is answered with the monitor's 0x9F
+ * tag rather than an 0x81 ack, hence good = steps - 2. The last answer
+ * must be the monitor's own readback reply: byte-exact liveness.
  * @param {ReturnType<typeof relayDecodeState>} s
- * @returns {{ok: boolean, checks: {what: string, ok: boolean}[]}}
+ * @returns {{ok: boolean, checks: {what: string, ok: boolean}[],
+ *   note: string}} note describes the last answer's meaning
  */
 function relayVerdict(s) {
   const b = relayBlob_;
@@ -209,12 +274,15 @@ function relayVerdict(s) {
     {
       what: 'last answer',
       ok:
-        s.last.length >= 2 &&
-        s.last[0] === b.expectLast[0] &&
-        s.last[1] === b.expectLast[1],
+        s.last.length === b.expectLast.length &&
+        s.last.every((v, i) => v === b.expectLast[i]),
     },
   ];
-  return { ok: checks.every((c) => c.ok), checks };
+  return {
+    ok: checks.every((c) => c.ok),
+    checks,
+    note: relayDiagnoseLast(s.last),
+  };
 }
 
 /** The service's own duration once the patched DME boots (ms).
@@ -229,6 +297,7 @@ if (typeof module !== 'undefined' && module.exports)
     relayDecodeState,
     relayReadState,
     relayVerdict,
+    relayDiagnoseLast,
     relayServiceMs,
     relayAwaitVerdict,
   };

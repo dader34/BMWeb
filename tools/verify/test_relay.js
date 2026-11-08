@@ -47,9 +47,9 @@ const main = async () => {
 
   // ---- the blob ----------------------------------------------------------------
   check(
-    'blob: 240 real-chip steps, 239 answering',
-    relayBlob.steps === 240 &&
-      relayBlob.expectReplies === 239 &&
+    'blob: 241 real-chip steps, 240 answering, 239 acked',
+    relayBlob.steps === 241 &&
+      relayBlob.expectReplies === 240 &&
       relayBlob.expectGood === 239
   );
   check(
@@ -154,39 +154,46 @@ const main = async () => {
 
   // ---- the state block ------------------------------------------------------------
   // the shape the booted stub writes when the service ran clean: last step,
-  // phase done, every answering step answered and acked, the final answer a
-  // monitor flash-read ack carrying the transmission's own bytes
+  // phase done, every answering step answered (the SP-redirect step answers
+  // nothing by design), all but the final one acked -- the readback's reply
+  // carries the monitor's 0x9F tag, not the 0x81 ack tag, so good stops one
+  // short of replies. The last answer is the monitor's own reply to the
+  // readback probe: [20 9F 00...], the unknown-command tag the stock program
+  // never sends -- the liveness half of the three-way verdict
   const u16 = (v) => [(v >> 8) & 0xff, v & 0xff];
+  // the XOR of every answer's first word, order-independent: v6's multiset
+  // plus the readback's 0x209F (v6 ran 0x3481)
+  const EMU_DIGEST = 0x141e;
   const passBlock = new Uint8Array([
-    ...u16(240), // step: the last one
+    ...u16(241), // step: the last one
     ...u16(2), // phase: done
     ...u16(0x5eca), // magic
-    ...u16(239), // replies: every answering step
-    ...u16(239), // good: every one acked
-    ...u16(0x3481), // digest (the emu run's; the car's will differ)
+    ...u16(240), // replies: every answering step
+    ...u16(239), // good: all but the 0x9F-tagged readback
+    ...u16(EMU_DIGEST), // digest (the emu run's; the car's will differ)
     0,
     0,
     0,
     0, // +12 retry counter (0 mid-run), +14..15 never written
-    0x10,
-    0x81,
-    0xff,
-    0xff,
-    0x00,
-    0x02,
-    0x96,
-    0x02, // last answer at +16
+    0x20,
+    0x9f,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0, // last answer at +16: the monitor's readback reply
   ]);
   const s = relayDecodeState(passBlock);
   check(
     'state: decodes step, phase, magic, counters, last answer',
-    s.step === 240 &&
+    s.step === 241 &&
       s.phase === 2 &&
       s.magic === 0x5eca &&
-      s.replies === 239 &&
+      s.replies === 240 &&
       s.good === 239 &&
-      s.digest === 0x3481 &&
-      hex(s.last) === '1081ffff00029602'
+      s.digest === EMU_DIGEST &&
+      hex(s.last) === '209f000000000000'
   );
   check('verdict: the clean block passes', relayVerdict(s).ok);
 
@@ -212,7 +219,47 @@ const main = async () => {
     'verdict: a staging ack as the last answer fails',
     !broken((b) => b.set([0x01, 0x81], 16)).ok
   );
-  check('service window: 240 ten-millisecond steps', relayServiceMs() === 2400);
+  const stockEcho = broken((b) => b.set([0x2a, 0x81, 0, 0, 0, 0, 0, 0], 16));
+  check(
+    "verdict: the old build's echo answer fails and is named",
+    !stockEcho.ok && stockEcho.note.includes('previous build')
+  );
+  // the post-mortem branch: the stock program answered the readback and
+  // carried the staged word back INTACT -- the payload was fine, the
+  // monitor died on entry
+  const intact = broken((b) =>
+    b.set(
+      [
+        0x20,
+        0x81,
+        relayBlob.probeWord[0],
+        relayBlob.probeWord[1],
+        0xff,
+        0xff,
+        0xff,
+        0xff,
+      ],
+      16
+    )
+  );
+  check(
+    'verdict: stock readback of the intact word fails and names entry death',
+    !intact.ok && intact.note.includes('died on entry')
+  );
+  // ...and the branch where the payload never survived in the RAM at all
+  const gone = broken((b) =>
+    b.set([0x20, 0x81, 0, 0, 0xff, 0xff, 0xff, 0xff], 16)
+  );
+  check(
+    'verdict: stock readback of zeros fails and names the lost payload',
+    !gone.ok && gone.note.includes('gone from the transmission')
+  );
+  const stockRead = broken((b) => b.set([0x03, 0x81, 0, 0, 0, 0, 0, 0], 16));
+  check(
+    'verdict: a stock class reply fails and is named',
+    !stockRead.ok && stockRead.note.includes('stock program is answering')
+  );
+  check('service window: 241 ten-millisecond steps', relayServiceMs() === 2410);
 
   // ---- the read -----------------------------------------------------------------
   // the real one-click read-by-address under the relay read: one telegram,
@@ -228,7 +275,7 @@ const main = async () => {
   const readState = await relayReadState(mockSender(passBlock));
   check(
     'read: the block comes back decoded',
-    readState.step === 240 && readState.good === 239
+    readState.step === 241 && readState.good === 239
   );
   check('read: the verdict over the wire passes', relayVerdict(readState).ok);
 
@@ -252,7 +299,7 @@ const main = async () => {
   const polled = await relayAwaitVerdict(bootingThenDone, { sleepMs: 1 });
   check(
     'poll: retries past the boot silence and returns the settled block',
-    polled.state.step === 240 &&
+    polled.state.step === 241 &&
       polled.attempts === 3 &&
       polled.lastWhy === '' &&
       seq.join(',') === 'throw,throw,read'

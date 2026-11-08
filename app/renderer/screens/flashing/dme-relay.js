@@ -1,20 +1,27 @@
 // The Fast flasher page's GS20 relay section: the whole emu-proven relay
-// chain (gs20-emu tools/dme_relay_p1.py, ALL PASS 2026-11-06) as one
+// chain (gs20-emu tools/dme_relay_p1.py, ALL PASS 2026-11-07) as one
 // button, with no CAN hardware on this side. The flow reads the DME's own
 // program, adds the relay payload (core/flash/relay.js: a stub in the free
 // window at 0xDCC00 plus one hook word in the MPC, refused unless the MPC
 // carries the program the payload was built against) and flashes it back
 // through the one-click. On the reboot the DME ALONE services the
 // transmission over the car's PT-CAN -- staging its RAM monitor word by
-// word, redirecting its stack pointer, then echo, write, read, a DPP window
-// and a flash read -- while its own diagnostics stay alive. BMWeb sends no
-// CAN frame at any point; the only wire is the K-line the flash used.
+// word, redirecting its stack pointer, then write, read, a DPP window, a
+// flash read, the echo, and LAST a stock readback of the payload's own
+// first word -- while its own diagnostics stay alive. BMWeb sends no CAN
+// frame at any point; the only wire is the K-line the flash used.
 //
-// After a few seconds (240 reply-paced steps) the verdict block at
-// 0x3F9E74 (the livetune RAM tier: car-proven quiet, far below the heap)
-// is read back with the stock read-by-address (no login) and judged:
-// every answering step answered and acked, the last answer the
-// transmission's own bytes through its monitor.
+// The verdict block at 0x3F9E74 (the livetune RAM tier: car-proven quiet,
+// far below the heap) is read back with the stock read-by-address (no
+// login) and judged: every answering step answered, all but two acked
+// (the redirect answers nothing; the readback's 0x9F tag is not an ack),
+// and the last answer is a three-way verdict -- the monitor's own [20 9F]
+// reply (alive: stock never sends that tag), the stock reply carrying the
+// staged word intact (payload fine, monitor died on entry), or the stock
+// reply carrying zeros (the payload never survived in RAM). The service
+// itself is seconds, but a real transmission can sit minutes on one
+// answer (car 2026-11-07: a stall at 127/240 that self-healed), so the
+// poll waits up to five minutes.
 //
 // WHAT STAYS BEHIND: the transmission's monitor is RAM-only -- ignition
 // off clears it by itself. The DME keeps the relay program until "Restore
@@ -63,7 +70,7 @@ function fbRelayRefresh() {
   fbEls['relay-restore'].disabled = !fbRelaySaved || !!fbState.running;
   fbEls['relay-reason'].textContent =
     why ||
-    "Ready: reads the DME's own program, adds the payload, flashes back. The DME services the transmission alone (~2.4 s); the verdict is read over the K-line.";
+    "Ready: reads the DME's own program, adds the payload, flashes back. The DME services the transmission alone (seconds, minutes if it dawdles); the verdict is read over the K-line.";
 }
 
 /** Why the relay test cannot run, or null. */
@@ -95,7 +102,7 @@ async function fbRelayRun() {
   const go = await fbConfirm(
     'GS20 relay test\n\n' +
       "Reads the DME's own program, adds the relay payload (a stub in the free window at 0xDCC00 plus one hook word in the MPC) and flashes it back.\n\n" +
-      "On the reboot the DME alone services the transmission over the car's PT-CAN -- no CAN frames leave this side; the only wire is the K-line. After a few seconds the verdict block is read back: 240 steps, 239 answered and acked, the last answer the transmission's own bytes through its RAM monitor.\n\n" +
+      "On the reboot the DME alone services the transmission over the car's PT-CAN -- no CAN frames leave this side; the only wire is the K-line. The service itself takes seconds (minutes when the transmission dawdles; the read waits up to five minutes): 241 steps, 240 answered, and the final step is a readback that says which side failed -- the monitor's own reply (alive), the staged bytes read back intact (it died on entry), or zeros (the staging never survived).\n\n" +
       'The transmission\'s monitor is RAM-only: ignition off clears it by itself. The DME keeps the relay program until "Restore stock program" runs (the stock pair is saved to files too).\n\n' +
       'Parked, in P, ignition on, engine OFF. Keep the cable plugged in until it has finished.\n\n' +
       'Run the relay test?',
@@ -169,8 +176,9 @@ async function fbRelayAgain() {
 /**
  * Read the verdict block over the K-line and show it. The DME was just
  * rebooted onto the relay program, so it may still be booting or running
- * the 2.4 s service: poll until the block says done (or a blank block
- * settles the question), then decode and judge.
+ * the service: poll until the block says done (or a blank block settles
+ * the question) -- patiently, a real transmission can sit minutes on one
+ * answer -- then decode and judge.
  *
  * NO bus claim around the poll: the livetune sender's telegrams queue
  * through the bus lock, which refuses everyone while a claim stands -- our
@@ -219,7 +227,7 @@ function fbRelayVerdictText(s) {
   return (
     `step ${s.step}/${relayBlob.steps}, ${phase}, ${s.replies} answered, ` +
     `${s.good} acked, digest 0x${s.digest.toString(16)}\n` +
-    `last answer: ${last}\n` +
+    `last answer: ${last}\n${v.note}\n` +
     (v.ok
       ? 'VERDICT: PASS'
       : `VERDICT: FAIL (${v.checks
