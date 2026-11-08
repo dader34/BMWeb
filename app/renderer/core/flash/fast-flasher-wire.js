@@ -406,9 +406,10 @@ class FastFlashClient {
     const gain = this.baud > FF_BAUD ? 1 - lower / this.baud : 0;
     const bad = this._recent.filter((f) => f.bad).length;
     const kept = this._recent.reduce((n, f) => n + f.wireMs, 0) * gain;
-    const step = gain
-      ? bad * FF_GARBLE_COST_MS > kept
-      : this.lineErrors >= FF_LINE_ERRORS_STEP;
+    // never on a single garble: a step clears the window, and one bad
+    // frame right after it would step again on an empty ledger
+    const step =
+      bad >= FF_LINE_ERRORS_STEP && (!gain || bad * FF_GARBLE_COST_MS > kept);
     if (!step) return;
     const down = this.stepDown;
     this.stepDown = null;
