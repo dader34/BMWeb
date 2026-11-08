@@ -110,7 +110,9 @@ const MTOS_DESC_SIG = new Uint8Array([
  */
 function triggerReceiver() {
   return {
-    entry: 0x4800192c, // b STUB_AT, relative from D_ENTRY
+    // b STUB_AT, relative from D_ENTRY (0x4800192C for the v21 stub at 0x3FBAA0)
+    entry:
+      (0x48000000 | ((TRIGGER.STUB_AT - TRIGGER.D_ENTRY) & 0x03fffffc)) >>> 0,
     words: [
       0x7cc000a6, 0x54c6045e, 0x7cc00124, 0x4c00012c, 0x3e20002f, 0x6231c00e,
       0x3a40556c, 0x3a60aa39, 0x3f800030, 0x639c500c, 0x3fa00030, 0x63bd500e,

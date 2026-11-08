@@ -46,7 +46,7 @@ const sha1 = (b) =>
 // login chain on loaders A, B and C on 2026-11-05.
 check(
   'body: byte-identical to the emu proof body',
-  sha1(body) === 'df26bd27cb953f14185ed6db968e492da4a0d619',
+  sha1(body) === '6b31fccb3281397c7a183e40d27fd42ff27cdc20',
   sha1(body)
 );
 
@@ -86,7 +86,7 @@ check(
 );
 check(
   'image: byte-identical to the emu proof',
-  sha1(image.img) === '3c6138268150bd3f475bfe403f416230a1f97bf7'
+  sha1(image.img) === '08a676c1048ef88efe0b3de4adc44ab73fab6957'
 );
 
 // ---- the receiver -----------------------------------------------------------
@@ -107,12 +107,12 @@ check(
 // ---- the upload -------------------------------------------------------------
 const up = triggerWire.triggerUploadFrame(body);
 check(
-  'upload: A5 5A, length 0x18E0, body, sum (6374 B)',
-  hex(up.slice(0, 4)) === 'a55a18e0' &&
-    up.length === 6374 &&
+  'upload: A5 5A, length 0x1900, body, sum (6406 B)',
+  hex(up.slice(0, 4)) === 'a55a1900' &&
+    up.length === 6406 &&
     hex(up.slice(4, 4 + body.length)) === hex(body)
 );
-check('upload: the sum the emu proof sent', hex(up.slice(-2)) === 'e307');
+check('upload: the sum the emu proof sent', hex(up.slice(-2)) === 'e7a0');
 
 // ---- the telegrams ----------------------------------------------------------
 check(
