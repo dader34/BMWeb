@@ -136,7 +136,7 @@ async function garageShareUrl(scan, car, base) {
  * @returns {Promise<boolean>}
  */
 async function garageCopyText(text) {
-  if (typeof wiringCopyText === 'function') return wiringCopyText(text);
+  if (typeof wiring !== 'undefined') return wiring.wiringCopyText(text);
   try {
     await navigator.clipboard.writeText(text);
     return true;

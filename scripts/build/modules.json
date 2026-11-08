@@ -10,6 +10,11 @@
       "entry": "screens/etk/index.mjs",
       "out": "core/generated/etk.js",
       "global": "etk"
+    },
+    {
+      "entry": "screens/wiring/index.mjs",
+      "out": "core/generated/wiring.js",
+      "global": "wiring"
     }
   ]
 }

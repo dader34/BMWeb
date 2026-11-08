@@ -655,9 +655,9 @@ async function showSections(id, selectIndex = 0) {
     wire.className = 'sys-item sys-wiring';
     wire.innerHTML = `<span class="nav-name">Wiring</span>
                       <span class="nav-count">WDS</span>`;
-    wire.onclick = () => showWiring(id);
+    wire.onclick = () => wiring.showWiring(id);
     nav.appendChild(wire);
-    wiringKey = { key: '0', label: 'Wiring', fn: () => showWiring(id) };
+    wiringKey = { key: '0', label: 'Wiring', fn: () => wiring.showWiring(id) };
   }
 
   sbLeft.textContent = ch.description;

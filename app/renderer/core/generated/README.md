@@ -16,3 +16,4 @@ repo's own `npm run build`. Rerun the tool, then commit the result here.
 | `relay-blob.js` | gs20-emu `tools/relay_blob_js.py` (the DME-relay stub) | by hand |
 | `bytes.js` | BMWeb's own `scripts/build/bundle-modules.mjs`, from `core/bytes/` | `npm run build` |
 | `etk.js` | BMWeb's own `scripts/build/bundle-modules.mjs`, from `screens/etk/` (the parts catalogue, the first screen written as ES modules; its classic dependencies are listed in `screens/etk/shell.mjs`) | `npm run build` |
+| `wiring.js` | `scripts/build/bundle-modules.mjs`, from `screens/wiring/` (the Wiring & Documents screen as ES modules; its classic dependencies are listed in `screens/wiring/shell.mjs`) | `npm run build` |

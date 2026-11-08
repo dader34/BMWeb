@@ -589,8 +589,8 @@ function istaAblWindow(host, ctx) {
     istaBottomBar('abl-doc', {
       // by(k) scales the VIEWBOX, so k > 1 zooms OUT; the wiring app's own
       // controls read the same way round
-      'zoom-in': () => lens && lens.by(1 / WIRING_ZOOM_STEP),
-      'zoom-out': () => lens && lens.by(WIRING_ZOOM_STEP),
+      'zoom-in': () => lens && lens.by(1 / wiring.WIRING_ZOOM_STEP),
+      'zoom-out': () => lens && lens.by(wiring.WIRING_ZOOM_STEP),
       full: () => host.classList.toggle('irabl-full'),
       close: () => closeDoc(),
     });

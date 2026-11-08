@@ -7,9 +7,16 @@
  * tree for search, and resolves the photographs the archive does not carry.
  */
 
-/* exported
-   WIRING_KIND_LABEL, loadWiring, wiringDoc, wiringImageUrl,
-   wiringFetchImage, wiringIndex, wiringHasChassis */
+import {
+  api,
+  dispChassis,
+  fflate,
+  hfFilesMirrors,
+  hfFolderMirrors,
+  inlineWiring,
+  realFetch,
+  webBase,
+} from './shell.mjs';
 
 /**
  * One node of a WDS tree: a folder (children) or a document leaf (doc).
@@ -45,13 +52,13 @@
  */
 
 /** @type {Map<string, WiringArchive>} chassis -> loaded archive */
-const WIRING_CACHE = new Map();
+export const WIRING_CACHE = new Map();
 
 /**
  * Kinds the tree uses, in the order a person looks for them.
  * @type {Object<string, string>}
  */
-const WIRING_KIND_LABEL = {
+export const WIRING_KIND_LABEL = {
   schematic: 'Wiring diagram',
   location: 'Component location',
   connector: 'Connector view',
@@ -69,10 +76,8 @@ const WIRING_KIND_LABEL = {
  * answer /api/ routes locally; data archives must bypass it.
  * @returns {typeof fetch}
  */
-function wiringRealFetch() {
-  return typeof webRealFetch === 'function'
-    ? webRealFetch
-    : window.fetch.bind(window);
+export function wiringRealFetch() {
+  return realFetch();
 }
 
 /**
@@ -80,8 +85,8 @@ function wiringRealFetch() {
  * @param {string} path - path under data/, e.g. 'wiring/E46.wiring'
  * @returns {string}
  */
-function wiringDataUrl(path) {
-  const base = typeof WEB_BASE === 'string' ? WEB_BASE : '';
+export function wiringDataUrl(path) {
+  const base = webBase();
   return `${base}/data/${path}`;
 }
 
@@ -91,7 +96,7 @@ function wiringDataUrl(path) {
  * @param {string} b64 - base64 text
  * @returns {Uint8Array}
  */
-function wiringBase64Bytes(b64) {
+export function wiringBase64Bytes(b64) {
   const bin = atob(b64);
   const bytes = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
@@ -106,7 +111,7 @@ function wiringBase64Bytes(b64) {
  * @param {string} missing - error message when the file is not shipped
  * @returns {Promise<{tree: any, files: Map<string, Uint8Array>}>}
  */
-async function wiringFetchArchive(path, inline, missing) {
+export async function wiringFetchArchive(path, inline, missing) {
   let bytes;
   if (inline) {
     bytes = wiringBase64Bytes(inline);
@@ -125,7 +130,7 @@ async function wiringFetchArchive(path, inline, missing) {
  * @param {string} path - path under data/
  * @returns {Promise<boolean>}
  */
-async function wiringDataExists(path) {
+export async function wiringDataExists(path) {
   try {
     const r = await wiringRealFetch()(wiringDataUrl(path), { method: 'HEAD' });
     return r.ok;
@@ -140,11 +145,10 @@ async function wiringDataExists(path) {
  * @param {string} chassisId - chassis code, any case
  * @returns {Promise<WiringArchive>}
  */
-async function loadWiring(chassisId) {
+export async function loadWiring(chassisId) {
   const id = chassisId.toUpperCase();
   if (WIRING_CACHE.has(id)) return WIRING_CACHE.get(id);
-  const inline =
-    typeof BMWEB_WIRING === 'object' && BMWEB_WIRING ? BMWEB_WIRING[id] : null;
+  const inline = (inlineWiring() || {})[id] || null;
   const data = await wiringFetchArchive(
     `wiring/${id}.wiring`,
     inline,
@@ -159,11 +163,10 @@ async function loadWiring(chassisId) {
  * @param {string} chassisId - chassis code, any case
  * @returns {Promise<boolean>}
  */
-async function hasWiring(chassisId) {
+export async function hasWiring(chassisId) {
   const id = chassisId.toUpperCase();
   if (WIRING_CACHE.has(id)) return true;
-  if (typeof BMWEB_WIRING === 'object' && BMWEB_WIRING)
-    return !!BMWEB_WIRING[id];
+  if (inlineWiring()) return !!inlineWiring()[id];
   return wiringDataExists(`wiring/${id}.wiring`);
 }
 
@@ -174,7 +177,7 @@ async function hasWiring(chassisId) {
  * @param {string} docId - SP doc id
  * @returns {WiringDocContent | null}
  */
-function wiringDoc(data, docId) {
+export function wiringDoc(data, docId) {
   const svgz = data.files.get(`svg/${docId}.svgz`);
   if (svgz) {
     return { type: 'svg', text: fflate.strFromU8(fflate.gunzipSync(svgz)) };
@@ -189,10 +192,10 @@ function wiringDoc(data, docId) {
 // mirrors the archives themselves are built from. One file per photograph,
 // under a folder named for the first two characters of its name, lower-cased:
 // a dataset folder may hold 10,000 files and there are 11,549 photographs.
-const WIRING_IMG_MIRRORS = hfFolderMirrors(HF_FILES_MIRRORS, 'wiring/img/');
-const WIRING_IMG_CACHE = 'bmweb-wiring-images-v4'; // bump when the layout changes
+const wiringImgMirrors = () => hfFolderMirrors(hfFilesMirrors(), 'wiring/img/');
+export const WIRING_IMG_CACHE = 'bmweb-wiring-images-v4'; // bump when the layout changes
 /** The same cache under the app's old name: dropped, its photos fetch again on view. */
-const WIRING_IMG_CACHE_OLD = 'bmacw-wiring-images-v4';
+export const WIRING_IMG_CACHE_OLD = 'bmacw-wiring-images-v4';
 
 /**
  * A blob URL per image, made once and kept: the same photo appears on many
@@ -202,7 +205,7 @@ const WIRING_IMG_CACHE_OLD = 'bmacw-wiring-images-v4';
  * @param {Uint8Array | Blob} bytesOrBlob - archive bytes, or a CDN Blob
  * @returns {string}
  */
-function wiringImageUrl(data, path, bytesOrBlob) {
+export function wiringImageUrl(data, path, bytesOrBlob) {
   if (!data.imgUrls) data.imgUrls = new Map();
   let url = data.imgUrls.get(path);
   if (!url) {
@@ -225,9 +228,9 @@ function wiringImageUrl(data, path, bytesOrBlob) {
  * @param {string} name - the photograph's file name
  * @returns {Promise<Blob | null>}
  */
-async function wiringFetchImage(name) {
+export async function wiringFetchImage(name) {
   const rel = `${name.slice(0, 2).toLowerCase()}/${name}`;
-  const key = WIRING_IMG_MIRRORS[0] + rel;
+  const key = wiringImgMirrors()[0] + rel;
   /** @type {Cache | null} */
   let cache;
   try {
@@ -239,7 +242,7 @@ async function wiringFetchImage(name) {
     // no Cache API (file://, private mode): still show the picture
     cache = null;
   }
-  for (const mirror of WIRING_IMG_MIRRORS) {
+  for (const mirror of wiringImgMirrors()) {
     try {
       const res = await fetch(mirror + rel);
       if (!res.ok) continue;
@@ -258,7 +261,7 @@ async function wiringFetchImage(name) {
  * @param {WiringTreeNode} tree - the archive's root node
  * @returns {WiringIndexEntry[]}
  */
-function wiringIndex(tree) {
+export function wiringIndex(tree) {
   const out = [];
   (function walk(node, trail) {
     for (const c of node.children || []) {
@@ -274,13 +277,13 @@ function wiringIndex(tree) {
  * what can actually open.
  * @type {string[] | null}
  */
-let WIRING_CHASSIS = null;
+export let WIRING_CHASSIS = null;
 
 /**
  * The chassis codes that ship a .wiring archive, probed once in parallel.
  * @returns {Promise<string[]>}
  */
-async function wiringChassisList() {
+export async function wiringChassisList() {
   if (WIRING_CHASSIS) return WIRING_CHASSIS;
   const ids = await api('/api/chassis').catch(() => []);
   // all 21 probes in parallel: serially it was seconds of blank screen
@@ -294,7 +297,7 @@ async function wiringChassisList() {
  * @param {string} chassis - chassis code, any case
  * @returns {Promise<boolean>}
  */
-async function wiringHasChassis(chassis) {
+export async function wiringHasChassis(chassis) {
   const shipped = await wiringChassisList();
   return shipped.some(
     (id) => String(id).toUpperCase() === String(chassis).toUpperCase()

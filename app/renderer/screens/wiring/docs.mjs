@@ -11,10 +11,8 @@
  * has no screen of its own.
  */
 
-/* exported
-   docsTypeLabel, docsTypeKind, loadDocs, docsDoc, docsChapterHtml,
-   docsCategoryKeep, docsPruneTree, docsCount, docsFlatIndex, docsFindById,
-   docsTabEntry, docsTabEntryById */
+import { dispChassis, fflate, inlineDocs, renderTpChapter } from './shell.mjs';
+import { wiringFetchArchive } from './archive.mjs';
 
 /**
  * One ISTA document as the archive's tree lists it.
@@ -52,13 +50,13 @@
  */
 
 /** @type {Map<string, DocsArchive>} chassis -> loaded archive */
-const DOCS_CACHE = new Map();
+export const DOCS_CACHE = new Map();
 
 /**
  * Document-type badges: ISTA INFOTYPE -> label.
  * @type {Object<string, string>}
  */
-const DOCS_TYPE_LABEL = {
+export const DOCS_TYPE_LABEL = {
   REP: 'Repair',
   FKB: 'Fault code',
   EBO: 'Installation location',
@@ -84,7 +82,7 @@ const DOCS_TYPE_LABEL = {
  * ISTA INFOTYPE -> the wiring tree kind whose dot colour it borrows.
  * @type {Object<string, string>}
  */
-const DOCS_TYPE_KIND = {
+export const DOCS_TYPE_KIND = {
   REP: 'test',
   FEB: 'test',
   REH: 'test',
@@ -112,14 +110,14 @@ const DOCS_TYPE_KIND = {
  * is everything else.
  * @type {Set<string>}
  */
-const DOCS_COMPONENT_TYPES = new Set(['PIB', 'STA', 'EBO', 'FUB']);
+export const DOCS_COMPONENT_TYPES = new Set(['PIB', 'STA', 'EBO', 'FUB']);
 
 /**
  * Human label for an ISTA document type; the raw type when unknown.
  * @param {string} type - ISTA INFOTYPE
  * @returns {string}
  */
-function docsTypeLabel(type) {
+export function docsTypeLabel(type) {
   return DOCS_TYPE_LABEL[type] || type;
 }
 
@@ -128,7 +126,7 @@ function docsTypeLabel(type) {
  * @param {string} type - ISTA INFOTYPE
  * @returns {string}
  */
-function docsTypeKind(type) {
+export function docsTypeKind(type) {
   return DOCS_TYPE_KIND[type] || 'document';
 }
 
@@ -138,11 +136,10 @@ function docsTypeKind(type) {
  * @param {string} chassisId - chassis code, any case
  * @returns {Promise<DocsArchive>}
  */
-async function loadDocs(chassisId) {
+export async function loadDocs(chassisId) {
   const id = chassisId.toUpperCase();
   if (DOCS_CACHE.has(id)) return DOCS_CACHE.get(id);
-  const inline =
-    typeof BMWEB_DOCS === 'object' && BMWEB_DOCS ? BMWEB_DOCS[id] : null;
+  const inline = (inlineDocs() || {})[id] || null;
   const data = await wiringFetchArchive(
     `docs/${id}.docs`,
     inline,
@@ -159,12 +156,12 @@ async function loadDocs(chassisId) {
  * @param {string | number} docId - document id
  * @returns {{chapters?: any[]} | null}
  */
-function docsDoc(data, docId) {
+export function docsDoc(data, docId) {
   const raw = data.files.get(`docs/${docId}.json`);
   if (!raw) return null;
   try {
     return JSON.parse(fflate.strFromU8(raw));
-  } catch (e) {
+  } catch {
     return null;
   }
 }
@@ -176,7 +173,7 @@ function docsDoc(data, docId) {
  * @param {any} ch - a parsed chapter
  * @returns {string}
  */
-function docsChapterHtml(ch) {
+export function docsChapterHtml(ch) {
   return renderTpChapter(ch, { breaks: true });
 }
 
@@ -185,7 +182,7 @@ function docsChapterHtml(ch) {
  * @param {WiringCategory} cat - 'components' or 'repair'
  * @returns {(type: string) => boolean}
  */
-function docsCategoryKeep(cat) {
+export function docsCategoryKeep(cat) {
   return cat === 'components'
     ? (t) => DOCS_COMPONENT_TYPES.has(t)
     : (t) => !DOCS_COMPONENT_TYPES.has(t); // repair = everything else
@@ -197,7 +194,7 @@ function docsCategoryKeep(cat) {
  * @param {(type: string) => boolean} keep - which document types stay
  * @returns {DocsTreeNode | null} the pruned copy, or null when nothing is left
  */
-function docsPruneTree(node, keep) {
+export function docsPruneTree(node, keep) {
   const docs = (node.docs || []).filter((d) => keep(d.type));
   const kids = (node.children || [])
     .map((c) => docsPruneTree(c, keep))
@@ -214,7 +211,7 @@ function docsPruneTree(node, keep) {
  * @param {DocsTreeNode} node - subtree root
  * @returns {number}
  */
-function docsCount(node) {
+export function docsCount(node) {
   let n = (node.docs || []).length;
   for (const c of node.children || []) n += docsCount(c);
   return n;
@@ -227,7 +224,7 @@ function docsCount(node) {
  * @param {(type: string) => boolean} keep - which document types stay
  * @returns {DocsIndexEntry[]}
  */
-function docsFlatIndex(tree, keep) {
+export function docsFlatIndex(tree, keep) {
   if (!tree) return [];
   const out = [];
   (function walk(node, trail) {
@@ -246,7 +243,7 @@ function docsFlatIndex(tree, keep) {
  * @param {string | number} docId - document id
  * @returns {DocsEntry | null}
  */
-function docsFindById(node, docId) {
+export function docsFindById(node, docId) {
   for (const d of node.docs || []) if (String(d.id) === String(docId)) return d;
   for (const c of node.children || []) {
     const hit = docsFindById(c, docId);
@@ -261,7 +258,7 @@ function docsFindById(node, docId) {
  * @param {DocsEntry} d - the document
  * @returns {WiringTabEntry}
  */
-function docsTabEntry(d) {
+export function docsTabEntry(d) {
   return {
     doc: 'd:' + d.id,
     docId: d.id,
@@ -278,6 +275,6 @@ function docsTabEntry(d) {
  * @param {string} kind - ISTA INFOTYPE, or '' when unknown
  * @returns {WiringTabEntry}
  */
-function docsTabEntryById(docId, name, kind) {
+export function docsTabEntryById(docId, name, kind) {
   return { doc: 'd:' + docId, docId, name, kind, isDoc: true };
 }

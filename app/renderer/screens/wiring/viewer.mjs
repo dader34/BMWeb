@@ -5,24 +5,24 @@
  * re-fits a diagram the user has not touched.
  */
 
-/* exported
-   fitAndPan */
+import { tipify } from './shell.mjs';
+import { wiringShareButton } from './share-print.mjs';
 
 /** Zoom factor of one key press or button click. */
-const WIRING_ZOOM_STEP = 1.3;
+export const WIRING_ZOOM_STEP = 1.3;
 /** Zoom factor of one wheel notch. */
-const WIRING_WHEEL_STEP = 1.12;
+export const WIRING_WHEEL_STEP = 1.12;
 /** The widest view allowed, as a multiple of the diagram's own width. */
-const WIRING_ZOOM_OUT_MAX = 20;
+export const WIRING_ZOOM_OUT_MAX = 20;
 /** The narrowest view allowed, as a fraction of the diagram's own width. */
-const WIRING_ZOOM_IN_MAX = 100;
+export const WIRING_ZOOM_IN_MAX = 100;
 /** A stage narrower than this (px) is not laid out yet; skip fitting. */
-const WIRING_STAGE_MIN_PX = 2;
+export const WIRING_STAGE_MIN_PX = 2;
 /**
  * The sheet assumed when an SVG carries neither viewBox nor width/height:
  * a WDS strip is roughly 4:1.
  */
-const WIRING_DEFAULT_SHEET = { w: 10000, h: 2500 };
+export const WIRING_DEFAULT_SHEET = { w: 10000, h: 2500 };
 
 /**
  * An SVG viewBox as numbers.
@@ -39,7 +39,7 @@ const WIRING_DEFAULT_SHEET = { w: 10000, h: 2500 };
  * @param {SVGSVGElement} svg - the schematic
  * @returns {WiringViewBox}
  */
-function wiringHomeViewBox(svg) {
+export function wiringHomeViewBox(svg) {
   const rawVb = svg.getAttribute('viewBox') || svg.getAttribute('viewbox');
   let vb = rawVb
     ? rawVb
@@ -60,7 +60,7 @@ function wiringHomeViewBox(svg) {
  * has zoomed or panned by hand; an untouched diagram re-fits on resize, a
  * touched one is left alone.
  */
-class WiringPanZoom {
+export class WiringPanZoom {
   /**
    * @param {SVGSVGElement} svg - the schematic
    * @param {HTMLElement} stage - the box the schematic fills
@@ -195,7 +195,7 @@ class WiringPanZoom {
  * @param {HTMLElement} stage - the schematic's box
  * @returns {void}
  */
-function wiringBindWheel(zoom, stage) {
+export function wiringBindWheel(zoom, stage) {
   stage.addEventListener(
     'wheel',
     (e) => {
@@ -213,7 +213,7 @@ function wiringBindWheel(zoom, stage) {
  * @param {HTMLElement} stage - the schematic's box
  * @returns {void}
  */
-function wiringBindTouch(zoom, stage) {
+export function wiringBindTouch(zoom, stage) {
   let lastTouchDist = 0;
   let lastTouchMidX = 0;
   let lastTouchMidY = 0;
@@ -307,7 +307,7 @@ function wiringBindTouch(zoom, stage) {
  * @param {HTMLElement} stage - the schematic's box
  * @returns {void}
  */
-function wiringBindMouse(zoom, stage) {
+export function wiringBindMouse(zoom, stage) {
   let mouseDrag = null;
   stage.addEventListener('mousedown', (e) => {
     if (e.button !== 0) return;
@@ -340,7 +340,7 @@ function wiringBindMouse(zoom, stage) {
  * @param {boolean} classic - INPA mode: WDS's button glyphs and classes
  * @returns {void}
  */
-function wiringZoomControls(zoom, bar, classic) {
+export function wiringZoomControls(zoom, bar, classic) {
   const controls = document.createElement('div');
   controls.className = 'wiring-zoom';
   [
@@ -362,7 +362,7 @@ function wiringZoomControls(zoom, bar, classic) {
   controls.appendChild(wiringShareButton(classic));
   if (classic) bar.innerHTML = '';
   bar.appendChild(controls);
-  if (typeof tipify === 'function') tipify(controls);
+  tipify(controls);
 }
 
 /**
@@ -377,7 +377,7 @@ function wiringZoomControls(zoom, bar, classic) {
  * @param {HTMLElement} stage - the schematic's box
  * @returns {void}
  */
-function wiringAutoFit(zoom, stage) {
+export function wiringAutoFit(zoom, stage) {
   let last = '';
   const sizeOf = (r) => `${Math.round(r.width)}x${Math.round(r.height)}`;
   const ro = new ResizeObserver(() => {
@@ -406,7 +406,7 @@ function wiringAutoFit(zoom, stage) {
  * @param {boolean} [classic] - INPA mode: WDS's footer buttons
  * @returns {WiringPanZoom}
  */
-function fitAndPan(svg, stage, bar, classic = false) {
+export function fitAndPan(svg, stage, bar, classic = false) {
   const zoom = new WiringPanZoom(svg, stage);
   wiringBindWheel(zoom, stage);
   wiringBindTouch(zoom, stage);

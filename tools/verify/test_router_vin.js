@@ -18,8 +18,9 @@ const calls = [];
 global.showEtkChassis = (chassis, pre) => calls.push(['chassis', chassis, pre]);
 global.showEtkDeep = (chassis, hg, btnr, pre) =>
   calls.push(['deep', chassis, hg, btnr, pre]);
-global.showWiring = (chassis, doc, hit) =>
-  calls.push(['wiring', chassis, doc, hit]);
+global.wiring = {
+  showWiring: (chassis, doc, hit) => calls.push(['wiring', chassis, doc, hit]),
+};
 // the catalogue is one global now (core/generated/etk.js)
 global.etk = {
   showEtkChassis: global.showEtkChassis,

@@ -5,21 +5,34 @@
  * document counts the status bar shows.
  */
 
-/* exported
-   wiringLoadingEl, wiringRenderTree, wiringRenderDocsTree,
-   wiringCountShown, wiringExpandTreeToDoc, wiringSearchHits,
-   wiringSearchResultsEl */
+import { esc } from './shell.mjs';
+import { WIRING_KIND_LABEL } from './archive.mjs';
+import {
+  docsCategoryKeep,
+  docsFlatIndex,
+  docsTabEntry,
+  docsTypeKind,
+  docsTypeLabel,
+} from './docs.mjs';
+import {
+  docsSubtreeHasMatch,
+  docsVinMatch,
+  wiringDiagramMatch,
+  wiringSubtreeHasMatch,
+  wiringVinFilterOn,
+  wiringVinHit,
+} from './vin.mjs';
 
 /** Left padding of a top-level tree row, px. */
-const WIRING_TREE_INDENT_BASE = 10;
+export const WIRING_TREE_INDENT_BASE = 10;
 /** Extra left padding per nesting level, px. */
-const WIRING_TREE_INDENT_STEP = 12;
+export const WIRING_TREE_INDENT_STEP = 12;
 /** Search results are capped so a one-letter query stays responsive. */
-const WIRING_SEARCH_MAX_HITS = 300;
+export const WIRING_SEARCH_MAX_HITS = 300;
 /** The kind-coloured dot every row starts with. */
-const WIRING_DOT_HTML = '<span class="wiring-dot"></span>';
+export const WIRING_DOT_HTML = '<span class="wiring-dot"></span>';
 /** The star a row wears when it matches the decoded VIN. */
-const WIRING_VIN_STAR_HTML =
+export const WIRING_VIN_STAR_HTML =
   '<span class="wiring-vinstar" title="Matches your vehicle">★</span>';
 
 /**
@@ -27,7 +40,7 @@ const WIRING_VIN_STAR_HTML =
  * @param {number} depth - 0 at the root
  * @returns {string} a CSS length
  */
-function wiringTreeIndent(depth) {
+export function wiringTreeIndent(depth) {
   return `${WIRING_TREE_INDENT_BASE + depth * WIRING_TREE_INDENT_STEP}px`;
 }
 
@@ -36,7 +49,7 @@ function wiringTreeIndent(depth) {
  * @param {WiringVinMatch} vm - the verdict
  * @returns {string}
  */
-function wiringVinClass(vm) {
+export function wiringVinClass(vm) {
   return vm === 'match' ? ' vin-match' : vm === 'off' ? ' vin-off' : '';
 }
 
@@ -45,7 +58,7 @@ function wiringVinClass(vm) {
  * @param {WiringVinMatch} vm - the verdict
  * @returns {string}
  */
-function wiringVinStar(vm) {
+export function wiringVinStar(vm) {
   return vm === 'match' ? WIRING_VIN_STAR_HTML : '';
 }
 
@@ -65,7 +78,7 @@ function wiringVinStar(vm) {
  * @param {WiringLeafSpec} spec - what to draw
  * @returns {HTMLButtonElement}
  */
-function wiringLeafButton(spec) {
+export function wiringLeafButton(spec) {
   const leaf = document.createElement('button');
   leaf.className =
     `wiring-leaf kind-${spec.kind}` + (spec.vm ? wiringVinClass(spec.vm) : '');
@@ -82,7 +95,7 @@ function wiringLeafButton(spec) {
  * @param {string} text - what is being waited for
  * @returns {HTMLDivElement}
  */
-function wiringLoadingEl(text) {
+export function wiringLoadingEl(text) {
   const wait = document.createElement('div');
   wait.className = 'wiring-loading';
   wait.innerHTML =
@@ -104,7 +117,7 @@ function wiringLoadingEl(text) {
  * @param {(node: T) => boolean} hasMatch - the per-tree subtree test (diagrams vs docs)
  * @returns {void}
  */
-function wiringMakeFolder(c, parent, depth, recurse, hasMatch) {
+export function wiringMakeFolder(c, parent, depth, recurse, hasMatch) {
   const wrap = document.createElement('div');
   wrap.className = 'wiring-folderwrap';
   if (wiringVinHit && !hasMatch(c)) wrap.dataset.vinEmpty = '1';
@@ -139,7 +152,7 @@ function wiringMakeFolder(c, parent, depth, recurse, hasMatch) {
  * @param {(entry: WiringTreeNode) => void} onOpen - opens a leaf
  * @returns {void}
  */
-function wiringRenderTree(node, parent, depth, onOpen) {
+export function wiringRenderTree(node, parent, depth, onOpen) {
   const recurse = (n, p, d) => wiringRenderTree(n, p, d, onOpen);
   for (const c of node.children || []) {
     if (c.doc) {
@@ -185,7 +198,7 @@ function wiringRenderTree(node, parent, depth, onOpen) {
  * @param {(entry: WiringTabEntry) => void} onOpen - opens a document tab
  * @returns {void}
  */
-function wiringRenderDocsTree(node, parent, depth, onOpen) {
+export function wiringRenderDocsTree(node, parent, depth, onOpen) {
   const recurse = (n, p, d) => wiringRenderDocsTree(n, p, d, onOpen);
   for (const d of node.docs || []) {
     const vm = docsVinMatch(d);
@@ -216,7 +229,7 @@ function wiringRenderDocsTree(node, parent, depth, onOpen) {
  * @param {WiringTreeNode} tree - the archive's root
  * @returns {number}
  */
-function wiringCountShown(tree) {
+export function wiringCountShown(tree) {
   let n = 0;
   (function walk(node) {
     for (const c of node.children || []) {
@@ -236,7 +249,7 @@ function wiringCountShown(tree) {
  * @param {WiringTreeNode[]} [trail] - folders walked so far
  * @returns {WiringTreeNode[] | null}
  */
-function wiringDocPath(node, doc, trail = []) {
+export function wiringDocPath(node, doc, trail = []) {
   for (const c of node.children || []) {
     if (c.doc === doc) return trail.concat(c);
     if (c.children && c.children.length) {
@@ -253,7 +266,7 @@ function wiringDocPath(node, doc, trail = []) {
  * @param {HTMLElement} b - a .wiring-folder button
  * @returns {string}
  */
-function wiringFolderLabel(b) {
+export function wiringFolderLabel(b) {
   const span = b.querySelector('span:not(.wiring-caret)');
   return (span ? span.textContent : b.textContent).trim();
 }
@@ -269,7 +282,7 @@ function wiringFolderLabel(b) {
  * @param {string} doc - SP doc id
  * @returns {void}
  */
-function wiringExpandTreeToDoc(treeEl, tree, doc) {
+export function wiringExpandTreeToDoc(treeEl, tree, doc) {
   const path = wiringDocPath(tree, doc);
   if (!path) return;
   let container = treeEl;
@@ -309,7 +322,7 @@ function wiringExpandTreeToDoc(treeEl, tree, doc) {
  * @param {DocsTreeNode | null} docsTree - the docs tree, or null before it loads
  * @returns {WiringIndexEntry[] | DocsIndexEntry[]}
  */
-function wiringSearchHits(q, cat, index, docsTree) {
+export function wiringSearchHits(q, cat, index, docsTree) {
   if (cat === 'diagrams') {
     return index
       .filter((e) => e.name.toLowerCase().includes(q))
@@ -328,7 +341,7 @@ function wiringSearchHits(q, cat, index, docsTree) {
  * @param {(entry: WiringTabEntry) => void} onOpen - opens a hit
  * @returns {HTMLDivElement}
  */
-function wiringSearchResultsEl(hits, cat, onOpen) {
+export function wiringSearchResultsEl(hits, cat, onOpen) {
   const wrap = document.createElement('div');
   wrap.className = 'wiring-results';
   if (cat === 'diagrams') {

@@ -4,24 +4,23 @@
  * print helper as a clean sheet.
  */
 
-/* exported
-   wiringShareButton, printWiring */
+import { dispChassis, printDoc, printHtml, printSvg } from './shell.mjs';
 
 /** How long the Share button shows its "Copied" confirmation, ms. */
-const WIRING_COPY_FLASH_MS = 1600;
+export const WIRING_COPY_FLASH_MS = 1600;
 /** A schematic wider than this many times its height is sliced for print. */
-const WIRING_PRINT_SLICE_ASPECT = 1.8;
+export const WIRING_PRINT_SLICE_ASPECT = 1.8;
 /** The most slices a schematic is cut into for print. */
-const WIRING_PRINT_MAX_SLICES = 3;
+export const WIRING_PRINT_MAX_SLICES = 3;
 /** Overlap between adjacent print slices, as a fraction of a slice's width. */
-const WIRING_PRINT_SLICE_OVERLAP = 0.03;
+export const WIRING_PRINT_SLICE_OVERLAP = 0.03;
 
 /**
  * A Share button for a document bar or the zoom controls.
  * @param {boolean} classic - INPA mode: WDS's button class
  * @returns {HTMLButtonElement}
  */
-function wiringShareButton(classic) {
+export function wiringShareButton(classic) {
   const share = document.createElement('button');
   share.className = (classic ? 'wds-btn' : 'btn wiring-fit') + ' wiring-share';
   share.textContent = 'Share';
@@ -36,13 +35,13 @@ function wiringShareButton(classic) {
  * @param {string} text - what to copy
  * @returns {Promise<boolean>} whether the copy succeeded
  */
-async function wiringCopyText(text) {
+export async function wiringCopyText(text) {
   try {
     if (navigator.clipboard && navigator.clipboard.writeText) {
       await navigator.clipboard.writeText(text);
       return true;
     }
-  } catch (e) {
+  } catch {
     /* fall through to the textarea copy */
   }
   try {
@@ -55,7 +54,7 @@ async function wiringCopyText(text) {
     const ok = document.execCommand('copy');
     ta.remove();
     return ok;
-  } catch (e) {
+  } catch {
     return false;
   }
 }
@@ -67,7 +66,7 @@ async function wiringCopyText(text) {
  * @param {HTMLButtonElement | null} btn - the Share button to flash
  * @returns {Promise<void>}
  */
-async function wiringShareCurrent(btn) {
+export async function wiringShareCurrent(btn) {
   const ok = await wiringCopyText(location.href);
   if (!btn) return;
   const original = btn.textContent;
@@ -90,7 +89,7 @@ async function wiringShareCurrent(btn) {
  * @param {SVGSVGElement} svg - the live schematic
  * @returns {{html: string}}
  */
-function wiringPrintSection(svg) {
+export function wiringPrintSection(svg) {
   // clone so restoring the home viewBox for print doesn't disturb the live one
   const clone = svg.cloneNode(true);
   if (clone.dataset.homeViewbox)
@@ -126,7 +125,7 @@ function wiringPrintSection(svg) {
  * @param {string} chassisId - chassis code, for the sheet's meta and footer
  * @returns {void}
  */
-function printWiring(chassisId) {
+export function printWiring(chassisId) {
   const stage = document.querySelector('.wiring-stage');
   const svg = stage && stage.querySelector('svg');
   const doc = document.querySelector('.wiring-doc');

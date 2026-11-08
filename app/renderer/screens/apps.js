@@ -89,14 +89,12 @@ const APP_REGISTRY = [
     title: 'Wiring & Documents',
     desc: 'Interactive wiring and documents search',
     tag: 'WDS · ISTA',
-    open: () => showWiringChassis(),
+    open: () => wiring.showWiringChassis(),
     // present if any chassis carries wiring data (same probe the card used)
     hasData: async () => {
       try {
         const ids =
-          typeof wiringChassisList === 'function'
-            ? await wiringChassisList()
-            : [];
+          typeof wiring !== 'undefined' ? await wiring.wiringChassisList() : [];
         return ids.length > 0;
       } catch (e) {
         return false;

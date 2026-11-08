@@ -27,9 +27,9 @@ const APPS_ROUTES = {
   'apps/diagnostics': () =>
     typeof showLookup === 'function' ? showLookup() : null,
   'apps/wiring': () =>
-    typeof showWiringChassis === 'function' ? showWiringChassis() : null,
+    typeof wiring !== 'undefined' ? wiring.showWiringChassis() : null,
   'apps/wiring/vin': () =>
-    typeof showWiringVinDecoder === 'function' ? showWiringVinDecoder() : null,
+    typeof wiring !== 'undefined' ? wiring.showWiringVinDecoder() : null,
   'apps/parts': () => etk.showEtk(),
   'apps/parts/vin': () =>
     typeof showVinDecoder === 'function' ? showVinDecoder() : null,
@@ -62,7 +62,7 @@ const APPS_ROUTES = {
   'apps/service': () =>
     typeof showService === 'function' ? showService() : null,
   'apps/documents': () =>
-    typeof showWiringChassis === 'function' ? showWiringChassis() : null,
+    typeof wiring !== 'undefined' ? wiring.showWiringChassis() : null,
   // the app's home as an INPA script (screens/ipo-runtime/home.js)
   inpa: () => (typeof showIpoHome === 'function' ? showIpoHome() : null),
   // workshop mode (screens/ista/). Top-level like garage and inpa: it is a
@@ -189,11 +189,11 @@ function resolveRoute(route) {
     /^apps\/wiring\/([A-Za-z0-9]+)(?:\/([A-Za-z0-9_-]+))?(?:\/~([A-Za-z0-9_-]+))?$/.exec(
       route
     );
-  if (w && typeof showWiring === 'function') {
+  if (w && typeof wiring !== 'undefined') {
     const chassis = w[1].toUpperCase();
     const doc = w[2] ? decodeURIComponent(w[2]) : null;
     const vin = routeVinFrom(w[3]);
-    return async () => showWiring(chassis, doc, await routeVinHit(vin));
+    return async () => wiring.showWiring(chassis, doc, await routeVinHit(vin));
   }
   // #apps/tree/<CHASSIS>[/<CAR>] -- the control unit tree of a chassis, the
   // boxes coloured by a saved car's last fault scan when a car id follows
@@ -213,10 +213,10 @@ function resolveRoute(route) {
   // #apps/documents/<CHASSIS>[/<DOCID>] -> the merged wiring/docs screen, doc
   // category; the doc id ("d:"-prefixed internally) opens that document
   const dq = /^apps\/documents\/([A-Za-z0-9]+)(?:\/([0-9]+))?$/.exec(route);
-  if (dq && typeof showWiring === 'function') {
+  if (dq && typeof wiring !== 'undefined') {
     const chassis = dq[1].toUpperCase();
     const docId = dq[2] ? 'd:' + dq[2] : null;
-    return () => showWiring(chassis, docId, null, 'repair');
+    return () => wiring.showWiring(chassis, docId, null, 'repair');
   }
   // #apps/parts/<CHASSIS>[/<HG>[/<BTNR>]][/~<VIN>]  (vin is an exact route,
   // handled above); the filtered vehicle rides at the end, as for wiring

@@ -6,17 +6,33 @@
  * placeholder.
  */
 
-/* exported
-   wiringRenderEntry, wiringRenderPlaceholder */
+import {
+  dom,
+  esc,
+  routeSetDocsDoc,
+  routeSetWiringDoc,
+  setActions,
+} from './shell.mjs';
+import {
+  WIRING_KIND_LABEL,
+  wiringDoc,
+  wiringFetchImage,
+  wiringImageUrl,
+} from './archive.mjs';
+import { docsChapterHtml, docsDoc, docsTypeLabel, loadDocs } from './docs.mjs';
+import { printWiring, wiringShareButton } from './share-print.mjs';
+import { wiringExpandTreeToDoc } from './tree.mjs';
+import { WIRING_ZOOM_STEP, fitAndPan } from './viewer.mjs';
+import { wiringVinHit } from './vin.mjs';
 
 /** Below this width the panes are exclusive: one of tree / document shows. */
-const WIRING_PHONE_QUERY = '(max-width: 760px)';
+export const WIRING_PHONE_QUERY = '(max-width: 760px)';
 
 /**
  * Is the layout in its one-pane-at-a-time (phone) form?
  * @returns {boolean}
  */
-function wiringIsPhone() {
+export function wiringIsPhone() {
   return window.matchMedia(WIRING_PHONE_QUERY).matches;
 }
 
@@ -50,7 +66,7 @@ function wiringIsPhone() {
  * @param {string} kind - what sort of document it is
  * @returns {HTMLDivElement}
  */
-function wiringDocBar(title, kind) {
+export function wiringDocBar(title, kind) {
   const bar = document.createElement('div');
   bar.className = 'wiring-bar';
   bar.innerHTML =
@@ -66,7 +82,7 @@ function wiringDocBar(title, kind) {
  * @param {WiringTabEntry} entry - what the tab holds
  * @returns {void}
  */
-function wiringRenderEntry(ctx, entry) {
+export function wiringRenderEntry(ctx, entry) {
   if (entry.isDoc || (entry.doc && String(entry.doc).startsWith('d:')))
     wiringRenderIstaDoc(ctx, entry);
   else if (!entry.doc) wiringRenderGlossary(ctx, entry);
@@ -78,7 +94,7 @@ function wiringRenderEntry(ctx, entry) {
  * @param {WiringViewCtx} ctx - the open view
  * @returns {void}
  */
-function wiringRenderPlaceholder(ctx) {
+export function wiringRenderPlaceholder(ctx) {
   ctx.viewEl.innerHTML =
     `<div class="empty"><div>` +
     `<strong class="wiring-emptycount">${ctx.index.length} documents</strong></div>` +
@@ -96,7 +112,7 @@ function wiringRenderPlaceholder(ctx) {
  * @param {WiringTabEntry} entry - the document's tab entry
  * @returns {Promise<void>}
  */
-async function wiringRenderIstaDoc(ctx, entry) {
+export async function wiringRenderIstaDoc(ctx, entry) {
   const id = entry.docId || String(entry.doc).replace(/^d:/, '');
   if (wiringIsPhone()) ctx.setPane('doc', false);
   if (typeof routeSetDocsDoc === 'function') routeSetDocsDoc(ctx.chassisId, id);
@@ -109,7 +125,7 @@ async function wiringRenderIstaDoc(ctx, entry) {
   if (!ctx.docsData) {
     try {
       ctx.docsData = await loadDocs(ctx.chassisId);
-    } catch (e) {
+    } catch {
       ctx.docsData = null;
     }
   }
@@ -126,7 +142,7 @@ async function wiringRenderIstaDoc(ctx, entry) {
   art.innerHTML = doc.chapters.map(docsChapterHtml).join('');
   viewEl.appendChild(art);
   viewEl.scrollTop = 0;
-  sbLeft.textContent = entry.name;
+  dom.sbLeft.textContent = entry.name;
 }
 
 /**
@@ -136,7 +152,7 @@ async function wiringRenderIstaDoc(ctx, entry) {
  * @param {string} code - the reference designation
  * @returns {string}
  */
-function wiringGlossaryRelatedHtml(related, code) {
+export function wiringGlossaryRelatedHtml(related, code) {
   if (related.length > 0) {
     return `
           <div style="margin-top: 20px;">
@@ -175,7 +191,7 @@ function wiringGlossaryRelatedHtml(related, code) {
  * @param {WiringTabEntry} entry - the glossary leaf
  * @returns {void}
  */
-function wiringRenderGlossary(ctx, entry) {
+export function wiringRenderGlossary(ctx, entry) {
   if (wiringIsPhone()) ctx.setPane('doc', false);
   const viewEl = ctx.viewEl;
   viewEl.innerHTML = '';
@@ -229,7 +245,7 @@ function wiringRenderGlossary(ctx, entry) {
  * @param {WiringArchive} data - the archive
  * @returns {void}
  */
-function wiringResolveImages(art, data) {
+export function wiringResolveImages(art, data) {
   art.querySelectorAll('img[src^="img/"]').forEach((im) => {
     const path = im.getAttribute('src');
     const bytes = data.files.get(path);
@@ -256,7 +272,7 @@ function wiringResolveImages(art, data) {
  * @param {WiringViewCtx} ctx - the open view
  * @returns {void}
  */
-function wiringBindCrossLinks(art, ctx) {
+export function wiringBindCrossLinks(art, ctx) {
   art.querySelectorAll('a[href^="#wds/"]').forEach((a) => {
     const target = a.getAttribute('href').slice(5);
     a.onclick = (ev) => {
@@ -282,7 +298,7 @@ function wiringBindCrossLinks(art, ctx) {
  * @param {string} id - the component id from the link (X60004, A8680, F3)
  * @returns {WiringIndexEntry[]} every document about that component, tree order
  */
-function wiringComponentDocs(index, id) {
+export function wiringComponentDocs(index, id) {
   const tok = new RegExp(
     `(^|[\\s,(/])${id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?=$|[\\s,)/])`
   );
@@ -292,7 +308,7 @@ function wiringComponentDocs(index, id) {
 }
 
 /** Which of a component's documents a link opens first, by document kind. */
-const WIRING_LOCATE_ORDER = [
+export const WIRING_LOCATE_ORDER = [
   'connector',
   'location',
   'pins',
@@ -312,7 +328,7 @@ const WIRING_LOCATE_ORDER = [
  * @param {WiringViewCtx} ctx - the open view
  * @returns {void}
  */
-function wiringBindSvgLinks(svg, ctx) {
+export function wiringBindSvgLinks(svg, ctx) {
   const XLINK = 'http://www.w3.org/1999/xlink';
   svg.querySelectorAll('a').forEach((a) => {
     const raw =
@@ -354,7 +370,7 @@ function wiringBindSvgLinks(svg, ctx) {
  * @param {WiringPanZoom} zoom - the schematic's camera
  * @returns {Array<Object>}
  */
-function wiringSchematicActions(ctx, zoom) {
+export function wiringSchematicActions(ctx, zoom) {
   return [
     {
       key: '+',
@@ -397,7 +413,7 @@ function wiringSchematicActions(ctx, zoom) {
  * @param {WiringDocContent} doc - the inflated document
  * @returns {void}
  */
-function wiringRenderDescription(ctx, bar, doc) {
+export function wiringRenderDescription(ctx, bar, doc) {
   bar.appendChild(wiringShareButton(false));
   const art = document.createElement('article');
   art.className = 'wiring-doc';
@@ -415,7 +431,7 @@ function wiringRenderDescription(ctx, bar, doc) {
  * @param {WiringDocContent} doc - the inflated document
  * @returns {void}
  */
-function wiringRenderSchematic(ctx, bar, doc) {
+export function wiringRenderSchematic(ctx, bar, doc) {
   const stage = document.createElement('div');
   stage.className = 'wiring-stage';
   stage.innerHTML = doc.text;
@@ -444,7 +460,7 @@ function wiringRenderSchematic(ctx, bar, doc) {
  * @param {WiringTabEntry} entry - the leaf's tab entry
  * @returns {void}
  */
-function wiringRenderDocument(ctx, entry) {
+export function wiringRenderDocument(ctx, entry) {
   ctx.atIndex = ctx.index.findIndex((e) => e.doc === entry.doc);
   if (typeof routeSetWiringDoc === 'function' && entry && entry.doc) {
     // the filtered vehicle rides along, so a reload keeps the filter
@@ -481,5 +497,5 @@ function wiringRenderDocument(ctx, entry) {
     return;
   }
   wiringRenderSchematic(ctx, bar, doc);
-  sbLeft.textContent = entry.name;
+  dom.sbLeft.textContent = entry.name;
 }

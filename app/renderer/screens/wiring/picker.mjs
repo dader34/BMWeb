@@ -3,11 +3,29 @@
  * (or identified by VIN) rather than arriving via a chassis.
  */
 
-/* exported
-   showWiringChassis, wiringClassic */
+import {
+  chassisTag,
+  dispChassis,
+  dom,
+  esc,
+  head,
+  inpaMode,
+  inpaTheme,
+  screenOwner,
+  setActions,
+  setCrumbs,
+  setLastScreen,
+  showApps,
+  showChassis,
+  stagger,
+} from './shell.mjs';
+import { wiringChassisList } from './archive.mjs';
+import { showWiring, wiringOn } from './screen.mjs';
+import { wiringLoadingEl } from './tree.mjs';
+import { buildWiringVinBox } from './vin.mjs';
 
 /** How many chassis get a number key on the picker's F-key bar. */
-const WIRING_PICKER_HOTKEYS = 9;
+export const WIRING_PICKER_HOTKEYS = 9;
 
 /**
  * One car on the picker: an F-key row in INPA mode, a card otherwise.
@@ -16,8 +34,8 @@ const WIRING_PICKER_HOTKEYS = 9;
  * @param {boolean} classic - the INPA skin is on (WDS chrome)
  * @returns {HTMLButtonElement}
  */
-function wiringChassisCard(id, i, classic) {
-  const tag = (typeof CHASSIS_TAG === 'object' && CHASSIS_TAG[id]) || 'BMW';
+export function wiringChassisCard(id, i, classic) {
+  const tag = chassisTag(id) || 'BMW';
   const card = document.createElement('button');
   if (classic) {
     // INPA idiom: an F-key list, not cards
@@ -42,7 +60,7 @@ function wiringChassisCard(id, i, classic) {
  * carry 1.1 GB over the GitHub Pages cap.
  * @returns {HTMLDivElement}
  */
-function wiringAbsentNote() {
+export function wiringAbsentNote() {
   const note = document.createElement('div');
   note.className = 'empty wiring-absent';
   note.innerHTML = `
@@ -60,15 +78,12 @@ function wiringAbsentNote() {
  * switch) or the INPA skin.
  * @returns {boolean}
  */
-function wiringClassic() {
-  return (
-    (typeof inpaMode === 'function' && inpaMode()) ||
-    (typeof inpaTheme === 'function' && inpaTheme())
-  );
+export function wiringClassic() {
+  return inpaMode() || inpaTheme();
 }
 
 /** WDS's series names: the model line before the chassis code. */
-const WDS_SERIES = {
+export const WDS_SERIES = {
   E38: '7',
   E39: '5',
   E46: '3',
@@ -92,7 +107,7 @@ const WDS_SERIES = {
  * there is none (WDS's pictures are not part of this build).
  * @returns {string} SVG markup
  */
-function wiringCarSilhouette() {
+export function wiringCarSilhouette() {
   return `<svg class="wds-car-svg" viewBox="0 0 160 70" aria-hidden="true">
     <path d="M8 48 L12 36 Q16 31 26 30 L48 28 Q60 16 76 14 L104 14 Q118 15 130 27 L146 30 Q154 32 154 40 L154 48 Z"
           fill="#c9ccd2" stroke="#5a5f68" stroke-width="1.5"/>
@@ -110,7 +125,7 @@ function wiringCarSilhouette() {
  * @param {string} id - chassis code
  * @returns {HTMLButtonElement}
  */
-function wiringSeriesTile(id) {
+export function wiringSeriesTile(id) {
   const tile = document.createElement('button');
   tile.type = 'button';
   tile.className = 'wds-car';
@@ -136,7 +151,7 @@ function wiringSeriesTile(id) {
  * white page the tiles go on.
  * @returns {string}
  */
-function wiringSeriesFrameHtml() {
+export function wiringSeriesFrameHtml() {
   return `
     <div class="wds-series">
       <div class="wds-toolbar">
@@ -160,7 +175,7 @@ function wiringSeriesFrameHtml() {
  * The picker's Back key: out to the Apps hub.
  * @returns {{key: string, keyLabel: string, label: string, kind: string, fn: () => void}}
  */
-function wiringPickerBackAction() {
+export function wiringPickerBackAction() {
   return {
     key: 'Escape',
     keyLabel: 'Esc',
@@ -174,8 +189,8 @@ function wiringPickerBackAction() {
  * The picker: a VIN entry card, then every car with diagrams.
  * @returns {Promise<void>}
  */
-async function showWiringChassis() {
-  lastScreen = showWiringChassis;
+export async function showWiringChassis() {
+  setLastScreen(showWiringChassis);
   setCrumbs([
     { label: 'Vehicles', fn: showChassis },
     { label: 'Apps', fn: showApps },
@@ -183,7 +198,7 @@ async function showWiringChassis() {
   ]);
   // the reader may leave while this screen loads (screenOwner)
   const _mine = screenOwner();
-  sbLeft.textContent = 'wiring';
+  dom.sbLeft.textContent = 'wiring';
   // no F-key bar on wiring, either layout (the diagram screen drops it too);
   // Esc and the number keys still work. setCrumbs restores it.
   document.body.classList.add('wds-nofkeys');
@@ -192,14 +207,14 @@ async function showWiringChassis() {
   // WDS's own look in the classic layout (or under the INPA skin): its
   // series-selection page, picture tiles under WDS's toolbar and title bar
   const classic = wiringClassic();
-  let host = view;
+  let host = dom.view;
   if (classic) {
-    view.innerHTML = wiringSeriesFrameHtml();
-    host = view.querySelector('.wds-series-body');
-    wiringOn(view, '#wds-sel-exit', showApps);
-    wiringOn(view, '#wds-sel-print', () => window.print());
+    dom.view.innerHTML = wiringSeriesFrameHtml();
+    host = dom.view.querySelector('.wds-series-body');
+    wiringOn(dom.view, '#wds-sel-exit', showApps);
+    wiringOn(dom.view, '#wds-sel-print', () => window.print());
   } else {
-    view.innerHTML = head(
+    dom.view.innerHTML = head(
       'WDS',
       'Wiring Diagrams',
       'BMW’s own schematics. Enter a VIN or pick a vehicle to browse its diagrams.'
@@ -232,7 +247,7 @@ async function showWiringChassis() {
   );
   if (!classic) stagger(grid, 22);
   if (!_mine()) return;
-  sbRight.textContent = `${ids.length} chassis`;
+  dom.sbRight.textContent = `${ids.length} chassis`;
   if (!_mine()) return;
   setActions([
     ...ids.slice(0, WIRING_PICKER_HOTKEYS).map((id, i) => ({

@@ -7,9 +7,18 @@
  * "my car" banner that toggles the filter.
  */
 
-/* exported
-   wiringVinFilterOn, wiringSubtreeHasMatch, docsSubtreeHasMatch,
-   buildWiringVinBox, buildWiringVinBanner */
+import {
+  bodyLabel,
+  esc,
+  hasVinDecoder,
+  showApps,
+  showChassis,
+  showVinDecoder,
+} from './shell.mjs';
+import { wiringApplicability } from './applicability.mjs';
+import { wiringHasChassis } from './archive.mjs';
+import { showWiringChassis } from './picker.mjs';
+import { showWiring } from './screen.mjs';
 
 /**
  * A decoded VIN, as the shared decoder hands it over.
@@ -24,20 +33,29 @@
  */
 
 /** localStorage key of wiring's own saved-vehicles list. */
-const WIRING_VINS_KEY = 'wiringVins';
+export const WIRING_VINS_KEY = 'wiringVins';
 
 /**
  * The VIN the current wiring view is filtered against (set by showWiring's
  * vin arg). View-scoped; cleared when a chassis opens without a VIN.
  * @type {WiringVinHit | null}
  */
-let wiringVinHit = null;
+export let wiringVinHit = null;
+
+/**
+ * The decoded VIN the tree and the search filter by (the screen sets it).
+ * @param {object|null} hit - a decoded VIN, or null for none
+ * @returns {void}
+ */
+export function setWiringVinHit(hit) {
+  wiringVinHit = hit;
+}
 
 /**
  * Whether the user has the "matches my vehicle" filter on. View-scoped.
  * @type {boolean}
  */
-let wiringVinFilterOn = false;
+export let wiringVinFilterOn = false;
 
 /**
  * Tag a diagram against the current VIN using BMW's own applicability data
@@ -46,7 +64,7 @@ let wiringVinFilterOn = false;
  * @param {string} doc - SP doc id
  * @returns {WiringVinMatch}
  */
-function wiringDiagramMatch(doc) {
+export function wiringDiagramMatch(doc) {
   if (!wiringVinHit || typeof wiringApplicability === 'undefined')
     return 'neutral';
   return wiringApplicability.match(doc, wiringVinHit);
@@ -63,7 +81,7 @@ function wiringDiagramMatch(doc) {
  * @param {WiringTreeNode} node - folder to test
  * @returns {boolean}
  */
-function wiringSubtreeHasMatch(node) {
+export function wiringSubtreeHasMatch(node) {
   let sawDoc = false;
   const stack = [node];
   while (stack.length) {
@@ -83,7 +101,7 @@ function wiringSubtreeHasMatch(node) {
  * @param {DocsEntry} d - the document
  * @returns {WiringVinMatch}
  */
-function docsVinMatch(d) {
+export function docsVinMatch(d) {
   if (!wiringVinHit || !d.a) return 'neutral';
   return wiringApplicability.matchRule(d.a, wiringVinHit);
 }
@@ -94,7 +112,7 @@ function docsVinMatch(d) {
  * @param {DocsTreeNode} node - folder to test
  * @returns {boolean}
  */
-function docsSubtreeHasMatch(node) {
+export function docsSubtreeHasMatch(node) {
   if (!wiringVinHit) return true;
   for (const d of node.docs || []) if (docsVinMatch(d) !== 'off') return true;
   for (const c of node.children || []) if (docsSubtreeHasMatch(c)) return true;
@@ -106,8 +124,8 @@ function docsSubtreeHasMatch(node) {
  * identify-by-attributes), retargeted to open wiring and remember the VIN.
  * @returns {void}
  */
-function showWiringVinDecoder() {
-  if (typeof showVinDecoder !== 'function') {
+export function showWiringVinDecoder() {
+  if (!hasVinDecoder()) {
     showWiringChassis();
     return;
   }
@@ -139,7 +157,7 @@ function showWiringVinDecoder() {
  * saved-vehicles panel live.
  * @returns {HTMLButtonElement}
  */
-function buildWiringVinBox() {
+export function buildWiringVinBox() {
   const card = document.createElement('button');
   card.type = 'button';
   card.className = 'wiring-vin-entry';
@@ -159,10 +177,10 @@ function buildWiringVinBox() {
  * @param {WiringVinHit} hit - the decoded VIN
  * @returns {string}
  */
-function wiringVinDescription(hit) {
+export function wiringVinDescription(hit) {
   return [
     hit.model,
-    typeof bodyLabel === 'function' && hit.body ? bodyLabel(hit.body) : '',
+    hit.body ? bodyLabel(hit.body) : '',
     hit.motor,
     hit.prod
       ? `${String(hit.prod).slice(0, 4)}-${String(hit.prod).slice(4, 6)}`
@@ -183,7 +201,7 @@ function wiringVinDescription(hit) {
  * @param {() => void} refreshCount - re-count the documents the filter shows
  * @returns {HTMLDivElement & {_applyFilter: (on: boolean) => void}}
  */
-function buildWiringVinBanner(hit, body, refreshCount) {
+export function buildWiringVinBanner(hit, body, refreshCount) {
   const banner = document.createElement('div');
   banner.className = 'wiring-vinbanner';
   banner.innerHTML = `

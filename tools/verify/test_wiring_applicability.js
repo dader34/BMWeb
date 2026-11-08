@@ -12,6 +12,7 @@ const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
+const { pathToFileURL } = require('url');
 
 const ROOT = path.join(__dirname, '..', '..', 'app', 'renderer');
 let passed = 0;
@@ -66,11 +67,11 @@ const index = {
   },
 };
 
-const ctx = {
-  console,
+// the module reads the shell through screens/wiring/shell.mjs, as globals;
+// the tech-data evaluator is a classic script, run in this context
+Object.assign(globalThis, {
   window: {},
   WEB_BASE: '',
-  TextDecoder,
   fetch: async () => ({
     ok: true,
     arrayBuffer: async () =>
@@ -82,16 +83,17 @@ const ctx = {
       : rel.includes('characteristics')
         ? chars
         : null,
-};
-ctx.globalThis = ctx;
-vm.createContext(ctx);
-for (const f of ['screens/techdata/data.js', 'screens/wiring/applicability.js'])
-  vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), ctx, {
-    filename: f,
-  });
-const A = ctx.window.wiringApplicability;
+});
+vm.runInThisContext(
+  fs.readFileSync(path.join(ROOT, 'screens/techdata/data.js'), 'utf8'),
+  { filename: 'screens/techdata/data.js' }
+);
+let A;
 
 (async () => {
+  ({ wiringApplicability: A } = await import(
+    pathToFileURL(path.join(ROOT, 'screens/wiring/applicability.mjs')).href
+  ));
   const m54 = { chassis: 'E46', motor: 'M54', body: 'Lim' };
   const m52 = { chassis: 'E46', motor: 'M52', body: 'Lim' };
   assert.strictEqual(

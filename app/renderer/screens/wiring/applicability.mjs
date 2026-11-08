@@ -38,6 +38,19 @@
  * which matchRule still scores the old way until they are rebuilt.
  */
 
+import {
+  fflate,
+  hasFflate,
+  hasHfFetch,
+  hfFetchFirst,
+  techDataCarFacts,
+  techDataComposeRule,
+  techDataCountry,
+  techDataRuleEval,
+  techDataRuleFactsLoad,
+  webBase,
+} from './shell.mjs';
+
 /**
  * One applicability record as the index ships it.
  * @typedef {Object} WiringApplicabilityRec
@@ -55,7 +68,7 @@
  * @typedef {'match' | 'off' | 'neutral'} WiringVinMatch
  */
 
-(function () {
+export const wiringApplicability = (function () {
   'use strict';
 
   /** @type {object|null} the index as shipped */
@@ -85,7 +98,7 @@
    * @returns {Promise<object|null>}
    */
   async function fetchJson(rel) {
-    if (typeof hfFetchFirst === 'function') return hfFetchFirst(rel);
+    if (hasHfFetch()) return hfFetchFirst(rel);
     return null;
   }
 
@@ -99,7 +112,7 @@
     if (!INDEX) {
       if (!loading)
         loading = (async () => {
-          const base = typeof WEB_BASE === 'string' ? WEB_BASE : '';
+          const base = webBase();
           try {
             const r = await fetch(`${base}/data/wiring/applicability.json.gz`);
             if (!r || !r.ok) throw new Error('no index');
@@ -107,7 +120,7 @@
             const isGz = buf.length > 2 && buf[0] === 0x1f && buf[1] === 0x8b;
             let text;
             if (isGz) {
-              if (typeof fflate === 'undefined') throw new Error('no inflater');
+              if (!hasFflate()) throw new Error('no inflater');
               text = fflate.strFromU8(fflate.gunzipSync(buf));
             } else text = new TextDecoder('utf-8').decode(buf);
             const idx = JSON.parse(text);
@@ -348,7 +361,7 @@
     return score(composed(spId), keysFor(hit));
   }
 
-  window.wiringApplicability = {
+  const applicability = {
     load: loadIndex,
     match: matchDoc,
     matchRule: matchRule,
@@ -358,4 +371,6 @@
     keys: keysFor,
   };
   window.istaBodyOf = istaBody;
+  window.wiringApplicability = applicability;
+  return applicability;
 })();

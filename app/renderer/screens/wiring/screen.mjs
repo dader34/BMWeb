@@ -7,12 +7,61 @@
  * viewer, document, share-print.
  */
 
+import {
+  Settings,
+  dispChassis,
+  dom,
+  errorBlock,
+  esc,
+  head,
+  routeSetFiltered,
+  setActions,
+  setCrumbs,
+  setLastScreen,
+  showApps,
+  showChassis,
+  tipify,
+} from './shell.mjs';
+import { wiringApplicability } from './applicability.mjs';
+import { loadWiring, wiringIndex } from './archive.mjs';
+import {
+  docsCategoryKeep,
+  docsCount,
+  docsFindById,
+  docsPruneTree,
+  docsTabEntryById,
+  loadDocs,
+} from './docs.mjs';
+import {
+  wiringIsPhone,
+  wiringRenderEntry,
+  wiringRenderPlaceholder,
+} from './document.mjs';
+import { showWiringChassis, wiringClassic } from './picker.mjs';
+import { printWiring } from './share-print.mjs';
+import { WiringTabStrip, wiringTabKey, wiringTabsLoad } from './tabs.mjs';
+import {
+  wiringCountShown,
+  wiringExpandTreeToDoc,
+  wiringLoadingEl,
+  wiringRenderDocsTree,
+  wiringRenderTree,
+  wiringSearchHits,
+  wiringSearchResultsEl,
+} from './tree.mjs';
+import {
+  buildWiringVinBanner,
+  setWiringVinHit,
+  wiringVinFilterOn,
+  wiringVinHit,
+} from './vin.mjs';
+
 /**
  * WDS's pane buttons: a frame with the divider pushed one way; the filled
  * block is the pane that gets the room. doc=document, split=both, tree=tree.
  * @type {{doc: string, split: string, tree: string}}
  */
-const WDS_PANE_GLYPH = {
+export const WDS_PANE_GLYPH = {
   doc: `<svg viewBox="0 0 16 14" width="16" height="14" aria-hidden="true">
     <rect x="1" y="1" width="14" height="12" fill="none" stroke="currentColor" stroke-width="1.5"/>
     <rect x="1" y="1" width="3.5" height="12" fill="currentColor"/></svg>`,
@@ -25,7 +74,7 @@ const WDS_PANE_GLYPH = {
 };
 
 /** The category the tree shows when nothing is remembered. */
-const WIRING_DEFAULT_CATEGORY = 'diagrams';
+export const WIRING_DEFAULT_CATEGORY = 'diagrams';
 
 /**
  * WDS's own toolbar and title bar (INPA mode). It carries a few controls
@@ -33,7 +82,7 @@ const WIRING_DEFAULT_CATEGORY = 'diagrams';
  * @param {string} chassisId - chassis code, for the title bar
  * @returns {string}
  */
-function wiringWdsChromeHtml(chassisId) {
+export function wiringWdsChromeHtml(chassisId) {
   return `
     <div class="wds-toolbar">
       <button class="wds-btn" id="wds-series"
@@ -64,7 +113,7 @@ function wiringWdsChromeHtml(chassisId) {
  * group the schematic viewer fills.
  * @returns {string}
  */
-function wiringWdsFooterHtml() {
+export function wiringWdsFooterHtml() {
   return `
     <div class="wds-footer">
       <label class="wds-searchlabel" for="wiring-search">Enter search word</label>
@@ -92,7 +141,7 @@ function wiringWdsFooterHtml() {
  * route out is here (Esc still works).
  * @returns {string}
  */
-function wiringModernToolbarHtml() {
+export function wiringModernToolbarHtml() {
   return `
     <div class="wiring-toolbar">
       <button class="btn wiring-tbtn" id="wds-back"
@@ -140,7 +189,7 @@ function wiringModernToolbarHtml() {
  * @param {boolean} classic - the INPA skin is on (WDS chrome)
  * @returns {string}
  */
-function wiringFrameHtml(chassisId, classic) {
+export function wiringFrameHtml(chassisId, classic) {
   return `
     ${classic ? wiringWdsChromeHtml(chassisId) : wiringModernToolbarHtml()}
     <div class="wiring-tabs" id="wiring-tabs" role="tablist" hidden></div>
@@ -160,7 +209,7 @@ function wiringFrameHtml(chassisId, classic) {
  * @param {() => void} fn - the handler
  * @returns {void}
  */
-function wiringOn(root, sel, fn) {
+export function wiringOn(root, sel, fn) {
   const el = root.querySelector(sel);
   if (el) el.onclick = fn;
 }
@@ -177,7 +226,7 @@ function wiringOn(root, sel, fn) {
  * @param {boolean} [remember] - persist the choice
  * @returns {void}
  */
-function wiringSetPane(split, mode, remember = true) {
+export function wiringSetPane(split, mode, remember = true) {
   split.querySelector('.wiring-body').dataset.pane = mode;
   split
     .querySelectorAll('.wds-pane')
@@ -196,7 +245,7 @@ function wiringSetPane(split, mode, remember = true) {
  * @param {() => void} leaveWiring - what Back does
  * @returns {Array<Object>}
  */
-function wiringBrowseActions(chassisId, leaveWiring) {
+export function wiringBrowseActions(chassisId, leaveWiring) {
   return [
     {
       key: 'Escape',
@@ -221,7 +270,7 @@ function wiringBrowseActions(chassisId, leaveWiring) {
  * @param {string | null} openDoc - the doc argument of showWiring
  * @returns {string | null}
  */
-function wiringDeepDocId(openDoc) {
+export function wiringDeepDocId(openDoc) {
   if (!openDoc) return null;
   if (/^d:/.test(openDoc)) return openDoc.slice(2);
   if (/^\d+$/.test(openDoc)) return openDoc;
@@ -237,7 +286,7 @@ function wiringDeepDocId(openDoc) {
  * @param {WiringIndexEntry[]} index - the flat WDS index
  * @returns {WiringTabEntry | null}
  */
-function wiringResolveSavedTab(t, index) {
+export function wiringResolveSavedTab(t, index) {
   if (t.doc && String(t.doc).startsWith('d:'))
     return docsTabEntryById(String(t.doc).slice(2), t.name, t.kind);
   if (t.doc) return index.find((e) => e.doc === t.doc) || null;
@@ -250,12 +299,12 @@ function wiringResolveSavedTab(t, index) {
  * @param {WiringViewCtx} ctx - the open view
  * @returns {void}
  */
-function wiringRefreshCount(ctx) {
+export function wiringRefreshCount(ctx) {
   const n = wiringCountShown(ctx.data.tree);
   const label =
     `${n} diagram${n === 1 ? '' : 's'}` +
     (wiringVinHit && wiringVinFilterOn ? ' for your car' : '');
-  sbRight.textContent = label;
+  dom.sbRight.textContent = label;
   const empty = ctx.viewEl.querySelector('.wiring-emptycount');
   if (empty) empty.textContent = label;
 }
@@ -268,7 +317,7 @@ function wiringRefreshCount(ctx) {
  * @param {WiringViewCtx} ctx - the open view
  * @returns {Promise<void>}
  */
-async function wiringRenderCurrentTree(ctx) {
+export async function wiringRenderCurrentTree(ctx) {
   const { catHost, searchEl, treeEl } = ctx;
   const openTab = (entry) => ctx.tabs.openTab(entry);
   catHost &&
@@ -291,7 +340,7 @@ async function wiringRenderCurrentTree(ctx) {
     treeEl.appendChild(wait);
     try {
       ctx.docsData = await loadDocs(ctx.chassisId);
-    } catch (e) {
+    } catch {
       wait.innerHTML = `<div class="wiring-empty">No documents shipped for ${esc(dispChassis(ctx.chassisId))}.</div>`;
       return;
     }
@@ -309,7 +358,7 @@ async function wiringRenderCurrentTree(ctx) {
     if (b && b._applyFilter) b._applyFilter(wiringVinFilterOn);
   }
   const n = docsCount(pruned);
-  sbRight.textContent = `${n} document${n === 1 ? '' : 's'}`;
+  dom.sbRight.textContent = `${n} document${n === 1 ? '' : 's'}`;
 }
 
 /**
@@ -318,7 +367,7 @@ async function wiringRenderCurrentTree(ctx) {
  * @param {WiringViewCtx} ctx - the open view
  * @returns {void}
  */
-function wiringBindCategories(ctx) {
+export function wiringBindCategories(ctx) {
   if (!ctx.catHost) return;
   ctx.catHost.querySelectorAll('.wiring-cat').forEach((btn) => {
     btn.onclick = () => {
@@ -335,7 +384,7 @@ function wiringBindCategories(ctx) {
  * @param {WiringViewCtx} ctx - the open view
  * @returns {void}
  */
-function wiringBindSearch(ctx) {
+export function wiringBindSearch(ctx) {
   const { searchEl, treeEl } = ctx;
   let searchWrap = null;
   searchEl.oninput = () => {
@@ -356,7 +405,7 @@ function wiringBindSearch(ctx) {
       ctx.tabs.openTab(entry)
     );
     treeEl.parentNode.appendChild(searchWrap);
-    sbRight.textContent = `${hits.length} match${hits.length === 1 ? '' : 'es'}`;
+    dom.sbRight.textContent = `${hits.length} match${hits.length === 1 ? '' : 'es'}`;
   };
 }
 
@@ -367,7 +416,7 @@ function wiringBindSearch(ctx) {
  * @param {number} d - +1 or -1
  * @returns {void}
  */
-function wiringStep(ctx, d) {
+export function wiringStep(ctx, d) {
   const index = ctx.index;
   if (!index.length) return;
   ctx.atIndex = (ctx.atIndex + d + index.length) % index.length;
@@ -386,7 +435,7 @@ function wiringStep(ctx, d) {
  * @param {string | null} deepDocId - the bare ISTA id when openDoc names one
  * @returns {void}
  */
-function wiringOpenInitial(ctx, openDoc, deepDocId) {
+export function wiringOpenInitial(ctx, openDoc, deepDocId) {
   const { tabs, treeEl, data, index } = ctx;
   // openTab focuses an already-open tab, but focusTab short-circuits when
   // that tab is already the active one -- which it is right after a reload
@@ -433,7 +482,7 @@ function wiringOpenInitial(ctx, openDoc, deepDocId) {
  * @param {string | null} openDoc - the doc argument of showWiring
  * @returns {void}
  */
-function wiringPopulate(ctx, openDoc) {
+export function wiringPopulate(ctx, openDoc) {
   const { split, treeEl, data } = ctx;
   ctx.tabs = new WiringTabStrip(
     split.querySelector('#wiring-tabs'),
@@ -495,9 +544,14 @@ function wiringPopulate(ctx, openDoc) {
  * @param {WiringCategory | null} [category] - tree to show
  * @returns {void}
  */
-function showWiring(chassisId, openDoc = null, vin = null, category = null) {
-  lastScreen = () => showWiring(chassisId, null, vin);
-  wiringVinHit = vin || null; // module-level so the tree and search can read it
+export function showWiring(
+  chassisId,
+  openDoc = null,
+  vin = null,
+  category = null
+) {
+  setLastScreen(() => showWiring(chassisId, null, vin));
+  setWiringVinHit(vin || null); // module-level so the tree and search can read it
   setCrumbs([
     { label: 'Vehicles', fn: showChassis },
     { label: 'Apps', fn: showApps },
@@ -507,10 +561,10 @@ function showWiring(chassisId, openDoc = null, vin = null, category = null) {
   // the filtered vehicle rides in the URL, so a reload keeps the filter
   if (!openDoc && typeof routeSetFiltered === 'function')
     routeSetFiltered('wiring', chassisId, vin && vin.vin);
-  sbLeft.textContent = 'loading…';
+  dom.sbLeft.textContent = 'loading…';
   // no page heading: a schematic wants every pixel of height, crumbs say where
   // you are
-  view.innerHTML = '';
+  dom.view.innerHTML = '';
 
   // WDS's own chrome in the classic layout or under the INPA skin
   const classic = wiringClassic();
@@ -520,7 +574,7 @@ function showWiring(chassisId, openDoc = null, vin = null, category = null) {
   const split = document.createElement('div');
   split.className = 'split wiring-split' + (classic ? ' wds-frame' : '');
   split.innerHTML = wiringFrameHtml(chassisId, classic);
-  view.appendChild(split);
+  dom.view.appendChild(split);
 
   const treeEl = split.querySelector('#wiring-tree');
   // the archive is 2-24 MB: real wait before the tree appears, so fill it
@@ -606,13 +660,13 @@ function showWiring(chassisId, openDoc = null, vin = null, category = null) {
     .then(([data]) => {
       ctx.data = data;
       ctx.index = wiringIndex(data.tree);
-      sbLeft.textContent = 'wiring';
+      dom.sbLeft.textContent = 'wiring';
       // sbRight is set by refreshCount so it stays faithful to the mode
       wiringPopulate(ctx, openDoc);
     })
     .catch((e) => {
       viewEl.innerHTML = errorBlock(e.message);
-      sbLeft.textContent = 'no wiring data';
+      dom.sbLeft.textContent = 'no wiring data';
     });
 }
 
@@ -621,14 +675,14 @@ function showWiring(chassisId, openDoc = null, vin = null, category = null) {
  * @param {string} chassisId - chassis code, to return to its tree
  * @returns {void}
  */
-function showWiringHelp(chassisId) {
+export function showWiringHelp(chassisId) {
   setCrumbs([
     { label: 'Vehicles', fn: showChassis },
     { label: 'Wiring', fn: showWiringChassis },
     { label: dispChassis(chassisId), fn: () => showWiring(chassisId) },
     { label: 'Help' },
   ]);
-  view.innerHTML = head('WDS', 'Operation and navigation', '');
+  dom.view.innerHTML = head('WDS', 'Operation and navigation', '');
   const art = document.createElement('article');
   art.className = 'wiring-doc wds-help-doc';
   art.innerHTML = `
@@ -660,7 +714,7 @@ function showWiringHelp(chassisId) {
           <span class="wiring-dot" style="background:var(--green)"></span>
           component location &nbsp;
           <span class="wiring-dot" style="background:#6ab0ff"></span>
-          connector view</li>
+          connector dom.view</li>
       <li><span class="wiring-dot" style="background:#b98cff;border-radius:50%"></span>
           pin assignment &nbsp;
           <span class="wiring-dot" style="background:#ffd166;border-radius:50%"></span>
@@ -670,7 +724,7 @@ function showWiringHelp(chassisId) {
     </ul>
     <p>The diagrams, their titles and their arrangement are BMW's own, taken
        from WDS. Printing uses the browser's print dialog.</p>`;
-  view.appendChild(art);
+  dom.view.appendChild(art);
   setActions([
     {
       key: 'Escape',

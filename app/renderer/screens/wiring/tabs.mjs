@@ -6,8 +6,8 @@
  * to the wiring screen.
  */
 
-/* exported
-   wiringTabsLoad, WiringTabStrip */
+import { esc } from './shell.mjs';
+import { WIRING_KIND_LABEL } from './archive.mjs';
 
 /**
  * What a tab remembers about its document: a WDS leaf (doc = SP id), an ISTA
@@ -33,19 +33,19 @@
  * localStorage is best-effort -- a private window or a wiped store just
  * starts with no tabs.
  */
-const WIRING_TABS_KEY = 'wiring.tabs';
+export const WIRING_TABS_KEY = 'wiring.tabs';
 
 /**
  * Read one chassis's saved workspace.
  * @param {string} chassisId - chassis code, any case
  * @returns {WiringTabsState}
  */
-function wiringTabsLoad(chassisId) {
+export function wiringTabsLoad(chassisId) {
   try {
     const all = JSON.parse(localStorage.getItem(WIRING_TABS_KEY) || '{}');
     const st = all[chassisId.toUpperCase()];
     if (st && Array.isArray(st.open)) return st;
-  } catch (e) {
+  } catch {
     /* ignore */
   }
   return { open: [], active: null };
@@ -57,7 +57,7 @@ function wiringTabsLoad(chassisId) {
  * @param {WiringTabsState} state - the open tabs and the active key
  * @returns {void}
  */
-function wiringTabsSave(chassisId, state) {
+export function wiringTabsSave(chassisId, state) {
   try {
     const all = JSON.parse(localStorage.getItem(WIRING_TABS_KEY) || '{}');
     all[chassisId.toUpperCase()] = {
@@ -65,7 +65,7 @@ function wiringTabsSave(chassisId, state) {
       active: state.active,
     };
     localStorage.setItem(WIRING_TABS_KEY, JSON.stringify(all));
-  } catch (e) {
+  } catch {
     /* quota / private mode: tabs are a convenience, not critical */
   }
 }
@@ -76,7 +76,7 @@ function wiringTabsSave(chassisId, state) {
  * @param {WiringTabEntry | null | undefined} entry - a tab entry
  * @returns {string | null | undefined}
  */
-function wiringTabKey(entry) {
+export function wiringTabKey(entry) {
   return entry && (entry.doc || 'glossary:' + (entry.name || ''));
 }
 
@@ -84,7 +84,7 @@ function wiringTabKey(entry) {
  * The tab strip: owns the open list and the active key, draws the strip, and
  * hands document rendering back to the screen through its hooks.
  */
-class WiringTabStrip {
+export class WiringTabStrip {
   /**
    * @param {HTMLElement} el - the strip container (#wiring-tabs)
    * @param {string} chassisId - chassis the workspace persists under
