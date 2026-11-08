@@ -331,6 +331,8 @@ const be32 = (b, at) =>
       const mpc = Uint8Array.from(mpc0);
       const events = [];
       const isMpc = (off) => off >= WIN;
+      let pending = null; // v24: the pipelined set's result, not yet told
+      const failAt = new Set(); // v24: pageset offsets the chip refuses once
       const client = {
         async sectorQuery(off, len) {
           events.push(['query', off]);
@@ -395,6 +397,28 @@ const be32 = (b, at) =>
             }
           return plain.length;
         },
+        // v24: the pipelined set -- answered with the PREVIOUS set's result;
+        // a set whose offset is in failAt is not taken (result 4), the way
+        // a page that did not pulse is dropped by the body
+        async chunkSetQ(mask, offset, pagesets, plain) {
+          events.push(['chunkSetQ', mask, offset, pagesets]);
+          const prev = pending === null ? 0xff : pending;
+          if (failAt.has(offset)) {
+            failAt.delete(offset);
+            pending = 4;
+          } else {
+            await client.chunkSet(mask, offset, pagesets, plain);
+            events.pop(); // the inner chunkSet's event: it is one SETQ
+            pending = 0;
+          }
+          return { sent: plain.length, prev };
+        },
+        async sync() {
+          events.push(['sync']);
+          const r = pending === null ? 0xff : pending;
+          pending = null;
+          return r;
+        },
         async verify(off, len, crc) {
           events.push(['verify', off]);
           const a = isMpc(off)
@@ -418,7 +442,7 @@ const be32 = (b, at) =>
           events.push(['reset']);
         },
       };
-      return { mem, mpc, events, client };
+      return { mem, mpc, events, client, failAt };
     };
     const target = image(7);
     const ext = new Uint8Array(0x100000).fill(0xff);
@@ -592,6 +616,102 @@ const be32 = (b, at) =>
     ok(
       'v23 push: external sectors queued on the chip after the MPC erase, written after the pagesets, marks sector still first and alone'
     );
+
+    // ---- v24: pipelined pagesets (same chip and targets) ----
+    console.log('\npipelined pagesets');
+    // every pageset through SETQ, one SYNC at the end, nothing stop-and-wait
+    c = mpcChip(ext, mpcOnChip);
+    r = await W.pushProgram(
+      c.client,
+      target,
+      {},
+      { mpc: mpcTarget, pagesets: true, pipeline: true }
+    );
+    assert.strictEqual(r.mpcBlocksWritten, 4);
+    assert(Buffer.from(c.mpc).equals(Buffer.from(mpcTarget)), 'MPC == target');
+    let kq = c.events.map((e) => e[0]);
+    assert(!kq.includes('chunkSet'), 'no plain CHUNK_SET when all sets take');
+    const q = c.events.filter((e) => e[0] === 'chunkSetQ');
+    assert(
+      q.length > 0 &&
+        q.every((e) => e[1] === ((1 << 3) | (1 << 5) | (1 << 12))),
+      'SETQ masks'
+    );
+    assert.strictEqual(kq.filter((k) => k === 'sync').length, 1, 'one SYNC');
+    assert(
+      kq.indexOf('sync') > kq.lastIndexOf('chunkSetQ'),
+      'SYNC after the last set'
+    );
+    const iBlock0 = c.events.findIndex((e) => e[0] === 'chunk' && e[1] >= WIN);
+    assert(
+      iBlock0 > kq.indexOf('sync'),
+      'block 0 (plain chunks) after the SYNC'
+    );
+    ok('v24 push: every pageset pipelined, one SYNC, block 0 after it');
+
+    // a set the chip refuses mid-run and the LAST set refused: each is told
+    // one frame late (or by the SYNC) and sent again as a plain CHUNK_SET
+    c = mpcChip(ext, mpcOnChip);
+    c.failAt.add(0x540); // a middle offset (21 pagesets = 0x540 a set)
+    // the last set SENT: 0x7E00 (the short one) is all 0xFF in this target
+    c.failAt.add(0x78c0);
+    await W.pushProgram(
+      c.client,
+      target,
+      {},
+      { mpc: mpcTarget, pagesets: true, pipeline: true }
+    );
+    assert(
+      Buffer.from(c.mpc).equals(Buffer.from(mpcTarget)),
+      'MPC == target after resends'
+    );
+    kq = c.events.map((e) => e[0]);
+    const resent = c.events.filter((e) => e[0] === 'chunkSet');
+    assert.deepStrictEqual(
+      resent.map((e) => e[2]),
+      [0x540, 0x78c0],
+      'the two refused sets sent again, in order'
+    );
+    const iFail = c.events.findIndex(
+      (e) => e[0] === 'chunkSetQ' && e[2] === 0x540
+    );
+    const iResend = c.events.findIndex(
+      (e) => e[0] === 'chunkSet' && e[2] === 0x540
+    );
+    assert.strictEqual(
+      c.events[iResend - 1][0],
+      'chunkSetQ',
+      'the middle resend right after the NEXT set (told one frame late)'
+    );
+    assert.strictEqual(c.events[iResend - 1][2], 0x540 + 0x540);
+    assert(
+      iResend === iFail + 2,
+      'exactly one set between the failure and its resend'
+    );
+    const iSync = kq.indexOf('sync');
+    assert.strictEqual(
+      c.events[iSync + 1][0],
+      'chunkSet',
+      'the last set resent right after the SYNC'
+    );
+    assert.strictEqual(c.events[iSync + 1][2], 0x78c0);
+    ok(
+      'v24 push: a refused set is sent again on its own, a frame late or after the SYNC'
+    );
+
+    // without the body's say-so the loop stays stop-and-wait
+    c = mpcChip(ext, mpcOnChip);
+    await W.pushProgram(
+      c.client,
+      target,
+      {},
+      { mpc: mpcTarget, pagesets: true }
+    );
+    assert(
+      !c.events.some((e) => e[0] === 'chunkSetQ' || e[0] === 'sync'),
+      'no SETQ without opts.pipeline'
+    );
+    ok('v24 push: pipeline only when asked');
   }
 
   // ---- 4d. a garbled reply is asked for again ------------------------------------

@@ -51,7 +51,11 @@ const FF_SVC = {
   AIF: 0x09, // v10 bench body only: the AIF-wipe resume marker (read/arm/done)
   READ: 0x0a, // v13: raw bytes of the chip or the MPC; 16 KB a request since v22
   ERASE_Q: 0x0c, // v23: external sectors erased in the background, up to 8 a job
+  SETQ: 0x0d, // v24: a CHUNK_SET answered before its pulses; the ACK carries the previous set's result
+  SYNC: 0x0e, // v24: the last pipelined set's result
 };
+/** SETQ / SYNC result byte: nothing pending. */
+const FF_RESULT_NONE = 0xff;
 /** READ: bytes per request (the body refuses more), and the external chip. */
 /**
  * Bytes per READ request: 4 KB from a body up to v21, 16 KB from v22 on
@@ -100,6 +104,8 @@ const FF_TIMEOUT = {
   SET_BAUD: 2000,
   CHUNK_SET: 3000, // the floor; _chunkMs() stretches it on a slow line
   ERASE_Q: 20000, // ACKed at once, unless an earlier job is still running
+  SETQ: 3000, // answered after the decode, before the pulses (the previous set's pulses may still be running: same budget as a set)
+  SYNC: 3000,
   READ: 3000, // the floor; _readReplyMs() stretches it for 16 KB on a slow line
 };
 /**
@@ -614,6 +620,50 @@ class FastFlashClient {
    */
   async setBaud(scbr) {
     await this.call(FF_SVC.SET_BAUD, _ffU16(scbr), FF_TIMEOUT.SET_BAUD);
+  }
+
+  /**
+   * v24: a pageset answered before its pulses. The body decodes the set,
+   * answers at once with the PREVIOUS pipelined set's result, then pulses
+   * this one while the next frame comes in between its driver's steps --
+   * so the wire and the USB turnaround of every set hide under the
+   * previous set's pulse time. The result of the last set comes from
+   * sync(). A set that failed is gone from the body's buffer by the time
+   * the host hears of it: the caller sends it again as a plain chunkSet.
+   * @param {number} mask @param {number} offset @param {number} pagesets
+   * @param {Uint8Array} plain
+   * @returns {Promise<{sent: number, prev: number}>} bytes sent, and the
+   *   previous set's result: 0 ok, 4 a page would not take, 7 driver
+   *   missing, FF_RESULT_NONE when none was pending.
+   */
+  async chunkSetQ(mask, offset, pagesets, plain) {
+    const packed = this.codec.encode(plain);
+    const d = await this.call(
+      FF_SVC.SETQ,
+      [
+        ..._ffU16(mask),
+        ..._ffU16(offset),
+        ..._ffU16(plain.length),
+        ..._ffU16(packed.length),
+        ..._ffU32(ffWireBytes.crc32Mpeg2(packed)),
+        pagesets,
+        0,
+        0,
+        0,
+        ...packed,
+      ],
+      this._chunkMs(packed.length, FF_TIMEOUT.SETQ)
+    );
+    return { sent: packed.length, prev: d.length ? d[0] : FF_RESULT_NONE };
+  }
+
+  /**
+   * v24: the result of the last pipelined set (see chunkSetQ), cleared.
+   * @returns {Promise<number>}
+   */
+  async sync() {
+    const d = await this.call(FF_SVC.SYNC, [], FF_TIMEOUT.SYNC);
+    return d.length ? d[0] : FF_RESULT_NONE;
   }
 
   /**
@@ -1300,6 +1350,23 @@ async function ffPushProgram(client, signedFull, cb = {}, opts = {}) {
     // block 0 in the sets: its first page (the reset word at 0x8) goes as
     // 0xFF -- an erased page the pulses leave as it is -- and alone, last
     let heldPage = null;
+    // v24: pipelined -- each set is answered before its pulses, the answer
+    // carrying the previous set's result, so the next set's wire time hides
+    // under this set's pulses. A set that failed is sent again as a plain
+    // CHUNK_SET (stop-and-wait, its own answer), then the pipeline goes on.
+    const pipeline = !!opts.pipeline && !!client.chunkSetQ;
+    let inFlight = null; // the set the body is pulsing, for a resend
+    const settle = (result) => {
+      if (result === FF_RESULT_NONE || result === 0 || !inFlight) return null;
+      return inFlight;
+    };
+    const resend = async (set, why) => {
+      note(
+        `pageset at 0x${set.off.toString(16)} ${why}: sent again on its own`
+      );
+      sent += await client.chunkSet(mask, set.off, set.ps, set.plain);
+      chunks++;
+    };
     for (let i = 0; i < steps; i++) {
       const off = i * span;
       // the last set is shorter when the pagesets do not divide the block
@@ -1316,13 +1383,30 @@ async function ffPushProgram(client, signedFull, cb = {}, opts = {}) {
           at += FF_PAGE;
         }
       if (!plain.every((x) => x === 0xff)) {
-        sent += await client.chunkSet(mask, off, ps, plain);
-        chunks++;
+        if (pipeline) {
+          const r = await client.chunkSetQ(mask, off, ps, plain);
+          sent += r.sent;
+          chunks++;
+          if (r.prev === 7) throw new FastFlashNak(FF_SVC.SETQ, 7);
+          const failed = settle(r.prev);
+          inFlight = { off, ps, plain };
+          if (failed) await resend(failed, 'did not take');
+        } else {
+          sent += await client.chunkSet(mask, off, ps, plain);
+          chunks++;
+        }
       }
       track.add(
         (U.CHUNK * ps * FF_PAGE * blocks.length) / 0x1000,
         `Writing ${which}, pageset ${i + 1} of ${steps}`
       );
+    }
+    if (pipeline && inFlight) {
+      const last = await client.sync();
+      if (last === 7) throw new FastFlashNak(FF_SVC.SYNC, 7);
+      const failed = settle(last);
+      inFlight = null;
+      if (failed) await resend(failed, 'did not take');
     }
     if (heldPage && !heldPage.every((x) => x === 0xff)) {
       stage('Writing MPC block 0, first page (the reset word), last');
@@ -1828,6 +1912,7 @@ const fastFlashWire = {
   READ_MAX: FF_READ_MAX,
   READ_MAX_WIDE: FF_READ_MAX_WIDE,
   READ_WIDE_VERSION: FF_READ_WIDE_VERSION,
+  RESULT_NONE: FF_RESULT_NONE,
   fasterLine: ffFasterLine,
   FAST_LINES: FF_FAST_LINES,
   webLink: ffWebLink,

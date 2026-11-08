@@ -967,6 +967,9 @@ async function fbDmeFastFlashProgram(opts = {}) {
           // v23: the external sectors erase on the chip while the MPC
           // phase runs (~2 s a sector off the clock)
           backgroundErase: fbDmeBodyVersion() >= 23,
+          // v24: each pageset answered before its pulses, the next sent
+          // meanwhile
+          pipeline: fbDmeBodyVersion() >= 24,
           // block 0 in the pagesets only where the bootloader can always
           // reach the DME: its handoff window runs before MPC 0x8, so a cut
           // with block 0 erased is repaired through the ring. A DME on the

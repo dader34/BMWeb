@@ -59,7 +59,7 @@ const trigBytes =
 const TRIGGER = {
   DESC: 0x3fa104, // the loader's table-A descriptor pool
   D_ENTRY: 0x3fa174, // desc+0x70, the address the stock gate computes+calls
-  STUB_AT: 0x3fbaa0, // the receiver: above everything the body occupies
+  STUB_AT: 0x3fbaa0, // the receiver: above the uploaded body (SRAM_BASE + 7440 B = 0x3FB510), inside the pool
   SRAM_BASE: 0x3f9800, // where the body runs relocated
   POOL_END: 0x3fc003, // table-A pool range, inclusive
   // the write enable: a 31 02 the loader REFUSES (7F 31 22, a RAM address
@@ -70,7 +70,8 @@ const TRIGGER = {
   ENABLE_AT: 0x3f9800,
   ENABLE_LEN: 0x80,
   CHUNK: 249, // 6 telegram bytes + chunk <= the length byte's 255
-  BODY_WORDS: 1592, // the body the emu proof staged -- a change must re-run it
+  BODY_WORDS: 1860, // the body the emu proof staged -- a change must re-run it
+  EE_MODULE_AT: 0xff400, // the ee_write module's place in the blob: the body ends below it
   MARKER1: 0x1f9c2, // the boot-sector markers the one-time unlock blanks
   MARKER2: 0x1fb18,
   MTOS_SEED: 0x4d544f53, // 'MTOS', big-endian: the gate CRC's seed
@@ -110,7 +111,8 @@ const MTOS_DESC_SIG = new Uint8Array([
  */
 function triggerReceiver() {
   return {
-    entry: 0x4800192c, // b STUB_AT, relative from D_ENTRY
+    // b STUB_AT, relative from D_ENTRY
+    entry: 0x48000000 | ((TRIGGER.STUB_AT - TRIGGER.D_ENTRY) & 0x03fffffc),
     words: [
       0x7cc000a6, 0x54c6045e, 0x7cc00124, 0x4c00012c, 0x3e20002f, 0x6231c00e,
       0x3a40556c, 0x3a60aa39, 0x3f800030, 0x639c500c, 0x3fa00030, 0x63bd500e,
@@ -198,8 +200,8 @@ function triggerUploadFrame(body) {
  * The body out of a bootstrap blob (core/generated/fast-flasher-blob.js).
  * The blob splices the boot layout [stamp, gate, boot stub, body, ee_write
  * module] as runs over non-blank bytes; the trigger wants the body alone.
- * Its extent: the last run that starts below the ee_write module (fixed at
- * ext 0xFF000) -- and that extent MUST equal BODY_WORDS, the body the emu
+ * Its extent: the last run that starts below the ee_write module (at
+ * ext EE_MODULE_AT) -- and that extent MUST equal BODY_WORDS, the body the emu
  * proof staged: a body that grew (or ends in blank runs the splice skips)
  * changes the pool geometry and the stub's count, so it refuses loudly
  * instead of staging a truncated copy.  Holes inside the span are blank
@@ -212,7 +214,7 @@ function triggerBodyFromBlob(blob) {
   const have = new Map(); // byte offset -> byte, only what the runs cover
   let end = 0; // end of the last run below the ee_write module
   for (const [at, hex] of blob.runs) {
-    if (at >= 0xff000) continue;
+    if (at >= TRIGGER.EE_MODULE_AT) continue;
     end = Math.max(end, at + hex.length / 2);
     for (let i = 0; i < hex.length; i += 2)
       have.set(at + i / 2, parseInt(hex.slice(i, i + 2), 16));
