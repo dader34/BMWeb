@@ -459,11 +459,7 @@ async function fbDmeIdentifyThroughFlasher() {
     fbSetEcuBox(
       `MS45.1  ${d.ident.hwRef}  ·  ${installer ? 'in the bootloader installer' : 'in the fast flasher'}`
     );
-    fbLog(
-      installer
-        ? 'The DME is in the bootloader installer.'
-        : 'The DME is in its fast flasher'
-    );
+    // the status line below logs itself; nothing to add
     fbSetStatus(
       installer
         ? 'The DME is in the bootloader installer'
