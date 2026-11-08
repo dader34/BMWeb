@@ -308,6 +308,10 @@ async function fbDmeIdentifyRun(afterFlash) {
   // a DME silent on KWP may be sitting in a flasher: it is asked right
   // after the first unanswered read, not after every retry has timed out
   let inFlasher = false;
+  // a fast flash was cut short on this browser and the body may still be
+  // waiting: it is asked first (under a second when it is there), since a
+  // KWP read into it only times out -- twice, six seconds -- first
+  if (fbDmeFastLive() && (await fbDmeIdentifyThroughFlasher())) return;
   const ident = await ms45Identify({
     raise: true,
     onSilent: async () => (inFlasher = await fbDmeIdentifyThroughFlasher()),
@@ -395,20 +399,47 @@ async function fbDmeIdentifyThroughFlasher() {
     // each HELLO ask at each rate goes to the session log, not the screen
     link = fastFlashWire.webLink(webBus, { onStep: (s) => flashLog.note(s) });
     const stamp = await link.resume();
-    if (String.fromCharCode(...stamp.subarray(0, 6)) !== 'MS45QF') return false;
-    const gate =
-      ((stamp[8] << 24) | (stamp[9] << 16) | (stamp[10] << 8) | stamp[11]) >>>
-      0;
-    const hookWord = (0x48000002 | (gate & 0x03fffffc)) >>> 0; // `ba gate`
-    d.fastFlasher = fastFlasher.parseDetection(
-      Uint8Array.from([
-        hookWord >>> 24,
-        (hookWord >>> 16) & 255,
-        (hookWord >>> 8) & 255,
-        hookWord & 255,
-      ]),
-      stamp
-    );
+    const magic = String.fromCharCode(...stamp.subarray(0, 6));
+    // A HELLO whose stamp is all 0xFF is still the body: it reads its
+    // stamp from ext 0xFD26C, and that sits in the top sector a program
+    // push erases FIRST (the marks unit, so an interruption leaves the
+    // loader in charge after a key cycle). A push cut short between that
+    // erase and the sector's rewrite leaves the body running with a blank
+    // stamp -- the car, 2026-11-08. Nothing but the body answers a HELLO
+    // with a 16-byte payload at these rates, so it is taken as this
+    // build's body (the one the app pushed with), stamp erased.
+    const blank = stamp.subarray(0, 16).every((b) => b === 0xff);
+    if (magic !== 'MS45QF' && !blank) return false;
+    if (blank) {
+      d.fastFlasher = {
+        version: fastFlasher.VERSION,
+        flags: 0,
+        gateCpu: 0,
+        entryCpu: 0,
+        hooked: false,
+        ours: true,
+        supported: true,
+        mpc: true,
+        reads: true,
+        aifWipe: false,
+        ready: true,
+        stampErased: true,
+      };
+    } else {
+      const gate =
+        ((stamp[8] << 24) | (stamp[9] << 16) | (stamp[10] << 8) | stamp[11]) >>>
+        0;
+      const hookWord = (0x48000002 | (gate & 0x03fffffc)) >>> 0; // `ba gate`
+      d.fastFlasher = fastFlasher.parseDetection(
+        Uint8Array.from([
+          hookWord >>> 24,
+          (hookWord >>> 16) & 255,
+          (hookWord >>> 8) & 255,
+          hookWord & 255,
+        ]),
+        stamp
+      );
+    }
     d.identified = true;
     d.ident = {
       ...d.ident,
@@ -431,7 +462,9 @@ async function fbDmeIdentifyThroughFlasher() {
     fbLog(
       installer
         ? 'The DME is in the bootloader installer.'
-        : `The DME is in its fast flasher (${fastFlasher.describe(d.fastFlasher)}): a push cut short can be finished -- load the same files and run the same fast flash; it reconnects. Nothing of KWP answers until a flash completes or the ignition is cycled.`
+        : d.fastFlasher.stampErased
+          ? 'The DME is in its fast flasher, mid-push: the stamp sector is erased, which is what an interrupted program push looks like. Load the same files and run the same Fast Flash Program; it reconnects and finishes. Nothing of KWP answers until then, or until a key cycle (which leaves the loader with "program missing": a standard Flash Program restores it).'
+          : `The DME is in its fast flasher (${fastFlasher.describe(d.fastFlasher)}): a push cut short can be finished -- load the same files and run the same fast flash; it reconnects. Nothing of KWP answers until a flash completes or the ignition is cycled.`
     );
     fbSetStatus(
       installer

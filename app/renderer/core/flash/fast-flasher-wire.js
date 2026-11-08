@@ -165,6 +165,15 @@ const FF_ECHO_DRAIN_MS = 150; // the real chip's timeout runs longer than its 20
 /** The first body that reads each echo as it sends: no pause needed. */
 const FF_ECHO_AS_SENT_VERSION = 6;
 const FF_HELLO_GAP_MS = 250;
+/**
+ * The quick pass of a resume: one HELLO at each rate a running body may be
+ * holding, likeliest first, with this much patience each -- a body answers
+ * in ~50 ms, and at the wrong rate the line is garbage or silent within
+ * that. The patient pass (every ask, every rate) follows only if nothing
+ * answered. A flasher left waiting is found in well under a second instead
+ * of after ~4.5 s a rate.
+ */
+const FF_HELLO_QUICK_MS = 400;
 
 /** The cal sector, and what of it a calibration write fills. */
 const FF_CAL_SECTOR = 0x40000;
@@ -1293,16 +1302,27 @@ function ffWebLink(bus, opts = {}) {
    * can be lost (the reopen's line glitch, the transmit-enable timing), and
    * an unanswered ask costs nothing: the flasher only ever answers.
    */
-  async function askHello(self) {
+  async function askHello(
+    self,
+    asks = FF_HELLO_ASKS,
+    timeoutMs = FF_TIMEOUT.HELLO
+  ) {
     let last = null;
-    for (let i = 1; i <= FF_HELLO_ASKS; i++) {
+    for (let i = 1; i <= asks; i++) {
       step(`Asking the flasher for its HELLO${i > 1 ? ` (try ${i})` : ''}`);
       try {
         const hello = ffParse(
-          await self.exchange(ffFrame(FF_SVC.HELLO, []), FF_TIMEOUT.HELLO)
+          await self.exchange(ffFrame(FF_SVC.HELLO, []), timeoutMs)
         );
         if (hello && hello.svc === (FF_SVC.HELLO | 0x40)) return hello;
-        last = new Error('fast flasher: an answer that was not a HELLO');
+        // a frame that is not a HELLO: the late answer to the command a
+        // cut session was waiting for (the car, 2026-11-08: a CHUNK_SET's
+        // ACK read as "answered with service 48"). The body is alive and
+        // has said its piece; ask once more after the line goes quiet
+        last = new Error(
+          `fast flasher: an answer that was not a HELLO (service ${hello ? hello.svc.toString(16) : '?'})`
+        );
+        if (i === asks) asks++;
       } catch (e) {
         last = e;
       }
@@ -1416,24 +1436,39 @@ function ffWebLink(bus, opts = {}) {
      */
     async resume() {
       // the body may be holding a confirmed faster line from the session
-      // that was cut short: 115200 first, then each rate it could be on
+      // that was cut short. A quick pass first: one ask at each rate,
+      // likeliest first (the session rates in the order sessions try
+      // them, then 115200, then the rates older builds held), with
+      // FF_HELLO_QUICK_MS of patience each; then the patient pass
       let last = null;
-      for (const rate of [FF_BAUD, ...FF_RESUME_RATES]) {
-        await bus.reopen({
-          baudRate: rate,
-          dataBits: 8,
-          stopBits: 1,
-          parity: 'even',
-        });
-        rx = [];
-        heard = [];
-        try {
-          const hello = await askHello(this);
-          learn(hello);
-          step(`The flasher answered at ${rate} baud`);
-          return hello.data;
-        } catch (e) {
-          last = e;
+      const likely = [
+        ...FF_FAST_LINES.map(([r]) => r),
+        FF_BAUD,
+        ...FF_RESUME_RATES.filter(
+          (r) => r !== FF_BAUD && !FF_FAST_LINES.some(([f]) => f === r)
+        ),
+      ];
+      for (const [asks, timeoutMs] of [
+        [1, FF_HELLO_QUICK_MS],
+        [FF_HELLO_ASKS, FF_TIMEOUT.HELLO],
+      ]) {
+        for (const rate of likely) {
+          await bus.reopen({
+            baudRate: rate,
+            dataBits: 8,
+            stopBits: 1,
+            parity: 'even',
+          });
+          rx = [];
+          heard = [];
+          try {
+            const hello = await askHello(this, asks, timeoutMs);
+            learn(hello);
+            step(`The flasher answered at ${rate} baud`);
+            return hello.data;
+          } catch (e) {
+            last = e;
+          }
         }
       }
       throw last || new Error('fast flasher: no HELLO at any rate');
