@@ -177,7 +177,7 @@ try {
     // expert mode's Prog. Data / Prog. Program: that file alone
     only: opt('--only', undefined),
     fast: flag('--fast'),
-    // as the app's comfort mode (webkfp.js): one record, after the last file,
+    // as the app's comfort mode (screens/webkfp/screen.js): one record, after the last file,
     // which is what winkfpt.exe does (FUN_004169a0)
     aifLastOnly: !flag('--expert'),
     aif: {
@@ -186,7 +186,7 @@ try {
       km: '123456',
       sw: row.sw,
       changeIndex: row.swIndex,
-      // as the app does (webkfp.js): the ZB row's type-approval number
+      // as the app does (screens/webkfp/screen.js): the ZB row's type-approval number
       approval: row.typ,
     },
     // as WebKFP does: on an EDIC, so fast baud reaches the wire
