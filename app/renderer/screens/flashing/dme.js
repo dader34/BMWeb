@@ -462,14 +462,12 @@ async function fbDmeIdentifyThroughFlasher() {
     fbLog(
       installer
         ? 'The DME is in the bootloader installer.'
-        : d.fastFlasher.stampErased
-          ? 'The DME is in its fast flasher, mid-push: the stamp sector is erased, which is what an interrupted program push looks like. Load the same files and run the same Fast Flash Program; it reconnects and finishes. Nothing of KWP answers until then, or until a key cycle (which leaves the loader with "program missing": a standard Flash Program restores it).'
-          : `The DME is in its fast flasher (${fastFlasher.describe(d.fastFlasher)}): a push cut short can be finished -- load the same files and run the same fast flash; it reconnects. Nothing of KWP answers until a flash completes or the ignition is cycled.`
+        : 'The DME is in its fast flasher'
     );
     fbSetStatus(
       installer
         ? 'The DME is in the bootloader installer'
-        : 'The DME is in its fast flasher: run the same fast flash to finish'
+        : 'The DME is in its fast flasher'
     );
     fbRefreshAll();
     return true;
