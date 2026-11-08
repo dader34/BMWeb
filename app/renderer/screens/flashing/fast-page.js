@@ -47,13 +47,13 @@ function fbFastWire() {
 function fbFastAvailable() {
   if (fbDevUi()) return true;
   const d = fbState.dme;
-  return !!(
-    d &&
-    d.identified &&
-    fbDmeIsMs451() &&
-    d.ident.progRef &&
-    d.ident.progRef.includes('0044570LO02S')
-  );
+  if (!(d && d.identified && fbDmeIsMs451())) return false;
+  // a DME found in its fast flasher answers no KWP, so its program reference
+  // is whatever an earlier identify left (nothing after a reload) -- but the
+  // flasher is the one thing certainly on it, and this page is how a cut
+  // push is finished
+  if (d.ident.inFlasher) return true;
+  return !!(d.ident.progRef && d.ident.progRef.includes('0044570LO02S'));
 }
 
 /** The page shown: everything on it from the current state. */
