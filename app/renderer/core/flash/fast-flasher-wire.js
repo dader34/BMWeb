@@ -88,12 +88,12 @@ const FF_BAUD = 115200;
 const FF_TIMEOUT = {
   HELLO: 2000,
   ERASE: 20000,
-  CHUNK: 3000, // the ceiling; _chunkMs() fits the budget to the line
+  CHUNK: 3000, // the floor; _chunkMs() stretches it on a slow line
   MARKS: 2000,
   RESET: 1000,
   SET_BAUD: 2000,
-  CHUNK_SET: 3000, // the ceiling; _chunkMs() fits the budget to the line
-  READ: 6000, // the ceiling; _readReplyMs() fits the budget to the line
+  CHUNK_SET: 3000, // the floor; _chunkMs() stretches it on a slow line
+  READ: 3000, // the floor; _readReplyMs() stretches it for 16 KB on a slow line
 };
 /**
  * The faster lines a v8 body is asked for after the probe, in order: the
@@ -414,32 +414,32 @@ class FastFlashClient {
   }
 
   /**
-   * A CHUNK / CHUNK_SET's budget: twice its wire time (the request and its
-   * echo) plus a second for the body's work and the USB floor, never under
-   * 1.2 s and never over the ceiling. The car's slowest answers are ~0.4 s
-   * (CHUNK_SET at 312500: median 328 ms, max 415 ms; CHUNK 199 ms); the
-   * old flat 3 s cost 2.3 s on every lost frame, one a run.
+   * A CHUNK / CHUNK_SET's budget: the old 3 s, stretched to twice the
+   * frame's wire time plus a second when the line is slow enough to need
+   * it (a 4.6 KB chunk at 115200 is 0.44 s of wire each way). NEVER
+   * SHORTER THAN 3 S: a 1.2 s floor was tried on 2026-11-08 and the first
+   * car run lost a CHUNK_SET to it -- the ACK arrived after the budget and
+   * was read as the answer to the recovery HELLO ("answered with service
+   * 48"). The car's answers are ~0.2-0.4 s but a 2 s outlier shows up once
+   * in a few hundred frames (1955 ms at 416667, 2106 ms at 115200).
    * @param {number} packed - the compressed payload's size
-   * @param {number} ceiling - FF_TIMEOUT.CHUNK or .CHUNK_SET
+   * @param {number} floor - FF_TIMEOUT.CHUNK or .CHUNK_SET
    * @returns {number} ms
    */
-  _chunkMs(packed, ceiling) {
-    return Math.min(
-      ceiling,
-      Math.max(1200, Math.round(1000 + 2 * this._wireMs(packed + 24)))
-    );
+  _chunkMs(packed, floor) {
+    return Math.max(floor, Math.round(1000 + 2 * this._wireMs(packed + 24)));
   }
 
   /**
-   * A READ's budget: the reply's wire time plus the request's echo, doubled,
-   * plus a second for the body's CRC pass and the USB floor.
+   * A READ's budget: the old 3 s, or the reply's wire time doubled plus a
+   * second when that is longer (16 KB at 115200 is 1.6 s of wire).
    * @param {number} len - bytes asked for
    * @returns {number} ms
    */
   _readReplyMs(len) {
-    return Math.min(
+    return Math.max(
       FF_TIMEOUT.READ,
-      Math.max(1200, Math.round(1000 + 2 * this._wireMs(len + 32)))
+      Math.round(1000 + 2 * this._wireMs(len + 32))
     );
   }
 
