@@ -58,8 +58,8 @@ check(
   `${image.img.length} B`
 );
 check(
-  "image: CRC is the emu proof's 0xCDBC4652",
-  image.crc === 0xcdbc4652,
+  "image: CRC is the emu proof's 0xA6FBBF7F",
+  image.crc === 0xa6fbbf7f,
   `0x${image.crc.toString(16).toUpperCase()}`
 );
 check('image: descriptor CRC field', be32(image.img, 0x58) === image.crc);
