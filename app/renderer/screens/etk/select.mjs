@@ -8,8 +8,6 @@
  * `_vals` sidecar the cascade hangs on it).
  */
 
-/* exported makeSelect */
-
 /**
  * The <select>-ish surface makeSelect() returns. Values are 0-based item
  * indices as strings ('' = none). selectedIndex mirrors native semantics
@@ -39,7 +37,7 @@ const ETK_SELECT_PLACEHOLDER = 'Select…';
  * @param {string} [placeholder] - text shown while nothing is picked
  * @returns {EtkSelect}
  */
-function makeSelect(placeholder) {
+export function makeSelect(placeholder) {
   const root = /** @type {EtkSelect} */ (document.createElement('div'));
   root.className = 'etk-sel';
   const btn = document.createElement('button');

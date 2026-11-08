@@ -109,16 +109,15 @@ const APP_REGISTRY = [
     title: 'Parts Catalogue',
     desc: 'Interactive parts search',
     tag: 'ETK',
-    open: () => (typeof showEtk === 'function' ? showEtk() : null),
+    open: () => etk.showEtk(),
     // present only if at least one chassis actually has an .etk bundle in this
     // build. A "no-parts" offline build sets window.BMWEB_NO_PARTS to hide the
     // catalogue outright -- it ships without ETK support on purpose.
     hasData: async () => {
       if (typeof window !== 'undefined' && window.BMWEB_NO_PARTS) return false;
-      if (typeof showEtk !== 'function' || typeof etkChassisList !== 'function')
-        return false;
+      if (typeof etk === 'undefined') return false;
       try {
-        return (await etkChassisList()).length > 0;
+        return (await etk.etkChassisList()).length > 0;
       } catch (e) {
         return false;
       }

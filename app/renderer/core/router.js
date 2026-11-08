@@ -30,7 +30,7 @@ const APPS_ROUTES = {
     typeof showWiringChassis === 'function' ? showWiringChassis() : null,
   'apps/wiring/vin': () =>
     typeof showWiringVinDecoder === 'function' ? showWiringVinDecoder() : null,
-  'apps/parts': () => (typeof showEtk === 'function' ? showEtk() : null),
+  'apps/parts': () => etk.showEtk(),
   'apps/parts/vin': () =>
     typeof showVinDecoder === 'function' ? showVinDecoder() : null,
   'apps/tool32': () => (typeof showTool32 === 'function' ? showTool32() : null),
@@ -229,16 +229,15 @@ function resolveRoute(route) {
     const hg = p[2] ? decodeURIComponent(p[2]) : null;
     const btnr = p[3] ? decodeURIComponent(p[3]) : null;
     const vin = routeVinFrom(p[4]);
-    if (hg && typeof showEtkDeep === 'function')
+    if (hg)
       return async () => {
         const hit = await routeVinHit(vin);
-        return showEtkDeep(chassis, hg, btnr, hit ? { hit } : null);
+        return etk.showEtkDeep(chassis, hg, btnr, hit ? { hit } : null);
       };
-    if (typeof showEtkChassis === 'function')
-      return async () => {
-        const hit = await routeVinHit(vin);
-        return showEtkChassis(chassis, hit ? { hit } : null);
-      };
+    return async () => {
+      const hit = await routeVinHit(vin);
+      return etk.showEtkChassis(chassis, hit ? { hit } : null);
+    };
   }
   return null;
 }
@@ -300,11 +299,10 @@ function routeVinFrom(code) {
  */
 async function routeVinHit(vin) {
   if (!vin) return null;
-  if (typeof loadVinIndex !== 'function' || typeof decodeVin !== 'function')
-    return null;
+  if (typeof etk === 'undefined') return null;
   try {
-    const idx = await loadVinIndex();
-    const hit = decodeVin(idx, vin);
+    const idx = await etk.loadVinIndex();
+    const hit = etk.decodeVin(idx, vin);
     if (!hit) return null;
     hit.vin = vin;
     return hit;

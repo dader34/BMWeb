@@ -9,7 +9,25 @@
  * identify-by-attributes group box itself lives in attributes.js.
  */
 
-/* exported etkMatchVariant, showVinDecoder, openDecoded */
+import { bodyLabel, etkSteerAbbrev, etkYearMonth } from './labels.mjs';
+import { VIN_PROD_LEN, decodeVin, loadVinIndex } from './vin.mjs';
+import { etkAttributeSelector } from './attributes.mjs';
+import { etkBackAction, showEtkChassis } from './catalogue.mjs';
+import {
+  dispChassis,
+  esc,
+  garageCarLabel,
+  garageCars,
+  head,
+  inpaMode,
+  setActions,
+  setCrumbs,
+  showApps,
+  showChassis,
+  showGarage,
+  dom,
+  setLastScreen,
+} from './shell.mjs';
 
 /**
  * How a section retargets the identification page.
@@ -41,7 +59,7 @@ const ETK_DATE_MIN_LEN = 6;
  * @param {EtkVinHit} hit - the resolved vehicle
  * @returns {{ disp: string, bits: string, date: string }}
  */
-function etkVinSummary(hit) {
+export function etkVinSummary(hit) {
   const bits = [
     hit.model,
     bodyLabel(hit.body),
@@ -62,12 +80,12 @@ function etkVinSummary(hit) {
  * @param {EtkIdentifyOpts} [opts] - section overrides; omitted = the parts catalogue
  * @returns {void}
  */
-function showVinDecoder(opts) {
+export function showVinDecoder(opts) {
   opts = opts || {};
   const onResolve = opts.onResolve || openDecoded; // default: open the parts catalogue
   // the decoder is the catalogue's landing now: out to Home by default
   const backFn = opts.back || showApps;
-  lastScreen = () => showVinDecoder(opts);
+  setLastScreen(() => showVinDecoder(opts));
   setCrumbs(
     opts.crumbs || [
       { label: 'Vehicles', fn: showChassis },
@@ -76,19 +94,19 @@ function showVinDecoder(opts) {
     ]
   );
   document.body.classList.add('apps-section');
-  sbLeft.textContent = 'vin decoder';
+  dom.sbLeft.textContent = 'vin decoder';
   // The INPA-style layout draws ETK's own kind of window: Web32's grey, the
   // VIN and attribute boxes as group boxes, the lists as list views
   // (styles.css, .etk-win). The modern one is a page under its heading.
-  let host = view;
+  let host = dom.view;
   if (typeof inpaMode === 'function' && inpaMode()) {
-    view.innerHTML = `<div class="t32-win etk-win">
+    dom.view.innerHTML = `<div class="t32-win etk-win">
       <div class="t32-titlebar">${esc(opts.eyebrow || 'ETK')} - ${esc(opts.title || 'Vehicle identification')}</div>
       <div class="etk-win-body"></div>
     </div>`;
-    host = view.querySelector('.etk-win-body');
+    host = dom.view.querySelector('.etk-win-body');
   } else {
-    view.innerHTML = head(
+    dom.view.innerHTML = head(
       opts.eyebrow || 'ETK',
       opts.title || 'Vehicle Identification',
       opts.subtitle ||
@@ -284,7 +302,7 @@ function etkVinBox(opts, onResolve) {
  * @param {EtkVinHit} hit - the resolved vehicle
  * @returns {number} the variant index, or -1 when nothing matches even by model
  */
-function etkMatchVariant(variants, hit) {
+export function etkMatchVariant(variants, hit) {
   const eq = (a, b) => (a || '') === (b || '');
   // A FULL VIN NAMES THE TYPE KEY OUTRIGHT (characters 4 to 7), and the
   // catalogue's variants are type keys: an exact hit beats any match by
@@ -331,7 +349,7 @@ function etkMatchVariant(variants, hit) {
  * @param {string|number} [prod] - the car's build date, YYYYMM or YYYYMMDD
  * @returns {number} the chosen index
  */
-function etkNearestVariant(variants, found, prod) {
+export function etkNearestVariant(variants, found, prod) {
   const p = String(prod || '').slice(0, 6);
   if (p.length < 6 || found.length < 2) return found[0];
   let best = -1;

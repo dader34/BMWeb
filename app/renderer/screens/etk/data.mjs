@@ -15,7 +15,17 @@
  * present (dev + the offline single-file export), else fall back to HF.
  */
 
-/* exported ETK_HF_BASE, etkFetch, etkDataUrl, etkFetchFirst, loadEtk, readWithProgress, etkChassisList, loadVehicles, loadEtkThumbs, etkThumbUrl, etkImageUrl, loadEtkHotspots, loadEtkLines */
+/* global fflate */
+import { etkMergeLines } from './lines.mjs';
+import { etkRulesMerge } from './rules.mjs';
+import {
+  dispChassis,
+  hfFetchFirst,
+  hfMirrors,
+  inlineEtk,
+  realFetch,
+  webBase,
+} from './shell.mjs';
 
 /**
  * One part row on a diagram.
@@ -113,9 +123,18 @@ const ETK_CACHE = new Map();
 /** @type {string[]|null} memoised list of chassis ids that have an archive */
 let etkChassisIds = null;
 
-/** Where the ETK data lives when there is no local copy. */
-const ETK_HF_BASE =
-  'https://huggingface.co/datasets/CraigFf/bmweb-etk/resolve/main/';
+/**
+ * Where the ETK data lives when there is no local copy: the first bmweb-etk
+ * mirror (core/webshim/data-fetch.js holds the list; a fetch tries them all,
+ * a URL handed to an <img> uses the first).
+ * @returns {string}
+ */
+function etkHfBase() {
+  return (
+    hfMirrors()[0] ||
+    'https://huggingface.co/datasets/CraigFf/bmweb-etk/resolve/main/'
+  );
+}
 
 /** Path under the local web root where a build may ship the ETK data. */
 const ETK_LOCAL_DIR = '/data/etk/';
@@ -126,9 +145,7 @@ const ETK_LOCAL_DIR = '/data/etk/';
  * @returns {typeof fetch}
  */
 function etkFetch() {
-  return typeof webRealFetch === 'function'
-    ? webRealFetch
-    : window.fetch.bind(window);
+  return realFetch();
 }
 
 /**
@@ -139,10 +156,10 @@ function etkFetch() {
  */
 function etkDataUrl(rel, local) {
   if (local) {
-    const base = typeof WEB_BASE === 'string' ? WEB_BASE : '';
+    const base = webBase();
     return `${base}${ETK_LOCAL_DIR}${rel}`;
   }
-  return `${ETK_HF_BASE}${rel}`;
+  return `${etkHfBase()}${rel}`;
 }
 
 /**
@@ -151,14 +168,12 @@ function etkDataUrl(rel, local) {
  * @param {string} rel - path relative to the ETK data root
  * @returns {Promise<{ resp: Response, url: string }|null>} the first OK response, or null when neither answered
  */
-async function etkFetchFirst(rel) {
-  const real = etkFetch();
-  for (const local of [true, false]) {
-    const url = etkDataUrl(rel, local);
-    const resp = await real(url).catch(() => null);
-    if (resp && resp.ok) return { resp, url };
-  }
-  return null;
+export async function etkFetchFirst(rel) {
+  const resp = await hfFetchFirst(rel, {
+    as: 'response',
+    local: `data/etk/${rel}`,
+  });
+  return resp ? { resp, url: resp.url } : null;
 }
 
 /**
@@ -169,12 +184,11 @@ async function etkFetchFirst(rel) {
  * @returns {Promise<EtkBundle>}
  * @throws {Error} when no copy of the archive can be found
  */
-async function loadEtk(chassisId, onProgress) {
+export async function loadEtk(chassisId, onProgress) {
   const id = chassisId.toUpperCase();
   if (ETK_CACHE.has(id)) return ETK_CACHE.get(id);
   let bytes;
-  const inline =
-    typeof BMWEB_ETK === 'object' && BMWEB_ETK ? BMWEB_ETK[id] : null;
+  const inline = inlineEtk() ? inlineEtk()[id] : null;
   if (inline) {
     const bin = atob(inline);
     bytes = new Uint8Array(bin.length);
@@ -194,6 +208,13 @@ async function loadEtk(chassisId, onProgress) {
     const side = await loadEtkLines(id);
     if (side) etkMergeLines(tree, side);
   }
+  // the catalogue's own line filter (equipment rules, line keys,
+  // changepoints -- see rules.js); a chassis without the file keeps the
+  // plain window/side/gearbox filter
+  if (typeof etkRulesMerge === 'function') {
+    const side = await loadEtkRules(id);
+    if (side) etkRulesMerge(tree, side);
+  }
   const data = { tree, files };
   ETK_CACHE.set(id, data);
   return data;
@@ -212,18 +233,36 @@ const ETK_LINES_CACHE = new Map();
 function loadEtkLines(chassisId) {
   const id = String(chassisId || '').toUpperCase();
   if (ETK_LINES_CACHE.has(id)) return ETK_LINES_CACHE.get(id);
-  const p = (async () => {
-    const hit = await etkFetchFirst(`${id}.lines.json.gz`);
-    if (!hit) return null;
-    try {
-      const bytes = new Uint8Array(await hit.resp.arrayBuffer());
-      const data = JSON.parse(fflate.strFromU8(fflate.gunzipSync(bytes)));
-      return data && data.ln ? data : null;
-    } catch (e) {
-      return null;
-    }
-  })();
+  const p = hfFetchFirst(`${id}.lines.json.gz`, {
+    as: 'gzjson',
+    local: `data/etk/${id}.lines.json.gz`,
+  })
+    .then((data) => (data && data.ln ? data : null))
+    .catch(() => null);
   ETK_LINES_CACHE.set(id, p);
+  return p;
+}
+
+/** @type {Map<string, Promise<object|null>>} chassis id -> its rules file */
+const ETK_RULES_CACHE_FILES = new Map();
+
+/**
+ * Load (and cache) one chassis's line-filter rules file. Never throws: a
+ * chassis whose file is missing or unreadable resolves to null and keeps
+ * the plain filter.
+ * @param {string} chassisId - chassis code, any case
+ * @returns {Promise<object|null>} the parsed <CHASSIS>.rules.json.gz, or null
+ */
+function loadEtkRules(chassisId) {
+  const id = String(chassisId || '').toUpperCase();
+  if (ETK_RULES_CACHE_FILES.has(id)) return ETK_RULES_CACHE_FILES.get(id);
+  const p = hfFetchFirst(`${id}.rules.json.gz`, {
+    as: 'gzjson',
+    local: `data/etk/${id}.rules.json.gz`,
+  })
+    .then((data) => (data && data.dg ? data : null))
+    .catch(() => null);
+  ETK_RULES_CACHE_FILES.set(id, p);
   return p;
 }
 
@@ -237,29 +276,19 @@ const ETK_HS_CACHE = new Map();
  *
  * Never throws and never blocks the diagram: a chassis whose file has not
  * been generated (or that cannot be reached) resolves to null, and the viewer
- * simply draws the plain, non-interactive exploded view.
+ * simply draws the plain, non-interactive exploded dom.view.
  * @param {string} chassisId - chassis code, any case
  * @returns {Promise<EtkHotspotFile|null>} the parsed file, or null when there is none
  */
-function loadEtkHotspots(chassisId) {
+export function loadEtkHotspots(chassisId) {
   const id = String(chassisId || '').toUpperCase();
   if (ETK_HS_CACHE.has(id)) return ETK_HS_CACHE.get(id);
-  const p = (async () => {
-    const hit = await etkFetchFirst(`${id}.hs.json.gz`);
-    if (!hit) return null;
-    try {
-      const bytes = new Uint8Array(await hit.resp.arrayBuffer());
-      // same gunzip path as the VIN index -- fflate, already loaded for the
-      // bundles, so no new dependency and it works in the offline export too
-      const json = fflate.strFromU8(fflate.gunzipSync(bytes));
-      const data = JSON.parse(json);
-      return data && data.bt ? data : null;
-    } catch (e) {
-      // a truncated or half-written file must not take the diagram down with
-      // it: the callouts are an enhancement, the drawing is the feature
-      return null;
-    }
-  })();
+  const p = hfFetchFirst(`${id}.hs.json.gz`, {
+    as: 'gzjson',
+    local: `data/etk/${id}.hs.json.gz`,
+  })
+    .then((data) => (data && data.bt ? data : null))
+    .catch(() => null);
   ETK_HS_CACHE.set(id, p);
   return p;
 }
@@ -272,7 +301,7 @@ function loadEtkHotspots(chassisId) {
  * @param {EtkProgressFn} [onProgress] - progress callback
  * @returns {Promise<Uint8Array>}
  */
-async function readWithProgress(resp, onProgress) {
+export async function readWithProgress(resp, onProgress) {
   const total = Number(resp.headers.get('content-length')) || 0;
   if (!resp.body || !resp.body.getReader || !onProgress) {
     const buf = new Uint8Array(await resp.arrayBuffer());
@@ -304,10 +333,10 @@ async function readWithProgress(resp, onProgress) {
  * requests to the hosted dataset). Memoised for the session.
  * @returns {Promise<string[]>}
  */
-async function etkChassisList() {
+export async function etkChassisList() {
   if (etkChassisIds) return etkChassisIds;
-  if (typeof BMWEB_ETK === 'object' && BMWEB_ETK) {
-    etkChassisIds = Object.keys(BMWEB_ETK).sort();
+  if (inlineEtk()) {
+    etkChassisIds = Object.keys(inlineEtk()).sort();
     return etkChassisIds;
   }
   const real = etkFetch();
@@ -315,7 +344,7 @@ async function etkChassisList() {
     try {
       const r = await real(etkDataUrl('index.json', local));
       return r.ok ? await r.json() : null;
-    } catch (e) {
+    } catch {
       return null;
     }
   };
@@ -337,7 +366,7 @@ let etkVehicles = null;
  * @returns {Promise<EtkVehicleTree>}
  * @throws {Error} when neither copy is reachable
  */
-async function loadVehicles() {
+export async function loadVehicles() {
   if (etkVehicles) return etkVehicles;
   const hit = await etkFetchFirst('vehicles.json');
   if (!hit) throw new Error('vehicle data not available');
@@ -361,7 +390,7 @@ let etkThumbsBase = '';
  * to an empty map.
  * @returns {Promise<Record<string, string>>}
  */
-async function loadEtkThumbs() {
+export async function loadEtkThumbs() {
   if (etkThumbs) return etkThumbs;
   const hit = await etkFetchFirst('thumbs/thumbs.json');
   if (hit) {
@@ -380,7 +409,7 @@ async function loadEtkThumbs() {
  * @param {string|null} body - body code
  * @returns {string|null}
  */
-function etkThumbUrl(chassis, body) {
+export function etkThumbUrl(chassis, body) {
   const name =
     etkThumbs && chassis && body ? etkThumbs[`${chassis}_${body}`] : null;
   return name ? `${etkThumbsBase}${name}` : null;
@@ -395,7 +424,7 @@ const ETK_IMG_URLS = new Map();
  * @param {string|undefined} ref - image file name under img/
  * @returns {string|null} the object URL, or null when the ref is empty or missing from the archive
  */
-function etkImageUrl(data, ref) {
+export function etkImageUrl(data, ref) {
   if (!ref) return null;
   const key = data.tree.chassis + '/' + ref;
   if (ETK_IMG_URLS.has(key)) return ETK_IMG_URLS.get(key);

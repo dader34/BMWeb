@@ -7,7 +7,12 @@
  * intro year) are separate so they can be checked without a DOM.
  */
 
-/* exported etkAttributeSelector */
+import { etkThumbUrl, loadEtkThumbs, loadVehicles } from './data.mjs';
+import { bodyLabel, etkGearLabel, etkSteerLabel } from './labels.mjs';
+import { makeSelect } from './select.mjs';
+import { groupBySeries } from './series.mjs';
+import { loadVinIndex } from './vin.mjs';
+import { dispChassis, makeListBox } from './shell.mjs';
 
 /**
  * The series filter result: one marketing series and the chassis under it.
@@ -262,7 +267,7 @@ function etkYearsInForce(introYears, maxYear) {
  * @param {(hit: EtkVinHit) => void} onResolve - opens the picked vehicle
  * @returns {HTMLFieldSetElement}
  */
-function etkAttributeSelector(opts, onResolve) {
+export function etkAttributeSelector(opts, onResolve) {
   const idCard = document.createElement('fieldset');
   idCard.className = 'etk-fs etk-fs-attr';
   const idLegend = document.createElement('legend');

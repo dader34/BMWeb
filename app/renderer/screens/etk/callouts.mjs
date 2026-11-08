@@ -15,8 +15,6 @@
  * of one position), so every operation here is many-to-many.
  */
 
-/* exported etkScaleHotspot, etkPosRowIndex, etkHotspotName, etkAttachHotspots, etkLoupeMarks */
-
 /**
  * A rectangle placed in the rendered image's coordinates, ready to be styled.
  * @typedef {object} EtkPlacedHotspot
@@ -40,7 +38,7 @@
  * @param {number} renderH - the height it is actually drawn at, px
  * @returns {EtkPlacedHotspot|null} the placed box, or null when the inputs cannot be scaled
  */
-function etkScaleHotspot(hs, naturalW, naturalH, renderW, renderH) {
+export function etkScaleHotspot(hs, naturalW, naturalH, renderW, renderH) {
   if (!hs || hs.length < 5) return null;
   if (!naturalW || !naturalH || !renderW || !renderH) return null;
   const sx = renderW / naturalW;
@@ -64,7 +62,7 @@ function etkScaleHotspot(hs, naturalW, naturalH, renderW, renderH) {
  * @param {(row: HTMLTableRowElement) => string} posOf - reads a row's callout number
  * @returns {Map<string, HTMLTableRowElement[]>} pos -> the rows carrying it
  */
-function etkPosRowIndex(rows, posOf) {
+export function etkPosRowIndex(rows, posOf) {
   /** @type {Map<string, HTMLTableRowElement[]>} */
   const idx = new Map();
   for (let i = 0; i < rows.length; i++) {
@@ -86,7 +84,7 @@ function etkPosRowIndex(rows, posOf) {
  * @param {number} [count] - how many parts rows carry it, when known
  * @returns {string}
  */
-function etkHotspotName(pos, count) {
+export function etkHotspotName(pos, count) {
   const base = `callout ${pos}`;
   if (!count) return base;
   return `${base}, ${count} part${count === 1 ? '' : 's'}`;
@@ -112,7 +110,7 @@ function etkHotspotName(pos, count) {
  * @param {number} bh - the magnified drawing's height, px
  * @returns {number} how many marks were drawn
  */
-function etkLoupeMarks(loupe, host, img, fx, fy, bw, bh) {
+export function etkLoupeMarks(loupe, host, img, fx, fy, bw, bh) {
   let wrap = loupe.querySelector('.etk-loupe-marks');
   if (!wrap) {
     wrap = document.createElement('div');
@@ -164,7 +162,7 @@ function etkLoupeMarks(loupe, host, img, fx, fy, bw, bh) {
  *   from the view that was just closed
  * @returns {() => void} a teardown that removes the overlay and its listeners
  */
-function etkAttachHotspots({
+export function etkAttachHotspots({
   img,
   layerHost,
   hotspots,

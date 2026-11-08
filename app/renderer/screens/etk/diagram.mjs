@@ -5,7 +5,38 @@
  * printable sheet of one diagram.
  */
 
-/* exported showEtkGroup */
+import { etkImageUrl, loadEtkHotspots } from './data.mjs';
+import { fmtSachnr } from './labels.mjs';
+import {
+  ETK_STATE,
+  etkBackAction,
+  showEtk,
+  showEtkChassis,
+} from './catalogue.mjs';
+import { etkAttachHotspots, etkLoupeMarks } from './callouts.mjs';
+import {
+  etkLineFits,
+  etkMonth,
+  etkPartInfoSections,
+  etkRows,
+} from './lines.mjs';
+import { etkRulesCar, etkRulesCarKey, etkRulesEvaluate } from './rules.mjs';
+import {
+  dispChassis,
+  esc,
+  openModal,
+  printDoc,
+  printImage,
+  printTable,
+  routeSetEtkDiagram,
+  setActions,
+  setCrumbs,
+  showApps,
+  showChassis,
+  appName,
+  dom,
+  setLastScreen,
+} from './shell.mjs';
 
 /** The media query below which the tree and the diagram are exclusive panes. */
 const ETK_PHONE_QUERY = '(max-width: 760px)';
@@ -35,11 +66,48 @@ let etkRenderToken = 0;
  * @param {EtkPart[]} parts - a diagram's parts
  * @returns {EtkPart[]}
  */
-function etkFitParts(parts) {
+function etkFitParts(parts, d) {
   // "Show all" in the tree header lifts the variant filter without
   // forgetting the variant, so "My car" can put it back
   if (ETK_STATE.variant == null || ETK_STATE.showAll) return parts.slice();
+  const res = etkRulesFor(d, parts);
+  if (res) return parts.filter((_, i) => res.keep.has(i));
   return parts.filter(etkPartFits);
+}
+
+/** @type {Map<string, EtkRulesResult>} diagram number -> its evaluation for the car the key names */
+const ETK_RULES_EVAL = new Map();
+
+/** The car the cached evaluations were made for (etkRulesCarKey). */
+let etkRulesEvalKey = '';
+
+/**
+ * The catalogue's own filter for a diagram, when its sidecar record is
+ * there (rules.js), evaluated once per diagram and car. Null means the
+ * plain fit/line test decides, as before the sidecar existed.
+ * @param {EtkDiagram|undefined} d - the diagram
+ * @param {EtkPart[]} parts - the parts being filtered; must be the diagram's own
+ * @returns {EtkRulesResult|null}
+ */
+function etkRulesFor(d, parts) {
+  if (
+    !d ||
+    !d.rules ||
+    parts !== d.parts ||
+    typeof etkRulesEvaluate !== 'function'
+  )
+    return null;
+  const key = etkRulesCarKey(ETK_STATE);
+  if (key !== etkRulesEvalKey) {
+    ETK_RULES_EVAL.clear();
+    etkRulesEvalKey = key;
+  }
+  let res = ETK_RULES_EVAL.get(d.btnr);
+  if (!res) {
+    res = etkRulesEvaluate(d, etkRulesCar(ETK_STATE));
+    ETK_RULES_EVAL.set(d.btnr, res);
+  }
+  return res.applies ? res : null;
 }
 
 /**
@@ -60,9 +128,46 @@ function etkPartFits(p) {
  * @param {EtkPart[]} parts - a diagram's parts
  * @returns {number} how many parts fit the variant (all of them without one)
  */
-function etkFitCount(parts) {
+function etkFitCount(parts, d) {
   if (ETK_STATE.variant == null) return parts.length;
+  const res = etkRulesFor(d, parts);
+  if (res) return res.keep.size;
   return parts.filter(etkPartFits).length;
+}
+
+/**
+ * Recount the tree after the car changed (an answer to a condition, the
+ * Show all toggle): each leaf's fitting parts, each group's fitting
+ * diagrams, and the off marks the "My car" filter hides by.
+ * @param {HTMLElement|null} treeEl - the tree
+ * @returns {void}
+ */
+function etkRefreshTreeCounts(treeEl) {
+  if (!treeEl) return;
+  const on = !ETK_STATE.showAll;
+  treeEl.querySelectorAll('.etk-tleaf').forEach((l) => {
+    const n = l.querySelector('.etk-lcount');
+    if (n && l._parts)
+      n.textContent = String(etkFitParts(l._parts, l._diagram).length);
+    if (l._parts && ETK_STATE.variant != null) {
+      if (etkFitCount(l._parts, l._diagram)) delete l.dataset.off;
+      else l.dataset.off = '1';
+    }
+  });
+  treeEl.querySelectorAll('.etk-tgroup').forEach((grp) => {
+    const fit = [...grp.querySelectorAll('.etk-tleaf')].filter(
+      (l) => !l.dataset.off
+    ).length;
+    const c = grp.querySelector('.etk-tcount');
+    if (c) {
+      c.dataset.fit = String(fit);
+      c.textContent = on ? c.dataset.fit : c.dataset.all;
+    }
+    if (ETK_STATE.variant != null) {
+      if (fit) delete grp.dataset.off;
+      else grp.dataset.off = '1';
+    }
+  });
 }
 
 /**
@@ -79,7 +184,7 @@ function etkTreeGroup(g, onLeaf) {
   hdr.className = 'etk-tgroup-hdr';
   // with a variant chosen, the count is the diagrams that carry a part for
   // it; a diagram with none is marked off so the "my car" filter can hide it
-  const fitting = g.diagrams.filter((d) => etkFitCount(d.parts) > 0);
+  const fitting = g.diagrams.filter((d) => etkFitCount(d.parts, d) > 0);
   const count =
     ETK_STATE.variant != null && !ETK_STATE.showAll
       ? fitting.length
@@ -98,13 +203,14 @@ function etkTreeGroup(g, onLeaf) {
   g.diagrams.forEach((d) => {
     const leaf = document.createElement('button');
     leaf.className = 'etk-tleaf';
-    const n = etkFitParts(d.parts).length;
+    const n = etkFitParts(d.parts, d).length;
     leaf.innerHTML = `<span class="etk-lname">${esc(d.name)}</span>
                         <span class="etk-lcount">${n}</span>`;
-    if (ETK_STATE.variant != null && !etkFitCount(d.parts))
+    if (ETK_STATE.variant != null && !etkFitCount(d.parts, d))
       leaf.dataset.off = '1';
     leaf._btnr = d.btnr;
     leaf._parts = d.parts; // so the toggle can recount without a rebuild
+    leaf._diagram = d;
     leaf.onclick = () => onLeaf(leaf, d);
     kids.appendChild(leaf);
   });
@@ -137,13 +243,7 @@ function etkTreeBanner(treeEl, redraw) {
     ETK_STATE.showAll = !on;
     treeEl.classList.toggle('etk-fit-only', on);
     // the counts follow: fitting diagrams and parts, or every one
-    treeEl.querySelectorAll('.etk-tcount').forEach((c) => {
-      c.textContent = on ? c.dataset.fit : c.dataset.all;
-    });
-    treeEl.querySelectorAll('.etk-tleaf').forEach((l) => {
-      const n = l.querySelector('.etk-lcount');
-      if (n && l._parts) n.textContent = String(etkFitParts(l._parts).length);
-    });
+    etkRefreshTreeCounts(treeEl);
     if (redraw) redraw();
     seg
       .querySelectorAll('.wiring-vinseg-btn')
@@ -166,9 +266,9 @@ function etkTreeBanner(treeEl, redraw) {
  * @param {string|null} [openBtnr] - a diagram to open (deep link), else the first
  * @returns {void}
  */
-function showEtkGroup(data, chassisId, mg, openBtnr = null) {
+export function showEtkGroup(data, chassisId, mg, openBtnr = null) {
   const id = chassisId.toUpperCase();
-  lastScreen = () => showEtkGroup(data, id, mg);
+  setLastScreen(() => showEtkGroup(data, id, mg));
   setCrumbs([
     { label: 'Vehicles', fn: showChassis },
     { label: 'Apps', fn: showApps },
@@ -176,7 +276,7 @@ function showEtkGroup(data, chassisId, mg, openBtnr = null) {
     { label: dispChassis(id), fn: () => showEtkChassis(id) },
     { label: `${mg.hg} ${mg.name}` },
   ]);
-  view.innerHTML = '';
+  dom.view.innerHTML = '';
   // wds-nofkeys hides the F-key bar; apps-section reveals the topbar Back button
   // (the ETK diagram screen has no toolbar Back of its own, unlike the WDS
   // viewer -- so it needs the topbar one).
@@ -190,7 +290,7 @@ function showEtkGroup(data, chassisId, mg, openBtnr = null) {
       <nav class="etk-nav"><div class="etk-tree" id="etk-tree"></div></nav>
       <div class="etk-view" id="etk-view"></div>
     </div>`;
-  view.appendChild(split);
+  dom.view.appendChild(split);
   const treeEl = split.querySelector('#etk-tree');
   const viewEl = split.querySelector('#etk-view');
   // On a phone the panes are exclusive, WDS-style: the tree OR the diagram,
@@ -251,7 +351,7 @@ function showEtkGroup(data, chassisId, mg, openBtnr = null) {
   // asked for by name, so that one does take the screen.
   if (!openBtnr) bodyEl.dataset.pane = 'tree';
 
-  sbLeft.textContent = mg.name;
+  dom.sbLeft.textContent = mg.name;
   // a back action so the mobile top-left chevron appears (and Esc works),
   // returning to this chassis's main-group grid. On a phone, Back from a
   // DIAGRAM returns to the tree first (panes are exclusive there, so leaving
@@ -287,7 +387,7 @@ function showEtkGroup(data, chassisId, mg, openBtnr = null) {
  * @returns {void}
  */
 function printEtkDiagram(data, chassisId, mg, d) {
-  const parts = etkFitParts(d.parts);
+  const parts = etkFitParts(d.parts, d);
   const groups =
     typeof etkRows === 'function'
       ? etkRows(parts, ETK_STATE)
@@ -338,7 +438,7 @@ function printEtkDiagram(data, chassisId, mg, d) {
         ['pr-num', '', '', 'pr-num', '', '', '', '', '', 'pr-mono']
       ),
     ],
-    footer: `${APP_NAME} · BMW ETK · ${dispChassis(chassisId)} · printed ${new Date().toLocaleDateString()}`,
+    footer: `${appName()} · BMW ETK · ${dispChassis(chassisId)} · printed ${new Date().toLocaleDateString()}`,
   });
 }
 
@@ -386,7 +486,19 @@ function renderDiagram(data, chassisId, d, viewEl) {
     figEl = fig;
   }
 
-  const parts = etkFitParts(d.parts);
+  // the conditions the catalogue would ask about for this diagram (which
+  // options the car has), with the rules' verdicts; an answer re-evaluates
+  // the diagram and the tree's counts
+  const res = etkRulesFor(d, d.parts);
+  if (res && res.conds.length)
+    wrap.appendChild(
+      etkConditionPanel(res, () => {
+        renderDiagram(data, chassisId, d, viewEl);
+        etkRefreshTreeCounts(document.getElementById('etk-tree'));
+      })
+    );
+
+  const parts = etkFitParts(d.parts, d);
 
   const table = document.createElement('table');
   table.className = 'etk-parts';
@@ -436,9 +548,53 @@ function renderDiagram(data, chassisId, d, viewEl) {
     });
   }
   const filtered = ETK_STATE.variant != null && parts.length < d.parts.length;
-  sbRight.textContent =
+  dom.sbRight.textContent =
     `${parts.length} part${parts.length === 1 ? '' : 's'}` +
     (filtered ? ` (of ${d.parts.length})` : '');
+}
+
+/**
+ * The catalogue's condition table for a diagram: one row per option its
+ * rules ask about -- the name, the code, and Yes / No / ? -- showing the
+ * value the car has (from the order, or the reader's answer) and the rules'
+ * verdicts in the header. Yes/No/? write ETK_STATE.answers and redraw.
+ * @param {EtkRulesResult} res - the diagram's evaluation
+ * @param {() => void} redraw - re-evaluates after an answer
+ * @returns {HTMLDivElement}
+ */
+function etkConditionPanel(res, redraw) {
+  const box = document.createElement('div');
+  box.className = 'etk-cond';
+  const mark = { decided: '✓', open: '?', false: '✗' };
+  const sum = res.rules
+    .map((r) => `${r.k} ${mark[r.verdict] || '?'}`)
+    .join(' · ');
+  box.innerHTML =
+    `<div class="etk-cond-h"><span class="etk-cond-t">Conditions</span>` +
+    `<span class="etk-cond-sum" title="The rules on this diagram: decided, open, or not met">${esc(sum)}</span></div>`;
+  for (const c of res.conds) {
+    const row = document.createElement('div');
+    row.className = 'etk-cond-row';
+    if (c.fromOrder) row.dataset.order = '1';
+    row.innerHTML =
+      `<span class="etk-cond-name">${esc(c.name)}` +
+      (c.code ? ` <span class="etk-cond-code">${esc(c.code)}</span>` : '') +
+      `</span>` +
+      `<span class="wiring-vinseg etk-cond-seg" role="group" aria-label="${esc(c.name)}">` +
+      `<button type="button" class="wiring-vinseg-btn" data-v="1">Yes</button>` +
+      `<button type="button" class="wiring-vinseg-btn" data-v="2">No</button>` +
+      `<button type="button" class="wiring-vinseg-btn" data-v="0">?</button></span>`;
+    row.querySelectorAll('.wiring-vinseg-btn').forEach((b) => {
+      b.classList.toggle('active', b.dataset.v === c.value);
+      b.onclick = () => {
+        if (!ETK_STATE.answers) ETK_STATE.answers = {};
+        ETK_STATE.answers[c.id] = b.dataset.v;
+        redraw();
+      };
+    });
+    box.appendChild(row);
+  }
+  return box;
 }
 
 /**

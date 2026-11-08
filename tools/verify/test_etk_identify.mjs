@@ -2,20 +2,21 @@
 // A decoded VIN lands on the catalogue variant it names, and the caption says
 // when the CAR was built, not when its type key was introduced.
 //
-//   node tools/verify/test_etk_identify.js
-const assert = require('assert');
-const fs = require('fs');
-const path = require('path');
-const vm = require('vm');
+//   node tools/verify/test_etk_identify.mjs
+import assert from 'node:assert';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, '..', '..', 'app', 'renderer');
 let passed = 0;
 const ok = (m) => {
   passed++;
   if (process.env.V) console.log('  ok', m);
 };
-const ctx = {
-  console,
-  window: {},
+// the shell the module reads through screens/etk/shell.mjs, as globals
+Object.assign(globalThis, {
+  esc: (s) => String(s),
   document: {
     createElement: () => ({
       style: {},
@@ -25,14 +26,20 @@ const ctx = {
       addEventListener() {},
     }),
   },
-  esc: (s) => String(s),
+});
+const { etkCarLabel, etkVariantLabel } = await import(
+  path.join(ROOT, 'screens', 'etk', 'labels.mjs')
+);
+const { etkMatchVariant, etkNearestVariant, etkVinSummary } = await import(
+  path.join(ROOT, 'screens', 'etk', 'identify.mjs')
+);
+const ctx = {
+  etkCarLabel,
+  etkVariantLabel,
+  etkMatchVariant,
+  etkNearestVariant,
+  etkVinSummary,
 };
-ctx.globalThis = ctx;
-vm.createContext(ctx);
-for (const f of ['screens/etk/labels.js', 'screens/etk/identify.js'])
-  vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), ctx, {
-    filename: f,
-  });
 
 // the E46 325i variants as the bundle lists them: four type keys of the same
 // model, introduced on different months
@@ -153,7 +160,7 @@ ok("the caption names the car's build month, not the type key's introduction");
 // the picker draws its rows from its own text, so the pre-selected row must
 // carry the car's caption or the picker still reads "10/2001" over a 2004 car
 const cat = fs.readFileSync(
-  path.join(ROOT, 'screens', 'etk', 'catalogue.js'),
+  path.join(ROOT, 'screens', 'etk', 'catalogue.mjs'),
   'utf8'
 );
 const dd = cat.slice(

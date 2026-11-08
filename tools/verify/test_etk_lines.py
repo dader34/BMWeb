@@ -36,8 +36,16 @@ def db():
     CREATE TABLE w_komm (komm_id INTEGER, komm_pos INTEGER, komm_textcode INTEGER, komm_tiefe INTEGER, komm_darstellung TEXT, komm_vz TEXT, komm_code TEXT);
     CREATE TABLE w_btzeilen (btzeilen_btnr TEXT, btzeilen_pos INTEGER, btzeilen_hg TEXT, btzeilen_bildposnr TEXT, btzeilen_sachnr TEXT, btzeilen_kat TEXT, btzeilen_automatik TEXT, btzeilen_lenkg TEXT, btzeilen_eins INTEGER, btzeilen_auslf INTEGER, btzeilen_bedkez TEXT, btzeilen_regelnr TEXT, btzeilen_kommbt INTEGER, btzeilen_kommvor INTEGER, btzeilen_kommnach INTEGER, btzeilen_gruppeid TEXT, btzeilen_blocknr TEXT, btzeilen_bedkez_pg TEXT);
     CREATE TABLE w_fztyp (fztyp_mospid INTEGER, fztyp_baureihe TEXT);
-    CREATE TABLE w_btzeilen_verbauung (btzeilenv_mospid INTEGER, btzeilenv_btnr TEXT, btzeilenv_pos INTEGER, btzeilenv_sachnr TEXT);
+    CREATE TABLE w_btzeilen_verbauung (btzeilenv_mospid INTEGER, btzeilenv_btnr TEXT, btzeilenv_pos INTEGER, btzeilenv_sachnr TEXT, btzeilenv_vmenge TEXT);
+    -- the part master and the tables the Part information window reads
+    -- (part_supplements, part_info); empty but for one part, so the
+    -- builder's joins run and the sidecar's sup/pt sections are exercised
+    CREATE TABLE w_teil (teil_sachnr TEXT, teil_textcode INTEGER, teil_textcode_kom INTEGER, teil_teile_gew REAL, teil_gefahr_kl TEXT, teil_normnummer TEXT, teil_entfall_kez TEXT, teil_entfall_dat INTEGER, teil_tausch TEXT, teil_benennzus TEXT, teil_hauptgr TEXT, teil_untergrup TEXT);
+    CREATE TABLE w_teil_atb (teilatb_sachnr_alt TEXT, teilatb_sachnr_neu TEXT);
+    CREATE TABLE w_kompl_einzelteil (ke_sachnr_satz TEXT, ke_pos INTEGER, ke_sachnr_einzelteil TEXT, ke_menge TEXT, ke_beziehbar TEXT);
+    CREATE TABLE w_teil_reach (teilreach_sachnr TEXT, teilreach_casnr TEXT, teilreach_casname TEXT, teilreach_gewanteil REAL, teilreach_subcomponent TEXT);
     """)
+    con.execute("INSERT INTO w_teil VALUES ('7043407', 500237, NULL, 0.42, 'N', NULL, NULL, NULL, NULL, 'M8X16', '51', '13')")
     con.executemany("INSERT INTO w_ben_gk VALUES (?,?,?,?)", [
         (500000560, 'en', None, 'For vehicles with'), (500237, 'en', None, 'Headlight cleaning system'),
         (600, 'en', None, 'and'), (601, 'en', None, 'M Sports package'), (602, 'en', None, 'Sport Line'),
@@ -60,9 +68,9 @@ def db():
     ]
     con.executemany("INSERT INTO w_btzeilen VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NULL,NULL,NULL)", rows)
     con.execute("INSERT INTO w_fztyp VALUES (47720, 'E46')")
-    con.executemany("INSERT INTO w_btzeilen_verbauung VALUES (?,?,?,?)", [
-        (47720, '51_3267', 19, '8227641'), (47720, '51_3267', 23, '7043407'), (47720, '51_3267', 15, '7043409'),
-        (47720, '51_3267', 30, '1111111'), (47720, '51_3267', 31, '2222222'), (47720, '51_3267', 32, '3333333'),
+    con.executemany("INSERT INTO w_btzeilen_verbauung VALUES (?,?,?,?,?)", [
+        (47720, '51_3267', 19, '8227641', None), (47720, '51_3267', 23, '7043407', None), (47720, '51_3267', 15, '7043409', None),
+        (47720, '51_3267', 30, '1111111', '2'), (47720, '51_3267', 31, '2222222', None), (47720, '51_3267', 32, '3333333', None),
     ])
     return con
 
@@ -87,14 +95,16 @@ def main():
     out = tempfile.mkdtemp()
     r = build_lines(con, 'E46', names, out, quiet=True)
     eq(r[0], 1, 'one diagram')
-    eq(r[1], 5, 'five conditioned lines on it (the no-callout one included)')
+    eq(r[1], 5, 'five conditioned lines on it (the no-callout one included); a quantity alone is no condition here since that line already has one')
     with gzip.open(os.path.join(out, 'E46.lines.json.gz')) as f:
         side = json.load(f)
-    eq(side['v'], 1, 'version')
+    eq(side['v'], 3, 'version (3: lines + supplements + part information)')
+    eq(side['sup'], {'7043407': 'M8X16'}, 'the Supplement column rides once per part')
+    eq(side['pt'], {'7043407': {'w': 0.42}}, 'the Part information record, only what the dump carries')
     ln = side['ln']['51_3267']
     eq(ln['03|8227641'], [{'t': 200109, 'c': 'D', 'n': 'For vehicles with +Headlight cleaning system'}], 'keyed by callout and part number')
     eq(ln['03|7043407'], [{'f': 200109, 'c': 'D', 'n': 'For vehicles with +Headlight cleaning system'}], 'the facelift line')
-    eq(ln['04|1111111'], [{'s': 'R', 'a': 'A', 'n': 'For vehicles with -M Sports package and -Sport Line / See also'}], 'the side and gearbox line')
+    eq(ln['04|1111111'], [{'s': 'R', 'a': 'A', 'n': 'For vehicles with -M Sports package and -Sport Line / See also', 'q': '2'}], 'the side and gearbox line, with its quantity')
     eq(ln['32|3333333'], [{'f': 199903}], 'a line without a callout keys by its line number, as the bundle shows it')
     eq('05|2222222' in ln, False, 'nothing to say, nothing shipped')
     eq(build_lines(con, 'E90', names, out, quiet=True), None, 'a chassis with no lines writes nothing')

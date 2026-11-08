@@ -13,4 +13,6 @@ repo's own `npm run build`. Rerun the tool, then commit the result here.
 | `comfort-live.js` | `tools/export/comfort_live.py` | `make export` |
 | `ms45-cursor-map.js` | `tools/export/livetune_cursor.py` | `make maps` |
 | `ms45-value-map.js` | `tools/export/values_map.py` | `make maps` |
+| `relay-blob.js` | gs20-emu `tools/relay_blob_js.py` (the DME-relay stub) | by hand |
 | `bytes.js` | BMWeb's own `scripts/build/bundle-modules.mjs`, from `core/bytes/` | `npm run build` |
+| `etk.js` | BMWeb's own `scripts/build/bundle-modules.mjs`, from `screens/etk/` (the parts catalogue, the first screen written as ES modules; its classic dependencies are listed in `screens/etk/shell.mjs`) | `npm run build` |

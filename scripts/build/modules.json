@@ -5,6 +5,11 @@
       "entry": "core/bytes/index.mjs",
       "out": "core/generated/bytes.js",
       "global": "bytes"
+    },
+    {
+      "entry": "screens/etk/index.mjs",
+      "out": "core/generated/etk.js",
+      "global": "etk"
     }
   ]
 }

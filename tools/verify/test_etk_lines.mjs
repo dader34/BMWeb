@@ -4,12 +4,14 @@
 // never carried, and why a 2004 E46 was shown the pre-facelift bumper trim
 // beside its own. Pure helpers in screens/etk/lines.js.
 //
-//   node tools/verify/test_etk_lines.js
-const assert = require('assert');
-const path = require('path');
+//   node tools/verify/test_etk_lines.mjs
+import assert from 'node:assert';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, '..', '..');
-const L = require(
-  path.join(ROOT, 'app', 'renderer', 'screens', 'etk', 'lines.js')
+const L = await import(
+  path.join(ROOT, 'app', 'renderer', 'screens', 'etk', 'lines.mjs')
 );
 let passed = 0;
 const ok = (m) => {

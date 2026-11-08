@@ -5,7 +5,8 @@
  * (or the wiring viewer, which shares this) opens pre-filtered.
  */
 
-/* exported VIN_PROD_LEN, loadVinIndex, decodeVin */
+/* global fflate */
+import { etkFetchFirst, readWithProgress } from './data.mjs';
 
 /**
  * The gzipped vin-index.json.
@@ -32,7 +33,7 @@
  */
 
 /** Length of the production number at the end of a BMW VIN. */
-const VIN_PROD_LEN = 7;
+export const VIN_PROD_LEN = 7;
 
 /** @type {EtkVinIndex|null} */
 let etkVinIndex = null;
@@ -43,7 +44,7 @@ let etkVinIndex = null;
  * @returns {Promise<EtkVinIndex>}
  * @throws {Error} when neither copy is reachable
  */
-async function loadVinIndex(onProgress) {
+export async function loadVinIndex(onProgress) {
   if (etkVinIndex) return etkVinIndex;
   const hit = await etkFetchFirst('vin-index.json.gz');
   if (!hit) throw new Error('VIN data not available');
@@ -60,7 +61,7 @@ async function loadVinIndex(onProgress) {
  * @param {string} vinRaw - the VIN as typed (whitespace and case are forgiven)
  * @returns {EtkVinHit|null} the vehicle, or null when no range covers the number
  */
-function decodeVin(idx, vinRaw) {
+export function decodeVin(idx, vinRaw) {
   const vin = String(vinRaw || '')
     .trim()
     .toUpperCase()

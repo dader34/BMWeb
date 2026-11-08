@@ -5,7 +5,31 @@
  * that opens a main group or diagram straight from a #apps/parts URL.
  */
 
-/* exported ETK_STATE, etkBackAction, showEtk, showEtkGrid, showEtkChassis, showEtkDeep */
+import { etkChassisList, etkImageUrl, loadEtk } from './data.mjs';
+import { etkCarLabel, etkVariantLabel } from './labels.mjs';
+import { etkMatchVariant, showVinDecoder } from './identify.mjs';
+import { showEtkGroup } from './diagram.mjs';
+import {
+  dispChassis,
+  errorBlock,
+  esc,
+  garageFindByVin,
+  head,
+  makeDropdown,
+  printDoc,
+  printTable,
+  routeSetFiltered,
+  screenOwner,
+  setActions,
+  setCrumbs,
+  showApps,
+  showChassis,
+  stagger,
+  appName,
+  chassisTag,
+  dom,
+  setLastScreen,
+} from './shell.mjs';
 
 /**
  * The variant filter, remembered across the whole chassis (module-level):
@@ -16,7 +40,7 @@
  */
 
 /** @type {EtkFilterState} */
-const ETK_STATE = {
+export const ETK_STATE = {
   variant: null,
   variantLabel: null,
   showAll: false,
@@ -29,6 +53,14 @@ const ETK_STATE = {
   // the VIN the filter came from, for the URL (routeSetFiltered); null for
   // a variant picked by hand
   vin: null,
+  // what the catalogue's own line filter judges by beyond the above
+  // (rules.js): the type key, the plant (the VIN index does not carry it),
+  // the order's option codes from the garage, and the reader's answers to
+  // the conditions the catalogue asks about (element id -> '0'/'1'/'2')
+  typ: null,
+  werk: null,
+  sa: [],
+  answers: {},
 };
 
 /**
@@ -45,6 +77,15 @@ function etkSetCarFacts(variant, hit) {
   const gear = String((variant && variant.gear) || '');
   ETK_STATE.auto = gear === 'A' || gear === 'M' ? gear : null;
   ETK_STATE.vin = hit && hit.vin ? String(hit.vin).toUpperCase() : null;
+  ETK_STATE.typ = variant && variant.key ? String(variant.key) : null;
+  ETK_STATE.werk = null;
+  // the order's codes, when the garage has read them for this VIN
+  const saved =
+    ETK_STATE.vin && typeof garageFindByVin === 'function'
+      ? garageFindByVin(ETK_STATE.vin)
+      : null;
+  ETK_STATE.sa = saved && Array.isArray(saved.sa) ? saved.sa.slice() : [];
+  ETK_STATE.answers = {};
 }
 
 /** How many chassis get a number key on the picker. */
@@ -64,7 +105,7 @@ const ETK_VARIANT_ROW_CAP = 200;
  * @param {() => void} fn - where Back goes
  * @returns {{ key: string, keyLabel: string, label: string, kind: string, fn: () => void }}
  */
-function etkBackAction(fn) {
+export function etkBackAction(fn) {
   return { key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn };
 }
 
@@ -109,7 +150,7 @@ function etkNoDataNote() {
  * @returns {HTMLButtonElement}
  */
 function etkChassisCard(id) {
-  const tag = (typeof CHASSIS_TAG === 'object' && CHASSIS_TAG[id]) || 'BMW';
+  const tag = chassisTag(id) || 'BMW';
   const card = document.createElement('button');
   card.className = 'chassis-card';
   card.innerHTML = `
@@ -126,7 +167,7 @@ function etkChassisCard(id) {
  * home tile, #apps/parts, the catalogue's own Back keys -- comes here.
  * @returns {void}
  */
-function showEtk() {
+export function showEtk() {
   return showVinDecoder({
     back: showApps,
     crumbs: [
@@ -143,8 +184,8 @@ function showEtk() {
  * for a picker by chassis.
  * @returns {Promise<void>}
  */
-async function showEtkGrid() {
-  lastScreen = showEtkGrid;
+export async function showEtkGrid() {
+  setLastScreen(showEtkGrid);
   setCrumbs([
     { label: 'Vehicles', fn: showChassis },
     { label: 'Apps', fn: showApps },
@@ -153,35 +194,35 @@ async function showEtkGrid() {
   // the reader may leave while this screen loads (screenOwner)
   const _mine = screenOwner();
   document.body.classList.add('apps-section');
-  sbLeft.textContent = 'parts';
-  view.innerHTML = head(
+  dom.sbLeft.textContent = 'parts';
+  dom.view.innerHTML = head(
     'ETK',
     'Parts Catalogue',
     "BMW's own parts diagrams. Pick a vehicle to browse its catalogue."
   );
   setActions([etkBackAction(showApps)]);
 
-  view.appendChild(etkVinEntryCard());
+  dom.view.appendChild(etkVinEntryCard());
 
   const grid = document.createElement('div');
   grid.className = 'chassis-grid stagger';
   const wait = document.createElement('div');
   wait.className = 'wiring-loading';
   wait.innerHTML = `<span class="wiring-spinner"></span><span>Looking for vehicles with parts data…</span>`;
-  view.appendChild(wait);
-  view.appendChild(grid);
+  dom.view.appendChild(wait);
+  dom.view.appendChild(grid);
 
   const ids = await etkChassisList();
   if (!_mine()) return;
   wait.remove();
   if (!ids.length) {
-    view.appendChild(etkNoDataNote());
+    dom.view.appendChild(etkNoDataNote());
     return;
   }
   ids.forEach((id) => grid.appendChild(etkChassisCard(id)));
   stagger(grid, ETK_STAGGER_CARDS);
   if (!_mine()) return;
-  sbRight.textContent = `${ids.length} chassis`;
+  dom.sbRight.textContent = `${ids.length} chassis`;
   if (!_mine()) return;
   setActions([
     ...ids.slice(0, ETK_FKEY_SLOTS).map((id, i) => ({
@@ -231,9 +272,9 @@ function etkProgressBlock(id) {
  * @param {{variant: number, label: string}|{hit: EtkVinHit}|null} [preselect] - a variant to open filtered to (its index and label), or the resolved vehicle to match one from once the archive is in
  * @returns {Promise<void>}
  */
-async function showEtkChassis(chassisId, preselect) {
+export async function showEtkChassis(chassisId, preselect) {
   const id = chassisId.toUpperCase();
-  lastScreen = () => showEtkChassis(id, preselect);
+  setLastScreen(() => showEtkChassis(id, preselect));
   setCrumbs([
     { label: 'Vehicles', fn: showChassis },
     { label: 'Apps', fn: showApps },
@@ -242,8 +283,8 @@ async function showEtkChassis(chassisId, preselect) {
   ]);
   // the reader may leave while this screen loads (screenOwner)
   const _mine = screenOwner();
-  sbLeft.textContent = 'loading parts…';
-  view.innerHTML = head(
+  dom.sbLeft.textContent = 'loading parts…';
+  dom.view.innerHTML = head(
     'ETK',
     dispChassis(id),
     'Pick a variant to filter, then a main group.'
@@ -252,14 +293,14 @@ async function showEtkChassis(chassisId, preselect) {
   document.body.classList.add('apps-section');
 
   const loading = etkProgressBlock(id);
-  view.appendChild(loading.el);
+  dom.view.appendChild(loading.el);
 
   let data;
   try {
     data = await loadEtk(id, loading.onProgress);
   } catch (e) {
     loading.el.remove();
-    view.appendChild(errorBlock(String(e.message || e)));
+    dom.view.appendChild(errorBlock(String(e.message || e)));
     return;
   }
   loading.el.remove();
@@ -301,13 +342,13 @@ async function showEtkChassis(chassisId, preselect) {
   vbar.appendChild(label);
   vbar.appendChild(buildVariantDropdown(data.tree.variants || []));
   if (!_mine()) return;
-  view.appendChild(vbar);
+  dom.view.appendChild(vbar);
 
   // --- main-group icon grid ---
   const grid = document.createElement('div');
   grid.className = 'etk-grid stagger';
   if (!_mine()) return;
-  view.appendChild(grid);
+  dom.view.appendChild(grid);
 
   (data.tree.maingroups || []).forEach((mg) => {
     const card = document.createElement('button');
@@ -322,9 +363,9 @@ async function showEtkChassis(chassisId, preselect) {
   });
   stagger(grid, ETK_STAGGER_GRID);
 
-  sbLeft.textContent = `${(data.tree.maingroups || []).length} main groups`;
+  dom.sbLeft.textContent = `${(data.tree.maingroups || []).length} main groups`;
   if (!_mine()) return;
-  sbRight.textContent = `${(data.tree.variants || []).length} variants`;
+  dom.sbRight.textContent = `${(data.tree.variants || []).length} variants`;
   // the filtered vehicle rides in the URL, so a reload keeps it
   if (typeof routeSetFiltered === 'function')
     routeSetFiltered('parts', id, ETK_STATE.vin);
@@ -359,7 +400,7 @@ function printEtkIndex(data, chassisId) {
       ['Variants', String((data.tree.variants || []).length)],
     ],
     sections: [printTable(['Group', 'Name'], rows, ['pr-mono', ''])],
-    footer: `${APP_NAME} · BMW ETK · printed ${new Date().toLocaleDateString()}`,
+    footer: `${appName()} · BMW ETK · printed ${new Date().toLocaleDateString()}`,
   });
 }
 
@@ -443,7 +484,7 @@ function buildVariantDropdown(variants) {
  * @param {string} [btnr] - diagram number within that main group
  * @returns {Promise<void>}
  */
-async function showEtkDeep(chassisId, hg, btnr, preselect = null) {
+export async function showEtkDeep(chassisId, hg, btnr, preselect = null) {
   const id = String(chassisId || '').toUpperCase();
   if (!hg) {
     return showEtkChassis(id, preselect);
@@ -455,7 +496,7 @@ async function showEtkDeep(chassisId, hg, btnr, preselect = null) {
       (m) => String(m.hg) === String(hg)
     );
     if (mg) showEtkGroup(data, id, mg, btnr || null);
-  } catch (e) {
+  } catch {
     /* the chassis grid is already up */
   }
 }

@@ -18,8 +18,6 @@
  * shows for the chosen car; nothing about them is printed on the row.
  */
 
-/* exported etkLineFits, etkMergeLines, etkLineKey, etkDisplayLine, etkRows, etkMonth, etkPartInfoSections */
-
 /**
  * One parts line's validity, as tools/etk_import.py writes it.
  * @typedef {object} EtkLine
@@ -64,7 +62,7 @@
  * @param {{pos?: string, sachnr?: string}} p - a part row
  * @returns {string}
  */
-function etkLineKey(p) {
+export function etkLineKey(p) {
   return `${p && p.pos != null ? p.pos : ''}|${(p && p.sachnr) || ''}`;
 }
 
@@ -94,7 +92,7 @@ function etkOneLineFits(ln, car) {
  * @param {EtkCarFacts} car - what is known
  * @returns {boolean}
  */
-function etkLineFits(p, car) {
+export function etkLineFits(p, car) {
   const lines = p && Array.isArray(p.ln) ? p.ln : null;
   if (!lines || !lines.length) return true;
   return lines.some((ln) => etkOneLineFits(ln, car));
@@ -105,7 +103,7 @@ function etkLineFits(p, car) {
  * @param {number|undefined} ym - the month
  * @returns {string} '' when there is none
  */
-function etkMonth(ym) {
+export function etkMonth(ym) {
   const s = String(ym || '');
   return s.length >= 6 ? `${s.slice(4, 6)}/${s.slice(0, 4)}` : '';
 }
@@ -117,7 +115,7 @@ function etkMonth(ym) {
  * @param {EtkCarFacts|null} car - what is known
  * @returns {EtkLine|null}
  */
-function etkDisplayLine(p, car) {
+export function etkDisplayLine(p, car) {
   const lines = p && Array.isArray(p.ln) ? p.ln : null;
   if (!lines || !lines.length) return null;
   if (car && (car.prod || car.steer || car.auto))
@@ -138,7 +136,7 @@ function etkDisplayLine(p, car) {
  * @param {EtkCarFacts|null} car - what is known
  * @returns {Array<{pos: string, name: string, items: Array<{part: EtkPart, line: EtkLine|null}>}>}
  */
-function etkRows(parts, car) {
+export function etkRows(parts, car) {
   /** @type {Map<string, {part: EtkPart, lines: EtkLine[]}>} */
   const byKey = new Map();
   const order = [];
@@ -197,7 +195,7 @@ function etkRows(parts, car) {
  * @returns {{head: {sachnr: string, name: string}, facts: Array<[string, string]>,
  *   note: string, tables: Array<{title: string, cols: string[], rows: string[][]}>}}
  */
-function etkPartInfoSections(part, line, info, fmt = (s) => s) {
+export function etkPartInfoSections(part, line, info, fmt = (s) => s) {
   const p = part || {};
   const i = info || {};
   const ln = line || {};
@@ -249,7 +247,7 @@ function etkPartInfoSections(part, line, info, fmt = (s) => s) {
     tables,
   };
 }
-function etkMergeLines(tree, sidecar) {
+export function etkMergeLines(tree, sidecar) {
   const ln = sidecar && sidecar.ln;
   if (!ln || !tree) return 0;
   const sup = (sidecar && sidecar.sup) || {};
@@ -273,16 +271,4 @@ function etkMergeLines(tree, sidecar) {
       }
     }
   return n;
-}
-
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {
-    etkLineKey,
-    etkLineFits,
-    etkMergeLines,
-    etkDisplayLine,
-    etkRows,
-    etkMonth,
-    etkPartInfoSections,
-  };
 }

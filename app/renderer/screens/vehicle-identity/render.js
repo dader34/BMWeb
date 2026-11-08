@@ -63,19 +63,14 @@ const VI_SA_SHOWN_WIDTH = 4;
  * @returns {Promise<ViEtkDecode|null>} The decode, or null.
  */
 async function viEtkDecode(vin) {
-  if (
-    typeof loadVinIndex !== 'function' ||
-    typeof decodeVin !== 'function' ||
-    !vin
-  )
-    return null;
+  if (typeof etk === 'undefined' || !vin) return null;
   try {
-    const d = decodeVin(await loadVinIndex(), vin);
+    const d = etk.decodeVin(await etk.loadVinIndex(), vin);
     if (!d) return null;
     let gear = null;
-    if (typeof loadVehicles === 'function') {
+    {
       try {
-        const veh = await loadVehicles();
+        const veh = await etk.loadVehicles();
         const rows = ((veh[d.chassis] || {})[d.body] || {})[d.model] || [];
         const hit = rows.find((r) => r[3] === d.mospid);
         if (hit) gear = hit[1];

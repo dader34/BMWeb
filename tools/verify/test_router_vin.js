@@ -20,7 +20,13 @@ global.showEtkDeep = (chassis, hg, btnr, pre) =>
   calls.push(['deep', chassis, hg, btnr, pre]);
 global.showWiring = (chassis, doc, hit) =>
   calls.push(['wiring', chassis, doc, hit]);
-global.loadVinIndex = async () => ({ stub: true });
+// the catalogue is one global now (core/generated/etk.js)
+global.etk = {
+  showEtkChassis: global.showEtkChassis,
+  showEtkDeep: global.showEtkDeep,
+  loadVinIndex: async () => ({ stub: true }),
+  decodeVin: (idx, vin) => global.decodeVin(idx, vin),
+};
 global.decodeVin = (idx, vin) =>
   vin === 'WBAET37495NJ87379' || vin === 'NJ87379'
     ? {

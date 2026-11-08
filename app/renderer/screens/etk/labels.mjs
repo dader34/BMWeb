@@ -4,8 +4,6 @@
  * and BMW's grouped 11-digit part-number layout.
  */
 
-/* exported bodyLabel, etkSteerAbbrev, etkSteerLabel, etkGearLabel, etkYearMonth, etkVariantLabel, fmtSachnr, etkCarLabel */
-
 /** Body code -> readable (Lim = Sedan, Tou = Touring, Cou = Coupé, Cab = Convertible...). */
 const ETK_BODY_LABELS = {
   Lim: 'Sedan',
@@ -38,7 +36,7 @@ const ETK_DATE_LEN = 8;
  * @param {string|undefined} b - body code (Lim, Tou, Cou, Cab, com, Cabrio...)
  * @returns {string}
  */
-function bodyLabel(b) {
+export function bodyLabel(b) {
   return ETK_BODY_LABELS[b] || b || '';
 }
 
@@ -47,7 +45,7 @@ function bodyLabel(b) {
  * @param {string|undefined} steer - 'L' or 'R'
  * @returns {string}
  */
-function etkSteerAbbrev(steer) {
+export function etkSteerAbbrev(steer) {
   return ETK_STEER_ABBREV[steer] || '';
 }
 
@@ -56,7 +54,7 @@ function etkSteerAbbrev(steer) {
  * @param {string} steer - 'L' or 'R'
  * @returns {string}
  */
-function etkSteerLabel(steer) {
+export function etkSteerLabel(steer) {
   return ETK_STEER_LABELS[steer] || steer;
 }
 
@@ -65,7 +63,7 @@ function etkSteerLabel(steer) {
  * @param {string|undefined} gear - 'A', 'M' or 'N'
  * @returns {string}
  */
-function etkGearLabel(gear) {
+export function etkGearLabel(gear) {
   return ETK_GEAR_LABELS[gear] || gear || 'Neutral';
 }
 
@@ -74,7 +72,7 @@ function etkGearLabel(gear) {
  * @param {string} d - date digits
  * @returns {string}
  */
-function etkYearMonth(d) {
+export function etkYearMonth(d) {
   // month/year, not year-month: "2004-09" was read as a 2004 to 2009 range
   return `${d.slice(4, 6)}/${d.slice(0, 4)}`;
 }
@@ -84,7 +82,7 @@ function etkYearMonth(d) {
  * @param {EtkVariant} v - the variant record
  * @returns {string}
  */
-function etkVariantLabel(v) {
+export function etkVariantLabel(v) {
   const parts = [];
   if (v.model) parts.push(v.model);
   if (v.body) parts.push(v.body);
@@ -111,7 +109,7 @@ function etkVariantLabel(v) {
  * @param {{prod?: string|number}|null} [hit] - the decoded VIN
  * @returns {string}
  */
-function etkCarLabel(v, hit) {
+export function etkCarLabel(v, hit) {
   const prod = String((hit && hit.prod) || '').slice(0, 6);
   if (!/^\d{6}$/.test(prod)) return etkVariantLabel(v);
   const parts = [];
@@ -135,7 +133,7 @@ function etkCarLabel(v, hit) {
  * @param {string|number} [prefix] - the 4-digit main-group + subgroup prefix
  * @returns {string|number} the grouped number, or the input untouched when it isn't 7 digits
  */
-function fmtSachnr(s, prefix) {
+export function fmtSachnr(s, prefix) {
   const d = String(s).replace(/\D/g, '');
   if (prefix && d.length === 7) {
     const p = String(prefix).replace(/\D/g, '');

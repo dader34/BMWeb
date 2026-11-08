@@ -14,11 +14,12 @@
 //   2. THE HELPERS. etkScaleHotspot maps a stored rectangle onto the image as
 //      drawn (the upscale rule, the lightbox and a resize all change that
 //      size), and etkPosRowIndex joins a callout to the rows carrying it.
-const assert = require('assert');
-const fs = require('fs');
-const path = require('path');
-const vm = require('vm');
-const zlib = require('zlib');
+import assert from 'node:assert';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+import zlib from 'node:zlib';
 const R = path.join(__dirname, '..', '..');
 
 let passed = 0;
@@ -29,18 +30,11 @@ const ok = (m) => {
 const skip = (m) => console.log(`  SKIP  ${m}`);
 
 // ---------------------------------------------------------------------------
-// the helpers, loaded the way the page loads them: a classic script whose
-// top-level functions become globals
+// the helpers, imported from the module the page's generated etk.js is built from
 // ---------------------------------------------------------------------------
-const sandbox = { window: {}, document: undefined };
-vm.createContext(sandbox);
-vm.runInContext(
-  fs.readFileSync(path.join(R, 'app/renderer/screens/etk/callouts.js'), 'utf8'),
-  sandbox
+const { etkScaleHotspot, etkPosRowIndex, etkHotspotName } = await import(
+  path.join(R, 'app/renderer/screens/etk/callouts.mjs')
 );
-const etkScaleHotspot = vm.runInContext('etkScaleHotspot', sandbox);
-const etkPosRowIndex = vm.runInContext('etkPosRowIndex', sandbox);
-const etkHotspotName = vm.runInContext('etkHotspotName', sandbox);
 assert.strictEqual(
   typeof etkScaleHotspot,
   'function',

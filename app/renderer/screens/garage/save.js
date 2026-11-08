@@ -202,9 +202,9 @@ function garageCarDialog(options) {
 async function garageNewCarFrom(ctx) {
   /** @type {object} */
   let entry = { vin: ctx.vin, chassis: ctx.chassis };
-  if (ctx.vin && typeof loadVinIndex === 'function') {
+  if (ctx.vin && typeof etk !== 'undefined') {
     try {
-      const hit = decodeVin(await loadVinIndex(), ctx.vin);
+      const hit = etk.decodeVin(await etk.loadVinIndex(), ctx.vin);
       if (hit) {
         hit.vin = ctx.vin;
         entry = garageCarFromHit(hit);

@@ -4,8 +4,6 @@
  * each chassis's model names, and a stable ordering within and across them.
  */
 
-/* exported seriesSort, groupBySeries */
-
 /**
  * Chassis codes bucketed by marketing series, in display order.
  * @typedef {object} EtkSeriesGroups
@@ -158,7 +156,7 @@ function seriesGroupRank(s) {
  * @param {EtkVehicleTree} veh - the loaded vehicles.json
  * @returns {EtkSeriesGroups}
  */
-function groupBySeries(veh) {
+export function groupBySeries(veh) {
   const groups = {};
   for (const code of Object.keys(veh)) {
     const models = new Set();

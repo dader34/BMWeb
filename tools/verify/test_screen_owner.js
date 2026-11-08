@@ -75,7 +75,7 @@ const newScreen = () => (_screenGen += 1); // what setCrumbs() does
 // every async screen that writes after an await must take an owner
 {
   const files = [
-    'screens/etk/catalogue.js',
+    'screens/etk/catalogue.mjs',
     'screens/apps.js',
     'core/nav.js',
     'screens/garage/history.js',
