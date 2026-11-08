@@ -1,0 +1,520 @@
+/* The inpa screen's rules, moved out of styles.css; linked after it. */
+
+/* INPA-style settings: the same rows, laid out the way INPA laid out
+   everything -- monospace, one per line, ruled rather than carded. Matches
+   the ECU Hauptmenue so the two screens do not look like different apps. */
+/* wide enough for the widest row: the offline copy carries a picker, a
+   checkbox and a button in one cell */
+.inpa-settings {
+  gap: 0;
+  max-width: 860px;
+}
+.inpa-settings .setting-row {
+  background: none;
+  border: none;
+  border-radius: 0;
+  border-bottom: 1px dotted var(--line);
+  padding: 9px 6px;
+  cursor: pointer;
+  /* the Hauptmenue's vertical key list: key | text | control per row.
+     A 4th auto column takes the Download row's extra button. */
+  /* the text column gets a floor: an "auto" control column will otherwise
+     take what it likes and squeeze a title into one word per line */
+  display: grid;
+  grid-template-columns: 150px minmax(20ch, 1fr) auto;
+  column-gap: 16px;
+  align-items: baseline;
+}
+.inpa-settings .setting-row > .inpa-fn-key {
+  font-size: 12px;
+}
+.inpa-settings .setting-row:hover {
+  background: rgba(127, 127, 127, 0.07);
+}
+.inpa-settings .setting-title {
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+}
+.inpa-settings .setting-desc {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-dim);
+  margin-top: 2px;
+}
+/* the theme swatches stay a grid: a list of colour names would be worse.
+   the swatches drop under the text, in the text column */
+.inpa-settings .theme-row {
+  border-bottom: 1px dotted var(--line);
+  grid-template-columns: 150px 1fr;
+}
+.inpa-settings .theme-row .theme-grid {
+  grid-column: 2;
+}
+.inpa-settings .combo-btn,
+.inpa-settings .btn {
+  font-family: var(--mono);
+  font-size: 12px;
+  border-radius: 0;
+}
+/* INPA-faithful screens (toggle in Settings) */
+/* vehicle select: Battery / Ignition row + chassis list */
+.inpa-vsel {
+  display: block;
+}
+.inpa-klrow {
+  display: flex;
+  gap: 60px;
+  margin-bottom: 28px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--line);
+}
+.inpa-kl {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-size: 22px;
+}
+.inpa-kl-name {
+  color: var(--ink);
+}
+/* outline ring, fills solid black when on (no glow) */
+.inpa-kl-led {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid var(--ink);
+  background: transparent;
+  flex: none;
+}
+.inpa-kl-led.on {
+  background: var(--ink);
+  border-color: var(--ink);
+}
+.inpa-kl-state {
+  font-size: 20px;
+  color: var(--ink-dim);
+  min-width: 48px;
+}
+.inpa-vlist {
+  display: grid;
+  gap: 2px;
+  max-width: 640px;
+}
+html[data-theme='inpa'] .inpa-kl-led {
+  border-color: #000;
+}
+html[data-theme='inpa'] .inpa-kl-led.on {
+  background: #000;
+}
+/* two columns: common chassis left, "Old models / Special tests" right */
+.inpa-vsplit {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 40px;
+  max-width: 900px;
+}
+.inpa-vsplit .inpa-vlist {
+  max-width: none;
+}
+.inpa-vlist-right {
+  align-content: end;
+}
+.inpa-fn-more .inpa-fn-key {
+  color: var(--ink-faint);
+}
+.inpa-fn-more .inpa-fn-label {
+  font-style: italic;
+  color: var(--ink-dim);
+}
+/* Fault Lookup entry in the INPA vehicle-select right column: search glyph key,
+   muted italic label like "Other models …". right-align the glyph in the 64px key
+   column so it sits next to the label instead of floating far left, and size it to
+   match the F-key text on the rows above. */
+.inpa-fn-lookup .inpa-fn-key {
+  font-size: 16px;
+  line-height: 1;
+  color: var(--amber);
+  justify-self: end;
+  text-align: right;
+}
+.inpa-fn-lookup .inpa-fn-label {
+  font-style: italic;
+  color: var(--ink-dim);
+}
+html[data-theme='inpa'] .inpa-fn-lookup .inpa-fn-key {
+  color: #000080;
+}
+/* Old-models popup list */
+.inpa-pop {
+  min-width: 360px;
+}
+.inpa-pop-list {
+  display: grid;
+  gap: 1px;
+  margin: 6px 0 18px;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+.inpa-pop-row {
+  -webkit-app-region: no-drag;
+  cursor: pointer;
+  text-align: left;
+  display: grid;
+  grid-template-columns: 44px 1fr;
+  gap: 12px;
+  align-items: center;
+  background: none;
+  border: none;
+  padding: 8px 8px;
+  color: var(--ink);
+  border-radius: 3px;
+}
+.inpa-pop-row:hover {
+  background: rgba(127, 127, 127, 0.12);
+}
+.inpa-pop-key {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--ink-dim);
+}
+.inpa-pop-label {
+  font-size: 14px;
+}
+html[data-theme='inpa'] .inpa-pop-row:hover {
+  background: #eef2ff;
+}
+html[data-theme='inpa'] .inpa-pop-key {
+  color: #000080;
+}
+/* "Script selection" dialog: Win9x two-pane chassis/section picker */
+.inpa-scriptsel {
+  width: 620px;
+  max-width: 92vw;
+  background: var(--panel);
+  border: 1px solid var(--line-bright);
+  border-radius: 4px;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+  transform: translateY(8px);
+  opacity: 0;
+  transition: all 0.16s;
+}
+.modal-overlay.show .inpa-scriptsel {
+  transform: none;
+  opacity: 1;
+}
+.inpa-ss-bar {
+  padding: 8px 12px;
+  font-family: var(--display);
+  font-size: 13px;
+  color: var(--ink);
+  background: linear-gradient(180deg, var(--panel-2), var(--panel));
+  border-bottom: 1px solid var(--line);
+}
+.inpa-ss-hint {
+  color: var(--ink-faint);
+  font-size: 12px;
+}
+.inpa-ss-panes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  padding: 10px;
+}
+/* sunken white list boxes */
+.inpa-ss-left,
+.inpa-ss-right {
+  min-height: 240px;
+  background: var(--bg);
+  border: 1px solid var(--line-bright);
+  border-radius: 2px;
+  overflow-y: auto;
+  box-shadow: inset 1px 1px 0 rgba(0, 0, 0, 0.15);
+}
+/* chassis name / "Functional jobs" header rows */
+.inpa-ss-head {
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: 13.5px;
+  padding: 5px 8px;
+  color: var(--ink);
+}
+/* header doubles as the clickable Functional Jobs entry on the chassis row */
+.inpa-ss-head.func {
+  -webkit-app-region: no-drag;
+  cursor: pointer;
+  color: var(--amber);
+}
+.inpa-ss-head.func:hover {
+  background: rgba(127, 127, 127, 0.12);
+}
+html[data-theme='inpa'] .inpa-ss-head.func {
+  color: #000080;
+}
+html[data-theme='inpa'] .inpa-ss-head.func:hover {
+  background: #e8eefc;
+}
+/* indented section items, bold mono */
+.inpa-ss-item,
+.inpa-ss-job {
+  -webkit-app-region: no-drag;
+  cursor: pointer;
+  display: block;
+  width: 100%;
+  text-align: left;
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: 13.5px;
+  color: var(--ink);
+  background: none;
+  border: none;
+  padding: 4px 8px 4px 26px;
+}
+.inpa-ss-item:hover,
+.inpa-ss-job:hover {
+  background: rgba(127, 127, 127, 0.12);
+}
+.inpa-ss-item.active {
+  background: rgba(127, 127, 127, 0.18);
+}
+/* chassis row sits flush like a header, not indented like a section */
+.inpa-ss-chassis {
+  padding-left: 8px;
+}
+.inpa-ss-chassis.active {
+  background: var(--amber);
+  color: #1a1206;
+}
+.inpa-ss-job {
+  padding-left: 12px;
+}
+.inpa-ss-job.func {
+  font-weight: 700;
+  color: var(--amber);
+}
+html[data-theme='inpa'] .inpa-ss-job.func {
+  color: #000080;
+}
+/* Coding row sits apart from INPA's own sections: ours, not one of theirs */
+.inpa-ss-coding {
+  margin-top: 6px;
+}
+.inpa-ss-identity[hidden] {
+  display: none;
+}
+/* what the coding screen can offer: "values" (editable read) or "map" */
+.inpa-ss-empty {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--ink-faint);
+  padding: 8px 12px;
+}
+/* INPA theme: navy highlight, white box */
+html[data-theme='inpa'] .inpa-scriptsel {
+  background: #d4d0c8;
+  border-color: #808080;
+}
+html[data-theme='inpa'] .inpa-ss-bar {
+  background: #d4d0c8;
+  color: #000;
+}
+html[data-theme='inpa'] .inpa-ss-left,
+html[data-theme='inpa'] .inpa-ss-right {
+  background: #fff;
+  border-color: #808080;
+}
+html[data-theme='inpa'] .inpa-ss-item,
+html[data-theme='inpa'] .inpa-ss-job {
+  color: #000;
+}
+html[data-theme='inpa'] .inpa-ss-item:hover,
+html[data-theme='inpa'] .inpa-ss-job:hover {
+  background: #e8eefc;
+}
+html[data-theme='inpa'] .inpa-ss-item.active {
+  background: #cfe0ff;
+}
+html[data-theme='inpa'] .inpa-ss-chassis.active {
+  background: #0a246a;
+  color: #fff;
+}
+/* ECU main menu: SGBD subline + function list */
+.inpa-haupt {
+  display: block;
+}
+.inpa-fn {
+  -webkit-app-region: no-drag;
+  cursor: pointer;
+  text-align: left;
+  display: grid;
+  grid-template-columns: 64px 1fr auto;
+  gap: 16px;
+  align-items: baseline;
+  background: none;
+  border: none;
+  padding: 7px 6px;
+  color: var(--ink);
+  border-bottom: 1px dotted transparent;
+  transition: background 0.1s;
+}
+.inpa-fn:hover {
+  background: rgba(127, 127, 127, 0.1);
+}
+.inpa-fn-key {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--ink-dim);
+  white-space: nowrap;
+}
+.inpa-fn-label {
+  font-size: 14.5px;
+}
+/* INPA theme: black-on-white, navy F-key */
+html[data-theme='inpa'] .inpa-fn-key {
+  color: #000080;
+}
+html[data-theme='inpa'] .inpa-fn:hover {
+  background: #eef2ff;
+}
+/* fault view: labeled block per fault */
+.inpa-faults {
+  display: grid;
+  gap: 14px;
+}
+.inpa-fault-title {
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+.inpa-noerr {
+  color: var(--ink-dim);
+  font-size: 14px;
+}
+.inpa-fault {
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 14px 18px;
+  background: var(--panel);
+}
+.inpa-fault-head {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding-bottom: 8px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+.inpa-fault-idx {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--ink-dim);
+}
+.inpa-fault-nr {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--ink-faint);
+}
+.inpa-fault-name {
+  font-size: 16px;
+  font-weight: 700;
+  flex: 1;
+}
+.inpa-fault-present {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--red);
+  padding: 2px 8px;
+  border-radius: 3px;
+  letter-spacing: 0.08em;
+}
+.inpa-fault-freq {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-faint);
+  margin-left: auto;
+}
+.inpa-fault-fields {
+  display: grid;
+  gap: 5px;
+}
+.inpa-ff {
+  display: grid;
+  grid-template-columns: 130px 1fr;
+  gap: 14px;
+  font-size: 13px;
+}
+.inpa-ff-k {
+  color: var(--ink-dim);
+  font-family: var(--mono);
+  font-size: 11.5px;
+}
+.inpa-ff-v {
+  color: var(--ink);
+}
+.inpa-ff-v.mono {
+  font-family: var(--mono);
+}
+html[data-theme='inpa'] .inpa-fault {
+  background: #fff;
+}
+html[data-theme='inpa'] .inpa-fault-name {
+  color: #000;
+}
+/* environment snapshot (RPM/voltage/mileage at code entry) */
+.inpa-env {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--line);
+}
+.inpa-env-head {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  margin-bottom: 6px;
+}
+.inpa-uw {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 14px;
+  font-size: 12.5px;
+  padding: 2px 0;
+}
+.inpa-uw-k {
+  color: var(--ink-dim);
+}
+.inpa-uw-v {
+  font-family: var(--mono);
+  font-weight: 700;
+  color: var(--ink);
+}
+/* ============================================================ mobile
+   A PHONE IS A REAL TARGET NOW. The single-file export runs on iOS and
+   Android next to the car, over the adapter's own WebSocket, with no
+   laptop -- so the layout has to survive 390px, not just tolerate it.
+
+   Three things break at that width, and only three: the topbar's four
+   columns, the fixed chrome insets that leave no room for content, and
+   the F-key bar's ten columns. The content grids already use
+   auto-fill/minmax and reflow on their own.
+
+   Touch, not mouse: hover states mean nothing, and anything tappable
+   wants ~44px of height (Apple's HIG figure, and about right for a
+   thumb in a cold garage). */
+@media (max-width: 760px) {
+  body:has(.inpa-vsel) .fkeybar {
+    display: none !important;
+  }
+  body:has(.inpa-vsel) .view {
+    bottom: calc(58px + var(--safe-bottom)) !important;
+  }
+  .inpa-fn {
+    min-height: 40px;
+  }
+}

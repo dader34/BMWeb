@@ -1,0 +1,819 @@
+/* The t32 screen's rules, moved out of styles.css; linked after it. */
+
+/* Tool32: SGBD | Job | Run three-pane raw job runner (reuses .etk-lb panes) */
+.t32-card {
+  max-width: 1040px;
+}
+.t32-cols {
+  display: grid;
+  grid-template-columns: 0.9fr 1fr 1.4fr;
+  gap: 16px;
+  align-items: start;
+}
+.t32-col {
+  gap: 8px;
+}
+.t32-filter {
+  width: 100%;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  color: var(--ink);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 7px 10px;
+}
+.t32-filter:focus {
+  outline: none;
+  border-color: var(--amber);
+  box-shadow: 0 0 0 2px var(--amber-glow);
+}
+.t32-filter:disabled {
+  opacity: 0.5;
+}
+.t32-lb {
+  height: 360px;
+}
+.t32-rowtag {
+  float: right;
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--red);
+  border: 1px solid var(--red);
+  border-radius: 3px;
+  padding: 0 4px;
+  margin-left: 6px;
+  line-height: 1.4;
+}
+/* run pane */
+.t32-runcol {
+  min-width: 0;
+}
+.t32-runhead {
+  font-size: 13px;
+  color: var(--ink-dim);
+  line-height: 1.5;
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+}
+.t32-jobname {
+  font-family: var(--mono);
+  font-size: 14px;
+  color: var(--ink);
+  font-weight: 600;
+}
+.t32-writetag {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--red);
+  border: 1px solid var(--red);
+  border-radius: 3px;
+  padding: 1px 5px;
+}
+.t32-comment {
+  flex-basis: 100%;
+  font-size: 12px;
+  color: var(--ink-faint);
+}
+.t32-argrow {
+  display: flex;
+  gap: 8px;
+}
+.t32-arg {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--ink);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 9px 11px;
+}
+.t32-arg:focus {
+  outline: none;
+  border-color: var(--amber);
+  box-shadow: 0 0 0 2px var(--amber-glow);
+}
+.t32-arg:disabled {
+  opacity: 0.5;
+}
+.t32-run {
+  padding: 9px 22px;
+}
+.t32-run:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.t32-out {
+  margin-top: 14px;
+}
+.t32-outhead {
+  font-size: 11px;
+  color: var(--ink-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 8px;
+}
+.t32-running,
+.t32-err {
+  font-size: 13px;
+  color: var(--ink-dim);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.t32-err {
+  color: var(--red);
+}
+.t32-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--mono);
+  font-size: 12.5px;
+}
+.t32-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+.t32-table tr:last-child td {
+  border-bottom: none;
+}
+.t32-k {
+  color: var(--ink-dim);
+  white-space: nowrap;
+}
+.t32-v {
+  color: var(--ink);
+  text-align: right;
+  word-break: break-all;
+}
+.t32-unit {
+  color: var(--ink-faint);
+}
+.t32-pending .t32-v {
+  color: var(--ink-faint);
+}
+/* Custom checkbox: square, amber when checked, app-themed (no native control) */
+.t32-check {
+  -webkit-appearance: none;
+  appearance: none;
+  margin: 0;
+  flex: none;
+  cursor: pointer;
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--panel);
+  position: relative;
+  transition:
+    border-color 0.12s,
+    background 0.12s;
+}
+.t32-check:hover {
+  border-color: var(--ink-faint);
+}
+.t32-check:checked {
+  background: var(--amber);
+  border-color: var(--amber);
+}
+.t32-check:checked::after {
+  content: '';
+  position: absolute;
+  left: 5px;
+  top: 1px;
+  width: 4px;
+  height: 9px;
+  border: solid var(--amber-ink);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+.t32-check:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--amber-glow);
+}
+/* Custom select: app-themed with a drawn chevron, no native arrow */
+.t32-select {
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  padding: 5px 26px 5px 10px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%238a949e' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 9px center;
+}
+.t32-select:hover {
+  border-color: var(--ink-faint);
+}
+.t32-select:focus-visible {
+  outline: none;
+  border-color: var(--amber);
+  box-shadow: 0 0 0 2px var(--amber-glow);
+}
+/* Test/repeat controls */
+.t32-reprow {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 9px;
+  font-size: 12.5px;
+  color: var(--ink-dim);
+}
+.t32-reprow label {
+  cursor: pointer;
+}
+.t32-repms {
+  width: 58px;
+  padding: 4px 8px;
+  font-family: var(--mono);
+  font-size: 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--ink);
+  -moz-appearance: textfield;
+}
+.t32-repms::-webkit-outer-spin-button,
+.t32-repms::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.t32-repms:focus {
+  outline: none;
+  border-color: var(--amber);
+  box-shadow: 0 0 0 2px var(--amber-glow);
+}
+.t32-repunit {
+  color: var(--ink-faint);
+}
+.t32-run.t32-stop {
+  background: var(--red);
+  border-color: var(--red);
+  color: #fff;
+}
+/* Trace section (Tool32's Trace window): a full-width block below the columns */
+.t32-tracesec {
+  margin-top: 22px;
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+}
+.t32-tracebar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.t32-tracetitle {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  margin-right: 2px;
+}
+.t32-tracetoggle {
+  font-family: var(--mono);
+  font-size: 12px;
+  padding: 5px 12px;
+  cursor: pointer;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--ink-dim);
+}
+.t32-tracetoggle.on {
+  border-color: #6cc794;
+  color: #6cc794;
+  background: rgba(108, 199, 148, 0.1);
+}
+.t32-tracebtn {
+  font-size: 12px;
+  padding: 5px 12px;
+  cursor: pointer;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--ink-dim);
+}
+.t32-tracebtn:hover {
+  color: var(--ink);
+  border-color: var(--ink-faint);
+}
+/* the shared lookupDropdown, sized to match the trace bar's buttons instead of
+   the Lookup screen's full-width pickers (min-width 200px, tall padding) */
+.t32-tracelayer.lkd {
+  flex: none;
+}
+.t32-tracelayer .lkd-btn {
+  min-width: 0;
+  padding: 5px 10px;
+  font-size: 12px;
+  border-radius: 6px;
+  background: var(--panel);
+}
+.t32-tracelog {
+  max-height: 300px;
+  overflow: auto;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  line-height: 1.6;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+.t32-traceempty {
+  color: var(--ink-faint);
+  font-family: var(--sans);
+  font-size: 12.5px;
+}
+.t32-trow {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+.t32-tms {
+  color: var(--ink-faint);
+  flex: none;
+  width: 44px;
+  text-align: right;
+}
+.t32-ttag {
+  width: 30px;
+  flex: none;
+  text-align: center;
+  font-weight: 700;
+}
+.t32-apitag {
+  font-size: 9px;
+  color: var(--amber-ink);
+  background: var(--amber);
+  border-radius: 3px;
+  padding: 1px 0;
+}
+.t32-tx .t32-ttag {
+  color: var(--amber);
+}
+.t32-rx .t32-ttag {
+  color: #6cc794;
+}
+.t32-terr .t32-ttag {
+  color: var(--red);
+}
+.t32-tapi {
+  color: var(--ink);
+  word-break: break-all;
+}
+.t32-thex {
+  color: var(--ink);
+  word-break: break-all;
+}
+.t32-tnote {
+  color: var(--ink-faint);
+  margin-left: auto;
+  padding-left: 10px;
+  flex: none;
+  white-space: nowrap;
+}
+.t32-tnote.t32-rx {
+  color: #6cc794;
+}
+.t32-tnote.t32-terr {
+  color: var(--red);
+}
+.t32-tnote.t32-tx {
+  color: var(--amber);
+}
+.t32-apirow {
+  border-bottom: 1px dashed var(--line);
+  padding-bottom: 2px;
+  margin-bottom: 2px;
+}
+/* info rows (K-line wake, config): neutral, one line, no hex, no red marker */
+.t32-inforow {
+  color: var(--ink-faint);
+}
+.t32-infotag {
+  color: var(--ink-faint);
+  font-weight: 400;
+  font-style: italic;
+}
+.t32-tinfo {
+  color: var(--ink-faint);
+}
+@media (max-width: 900px) {
+  .t32-cols {
+    grid-template-columns: 1fr 1fr;
+  }
+  .t32-runcol {
+    grid-column: 1 / -1;
+  }
+  .t32-lb {
+    height: 240px;
+  }
+}
+@media (max-width: 560px) {
+  .t32-cols {
+    grid-template-columns: 1fr;
+  }
+}
+html[data-theme='inpa'] .t32-filter,
+html[data-theme='inpa'] .t32-arg,
+html[data-theme='inpa'] .t32-run,
+html[data-theme='inpa'] .t32-lb {
+  border-radius: 0;
+}
+/* ---- ETK vehicle identification, INPA-style layout ---------------------------
+   ETK's own kind of window in Web32's grey: the VIN and attribute boxes as
+   group boxes, the lists as list views (the .t32-win list rules already
+   cover .etk-lb), the dropdowns, field and Go button as Windows controls.
+   Forced over the themes, which paint the shared ETK parts. */
+.t32-win.etk-win {
+  max-width: 1100px;
+  margin-top: 8px;
+}
+/* the INPA-style layout: a Windows tool in Web32's window -- a file field
+   with Open..., the report as group boxes, a status line */
+/* over .t32-win's own width, which comes later in this file */
+.t32-win.sr-win {
+  max-width: 640px;
+  margin-top: 8px;
+}
+/* ---- Job search, INPA-style layout ----------------------------------------
+   A Windows tool in Web32's window: a sunken search field and the chassis
+   filter, the results as a list view, the count on the status line. Forced
+   over the themes, which paint the shared search parts. */
+.t32-win.js-win {
+  max-width: 900px;
+  margin-top: 8px;
+}
+/* Tool32 as EDIABAS ToolSet 32 draws it: a classic Windows window in its
+   own grey, whatever the app's theme. The layout is Tool32's own (the
+   .t32-* rules above); this only changes how it is drawn. */
+.t32-win {
+  --t32-face: #f0f0f0;
+  --t32-hi: #ffffff;
+  --t32-sh: #a0a0a0;
+  --t32-dk: #696969;
+  --t32-sel: #3399ff;
+  max-width: 1180px;
+  margin: 0 auto 24px;
+  background: var(--t32-face);
+  color: #000;
+  font:
+    12px Tahoma,
+    'Segoe UI',
+    Verdana,
+    sans-serif;
+  border: 1px solid var(--t32-dk);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+  color-scheme: light;
+  accent-color: #0078d7;
+}
+.t32-win button,
+.t32-win input,
+.t32-win select {
+  font: inherit;
+}
+.t32-titlebar {
+  background: linear-gradient(#5b5b5b, #3a3a3a);
+  color: #fff;
+  font-weight: bold;
+  font-size: 13px;
+  padding: 6px 8px;
+}
+.t32-banner {
+  display: flex;
+  justify-content: center;
+  padding: 14px 10px;
+  border-bottom: 1px solid var(--t32-sh);
+}
+.t32-banner-name {
+  padding: 2px 10px;
+  font:
+    bold 30px 'Times New Roman',
+    Times,
+    serif;
+  color: #1a1aa8;
+  border: 1px solid var(--t32-sh);
+  box-shadow:
+    inset 1px 1px 0 var(--t32-hi),
+    1px 1px 0 var(--t32-hi);
+}
+.t32-win .t32-card {
+  max-width: none;
+  margin: 0;
+  padding: 10px;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+.t32-win .t32-cols {
+  gap: 8px;
+}
+.t32-win .etk-idcol {
+  gap: 4px;
+}
+/* the grey header strips over each pane: Jobs, Arguments, Results */
+.t32-win .etk-idlabel {
+  display: block;
+  padding: 1px 4px;
+  text-align: center;
+  font:
+    12px Tahoma,
+    'Segoe UI',
+    sans-serif;
+  color: #000;
+  text-transform: none;
+  letter-spacing: 0;
+  background: var(--t32-face);
+  border: 1px solid var(--t32-sh);
+  box-shadow: inset 1px 1px 0 var(--t32-hi);
+}
+.t32-win .etk-lb {
+  padding: 0;
+  background: #fff;
+  border: 1px solid #828790;
+  border-radius: 0;
+}
+.t32-win .etk-lb-row {
+  padding: 0 3px;
+  font:
+    12px Tahoma,
+    'Segoe UI',
+    sans-serif;
+  color: #000;
+  line-height: 1.4;
+  border-radius: 0;
+}
+.t32-win .etk-lb-row:hover {
+  background: none;
+}
+.t32-win .etk-lb-row.active,
+.t32-win .etk-lb-row.t32-row-write.active {
+  background: var(--t32-sel);
+  color: #fff;
+  font-weight: normal;
+}
+.t32-win .etk-lb-row.t32-row-write {
+  color: #c00000;
+}
+.t32-win .etk-lb-empty {
+  color: #6d6d6d;
+}
+.t32-win .t32-rowtag,
+.t32-win .t32-writetag {
+  color: #c00000;
+  border-color: #c00000;
+  border-radius: 0;
+}
+.t32-win .etk-lb-row.active .t32-rowtag {
+  color: #fff;
+  border-color: #fff;
+}
+.t32-win .t32-filter,
+.t32-win .t32-arg,
+.t32-win .t32-repms {
+  height: 22px;
+  padding: 0 4px;
+  color: #000;
+  background: #fff;
+  border: 1px solid #7a7a7a;
+  border-radius: 0;
+}
+.t32-win .t32-filter:focus,
+.t32-win .t32-arg:focus,
+.t32-win .t32-repms:focus {
+  border-color: #0078d7;
+  box-shadow: none;
+}
+.t32-win .t32-filter:disabled,
+.t32-win .t32-arg:disabled {
+  opacity: 1;
+  color: #6d6d6d;
+  background: #f4f4f4;
+}
+/* buttons: Run, the trace's switches */
+.t32-win .t32-run,
+.t32-win .t32-tracebtn,
+.t32-win .t32-tracetoggle,
+.t32-win .t32-select,
+.t32-win .t32-tracelayer .lkd-btn {
+  height: 24px;
+  padding: 0 14px;
+  font:
+    12px Tahoma,
+    'Segoe UI',
+    sans-serif;
+  font-weight: normal;
+  color: #000;
+  background: linear-gradient(#f6f6f6, #dddddd);
+  border: 1px solid #707070;
+  border-radius: 3px;
+  cursor: default;
+}
+.t32-win .t32-run:not(:disabled):hover,
+.t32-win .t32-tracebtn:hover,
+.t32-win .t32-tracetoggle:hover,
+.t32-win .t32-tracelayer .lkd-btn:hover {
+  color: #000;
+  background: linear-gradient(#eaf6fd, #bee6fd);
+  border-color: #3c7fb1;
+}
+.t32-win .t32-run:disabled {
+  opacity: 1;
+  color: #8d8d8d;
+  background: #f4f4f4;
+  border-color: #adb2b5;
+}
+.t32-win .t32-tracetoggle.on {
+  background: linear-gradient(#cde8fb, #a6d3f5);
+  border-color: #3c7fb1;
+  color: #000;
+}
+/* the layer dropdown's list, as a Windows list */
+.t32-win .t32-tracelayer .lkd-menu {
+  background: #fff;
+  border: 1px solid #828790;
+  border-radius: 0;
+  box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+}
+.t32-win .t32-tracelayer .lkd-opt {
+  font:
+    12px Tahoma,
+    'Segoe UI',
+    sans-serif;
+  color: #000;
+  border-radius: 0;
+}
+.t32-win .t32-tracelayer .lkd-opt:hover,
+.t32-win .t32-tracelayer .lkd-opt.active {
+  color: #fff;
+  background: var(--t32-sel);
+}
+.t32-win .t32-run.t32-stop {
+  color: #c00000;
+}
+.t32-win .t32-check {
+  appearance: none;
+  width: 13px;
+  height: 13px;
+  margin: 0;
+  background: #fff center / 11px 11px no-repeat;
+  border: 1px solid #333;
+  border-radius: 0;
+  box-shadow: none;
+}
+.t32-win .t32-check:checked {
+  background-color: #fff;
+  border-color: #333;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 11 11'%3E%3Cpath d='M2 5.5l2.2 2.2L9 2.8' fill='none' stroke='%23000' stroke-width='1.6'/%3E%3C/svg%3E");
+}
+.t32-win .t32-check:checked::after {
+  display: none;
+}
+.t32-win .t32-reprow,
+.t32-win .t32-repunit,
+.t32-win .t32-runhead,
+.t32-win .t32-comment {
+  color: #000;
+}
+.t32-win .t32-jobname {
+  font:
+    bold 12px 'Courier New',
+    Courier,
+    monospace;
+  color: #000;
+}
+.t32-win .t32-comment {
+  color: #444;
+}
+/* the results: EDIABAS's text window */
+.t32-win .t32-out {
+  margin-top: 0;
+  min-height: 200px;
+  max-height: 380px;
+  overflow: auto;
+  padding: 4px 6px;
+  background: #fff;
+  border: 1px solid #828790;
+  font:
+    12px 'Courier New',
+    Courier,
+    monospace;
+  color: #000;
+}
+.t32-win .t32-outhead,
+.t32-win .t32-running,
+.t32-win .t32-unit,
+.t32-win .t32-pending .t32-v {
+  color: #555;
+  font-family: 'Courier New', Courier, monospace;
+}
+.t32-win .t32-err {
+  color: #c00000;
+  font-family: 'Courier New', Courier, monospace;
+}
+.t32-win .t32-table td {
+  padding: 0 8px 0 0;
+  border: 0;
+  font:
+    12px 'Courier New',
+    Courier,
+    monospace;
+  color: #000;
+}
+.t32-win .t32-k,
+.t32-win .t32-v {
+  color: #000;
+}
+/* the trace: a child window under the panes */
+.t32-win .t32-tracesec {
+  margin-top: 10px;
+  padding: 0;
+  border: 1px solid var(--t32-sh);
+  box-shadow: inset 1px 1px 0 var(--t32-hi);
+}
+.t32-win .t32-tracebar {
+  padding: 3px 6px;
+  background: linear-gradient(#e3eaf3, #c9d6e6);
+  border-bottom: 1px solid var(--t32-sh);
+}
+.t32-win .t32-tracetitle {
+  font:
+    12px Tahoma,
+    'Segoe UI',
+    sans-serif;
+  color: #000;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.t32-win .t32-tracelog {
+  margin: 6px;
+  background: #fff;
+  border: 1px solid #828790;
+  border-radius: 0;
+  font:
+    11.5px 'Courier New',
+    Courier,
+    monospace;
+  color: #000;
+}
+.t32-win .t32-traceempty {
+  color: #6d6d6d;
+}
+.t32-win .t32-tms,
+.t32-win .t32-tnote {
+  color: #555;
+}
+.t32-win .t32-thex,
+.t32-win .t32-tapi,
+.t32-win .t32-tinfo {
+  color: #000;
+}
+.t32-win .t32-tx .t32-ttag {
+  color: #00008b;
+}
+.t32-win .t32-rx .t32-ttag {
+  color: #006400;
+}
+.t32-win .t32-terr .t32-ttag,
+.t32-win .t32-terr .t32-thex {
+  color: #c00000;
+}
+.t32-win .t32-apitag {
+  color: #000;
+  background: #ffd27a;
+  border-radius: 0;
+}
+/* The maximise button (screens/window-max.js), over the title bar's right end */
+.t32-win {
+  position: relative;
+}
+/* maximised: the window is the whole screen and its middle takes the room */
+.t32-win:fullscreen {
+  display: flex;
+  flex-direction: column;
+  max-width: none;
+  width: 100%;
+  margin: 0;
+  overflow: auto;
+  border: 0;
+  box-shadow: none;
+}
+:is(.t32-win:fullscreen, .win-max) .t32-card {
+  flex: 1;
+}

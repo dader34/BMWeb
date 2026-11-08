@@ -1,0 +1,1509 @@
+/* The etk screen's rules, moved out of styles.css; linked after it. */
+
+/* ETK parts catalogue: same contained split as wiring -- a scrollable tree of
+   assembly groups on the LEFT, the selected diagram (exploded image + its
+   numbered parts) on the RIGHT. Both panes are height-bounded and scroll on
+   their own, so a 236-group tree never pushes the page. */
+.etk-split {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: calc(100% - 38px);
+  min-height: 320px;
+}
+.etk-body {
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr);
+  gap: 16px;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+}
+.etk-nav {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--panel);
+}
+/* the variant header over the tree, with the wiring viewer's toggle */
+.etk-vinbanner {
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel-2);
+}
+.etk-vinbanner-veh {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--amber);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* the catalogue's condition table on a diagram: the options its rules ask
+   about, with Yes / No / ? per option and the rules' verdicts */
+.etk-cond {
+  margin: 8px 0 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel-2);
+  font-size: 12px;
+}
+.etk-cond-h {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.etk-cond-t {
+  font-weight: 600;
+}
+.etk-cond-sum {
+  font-family: var(--mono);
+  color: var(--dim);
+}
+.etk-cond-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 3px 0;
+}
+.etk-cond-code {
+  font-family: var(--mono);
+  color: var(--dim);
+  margin-left: 4px;
+}
+.etk-cond-row[data-order] .etk-cond-name::after {
+  content: ' · from the order';
+  color: var(--dim);
+}
+.etk-cond-seg .wiring-vinseg-btn {
+  padding: 3px 9px;
+  font-size: 11px;
+}
+/* "my car": diagrams with nothing for the variant, and groups with none
+   left, are hidden */
+.etk-tree.etk-fit-only .etk-tleaf[data-off],
+.etk-tree.etk-fit-only .etk-tgroup[data-off] {
+  display: none;
+}
+.etk-tree {
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+  padding: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-hover) transparent;
+}
+.etk-tree::-webkit-scrollbar {
+  width: 8px;
+}
+.etk-tree::-webkit-scrollbar-track {
+  background: transparent;
+}
+.etk-tree::-webkit-scrollbar-thumb {
+  background: var(--line-hover);
+  border-radius: 4px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+.etk-tree::-webkit-scrollbar-thumb:hover {
+  background: var(--dim);
+  background-clip: content-box;
+}
+/* keep the count clear of the scrollbar */
+.etk-tcount,
+.etk-lcount {
+  padding-right: 2px;
+}
+.etk-tgroup-hdr {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  background: none;
+  border: none;
+  color: var(--ink);
+  font-size: 13px;
+  padding: 7px 8px;
+  border-radius: 6px;
+  line-height: 1.3;
+}
+.etk-tgroup-hdr:hover {
+  background: rgba(127, 127, 127, 0.1);
+}
+.etk-tw {
+  font-size: 10px;
+  color: var(--ink-faint);
+  flex: none;
+  width: 10px;
+}
+.etk-tname {
+  flex: 1;
+}
+.etk-tcount,
+.etk-lcount {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--ink-faint);
+  flex: none;
+}
+.etk-tkids {
+  padding-left: 8px;
+}
+.etk-tleaf {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  background: none;
+  border: none;
+  color: var(--ink-dim);
+  font-size: 12.5px;
+  padding: 5px 8px 5px 18px;
+  border-radius: 6px;
+  line-height: 1.3;
+}
+.etk-tleaf:hover {
+  background: rgba(127, 127, 127, 0.1);
+  color: var(--ink);
+}
+.etk-tleaf.active {
+  background: var(--amber-glow);
+  color: var(--amber);
+}
+.etk-lname {
+  flex: 1;
+}
+.etk-view {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+}
+.etk-diagram {
+  display: flex;
+  flex-direction: column;
+}
+.etk-dtitle {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line);
+  position: sticky;
+  top: 0;
+  background: var(--panel);
+  z-index: 1;
+}
+/* the exploded-view scans vary from ~230px to ~800px wide. Show each at up to
+   2x its native size (crisp line art tolerates a little scaling) but never
+   wider than the pane, and let the white plate hug the image instead of being
+   a big empty expanse. */
+.etk-figure {
+  background: #fff;
+  margin: 16px auto;
+  border-radius: 8px;
+  padding: 16px;
+  text-align: center;
+  width: fit-content;
+  max-width: calc(100% - 32px);
+}
+.etk-figure {
+  position: relative;
+  cursor: zoom-in;
+}
+.etk-figure img {
+  max-width: 100%;
+  /* a first look, not the whole pane: the parts list stays in reach, and a
+     click opens the drawing at full size with the loupe */
+  max-height: min(46vh, 480px);
+  width: auto;
+  height: auto;
+  image-rendering: -webkit-optimize-contrast;
+}
+/* the callout hotspots: one focusable box per numbered callout, laid over the
+   drawing in the image's own pixel space and scaled with it (see
+   screens/etk/callouts.js). The layer itself is inert so the figure's own
+   click still opens the lightbox everywhere between the numbers -- only the
+   boxes take the pointer. */
+.etk-hotspots {
+  position: absolute;
+  pointer-events: none;
+  z-index: 1;
+}
+.etk-hotspot {
+  position: absolute;
+  pointer-events: auto;
+  padding: 0;
+  margin: 0;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: transparent;
+  cursor: pointer;
+  /* a resting callout must not obscure the line art it sits on: the box is
+     invisible until it is pointed at, focused or picked */
+  transition:
+    background-color 0.1s,
+    border-color 0.1s;
+}
+.etk-hotspot:hover,
+.etk-hotspot.on {
+  border-color: var(--amber);
+  /* mixed from the accent, never the theme's glow: a theme whose glow is
+     an opaque colour (INPA's Win9x selection blue) would paint over the
+     callout number the box exists to point at */
+  background: color-mix(in srgb, var(--amber) 18%, transparent);
+}
+.etk-hotspot:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 1px;
+}
+.etk-hotspot.pinned {
+  /* the pinned box has to read at a glance against black line art, but the
+     callout number underneath must stay legible, so the FILL is tinted and
+     the border left fully opaque. Dimming the whole element with `opacity`
+     would take the border with it and leave the box edgeless. */
+  border-color: var(--amber);
+  background: color-mix(in srgb, var(--amber) 45%, transparent);
+}
+/* the parts rows answering back. A linked row is one whose callout is drawn
+   on this diagram; rows the variant filter removed are not in the table at
+   all, so they can never light up. */
+.etk-parts tr.etk-row-linked {
+  cursor: pointer;
+}
+.etk-parts tr.etk-row-on {
+  background: var(--amber-glow);
+}
+.etk-parts tr.etk-row-on .etk-pos {
+  font-weight: 700;
+}
+.etk-parts tr.etk-row-pinned {
+  box-shadow: inset 2px 0 0 var(--amber);
+}
+/* the enlarged drawing: as big as the window allows, on a white plate, with
+   a round loupe following the pointer */
+.etk-lightbox {
+  display: flex;
+  flex-direction: column;
+  max-width: 94vw;
+  max-height: 92vh;
+  border: 1px solid var(--line-bright);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.etk-lightbox-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px 10px 16px;
+  border-bottom: 1px solid var(--line);
+}
+.etk-lightbox-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.etk-lightbox-hint {
+  font-size: 12px;
+  color: var(--ink-faint);
+  flex: none;
+}
+.etk-lightbox-close {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: none;
+  color: var(--ink-dim);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+.etk-lightbox-close:hover {
+  color: var(--ink);
+  border-color: var(--line-bright);
+}
+.etk-lightbox-plate {
+  position: relative;
+  background: #fff;
+  padding: 16px;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+}
+.etk-lightbox-img {
+  display: block;
+  max-width: calc(94vw - 34px);
+  max-height: calc(92vh - 82px);
+  width: auto;
+  height: auto;
+  cursor: crosshair;
+  image-rendering: -webkit-optimize-contrast;
+}
+.etk-loupe {
+  position: absolute;
+  pointer-events: none;
+  /* above the callout overlay: a lit box must not show through the glass at
+     its unmagnified place; it is redrawn inside, magnified (etkLoupeMarks) */
+  z-index: 2;
+  overflow: hidden;
+  border-radius: 50%;
+  border: 2px solid var(--amber);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.25),
+    0 6px 20px rgba(0, 0, 0, 0.35);
+  background-color: #fff;
+  background-repeat: no-repeat;
+}
+.etk-loupe-marks {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.etk-loupe-mark {
+  position: absolute;
+  border: 2px solid var(--amber);
+  border-radius: 4px;
+  /* tinted from the accent like the box on the drawing: the theme's glow
+     can be opaque (INPA) and would hide the magnified number */
+  background: color-mix(in srgb, var(--amber) 18%, transparent);
+}
+.etk-loupe-mark.pinned {
+  background: color-mix(in srgb, var(--amber) 45%, transparent);
+}
+.etk-parts {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+  /* part numbers and names must be selectable to copy -- the app sets
+     user-select:none globally for the kiosk feel; re-enable it here. */
+  user-select: text;
+  -webkit-user-select: text;
+}
+.etk-parts td,
+.etk-dtitle {
+  user-select: text;
+  -webkit-user-select: text;
+  cursor: text;
+}
+.etk-sachnr,
+.etk-name {
+  user-select: text;
+  -webkit-user-select: text;
+}
+.etk-parts th {
+  text-align: left;
+  padding: 9px 16px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-faint);
+  border-bottom: 1px solid var(--line);
+  position: sticky;
+  top: 43px;
+  background: var(--panel);
+}
+.etk-parts td {
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+.etk-parts tr:last-child td {
+  border-bottom: none;
+}
+.etk-parts tr:hover {
+  background: rgba(255, 158, 44, 0.04);
+}
+.etk-pos {
+  font-family: var(--mono);
+  color: var(--amber);
+  width: 3em;
+}
+.etk-sachnr {
+  font-family: var(--mono);
+  white-space: nowrap;
+  color: var(--ink);
+}
+.etk-name {
+  color: var(--dim);
+}
+@media (max-width: 760px) {
+  .etk-body {
+    grid-template-columns: 1fr;
+  }
+}
+/* while the ~20 MB bundle streams from HF, a centred spinner + progress bar */
+/* the catalogue's table: the control column (+ to expand a callout's parts,
+   i for a note), the parts under a group indented, notes muted */
+.etk-parts .etk-ctl {
+  width: 26px;
+  padding-left: 10px;
+  padding-right: 0;
+  text-align: center;
+}
+.etk-parts .etk-num {
+  text-align: right;
+}
+.etk-parts .etk-sup,
+.etk-parts .etk-from,
+.etk-parts .etk-to,
+.etk-parts .etk-qty,
+.etk-parts .etk-count {
+  color: var(--ink-dim);
+  white-space: nowrap;
+}
+.etk-parts .etk-count {
+  font-family: inherit;
+  font-size: 12px;
+}
+.etk-tgl,
+.etk-info {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: var(--panel-2);
+  color: var(--ink);
+  font: 700 12px/16px var(--mono);
+  cursor: pointer;
+}
+.etk-info {
+  border-radius: 50%;
+  font-family: Georgia, serif;
+  font-style: italic;
+}
+.etk-tgl:hover,
+.etk-info:hover,
+.etk-info[aria-expanded='true'] {
+  border-color: var(--amber);
+  color: var(--amber);
+}
+.etk-parts tr.etk-group .etk-name {
+  font-weight: 600;
+}
+.etk-parts tr.etk-sub .etk-name {
+  padding-left: 32px;
+}
+.etk-parts .etk-flag {
+  width: 2em;
+  text-align: center;
+  color: var(--ink-dim);
+  font-family: var(--mono);
+  padding-left: 6px;
+  padding-right: 6px;
+}
+/* the Part information window the i opens: the part number and name as
+   the head, short facts in a two-column grid, the note as a paragraph,
+   the lists (a set's parts, supersession, substances) as tables */
+.modal.etk-pi-modal {
+  width: min(720px, calc(100vw - 32px));
+  max-width: 720px;
+}
+.etk-pi-modal .modal-body {
+  max-height: min(70vh, 640px);
+  overflow: auto;
+  user-select: text;
+  -webkit-user-select: text;
+}
+.etk-pi-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 14px;
+  padding-bottom: 10px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+}
+.etk-pi-num {
+  font-family: var(--mono);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--amber);
+  white-space: nowrap;
+}
+.etk-pi-name {
+  font-size: 14px;
+  color: var(--ink);
+}
+.etk-pi-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 8px 18px;
+  margin: 0 0 12px;
+}
+.etk-pi-facts > div {
+  min-width: 0;
+}
+.etk-pi-facts dt,
+.etk-pi-h {
+  color: var(--ink-faint);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 2px;
+}
+.etk-pi-facts dd {
+  margin: 0;
+  font-size: 13px;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+.etk-pi-sec {
+  margin-top: 12px;
+}
+.etk-pi-note {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--ink);
+}
+.etk-pi-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+.etk-pi-table th {
+  text-align: left;
+  font-weight: 500;
+  font-size: 11px;
+  color: var(--ink-faint);
+  padding: 4px 8px 4px 0;
+  border-bottom: 1px solid var(--line);
+}
+.etk-pi-table td {
+  padding: 5px 8px 5px 0;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+  color: var(--ink);
+}
+.etk-pi-table tr:last-child td {
+  border-bottom: 0;
+}
+.etk-pi-table .etk-num {
+  text-align: right;
+  white-space: nowrap;
+}
+.etk-pi-table td.etk-sachnr {
+  font-size: 12.5px;
+}
+.etk-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 60px 20px;
+  color: var(--ink-dim);
+  font-size: 14px;
+}
+.etk-progress-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(360px, 70vw);
+}
+.etk-progress-label {
+  font-size: 13px;
+  color: var(--ink-dim);
+}
+.etk-progress-track {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--line);
+  overflow: hidden;
+}
+.etk-progress-bar {
+  height: 100%;
+  width: 0%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #ffb95a, var(--amber));
+  transition: width 0.15s ease;
+}
+/* when the server sends no Content-Length, sweep a chip across instead */
+.etk-progress-bar.etk-progress-indeterminate {
+  width: 35%;
+  animation: etk-indet 1.1s ease-in-out infinite;
+}
+/* VIN decoder page card */
+/* ETK-style etched group boxes: a fieldset with its legend riding the border,
+   like the terminal's "Identification by..." frames */
+.etk-fs {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 14px 18px 18px;
+  margin: 0;
+  max-width: 1040px;
+  min-width: 0;
+}
+.etk-fs + .etk-fs {
+  margin-top: 18px;
+}
+.etk-fs > legend {
+  padding: 0 8px;
+  margin-left: -2px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.etk-fs-attr {
+  margin-top: 18px;
+}
+.etk-vin-label {
+  font-size: 13px;
+  color: var(--ink-dim);
+  align-self: center;
+  flex: none;
+}
+.etk-vin-hint {
+  font-size: 12.5px;
+  color: var(--ink-faint);
+  margin-top: 10px;
+}
+/* the VIN-decoder entry card sits above the chassis grid; give it a gap and
+   its own rounded card look (lookup-entry has none standalone on desktop) */
+.etk-vin-entry {
+  margin-bottom: 20px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  padding: 16px;
+}
+.etk-vin-entry:hover {
+  border-color: var(--amber);
+}
+.etk-vin-entry .lookup-entry-icon {
+  font-size: 18px;
+}
+.etk-vin-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.etk-vin-input {
+  flex: 1;
+  min-width: 200px;
+  font-family: var(--mono);
+  font-size: 14px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+.etk-vin-input:focus {
+  outline: none;
+  border-color: var(--amber);
+  box-shadow: 0 0 0 2px var(--amber-glow);
+}
+/* the go-arrow buttons (ETK's wide flat arrow buttons). Text and hover ride
+   the theme vars: INPA remaps --amber to navy, so the ink must follow. */
+.etk-vin-go {
+  flex: none;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--amber-ink);
+  background: var(--amber);
+  border: none;
+  border-radius: 8px;
+  padding: 10px 26px;
+}
+.etk-vin-go:hover {
+  filter: brightness(1.15);
+}
+.etk-vin-go:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.etk-vin-result {
+  margin-top: 12px;
+  font-size: 13.5px;
+  color: var(--ink-dim);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.etk-vin-result.etk-vin-err {
+  color: var(--red, #ff6b6b);
+}
+.etk-vin-result.etk-vin-ok {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
+.etk-vin-veh {
+  font-size: 15px;
+  color: var(--ink);
+}
+.etk-vin-veh b {
+  color: var(--amber);
+}
+.etk-vin-open {
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+  color: var(--amber);
+  background: var(--amber-glow);
+  border: 1px solid var(--amber);
+  border-radius: 8px;
+  padding: 9px 14px;
+}
+.etk-vin-open:hover {
+  background: rgba(255, 158, 44, 0.28);
+}
+/* Save button, right of the decode arrow: same shape as the arrow but ghosted */
+
+/* ---- two columns: VIN box + attributes left, saved-vehicles column right -- */
+.etk-vin-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 16px;
+  align-items: start;
+}
+.etk-vin-left {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+.etk-vin-left .etk-fs-vin,
+.etk-vin-left .etk-fs-attr {
+  margin: 0;
+}
+.etk-saved-panel {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: 12px;
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+  /* the left box's legend rides on its top border (above the box), so nudge
+     this panel down to sit level with the fieldset's visible border, not its
+     legend text */
+  margin-top: 7px;
+}
+/* stack to one column on narrow screens */
+@media (max-width: 760px) {
+  .etk-vin-layout {
+    grid-template-columns: 1fr;
+  }
+  .etk-saved-panel {
+    position: static;
+    max-height: none;
+  }
+}
+/* Header sits inside the panel; padding tuned (measured) so the first saved row
+   lines up with the VIN input row on the left despite the fieldset's legend. */
+.etk-saved-head {
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--ink-dim);
+  padding: 8px 16px 6px;
+  line-height: 1;
+}
+.etk-saved-empty {
+  font-size: 12.5px;
+  color: var(--ink-dim);
+  padding: 0 14px 14px;
+}
+.etk-saved-row {
+  display: flex;
+  align-items: stretch;
+  border-top: 1px solid var(--line);
+}
+.etk-saved-open {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  text-align: left;
+  padding: 10px 14px;
+  background: none;
+  border: none;
+  color: var(--ink);
+  cursor: pointer;
+  font: inherit;
+}
+.etk-saved-open:hover {
+  background: rgba(127, 127, 127, 0.1);
+}
+.etk-saved-veh {
+  font-size: 13.5px;
+  color: var(--ink);
+}
+.etk-saved-vin {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: 0.04em;
+  color: var(--ink-dim);
+}
+.etk-saved-go {
+  margin: 0 14px 14px;
+  align-self: flex-start;
+}
+/* ETK-style "identify by attributes" group box */
+/* filter row: Brand dropdown + Auto/Moto + Main/Classic radios, like the
+   terminal's brand / product-type / catalogue-scope strip */
+.etk-idfilters {
+  display: flex;
+  align-items: center;
+  gap: 26px;
+  flex-wrap: wrap;
+  padding-bottom: 14px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+}
+.etk-idfilter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.etk-idfilter-brand .etk-sel {
+  width: 110px;
+}
+.etk-idflabel {
+  font-size: 11px;
+  color: var(--ink-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+.etk-idradio {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--ink);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.etk-idradio input {
+  margin: 0;
+}
+.etk-idreq {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--ink-faint);
+}
+.etk-idcol {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.etk-idlabel {
+  font-size: 11px;
+  color: var(--ink-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+/* ETK positioning: [Series+Chassis] | [Body + thumbnail] | [Model + dropdowns].
+   Three blocks across the top; the right block stacks Model over the dropdowns
+   so they tuck under Model exactly as the dealer terminal lays them out. */
+.etk-idlists {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(280px, 1.1fr) minmax(150px, 0.8fr) minmax(
+      220px,
+      1.2fr
+    );
+  align-items: start;
+}
+.etk-idpair {
+  display: grid;
+  grid-template-columns: 0.75fr 1fr;
+  gap: 10px;
+}
+.etk-idmid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.etk-idright {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.etk-lb {
+  height: 236px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 4px;
+}
+.etk-lb:focus {
+  outline: none;
+  border-color: var(--line-hover);
+}
+.etk-lb-row {
+  display: block;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  background: none;
+  border: none;
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 12.5px;
+  padding: 6px 8px;
+  border-radius: 5px;
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.etk-lb-row:hover {
+  background: rgba(127, 127, 127, 0.12);
+}
+.etk-lb-row.active {
+  background: var(--amber-glow);
+  color: var(--amber);
+  font-weight: 600;
+}
+.etk-lb-empty {
+  color: var(--ink-faint);
+  font-size: 12px;
+  padding: 8px;
+  text-align: center;
+}
+/* a placeholder car silhouette beneath the Body list (ETK shows a photo here) */
+.etk-idthumb {
+  height: 92px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='52' viewBox='0 0 120 52' fill='none' stroke='%23667' stroke-width='2'%3E%3Cpath d='M12 38h96M22 38a7 7 0 1 0 14 0 7 7 0 1 0-14 0M84 38a7 7 0 1 0 14 0 7 7 0 1 0-14 0M18 38l6-16a6 6 0 0 1 6-4h40a8 8 0 0 1 6 3l10 12M40 18v17M70 20v15'/%3E%3C/svg%3E")
+    center/auto 44px no-repeat;
+  opacity: 0.8;
+}
+/* real car photo swapped in (background set inline); the photos are dark cars
+   on white, so give them a white plate like the terminal's */
+.etk-idthumb-photo {
+  opacity: 1;
+  background-color: #fff !important;
+  background-origin: content-box !important;
+  padding: 6px;
+}
+/* the 2x2 dropdown block under Model: Steering | Gearbox / Year | Month */
+.etk-iddrops {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+/* custom select (matches the variant dropdown; replaces native <select>) */
+.etk-sel {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+}
+.etk-sel-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--ink);
+  font-family: var(--mono);
+  cursor: pointer;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+  text-align: left;
+}
+.etk-sel-btn:hover {
+  border-color: var(--line-hover);
+}
+.etk-sel-open .etk-sel-btn {
+  border-color: var(--amber);
+}
+.etk-sel-cur {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.etk-sel-cur.etk-sel-ph {
+  color: var(--ink-faint);
+}
+.etk-sel-caret {
+  color: var(--ink-faint);
+  flex: none;
+  font-size: 10px;
+}
+.etk-sel-disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+.etk-sel-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 60;
+  background: var(--panel);
+  border: 1px solid var(--line-hover);
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+  max-height: 300px;
+  overflow-y: auto;
+  padding: 4px;
+  scrollbar-width: thin;
+}
+.etk-sel-menu[hidden] {
+  display: none;
+}
+.etk-sel-opt {
+  display: block;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  background: none;
+  border: none;
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 12.5px;
+  padding: 7px 9px;
+  border-radius: 5px;
+  line-height: 1.3;
+}
+.etk-sel-opt:hover {
+  background: rgba(127, 127, 127, 0.12);
+}
+.etk-sel-opt.active {
+  background: var(--amber-glow);
+  color: var(--amber);
+}
+.etk-idfoot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 16px;
+  flex-wrap: wrap;
+}
+/* the Body and Model panes are shorter than Series/chassis (ETK's proportions):
+   the car image fills out the Body column, the 2x2 dropdowns the Model column */
+.etk-idmid .etk-lb {
+  height: 128px;
+}
+.etk-idright .etk-lb {
+  height: 116px;
+}
+.etk-idhint {
+  font-size: 13px;
+  color: var(--ink-dim);
+}
+@media (max-width: 900px) {
+  /* stack the three blocks; each keeps its internal layout */
+  .etk-idlists {
+    grid-template-columns: 1fr;
+  }
+  .etk-idright .etk-lb {
+    height: 160px;
+  }
+  .etk-idmid {
+    flex-direction: row;
+    align-items: flex-end;
+  }
+  .etk-idmid > .etk-idcol {
+    flex: 1;
+  }
+  .etk-idthumb {
+    flex: 1;
+  }
+}
+@media (max-width: 520px) {
+  .etk-idpair {
+    grid-template-columns: 0.75fr 1fr;
+  }
+  .etk-idmid {
+    flex-direction: column;
+  }
+}
+/* write-shaped jobs carry a small marker so the raw list still warns */
+.etk-lb-row.t32-row-write {
+  color: var(--red);
+}
+.etk-lb-row.t32-row-write.active {
+  color: var(--red);
+  background: rgba(255, 66, 66, 0.12);
+}
+/* ETK main-group icon grid -- ETK's "Search by Main Group" tiles: a number, a
+   thumbnail, and the group name. */
+.etk-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+  margin-top: 4px;
+}
+.etk-gcard {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  text-align: left;
+  cursor: pointer;
+  padding: 12px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  transition:
+    border-color 0.15s,
+    transform 0.1s;
+}
+.etk-gcard:hover {
+  border-color: var(--amber);
+  transform: translateY(-1px);
+}
+.etk-gnum {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--amber);
+  font-weight: 700;
+}
+.etk-gicon {
+  width: 100%;
+  height: 84px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.etk-gicon img {
+  max-width: 100%;
+  max-height: 84px;
+  object-fit: contain;
+}
+.etk-gname {
+  font-size: 12.5px;
+  color: var(--ink);
+  line-height: 1.3;
+}
+/* variant selector bar */
+.etk-variant-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 4px 0 16px;
+  padding: 10px 12px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.etk-variant-label {
+  font-size: 12.5px;
+  color: var(--ink-dim);
+  flex: none;
+}
+/* the variant picker: the fault lookup's dropdown skin (css/lookup.css),
+   stretched to the bar; amber when a variant is filtering */
+.etk-vdd {
+  flex: 1;
+  max-width: 520px;
+}
+.etk-vdd .lkd-btn {
+  width: 100%;
+}
+.etk-vdd .lkd-val.etk-vdd-filtered {
+  color: var(--amber);
+}
+/* ============================================================================
+   iOS-NATIVE MOBILE PASS
+   Below 760px BMWeb always runs the modern renderer (inpaMode() is forced off
+   in app.js). This block reshapes that renderer into the grammar of an Apple
+   system app -- large-title navigation, a lit instrument-cluster status
+   element, grouped inset lists, and the SF type ramp -- so the phone screen
+   reads as a native BMW app rather than a dark card website. Appended last so
+   it wins on specificity ties without !important gymnastics.
+   ========================================================================= */
+@media (max-width: 760px) {
+  /* the F-key bar stays hidden on these list screens (rule earlier in the
+     file); nothing here re-shows it. */
+
+  /* ---- ETK PARTS VIEWER (tree + diagram) --------------------------------
+     Same grammar as the WDS viewer on mobile: the split fills the view
+     exactly (the section screen renders nothing above it), and the panes
+     are EXCLUSIVE -- the tree of diagrams OR the open diagram, never both
+     squeezed side by side. data-pane (set by etk.js) picks which one;
+     opening a diagram switches to it, Back returns to the tree. Without
+     the explicit 100% fill, the split's desktop height maths left the
+     diagram pane a few lines tall inside a letterbox. */
+  .view:has(> .etk-split) {
+    padding: 8px 10px;
+  }
+  .etk-split {
+    height: 100%;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .etk-body {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0;
+    flex: 1;
+    min-height: 0;
+  }
+  .etk-body:not([data-pane='doc']) .etk-view {
+    display: none;
+  }
+  .etk-body[data-pane='doc'] .etk-nav {
+    display: none;
+  }
+  .etk-nav {
+    min-height: 0;
+  }
+  .etk-view {
+    overflow-y: auto;
+    min-height: 0;
+  }
+  /* A three-column table cannot fit a ~180px pane, so each part becomes a
+     two-line row: position + part number on the first line, description
+     wrapped beneath. The header row goes -- the lines are self-describing. */
+  .etk-parts {
+    font-size: 12px;
+  }
+  .etk-parts thead {
+    display: none;
+  }
+  .etk-parts,
+  .etk-parts tbody,
+  .etk-parts tr,
+  .etk-parts td {
+    display: block;
+  }
+  .etk-parts tr {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--line);
+  }
+  .etk-parts td {
+    padding: 0;
+    border: 0;
+  }
+  .etk-parts td.etk-pos {
+    display: inline;
+    width: auto;
+    margin-right: 8px;
+  }
+  .etk-parts td.etk-sachnr {
+    display: inline;
+    font-size: 11.5px;
+  }
+  .etk-name {
+    margin-top: 2px;
+  }
+}
+.etk-win-body {
+  padding: 12px;
+}
+:root .etk-win :is(.etk-fs, .etk-saved-panel) {
+  color: #000 !important;
+  background: transparent !important;
+  border: 1px solid var(--t32-sh) !important;
+  border-radius: 0 !important;
+  box-shadow:
+    inset 1px 1px 0 var(--t32-hi),
+    1px 1px 0 var(--t32-hi) !important;
+}
+:root .etk-win .etk-fs > legend,
+:root .etk-win .etk-saved-head {
+  padding: 0 4px;
+  font:
+    12px Tahoma,
+    'Segoe UI',
+    sans-serif;
+  letter-spacing: 0;
+  text-transform: none;
+  color: #000 !important;
+  background: var(--t32-face) !important;
+  border: 0 !important;
+}
+:root
+  .etk-win
+  :is(
+    .etk-vin-label,
+    .etk-idflabel,
+    .etk-idlabel,
+    .etk-vin-hint,
+    .etk-vin-note,
+    .etk-idhint,
+    .etk-idreq,
+    .etk-idradio
+  ) {
+  font:
+    12px Tahoma,
+    'Segoe UI',
+    sans-serif;
+  letter-spacing: 0;
+  text-transform: none;
+  color: #000 !important;
+}
+:root .etk-win :is(.etk-vin-hint, .etk-vin-note, .etk-idhint, .etk-idreq) {
+  color: #444 !important;
+}
+:root .etk-win .etk-vin-input {
+  height: 24px;
+  padding: 0 6px;
+  font:
+    13px Tahoma,
+    'Segoe UI',
+    sans-serif;
+  letter-spacing: 0;
+  text-transform: none;
+  color: #000 !important;
+  background: #fff !important;
+  border: 1px solid #7a7a7a !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+:root .etk-win .etk-vin-go {
+  height: 24px;
+  min-width: 72px;
+  padding: 0 14px;
+  font:
+    12px Tahoma,
+    'Segoe UI',
+    sans-serif;
+  color: #000 !important;
+  background: linear-gradient(#f6f6f6, #dddddd) !important;
+  border: 1px solid #707070 !important;
+  border-radius: 3px !important;
+  box-shadow: none !important;
+}
+:root .etk-win .etk-vin-go:hover {
+  background: linear-gradient(#eaf6fd, #bee6fd) !important;
+  border-color: #3c7fb1 !important;
+}
+:root .etk-win .etk-sel-btn {
+  min-height: 22px;
+  padding: 2px 8px;
+  font:
+    12px Tahoma,
+    'Segoe UI',
+    sans-serif;
+  color: #000 !important;
+  background: #fff !important;
+  border: 1px solid #7a7a7a !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+:root .etk-win :is(.etk-sel-ph, .etk-sel-caret) {
+  color: #444 !important;
+}
+:root .etk-win .etk-sel-menu {
+  background: #fff !important;
+  border: 1px solid #828790 !important;
+  border-radius: 0 !important;
+  box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3) !important;
+}
+:root .etk-win .etk-sel-opt {
+  font:
+    12px Tahoma,
+    'Segoe UI',
+    sans-serif;
+  color: #000 !important;
+  border-radius: 0 !important;
+}
+:root .etk-win .etk-sel-opt:hover {
+  color: #fff !important;
+  background: var(--t32-sel) !important;
+}
+/* Windows option buttons, drawn rather than themed */
+:root .etk-win .etk-idradio input {
+  appearance: none;
+  width: 13px;
+  height: 13px;
+  margin: 0;
+  background: #fff !important;
+  border: 1px solid #333 !important;
+  border-radius: 50% !important;
+  box-shadow: none !important;
+}
+:root .etk-win .etk-idradio input:checked {
+  background: radial-gradient(circle, #000 0 2.5px, #fff 3px) !important;
+}
+:root .etk-win .etk-idradio input::after {
+  display: none;
+}
+:root .etk-win .etk-lb {
+  color: #000 !important;
+  background: #fff !important;
+  border: 1px solid #828790 !important;
+  border-radius: 0 !important;
+}
+:root .etk-win .etk-saved-row {
+  color: #000 !important;
+  background: none !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+}
+:root .etk-win .etk-saved-open {
+  color: #000 !important;
+  background: none !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  font-family: Tahoma, 'Segoe UI', sans-serif;
+}
+:root .etk-win .etk-saved-row:hover {
+  color: #fff !important;
+  background: var(--t32-sel) !important;
+}
+:root .etk-win .etk-saved-row:hover * {
+  color: #fff !important;
+}
+:root .etk-win :is(.etk-saved-veh, .etk-saved-vin, .etk-saved-empty) {
+  font-family: Tahoma, 'Segoe UI', sans-serif;
+  color: inherit !important;
+}
+.bmweb-cursor .etk-parts td,
+.bmweb-cursor .etk-dtitle,
+.bmweb-cursor .etk-sachnr,
+.bmweb-cursor .etk-name {
+  cursor: text !important;
+}
+.bmweb-cursor .etk-figure,
+.bmweb-cursor .etk-lightbox-img {
+  cursor: zoom-in !important;
+}

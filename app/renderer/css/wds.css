@@ -1,0 +1,375 @@
+/* The wds screen's rules, moved out of styles.css; linked after it. */
+
+/* WDS (classic) frame: tabs read as light chrome to match the grey toolbar */
+.wds-frame .wiring-tabs {
+  padding: 4px 6px 0;
+  background: #808080;
+  margin-bottom: 0;
+}
+.wds-frame .wiring-tab {
+  background: #d4d0c8;
+  border-color: #c0c0c0;
+  color: #202020;
+  border-radius: 0;
+}
+.wds-frame .wiring-tab.active {
+  background: #f0f0f0;
+  box-shadow: inset 0 2px 0 #003a8c;
+}
+.wds-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  background: #808080;
+  flex: none;
+}
+/* the placeholder is part of the white pane here, not a floating card */
+.wds-frame .empty {
+  border: none;
+  background: none;
+  margin: 0;
+  border-radius: 0;
+}
+.wds-nav-pair {
+  display: flex;
+  gap: 6px;
+  margin-left: 26px;
+}
+.wds-help {
+  margin-left: auto;
+}
+/* Win95-era raised button: light top/left, dark bottom/right */
+.wds-btn {
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  color: #000;
+  background: #c0c0c0;
+  cursor: pointer;
+  padding: 7px 18px;
+  border: 2px solid;
+  border-color: #ffffff #404040 #404040 #ffffff;
+  box-shadow:
+    inset 1px 1px 0 #dfdfdf,
+    inset -1px -1px 0 #808080;
+}
+.wds-btn:active {
+  border-color: #404040 #ffffff #ffffff #404040;
+  box-shadow: inset 1px 1px 0 #808080;
+}
+.wds-btn-sq {
+  padding: 7px 12px;
+  min-width: 40px;
+}
+.wds-titlebar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #808080;
+  color: #4da6ff;
+  flex: none;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 17px;
+  font-weight: 700;
+  padding: 2px 14px 8px;
+}
+.wds-version {
+  font-size: 15px;
+}
+/* the panes: white, sunken, separated by the grey frame */
+.wds-frame .wiring-nav,
+.wds-frame .wiring-view {
+  background: #fff;
+  border: 2px solid;
+  border-color: #404040 #ffffff #ffffff #404040;
+  padding: 0;
+  min-height: 0;
+}
+.wds-frame .wiring-nav {
+  margin-right: 4px;
+}
+.wds-frame .wiring-tree {
+  padding: 6px 4px;
+}
+.wds-frame .wiring-folder,
+.wds-frame .wiring-leaf {
+  color: #000;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 12.5px;
+}
+.wds-frame .wiring-folder {
+  color: #333;
+}
+.wds-frame .wiring-folder:hover,
+.wds-frame .wiring-leaf:hover {
+  background: #cde0ff;
+}
+.wds-frame .wiring-trail {
+  color: #666;
+}
+.wds-frame .wiring-bar {
+  border-bottom: 1px solid #c0c0c0;
+  background: #f0f0f0;
+}
+.wds-frame .wiring-title {
+  color: #000;
+}
+.wds-frame .wiring-kind {
+  color: #555;
+}
+.wds-frame .wiring-doc {
+  color: #000;
+}
+.wds-frame .wiring-doc h2 {
+  color: #0066cc;
+}
+.wds-frame .wiring-doc h3 {
+  color: #333;
+}
+.wds-frame .empty,
+.wds-frame .empty div {
+  color: #333;
+}
+/* WDS's series-selection page (the wiring picker in the classic layout):
+   its toolbar and title bar, the "Series selection" bar, then a white page
+   of captioned picture tiles */
+.view:has(> .wds-series) {
+  padding: 0;
+}
+.wds-series {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  background: #fff;
+}
+.wds-sectionbar {
+  flex: none;
+  padding: 5px 10px;
+  font:
+    bold 15px Arial,
+    Helvetica,
+    sans-serif;
+  color: #fff;
+  background: #4d4d4d;
+}
+.wds-series-body {
+  flex: 1;
+  padding: 26px 52px 40px;
+  color: #000;
+  background: #fff;
+}
+.wds-series-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 18px;
+  font:
+    16px Arial,
+    Helvetica,
+    sans-serif;
+}
+.wds-series-body .wiring-vin,
+.wds-series-body .etk-idcard {
+  margin-bottom: 26px;
+}
+/* the VIN entry as one more WDS button, not a modern card */
+:root .wds-series-body .wiring-vin-entry {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  width: auto;
+  max-width: 520px;
+  margin-bottom: 30px;
+  padding: 7px 16px;
+  font-family: Arial, Helvetica, sans-serif;
+  color: #000 !important;
+  background: #c0c0c0 !important;
+  border: 2px solid !important;
+  border-color: #ffffff #404040 #404040 #ffffff !important;
+  border-radius: 0 !important;
+  box-shadow:
+    inset 1px 1px 0 #dfdfdf,
+    inset -1px -1px 0 #808080 !important;
+}
+:root .wds-series-body .wiring-vin-entry:active {
+  border-color: #404040 #ffffff #ffffff #404040 !important;
+}
+:root .wds-series-body .wiring-vin-entry * {
+  color: #000 !important;
+}
+:root .wds-series-body .wiring-vin-entry-title {
+  font:
+    bold 13px Arial,
+    Helvetica,
+    sans-serif;
+}
+:root .wds-series-body .wiring-vin-entry-desc {
+  font:
+    12px Arial,
+    Helvetica,
+    sans-serif;
+  color: #333 !important;
+}
+.wds-series-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(152px, 1fr));
+  gap: 56px 64px;
+}
+.wds-car {
+  display: flex;
+  flex-direction: column;
+  width: 152px;
+  padding: 0;
+  cursor: pointer;
+  background: #fff;
+  border: 1px solid #555;
+}
+.wds-car:hover,
+.wds-car:focus-visible {
+  outline: 2px solid #4da6ff;
+  outline-offset: 1px;
+}
+.wds-car-cap {
+  padding: 2px 6px;
+  font:
+    bold 15px Arial,
+    Helvetica,
+    sans-serif;
+  color: #fff;
+  text-align: center;
+  white-space: nowrap;
+  background: #6e6e6e;
+}
+.wds-car-pic {
+  display: grid;
+  place-items: center;
+  height: 80px;
+  background: linear-gradient(#f4f6fa, #c9d0dc);
+}
+.wds-car-pic img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.wds-car-svg {
+  width: 136px;
+  height: 60px;
+}
+.wds-footer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 14px;
+  background: #808080;
+  flex: none;
+}
+.wds-searchlabel {
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  color: #000;
+}
+.wds-input {
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 13px;
+  color: #000;
+  background: #fff;
+  padding: 5px 7px;
+  width: 210px;
+  border: 2px solid;
+  border-color: #404040 #ffffff #ffffff #404040;
+}
+.wds-input:focus {
+  outline: 1px solid #0066cc;
+}
+.wds-zoomgroup {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+.wds-zoomgroup .wds-btn {
+  font-size: 15px;
+  line-height: 1;
+}
+.wds-help-doc {
+  max-width: 70ch;
+}
+.wds-help-doc ul {
+  margin: 0 0 12px;
+  padding-left: 22px;
+}
+.wds-help-doc li {
+  margin-bottom: 5px;
+}
+.wds-help-doc .wiring-dot {
+  display: inline-block;
+  margin-right: 3px;
+}
+/* WDS pane buttons: hand the window to the tree, the document, or both.
+   A schematic is very wide, so "document only" is the one that earns its
+   place; the choice persists across documents and sessions. */
+.wds-panegroup {
+  display: flex;
+  gap: 6px;
+  margin-left: 26px;
+}
+.wds-pane {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.wds-pane.active {
+  border-color: #404040 #ffffff #ffffff #404040;
+  box-shadow: inset 1px 1px 0 #808080;
+  background: #b0b8c8;
+}
+/* the WDS screen supplies its own footer, so the app's F-key bar steps
+   aside and the frame takes the height it leaves */
+body.wds-nofkeys .fkeybar {
+  display: none;
+}
+body.wds-nofkeys .view {
+  inset: 56px 0 0 0;
+}
+/* the WDS frame keeps its own palette */
+.wds-frame .wiring-loading {
+  color: #333;
+}
+.wds-frame .wiring-vin-entry {
+  background: #f0f0f0;
+  border-color: #c0c0c0;
+}
+.wds-frame .wiring-vin-entry-title {
+  color: #000;
+}
+.wds-frame .wiring-vinbanner {
+  background: #f0f0f0;
+  border-color: #c0c0c0;
+}
+.wds-frame .wiring-vinbanner-desc {
+  color: #000;
+}
+.wds-frame .wiring-vinseg-btn.active {
+  background: #000080;
+  color: #fff;
+}
+/* ============================================================ mobile
+   A PHONE IS A REAL TARGET NOW. The single-file export runs on iOS and
+   Android next to the car, over the adapter's own WebSocket, with no
+   laptop -- so the layout has to survive 390px, not just tolerate it.
+
+   Three things break at that width, and only three: the topbar's four
+   columns, the fixed chrome insets that leave no room for content, and
+   the F-key bar's ten columns. The content grids already use
+   auto-fill/minmax and reflow on their own.
+
+   Touch, not mouse: hover states mean nothing, and anything tappable
+   wants ~44px of height (Apple's HIG figure, and about right for a
+   thumb in a cold garage). */
+@media (max-width: 760px) {
+  body.wds-nofkeys .view {
+    inset: calc(var(--safe-top) + var(--bar-h)) var(--safe-right)
+      var(--safe-bottom) var(--safe-left);
+  }
+}

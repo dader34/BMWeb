@@ -1,3 +1,300 @@
+/* the Lookup rules that lived in styles.css, moved here before this file's own (the load order they had). */
+
+/* the tiles are a desktop shape; the mobile breakpoint keeps its grouped list */
+@media (min-width: 761px) {
+  .apps-list .lookup-entry {
+    margin-top: 0;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 16px 16px 14px;
+    min-width: 0;
+  }
+  .apps-list .lookup-entry-icon {
+    width: 40px;
+    height: 40px;
+    font-size: 22px;
+  }
+  .apps-list .lookup-entry-text {
+    gap: 6px;
+    min-width: 0;
+  }
+  .apps-list .lookup-entry-title {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    font-size: 15px;
+    line-height: 1.25;
+  }
+  .apps-list .lookup-entry-desc {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .apps-list .lookup-entry-arrow {
+    margin-top: 2px;
+    align-self: flex-end;
+  }
+}
+/* ============================================================ mobile
+   A PHONE IS A REAL TARGET NOW. The single-file export runs on iOS and
+   Android next to the car, over the adapter's own WebSocket, with no
+   laptop -- so the layout has to survive 390px, not just tolerate it.
+
+   Three things break at that width, and only three: the topbar's four
+   columns, the fixed chrome insets that leave no room for content, and
+   the F-key bar's ten columns. The content grids already use
+   auto-fill/minmax and reflow on their own.
+
+   Touch, not mouse: hover states mean nothing, and anything tappable
+   wants ~44px of height (Apple's HIG figure, and about right for a
+   thumb in a cold garage). */
+@media (max-width: 760px) {
+  body:has(.lookup-controls) .fkeybar {
+    display: none !important;
+  }
+  body:has(.lookup-controls) .view {
+    bottom: calc(58px + var(--safe-bottom)) !important;
+  }
+}
+/* ============================================================================
+   iOS-NATIVE MOBILE PASS
+   Below 760px BMWeb always runs the modern renderer (inpaMode() is forced off
+   in app.js). This block reshapes that renderer into the grammar of an Apple
+   system app -- large-title navigation, a lit instrument-cluster status
+   element, grouped inset lists, and the SF type ramp -- so the phone screen
+   reads as a native BMW app rather than a dark card website. Appended last so
+   it wins on specificity ties without !important gymnastics.
+   ========================================================================= */
+@media (max-width: 760px) {
+  /* ---- GROUPED INSET LIST (Fault Lookup / Wiring = iOS Settings rows) ----
+     Consecutive .lookup-entry buttons read as one grouped card with hairline
+     separators, a leading glyph in a rounded tile, and a chevron. */
+  /* Grouping keys off the CLASS, not :first/:last-of-type -- those resolve
+     against the element TYPE (button), and the filter chips are buttons too,
+     so a type selector grouped the wrong elements. A lookup-entry NOT preceded
+     by one is the group's top; one NOT followed by one is its bottom. */
+  .lookup-entry {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    width: 100%;
+    padding: 14px 16px;
+    margin: 0;
+    text-align: left;
+    background: var(--ios-surface);
+    border: 0.5px solid var(--ios-hair);
+    border-bottom-width: 0;
+    border-radius: 0;
+  }
+  :not(.lookup-entry) + .lookup-entry {
+    border-top-left-radius: 14px;
+    border-top-right-radius: 14px;
+  }
+  .lookup-entry:not(:has(+ .lookup-entry)) {
+    border-bottom-width: 0.5px;
+    border-bottom-left-radius: 14px;
+    border-bottom-right-radius: 14px;
+    /* a group's last row (or a lone card like Apps / VIN Decoder) must not
+       sit flush against whatever follows -- filter chips, chassis list */
+    margin-bottom: 18px;
+  }
+  /* hairline separator that stops short of the glyph, the iOS inset rule */
+  .lookup-entry:has(+ .lookup-entry)::after {
+    content: '';
+    position: absolute;
+    left: 62px;
+    right: 0;
+    bottom: 0;
+    height: 0.5px;
+    background: var(--ios-hair);
+  }
+  .lookup-entry:active {
+    background: var(--ios-surface-2);
+  }
+  .lookup-entry-icon {
+    flex: 0 0 auto;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 17px;
+    color: #1a1206;
+    background: linear-gradient(180deg, #ffb95a, var(--ios-amber));
+  }
+  .lookup-entry-text {
+    flex: 1;
+    min-width: 0;
+  }
+  .lookup-entry-title {
+    font-size: 17px;
+    font-weight: 500;
+    color: var(--ios-text);
+    display: block;
+  }
+  .lookup-entry-desc {
+    font-size: 13px;
+    color: var(--ios-dim);
+    display: block;
+    margin-top: 1px;
+    white-space: normal;
+  }
+  .lookup-entry-arrow {
+    flex: 0 0 auto;
+    color: var(--ios-faint);
+    font-size: 18px;
+    font-weight: 600;
+  }
+  .lookup-entry:focus-visible {
+    outline: 2px solid var(--ios-amber);
+    outline-offset: -2px;
+  }
+}
+:root .js-win .lookup-controls {
+  gap: 8px;
+  align-items: center;
+  margin: 0;
+}
+:root .js-win .lookup-search {
+  flex: 1 1 260px;
+  min-width: 200px;
+  background: #fff !important;
+  border: 1px solid #7a7a7a !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+:root .js-win .lookup-search-icon {
+  color: #444 !important;
+}
+:root .js-win .lookup-input {
+  padding: 4px 6px;
+  font:
+    12px Tahoma,
+    'Segoe UI',
+    sans-serif;
+  color: #000 !important;
+}
+:root .js-win .lookup-input::placeholder {
+  color: #8d8d8d !important;
+}
+:root .js-win .lookup-clear {
+  color: #000 !important;
+  background: none !important;
+  border: 0 !important;
+}
+:root .js-win .lookup-filter {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+}
+:root .js-win .lookup-filter-lbl {
+  font:
+    12px Tahoma,
+    'Segoe UI',
+    sans-serif;
+  letter-spacing: 0;
+  text-transform: none;
+  color: #000 !important;
+}
+:root .lk-win .lookup-results {
+  min-height: 220px;
+  max-height: min(62vh, 640px);
+  overflow: auto;
+  padding: 6px;
+  color: #000;
+  background: #fff;
+  border: 1px solid #828790;
+}
+:root .lk-win .lookup-group {
+  /* a flex child of the scrolling list: never squashed below its rows (the
+     list scrolls instead) */
+  flex: none;
+  margin: 0 0 8px;
+  background: none !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+:root .lk-win .lookup-group-head {
+  padding: 2px 6px;
+  background: var(--t32-face) !important;
+  border: 1px solid var(--t32-sh) !important;
+  border-radius: 0 !important;
+  box-shadow: inset 1px 1px 0 var(--t32-hi) !important;
+}
+:root .lk-win :is(.lookup-group-name, .lookup-group-count, .lookup-group-sgbd) {
+  font:
+    12px Tahoma,
+    'Segoe UI',
+    sans-serif;
+  letter-spacing: 0;
+  text-transform: none;
+  color: #000 !important;
+}
+:root .lk-win .lookup-group-name {
+  font-weight: bold;
+}
+:root .lk-win .lookup-rows {
+  border: 0 !important;
+}
+:root .lk-win .lookup-row {
+  padding: 2px 6px;
+  font:
+    12px Tahoma,
+    'Segoe UI',
+    sans-serif;
+  color: #000 !important;
+  background: none !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  cursor: default;
+}
+:root .lk-win .lookup-row:hover {
+  color: #fff !important;
+  background: var(--t32-sel) !important;
+}
+:root .lk-win .lookup-row:hover * {
+  color: #fff !important;
+}
+:root .lk-win :is(.lookup-code, .lookup-hex, .lookup-pcode) {
+  color: #000080 !important;
+  background: none !important;
+  border: 0 !important;
+}
+:root .lk-win :is(.lookup-en, .lookup-more) {
+  color: #000 !important;
+}
+:root .lk-win .lookup-chip {
+  color: #000 !important;
+  background: var(--t32-face) !important;
+  border: 1px solid var(--t32-sh) !important;
+  border-radius: 0 !important;
+}
+:root .js-win-status .lookup-count {
+  flex: 1;
+  margin: 0;
+  padding: 1px 6px;
+  font:
+    12px Tahoma,
+    'Segoe UI',
+    sans-serif;
+  letter-spacing: 0;
+  text-transform: none;
+  color: #000 !important;
+  box-shadow:
+    inset 1px 1px 0 var(--t32-sh),
+    inset -1px -1px 0 var(--t32-hi);
+}
+.js-win-status .lookup-count:empty::before {
+  content: 'Ready';
+}
+
 /* Fault Lookup screen (lookup.js): entry button, search + filter controls,
    the custom module dropdown (lkd), grouped results, and the ISTA fault-detail
    modal (fm/fi). Split out of styles.css to keep both files readable. */

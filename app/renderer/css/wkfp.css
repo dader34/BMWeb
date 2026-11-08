@@ -1,0 +1,850 @@
+/* The wkfp screen's rules, moved out of styles.css; linked after it. */
+
+/* WebKFP's programming, followed around BMWeb: the app's own look, since
+   it sits on every other screen while a module is being programmed */
+.wkfp-badge {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 50;
+  padding: 8px 14px;
+  font: 600 12px var(--mono);
+  color: var(--ink);
+  background: var(--bg);
+  border: 1px solid var(--amber);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+}
+.wkfp-badge:hover {
+  color: var(--amber);
+}
+/* WebKFP: WinKFP 5.3's window -- a classic Windows dialog in its own grey,
+   whatever the app's theme, because it is drawn to look like the tool. */
+.wkfp-win {
+  --wk-face: #f0f0f0;
+  --wk-hi: #ffffff;
+  --wk-sh: #a0a0a0;
+  --wk-dk: #696969;
+  --wk-ink: #000000;
+  --wk-dis: #8d8d8d;
+  --wk-sel: #3399ff;
+  position: relative;
+  max-width: 740px;
+  margin: 8px auto 24px;
+  background: var(--wk-face);
+  color: var(--wk-ink);
+  font:
+    12px Tahoma,
+    'Segoe UI',
+    Verdana,
+    sans-serif;
+  border: 1px solid var(--wk-dk);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+  /* its text copies like the rest of the app's; the bars and buttons do not */
+  /* the app's dark scheme and amber accent stop at the window's edge */
+  color-scheme: light;
+  accent-color: #0078d7;
+}
+/* classic Windows check boxes and option buttons, drawn rather than left
+   to the browser so no theme reaches them */
+.wkfp-win input[type='checkbox'],
+.wkfp-win input[type='radio'] {
+  appearance: none;
+  flex: none;
+  width: 13px;
+  height: 13px;
+  margin: 0;
+  background: #fff center / 11px 11px no-repeat;
+  border: 1px solid #333;
+}
+.wkfp-win input[type='radio'] {
+  border-radius: 50%;
+}
+.wkfp-win input[type='checkbox']:checked {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 11 11'%3E%3Cpath d='M2 5.5l2.2 2.2L9 2.8' fill='none' stroke='%23000' stroke-width='1.6'/%3E%3C/svg%3E");
+}
+.wkfp-win input[type='radio']:checked {
+  background-image: radial-gradient(circle, #000 0 2.5px, transparent 3px);
+  background-size: auto;
+}
+.wkfp-win input[type='checkbox']:disabled,
+.wkfp-win input[type='radio']:disabled {
+  background-color: #f4f4f4;
+  border-color: #bcbcbc;
+}
+.wkfp-win input[type='checkbox']:disabled:checked {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 11 11'%3E%3Cpath d='M2 5.5l2.2 2.2L9 2.8' fill='none' stroke='%23a0a0a0' stroke-width='1.6'/%3E%3C/svg%3E");
+}
+.wkfp-win input[type='checkbox']:focus-visible,
+.wkfp-win input[type='radio']:focus-visible {
+  outline: 1px dotted #000;
+  outline-offset: 2px;
+}
+.wkfp-win select:focus-visible,
+.wkfp-win .wkfp-input:focus-visible {
+  outline: none;
+  border-color: #0078d7;
+}
+.wkfp-win button,
+.wkfp-win input,
+.wkfp-win select {
+  font: inherit;
+  color: inherit;
+}
+.wkfp-titlebar {
+  user-select: none;
+  -webkit-user-select: none;
+  background: linear-gradient(#5b5b5b, #3a3a3a);
+  color: #fff;
+  font-weight: bold;
+  font-size: 13px;
+  padding: 6px 8px;
+}
+.wkfp-menubar {
+  user-select: none;
+  -webkit-user-select: none;
+  position: relative;
+  display: flex;
+  gap: 2px;
+  padding: 2px 4px;
+  border-bottom: 1px solid var(--wk-sh);
+  min-height: 22px;
+}
+.wkfp-menu,
+.wkfp-drop-item {
+  background: none;
+  border: 0;
+  padding: 3px 8px;
+  cursor: default;
+  text-align: left;
+}
+.wkfp-menu:hover,
+.wkfp-drop-item:not(:disabled):hover {
+  background: var(--wk-sel);
+  color: #fff;
+}
+.wkfp-drop {
+  position: absolute;
+  top: 100%;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  min-width: 190px;
+  padding: 2px;
+  background: var(--wk-face);
+  border: 1px solid var(--wk-sh);
+  box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+}
+.wkfp-drop-item:disabled {
+  color: var(--wk-dis);
+}
+.wkfp-drop-sep {
+  height: 0;
+  margin: 3px 2px;
+  border-top: 1px solid var(--wk-sh);
+  border-bottom: 1px solid var(--wk-hi);
+}
+.wkfp-client {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+}
+.wkfp-panel {
+  margin: 0;
+  padding: 10px 14px;
+  border: 1px solid var(--wk-sh);
+  box-shadow:
+    inset 1px 1px 0 var(--wk-hi),
+    1px 1px 0 var(--wk-hi);
+}
+.wkfp-info {
+  padding: 16px 20px 12px;
+}
+.wkfp-grid {
+  display: grid;
+  grid-template-columns: 205px 1fr;
+  row-gap: 6px;
+}
+.wkfp-ifrow {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 14px;
+  padding-right: 160px;
+}
+.wkfp-msgpanel {
+  min-height: 130px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.wkfp-pabd {
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  row-gap: 8px;
+  margin: 18px 0 0 165px;
+}
+.wkfp-pabd[hidden] {
+  display: none;
+}
+.wkfp-stage {
+  min-height: 1.3em;
+}
+.wkfp-progpanel {
+  min-height: 58px;
+  display: flex;
+  align-items: center;
+}
+.wkfp-bar {
+  position: relative;
+  flex: 1;
+  height: 36px;
+  background: #fff;
+  border: 1px solid var(--wk-sh);
+}
+.wkfp-bar[hidden] {
+  display: none;
+}
+.wkfp-bar-fill {
+  height: 100%;
+  width: 0;
+  background: #0000ff;
+}
+.wkfp-bar-text {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-weight: bold;
+  color: #fff;
+  mix-blend-mode: difference;
+}
+.wkfp-fkeys {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  row-gap: 12px;
+  padding: 14px 20px;
+}
+.wkfp-fkey {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.wkfp-btn {
+  min-width: 96px;
+  height: 24px;
+  padding: 0 10px;
+  background: linear-gradient(#f6f6f6, #dddddd);
+  border: 1px solid #707070;
+  border-radius: 3px;
+  cursor: default;
+}
+.wkfp-btn:not(:disabled):hover {
+  background: linear-gradient(#eaf6fd, #bee6fd);
+  border-color: #3c7fb1;
+}
+.wkfp-btn:disabled {
+  color: var(--wk-dis);
+  border-color: #adb2b5;
+  background: #f4f4f4;
+}
+.wkfp-btn:focus-visible {
+  outline: 1px dotted #000;
+  outline-offset: -4px;
+}
+.wkfp-statusbar {
+  display: flex;
+  gap: 4px;
+  padding: 3px 4px;
+  border-top: 1px solid var(--wk-sh);
+}
+.wkfp-statusbar #wkfp-status {
+  flex: 1;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.wkfp-lock {
+  padding: 0 4px;
+  color: var(--wk-dis);
+  border-left: 1px solid var(--wk-sh);
+}
+/* the dialogs */
+.wkfp-shade {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.08);
+}
+.wkfp-dlg {
+  min-width: 260px;
+  max-width: calc(100% - 24px);
+  background: var(--wk-face);
+  border: 1px solid var(--wk-dk);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+}
+.wkfp-dlg-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 4px 4px 8px;
+  background: #fff;
+  border-bottom: 1px solid #ddd;
+}
+/* the title bar moves the dialog (wkfpDraggable) */
+.wkfp-dlg-title.wkfp-drag {
+  cursor: move;
+  touch-action: none;
+  user-select: none;
+}
+.wkfp-x {
+  width: 28px;
+  height: 20px;
+  background: none;
+  border: 0;
+}
+.wkfp-x:hover {
+  background: #e81123;
+  color: #fff;
+}
+.wkfp-dlg-body {
+  padding: 14px;
+}
+.wkfp-dlg-btns {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 10px 14px;
+}
+.wkfp-msg .wkfp-dlg-body {
+  background: #fff;
+  padding: 22px 26px;
+}
+.wkfp-msg-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.wkfp-msg-text {
+  white-space: pre-wrap;
+  max-width: 440px;
+  padding-top: 6px;
+  user-select: text;
+}
+.wkfp-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  color: #fff;
+  font:
+    bold 17px Georgia,
+    serif;
+}
+.wkfp-icon-info {
+  background: radial-gradient(circle at 35% 30%, #6fa8ff, #1f5fcf);
+}
+.wkfp-icon-question {
+  background: radial-gradient(circle at 35% 30%, #6fa8ff, #1f5fcf);
+}
+.wkfp-icon-error {
+  background: radial-gradient(circle at 35% 30%, #ff6b5b, #c41e0e);
+  font-family: inherit;
+}
+.wkfp-icon-warn {
+  background: #f1c40f;
+  color: #000;
+  border-radius: 3px;
+}
+.wkfp-input {
+  height: 22px;
+  padding: 0 4px;
+  background: #fff;
+  border: 1px solid #7a7a7a;
+}
+.wkfp-input:disabled {
+  background: #f4f4f4;
+  color: #6d6d6d;
+}
+.wkfp-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.wkfp-vin {
+  width: 200px;
+  font-family: var(--mono);
+  letter-spacing: 0.05em;
+}
+.wkfp-choose {
+  display: grid;
+  grid-template-columns: 130px 110px 1fr;
+  gap: 12px;
+  min-width: 520px;
+}
+.wkfp-choose label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.wkfp-choose select {
+  height: 220px;
+  background: #fff;
+  border: 1px solid #7a7a7a;
+}
+.wkfp-choose-file {
+  grid-template-columns: 130px 1fr;
+  min-width: 420px;
+}
+.wkfp-pick {
+  min-width: 260px;
+  height: 240px;
+  background: #fff;
+  border: 1px solid #7a7a7a;
+}
+.wkfp-adr-in {
+  width: 48px;
+  font-family: var(--mono);
+}
+.wkfp-hint {
+  margin-top: 8px;
+}
+.wkfp-expfiles {
+  grid-template-columns: 90px 1fr;
+  margin-top: 0;
+}
+.wkfp-nofile {
+  color: var(--wk-dis);
+}
+.wkfp-err {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 620px;
+  max-width: 100%;
+}
+.wkfp-err-head {
+  min-height: 90px;
+  padding: 8px;
+  border: 1px solid var(--wk-sh);
+  box-shadow: inset 1px 1px 0 var(--wk-dk);
+}
+.wkfp-list {
+  height: 200px;
+  overflow: auto;
+  background: #fff;
+  border: 1px solid #828790;
+  user-select: text;
+}
+.wkfp-list table {
+  border-collapse: collapse;
+  white-space: nowrap;
+}
+.wkfp-list th {
+  position: sticky;
+  top: 0;
+  padding: 2px 6px;
+  text-align: left;
+  font-weight: normal;
+  background: #fff;
+  border-right: 1px solid #e5e5e5;
+  border-bottom: 1px solid #e5e5e5;
+}
+.wkfp-list td {
+  padding: 1px 6px;
+}
+.wkfp-ext {
+  display: none;
+}
+.wkfp-extended .wkfp-ext {
+  display: table-cell;
+}
+.wkfp-views {
+  display: flex;
+  gap: 40px;
+}
+.wkfp-logview {
+  width: 640px;
+  max-width: 100%;
+  height: 340px;
+  margin: 0;
+  overflow: auto;
+  padding: 6px;
+  background: #fff;
+  border: 1px solid #828790;
+  font: 11px var(--mono);
+  user-select: text;
+}
+.wkfp-ini {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 560px;
+  max-width: 100%;
+}
+.wkfp-group {
+  padding: 10px 14px;
+  border: 1px solid var(--wk-sh);
+  box-shadow:
+    inset 1px 1px 0 var(--wk-hi),
+    1px 1px 0 var(--wk-hi);
+}
+.wkfp-lang {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 40px;
+}
+.wkfp-ini-cols {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 10px;
+}
+.wkfp-ini-cols .wkfp-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.wkfp-cb {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.wkfp-off {
+  color: var(--wk-dis);
+}
+.wkfp-gap {
+  height: 6px;
+}
+.wkfp-levels {
+  display: flex;
+  justify-content: center;
+  gap: 30px;
+}
+.wkfp-levels label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.wkfp-dir {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-bottom: 8px;
+}
+.wkfp-dir > div {
+  display: flex;
+  gap: 8px;
+}
+.wkfp-dir .wkfp-input {
+  flex: 1;
+}
+.wkfp-dir .wkfp-btn {
+  min-width: 36px;
+}
+@media (max-width: 640px) {
+  .wkfp-grid {
+    grid-template-columns: 1fr;
+  }
+  .wkfp-ifrow {
+    flex-direction: column;
+    padding-right: 0;
+  }
+  .wkfp-pabd {
+    margin-left: 0;
+  }
+  .wkfp-fkeys {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .wkfp-choose {
+    grid-template-columns: 1fr 1fr;
+    min-width: 0;
+  }
+  .wkfp-choose-pos {
+    display: none !important;
+  }
+  .wkfp-ini-cols {
+    grid-template-columns: 1fr;
+  }
+}
+.wkfp-win:fullscreen {
+  display: flex;
+  flex-direction: column;
+  max-width: none;
+  width: 100%;
+  margin: 0;
+  overflow: auto;
+  border: 0;
+  box-shadow: none;
+}
+:is(.wkfp-win:fullscreen, .win-max) .wkfp-client {
+  flex: 1;
+}
+:is(.wkfp-win:fullscreen, .win-max) :is(.wkfp-msgpanel, .ncs-msgpanel) {
+  flex: 1;
+}
+.ncs-win .wkfp-client {
+  gap: 6px;
+}
+.ncs-fkeys .wkfp-fkey {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 5px;
+}
+.ncs-fkeys .wkfp-fkey > span {
+  font-size: 11px;
+  color: #444;
+}
+.ncs-fkeys .wkfp-btn {
+  width: 100%;
+  min-width: 0;
+  height: 30px;
+}
+.ncs-textdlg .wkfp-dlg-body {
+  width: 640px;
+  max-width: 100%;
+}
+/* the menu's drop-down */
+.ncs-modern .wkfp-drop {
+  min-width: 240px;
+  padding: 6px;
+  background: var(--panel);
+  border: 1px solid var(--line-bright);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+}
+.ncs-modern .wkfp-drop-item {
+  padding: 7px 10px;
+  color: var(--ink);
+  border-radius: 5px;
+  cursor: pointer;
+}
+.ncs-modern .wkfp-drop-item:not(:disabled):hover {
+  color: var(--ink);
+  background: var(--amber-glow);
+}
+.ncs-modern .wkfp-drop-item:disabled {
+  color: var(--ink-faint);
+}
+.ncs-modern .wkfp-drop-sep {
+  border-top-color: var(--line);
+  border-bottom: 0;
+}
+/* the flow's dialogs, as the app's own */
+.ncs-modern .wkfp-shade {
+  position: fixed;
+  z-index: 900;
+  background: rgba(0, 0, 0, 0.55);
+}
+.ncs-modern .wkfp-dlg {
+  color: var(--ink);
+  background: var(--panel);
+  border: 1px solid var(--line-bright);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.ncs-modern .wkfp-dlg-title {
+  padding: 10px 10px 10px 16px;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 14px;
+  background: var(--panel-2);
+  border-bottom: 1px solid var(--line);
+}
+.ncs-modern .wkfp-x {
+  color: var(--ink-dim);
+  border-radius: 4px;
+}
+.ncs-modern .wkfp-dlg-body,
+.ncs-modern .wkfp-msg .wkfp-dlg-body {
+  padding: 16px 18px;
+  background: transparent;
+}
+.ncs-modern .wkfp-dlg-btns {
+  padding: 12px 16px;
+  border-top: 1px solid var(--line);
+}
+.ncs-modern .wkfp-btn {
+  min-width: 90px;
+  height: auto;
+  padding: 8px 14px;
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 12.5px;
+  color: var(--ink);
+  background: var(--raised);
+  border: 1px solid var(--line-bright);
+  border-radius: 5px;
+  cursor: pointer;
+}
+.ncs-modern .wkfp-btn:not(:disabled):hover {
+  background: var(--raised);
+  border-color: var(--amber);
+}
+.ncs-modern .wkfp-dlg-btns .wkfp-btn:first-child {
+  color: var(--amber-ink);
+  background: var(--amber);
+  border-color: var(--amber);
+}
+.ncs-modern .wkfp-btn:disabled {
+  color: var(--ink-faint);
+  background: transparent;
+  border-color: var(--line);
+}
+.ncs-modern
+  :is(
+    .wkfp-input,
+    .ncs-pick,
+    .ncs-text,
+    .wkfp-pick,
+    .wkfp-choose select,
+    .ncsd-sel,
+    .ncsd-filter
+  ),
+.ncs-modern .wkfp-dlg select,
+.ncs-modern .wkfp-dlg textarea {
+  color: var(--ink);
+  background: var(--panel-2);
+  border: 1px solid var(--line-bright);
+  border-radius: 5px;
+  font-family: var(--mono);
+}
+.ncs-modern .wkfp-input {
+  height: 30px;
+  padding: 0 8px;
+}
+/* the pickers' list rows: the theme's accent for the chosen one, not the
+   browser's pale system blue (a gradient is what Chrome lets a listbox's
+   selected option take) */
+.ncs-modern .wkfp-dlg select option {
+  padding: 3px 8px;
+  color: var(--ink);
+}
+.ncs-modern .wkfp-dlg select option:checked {
+  color: var(--amber-ink);
+  background: linear-gradient(var(--amber), var(--amber));
+}
+.ncs-modern .wkfp-dlg select:focus {
+  outline: none;
+  border-color: var(--amber);
+}
+.ncs-modern .wkfp-msg-text {
+  padding-top: 4px;
+}
+/* WebKFP in the modern layout: the same skin (.ncs-modern), its own panels */
+.wkfpm-mode {
+  padding: 10px 14px;
+  font-size: 13px;
+  color: var(--ink-dim);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--amber);
+  border-radius: 8px;
+}
+.wkfp-modern .ncsm-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.wkfpm-kv {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr);
+  row-gap: 6px;
+  column-gap: 12px;
+  font-family: var(--mono);
+  font-size: 12.5px;
+}
+.wkfpm-kv[hidden] {
+  display: none;
+}
+.wkfpm-kv > span {
+  overflow-wrap: anywhere;
+}
+.wkfpm-kv > span:nth-child(odd) {
+  color: var(--ink-faint);
+}
+.wkfpm-bsu {
+  font-size: 12.5px;
+  color: var(--ink-dim);
+}
+.wkfpm-bsu span {
+  font-family: var(--mono);
+  color: var(--ink);
+}
+.wkfpm-stage {
+  min-height: 1.4em;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  white-space: pre-wrap;
+}
+.wkfpm-bar {
+  position: relative;
+  height: 22px;
+  margin-top: auto;
+  overflow: hidden;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.wkfpm-bar[hidden] {
+  display: none;
+}
+.wkfpm-fill {
+  height: 100%;
+  width: 0;
+  background: var(--amber);
+  transition: width 0.2s linear;
+}
+.wkfpm-pct {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--ink);
+  mix-blend-mode: difference;
+}
+.wkfpm-actions {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+@media (max-width: 760px) {
+  .wkfp-modern .ncsm-grid,
+  .wkfpm-actions {
+    grid-template-columns: 1fr;
+  }
+}
+/* its dialogs' own parts: the module list, the error log, the INI options */
+.ncs-modern .wkfp-list {
+  color: var(--ink);
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.ncs-modern .wkfp-list th {
+  color: var(--ink-faint);
+  background: var(--panel);
+  border-color: var(--line);
+}
+.ncs-modern .wkfp-list td {
+  border-color: var(--line);
+}
+.ncs-modern .wkfp-logview {
+  color: var(--ink);
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-family: var(--mono);
+}
+.ncs-modern :is(.wkfp-group, .wkfp-err) {
+  border-color: var(--line);
+  border-radius: 6px;
+}
+.ncs-modern :is(.wkfp-hint, .wkfp-nofile, .wkfp-off) {
+  color: var(--ink-faint);
+}
