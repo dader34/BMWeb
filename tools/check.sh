@@ -394,6 +394,7 @@ run python3 tools/verify/test_etk_rules.py
 echo
 echo "== workshop documents: validity rules, the car filter, tree, renderers =="
 run node tools/verify/test_techdata.js
+run node tools/verify/test_techdata_rules.js
 run python3 tools/verify/test_techdata_extract.py
 
 # Table completeness: the VM reaches tables the lifter never modelled, so a
