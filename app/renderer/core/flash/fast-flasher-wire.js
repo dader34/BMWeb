@@ -50,6 +50,7 @@ const FF_SVC = {
   CHUNK_SET: 0x08, // v8: pagesets over several MPC blocks at once
   AIF: 0x09, // v10 bench body only: the AIF-wipe resume marker (read/arm/done)
   READ: 0x0a, // v13: raw bytes of the chip or the MPC; 16 KB a request since v22
+  ERASE_Q: 0x0c, // v23: external sectors erased in the background, up to 8 a job
 };
 /** READ: bytes per request (the body refuses more), and the external chip. */
 /**
@@ -95,6 +96,7 @@ const FF_TIMEOUT = {
   RESET: 1000,
   SET_BAUD: 2000,
   CHUNK_SET: 3000, // the floor; _chunkMs() stretches it on a slow line
+  ERASE_Q: 20000, // ACKed at once, unless an earlier job is still running
   READ: 3000, // the floor; _readReplyMs() stretches it for 16 KB on a slow line
 };
 /**
@@ -607,6 +609,23 @@ class FastFlashClient {
    */
   async setBaud(scbr) {
     await this.call(FF_SVC.SET_BAUD, _ffU16(scbr), FF_TIMEOUT.SET_BAUD);
+  }
+
+  /**
+   * v23: external sectors erased in the background. The body issues the
+   * chip's queued sector-erase for all of them and answers at once; the
+   * chip erases them on its own (~2 s a sector on the car) while the body
+   * goes on with the MPC phase, and the body's next external access waits
+   * for the chip. The marks sector must have been erased alone, before:
+   * that is what keeps an interruption loader-recoverable.
+   * @param {number[]} offsets - 1..8 ext sector offsets (0x40000-0xFFFFF)
+   */
+  async eraseQueue(offsets) {
+    await this.call(
+      FF_SVC.ERASE_Q,
+      offsets.flatMap((o) => _ffU32(o)),
+      FF_TIMEOUT.ERASE_Q
+    );
   }
 
   /**
@@ -1233,8 +1252,20 @@ async function ffPushProgram(client, signedFull, cb = {}, opts = {}) {
     track.add(U.ERASE, `Erased ${marksUnit.name}`);
   }
   let n = 0;
+  // v23: with a background erase, the external sectors are queued on the
+  // chip before the MPC phase and written after it -- the chip erases
+  // them (~2 s each) under the CMF's pulses instead of on the clock. The
+  // marks sector was erased alone above, so an interruption still leaves
+  // the loader in charge. The MPC erase goes first: its driver staging
+  // reads the boot block, which the body refuses to do while the chip
+  // erases.
+  const background =
+    !!opts.backgroundErase && parallel.length > 0 && !!client.eraseQueue;
+  const extUnits = sequential.filter((u) => u.addr < FF_MPC_WINDOW);
+  const deferred = background ? extUnits : [];
   for (const u of sequential) {
     if (parallel.length && u.addr >= FF_MPC_WINDOW && blockOf(u) === 0) break;
+    if (deferred.includes(u)) continue;
     n++;
     const which = `${u.name} (${n} of ${total})`;
     stage(`Erasing ${which}`);
@@ -1249,6 +1280,14 @@ async function ffPushProgram(client, signedFull, cb = {}, opts = {}) {
     stage(`Erasing ${which}`);
     await client.eraseBlocks(mask);
     track.add(U.ERASE * blocks.length, `Erased ${which}`);
+    if (deferred.length) {
+      stage(
+        `Erasing ${deferred.map((u) => u.name).join(', ')} in the background`
+      );
+      for (let i = 0; i < deferred.length; i += 8)
+        await client.eraseQueue(deferred.slice(i, i + 8).map((u) => u.addr));
+      // the chip's time, not the wire's: the bar moves when the writes land
+    }
     stage(`Writing ${which}`);
     const span = pagesets * FF_PAGE;
     const steps = Math.ceil(FF_MPC_BLOCK / span);
@@ -1294,6 +1333,14 @@ async function ffPushProgram(client, signedFull, cb = {}, opts = {}) {
       track.add(U.ERASE, `Erased ${last}`);
       await writeUnit(u, last);
     }
+  }
+  // v23: the external units whose erase ran in the background, written
+  // now that the MPC phase is over (the first chunk waits for the chip)
+  for (const u of deferred) {
+    n++;
+    const which = `${u.name} (${n} of ${total})`;
+    track.add(U.ERASE, `Erased ${which} (in the background)`);
+    await writeUnit(u, which);
   }
   if (marksUnit)
     await writeUnit(

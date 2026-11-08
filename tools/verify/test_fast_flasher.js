@@ -350,6 +350,16 @@ const be32 = (b, at) =>
                 { 0x60000: 0x20000, 0x80000: 0x40000, 0xc0000: 0x40000 }[off]
             );
         },
+        async eraseQueue(offsets) {
+          events.push(['eraseQueue', offsets.slice()]);
+          for (const off of offsets)
+            mem.fill(
+              0xff,
+              off,
+              off +
+                { 0x60000: 0x20000, 0x80000: 0x40000, 0xc0000: 0x40000 }[off]
+            );
+        },
         async eraseBlocks(mask) {
           events.push(['eraseBlocks', mask]);
           for (let b = 0; b < 14; b++)
@@ -531,6 +541,56 @@ const be32 = (b, at) =>
     );
     ok(
       'v8 push: the differing MPC blocks bar 0 erased in one job and written as pagesets, block 0 alone and last; the v7 wire still sequential; chip == target both ways'
+    );
+
+    // v23: with a background erase the external sectors are queued on the
+    // chip after the MPC erase and written after the pagesets; the marks
+    // sector is still erased alone and first, block 0 still last of the MPC.
+    // From a blank external chip, so every program sector differs
+    c = mpcChip(new Uint8Array(0x100000).fill(0xff), mpcOnChip);
+    await W.pushProgram(
+      c.client,
+      target,
+      {},
+      { mpc: mpcTarget, pagesets: true, backgroundErase: true }
+    );
+    assert(Buffer.from(c.mpc).equals(Buffer.from(mpcTarget)), 'MPC == target');
+    assert(
+      Buffer.from(c.mem.subarray(0x60000)).equals(
+        Buffer.from(W.programAreaImage(target))
+      ),
+      'ext == target'
+    );
+    const kindsB = c.events.map((e) => e[0]);
+    const firstErase = kindsB.indexOf('erase');
+    assert.strictEqual(c.events[firstErase][1], 0xc0000, 'marks sector first');
+    const iBlocks = kindsB.indexOf('eraseBlocks');
+    const iQueue = kindsB.indexOf('eraseQueue');
+    const iSet = kindsB.indexOf('chunkSet');
+    const iExtChunk = c.events.findIndex(
+      (e) => e[0] === 'chunk' && e[1] >= 0x60000 && e[1] < WIN
+    );
+    assert(
+      firstErase < iBlocks && iBlocks < iQueue && iQueue < iSet,
+      'marks erase, then the MPC erase, then the queue, then the pagesets'
+    );
+    assert(
+      iExtChunk > c.events.map((e) => e[0]).lastIndexOf('chunkSet'),
+      'the external chunks come after the pagesets'
+    );
+    assert.deepStrictEqual(
+      c.events[iQueue][1],
+      [0x60000, 0x80000],
+      'the two other sectors queued, the marks sector not again'
+    );
+    assert.strictEqual(
+      c.events.filter((e) => e[0] === 'erase' && e[1] < WIN).length,
+      1,
+      'no external sector erased one by one'
+    );
+    assert.deepStrictEqual(kindsB.slice(-2), ['marks', 'reset']);
+    ok(
+      'v23 push: external sectors queued on the chip after the MPC erase, written after the pagesets, marks sector still first and alone'
     );
   }
 

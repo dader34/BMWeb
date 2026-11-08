@@ -13,7 +13,7 @@
 //      MO3 handshake, which is all the staging needs; nothing is erased
 //      (emu-proven on loaders A, B and C, 2026-11-05);
 //   3. 3D stages the MTOS descriptor + entry branch at the pool 0x3FA104
-//      and the receiver stub at 0x3FBAC0 (3 telegrams; the body itself is
+//      and the receiver stub at 0x3FBCE0 (3 telegrams; the body itself is
 //      NOT staged at 9600 any more);
 //   4. 31 FA arm, then 31 FA fire: the gate calls the entry branch, which
 //      jumps to the receiver;
@@ -25,7 +25,7 @@
 //
 // The staged image (build it with triggerImage):
 //   [MTOS descriptor 0x70 B][entry branch 4 B][dead gap 0x40 B] at the pool
-//   0x3FA104, plus the receiver at 0x3FBAC0 -- above the body's whole SRAM
+//   0x3FA104, plus the receiver at 0x3FBCE0 -- above the body's whole SRAM
 //   span, so nothing the upload writes can reach the code doing the writing.
 //
 // Preconditions and limits, all enforced or documented:
@@ -59,7 +59,7 @@ const trigBytes =
 const TRIGGER = {
   DESC: 0x3fa104, // the loader's table-A descriptor pool
   D_ENTRY: 0x3fa174, // desc+0x70, the address the stock gate computes+calls
-  STUB_AT: 0x3fbac0, // the receiver: above everything the body occupies (v22 body ends 0x3fbab7)
+  STUB_AT: 0x3fbce0, // the receiver: above everything the body occupies (v23 body ends 0x3fbcd3)
   SRAM_BASE: 0x3f9800, // where the body runs relocated
   POOL_END: 0x3fc003, // table-A pool range, inclusive
   // the write enable: a 31 02 the loader REFUSES (7F 31 22, a RAM address
@@ -70,7 +70,7 @@ const TRIGGER = {
   ENABLE_AT: 0x3f9800,
   ENABLE_LEN: 0x80,
   CHUNK: 249, // 6 telegram bytes + chunk <= the length byte's 255
-  BODY_WORDS: 1600, // the body the emu proof staged (v22) -- a change must re-run it
+  BODY_WORDS: 1713, // the body the emu proof staged (v23) -- a change must re-run it
   MARKER1: 0x1f9c2, // the boot-sector markers the one-time unlock blanks
   MARKER2: 0x1fb18,
   MTOS_SEED: 0x4d544f53, // 'MTOS', big-endian: the gate CRC's seed

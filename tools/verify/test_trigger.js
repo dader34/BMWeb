@@ -30,11 +30,11 @@ const check = (what, ok, detail) => {
 
 // ---- the body out of the bootstrap blob ------------------------------------
 const body = triggerWire.triggerBodyFromBlob(fastFlasherBlob);
-check('body from blob: 6400 B', body.length === 6400, `${body.length} B`);
+check('body from blob: 6852 B', body.length === 6852, `${body.length} B`);
 check('body from blob: whole words', body.length % 4 === 0);
 check(
-  'body from blob: starts with the flasher prologue (lis r3,0x3F9800)',
-  hex(body.slice(0, 8)) === '3c20003f6021c160',
+  'body from blob: starts with the flasher prologue (r1 = STACK_TOP 0x3FC280, v23)',
+  hex(body.slice(0, 8)) === '3c20003f6021c280',
   hex(body.slice(0, 8))
 );
 
@@ -46,7 +46,7 @@ const sha1 = (b) =>
 // login chain on loaders A, B and C on 2026-11-05.
 check(
   'body: byte-identical to the emu proof body',
-  sha1(body) === '6b31fccb3281397c7a183e40d27fd42ff27cdc20',
+  sha1(body) === '4212d89e3ea37d60d4564cbbf0838286072b0ccb',
   sha1(body)
 );
 
@@ -58,8 +58,8 @@ check(
   `${image.img.length} B`
 );
 check(
-  "image: CRC is the emu proof's 0xA6FBBF7F",
-  image.crc === 0xa6fbbf7f,
+  "image: CRC is the emu proof's 0xE591A2BA",
+  image.crc === 0xe591a2ba,
   `0x${image.crc.toString(16).toUpperCase()}`
 );
 check('image: descriptor CRC field', be32(image.img, 0x58) === image.crc);
@@ -78,7 +78,7 @@ check(
 );
 check(
   'image: the entry branch word is b 0x3FBAC0 (0x4800194C)',
-  be32(image.img, 0x70) === 0x4800194c
+  be32(image.img, 0x70) === 0x48001b6c
 );
 check(
   'image: the dead gap the branch skips is zero',
@@ -86,7 +86,7 @@ check(
 );
 check(
   'image: byte-identical to the emu proof',
-  sha1(image.img) === '08a676c1048ef88efe0b3de4adc44ab73fab6957'
+  sha1(image.img) === 'ec6d9d7483ede9bf41838f3d0f498ff31b012dcd'
 );
 
 // ---- the receiver -----------------------------------------------------------
@@ -107,12 +107,12 @@ check(
 // ---- the upload -------------------------------------------------------------
 const up = triggerWire.triggerUploadFrame(body);
 check(
-  'upload: A5 5A, length 0x1900, body, sum (6406 B)',
-  hex(up.slice(0, 4)) === 'a55a1900' &&
-    up.length === 6406 &&
+  'upload: A5 5A, length 0x1AC4, body, sum (6858 B)',
+  hex(up.slice(0, 4)) === 'a55a1ac4' &&
+    up.length === 6858 &&
     hex(up.slice(4, 4 + body.length)) === hex(body)
 );
-check('upload: the sum the emu proof sent', hex(up.slice(-2)) === 'e7a0');
+check('upload: the sum the emu proof sent', hex(up.slice(-2)) === '8d83');
 
 // ---- the telegrams ----------------------------------------------------------
 check(
@@ -138,9 +138,9 @@ check(
   hex(tgs[0].slice(0, 6)) === '3d3fa1040' + '0b4'
 );
 check(
-  'staging: the receiver heads 0x3FBAC0',
-  hex(tgs[1].slice(0, 6)) === '3d3fbac000f9' &&
-    hex(tgs[2].slice(0, 4)) === '3d3fbbb9'
+  'staging: the receiver heads 0x3FBCE0',
+  hex(tgs[1].slice(0, 6)) === '3d3fbce000f9' &&
+    hex(tgs[2].slice(0, 4)) === '3d3fbdd9'
 );
 
 // ---- the fire sequence against a mock line ----------------------------------
