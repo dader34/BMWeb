@@ -59,6 +59,8 @@ const FF_SVC = {
  * off a full read. The app only reads from a body of its own version.
  */
 const FF_READ_MAX = 0x4000;
+/** A damaged wide READ is read again in pieces this big. */
+const FF_READ_PIECE = 0x1000;
 const FF_EXT_SIZE = 0x100000;
 
 // The AIF marker ladder (S_AIF): READ/ARM/DONE a row of marker slots from
@@ -109,10 +111,12 @@ const FF_TIMEOUT = {
  */
 const FF_FAST_LINES = [
   // sessions start here, every session; a garbled line steps down from
-  // here one rate at a time, for that session only. 416667 is not in the
-  // list: its HELLO failed in all three car sessions of 2026-11-02/03 (our
-  // frames heard, the DME's replies garbled), ~4.9 s lost each time
-  [312500, 4],
+  // here one rate at a time, for that session only. 416667 and 312500 are
+  // not in the list: 416667's HELLO failed in all three car sessions of
+  // 2026-11-02/03, and 312500 garbled replies in both November reads and
+  // cost the 2026-11-08 read a reconnect at 5 % -- each garble is a
+  // re-read and two of them a step-down, which costs more than the 20 %
+  // of wire time 250000 gives up. 250000 has carried every frame so far.
   [250000, 5],
   [208333, 6],
   [156250, 8],
@@ -121,7 +125,12 @@ const FF_FAST_LINES = [
  * The rates a running flasher may be holding when a cut session is picked up
  * again: the session rates, and the faster ones earlier builds started on.
  */
-const FF_RESUME_RATES = [625000, 416667, ...FF_FAST_LINES.map(([r]) => r)];
+const FF_RESUME_RATES = [
+  625000,
+  416667,
+  312500,
+  ...FF_FAST_LINES.map(([r]) => r),
+];
 /** Garbled replies in a session before the line is stepped down a rate. */
 const FF_LINE_ERRORS_STEP = 2;
 /**
@@ -164,6 +173,8 @@ const FF_HELLO_ASKS = 2; // a missed entry is retried whole anyway (reset + brea
 const FF_ECHO_DRAIN_MS = 150; // the real chip's timeout runs longer than its 20 ms nominal
 /** The first body that reads each echo as it sends: no pause needed. */
 const FF_ECHO_AS_SENT_VERSION = 6;
+/** The line rate a body was last heard on in this page, 0 for none (see ffWebLink's learn). */
+let ffLastHeardRate = 0;
 const FF_HELLO_GAP_MS = 250;
 /**
  * The quick pass of a resume: one HELLO at each rate a running body may be
@@ -225,6 +236,34 @@ function ffFrame(svc, data, tgt = FF_TGT, src = FF_SRC) {
   const span = body.length + 1;
   const head = span > 0xff ? [0x00, ..._ffU16(span)] : [span];
   return Uint8Array.from([...head, ...body, sum]);
+}
+
+/**
+ * A whole HELLO reply in the last bytes of a stream (after an upload's
+ * echo, however much of the echo the cable kept): the ACK head, then the
+ * frame parsing with its checksum. The body's bytes never contain that
+ * head followed by a valid 21-byte frame by accident.
+ * @param {number[]} buf
+ * @returns {{svc: number, data: Uint8Array}|null}
+ */
+function _ffHelloInTail(buf) {
+  const from = Math.max(0, buf.length - 48);
+  for (let i = from; i + 4 <= buf.length; i++) {
+    if (
+      buf[i] !== 16 + 4 || // span: tgt src svc + 16-byte stamp + sum
+      buf[i + 1] !== FF_TGT ||
+      buf[i + 2] !== FF_SRC ||
+      buf[i + 3] !== (FF_SVC.HELLO | 0x40)
+    )
+      continue;
+    try {
+      const f = ffParse(buf.slice(i));
+      if (f && f.svc === (FF_SVC.HELLO | 0x40)) return f;
+    } catch {
+      // a checksum that does not add up: not the frame
+    }
+  }
+  return null;
 }
 
 /**
@@ -609,6 +648,22 @@ class FastFlashClient {
         ffWireBytes.crc32Mpeg2(bytes) === ffWireBytes.be32(d, 0)
       )
         return bytes;
+      // a damaged wide read: the rest of it was fine, and one bad byte in
+      // 16 KB should not cost 16 KB again -- read the span in 4 KB pieces,
+      // each with its own tries (this one damage still counts for the line)
+      if (len > FF_READ_PIECE) {
+        if (this.trace)
+          this.trace(
+            `FF READ 0x${off.toString(16).toUpperCase()} ${len}B -> CRC mismatch; in ${FF_READ_PIECE / 1024} KB pieces`
+          );
+        await this._lineError();
+        const out = new Uint8Array(len);
+        for (let at = 0; at < len; at += FF_READ_PIECE) {
+          const n = Math.min(FF_READ_PIECE, len - at);
+          out.set(await this.read((off + at) >>> 0, n), at);
+        }
+        return out;
+      }
       if (this.trace)
         this.trace(
           `FF READ 0x${off.toString(16).toUpperCase()} ${len}B -> ${bytes.length}B, CRC mismatch${attempt < FF_GARBLE_TRIES ? ' -- once more' : ''}`
@@ -1240,6 +1295,11 @@ function ffWebLink(bus, opts = {}) {
   const learn = (hello) => {
     if (hello && hello.data && hello.data[6] >= FF_ECHO_AS_SENT_VERSION)
       drainMs = 0;
+    // the rate the body was heard on: a later resume (the shared session
+    // right after a one-click entry, a push picked up after a drop) asks
+    // there first instead of walking the ladder
+    if (hello && bus.config && bus.config.baudRate)
+      ffLastHeardRate = bus.config.baudRate;
   };
   // every byte the cable heard since the last reopen, for the failure text:
   // on a real cable "no answer" and "garbage" need telling apart
@@ -1442,11 +1502,12 @@ function ffWebLink(bus, opts = {}) {
       // FF_HELLO_QUICK_MS of patience each; then the patient pass
       let last = null;
       const likely = [
-        ...FF_FAST_LINES.map(([r]) => r),
-        FF_BAUD,
-        ...FF_RESUME_RATES.filter(
-          (r) => r !== FF_BAUD && !FF_FAST_LINES.some(([f]) => f === r)
-        ),
+        ...new Set([
+          ...(ffLastHeardRate ? [ffLastHeardRate] : []),
+          ...FF_FAST_LINES.map(([r]) => r),
+          FF_BAUD,
+          ...FF_RESUME_RATES,
+        ]),
       ];
       for (const [asks, timeoutMs] of [
         [1, FF_HELLO_QUICK_MS],
@@ -1499,18 +1560,32 @@ function ffWebLink(bus, opts = {}) {
         // follows it is the body's unprompted HELLO
         const txMs = Math.ceil((frame.length * 11 * 1000) / FF_BAUD);
         const deadline = Date.now() + (txMs + 1500) * scale;
+        // the body's HELLO is taken the moment it is in the stream, echo
+        // complete or not: the cable has dropped echo bytes on the car, and
+        // waiting for the whole echo and then for a HELLO that was already
+        // in the buffer cost the one-click ~4 s after "100 %" (2026-11-08)
         let got = 0;
-        while (got < frame.length && Date.now() < deadline) {
+        let hello = null;
+        while (!hello && Date.now() < deadline) {
           const { value, done } = await bus.readSome(deadline);
           if (done) throw new Error('fast flasher: the port closed');
           if (value && value.length) {
             got += value.length;
             rx.push(...value);
           }
+          hello = _ffHelloInTail(rx);
+          if (!hello && got >= frame.length && rx.length > frame.length + 64)
+            break; // the echo is all here and more: nothing that is a HELLO
+        }
+        if (hello) {
+          rx = [];
+          learn(hello);
+          step(`The flasher answered at ${FF_BAUD} baud`);
+          return hello.data;
         }
         rx = got >= frame.length ? rx.slice(frame.length) : [];
         try {
-          const hello = ffParse(await readFrame(FF_TIMEOUT.HELLO, null));
+          hello = ffParse(await readFrame(FF_TIMEOUT.HELLO, null));
           if (hello && hello.svc === (FF_SVC.HELLO | 0x40)) {
             learn(hello);
             step(`The flasher answered at ${FF_BAUD} baud`);

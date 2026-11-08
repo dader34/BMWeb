@@ -800,6 +800,19 @@ const be32 = (b, at) =>
       'the second damaged block steps the line down'
     );
     await assert.rejects(client.read(0x40000, W.READ_MAX + 1), W.Nak);
+    // a damaged wide read is re-read in 4 KB pieces, not whole
+    damage = 1;
+    asked.length = 0;
+    const wide = await client.read(0x44000, W.READ_MAX);
+    assert(
+      Buffer.from(wide).equals(Buffer.from(ext.subarray(0x44000, 0x48000))),
+      'the pieces add up to the span'
+    );
+    assert.deepStrictEqual(
+      asked.map(([, n]) => n),
+      [W.READ_MAX, 0x1000, 0x1000, 0x1000, 0x1000],
+      'one wide ask, then the four pieces'
+    );
     asked.length = 0;
     let last = -1;
     const img = await W.readImage(client, {
