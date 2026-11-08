@@ -167,10 +167,8 @@ async function fbDmeFastFlash(spec) {
     // what this body's version allows: 16 KB reads from v22, the external
     // erase in the background from v23 (the app may be pinned to an older
     // body than the newest it knows)
-    const bodyVersion = (d.fastFlasher && d.fastFlasher.version) || 0;
-    if (bodyVersion >= fastFlashWire.READ_WIDE_VERSION)
+    if (fbDmeBodyVersion() >= fastFlashWire.READ_WIDE_VERSION)
       client.readMax = fastFlashWire.READ_MAX_WIDE;
-    prepared.bodyVersion = bodyVersion;
     await fbDmeFastProbe(client, ui);
     prepared.link = link;
     // the fastest line the cable and the K-line carry, from the top of the
@@ -501,6 +499,17 @@ async function fbDmeFastPushWithResume(client, ui, push) {
     fbDmeSetFastLive(false);
     return r;
   }
+}
+
+/**
+ * The stamp version of the body this session talks to: the installed
+ * flasher's, or the one the one-click just uploaded (both land in
+ * d.fastFlasher). 0 before a body has answered.
+ * @returns {number}
+ */
+function fbDmeBodyVersion() {
+  const f = fbState.dme && fbState.dme.fastFlasher;
+  return (f && f.version) || 0;
 }
 
 /**
@@ -957,7 +966,7 @@ async function fbDmeFastFlashProgram(opts = {}) {
           pagesets: true,
           // v23: the external sectors erase on the chip while the MPC
           // phase runs (~2 s a sector off the clock)
-          backgroundErase: (p.bodyVersion || 0) >= 23,
+          backgroundErase: fbDmeBodyVersion() >= 23,
           // block 0 in the pagesets only where the bootloader can always
           // reach the DME: its handoff window runs before MPC 0x8, so a cut
           // with block 0 erased is repaired through the ring. A DME on the
