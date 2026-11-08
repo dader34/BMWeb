@@ -20,9 +20,19 @@ function fbFastPageHtml() {
           <div class="fb-faint" id="fb-fast-route"></div>
         </div>
         ${fbOneClickToolsHtml()}
-        ${fbRelayHtml()}
+        ${fbRelayAllowed() ? `${fbRelayHtml()}` : ''}
         ${fbBlHtml()}
       </div>`;
+}
+
+/**
+ * The GS20 relay test is a bench tool: shown only when BMWeb is served from
+ * this machine (localhost), never on the hosted site.
+ * @returns {boolean}
+ */
+function fbRelayAllowed() {
+  if (typeof location === 'undefined') return false;
+  return ['localhost', '127.0.0.1', '[::1]', '::1'].includes(location.hostname);
 }
 
 function fbFastWire() {
@@ -63,5 +73,5 @@ function fbFastPaint() {
   fbBlRefresh();
   fbIsnEepromRefresh();
   fbOneClickToolsRefresh();
-  fbRelayRefresh();
+  if (fbRelayAllowed()) fbRelayRefresh();
 }
