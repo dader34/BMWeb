@@ -164,6 +164,13 @@ async function fbDmeFastFlash(spec) {
     const client = new fastFlashWire.Client(link, {
       trace: (t) => flashLog.trace(t),
     });
+    // what this body's version allows: 16 KB reads from v22, the external
+    // erase in the background from v23 (the app may be pinned to an older
+    // body than the newest it knows)
+    const bodyVersion = (d.fastFlasher && d.fastFlasher.version) || 0;
+    if (bodyVersion >= fastFlashWire.READ_WIDE_VERSION)
+      client.readMax = fastFlashWire.READ_MAX_WIDE;
+    prepared.bodyVersion = bodyVersion;
     await fbDmeFastProbe(client, ui);
     prepared.link = link;
     // the fastest line the cable and the K-line carry, from the top of the
@@ -331,6 +338,11 @@ function fbDmeFastUi(title) {
     if (quiet) return;
     fbSetStatusInPlace(`${title}: ${phase}… ${pct}%`);
   };
+  // the session's own stages before the push (the resume HELLO, the
+  // probes, the line speed) come while the painter is still quiet: said
+  // without a percentage, so the entry's "100 %" does not sit there for
+  // the seconds they take (the one-click, 2026-11-08)
+  const paintQuiet = (p) => fbSetStatusInPlace(`${title}: ${p}…`);
   const phaseOf = (s) =>
     /^Checking the flasher/.test(s)
       ? 'checking the flasher'
@@ -353,8 +365,10 @@ function fbDmeFastUi(title) {
   return {
     stage(s) {
       flashLog.note(s);
-      phase = phaseOf(s) || phase;
-      paint();
+      const p = phaseOf(s);
+      phase = p || phase;
+      if (quiet && p) paintQuiet(p);
+      else paint();
     },
     notice(s) {
       fbSetStatus(s);
@@ -941,6 +955,9 @@ async function fbDmeFastFlashProgram(opts = {}) {
         {
           mpc,
           pagesets: true,
+          // v23: the external sectors erase on the chip while the MPC
+          // phase runs (~2 s a sector off the clock)
+          backgroundErase: (p.bodyVersion || 0) >= 23,
           // block 0 in the pagesets only where the bootloader can always
           // reach the DME: its handoff window runs before MPC 0x8, so a cut
           // with block 0 erased is repaired through the ring. A DME on the
