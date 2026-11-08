@@ -11,8 +11,9 @@
 # .wiring archives) that a rebuild would have to fetch again -- and a flash in
 # progress would lose its page. This swaps the few files the renderer sources
 # produce and leaves the data alone. The bundle is read from app/renderer's
-# index.html (the dev page lists every script); dist-web's own index.html is
-# the collapsed one-bundle page and is left as it is.
+# index.html (the dev page lists every script); dist-web's index.html is
+# rebuilt from it the way build-web.sh builds it (version.js in <head>, the
+# script tags collapsed to bundle.js), so new stylesheets and scripts land.
 #
 # The bundle is BUILD OUTPUT and is not tracked in git (it was, at 7 MB per
 # deploy); CI builds its own in pages.yml. Run this after a change you want
@@ -27,5 +28,14 @@ node scripts/build/bundle-modules.mjs
 node scripts/build/bundle-renderer.mjs app/renderer "$OUT/bundle.js"
 gzip -9 -k -f "$OUT/bundle.js"
 mkdir -p "$OUT/css"
+rm -f "$OUT"/css/*.gz   # stale pre-compressed twins would shadow the new sheets
 cp app/renderer/css/*.css "$OUT/css/"
-echo "deployed in place to $OUT: bundle.js ($(du -h "$OUT/bundle.js" | cut -f1)), bundle.js.gz, css/"
+# the page: the dev index.html, stamped and collapsed as build-web.sh does it
+VERSION=$(node -p "require('./package.json').version")
+printf 'window.BMWEB_VERSION=%s;\n' "\"${VERSION:-web}\"" > "$OUT/version.js"
+cp app/renderer/index.html "$OUT/index.html"
+sed -i.bak 's#<head>#<head>\n  <script src="version.js"></script>#' "$OUT/index.html"
+rm -f "$OUT/index.html.bak"
+node scripts/build/bundle-index.mjs "$OUT/index.html"
+grep -q 'bundle.js' "$OUT/index.html"
+echo "deployed in place to $OUT: bundle.js ($(du -h "$OUT/bundle.js" | cut -f1)), bundle.js.gz, css/, index.html"
