@@ -542,8 +542,7 @@ async function offlineGet(path) {
 // exporter looked only at data/, so an offline copy taken from the hosted site
 // came out with no fault text at all and warned about four missing files, on a
 // site where fault text works. Fall back to the same dataset the app uses.
-const OFFLINE_FAULT_HF =
-  'https://huggingface.co/datasets/CraigFf/bmweb-etk/resolve/main/faults/';
+const OFFLINE_FAULT_HF = hfFolderMirrors(HF_MIRRORS, 'faults/');
 
 /**
  * Fetch a fault table, falling back to the Hugging Face dataset the hosted app
@@ -557,9 +556,11 @@ async function offlineGetFault(path) {
     return await offlineGet(path);
   } catch (e) {
     const name = path.split('/').pop();
-    const r = await OFFLINE_FETCH(OFFLINE_FAULT_HF + name);
-    if (!r.ok) throw e; // report the ORIGINAL miss, not the fallback's
-    return new Uint8Array(await r.arrayBuffer());
+    for (const base of OFFLINE_FAULT_HF) {
+      const r = await OFFLINE_FETCH(base + name).catch(() => null);
+      if (r && r.ok) return new Uint8Array(await r.arrayBuffer());
+    }
+    throw e; // report the ORIGINAL miss, not the fallback's
   }
 }
 

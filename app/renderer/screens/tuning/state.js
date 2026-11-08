@@ -179,11 +179,7 @@ const tuningState = {
  * unreachable we try the next rather than giving up.
  * @type {string[]}
  */
-const XDF_MIRRORS = [
-  'https://huggingface.co/datasets/CraigFf/bmw-files/resolve/main/tuning/xdf/',
-  'https://huggingface.co/datasets/HarryG8/bmw-files/resolve/main/tuning/xdf/',
-  'https://huggingface.co/datasets/VerilP0/bmw-files/resolve/main/tuning/xdf/',
-];
+const XDF_MIRRORS = hfFolderMirrors(HF_FILES_MIRRORS, 'tuning/xdf/');
 
 /**
  * Hex grid geometry. BYTES_PER_ROW is written back when the user changes the

@@ -174,11 +174,7 @@ function wkfpScript(mod) {
  * bmw-files mirror. Tried in order; a mirror that is behind 404s.
  * @type {string[]}
  */
-const WKFP_SPD_MIRRORS = [
-  'https://huggingface.co/datasets/CraigFf/bmw-files/resolve/main/sp-daten/',
-  'https://huggingface.co/datasets/HarryG8/bmw-files/resolve/main/sp-daten/',
-  'https://huggingface.co/datasets/VerilP0/bmw-files/resolve/main/sp-daten/',
-];
+const WKFP_SPD_MIRRORS = hfFolderMirrors(HF_FILES_MIRRORS, 'sp-daten/');
 
 /**
  * How many exchanges one of a flash's jobs may take. A flash SGBD polls a

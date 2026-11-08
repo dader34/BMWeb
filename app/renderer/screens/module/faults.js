@@ -43,8 +43,7 @@ let _faultDbPromise = null;
  * the local build has no copy: it is large BMW-derived data, not shipped in
  * the repo.
  */
-const FAULT_DB_HF =
-  'https://huggingface.co/datasets/CraigFf/bmweb-etk/resolve/main/faults/faultdb.js';
+const FAULT_DB_HF = hfFolderMirrors(HF_MIRRORS, 'faults/faultdb.js');
 
 /** The last F_UWn field a detailed read may carry. */
 const ENV_FIELDS_MAX = 8;
@@ -68,7 +67,7 @@ function loadFaultDb() {
   if (window.BMW_FAULT_DB) return Promise.resolve();
   if (_faultDbPromise) return _faultDbPromise;
   const base = typeof WEB_BASE === 'string' ? WEB_BASE : '';
-  const urls = [`${base}/data/faultdb.js`, FAULT_DB_HF];
+  const urls = [`${base}/data/faultdb.js`, ...FAULT_DB_HF];
   // the local copy is probed quietly first (core/translate.js): a hosted
   // build has none and must not log a 404 on every fault screen
   _faultDbPromise = webInjectFirst(urls).then((loaded) => {

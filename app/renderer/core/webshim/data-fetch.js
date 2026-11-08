@@ -6,7 +6,7 @@
  * shim -- so `data/job-code/<sgbd>.json` and friends are answered from the
  * cached ECU archives, not the network.
  */
-/* exported webFetchJson, webFetchGz, loadSharedTables, HF_MIRRORS, hfUrls, hfFetchFirst, istaBundle, istaBundleFile */
+/* exported webFetchJson, webFetchGz, loadSharedTables, HF_MIRRORS, HF_FILES_MIRRORS, hfFolderMirrors, hfUrls, hfFetchFirst, istaBundle, istaBundleFile */
 
 /**
  * Fetch a JSON file, or null on any failure (404, bad JSON).
@@ -86,6 +86,30 @@ const HF_MIRRORS = [
 ];
 
 /**
+ * The bmw-files dataset's mirrors (BMWFILES's published copy: SP-Daten for
+ * WebKFP, the XDF library, the wiring photographs). Same accounts, same
+ * order, same rule: identical trees, first to answer wins. Every screen
+ * that reads from it builds its folder URLs from this list, so an account
+ * is added or dropped in one place.
+ * @type {string[]}
+ */
+const HF_FILES_MIRRORS = [
+  'https://huggingface.co/datasets/CraigFf/bmw-files/resolve/main/',
+  'https://huggingface.co/datasets/HarryG8/bmw-files/resolve/main/',
+  'https://huggingface.co/datasets/VerilP0/bmw-files/resolve/main/',
+];
+
+/**
+ * One folder of a mirrored dataset, on every mirror.
+ * @param {string[]} mirrors - HF_MIRRORS or HF_FILES_MIRRORS
+ * @param {string} folder - path under the dataset root, with its trailing slash
+ * @returns {string[]}
+ */
+function hfFolderMirrors(mirrors, folder) {
+  return mirrors.map((m) => m + folder);
+}
+
+/**
  * Every place one dataset file might be: the local copy an offline build
  * ships, then each mirror.
  *
@@ -99,12 +123,12 @@ const HF_MIRRORS = [
  *   is not 'data/' + rel (the ETK tree is flattened, for one)
  * @returns {string[]} the URLs to try, in order
  */
-function hfUrls(rel, localPrefix) {
+function hfUrls(rel, localPrefix, mirrors) {
   const base = typeof WEB_BASE === 'string' ? WEB_BASE : '';
   const local = localPrefix == null ? `data/${rel}` : localPrefix;
   return [
     `${base}/${local}`.replace(/([^:])\/\//g, '$1/'),
-    ...HF_MIRRORS.map((m) => m + rel),
+    ...(mirrors || HF_MIRRORS).map((m) => m + rel),
   ];
 }
 
@@ -115,8 +139,10 @@ function hfUrls(rel, localPrefix) {
  * `fetch` to answer /api/* from the cached ECU archives, and these are plain
  * files on a CDN, not engine routes.
  * @param {string} rel - the path under the dataset root
- * @param {object} [opts] - `local` overrides the local path; `as` is
- *   'json' (default), 'text', 'bytes' or 'response'
+ * @param {object} [opts] - `local` overrides the local path; `mirrors`
+ *   picks the dataset (HF_MIRRORS by default, HF_FILES_MIRRORS for
+ *   bmw-files); `as` is 'json' (default), 'text', 'bytes', 'response', or
+ *   'gzjson' for a gzipped JSON file inflated here (fflate)
  * @returns {Promise<any|null>} the body in the asked-for form, or null when
  *   no source answered
  */
@@ -131,13 +157,22 @@ async function hfFetchFirst(rel, opts) {
           ? fetch
           : null;
   if (!real) return null;
-  for (const u of hfUrls(rel, o.local)) {
+  for (const u of hfUrls(rel, o.local, o.mirrors)) {
     try {
       const r = await real(u);
       if (!r || !r.ok) continue;
       if (o.as === 'response') return r;
       if (o.as === 'bytes') return new Uint8Array(await r.arrayBuffer());
       if (o.as === 'text') return await r.text();
+      if (o.as === 'gzjson') {
+        const bytes = new Uint8Array(await r.arrayBuffer());
+        // a plain (already inflated) copy is accepted too
+        const isGz = bytes.length > 2 && bytes[0] === 0x1f && bytes[1] === 0x8b;
+        const text = isGz
+          ? fflate.strFromU8(fflate.gunzipSync(bytes))
+          : new TextDecoder('utf-8').decode(bytes);
+        return JSON.parse(text);
+      }
       return await r.json();
     } catch (e) {
       /* try the next source */

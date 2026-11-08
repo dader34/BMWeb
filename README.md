@@ -226,7 +226,7 @@ data/                  generated data; fetched by scripts/setup/fetch_repo_data.
   chassis/             derived per-car tree, built locally
 tools/                 generators, exporters, verify/ test harnesses, beta/ collector
 scripts/setup/         fetch_repo_data.py, fetch.sh, check-vendor.sh, data-cache.sh
-scripts/build/         build-web.sh, build-bundle.sh, offline-build.mjs, build-faultdb.mjs
+scripts/build/         build-web.sh, deploy-inplace.sh (refresh a served dist-web without wiping it), build-bundle.sh, offline-build.mjs, build-faultdb.mjs
 vendor/                build inputs: NOT in the repo
 ```
 

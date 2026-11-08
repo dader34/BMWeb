@@ -53,8 +53,11 @@ cd "$(dirname "$0")/.."
 # BMW originals stopped before any of the app's own tests.
 FAILED=""
 run() {
-  "$@" || FAILED="$FAILED
+  if ! "$@"; then
+    echo "FAIL: $*" >&2
+    FAILED="$FAILED
   $*"
+  fi
 }
 
 # The .IPO compiler + constant editor round-trip against a committed corpus,

@@ -189,11 +189,7 @@ function wiringDoc(data, docId) {
 // mirrors the archives themselves are built from. One file per photograph,
 // under a folder named for the first two characters of its name, lower-cased:
 // a dataset folder may hold 10,000 files and there are 11,549 photographs.
-const WIRING_IMG_MIRRORS = [
-  'https://huggingface.co/datasets/CraigFf/bmw-files/resolve/main/wiring/img/',
-  'https://huggingface.co/datasets/HarryG8/bmw-files/resolve/main/wiring/img/',
-  'https://huggingface.co/datasets/VerilP0/bmw-files/resolve/main/wiring/img/',
-];
+const WIRING_IMG_MIRRORS = hfFolderMirrors(HF_FILES_MIRRORS, 'wiring/img/');
 const WIRING_IMG_CACHE = 'bmweb-wiring-images-v4'; // bump when the layout changes
 /** The same cache under the app's old name: dropped, its photos fetch again on view. */
 const WIRING_IMG_CACHE_OLD = 'bmacw-wiring-images-v4';
