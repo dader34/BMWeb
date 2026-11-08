@@ -131,8 +131,30 @@ const FF_RESUME_RATES = [
   312500,
   ...FF_FAST_LINES.map(([r]) => r),
 ];
-/** Garbled replies in a session before the line is stepped down a rate. */
+/**
+ * Garbled replies before the line is stepped down a rate, at the 115200
+ * floor where no rate gain can be weighed (see Client._lineError).
+ */
 const FF_LINE_ERRORS_STEP = 2;
+/**
+ * What one garble costs, ms: a damaged 4 KB piece read again, or a lost
+ * frame found out by its first-byte deadline and sent again. The line steps
+ * down only when the garbles of the last FF_LINE_WINDOW frames cost more
+ * than the rate gains over the next lower one -- a 16 KB read gains ~0.15 s
+ * a frame at 312500 over 250000 and can carry a garble in three; a 2.3 KB
+ * chunk gains ~0.02 s and cannot carry one in twenty.
+ */
+const FF_GARBLE_COST_MS = 400;
+const FF_LINE_WINDOW = 24;
+/**
+ * A READ's reply starts within the USB floor plus the body's CRC pass over
+ * the span (~30 ms for 16 KB): nothing by then means the request was lost
+ * on the line, and asking again at once beats waiting out the whole budget
+ * (3 s -- the November reads lost 0.23 s frames that way, three seconds
+ * each). ERASE, CHUNK and CHUNK_SET answer only after their work and get
+ * no such limit.
+ */
+const FF_READ_FIRST_BYTE_MS = 500;
 /**
  * Tries of one request whose reply comes back damaged (a bad sum, a cut-short
  * frame, a READ whose CRC fails) before the job gives up on it. Every
@@ -358,6 +380,8 @@ class FastFlashClient {
       typeof nrv2b !== 'undefined' ? nrv2b : require('./nrv2b.js').nrv2b;
     /** Garbled replies so far (a marginal line shows here first). */
     this.lineErrors = 0;
+    /** The last FF_LINE_WINDOW frames: {bad, wireMs}, for the step-down decision. */
+    this._recent = [];
     /** The line rate the session is on (ffFasterLine and a step-down move it). */
     this.baud = FF_BAUD;
     /**
@@ -375,10 +399,21 @@ class FastFlashClient {
    */
   async _lineError() {
     this.lineErrors++;
-    if (this.lineErrors < FF_LINE_ERRORS_STEP || !this.stepDown) return;
+    this._note(true, 0);
+    if (!this.stepDown) return;
+    // the rate below this one, and the share of wire time it would cost
+    const lower = (FF_FAST_LINES.find(([r]) => r < this.baud) || [FF_BAUD])[0];
+    const gain = this.baud > FF_BAUD ? 1 - lower / this.baud : 0;
+    const bad = this._recent.filter((f) => f.bad).length;
+    const kept = this._recent.reduce((n, f) => n + f.wireMs, 0) * gain;
+    const step = gain
+      ? bad * FF_GARBLE_COST_MS > kept
+      : this.lineErrors >= FF_LINE_ERRORS_STEP;
+    if (!step) return;
     const down = this.stepDown;
     this.stepDown = null;
     this.lineErrors = 0;
+    this._recent = [];
     try {
       await down();
     } finally {
@@ -387,19 +422,32 @@ class FastFlashClient {
   }
 
   /**
+   * One frame for the step-down window.
+   * @param {boolean} bad - garbled or lost
+   * @param {number} wireMs - the frame's wire time, request and reply
+   */
+  _note(bad, wireMs) {
+    this._recent.push({ bad, wireMs });
+    if (this._recent.length > FF_LINE_WINDOW) this._recent.shift();
+  }
+
+  /**
    * @param {number} svc
    * @param {number[]} data
    * @param {number} timeoutMs
+   * @param {{firstByteMs?: number}} [opts] - firstByteMs: the reply must
+   *   start within this long after the echo, or the request counts as lost
    * @returns {Promise<Uint8Array>} The ACK's payload.
    */
-  async call(svc, data, timeoutMs) {
+  async call(svc, data, timeoutMs, opts = {}) {
     const frame = ffFrame(svc, data);
     let reply = null;
     for (let attempt = 1; ; attempt++) {
       const t0 = Date.now();
       let err = null;
       try {
-        reply = ffParse(await this.link.exchange(frame, timeoutMs));
+        reply = ffParse(await this.link.exchange(frame, timeoutMs, opts));
+        if (reply) this._note(false, this._wireMs(frame.length + reply.used));
       } catch (e) {
         err = e;
       }
@@ -640,7 +688,8 @@ class FastFlashClient {
       const d = await this.call(
         FF_SVC.READ,
         [..._ffU32(off), ..._ffU16(len)],
-        this._readReplyMs(len)
+        this._readReplyMs(len),
+        { firstByteMs: FF_READ_FIRST_BYTE_MS }
       );
       const bytes = d.subarray(4);
       if (
@@ -1314,9 +1363,14 @@ function ffWebLink(bus, opts = {}) {
       : 'nothing heard';
   const scale = bus.port.device === 'ms45-emu' ? FF_EMULATOR_SCALE : 1;
 
-  /** Read until one whole frame (after `skip` echo bytes) is in. */
-  async function readFrame(timeoutMs, echo) {
+  /**
+   * Read until one whole frame (after the echo) is in. With firstByteMs,
+   * a reply that has not started that long after the echo is a lost
+   * request: reported at once, not at the budget's end.
+   */
+  async function readFrame(timeoutMs, echo, firstByteMs = 0) {
     const deadline = Date.now() + timeoutMs * scale;
+    let replyBy = !echo && firstByteMs ? Date.now() + firstByteMs * scale : 0;
     for (;;) {
       if (echo) {
         // the echo is exactly what was written; anything before it is
@@ -1325,8 +1379,13 @@ function ffWebLink(bus, opts = {}) {
         if (at >= 0) {
           rx = rx.slice(at + echo.length);
           echo = null;
+          if (firstByteMs) replyBy = Date.now() + firstByteMs * scale;
         }
       }
+      if (!echo && replyBy && !rx.length && Date.now() >= replyBy)
+        throw new Error(
+          'fast flasher: the DME did not answer (nothing after the echo)'
+        );
       if (!echo) {
         const f = ffParse(rx);
         if (f) {
@@ -1348,7 +1407,9 @@ function ffWebLink(bus, opts = {}) {
                   : 'nothing after the echo'
               })`
         );
-      const { value, done } = await bus.readSome(deadline);
+      const { value, done } = await bus.readSome(
+        !echo && replyBy && !rx.length ? Math.min(deadline, replyBy) : deadline
+      );
       if (done) throw new Error('fast flasher: the port closed');
       if (value && value.length) {
         rx.push(...value);
@@ -1643,7 +1704,7 @@ function ffWebLink(bus, opts = {}) {
         }
       }
     },
-    async exchange(frame, timeoutMs) {
+    async exchange(frame, timeoutMs, opts = {}) {
       // DTR stays low. The bus raises it around every K-line write (the
       // reference's transmit enable), but on the car a break with DTR low
       // reached the line, and with the DTR toggle the flasher answered
@@ -1651,7 +1712,11 @@ function ffWebLink(bus, opts = {}) {
       // the drop's USB transfer lands as the reply starts. Without DTR a
       // cable that needed it would give no echo -- an error that says so.
       await bus.writer.write(frame);
-      const reply = await readFrame(timeoutMs, Array.from(frame));
+      const reply = await readFrame(
+        timeoutMs,
+        Array.from(frame),
+        opts.firstByteMs || 0
+      );
       if (drainMs) await sleep(reply.length * drainMs);
       return reply;
     },

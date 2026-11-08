@@ -813,6 +813,20 @@ const be32 = (b, at) =>
       [W.READ_MAX, 0x1000, 0x1000, 0x1000, 0x1000],
       'one wide ask, then the four pieces'
     );
+    // the step-down weighs garbles against what the rate gains: on a fast
+    // line carrying wide reads one garble in six frames is kept, three in
+    // a row are not
+    client.baud = 312500;
+    stepped = 0;
+    client._recent = [];
+    for (let i = 0; i < 6; i++) await client.read(0x50000 + i * 0x4000, 0x4000);
+    damage = 1;
+    await client.read(0x70000, 0x4000);
+    assert.strictEqual(stepped, 0, 'one garble in six wide frames is carried');
+    damage = 3;
+    await client.read(0x74000, 0x4000);
+    assert.strictEqual(stepped, 1, 'three garbles running step the line down');
+    client.baud = W.BAUD;
     asked.length = 0;
     let last = -1;
     const img = await W.readImage(client, {
