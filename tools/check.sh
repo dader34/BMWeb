@@ -143,6 +143,7 @@ run node tools/verify/test_logging_replay.js
 run node tools/verify/test_logging_tracer.js
 run node tools/verify/test_flash_logview.js
 run node tools/verify/test_faults_page.js
+run node tools/verify/test_tcu_identify.js
 
 echo
 echo "== Engine protection builder: byte-identical to the emulator-tested build, gates, config =="

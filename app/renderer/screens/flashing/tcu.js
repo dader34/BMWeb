@@ -211,7 +211,6 @@ async function fbTcuIdentify() {
       );
   }
   if (!res) {
-    t.sgbd = null;
     fbLog(`${found}: ${lastProblem}`);
     fbSetStatus('No response from the TCU');
     await fbMessage(
@@ -1008,4 +1007,14 @@ async function fbTcuWriteProgram() {
     fbProgress(0);
     if (flashLog.isActive) await fbSessionStop();
   }
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    fbTcuIdentify,
+    fbTcuFreshState,
+    FB_TCU_SGBD,
+    FB_TCU_VARIANTS,
+    FB_TCU_IDENT_TRIES,
+  };
 }
