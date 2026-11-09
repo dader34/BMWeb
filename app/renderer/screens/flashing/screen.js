@@ -987,13 +987,16 @@ const FB_FLASH_CANCELLED = 'Cancelled: nothing was written';
  * @param {string} op - The operation (one flashOps.writes() is true for).
  * @returns {Promise<boolean>} True when the write was confirmed.
  */
-function fbConfirmFlash(op) {
+function fbConfirmFlash(op, note) {
   const label = flashOps.label(op);
   const module = op.startsWith('tcu') ? 'transmission' : 'DME';
   return confirmDialog({
     title: esc(`${label}?`),
     body: fbHtml(
       `This will erase and rewrite part of the ${module}.\n\n` +
+        // what this flash writes besides the obvious (Flash Program: the
+        // tune inside the program file)
+        (note ? `${note}\n\n` : '') +
         'Keep the ignition on, a charger on the battery and the cable plugged in until it has finished. ' +
         `An interrupted write can leave the ${module} unable to run until it is written again.`
     ),
@@ -1024,13 +1027,13 @@ function fbConfirmFlash(op) {
  * restore together, so asking again is noise).
  * @param {string} op
  * @param {object} payload
- * @param {{stage?: Function, progress?: Function, confirm?: boolean}} [ui]
+ * @param {{stage?: Function, progress?: Function, confirm?: boolean, confirmNote?: string}} [ui]
  */
 async function fbFlashRun(op, payload, ui = {}) {
   if (
     flashOps.writes(op) &&
     ui.confirm !== false &&
-    !(await fbConfirmFlash(op))
+    !(await fbConfirmFlash(op, ui.confirmNote))
   ) {
     flashLog.note('Write not confirmed: nothing was sent to the car');
     return { ok: false, cancelled: true, status: FB_FLASH_CANCELLED };

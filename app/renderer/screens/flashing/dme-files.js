@@ -3,7 +3,7 @@
 // show them, and the immobilizer checks around every load (a tune and a
 // program must agree with each other and with the car). Part of the DME
 // screen with dme.js; one scope.
-/* exported fbDmeFullOneFile, fbDmeSaveRead, fbDmeFullBinChanged, fbDmeProgramHasNoTune, fbDmeLoadFile1, fbDmeLoadFile2, fbDmeRemovePairedTune, fbDmeClearExchangeFile, fbDmeLoadBuiltPair, fbDmeMatchImmobilizer, fbDmeGateLoadedFiles, fbDmeStoredMapsHaveStockImmobilizer, fbDmeStoredMapsWithoutImmobilizer */
+/* exported fbDmeFullOneFile, fbDmeSaveRead, fbDmeFullBinChanged, fbDmeProgramHasNoTune, fbDmeLoadFile1, fbDmeLoadFile2, fbDmeRemovePairedTune, fbDmeClearExchangeFile, fbDmeLoadBuiltPair, fbDmeMatchImmobilizer, fbDmeGateLoadedFiles, fbDmeStoredMapsHaveStockImmobilizer, fbDmeStoredMapsWithoutImmobilizer, fbDmeProgramTuneNote */
 
 // ---- loading files ------------------------------------------------------------------------------------
 function fbDmeFullBinChanged() {
@@ -23,6 +23,21 @@ function fbDmeFullBinChanged() {
 function fbDmeProgramHasNoTune() {
   const d = fbState.dme;
   return d.exchangeKind === '0PA' && !d.exchangeTuneLoaded;
+}
+
+/**
+ * What a Flash Program confirm says about the tune: a program file that
+ * carries one has its calibration written along with the program -- which
+ * the dialogs did not say, so a Flash Program quietly replaced the tune on
+ * the car with the file's.
+ * @param {boolean} hasCal - Whether this flash writes the calibration too
+ *   (the same test the flash itself makes).
+ * @returns {string}
+ */
+function fbDmeProgramTuneNote(hasCal) {
+  return hasCal
+    ? 'The program file carries a tune as well: the tune inside it is flashed along with the program, replacing the one on the DME.'
+    : 'The program file carries no tune: the tune on the DME is left as it is.';
 }
 
 function fbDmeTuneMismatchPrompt() {

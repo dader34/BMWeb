@@ -1070,7 +1070,8 @@ async function fbDmeFastFlashProgram(opts = {}) {
     what: 'program',
     counter: true,
     confirm:
-      `Fast Flash Program resets the DME into its fast flasher and rewrites the program -- the external sectors and the MPC (internal flash) blocks that differ${hasCal ? ', and the calibration' : ''}, compressed.\n\n` +
+      `Fast Flash Program resets the DME into its fast flasher and rewrites the program -- the external sectors and the MPC (internal flash) blocks that differ, compressed.\n\n` +
+      `${fbDmeProgramTuneNote(hasCal)}\n\n` +
       'Keep the ignition on, a charger on the battery and the cable plugged in until it has finished. An interrupted write leaves the program without its valid marks, and the DME stays in the flasher until a flash completes.\n\n' +
       'Write the program?',
     note: `DME ${d.ident.hwRef} / prog ${progRef || '(unreadable)'} / ${fastFlasher.describe(d.fastFlasher)}${d.flashName ? ` / ${d.flashName}` : ''}${d.mpcName && d.mpcName !== d.flashName ? ` + ${d.mpcName}` : ''}`,

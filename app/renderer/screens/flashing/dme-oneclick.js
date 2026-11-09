@@ -391,10 +391,17 @@ const fbDmeOneClickInto = fbDmeOneClickTrigger;
 async function fbDmeOneClickConfirm(title, what) {
   const rewrites =
     what === 'program'
-      ? 'the program -- the external sectors and the MPC (internal flash) blocks that differ, and the calibration with it'
+      ? 'the program -- the external sectors and the MPC (internal flash) blocks that differ'
       : 'the calibration sector';
+  // the same test the program flash makes for writing the calibration too
+  const d = fbState.dme;
+  const tune =
+    what === 'program'
+      ? `${fbDmeProgramTuneNote(d.flash.length >= 0x5d000 && !fbDmeProgramHasNoTune())}\n\n`
+      : '';
   const ok = await fbConfirm(
     `${title} starts the fast flasher on the DME (it runs from RAM, nothing is installed) and rewrites ${rewrites}.\n\n` +
+      tune +
       `Keep the ignition on, a charger on the battery and the cable plugged in until it has finished. An interrupted write leaves the ${what} without its valid marks, and the DME stays in the flasher until a flash completes.\n\n` +
       `Write the ${what === 'program' ? 'program' : 'tune'}?`,
     title

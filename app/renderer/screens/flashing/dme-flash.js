@@ -314,7 +314,9 @@ async function fbDmeFlashProgram(opts = {}) {
         vin: d.ident.vin,
         hwRef: d.ident.hwRef,
       },
-      opts.confirmed ? { confirm: false } : {}
+      opts.confirmed
+        ? { confirm: false }
+        : { confirmNote: fbDmeProgramTuneNote(hasCal) }
     );
     success = result.ok;
     fbSetStatus(result.status);
