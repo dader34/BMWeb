@@ -1693,12 +1693,22 @@ function ffWebLink(bus, opts = {}) {
      * for its HELLO.
      * @returns {Promise<Uint8Array>} The stamp it echoed.
      */
-    async resume() {
+    async resume(opts = {}) {
       // the body may be holding a confirmed faster line from the session
       // that was cut short. A quick pass first: one ask at each rate,
       // likeliest first (the session rates in the order sessions try
       // them, then 115200, then the rates older builds held), with
-      // FF_HELLO_QUICK_MS of patience each; then the patient pass
+      // FF_HELLO_QUICK_MS of patience each; then the patient pass.
+      //
+      // opts.quick skips the patient pass. A running flasher answers the
+      // quick ask -- it is sitting there waiting -- so the patient pass
+      // only ever waits out silence. On identify, where there is usually
+      // NO flasher (a one-click body lives in RAM and a key cycle clears
+      // it), the patient pass over ~7 rates x 2 asks x 2 s = ~28 s is the
+      // whole cost of ruling out a flasher that was never there (the car,
+      // 2026-11-08: a 25 s identify, HELLOs on the cable, no cog). The
+      // resume-a-push path keeps both passes: there the flasher is known
+      // to be present and worth waiting for.
       let last = null;
       const likely = [
         ...new Set([
@@ -1708,10 +1718,13 @@ function ffWebLink(bus, opts = {}) {
           ...FF_RESUME_RATES,
         ]),
       ];
-      for (const [asks, timeoutMs] of [
-        [1, FF_HELLO_QUICK_MS],
-        [FF_HELLO_ASKS, FF_TIMEOUT.HELLO],
-      ]) {
+      const passes = opts.quick
+        ? [[1, FF_HELLO_QUICK_MS]]
+        : [
+            [1, FF_HELLO_QUICK_MS],
+            [FF_HELLO_ASKS, FF_TIMEOUT.HELLO],
+          ];
+      for (const [asks, timeoutMs] of passes) {
         for (const rate of likely) {
           await bus.reopen({
             baudRate: rate,

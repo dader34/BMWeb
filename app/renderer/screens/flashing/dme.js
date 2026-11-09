@@ -398,7 +398,10 @@ async function fbDmeIdentifyThroughFlasher() {
     claim = await webClaimBus('Identify');
     // each HELLO ask at each rate goes to the session log, not the screen
     link = fastFlashWire.webLink(webBus, { onStep: (s) => flashLog.note(s) });
-    const stamp = await link.resume();
+    // identify: the quick pass only (one ask per rate). A flasher that is
+    // running answers it; there is usually none here, and the patient pass
+    // would wait out ~28 s of silence to say so (the car, 2026-11-08).
+    const stamp = await link.resume({ quick: true });
     const magic = String.fromCharCode(...stamp.subarray(0, 6));
     // A HELLO whose stamp is all 0xFF is still the body: it reads its
     // stamp from ext 0xFD26C, and that sits in the top sector a program
