@@ -380,6 +380,30 @@ async function fbDmeOneClickTrigger(title, ui = {}) {
 const fbDmeOneClickInto = fbDmeOneClickTrigger;
 
 /**
+ * The one question a one-click flash asks, before anything is sent: Flash
+ * Tune and Flash Program always ask before they start, and on this route
+ * nothing else would -- ticking "Use the fast flasher" used to stand for
+ * the answer, so the button started writing at once.
+ * @param {string} title - Flash Tune or Flash Program.
+ * @param {'calibration'|'program'} what
+ * @returns {Promise<boolean>} True to go on.
+ */
+async function fbDmeOneClickConfirm(title, what) {
+  const rewrites =
+    what === 'program'
+      ? 'the program -- the external sectors and the MPC (internal flash) blocks that differ, and the calibration with it'
+      : 'the calibration sector';
+  const ok = await fbConfirm(
+    `${title} starts the fast flasher on the DME (it runs from RAM, nothing is installed) and rewrites ${rewrites}.\n\n` +
+      `Keep the ignition on, a charger on the battery and the cable plugged in until it has finished. An interrupted write leaves the ${what} without its valid marks, and the DME stays in the flasher until a flash completes.\n\n` +
+      `Write the ${what === 'program' ? 'program' : 'tune'}?`,
+    title
+  );
+  if (!ok) flashLog.note(`${title} not confirmed: nothing was sent to the car`);
+  return ok;
+}
+
+/**
  * Flash Tune through the one-click: the shared fast-flash session with the
  * one-click entry in place of the reset, and a confirm that discloses the
  * trigger's erase up front (the stock Fast Flash Tune confirm cannot -- it
@@ -391,6 +415,7 @@ async function fbDmeOneClickFlashTune() {
   const d = fbState.dme;
   if (!d.identified || !d.flash) return;
   if (!(await fbDmeOneClickGate('Flash Tune'))) return;
+  if (!(await fbDmeOneClickConfirm('Flash Tune', 'calibration'))) return;
   await fbDmeFastFlash({
     title: 'Flash Tune',
     operation: 'oneclick-flash-tune',
@@ -421,6 +446,9 @@ async function fbDmeOneClickFlashProgram() {
   const d = fbState.dme;
   if (!d.identified || !d.flash || !d.mpc) return;
   if (!(await fbDmeOneClickGate('Flash Program'))) return;
+  // asked here, before the flasher is started: once the DME has been fired
+  // into the body there is no choice left to make, only the push to run
+  if (!(await fbDmeOneClickConfirm('Flash Program', 'program'))) return;
   try {
     await fbDmeOneClickInto('Flash Program');
   } catch (e) {
@@ -428,10 +456,7 @@ async function fbDmeOneClickFlashProgram() {
     flashLog.note(`Flash Program failed: ${e.message}`);
     return;
   }
-  // confirmed:true skips the Fast Flash Program dialog: ticking "Use the
-  // fast flasher" IS the acknowledgement, and the DME has by now been
-  // fired into the resident body -- there is no choice to make here, only
-  // the push to run.
+  // confirmed:true: the question above was this flash's
   await fbDmeFastFlashProgram({ confirmed: true });
 }
 

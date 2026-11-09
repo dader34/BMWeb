@@ -126,14 +126,21 @@ async function fbDmeFastRead() {
  */
 async function fbDmeFastFlash(spec) {
   const d = fbState.dme;
-  // `confirmed`: a guided flow (Install bootloader) asked once for all its steps.
-  // Also treat the one-click-triggered body as already-confirmed: the tab
-  // button's autoEnter guard fired fbDmeOneClickTrigger with no dialog
-  // (the user already clicked "Read AIF" / "Write ISN" / etc), and a
-  // second dialog ("Read the log?") right after the triggered body is
-  // live is just a repeat of the first click's intent.
+  // `confirmed`: a flow that asked its own question first (Install
+  // bootloader once for all its steps; the one-click's Flash Tune / Flash
+  // Program, which ask before they start the flasher).
+  // A one-click-triggered body also counts as confirmed for the TAB actions:
+  // the tab button's autoEnter guard fired fbDmeOneClickTrigger with no
+  // dialog (the user already clicked "Read AIF" / "Write ISN" / etc), and a
+  // second dialog ("Read the log?") right after the triggered body is live
+  // is just a repeat of the first click's intent.
+  // NOT for a flash: Flash Tune and Flash Program always ask before they
+  // start, whichever way they reach the DME -- a body left running by an
+  // earlier session used to take the next Flash Program without a word.
+  const isFlash = spec.what === 'calibration' || spec.what === 'program';
   const preConfirmed =
-    spec.confirmed || !!(d && d.bootLoader && d.bootLoader.triggered);
+    spec.confirmed ||
+    (!isFlash && !!(d && d.bootLoader && d.bootLoader.triggered));
   if (!preConfirmed && !(await fbConfirm(spec.confirm, spec.title))) {
     flashLog.note(`${spec.title} not confirmed: nothing was sent to the car`);
     return;
@@ -601,6 +608,19 @@ async function fbDmeResumablePushCal(client, signedCal, cb) {
 async function fbDmeLeaveFastFlasher(title) {
   const d = fbState.dme;
   if (!(d.ident && d.ident.inFlasher)) return true;
+  // asked before anything is sent: the restart gives up a push that the
+  // fast flash could still resume
+  if (
+    !(await fbConfirm(
+      `The DME is in its fast flasher, and ${title} here goes through the stock loader.\n\n` +
+        'The flasher will be told to restart the DME first. A fast flash that was cut short can then no longer be resumed -- the stock flash writes everything again.\n\n' +
+        `Restart the DME and go on with ${title}?`,
+      title
+    ))
+  ) {
+    flashLog.note(`${title} not confirmed: nothing was sent to the car`);
+    return false;
+  }
   fbSetStatus(`${title}: leaving the fast flasher first…`);
   flashLog.note(
     `${title} by the stock loader, and the DME is in its fast flasher: restarting it`
