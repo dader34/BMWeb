@@ -237,7 +237,7 @@ const FF_HELLO_GAP_MS = 250;
  * answered. A flasher left waiting is found in well under a second instead
  * of after ~4.5 s a rate.
  */
-const FF_HELLO_QUICK_MS = 400;
+const FF_HELLO_QUICK_MS = 150; // an idle body answers in ~10 ms (v26: 7 ms on the car); a busy one is the patient pass's
 
 /** The cal sector, and what of it a calibration write fills. */
 const FF_CAL_SECTOR = 0x40000;
@@ -1144,7 +1144,10 @@ async function ffPushCal(client, signedCal, cb = {}, opts = {}) {
     U.QUERY + U.ERASE + slots * U.CHUNK + U.VERIFY + U.MARKS + U.RESET
   );
   stage('Comparing the calibration on the DME');
-  const onChip = await client.sectorQuery(FF_CAL_SECTOR, FF_CAL_SECTOR_SIZE);
+  // opts.compared: the program push asked already and it differs
+  const onChip = opts.compared
+    ? -1
+    : await client.sectorQuery(FF_CAL_SECTOR, FF_CAL_SECTOR_SIZE);
   if (onChip === ffWireBytes.crc32Mpeg2(target)) {
     note('The DME already holds exactly this calibration; nothing written');
     track.setTotal(U.QUERY + U.RESET);
@@ -1349,11 +1352,38 @@ async function ffPushProgram(client, signedFull, cb = {}, opts = {}) {
 
   // which units differ: a read-back CRC per unit, the true diff
   const todo = [];
+  // opts.cal: the signed calibration, written in this push (Fast Flash
+  // Program with a tune): compared first like a unit, and where the
+  // external sectors erase in the background its sector joins them --
+  // erased under the MPC's pulses and written after them, ~2 s off the
+  // clock -- else written first, as ffPushCal does
+  let calUnit = null;
+  if (opts.cal) {
+    if (opts.cal.length !== FF_CAL_LENGTH)
+      throw new Error('fast flasher: the calibration is not 0x1D000 bytes');
+    const target = ffCalSectorImage(opts.cal);
+    stage('Comparing the calibration');
+    const have = await client.sectorQuery(FF_CAL_SECTOR, FF_CAL_SECTOR_SIZE);
+    if (have !== ffWireBytes.crc32Mpeg2(target))
+      calUnit = {
+        name: 'the calibration',
+        addr: FF_CAL_SECTOR,
+        bytes: target,
+        write: opts.cal,
+        cal: true,
+      };
+    else note('The DME already holds exactly this calibration');
+  }
   for (const [i, u] of units.entries()) {
     stage(`Comparing ${u.name} (${i + 1} of ${units.length})`);
     const have = await client.sectorQuery(u.addr, u.bytes.length);
     if (have !== ffWireBytes.crc32Mpeg2(u.bytes)) todo.push(u);
     track.add(U.QUERY, `Compared ${u.name}`);
+  }
+  if (!todo.length && calUnit) {
+    // the program is the DME's already: the tune alone, as Flash Tune
+    await ffPushCal(client, opts.cal, cb, { reset: false, compared: true });
+    calUnit = null;
   }
   if (!todo.length) {
     note('The DME already holds exactly this program; nothing written');
@@ -1461,6 +1491,17 @@ async function ffPushProgram(client, signedFull, cb = {}, opts = {}) {
     await q.sync();
   };
   const total = todo.length;
+  // the calibration: in the background with the external sectors when the
+  // MPC phase runs (written after it), else now, before the marks go
+  const calBehind =
+    !!calUnit &&
+    !!opts.backgroundErase &&
+    parallel.length > 0 &&
+    !!client.eraseQueue;
+  if (calUnit && !calBehind) {
+    await ffPushCal(client, opts.cal, cb, { reset: false, compared: true });
+    calUnit = null;
+  }
   if (marksUnit) {
     stage(
       `Erasing ${marksUnit.name} first: the program's valid marks go until the end`
@@ -1480,6 +1521,7 @@ async function ffPushProgram(client, signedFull, cb = {}, opts = {}) {
     !!opts.backgroundErase && parallel.length > 0 && !!client.eraseQueue;
   const extUnits = sequential.filter((u) => u.addr < FF_MPC_WINDOW);
   const deferred = background ? extUnits : [];
+  if (calBehind) deferred.unshift(calUnit);
   for (const u of sequential) {
     if (parallel.length && u.addr >= FF_MPC_WINDOW && blockOf(u) === 0) break;
     if (deferred.includes(u)) continue;
@@ -1588,6 +1630,19 @@ async function ffPushProgram(client, signedFull, cb = {}, opts = {}) {
   // v23: the external units whose erase ran in the background, written
   // now that the MPC phase is over (the first chunk waits for the chip)
   for (const u of deferred) {
+    if (u.cal) {
+      // the calibration as Flash Tune closes it: verified, marked valid
+      await writeUnit(u, u.name);
+      stage('Verifying the calibration');
+      await client.verify(
+        FF_CAL_SECTOR,
+        FF_CAL_LENGTH,
+        ffWireBytes.crc32Mpeg2(opts.cal)
+      );
+      stage('Marking the calibration valid');
+      await client.marks(0);
+      continue;
+    }
     n++;
     const which = `${u.name} (${n} of ${total})`;
     track.add(U.ERASE, `Erased ${which} (in the background)`);
@@ -1762,7 +1817,9 @@ function ffWebLink(bus, opts = {}) {
         last = e;
       }
       rx = [];
-      await sleep(FF_HELLO_GAP_MS);
+      // a pause before asking again at this rate; none after the last ask
+      // (the caller moves to another rate, or gives up)
+      if (i < asks) await sleep(FF_HELLO_GAP_MS);
     }
     throw new Error(`${last ? last.message : 'no HELLO'} (${heardText()})`);
   }

@@ -850,7 +850,11 @@ async function fbDmeEnterFastFlasher(owner, ui, opts = {}) {
           : 'A fast flash was interrupted earlier: reconnecting to the flasher…'
     );
     const claim = await webClaimBus(owner);
-    const link = fastFlashWire.webLink(webBus);
+    // each HELLO ask at each rate to the session log: the reconnect's own
+    // time shows there
+    const link = fastFlashWire.webLink(webBus, {
+      onStep: (st) => flashLog.note(st),
+    });
     try {
       const stamp = await link.resume();
       // The resident body (MS45QF) or the boot-region ring (MS45BL);
@@ -1151,8 +1155,12 @@ async function fbDmeFastFlashProgram(opts = {}) {
       // reset, so the program push that follows closes the session
       // one bar for both: the calibration its share first, the program the
       // rest (each push reports its own 0-100)
-      const calShare = hasCal ? FB_FAST_CAL_SHARE : 0;
-      if (hasCal)
+      // v23+: the calibration goes inside the program push, its sector
+      // erased in the background with the external ones (~2 s off the
+      // clock); an older body takes it first, on its own
+      const calInside = hasCal && fbDmeBodyVersion() >= 23;
+      const calShare = hasCal && !calInside ? FB_FAST_CAL_SHARE : 0;
+      if (hasCal && !calInside)
         await fastFlashWire.pushCal(
           client,
           chipImage.slice(MS45_CAL_START, MS45_CAL_START + MS45_CAL_LENGTH),
@@ -1168,6 +1176,9 @@ async function fbDmeFastFlashProgram(opts = {}) {
         },
         {
           mpc,
+          cal: calInside
+            ? chipImage.slice(MS45_CAL_START, MS45_CAL_START + MS45_CAL_LENGTH)
+            : null,
           pagesets: true,
           // v23: the external sectors erase on the chip while the MPC
           // phase runs (~2 s a sector off the clock)

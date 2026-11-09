@@ -871,7 +871,7 @@ const ms45AifFields = [
  * DME has answered once and stays up (ms45RaiseBaud): the caller reads more
  * on the same session and brings the rate back down (ms45DefaultBaud) --
  * `baud` in the result says what the session is at.
- * @param {{raise?: boolean, onSilent?: () => Promise<boolean>}} [opts] - onSilent: asked once the first read goes unanswered; true ends Identify there (the caller found the DME another way).
+ * @param {{raise?: boolean, onSilent?: (() => Promise<boolean>)|null, afterFlash?: boolean}} [opts] - onSilent: asked once the first read goes unanswered; true ends Identify there (the caller found the DME another way). afterFlash: the DME was just restarted, a first silence is it booting.
  */
 async function ms45Identify(opts = {}) {
   // the first job after a flash's reset can land while the DME is still
@@ -902,8 +902,12 @@ async function ms45Identify(opts = {}) {
       aif: {},
       baud: 9600,
     };
-  if (!aifRes.ok) {
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+  // a DME still booting (right after a flash's reset) answers within a
+  // second or two: asked again sooner and more often than one 1.5 s wait
+  for (let i = 0; !aifRes.ok && i < (opts.afterFlash ? 4 : 1); i++) {
+    await new Promise((resolve) =>
+      setTimeout(resolve, opts.afterFlash ? 400 : 1500)
+    );
     aifRes = await ms45Job('aif_lesen', '');
   }
   // the DME has spoken: the rest of identify, and the memory reads the

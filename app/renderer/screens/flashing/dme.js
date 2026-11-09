@@ -315,7 +315,12 @@ async function fbDmeIdentifyRun(afterFlash) {
   if (fbDmeFastLive() && (await fbDmeIdentifyThroughFlasher())) return;
   const ident = await ms45Identify({
     raise: true,
-    onSilent: async () => (inFlasher = await fbDmeIdentifyThroughFlasher()),
+    // right after a flash the flasher was just told to restart the DME:
+    // a first unanswered question is the DME still booting, not a flasher
+    onSilent: afterFlash
+      ? null
+      : async () => (inFlasher = await fbDmeIdentifyThroughFlasher()),
+    afterFlash,
   });
   if (inFlasher) return;
   d.ident = ident;

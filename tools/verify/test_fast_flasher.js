@@ -349,7 +349,12 @@ const be32 = (b, at) =>
               0xff,
               off,
               off +
-                { 0x60000: 0x20000, 0x80000: 0x40000, 0xc0000: 0x40000 }[off]
+                {
+                  0x40000: 0x20000,
+                  0x60000: 0x20000,
+                  0x80000: 0x40000,
+                  0xc0000: 0x40000,
+                }[off]
             );
         },
         async eraseQueue(offsets) {
@@ -359,7 +364,12 @@ const be32 = (b, at) =>
               0xff,
               off,
               off +
-                { 0x60000: 0x20000, 0x80000: 0x40000, 0xc0000: 0x40000 }[off]
+                {
+                  0x40000: 0x20000,
+                  0x60000: 0x20000,
+                  0x80000: 0x40000,
+                  0xc0000: 0x40000,
+                }[off]
             );
         },
         async eraseBlocks(mask) {
@@ -615,6 +625,64 @@ const be32 = (b, at) =>
     assert.deepStrictEqual(kindsB.slice(-2), ['marks', 'reset']);
     ok(
       'v23 push: external sectors queued on the chip after the MPC erase, written after the pagesets, marks sector still first and alone'
+    );
+
+    // the calibration inside the program push: with the background erase its
+    // sector joins the queue and is written after the pagesets, verified and
+    // marked before the program's marks; without it, first, as Flash Tune
+    const calT = new Uint8Array(0x1d000);
+    for (let i = 0; i < calT.length; i++) calT[i] = (i * 5 + 3) & 0xff;
+    for (const behind of [true, false]) {
+      c = mpcChip(new Uint8Array(0x100000).fill(0xff), mpcOnChip);
+      await W.pushProgram(
+        c.client,
+        target,
+        {},
+        { mpc: mpcTarget, pagesets: true, backgroundErase: behind, cal: calT }
+      );
+      assert(
+        Buffer.from(c.mem.subarray(0x40000, 0x5d000)).equals(Buffer.from(calT)),
+        'the calibration is on the chip'
+      );
+      const k = c.events.map((e) => e[0]);
+      const calChunk = c.events.findIndex(
+        (e) => e[0] === 'chunk' && e[1] === 0x40000
+      );
+      const calVerify = c.events.findIndex(
+        (e) => e[0] === 'verify' && e[1] === 0x40000
+      );
+      const marks0 = c.events.findIndex((e) => e[0] === 'marks' && e[1] === 0);
+      const marks1 = c.events.findIndex((e) => e[0] === 'marks' && e[1] === 1);
+      assert(
+        calChunk < calVerify && calVerify < marks0 && marks0 < marks1,
+        'cal written, verified, marked, then the program marked'
+      );
+      if (behind) {
+        const q = c.events.find((e) => e[0] === 'eraseQueue');
+        assert(
+          q && q[1].includes(0x40000),
+          'the cal sector erases in the background queue'
+        );
+        assert(
+          !c.events.some((e) => e[0] === 'erase' && e[1] === 0x40000),
+          'not on the clock'
+        );
+        assert(
+          calChunk > k.lastIndexOf('chunkSet'),
+          'written after the pagesets'
+        );
+      } else {
+        const marksErase = c.events.findIndex(
+          (e) => e[0] === 'erase' && e[1] === 0xc0000
+        );
+        assert(
+          calChunk < marksErase,
+          'without the background: the cal first, before the marks sector goes'
+        );
+      }
+    }
+    ok(
+      'cal inside the program push: background-erased and written after the pagesets, or first without it; verified and marked before the program'
     );
 
     // ---- v24: pipelined pagesets (same chip and targets) ----
