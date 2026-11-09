@@ -176,11 +176,12 @@ async function fbDmeFastFlash(spec) {
     // body than the newest it knows)
     if (fbDmeBodyVersion() >= fastFlashWire.READ_WIDE_VERSION)
       client.readMax = fastFlashWire.READ_MAX_WIDE;
-    await fbDmeFastProbe(client, ui);
     // v26: blank 4 KB pieces left out of reads, the external chunks
     // pipelined, and the reply timing the host's: a short gap and replies
     // padded to whole USB packets (each switch has its off in
-    // localStorage, for a cable that disagrees)
+    // localStorage, for a cable that disagrees). Set BEFORE the probe: a
+    // body left running by an earlier session may already be padding, and
+    // this puts the link and the body on the same settings first.
     if (fbDmeBodyVersion() >= fastFlashWire.V26) {
       client.readBlank = true;
       client.pipelineExt = fbDmePipelineWanted();
@@ -192,6 +193,7 @@ async function fbDmeFastFlash(spec) {
         );
       }
     }
+    await fbDmeFastProbe(client, ui);
     prepared.link = link;
     // the fastest line the cable and the K-line carry, from the top of the
     // list every session: a step-down is not remembered (the remembered one,

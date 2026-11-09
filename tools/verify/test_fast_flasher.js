@@ -1068,6 +1068,45 @@ const be32 = (b, at) =>
     ok(
       'v26 link: the next request waits out the filler, and filler that comes late is dropped before the echo'
     );
+
+    // a v26 body heard (its HELLO) may still be padding for an earlier
+    // session: the link waits out a padded reply's filler before it is told
+    written.length = 0;
+    const wl2 = W.webLink(fake);
+    const stamp = [
+      0x4d, 0x53, 0x34, 0x35, 0x51, 0x46, 26, 0x1b, 0, 0, 0, 0, 0, 0, 0, 0,
+    ];
+    const realWrite = fake.writer.write;
+    let first = true;
+    fake.writer.write = async (f) => {
+      if (!first) return realWrite(f);
+      first = false;
+      written.push([Date.now(), Array.from(f)]);
+      const reply = Array.from(W.frame(0x40, stamp));
+      pending.push(...f, ...reply);
+      setTimeout(
+        () => pending.push(...new Array(62 - reply.length).fill(0xa5)),
+        3
+      );
+    };
+    fake.reopen = async (c) => {
+      fake.config = { baudRate: c.baudRate };
+    };
+    await wl2.resume({ quick: true });
+    await wl2.exchange(
+      W.frame(W.SVC.SECTOR_QUERY, [0, 4, 0, 0, 0, 0, 0, 16]),
+      500
+    );
+    const gap2 =
+      written[written.length - 1][0] - written[written.length - 2][0];
+    assert(
+      gap2 >= Math.ceil(((62 - 21) * 11 * 1000) / 250000),
+      `waited ${gap2} ms after a v26 HELLO`
+    );
+    fake.writer.write = realWrite;
+    ok(
+      'v26 link: after a v26 HELLO it already waits out filler, before the session sets the timing'
+    );
   }
 
   // ---- 5. detection ----------------------------------------------------------

@@ -1642,6 +1642,7 @@ function ffWebLink(bus, opts = {}) {
   // it (the K line is one wire). Filler the cable hands over late is
   // dropped as noise before the next echo (readFrame).
   let pad = 0;
+  let padKnown = false;
   let quietAt = 0;
   // the pause after each reply, per byte: until a HELLO says the body is v6+,
   // assume the old drain (a v5 on the car needs it to be answered at all)
@@ -1649,6 +1650,14 @@ function ffWebLink(bus, opts = {}) {
   const learn = (hello) => {
     if (hello && hello.data && hello.data[6] >= FF_ECHO_AS_SENT_VERSION)
       drainMs = 0;
+    // a v26 body may still be padding its replies for an earlier session
+    // (SET_TIMING lives in its RAM; a one-click body's stamp is blank,
+    // 0xFF): until this session sets the timing, wait out the filler a
+    // padded reply would carry. Talking on top of it collided on the one
+    // wire -- the car, 2026-11-08: a HELLO answered, the next QUERY lost
+    // its echo, after a relay session had set the padding.
+    if (!padKnown && hello && hello.data && hello.data[6] >= FF_V26)
+      pad = FF_REPLY_PAD;
     // the rate the body was heard on: a later resume (the shared session
     // right after a one-click entry, a push picked up after a drop) asks
     // there first instead of walking the ladder
@@ -2049,6 +2058,7 @@ function ffWebLink(bus, opts = {}) {
     /** v26: the packet size the body now pads its replies to (0: none). */
     setPad(size) {
       pad = size | 0;
+      padKnown = true;
     },
     /** Back to the job runner's world: the next job reopens at its own rate. */
     async leave() {
