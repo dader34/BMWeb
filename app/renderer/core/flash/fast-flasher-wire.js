@@ -148,6 +148,11 @@ const FF_FAST_LINES = [
   // cost the 2026-11-08 read a reconnect at 5 % -- each garble is a
   // re-read and two of them a step-down, which costs more than the 20 %
   // of wire time 250000 gives up. 250000 has carried every frame so far.
+  // 2026-11-09: the session starts at 416667 again (the user's call): a
+  // garble steps down a rate, and a dropped push now resumes where the DME
+  // stopped, so a marginal top rate costs a reconnect, not the work so far
+  [416667, 3],
+  [312500, 4],
   [250000, 5],
   [208333, 6],
   [156250, 8],
@@ -1200,6 +1205,151 @@ async function ffPushCal(client, signedCal, cb = {}, opts = {}) {
 }
 
 /**
+ * Resume from what the DME holds (the flash is the pointer: no state is
+ * kept anywhere else, so a connection that dropped anywhere -- the body
+ * still running in RAM -- picks up where the chip says it stopped).
+ *
+ * The first chunk whose prefix CRC differs from the target's, by gallop
+ * then binary search over QUERYs of growing prefixes (~2 lg n probes).
+ * @param {FastFlashClient} client
+ * @param {number} base
+ * @param {Uint8Array} data - The target span.
+ * @param {number} chunk - The step (4 KB, or a pageset span in the MPC).
+ * @returns {Promise<number>} The chunk index, or ceil(len / chunk) when the
+ *   whole span matches.
+ */
+async function _ffFirstDiffering(client, base, data, chunk) {
+  const crc = ffWireBytes.crc32Mpeg2;
+  const n = Math.ceil(data.length / chunk);
+  const len = (k) => Math.min(k * chunk, data.length);
+  const same = async (k) =>
+    (await client.sectorQuery(base, len(k))) >>> 0 ===
+    crc(data.subarray(0, len(k))) >>> 0;
+  let done = 0;
+  let miss = n + 1;
+  for (let step = 1; done < n; step *= 2) {
+    const k = Math.min(done + step, n);
+    if (await same(k)) done = k;
+    else {
+      miss = k;
+      break;
+    }
+  }
+  if (done >= n) return n;
+  while (miss - done > 1) {
+    const mid = (done + miss) >> 1;
+    if (await same(mid)) done = mid;
+    else miss = mid;
+  }
+  return done;
+}
+
+/** Whether `have` can become `want` by programming alone (bits only clear). */
+function _ffReachable(have, want) {
+  for (let i = 0; i < want.length; i++)
+    if (want[i] & ~have[i] & 0xff) return false;
+  return true;
+}
+
+/**
+ * How to bring one unit to its target from what the chip holds:
+ *   complete  the write span matches (only VERIFY / MARKS are owed)
+ *   resume    [0, from) matches, chunk `from` is blank or torn toward the
+ *             target, everything after it blank: write from `from`, no erase
+ *   erase     anything else (old or foreign content): erase, write from 0
+ * On a fresh flash this is one QUERY of the last chunk (old content: erase).
+ * @param {FastFlashClient} client
+ * @param {number} base
+ * @param {Uint8Array} data - The unit's write span.
+ * @returns {Promise<{mode: 'complete'|'resume'|'erase', from: number}>}
+ */
+async function _ffPlanUnit(client, base, data) {
+  const C = 0x1000;
+  const crc = ffWireBytes.crc32Mpeg2;
+  const blank = (n) => crc(new Uint8Array(n).fill(0xff)) >>> 0;
+  const n = Math.ceil(data.length / C);
+  const erase = { mode: 'erase', from: 0 };
+  const tailAt = (n - 1) * C;
+  const tail = data.subarray(tailAt);
+  const tailHave = (await client.sectorQuery(base + tailAt, tail.length)) >>> 0;
+  if (tailHave !== blank(tail.length)) {
+    // a written tail: the whole span complete, or old content
+    if (tailHave !== crc(tail) >>> 0) return erase;
+    return (await client.sectorQuery(base, data.length)) >>> 0 ===
+      crc(data) >>> 0
+      ? { mode: 'complete', from: n }
+      : erase;
+  }
+  const k = await _ffFirstDiffering(client, base, data, C);
+  if (k >= n) return { mode: 'complete', from: n };
+  const at = k * C;
+  const len = Math.min(C, data.length - at);
+  const have = await client.read((base + at) >>> 0, len);
+  if (!_ffReachable(have, data.subarray(at, at + len))) return erase;
+  const rest = at + len;
+  if (
+    rest < data.length &&
+    (await client.sectorQuery((base + rest) >>> 0, data.length - rest)) >>>
+      0 !==
+      blank(data.length - rest)
+  )
+    return erase;
+  return { mode: 'resume', from: k };
+}
+
+/**
+ * The same for the MPC pagesets: every block advances a set at a time, in
+ * step, so the search runs on one block and the result is then confirmed
+ * on all of them -- the sets before it match, the set at it is blank or
+ * torn toward the target, the rest blank. `view(b)` is block b's target as
+ * the sets write it (block 0's first page blank: it is written last).
+ * @returns {Promise<{mode: 'complete'|'resume'|'erase', from: number}>}
+ */
+async function _ffPlanSets(client, blocks, view, span) {
+  const crc = ffWireBytes.crc32Mpeg2;
+  const blank = (n) => crc(new Uint8Array(n).fill(0xff)) >>> 0;
+  const steps = Math.ceil(FF_MPC_BLOCK / span);
+  const base = (b) => (FF_MPC_WINDOW | (b * FF_MPC_BLOCK)) >>> 0;
+  const erase = { mode: 'erase', from: 0 };
+  const ref = blocks[blocks.length - 1];
+  const k = await _ffFirstDiffering(client, base(ref), view(ref), span);
+  if (k >= steps) {
+    for (const b of blocks)
+      if (
+        (await client.sectorQuery(base(b), FF_MPC_BLOCK)) >>> 0 !==
+        crc(view(b)) >>> 0
+      )
+        return erase;
+    return { mode: 'complete', from: steps };
+  }
+  const at = k * span;
+  const len = Math.min(span, FF_MPC_BLOCK - at);
+  for (const b of blocks) {
+    const v = view(b);
+    if (
+      at &&
+      (await client.sectorQuery(base(b), at)) >>> 0 !==
+        crc(v.subarray(0, at)) >>> 0
+    )
+      return erase;
+    const have = await client.read((base(b) + at) >>> 0, len);
+    if (!_ffReachable(have, v.subarray(at, at + len))) return erase;
+    const rest = at + len;
+    if (
+      rest < FF_MPC_BLOCK &&
+      (await client.sectorQuery(
+        (base(b) + rest) >>> 0,
+        FF_MPC_BLOCK - rest
+      )) >>>
+        0 !==
+        blank(FF_MPC_BLOCK - rest)
+    )
+      return erase;
+  }
+  return { mode: 'resume', from: k };
+}
+
+/**
  * v26: external chunks through CHUNKQ when the client allows it
  * (client.pipelineExt): each answered before it is programmed, its result
  * told with the next ACK, the last by sync(). A chunk that did not take
@@ -1473,13 +1623,42 @@ async function ffPushProgram(client, signedFull, cb = {}, opts = {}) {
   note(
     `Estimated write time ~${Math.round(seconds)} s at ${baud} baud (the car's measured rates${parallel.length ? `; ${parallel.length} MPC blocks as pagesets` : ''})`
   );
+  // what the chip holds decides, per unit, whether it is erased and where
+  // its writing starts (_ffPlanUnit): a push run again after a dropped
+  // connection carries on from there instead of starting the unit over
+  const plans = new Map();
+  const planOf = async (u) => {
+    if (plans.has(u)) return plans.get(u);
+    const p = await _ffPlanUnit(client, u.addr, u.write);
+    plans.set(u, p);
+    if (p.mode !== 'erase')
+      note(
+        p.mode === 'complete'
+          ? `${u.name}: already written (the DME holds it); nothing to send`
+          : `${u.name}: resumes at chunk ${p.from + 1} of ${slotsOf(u.write.length)} (the DME holds the rest of it); no erase`
+      );
+    return p;
+  };
+  const eraseIfPlanned = async (u, what) => {
+    if ((await planOf(u)).mode !== 'erase') {
+      track.add(U.ERASE, `${what}: no erase needed`);
+      return false;
+    }
+    stage(`Erasing ${what}`);
+    await client.erase(u.addr);
+    track.add(U.ERASE, `Erased ${what}`);
+    return true;
+  };
   const writeUnit = async (u, which) => {
     stage(`Writing ${which}`);
     const slots = slotsOf(u.write.length);
+    const plan = await planOf(u);
+    const from = plan.mode === 'erase' ? 0 : plan.from;
+    if (from) track.add(U.CHUNK * Math.min(from, slots), `Already on the DME`);
     // v26: the external chunks pipelined; the MPC's go as before
     const q = u.addr < FF_MPC_WINDOW ? _ffExtQueue(client) : _ffExtQueue(null);
     const send = (a, p) => (q.on ? q.chunk(a, p) : client.chunk(a, p));
-    for (let i = 0; i < slots; i++) {
+    for (let i = from; i < slots; i++) {
       const plain = u.write.subarray(i * 0x1000, (i + 1) * 0x1000);
       // the erase left it blank; an all-FF chunk needs no write
       if (!plain.every((b) => b === 0xff)) {
@@ -1498,16 +1677,29 @@ async function ffPushProgram(client, signedFull, cb = {}, opts = {}) {
     !!opts.backgroundErase &&
     parallel.length > 0 &&
     !!client.eraseQueue;
+  const closeCal = async () => {
+    stage('Verifying the calibration');
+    await client.verify(
+      FF_CAL_SECTOR,
+      FF_CAL_LENGTH,
+      ffWireBytes.crc32Mpeg2(opts.cal)
+    );
+    stage('Marking the calibration valid');
+    await client.marks(0);
+  };
   if (calUnit && !calBehind) {
-    await ffPushCal(client, opts.cal, cb, { reset: false, compared: true });
+    await eraseIfPlanned(calUnit, 'the calibration sector');
+    await writeUnit(calUnit, calUnit.name);
+    await closeCal();
     calUnit = null;
   }
   if (marksUnit) {
-    stage(
-      `Erasing ${marksUnit.name} first: the program's valid marks go until the end`
+    // erased first unless the DME shows it erased already (a resumed push):
+    // either way the program's marks are gone before anything else is
+    await eraseIfPlanned(
+      marksUnit,
+      `${marksUnit.name} first: the program's valid marks go until the end`
     );
-    await client.erase(marksUnit.addr);
-    track.add(U.ERASE, `Erased ${marksUnit.name}`);
   }
   let n = 0;
   // v23: with a background erase, the external sectors are queued on the
@@ -1527,32 +1719,60 @@ async function ffPushProgram(client, signedFull, cb = {}, opts = {}) {
     if (deferred.includes(u)) continue;
     n++;
     const which = `${u.name} (${n} of ${total})`;
-    stage(`Erasing ${which}`);
-    await client.erase(u.addr);
-    track.add(U.ERASE, `Erased ${which}`);
+    await eraseIfPlanned(u, which);
     await writeUnit(u, which);
   }
   if (parallel.length) {
     const blocks = parallel.map(blockOf).sort((a, b) => a - b);
     const mask = blocks.reduce((m, b) => m | (1 << b), 0);
     const which = `MPC blocks ${blocks.join(', ')} (${n + 1}-${n + blocks.length} of ${total}, as pagesets)`;
-    stage(`Erasing ${which}`);
-    await client.eraseBlocks(mask);
-    track.add(U.ERASE * blocks.length, `Erased ${which}`);
-    if (deferred.length) {
-      stage(
-        `Erasing ${deferred.map((u) => u.name).join(', ')} in the background`
+    const span = pagesets * FF_PAGE;
+    const steps = Math.ceil(FF_MPC_BLOCK / span);
+    // the blocks as the sets write them: block 0's first page blank (it
+    // goes alone, last)
+    const view = (b) => {
+      const v = opts.mpc.subarray(b * FF_MPC_BLOCK, (b + 1) * FF_MPC_BLOCK);
+      if (b !== 0) return v;
+      const c = Uint8Array.from(v);
+      c.fill(0xff, 0, FF_PAGE);
+      return c;
+    };
+    const setPlan = await _ffPlanSets(client, blocks, view, span);
+    if (setPlan.mode === 'erase') {
+      stage(`Erasing ${which}`);
+      await client.eraseBlocks(mask);
+    } else
+      note(
+        setPlan.mode === 'complete'
+          ? `${which}: every pageset already on the DME; no erase`
+          : `${which}: resumes at pageset ${setPlan.from + 1} of ${steps} (the DME holds the ones before); no erase`
       );
-      for (let i = 0; i < deferred.length; i += 8)
-        await client.eraseQueue(deferred.slice(i, i + 8).map((u) => u.addr));
+    track.add(U.ERASE * blocks.length, `Erased ${which}`);
+    // the external units still to erase go to the chip's queue (a resumed
+    // push leaves alone what the chip already has)
+    const toQueue = [];
+    for (const u of deferred)
+      if ((await planOf(u)).mode === 'erase') toQueue.push(u);
+    if (toQueue.length) {
+      stage(
+        `Erasing ${toQueue.map((u) => u.name).join(', ')} in the background`
+      );
+      for (let i = 0; i < toQueue.length; i += 8)
+        await client.eraseQueue(toQueue.slice(i, i + 8).map((u) => u.addr));
       // the chip's time, not the wire's: the bar moves when the writes land
     }
     stage(`Writing ${which}`);
-    const span = pagesets * FF_PAGE;
-    const steps = Math.ceil(FF_MPC_BLOCK / span);
     // block 0 in the sets: its first page (the reset word at 0x8) goes as
     // 0xFF -- an erased page the pulses leave as it is -- and alone, last
-    let heldPage = null;
+    let heldPage = blocks.includes(0) ? opts.mpc.subarray(0, FF_PAGE) : null;
+    if (setPlan.from)
+      track.add(
+        (U.CHUNK *
+          Math.min(setPlan.from * span, FF_MPC_BLOCK) *
+          blocks.length) /
+          0x1000,
+        'Already on the DME'
+      );
     // v24: pipelined -- each set is answered before its pulses, the answer
     // carrying the previous set's result, so the next set's wire time hides
     // under this set's pulses. A set that failed is sent again as a plain
@@ -1570,7 +1790,7 @@ async function ffPushProgram(client, signedFull, cb = {}, opts = {}) {
       sent += await client.chunkSet(mask, set.off, set.ps, set.plain);
       chunks++;
     };
-    for (let i = 0; i < steps; i++) {
+    for (let i = setPlan.from; i < steps; i++) {
       const off = i * span;
       // the last set is shorter when the pagesets do not divide the block
       const ps = Math.min(pagesets, (FF_MPC_BLOCK - off) / FF_PAGE);
@@ -1621,9 +1841,7 @@ async function ffPushProgram(client, signedFull, cb = {}, opts = {}) {
       if (!(u.addr >= FF_MPC_WINDOW && blockOf(u) === 0)) continue;
       n++;
       const last = `${u.name} (${n} of ${total})`;
-      stage(`Erasing ${last}`);
-      await client.erase(u.addr);
-      track.add(U.ERASE, `Erased ${last}`);
+      await eraseIfPlanned(u, last);
       await writeUnit(u, last);
     }
   }
@@ -1633,14 +1851,7 @@ async function ffPushProgram(client, signedFull, cb = {}, opts = {}) {
     if (u.cal) {
       // the calibration as Flash Tune closes it: verified, marked valid
       await writeUnit(u, u.name);
-      stage('Verifying the calibration');
-      await client.verify(
-        FF_CAL_SECTOR,
-        FF_CAL_LENGTH,
-        ffWireBytes.crc32Mpeg2(opts.cal)
-      );
-      stage('Marking the calibration valid');
-      await client.marks(0);
+      await closeCal();
       continue;
     }
     n++;

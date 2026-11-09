@@ -159,6 +159,10 @@ const be32 = (b, at) =>
         events.push(['query', off]);
         return W.crc32(mem.subarray(off, off + len));
       },
+      async read(off, len) {
+        events.push(['read', off]);
+        return Uint8Array.from(mem.subarray(off, off + len));
+      },
       async erase(off) {
         events.push(['erase', off]);
         mem.fill(0xff, off, off + sizes[off]);
@@ -230,10 +234,14 @@ const be32 = (b, at) =>
     );
     let k = c.events.map((e) => e[0]);
     assert.strictEqual(c.events[0][0], 'query');
-    assert.strictEqual(
-      c.events.filter((e) => e[0] === 'erase')[0][1],
-      0xc0000,
-      'the marks sector is erased first'
+    assert(
+      !k.includes('erase'),
+      'a blank chip is not erased: the DME shows every sector blank already'
+    );
+    assert(
+      c.events.findIndex((e) => e[0] === 'chunk' && e[1] >= 0xc0000) >
+        c.events.findLastIndex((e) => e[0] === 'chunk' && e[1] < 0xc0000),
+      'the marks sector is still written last'
     );
     assert.deepStrictEqual(k.slice(-2), ['marks', 'reset']);
     assert.strictEqual(
@@ -242,7 +250,7 @@ const be32 = (b, at) =>
       'MARKS 1 for the program'
     );
     ok(
-      'from blank: 3 sectors written, marks sector erased first, MARKS 1 then RESET, chip == target'
+      'from blank: 3 sectors written without an erase (the DME shows them blank), marks sector last, MARKS 1 then RESET, chip == target'
     );
 
     c = chip(onChip);
@@ -340,6 +348,14 @@ const be32 = (b, at) =>
             ? mpc.subarray(off - WIN, off - WIN + len)
             : mem.subarray(off, off + len);
           return W.crc32(a);
+        },
+        async read(off, len) {
+          events.push(['read', off]);
+          return Uint8Array.from(
+            isMpc(off)
+              ? mpc.subarray(off - WIN, off - WIN + len)
+              : mem.subarray(off, off + len)
+          );
         },
         async erase(off) {
           events.push(['erase', off]);
@@ -442,10 +458,15 @@ const be32 = (b, at) =>
         },
         async marks(which) {
           events.push(['marks', which]);
-          for (const [at, w] of [
-            [0xfff80, 0x42902448],
-            [0xfffc0, 0x42244890],
-          ])
+          for (const [at, w] of which
+            ? [
+                [0xfff80, 0x42902448],
+                [0xfffc0, 0x42244890],
+              ]
+            : [
+                [0x5ff80, 0x48249042],
+                [0x5ffc0, 0x90482442],
+              ])
             mem.set([w >>> 24, (w >>> 16) & 255, (w >>> 8) & 255, w & 255], at);
         },
         async reset() {
@@ -580,8 +601,12 @@ const be32 = (b, at) =>
     // v23: with a background erase the external sectors are queued on the
     // chip after the MPC erase and written after the pagesets; the marks
     // sector is still erased alone and first, block 0 still last of the MPC.
-    // From a blank external chip, so every program sector differs
-    c = mpcChip(new Uint8Array(0x100000).fill(0xff), mpcOnChip);
+    // From a chip holding an older program and calibration, so every sector
+    // differs and must be erased (a blank one is written without an erase)
+    const oldExt = new Uint8Array(0x100000).fill(0xff);
+    oldExt.set(W.programAreaImage(image(9)), 0x60000);
+    for (let i = 0x40000; i < 0x5d000; i++) oldExt[i] = (i * 3) & 0xff;
+    c = mpcChip(oldExt, mpcOnChip);
     await W.pushProgram(
       c.client,
       target,
@@ -633,7 +658,7 @@ const be32 = (b, at) =>
     const calT = new Uint8Array(0x1d000);
     for (let i = 0; i < calT.length; i++) calT[i] = (i * 5 + 3) & 0xff;
     for (const behind of [true, false]) {
-      c = mpcChip(new Uint8Array(0x100000).fill(0xff), mpcOnChip);
+      c = mpcChip(oldExt, mpcOnChip);
       await W.pushProgram(
         c.client,
         target,
@@ -683,6 +708,179 @@ const be32 = (b, at) =>
     }
     ok(
       'cal inside the program push: background-erased and written after the pagesets, or first without it; verified and marked before the program'
+    );
+
+    // ---- a dropped connection, the push run again: it carries on where the
+    // DME says it stopped -- no erase of what is already written
+    const failWith = () =>
+      new Error(
+        'fast flasher: the DME did not answer (nothing after the echo)'
+      );
+    const run = (cc) =>
+      W.pushProgram(
+        cc.client,
+        target,
+        {},
+        {
+          mpc: mpcTarget,
+          pagesets: true,
+          backgroundErase: true,
+          cal: calT,
+        }
+      );
+    const sameChip = (cc) => mpcChip(cc.mem, cc.mpc);
+    for (const landed of [false, true]) {
+      // a drop in the MPC pagesets at set 10: its answer lost (landed) or the
+      // set never reaching the chip
+      c = mpcChip(oldExt, mpcOnChip);
+      {
+        let calls = 0;
+        const inner = c.client.chunkSet.bind(c.client);
+        c.client.chunkSet = async (...a) => {
+          if (++calls === 10) {
+            if (landed) await inner(...a);
+            throw failWith();
+          }
+          return inner(...a);
+        };
+      }
+      await assert.rejects(run(c), /did not answer/);
+      const c2 = sameChip(c);
+      await run(c2);
+      const k2 = c2.events.map((e) => e[0]);
+      assert(
+        Buffer.from(c2.mpc).equals(Buffer.from(mpcTarget)),
+        'MPC == target after the resume'
+      );
+      assert(
+        Buffer.from(c2.mem.subarray(0x60000)).equals(
+          Buffer.from(W.programAreaImage(target))
+        ),
+        'ext == target'
+      );
+      assert(!k2.includes('eraseBlocks'), 'the MPC is not erased again');
+      const firstSet = c2.events.find((e) => e[0] === 'chunkSet');
+      const sets = c.events.filter((e) => e[0] === 'chunkSet');
+      const span = sets[1][2] - sets[0][2];
+      const want = (landed ? 10 : 9) * span;
+      assert.strictEqual(
+        firstSet[2],
+        want,
+        'the sets carry on at the first one the chip lacks'
+      );
+      assert(
+        !c2.events.some((e) => e[0] === 'erase' && e[1] === 0xc0000),
+        'the marks sector is not erased again'
+      );
+    }
+    ok(
+      'a drop in the MPC pagesets: run again, no erase, the sets carry on at the first the chip lacks (answer lost or never sent); chip == target'
+    );
+
+    // a torn pageset: half its pages took before the drop
+    c = mpcChip(oldExt, mpcOnChip);
+    {
+      let calls = 0;
+      const inner = c.client.chunkSet.bind(c.client);
+      c.client.chunkSet = async (mask, off, ps, plain) => {
+        if (++calls === 8) {
+          const half = plain.slice();
+          half.fill(0xff, half.length >> 1);
+          await inner(mask, off, ps, half);
+          throw failWith();
+        }
+        return inner(mask, off, ps, plain);
+      };
+    }
+    await assert.rejects(run(c), /did not answer/);
+    const tornAt = c.events.filter((e) => e[0] === 'chunkSet')[7][2];
+    let c3 = sameChip(c);
+    await run(c3);
+    assert(
+      Buffer.from(c3.mpc).equals(Buffer.from(mpcTarget)),
+      'MPC == target after a torn set'
+    );
+    assert(!c3.events.some((e) => e[0] === 'eraseBlocks'));
+    assert.strictEqual(
+      c3.events.find((e) => e[0] === 'chunkSet')[2],
+      tornAt,
+      'the torn set is written again'
+    );
+    ok(
+      'a torn pageset (half its pages in): run again, written again from that set, no erase'
+    );
+
+    // a drop in an external sector at its 10th chunk
+    let dropAt = -1;
+    c = mpcChip(oldExt, mpcOnChip);
+    {
+      let calls = 0;
+      const inner = c.client.chunk.bind(c.client);
+      c.client.chunk = async (off, plain) => {
+        if (off >= 0x80000 && off < 0xc0000 && ++calls === 10) {
+          dropAt = off;
+          throw failWith();
+        }
+        return inner(off, plain);
+      };
+    }
+    await assert.rejects(run(c), /did not answer/);
+    c3 = sameChip(c);
+    await run(c3);
+    assert(
+      Buffer.from(c3.mem.subarray(0x60000)).equals(
+        Buffer.from(W.programAreaImage(target))
+      ),
+      'ext == target'
+    );
+    assert(
+      !c3.events.some(
+        (e) =>
+          e[0] === 'erase' ||
+          e[0] === 'eraseBlocks' ||
+          (e[0] === 'eraseQueue' && e[1].includes(0x80000))
+      ),
+      'nothing erased again'
+    );
+    const tenth = dropAt;
+    const first80 = c3.events.find(
+      (e) => e[0] === 'chunk' && e[1] >= 0x80000 && e[1] < 0xc0000
+    );
+    assert.strictEqual(
+      first80[1],
+      tenth,
+      'the sector carries on at the chunk the chip lacks'
+    );
+    assert(
+      !c3.events.some((e) => e[0] === 'chunkSet'),
+      'the finished MPC is not touched'
+    );
+    ok(
+      'a drop in an external sector: run again, no erase, it carries on at the chunk the chip lacks; the finished MPC untouched'
+    );
+
+    // everything written, the drop at the program's marks: run again, only marks
+    c = mpcChip(oldExt, mpcOnChip);
+    {
+      const inner = c.client.marks.bind(c.client);
+      c.client.marks = async (w) => {
+        if (w === 1) throw failWith();
+        return inner(w);
+      };
+    }
+    await assert.rejects(run(c), /did not answer/);
+    c3 = sameChip(c);
+    await run(c3);
+    const k3 = c3.events.map((e) => e[0]);
+    assert(
+      !k3.some((k) =>
+        ['chunk', 'chunkSet', 'erase', 'eraseBlocks', 'eraseQueue'].includes(k)
+      ),
+      'nothing written or erased'
+    );
+    assert.deepStrictEqual(k3.slice(-2), ['marks', 'reset']);
+    ok(
+      'a drop before the program marks: run again, nothing written or erased, the marks burned and the DME restarted'
     );
 
     // ---- v24: pipelined pagesets (same chip and targets) ----
@@ -911,6 +1109,10 @@ const be32 = (b, at) =>
         async sectorQuery(off, len) {
           events.push(['query', off]);
           return W.crc32(mem.subarray(off, off + len));
+        },
+        async read(off, len) {
+          events.push(['read', off]);
+          return Uint8Array.from(mem.subarray(off, off + len));
         },
         async erase(off) {
           events.push(['erase', off]);
