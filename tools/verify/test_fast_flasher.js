@@ -1402,13 +1402,18 @@ const be32 = (b, at) =>
       tried.includes(416667) && tried.includes(115200) && tried.includes(250000)
     );
     assert.deepStrictEqual(
-      sentAt.map((x) => x[0]),
+      [...new Set(sentAt.map((x) => x[0]))],
       tried,
-      'one RESET at each rate'
+      'RESET at each rate'
+    );
+    assert.strictEqual(
+      sentAt.filter((x) => x[0] === 416667).length,
+      20,
+      'many copies at a fast rate'
     );
     assert(sentAt.every((x) => x[1] === W.SVC.RESET));
     ok(
-      'a stranded flasher: RESET sent blind once at every rate it could be on (416667 included), no answer awaited'
+      'a stranded flasher: RESET sent blind at every rate it could be on, 20 copies at the fast ones, no answer awaited'
     );
   }
 

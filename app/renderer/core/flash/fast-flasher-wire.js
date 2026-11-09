@@ -2350,10 +2350,17 @@ function ffWebLink(bus, opts = {}) {
           parity: 'even',
         });
         rx = [];
+        // at the fast rates the cable mangles some frames on the way out too
+        // (the car, 2026-11-09: even the echo garbled at 416667 on one run):
+        // sent many times there, so one clean copy gets through
+        const copies = rate >= 300000 ? 20 : 2;
         step(
-          `Restarting a stranded flasher at ${rate} baud (no answer awaited)`
+          `Restarting a stranded flasher at ${rate} baud, ${copies} times (no answer awaited)`
         );
-        await bus.writer.write(ffFrame(FF_SVC.RESET, []));
+        for (let i = 0; i < copies; i++) {
+          await bus.writer.write(ffFrame(FF_SVC.RESET, []));
+          await sleep(25);
+        }
         await sleep(60);
       }
       rx = [];
