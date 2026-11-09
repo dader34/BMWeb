@@ -148,11 +148,10 @@ const FF_FAST_LINES = [
   // cost the 2026-11-08 read a reconnect at 5 % -- each garble is a
   // re-read and two of them a step-down, which costs more than the 20 %
   // of wire time 250000 gives up. 250000 has carried every frame so far.
-  // 2026-11-09: the session starts at 312500 (the user's call; 416667 tried
-  // first the same night and taken back down a rate): a garble steps down a
-  // rate, and a dropped push now resumes where the DME stopped, so a
-  // marginal top rate costs a reconnect, not the work so far
-  [312500, 4],
+  // 2026-11-09: back to 250000 first. 416667 and then 312500 were tried the
+  // same night and each stranded the body at a rate the cable could not
+  // follow (the DME holds its relay; only a battery disconnect cleared the
+  // first). 250000 has carried every flash on this car.
   [250000, 5],
   [208333, 6],
   [156250, 8],
@@ -200,7 +199,6 @@ const FF_READ_FIRST_BYTE_MS = 500;
  */
 const FF_GARBLE_TRIES = 3;
 /** How long the body's own fallback to 115200 is waited for after a dead rate. */
-const FF_FALLBACK_PATIENCE_MS = 15000;
 /** A pageset is one 64-byte page per MPC block. */
 const FF_PAGE = 64;
 /** SECTOR_QUERY / VERIFY: a base plus this per 64 KB read back. */
@@ -1054,16 +1052,42 @@ async function ffFasterLine(client, link, note = () => {}, preferred = 0) {
       // back garbled. So tell it to go back while the cable is still on the
       // dead rate, the answer ignored -- an unheard request costs nothing,
       // the body only ever answers
-      if (link.exchange)
-        try {
-          await link.exchange(
+      // one copy was not enough on the car (2026-11-09: stranded at 416667,
+      // then at 312500): three copies spaced past the body's discard-until-
+      // quiet, then a check at 115200, up to six rounds
+      let back = false;
+      for (let round = 0; round < 6 && !back; round++) {
+        if (link.sendBlind)
+          await link.sendBlind(
+            rate,
             ffFrame(FF_SVC.SET_BAUD, _ffU16(11)),
-            FF_TIMEOUT.SET_BAUD
+            3,
+            220
           );
-        } catch (e2) {
-          // garbled or silent, as expected on a rate that does not carry
+        else if (link.exchange)
+          try {
+            await link.exchange(
+              ffFrame(FF_SVC.SET_BAUD, _ffU16(11)),
+              FF_TIMEOUT.SET_BAUD
+            );
+          } catch (e2) {
+            // garbled or silent, as expected on a rate that does not carry
+          }
+        try {
+          await link.rebaud(FF_BAUD, { patience: 800 });
+          back = true;
+        } catch (e3) {
+          note(
+            `The body is not back at ${FF_BAUD} yet (round ${round + 1} of 6)`
+          );
         }
-      await link.rebaud(FF_BAUD, { patience: FF_FALLBACK_PATIENCE_MS });
+      }
+      if (!back)
+        throw new Error(
+          `fast flasher: the flasher took ${rate} baud and could not be brought back to ${FF_BAUD}. ` +
+            'Disconnect the battery for a minute to clear it.',
+          { cause: e }
+        );
       await client.setBaud(11); // confirmed at 115200
     }
   }
@@ -2365,6 +2389,25 @@ function ffWebLink(bus, opts = {}) {
       }
       rx = [];
       return list;
+    },
+    /**
+     * Send a frame `copies` times at `rate`, `gapMs` apart, without reading
+     * an answer (a rate the cable cannot hear back). The port is left at
+     * `rate`.
+     */
+    async sendBlind(rate, frame, copies = 3, gapMs = 200) {
+      await bus.reopen({
+        baudRate: rate,
+        dataBits: 8,
+        stopBits: 1,
+        parity: 'even',
+      });
+      for (let i = 0; i < copies; i++) {
+        rx = [];
+        await bus.writer.write(frame);
+        await sleep(gapMs);
+      }
+      rx = [];
     },
     /** v26: the packet size the body now pads its replies to (0: none). */
     setPad(size) {
