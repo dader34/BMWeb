@@ -316,7 +316,10 @@ async function fbDmeFlashProgram(opts = {}) {
       },
       opts.confirmed
         ? { confirm: false }
-        : { confirmNote: fbDmeProgramTuneNote(hasCal) }
+        : {
+            confirmLead: fbDmeProgramLead(false),
+            confirmNote: fbDmeProgramTuneNote(hasCal),
+          }
     );
     success = result.ok;
     fbSetStatus(result.status);

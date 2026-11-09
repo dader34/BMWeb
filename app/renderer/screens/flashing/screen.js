@@ -987,13 +987,15 @@ const FB_FLASH_CANCELLED = 'Cancelled: nothing was written';
  * @param {string} op - The operation (one flashOps.writes() is true for).
  * @returns {Promise<boolean>} True when the write was confirmed.
  */
-function fbConfirmFlash(op, note) {
+function fbConfirmFlash(op, note, lead) {
   const label = flashOps.label(op);
   const module = op.startsWith('tcu') ? 'transmission' : 'DME';
   return confirmDialog({
     title: esc(`${label}?`),
     body: fbHtml(
-      `This will erase and rewrite part of the ${module}.\n\n` +
+      // the flow's own first line when it has one (Flash Program: what
+      // the button flashes), else the general warning
+      `${lead || `This will erase and rewrite part of the ${module}.`}\n\n` +
         // what this flash writes besides the obvious (Flash Program: the
         // tune inside the program file)
         (note ? `${note}\n\n` : '') +
@@ -1027,13 +1029,13 @@ function fbConfirmFlash(op, note) {
  * restore together, so asking again is noise).
  * @param {string} op
  * @param {object} payload
- * @param {{stage?: Function, progress?: Function, confirm?: boolean, confirmNote?: string}} [ui]
+ * @param {{stage?: Function, progress?: Function, confirm?: boolean, confirmNote?: string, confirmLead?: string}} [ui]
  */
 async function fbFlashRun(op, payload, ui = {}) {
   if (
     flashOps.writes(op) &&
     ui.confirm !== false &&
-    !(await fbConfirmFlash(op, ui.confirmNote))
+    !(await fbConfirmFlash(op, ui.confirmNote, ui.confirmLead))
   ) {
     flashLog.note('Write not confirmed: nothing was sent to the car');
     return { ok: false, cancelled: true, status: FB_FLASH_CANCELLED };

@@ -3,7 +3,7 @@
 // show them, and the immobilizer checks around every load (a tune and a
 // program must agree with each other and with the car). Part of the DME
 // screen with dme.js; one scope.
-/* exported fbDmeFullOneFile, fbDmeSaveRead, fbDmeFullBinChanged, fbDmeProgramHasNoTune, fbDmeLoadFile1, fbDmeLoadFile2, fbDmeRemovePairedTune, fbDmeClearExchangeFile, fbDmeLoadBuiltPair, fbDmeMatchImmobilizer, fbDmeGateLoadedFiles, fbDmeStoredMapsHaveStockImmobilizer, fbDmeStoredMapsWithoutImmobilizer, fbDmeProgramTuneNote */
+/* exported fbDmeFullOneFile, fbDmeSaveRead, fbDmeFullBinChanged, fbDmeProgramHasNoTune, fbDmeLoadFile1, fbDmeLoadFile2, fbDmeRemovePairedTune, fbDmeClearExchangeFile, fbDmeLoadBuiltPair, fbDmeMatchImmobilizer, fbDmeGateLoadedFiles, fbDmeStoredMapsHaveStockImmobilizer, fbDmeStoredMapsWithoutImmobilizer, fbDmeProgramTuneNote, fbDmeProgramLead */
 
 // ---- loading files ------------------------------------------------------------------------------------
 function fbDmeFullBinChanged() {
@@ -34,6 +34,17 @@ function fbDmeProgramHasNoTune() {
  *   (the same test the flash itself makes).
  * @returns {string}
  */
+/**
+ * The first line of every Flash Program confirm: what the button does, in
+ * the same words whichever route it takes -- "Fast flash ..." through the
+ * fast flasher (resident or one-click), "Flash ..." through the stock loader.
+ * @param {boolean} fast - Whether the flash goes through the fast flasher.
+ * @returns {string}
+ */
+function fbDmeProgramLead(fast) {
+  return `${fast ? 'Fast flash' : 'Flash'} a selected Flash + MPC or 0PA/0DA file.`;
+}
+
 function fbDmeProgramTuneNote(hasCal) {
   return hasCal
     ? 'The program file carries a tune as well: the tune inside it is flashed along with the program, replacing the one on the DME.'

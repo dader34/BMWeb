@@ -25,16 +25,13 @@
 //      branch). The flash is untouched by the entry, so a read writes
 //      nothing at all.
 //
-// RECOVERY: the entry writes nothing, so a failure anywhere in it is cured
-// by switching the ignition off for ten seconds -- the DME comes back on
-// its own program. A failure DURING a flash is resumed by running the same
-// operation again.
+// RECOVERY: the entry writes nothing. A failure DURING a flash is resumed by
+// running the same operation again. (The errors used to end with "switch
+// the ignition off for ten seconds and it comes back on its own program":
+// not true once the body runs -- the DME holds its own main relay and the
+// body in RAM outlives the key, the car, 2026-11-08 -- so they say what
+// failed and nothing more.)
 /* exported fbDmeOneClickDue, fbDmeOneClickFlashTune, fbDmeOneClickFlashProgram, fbDmeOneClickRead, fbOneClickToolsHtml, fbOneClickToolsRefresh */
-
-/** Appended to every one-click entry failure. */
-const FB_OC_RECOVERY =
-  'The one-click writes nothing to the DME: switch the ignition off for ' +
-  'ten seconds and it comes back on its own program.';
 
 /**
  * Whether an operation on this DME takes the one-click route: the fast
@@ -228,7 +225,7 @@ function fbEntryProgressDone() {
  * is one harmless exchange.
  *
  * On a failure BEFORE the trigger's erase the DME is untouched (the grant
- * is RAM-only). After it, the error carries FB_OC_RECOVERY.
+ * is RAM-only).
  * @param {string} title - For the bus claim.
  * @param {{stage?: (s: string) => void, entry?: (pct: number) => void}} [ui]
  *   A progress sink; stage is used for every step.
@@ -270,7 +267,7 @@ async function fbDmeOneClickTrigger(title, ui = {}) {
       },
     });
   } catch (e) {
-    throw new Error(`${e.message}. ${FB_OC_RECOVERY}`, { cause: e });
+    throw new Error(e.message, { cause: e });
   }
   // the body owns the line; nothing KWP can be sent again. Pick it up like
   // a cut-short session: claim, resume at the body's rates, read the stamp
@@ -336,7 +333,7 @@ async function fbDmeOneClickTrigger(title, ui = {}) {
     // bubbles an error up the UI.
     fbEntryProgressReset();
     throw new Error(
-      `The one-click fired, but the flasher did not answer its HELLO (${e.message}). ${FB_OC_RECOVERY}`,
+      `The one-click fired, but the flasher did not answer its HELLO (${e.message}).`,
       { cause: e }
     );
   } finally {
@@ -389,10 +386,6 @@ const fbDmeOneClickInto = fbDmeOneClickTrigger;
  * @returns {Promise<boolean>} True to go on.
  */
 async function fbDmeOneClickConfirm(title, what) {
-  const rewrites =
-    what === 'program'
-      ? 'the program -- the external sectors and the MPC (internal flash) blocks that differ'
-      : 'the calibration sector';
   // the same test the program flash makes for writing the calibration too
   const d = fbState.dme;
   const tune =
@@ -400,7 +393,9 @@ async function fbDmeOneClickConfirm(title, what) {
       ? `${fbDmeProgramTuneNote(d.flash.length >= 0x5d000 && !fbDmeProgramHasNoTune())}\n\n`
       : '';
   const ok = await fbConfirm(
-    `${title} starts the fast flasher on the DME (it runs from RAM, nothing is installed) and rewrites ${rewrites}.\n\n` +
+    (what === 'program'
+      ? `${fbDmeProgramLead(true)}\n\n`
+      : `${title} starts the fast flasher on the DME (it runs from RAM, nothing is installed) and rewrites the calibration sector.\n\n`) +
       tune +
       `Keep the ignition on, a charger on the battery and the cable plugged in until it has finished. An interrupted write leaves the ${what} without its valid marks, and the DME stays in the flasher until a flash completes.\n\n` +
       `Write the ${what === 'program' ? 'program' : 'tune'}?`,
