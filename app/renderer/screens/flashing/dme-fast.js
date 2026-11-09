@@ -502,23 +502,28 @@ async function fbDmeFastPushWithResume(client, ui, push) {
 }
 
 /**
- * Whether the v24 pipelined pagesets (SETQ/SYNC) are used. OFF unless the
- * browser opts in (localStorage bmweb-fast-pipeline = 1): on the car the
- * body lost bytes of the frame that arrives while it pulses, twice
- * (2026-11-08), the second time with the readback polled. The body polls
- * the SCI between the flash driver's calls, and the SCI holds ONE finished
- * byte: 44 us at 250000. The driver's own longest call is ~720
- * instructions, and the DME runs ~3 clocks an instruction (its CRC rate
- * in the car logs), so one call alone outlasts a byte. Polling cannot be
- * made safe at that rate; it needs the SCI's receive queue in the body.
- * Until that body exists the sets go stop-and-wait, as v23 sent them.
+ * The first body whose receiver can take a frame while it pulses: v25
+ * reads the SCI through its 16-entry receive queue. The v24 body polled
+ * a single data register between the flash driver's calls -- one byte
+ * time, 44 us at 250000 -- and the driver's own longest call outlasts
+ * that on silicon (~720 instructions at ~3 clocks each, the DME's CRC
+ * rate in the car logs): the car lost bytes of every second pipelined
+ * frame, twice (2026-11-08). v24 therefore never pipelines.
+ */
+const FB_PIPELINE_VERSION = 25;
+
+/**
+ * Whether the pipelined pagesets (SETQ/SYNC) are used with a body that can
+ * take them. On, unless the browser says no (localStorage
+ * bmweb-fast-pipeline = 0): the stop-and-wait sets are the fallback if the
+ * queue misbehaves on a car.
  * @returns {boolean}
  */
-function fbDmePipelineOptIn() {
+function fbDmePipelineWanted() {
   try {
-    return localStorage.getItem('bmweb-fast-pipeline') === '1';
+    return localStorage.getItem('bmweb-fast-pipeline') !== '0';
   } catch (e) {
-    return false;
+    return true;
   }
 }
 
@@ -1078,7 +1083,8 @@ async function fbDmeFastFlashProgram(opts = {}) {
           backgroundErase: fbDmeBodyVersion() >= 23,
           // v24: each pageset answered before its pulses, the next sent
           // meanwhile
-          pipeline: fbDmeBodyVersion() >= 24 && fbDmePipelineOptIn(),
+          pipeline:
+            fbDmeBodyVersion() >= FB_PIPELINE_VERSION && fbDmePipelineWanted(),
           // block 0 in the pagesets only where the bootloader can always
           // reach the DME: its handoff window runs before MPC 0x8, so a cut
           // with block 0 erased is repaired through the ring. A DME on the

@@ -59,7 +59,7 @@ const trigBytes =
 const TRIGGER = {
   DESC: 0x3fa104, // the loader's table-A descriptor pool
   D_ENTRY: 0x3fa174, // desc+0x70, the address the stock gate computes+calls
-  STUB_AT: 0x3fbaa0, // the receiver: above the uploaded body (SRAM_BASE + 7444 B = 0x3FB514), inside the pool
+  STUB_AT: 0x3fbaa0, // the receiver: above the uploaded body (SRAM_BASE + 7644 B = 0x3FB5DC), inside the pool
   SRAM_BASE: 0x3f9800, // where the body runs relocated
   POOL_END: 0x3fc003, // table-A pool range, inclusive
   // the write enable: a 31 02 the loader REFUSES (7F 31 22, a RAM address
@@ -70,7 +70,7 @@ const TRIGGER = {
   ENABLE_AT: 0x3f9800,
   ENABLE_LEN: 0x80,
   CHUNK: 249, // 6 telegram bytes + chunk <= the length byte's 255
-  BODY_WORDS: 1861, // the body the emu proof staged -- a change must re-run it
+  BODY_WORDS: 1911, // the body the emu proof staged -- a change must re-run it
   EE_MODULE_AT: 0xff400, // the ee_write module's place in the blob: the body ends below it
   MARKER1: 0x1f9c2, // the boot-sector markers the one-time unlock blanks
   MARKER2: 0x1fb18,

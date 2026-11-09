@@ -472,12 +472,20 @@ class FastFlashClient {
       // ... and a request mangled on the way IN: the body answers "chunk
       // CRC mismatch" or "malformed" to a frame the line damaged, which is
       // just as idempotent to send again
+      // v25: the body's receive queue refuses a frame with a parity or
+      // framing error, so ANY telegram the line damaged comes back
+      // "malformed" (6) once the line is quiet -- sent again like the rest.
+      // A SETQ answered so was never decoded or pulsed, and the result of
+      // the set before it is still pending: the resend is the same frame.
       const refusedAsDamaged =
         !err &&
         reply &&
         reply.svc === 0x7f &&
-        (reply.data[1] === 2 || reply.data[1] === 6) &&
-        (svc === FF_SVC.CHUNK || svc === FF_SVC.CHUNK_SET);
+        (reply.data[1] === 6 ||
+          (reply.data[1] === 2 &&
+            (svc === FF_SVC.CHUNK ||
+              svc === FF_SVC.CHUNK_SET ||
+              svc === FF_SVC.SETQ)));
       // ... and a reply cut short: it started arriving and stopped (the car,
       // 2026-11-02: READ 0xDF000 and 0x21000 at 250000, the body back
       // answering HELLO at once -- the bytes went missing on the way)

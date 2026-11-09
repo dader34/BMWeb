@@ -795,8 +795,37 @@ const be32 = (b, at) =>
       /not permitted/
     );
     assert.strictEqual(n, 1, 'a real refusal is not retried');
+    // v25: the body's receive queue refuses a frame the line damaged, so
+    // any telegram can come back "malformed" -- a SETQ and a QUERY go again
+    for (const [svc, run] of [
+      [0x0d, (c) => c.chunkSetQ(1 << 3, 0, 1, new Uint8Array(64))],
+      [0x01, (c) => c.sectorQuery(0x40000, 16)],
+    ]) {
+      n = 0;
+      const damaged = {
+        async exchange() {
+          n++;
+          if (n === 1) return nak(svc, 6);
+          const f = [0x08, 0x12, 0xf1, svc | 0x40, 0, 0, 0, 0];
+          f.push(f.slice(1).reduce((a, b) => (a + b) & 0xff, 0));
+          return Uint8Array.from(f);
+        },
+      };
+      await run(new W.Client(damaged));
+      assert.strictEqual(n, 2, `service ${svc}: sent again after a NAK 6`);
+    }
+    // a CRC refusal (2) of anything but a chunk or a set is a real answer
+    n = 0;
+    const crc = {
+      async exchange() {
+        n++;
+        return nak(0x04, 2);
+      },
+    };
+    await assert.rejects(() => new W.Client(crc).verify(0x40000, 16, 0));
+    assert.strictEqual(n, 1, 'a VERIFY mismatch is not retried');
     ok(
-      'a CHUNK the body refused as damaged (chunk CRC / malformed) goes once more; a permission refusal does not'
+      'a CHUNK the body refused as damaged (chunk CRC / malformed) goes once more; a permission refusal does not; v25: any telegram refused as malformed goes once more, a VERIFY mismatch does not'
     );
   }
 
