@@ -552,6 +552,34 @@ function fbDmePipelineWanted() {
 }
 
 /**
+ * Whether MPC block 0 joins the pagesets (its reset-word page still written
+ * last, alone) instead of being erased and written on its own after them:
+ * ~15 s off a program flash on the car (2026-11-09: 8 sequential chunks at
+ * 1.9 s). Block 0 was kept apart for the old RESIDENT flasher, whose entry
+ * hook lived at MPC 0x8. It joins:
+ *   - where the bootloader ring can always reach the DME (its handoff
+ *     window runs before MPC 0x8, a cut is repaired through the ring);
+ *   - on a one-click DME (a body started in RAM, or one identify found
+ *     after a cut push): no hook at MPC 0x8, the stock loader in charge,
+ *     and the push erases the program's marks first, so after a cut the
+ *     loader parks without ever handing over to the MPC, whatever block 0
+ *     holds -- the standard Flash Program recovers it.
+ * localStorage bmweb-fast-block0 = 0 keeps block 0 alone and last.
+ * @returns {boolean}
+ */
+function fbDmeBlock0InSets() {
+  try {
+    if (localStorage.getItem('bmweb-fast-block0') === '0') return false;
+  } catch (e) {
+    /* storage blocked: the default below */
+  }
+  if (typeof fbBlRingReachable === 'function' && fbBlRingReachable())
+    return true;
+  const f = fbState.dme.fastFlasher;
+  return !!f && (!!f.triggered || !!f.stampErased || !f.hooked);
+}
+
+/**
  * v26: the reply timing a session sets, or null to leave the body's own
  * (localStorage bmweb-fast-timing = 0). bmweb-fast-gap and bmweb-fast-pad
  * override the gap (passes) and the packet size (0 = no padding).
@@ -1148,12 +1176,7 @@ async function fbDmeFastFlashProgram(opts = {}) {
           // meanwhile
           pipeline:
             fbDmeBodyVersion() >= FB_PIPELINE_VERSION && fbDmePipelineWanted(),
-          // block 0 in the pagesets only where the bootloader can always
-          // reach the DME: its handoff window runs before MPC 0x8, so a cut
-          // with block 0 erased is repaired through the ring. A DME on the
-          // old resident flasher keeps block 0 alone and last.
-          block0InSets:
-            typeof fbBlRingReachable === 'function' && fbBlRingReachable(),
+          block0InSets: fbDmeBlock0InSets(),
         }
       );
     },
