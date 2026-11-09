@@ -502,6 +502,27 @@ async function fbDmeFastPushWithResume(client, ui, push) {
 }
 
 /**
+ * Whether the v24 pipelined pagesets (SETQ/SYNC) are used. OFF unless the
+ * browser opts in (localStorage bmweb-fast-pipeline = 1): on the car the
+ * body lost bytes of the frame that arrives while it pulses, twice
+ * (2026-11-08), the second time with the readback polled. The body polls
+ * the SCI between the flash driver's calls, and the SCI holds ONE finished
+ * byte: 44 us at 250000. The driver's own longest call is ~720
+ * instructions, and the DME runs ~3 clocks an instruction (its CRC rate
+ * in the car logs), so one call alone outlasts a byte. Polling cannot be
+ * made safe at that rate; it needs the SCI's receive queue in the body.
+ * Until that body exists the sets go stop-and-wait, as v23 sent them.
+ * @returns {boolean}
+ */
+function fbDmePipelineOptIn() {
+  try {
+    return localStorage.getItem('bmweb-fast-pipeline') === '1';
+  } catch (e) {
+    return false;
+  }
+}
+
+/**
  * The stamp version of the body this session talks to: the installed
  * flasher's, or the one the one-click just uploaded (both land in
  * d.fastFlasher). 0 before a body has answered.
@@ -969,7 +990,7 @@ async function fbDmeFastFlashProgram(opts = {}) {
           backgroundErase: fbDmeBodyVersion() >= 23,
           // v24: each pageset answered before its pulses, the next sent
           // meanwhile
-          pipeline: fbDmeBodyVersion() >= 24,
+          pipeline: fbDmeBodyVersion() >= 24 && fbDmePipelineOptIn(),
           // block 0 in the pagesets only where the bootloader can always
           // reach the DME: its handoff window runs before MPC 0x8, so a cut
           // with block 0 erased is repaired through the ring. A DME on the
