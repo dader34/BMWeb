@@ -889,12 +889,12 @@ async function fbTcuWriteProgram() {
       fbSetStatus(
         `Write cancelled: a calibration of release ${release || '?'} must be loaded first`
       );
+      // the transmission runs only a program and calibration of the same
+      // release, so a release change needs that calibration written after it
       await fbMessage(
-        `This program is release ${release || 'unknown'}; the transmission reports ${reported ? `software ${reported}` : 'no software (boot block only)'}.\n\n` +
-          'A transmission only accepts a program together with a calibration of the same release: with a different one in place it reports a program/data mismatch (flash status 0E) and does not run.\n\n' +
-          `Load a release-${release || '?'} calibration (a matching .0DA from SP-Daten, or a tune built on one) with Load Calibration File, then Write Program again: the program is written first and that calibration straight after it.` +
+        `This program is release ${release || 'unknown'}, and the transmission ${reported ? `runs release ${reported}` : 'has no software'}. Load a release-${release || '?'} calibration first; it will be written right after the program.` +
           (t.cal
-            ? `\n\nThe calibration loaded now is ${gs20Checksum.version(t.cal) || 'of unknown version'}, which is release ${calRelease || 'unknown'}.`
+            ? `\n\nThe loaded calibration is release ${calRelease || 'unknown'}.`
             : ''),
         'Program needs a matching calibration'
       );
