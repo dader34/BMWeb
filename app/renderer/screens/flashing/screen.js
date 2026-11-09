@@ -127,6 +127,14 @@ const fbState = {
   optionsOpen: false,
   log: [],
   lastInPlace: false,
+  /**
+   * The progress bar as last painted: its width and whether it carries the
+   * write colour. The screen's elements are rebuilt when it is opened
+   * again, so both are put back from here (a flash that was red came back
+   * in the read colour after a visit to another app).
+   */
+  barPct: 0,
+  barFlashing: false,
   dme: null,
   tcu: null,
 };
@@ -400,7 +408,12 @@ async function showFlashing(page) {
   fbOptionsWire();
   fbFastWire();
   fbFaultsWire();
-  if (returning) fbRestoreView();
+  if (returning) {
+    fbRestoreView();
+    // the bar is a new element: its width and write colour as they were
+    fbProgress(fbState.barPct);
+    fbFlashingBar(fbState.barFlashing);
+  }
   fbRefreshAll();
   fbHistoryRefresh();
   // the status line as it was left (not logged again)
@@ -625,8 +638,8 @@ function fbLog(text) {
  * @param {number} pct - Percent.
  */
 function fbProgress(pct) {
-  if (fbEls.fill)
-    fbEls.fill.style.width = `${Math.max(0, Math.min(100, pct))}%`;
+  fbState.barPct = Math.max(0, Math.min(100, pct));
+  if (fbEls.fill) fbEls.fill.style.width = `${fbState.barPct}%`;
 }
 
 /**
@@ -634,7 +647,8 @@ function fbProgress(pct) {
  * @param {boolean} flashing - True while writing.
  */
 function fbFlashingBar(flashing) {
-  if (fbEls.fill) fbEls.fill.classList.toggle('flashing', !!flashing);
+  fbState.barFlashing = !!flashing;
+  if (fbEls.fill) fbEls.fill.classList.toggle('flashing', fbState.barFlashing);
 }
 
 if (typeof window !== 'undefined')
