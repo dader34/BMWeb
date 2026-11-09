@@ -829,6 +829,247 @@ const be32 = (b, at) =>
     );
   }
 
+  // ---- 4f. v26: pipelined external chunks, READX, SET_TIMING, the padding --
+  console.log('\nv26: external pipeline, blank-skipping reads, reply timing');
+  {
+    // a client double for the external chunks: CHUNKQ answers with the
+    // previous chunk's result; failAt names chunks that do not take
+    const extQ = (failAt = new Set()) => {
+      const mem = new Uint8Array(0x100000).fill(0xff);
+      const events = [];
+      let pending = null;
+      const client = {
+        pipelineExt: true,
+        async sectorQuery(off, len) {
+          events.push(['query', off]);
+          return W.crc32(mem.subarray(off, off + len));
+        },
+        async erase(off) {
+          events.push(['erase', off]);
+          mem.fill(0xff, off, off + 0x20000);
+        },
+        async chunk(off, plain) {
+          events.push(['chunk', off]);
+          mem.set(plain, off);
+          return plain.length;
+        },
+        async chunkQ(off, plain) {
+          events.push(['chunkQ', off]);
+          const prev = pending === null ? 0xff : pending;
+          if (failAt.has(off)) pending = 4;
+          else {
+            mem.set(plain, off);
+            pending = 0;
+          }
+          return { sent: plain.length, prev };
+        },
+        async sync() {
+          events.push(['sync']);
+          const r = pending === null ? 0xff : pending;
+          pending = null;
+          return r;
+        },
+        async verify(off, len, crc) {
+          events.push(['verify', off]);
+          assert.strictEqual(W.crc32(mem.subarray(off, off + len)), crc);
+        },
+        async marks(w) {
+          events.push(['marks', w]);
+        },
+        async reset() {
+          events.push(['reset']);
+        },
+      };
+      return { client, events, mem };
+    };
+    const cal = new Uint8Array(0x1d000);
+    for (let i = 0; i < cal.length; i++) cal[i] = (i * 7 + 1) & 0xff;
+    let c = extQ();
+    await W.pushCal(c.client, cal, {});
+    let kinds = c.events.map((e) => e[0]);
+    assert(!kinds.includes('chunk'), 'every cal chunk through CHUNKQ');
+    assert.strictEqual(kinds.filter((k) => k === 'chunkQ').length, 29);
+    assert(
+      kinds.indexOf('sync') > kinds.lastIndexOf('chunkQ') &&
+        kinds.indexOf('sync') < kinds.indexOf('verify'),
+      'one SYNC after the last chunk, before VERIFY'
+    );
+    ok('v26 cal push: 29 chunks pipelined, one SYNC before the VERIFY');
+
+    // a chunk that did not take ends the push as a refused CHUNK does,
+    // whether the next ACK tells it or the SYNC
+    for (const bad of [0x41000, 0x40000 + 28 * 0x1000]) {
+      c = extQ(new Set([bad]));
+      await assert.rejects(W.pushCal(c.client, cal, {}), (e) => {
+        assert.strictEqual(e.svc, W.SVC.CHUNK);
+        assert.strictEqual(e.reason, 4);
+        return true;
+      });
+      assert(!c.events.some((e) => e[0] === 'verify'), 'no VERIFY after it');
+    }
+    ok(
+      'v26: a pipelined chunk that did not take is a refused CHUNK (told by the next ACK or the SYNC)'
+    );
+
+    // pipelineExt off: plain CHUNKs, no SYNC
+    c = extQ();
+    c.client.pipelineExt = false;
+    await W.pushCal(c.client, cal, {});
+    kinds = c.events.map((e) => e[0]);
+    assert(!kinds.includes('chunkQ') && !kinds.includes('sync'));
+    ok('v26: without pipelineExt the chunks go plain');
+
+    // READX: the reply decoded, blank pieces filled; readArea uses it for
+    // whole pieces of flash and MPC only
+    const ext = new Uint8Array(0x100000).fill(0xff);
+    for (let i = 0x41000; i < 0x42000; i++) ext[i] = i & 0xff;
+    for (let i = 0x43000; i < 0x44000; i++) ext[i] = (i >> 3) & 0xff;
+    const asked = [];
+    let damageX = 0;
+    const link = {
+      async exchange(frame) {
+        const q = W.parse(frame);
+        const off = be32(q.data, 0);
+        const n = (q.data[4] << 8) | q.data[5];
+        asked.push([q.svc, off, n]);
+        const data = ext.subarray(off, off + n);
+        if (q.svc === W.SVC.READ) {
+          const crc = W.crc32(data);
+          return W.frame(0x4a, [
+            crc >>> 24,
+            (crc >>> 16) & 255,
+            (crc >>> 8) & 255,
+            crc & 255,
+            ...data,
+          ]);
+        }
+        assert.strictEqual(q.svc, W.SVC.READX);
+        let mask = 0;
+        const sent = [];
+        for (let i = 0; i < n / 4096; i++) {
+          const p = data.subarray(i * 4096, (i + 1) * 4096);
+          if (p.every((b) => b === 0xff)) mask |= 1 << i;
+          else sent.push(...p);
+        }
+        const crc = W.crc32(Uint8Array.from(sent));
+        if (damageX > 0 && sent.length) {
+          damageX--;
+          sent[0] ^= 1;
+        }
+        return W.frame(0x50, [
+          crc >>> 24,
+          (crc >>> 16) & 255,
+          (crc >>> 8) & 255,
+          crc & 255,
+          mask,
+          ...sent,
+        ]);
+      },
+    };
+    const client = new W.Client(link);
+    client.readMax = W.READ_MAX_WIDE;
+    client.readBlank = true;
+    const got = await W.readArea(client, 0x40000, 0x8000);
+    assert.deepStrictEqual(
+      Array.from(got),
+      Array.from(ext.subarray(0x40000, 0x48000))
+    );
+    assert.deepStrictEqual(
+      asked.map((a) => a[0]),
+      [W.SVC.READX, W.SVC.READX],
+      'two 16 KB READX'
+    );
+    asked.length = 0;
+    await W.readArea(client, 0x40100, 0x200);
+    assert.strictEqual(asked[0][0], W.SVC.READ, 'a part piece goes as READ');
+    asked.length = 0;
+    damageX = 1;
+    const again = await client.readX(0x40000, 0x4000);
+    assert.deepStrictEqual(
+      Array.from(again),
+      Array.from(ext.subarray(0x40000, 0x44000))
+    );
+    assert.deepStrictEqual(
+      asked.map((a) => a[0]),
+      [W.SVC.READX, W.SVC.READ],
+      'a READX that does not check out is read plainly'
+    );
+    ok(
+      'v26 READX: blank pieces filled in, CRC over what was sent, whole pieces only; a damaged one read plainly'
+    );
+
+    // SET_TIMING: the payload, and the link told the padding after the ACK
+    let padTold = -1;
+    let sentFrame = null;
+    const tl = {
+      setPad(n) {
+        padTold = n;
+      },
+      async exchange(frame) {
+        sentFrame = W.parse(frame);
+        assert.strictEqual(
+          padTold,
+          -1,
+          'the link learns the padding only after the ACK'
+        );
+        return W.frame(W.SVC.SET_TIMING | 0x40, []);
+      },
+    };
+    await new W.Client(tl).setTiming(2000, 62);
+    assert.strictEqual(sentFrame.svc, W.SVC.SET_TIMING);
+    assert.deepStrictEqual(Array.from(sentFrame.data), [0, 0, 7, 208, 62]);
+    assert.strictEqual(padTold, 62);
+    ok('v26 SET_TIMING: gap u32 + packet u8, the link told after the ACK');
+
+    // the browser link: filler after each padded reply is waited out before
+    // the next request and dropped as noise before its echo
+    const written = [];
+    const pending = [];
+    const fake = {
+      config: { baudRate: 250000 },
+      port: { setSignals: async () => {}, device: 'test' },
+      writer: {
+        async write(f) {
+          written.push([Date.now(), Array.from(f)]);
+          const q = W.parse(f);
+          const reply = Array.from(W.frame(q.svc | 0x40, [1, 2, 3]));
+          const filler = (62 - (reply.length % 62)) % 62;
+          // echo, the reply, then its filler -- the filler handed over late
+          pending.push(...f, ...reply);
+          setTimeout(() => pending.push(...new Array(filler).fill(0xa5)), 3);
+        },
+      },
+      async readSome() {
+        for (let i = 0; i < 50 && !pending.length; i++)
+          await new Promise((r) => setTimeout(r, 1));
+        return { value: Uint8Array.from(pending.splice(0)), done: false };
+      },
+    };
+    const wl = W.webLink(fake);
+    wl.setPad(62);
+    const r1 = W.parse(await wl.exchange(W.frame(W.SVC.HELLO, []), 500));
+    const r2 = W.parse(
+      await wl.exchange(
+        W.frame(W.SVC.SECTOR_QUERY, [0, 4, 0, 0, 0, 0, 0, 16]),
+        500
+      )
+    );
+    assert.strictEqual(r1.svc, 0x40);
+    assert.strictEqual(
+      r2.svc,
+      0x41,
+      'the late filler did not upset the next reply'
+    );
+    const gap = written[1][0] - written[0][0];
+    assert(
+      gap >= Math.ceil(((62 - 8) * 11 * 1000) / 250000),
+      `waited ${gap} ms for the filler`
+    );
+    ok(
+      'v26 link: the next request waits out the filler, and filler that comes late is dropped before the echo'
+    );
+  }
+
   // ---- 5. detection ----------------------------------------------------------
   console.log('\ndetection');
   {

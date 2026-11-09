@@ -53,6 +53,9 @@ const FF_SVC = {
   ERASE_Q: 0x0c, // v23: external sectors erased in the background, up to 8 a job
   SETQ: 0x0d, // v24: a CHUNK_SET answered before its pulses; the ACK carries the previous set's result
   SYNC: 0x0e, // v24: the last pipelined set's result
+  SET_TIMING: 0x0f, // v26: the reply gap (passes) and the packet the replies are padded to
+  READX: 0x10, // v26: READ that leaves blank 4 KB pieces out of the reply
+  CHUNKQ: 0x11, // v26: an external CHUNK answered before it is programmed
 };
 /** SETQ / SYNC result byte: nothing pending. */
 const FF_RESULT_NONE = 0xff;
@@ -69,6 +72,23 @@ const FF_READ_MAX_WIDE = 0x4000;
 const FF_READ_WIDE_VERSION = 22;
 /** A damaged wide READ is read again in pieces this big. */
 const FF_READ_PIECE = 0x1000;
+/**
+ * v26: the body that reads with blank pieces left out (READX), pipelines
+ * the external chunks (CHUNKQ) and takes the reply timing from the host
+ * (SET_TIMING). The client's readBlank / pipelineExt switch the first two
+ * on; the screen sets them from the body's version.
+ */
+const FF_V26 = 26;
+/**
+ * v26 reply timing: the quiet before every reply, in passes of the body's
+ * gap loop (4 instructions: the old fixed 50000 ran ~15 ms on the car, a
+ * margin for a transmit-enable line the fast link no longer toggles), and
+ * the packet the replies are padded to fill -- the cable's FTDI hands a
+ * full 62-byte packet over at once and holds a short one for its latency
+ * timer (up to 16 ms). Every exchange paid both: ~30 of its ~46 ms floor.
+ */
+const FF_REPLY_GAP_PASSES = 2000;
+const FF_REPLY_PAD = 62;
 const FF_EXT_SIZE = 0x100000;
 
 // The AIF marker ladder (S_AIF): READ/ARM/DONE a row of marker slots from
@@ -675,6 +695,92 @@ class FastFlashClient {
   }
 
   /**
+   * v26: the reply timing (FF_REPLY_GAP_PASSES, FF_REPLY_PAD). The ACK
+   * comes under the old settings; the link is told the padding after it,
+   * so it waits out the filler before its next request.
+   * @param {number} gapPasses - 1..; the body counts 0 as 1.
+   * @param {number} pad - The packet size, 0 for none.
+   */
+  async setTiming(gapPasses, pad) {
+    // a body still padding from an earlier session: its filler after the
+    // HELLO must be off the line before this goes out
+    await new Promise((r) => setTimeout(r, 6));
+    await this.call(
+      FF_SVC.SET_TIMING,
+      [..._ffU32(gapPasses), pad & 0xff],
+      FF_TIMEOUT.SET_BAUD
+    );
+    if (this.link.setPad) this.link.setPad(pad & 0xff);
+  }
+
+  /**
+   * v26: an external chunk answered before it is programmed: the ACK
+   * carries the PREVIOUS pipelined op's result (as SETQ's does), the next
+   * frame goes out while this one programs, and sync() answers the last.
+   * @param {number} off - An external offset.
+   * @param {Uint8Array} plain - Up to 4 KB.
+   * @returns {Promise<{sent: number, prev: number}>}
+   */
+  async chunkQ(off, plain) {
+    const packed = this.codec.encode(plain);
+    const d = await this.call(
+      FF_SVC.CHUNKQ,
+      [
+        ..._ffU32(off),
+        ..._ffU16(plain.length),
+        ..._ffU16(packed.length),
+        ..._ffU32(ffWireBytes.crc32Mpeg2(packed)),
+        ...packed,
+      ],
+      this._chunkMs(packed.length, FF_TIMEOUT.CHUNK)
+    );
+    return { sent: packed.length, prev: d.length ? d[0] : FF_RESULT_NONE };
+  }
+
+  /**
+   * v26: READ with the blank 4 KB pieces left out of the reply: [crc4]
+   * [mask][the other pieces], mask bit n = piece n all 0xFF. Whole pieces
+   * only (offset and length multiples of 4 KB, flash or MPC). A reply that
+   * does not check out is read again the plain way, which has its own
+   * tries and its 4 KB fallback.
+   * @param {number} off @param {number} len
+   * @returns {Promise<Uint8Array>}
+   */
+  async readX(off, len) {
+    const d = await this.call(
+      FF_SVC.READX,
+      [..._ffU32(off), ..._ffU16(len)],
+      this._readReplyMs(len),
+      { firstByteMs: FF_READ_FIRST_BYTE_MS }
+    );
+    const pieces = len / FF_READ_PIECE;
+    const mask = d.length > 4 ? d[4] : 0xff;
+    const data = d.subarray(5);
+    let blanks = 0;
+    for (let i = 0; i < pieces; i++) if ((mask >> i) & 1) blanks++;
+    if (
+      d.length >= 5 &&
+      data.length === (pieces - blanks) * FF_READ_PIECE &&
+      ffWireBytes.crc32Mpeg2(data) === ffWireBytes.be32(d, 0)
+    ) {
+      const out = new Uint8Array(len).fill(0xff);
+      let at = 0;
+      for (let i = 0; i < pieces; i++)
+        if (!((mask >> i) & 1)) {
+          out.set(data.subarray(at, at + FF_READ_PIECE), i * FF_READ_PIECE);
+          at += FF_READ_PIECE;
+        }
+      return out;
+    }
+    if (this.trace)
+      this.trace(
+        `FF READX 0x${off.toString(16).toUpperCase()} ${len}B -> did not check out; read plainly`
+      );
+    await this._lineError();
+    return this.read(off, len);
+  }
+
+  /**
    * v23: external sectors erased in the background. The body issues the
    * chip's queued sector-erase for all of them and answers at once; the
    * chip erases them on its own (~2 s a sector on the car) while the body
@@ -838,7 +944,15 @@ async function ffReadArea(
   const max = client.readMax || FF_READ_MAX;
   for (let at = keep ? keep.at : 0; at < size; at += max) {
     const n = Math.min(max, size - at);
-    out.set(await client.read((base + at) >>> 0, n), at);
+    const off = (base + at) >>> 0;
+    // v26: blank 4 KB pieces stay off the wire (~220 KB of a full read)
+    const whole =
+      !!client.readBlank &&
+      !!client.readX &&
+      !(off & 0x40000000) &&
+      off % FF_READ_PIECE === 0 &&
+      n % FF_READ_PIECE === 0;
+    out.set(await (whole ? client.readX(off, n) : client.read(off, n)), at);
     if (keep) keep.at = at + n;
     progress(at + n);
   }
@@ -1049,16 +1163,18 @@ async function ffPushCal(client, signedCal, cb = {}, opts = {}) {
   stage('Writing the calibration');
   let sent = 0;
   let chunks = 0;
+  const q = _ffExtQueue(client);
   for (let i = 0; i < slots; i++) {
     const at = i * 0x1000;
     const plain = signedCal.subarray(at, Math.min(FF_CAL_LENGTH, at + 0x1000));
     // the erase left it blank already
     if (!plain.every((b) => b === 0xff)) {
-      sent += await client.chunk(FF_CAL_SECTOR + at, plain);
+      sent += await q.chunk(FF_CAL_SECTOR + at, plain);
       chunks++;
     }
     track.add(U.CHUNK, `Writing chunk ${i + 1} of ${slots}`);
   }
+  await q.sync();
   stage('Verifying');
   await client.verify(
     FF_CAL_SECTOR,
@@ -1078,6 +1194,39 @@ async function ffPushCal(client, signedCal, cb = {}, opts = {}) {
     `Fast flash: ${chunks} chunks, ${sent} bytes on the wire for ${FF_CAL_LENGTH} (${Math.round((sent * 100) / FF_CAL_LENGTH)}%)`
   );
   return { ok: true, skipped: false, sent, chunks };
+}
+
+/**
+ * v26: external chunks through CHUNKQ when the client allows it
+ * (client.pipelineExt): each answered before it is programmed, its result
+ * told with the next ACK, the last by sync(). A chunk that did not take
+ * ends the push as a refused CHUNK always has (the resume compares and
+ * writes again); a plain CHUNK otherwise.
+ * @param {FastFlashClient|null} client - null: a queue that is off.
+ * @returns {{on: boolean, chunk: (off: number, plain: Uint8Array) =>
+ *   Promise<number>, sync: () => Promise<void>}}
+ */
+function _ffExtQueue(client) {
+  const on = !!(client && client.pipelineExt && client.chunkQ);
+  let pending = false;
+  const told = (result) => {
+    if (result === 4 || result === 7) throw new FastFlashNak(FF_SVC.CHUNK, 4);
+  };
+  return {
+    on,
+    async chunk(off, plain) {
+      if (!on) return client.chunk(off, plain);
+      const r = await client.chunkQ(off, plain);
+      pending = true;
+      told(r.prev);
+      return r.sent;
+    },
+    async sync() {
+      if (!on || !pending) return;
+      pending = false;
+      told(await client.sync());
+    },
+  };
 }
 
 /**
@@ -1297,15 +1446,19 @@ async function ffPushProgram(client, signedFull, cb = {}, opts = {}) {
   const writeUnit = async (u, which) => {
     stage(`Writing ${which}`);
     const slots = slotsOf(u.write.length);
+    // v26: the external chunks pipelined; the MPC's go as before
+    const q = u.addr < FF_MPC_WINDOW ? _ffExtQueue(client) : _ffExtQueue(null);
+    const send = (a, p) => (q.on ? q.chunk(a, p) : client.chunk(a, p));
     for (let i = 0; i < slots; i++) {
       const plain = u.write.subarray(i * 0x1000, (i + 1) * 0x1000);
       // the erase left it blank; an all-FF chunk needs no write
       if (!plain.every((b) => b === 0xff)) {
-        sent += await client.chunk((u.addr + i * 0x1000) >>> 0, plain);
+        sent += await send((u.addr + i * 0x1000) >>> 0, plain);
         chunks++;
       }
       track.add(U.CHUNK, `Writing ${which}, chunk ${i + 1} of ${slots}`);
     }
+    await q.sync();
   };
   const total = todo.length;
   if (marksUnit) {
@@ -1484,6 +1637,12 @@ function ffWebLink(bus, opts = {}) {
       'Fast flash needs a cable with a break line (Web Serial or a gateway)'
     );
   let rx = [];
+  // v26: the packet the body pads its replies to (SET_TIMING), and when the
+  // filler after the last reply is off the line: the next request waits for
+  // it (the K line is one wire). Filler the cable hands over late is
+  // dropped as noise before the next echo (readFrame).
+  let pad = 0;
+  let quietAt = 0;
   // the pause after each reply, per byte: until a HELLO says the body is v6+,
   // assume the old drain (a v5 on the car needs it to be answered at all)
   let drainMs = bus.port.device === 'ms45-emu' ? 0 : FF_ECHO_DRAIN_MS;
@@ -1870,6 +2029,8 @@ function ffWebLink(bus, opts = {}) {
       // HELLO (5 bytes, DTR held 1 ms) and never a QUERY (13 bytes, 2 ms):
       // the drop's USB transfer lands as the reply starts. Without DTR a
       // cable that needed it would give no echo -- an error that says so.
+      const wait = quietAt - Date.now();
+      if (wait > 0) await sleep(wait);
       await bus.writer.write(frame);
       const reply = await readFrame(
         timeoutMs,
@@ -1877,7 +2038,17 @@ function ffWebLink(bus, opts = {}) {
         opts.firstByteMs || 0
       );
       if (drainMs) await sleep(reply.length * drainMs);
+      if (pad) {
+        const filler = (pad - (reply.length % pad)) % pad;
+        const rate = (bus.config && bus.config.baudRate) || FF_BAUD;
+        if (filler)
+          quietAt = Date.now() + Math.ceil((filler * 11 * 1000) / rate) + 1;
+      }
       return reply;
+    },
+    /** v26: the packet size the body now pads its replies to (0: none). */
+    setPad(size) {
+      pad = size | 0;
     },
     /** Back to the job runner's world: the next job reopens at its own rate. */
     async leave() {
@@ -1933,6 +2104,9 @@ const fastFlashWire = {
   READ_MAX: FF_READ_MAX,
   READ_MAX_WIDE: FF_READ_MAX_WIDE,
   READ_WIDE_VERSION: FF_READ_WIDE_VERSION,
+  V26: FF_V26,
+  REPLY_GAP_PASSES: FF_REPLY_GAP_PASSES,
+  REPLY_PAD: FF_REPLY_PAD,
   RESULT_NONE: FF_RESULT_NONE,
   fasterLine: ffFasterLine,
   FAST_LINES: FF_FAST_LINES,

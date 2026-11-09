@@ -177,6 +177,21 @@ async function fbDmeFastFlash(spec) {
     if (fbDmeBodyVersion() >= fastFlashWire.READ_WIDE_VERSION)
       client.readMax = fastFlashWire.READ_MAX_WIDE;
     await fbDmeFastProbe(client, ui);
+    // v26: blank 4 KB pieces left out of reads, the external chunks
+    // pipelined, and the reply timing the host's: a short gap and replies
+    // padded to whole USB packets (each switch has its off in
+    // localStorage, for a cable that disagrees)
+    if (fbDmeBodyVersion() >= fastFlashWire.V26) {
+      client.readBlank = true;
+      client.pipelineExt = fbDmePipelineWanted();
+      const t = fbDmeReplyTiming();
+      if (t) {
+        await client.setTiming(t.gap, t.pad);
+        flashLog.note(
+          `Reply timing: gap ${t.gap} passes, ${t.pad ? `replies padded to ${t.pad}-byte packets` : 'no padding'}`
+        );
+      }
+    }
     prepared.link = link;
     // the fastest line the cable and the K-line carry, from the top of the
     // list every session: a step-down is not remembered (the remembered one,
@@ -532,6 +547,31 @@ function fbDmePipelineWanted() {
   } catch (e) {
     return true;
   }
+}
+
+/**
+ * v26: the reply timing a session sets, or null to leave the body's own
+ * (localStorage bmweb-fast-timing = 0). bmweb-fast-gap and bmweb-fast-pad
+ * override the gap (passes) and the packet size (0 = no padding).
+ * @returns {{gap: number, pad: number}|null}
+ */
+function fbDmeReplyTiming() {
+  const get = (k) => {
+    try {
+      return localStorage.getItem(k);
+    } catch (e) {
+      return null;
+    }
+  };
+  if (get('bmweb-fast-timing') === '0') return null;
+  const num = (k, d, lo, hi) => {
+    const v = Number(get(k));
+    return get(k) !== null && Number.isInteger(v) && v >= lo && v <= hi ? v : d;
+  };
+  return {
+    gap: num('bmweb-fast-gap', fastFlashWire.REPLY_GAP_PASSES, 1, 1000000),
+    pad: num('bmweb-fast-pad', fastFlashWire.REPLY_PAD, 0, 255),
+  };
 }
 
 /**
