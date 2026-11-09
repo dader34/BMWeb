@@ -80,6 +80,13 @@ const FF_READ_PIECE = 0x1000;
  */
 const FF_V26 = 26;
 /**
+ * v27: a SET_BAUD the host cannot follow comes back by itself -- the body
+ * returns to the old rate when no valid frame arrives at the new one within
+ * ~2-3 s. The host then only has to wait and ask at the old rate.
+ */
+const FF_PROBATION_VERSION = 27;
+const FF_PROBATION_WAIT_MS = 3500;
+/**
  * v26 reply timing: the quiet before every reply, in passes of the body's
  * gap loop (4 instructions: the old fixed 50000 ran ~15 ms on the car, a
  * margin for a transmit-enable line the fast link no longer toggles), and
@@ -1052,6 +1059,14 @@ async function ffFasterLine(client, link, note = () => {}, preferred = 0) {
       // back garbled. So tell it to go back while the cable is still on the
       // dead rate, the answer ignored -- an unheard request costs nothing,
       // the body only ever answers
+      // v27: the body comes back by itself; wait it out, then ask at 115200
+      if (client.bodyVersion >= FF_PROBATION_VERSION) {
+        note(`Waiting for the flasher to return to ${FF_BAUD} baud by itself`);
+        await new Promise((r) => setTimeout(r, FF_PROBATION_WAIT_MS));
+        await link.rebaud(FF_BAUD, { patience: 4000 });
+        await client.setBaud(11);
+        continue;
+      }
       // one copy was not enough on the car (2026-11-09: stranded at 416667,
       // then at 312500): three copies spaced past the body's discard-until-
       // quiet, then a check at 115200, up to six rounds
@@ -2426,6 +2441,7 @@ const fastFlashWire = {
   READ_MAX_WIDE: FF_READ_MAX_WIDE,
   READ_WIDE_VERSION: FF_READ_WIDE_VERSION,
   V26: FF_V26,
+  PROBATION_VERSION: FF_PROBATION_VERSION,
   REPLY_GAP_PASSES: FF_REPLY_GAP_PASSES,
   REPLY_PAD: FF_REPLY_PAD,
   RESULT_NONE: FF_RESULT_NONE,

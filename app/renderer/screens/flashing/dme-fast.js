@@ -182,6 +182,9 @@ async function fbDmeFastFlash(spec) {
     // localStorage, for a cable that disagrees). Set BEFORE the probe: a
     // body left running by an earlier session may already be padding, and
     // this puts the link and the body on the same settings first.
+    // the body's version, for the wire's own choices (v27: a line switch
+    // it cannot follow comes back by itself)
+    client.bodyVersion = fbDmeBodyVersion();
     if (fbDmeBodyVersion() >= fastFlashWire.V26) {
       client.readBlank = true;
       client.pipelineExt = fbDmePipelineWanted();

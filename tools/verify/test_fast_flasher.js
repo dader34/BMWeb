@@ -1379,6 +1379,59 @@ const be32 = (b, at) =>
     );
   }
 
+  // ---- 4g. a line switch the host cannot follow ----------------------------
+  console.log('\nline switch');
+  {
+    const steps = [];
+    const mk = (version) => {
+      const client = {
+        bodyVersion: version,
+        async setBaud(scbr) {
+          steps.push(['setBaud', scbr]);
+        },
+      };
+      const link = {
+        async rebaud(rate) {
+          steps.push(['rebaud', rate]);
+          if (rate !== 115200) throw new Error('no HELLO');
+        },
+        async sendBlind(rate) {
+          steps.push(['sendBlind', rate]);
+        },
+      };
+      return { client, link };
+    };
+    // v27: the body comes back by itself -- nothing blind, a wait, 115200
+    steps.length = 0;
+    let { client, link } = mk(27);
+    let t0 = Date.now();
+    let r = await W.fasterLine(client, link, () => {});
+    assert.strictEqual(r, 115200);
+    assert(
+      !steps.some((x) => x[0] === 'sendBlind'),
+      'nothing sent blind to a v27 body'
+    );
+    assert(
+      Date.now() - t0 >= 3000 * 3,
+      'each failed rate waits out the probation'
+    );
+    assert(
+      steps.filter((x) => x[0] === 'rebaud' && x[1] === 115200).length === 3
+    );
+    // older: the pull-back copies
+    steps.length = 0;
+    ({ client, link } = mk(26));
+    r = await W.fasterLine(client, link, () => {});
+    assert.strictEqual(r, 115200);
+    assert(
+      steps.some((x) => x[0] === 'sendBlind'),
+      'an older body is pulled back'
+    );
+    ok(
+      'a line switch the host cannot follow: a v27 body is waited out (it comes back by itself), an older one is pulled back'
+    );
+  }
+
   // ---- 5. detection ----------------------------------------------------------
   console.log('\ndetection');
   {
