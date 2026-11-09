@@ -2348,49 +2348,6 @@ function ffWebLink(bus, opts = {}) {
       return reply;
     },
     /**
-     * A flasher stranded at a rate the cable cannot hear (a SET_BAUD the
-     * host could not follow: the car, 2026-11-09, at 416667 -- the echo
-     * clean, every reply garbled) still hears the host there. RESET is sent
-     * blind at each rate it could be on: the body that takes it parks
-     * without serving the watchdog and the DME restarts on its program (or
-     * in its loader). A rate the body is not on hears line noise, which it
-     * drops. Nothing waits for an answer.
-     * @param {number[]} [rates]
-     * @returns {Promise<number[]>} The rates tried.
-     */
-    async blindReset(rates) {
-      const list = rates || [
-        ...new Set([
-          ...FF_RESUME_RATES,
-          ...FF_FAST_LINES.map(([r]) => r),
-          FF_BAUD,
-        ]),
-      ];
-      for (const rate of list) {
-        await bus.reopen({
-          baudRate: rate,
-          dataBits: 8,
-          stopBits: 1,
-          parity: 'even',
-        });
-        rx = [];
-        // at the fast rates the cable mangles some frames on the way out too
-        // (the car, 2026-11-09: even the echo garbled at 416667 on one run):
-        // sent many times there, so one clean copy gets through
-        const copies = rate >= 300000 ? 20 : 2;
-        step(
-          `Restarting a stranded flasher at ${rate} baud, ${copies} times (no answer awaited)`
-        );
-        for (let i = 0; i < copies; i++) {
-          await bus.writer.write(ffFrame(FF_SVC.RESET, []));
-          await sleep(25);
-        }
-        await sleep(60);
-      }
-      rx = [];
-      return list;
-    },
-    /**
      * Send a frame `copies` times at `rate`, `gapMs` apart, without reading
      * an answer (a rate the cable cannot hear back). The port is left at
      * `rate`.
