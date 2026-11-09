@@ -315,6 +315,10 @@ class StatusPoller {
       if (port) {
         led.className = 'led ok';
         linkText.textContent = 'cable: ' + port.replace('/dev/', '');
+      } else if (typeof pasoftCable !== 'undefined' && pasoftCable.connected) {
+        // the PA Soft cable: connected, but only BMWeb Scanner can use it
+        led.className = 'led ok';
+        linkText.textContent = 'cable: ' + pasoftCable.label;
       } else {
         led.className = 'led idle';
         linkText.textContent = 'no cable';
@@ -356,6 +360,55 @@ class StatusPoller {
       this.timer = null;
     }
   }
+}
+
+/**
+ * A small menu under the cable chip: one entry per cable kind. Each entry
+ * is its own click, which the WebUSB and Web Serial choosers need.
+ * @param {HTMLElement} anchor - The chip.
+ * @param {{label: string, hint?: string, fn: () => void}[]} items - Entries.
+ * @returns {void}
+ */
+function showCableMenu(anchor, items) {
+  document.querySelector('.cable-menu')?.remove();
+  const menu = document.createElement('div');
+  menu.className = 'cable-menu';
+  const r = anchor.getBoundingClientRect();
+  Object.assign(menu.style, {
+    position: 'fixed',
+    top: `${Math.round(r.bottom + 4)}px`,
+    left: `${Math.round(Math.max(8, r.left))}px`,
+    zIndex: 10000,
+    background: 'var(--panel, #fff)',
+    color: 'var(--text, #111)',
+    border: '1px solid var(--border, #ccc)',
+    borderRadius: '6px',
+    boxShadow: '0 6px 20px rgba(0,0,0,.25)',
+    padding: '4px',
+    display: 'flex',
+    flexDirection: 'column',
+    minWidth: '240px',
+  });
+  const close = () => {
+    menu.remove();
+    document.removeEventListener('click', close);
+  };
+  for (const it of items) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'btn';
+    b.style.textAlign = 'left';
+    b.style.margin = '2px';
+    b.textContent = it.label + (it.hint ? ` (${it.hint})` : '');
+    b.onclick = (e) => {
+      e.stopPropagation();
+      close();
+      it.fn();
+    };
+    menu.appendChild(b);
+  }
+  document.body.appendChild(menu);
+  setTimeout(() => document.addEventListener('click', close), 0);
 }
 
 /** The app's one connection poller. */
@@ -558,13 +611,51 @@ function setScreenLayout(v) {
     const chip = document.getElementById('link-status');
     chip.style.cursor = 'pointer';
     chip.title = 'Click to connect or disconnect the cable';
-    chip.onclick = async () => {
+    const pa = typeof pasoftCable !== 'undefined' ? pasoftCable : null;
+    const paUsable = () =>
+      !!pa &&
+      PasoftCable.available() &&
+      !(typeof busShell !== 'undefined' && busShell);
+    /**
+     * Connect one cable, from a click (both pickers need the gesture).
+     * @param {'kdcan'|'pasoft'} which - The cable kind.
+     */
+    const connectCable = async (which) => {
+      try {
+        linkText.textContent = 'connecting…';
+        if (which === 'pasoft') await pa.connect();
+        else await webBus.connect();
+      } catch (e) {
+        led.className = 'led off';
+        linkText.textContent = e.message;
+        return;
+      }
+      await statusPoller.refresh();
+    };
+    chip.onclick = async (ev) => {
       try {
         if (webBus.connected) {
           await webBus.disconnect();
+        } else if (pa && pa.connected) {
+          await pa.disconnect();
+        } else if (paUsable()) {
+          // two cable kinds: a small menu, each entry its own click
+          ev.stopPropagation();
+          showCableMenu(chip, [
+            {
+              label: 'K+DCAN cable (Web Serial)',
+              fn: () => connectCable('kdcan'),
+            },
+            {
+              label: 'BMW Scanner cable (PA Soft, USB)',
+              hint: 'BMWeb Scanner only',
+              fn: () => connectCable('pasoft'),
+            },
+          ]);
+          return;
         } else {
-          linkText.textContent = 'connecting…';
-          await webBus.connect();
+          await connectCable('kdcan');
+          return;
         }
       } catch (e) {
         led.className = 'led off';
@@ -573,6 +664,12 @@ function setScreenLayout(v) {
       }
       await statusPoller.refresh();
     };
+    // a PA Soft cable picked last time comes back without a chooser
+    if (paUsable() && !webBus.connected) {
+      pa.reconnect()
+        .then((label) => label && statusPoller.refresh())
+        .catch(() => {});
+    }
 
     // KEEP THE CABLE THROUGH A RELOAD, ALWAYS. Web Serial remembers a granted
     // K+DCAN port (getPorts() returns it), so reconnect() reopens it with no

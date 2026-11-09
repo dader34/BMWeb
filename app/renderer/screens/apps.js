@@ -58,6 +58,17 @@ const APP_REGISTRY = [
     hasData: async () => typeof showIsta === 'function',
   },
   {
+    // the reference scanner's full car scan (BMW Scanner 1.4.0.7), rebuilt
+    // on this cable: every module identified, its faults counted, one log
+    id: 'scanner',
+    icon: '⌖',
+    title: 'BMWeb Scanner',
+    desc: 'Scan every module on the car and log what it reports',
+    tag: 'PA Soft',
+    open: () => (typeof showScanner === 'function' ? showScanner() : null),
+    hasData: async () => typeof showScanner === 'function',
+  },
+  {
     id: 'lookup',
     icon: '⌕',
     title: 'Fault codes',
@@ -255,7 +266,10 @@ function appCard(app, ready) {
  * named here lands in the last group.
  */
 const APPS_CLASSIC_GROUPS = [
-  { title: 'Diagnose', ids: ['inpa', 'ista', 'lookup', 'wiring', 'etk'] },
+  {
+    title: 'Diagnose',
+    ids: ['inpa', 'ista', 'scanner', 'lookup', 'wiring', 'etk'],
+  },
   { title: 'Program', ids: ['backup', 'webkfp', 'coding'] },
   { title: 'Expert', ids: ['tool32', 'script', 'job-search'] },
 ];

@@ -439,7 +439,10 @@ async function routeRun(rel, sgbd, jobRaw) {
     JOBNAME: job.toUpperCase(),
     SAETZE: (sets || []).length,
   });
-  if (!webBus.connected) return errorResponse('no cable connected', 503);
+  if (!webBus.connected) {
+    const pa = typeof pasoftBusRefusal === 'function' && pasoftBusRefusal();
+    return errorResponse(pa ? pa.message : 'no cable connected', 503);
+  }
   try {
     // One SGBD is "loaded" at a time, like the engine: moving to a
     // different ECU ends the previous session (ENDE) before the new

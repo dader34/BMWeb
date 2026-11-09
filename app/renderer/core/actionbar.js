@@ -285,7 +285,7 @@ class ActionBar {
     window.addEventListener('keydown', (e) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       // an open modal owns the keyboard; else Backspace behind a popup re-fires back and stacks it
-      if (document.querySelector('.modal-overlay')) return;
+      if (document.querySelector('.modal-overlay, .vcl-layer')) return;
       const t = e.target;
       if (
         t &&

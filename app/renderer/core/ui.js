@@ -221,6 +221,8 @@ function setCrumbs(items) {
   // ETK screens tag the body so CSS can drop the F-key bar on mobile; cleared
   // here so it only applies while an ETK screen is up
   document.body.classList.remove('apps-section');
+  // BMWeb Scanner hides the layout switch while it is up (it is classic only)
+  document.body.classList.remove('scn-page');
   // the classic or skinned Flashing app tags the body so its dialogs follow
   // its look
   document.body.classList.remove(
@@ -358,3 +360,11 @@ function skeletonList(rows = 6, sub = true) {
     `</div>`
   );
 }
+
+// the ES-module screens (screens/*/shell.mjs) read these off globalThis; a
+// top-level const is not a property of it (and a minifier may rename it), so
+// each is put there by name
+globalThis.esc = esc;
+globalThis.dispChassis = dispChassis;
+globalThis.inpaMode = inpaMode;
+globalThis.inpaTheme = inpaTheme;

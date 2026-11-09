@@ -1,0 +1,377 @@
+{
+ "source": "BMW Scanner 1.4.0.7 on the E46: answers from the USB capture; expected = its own fault routine and text routine run over its memory dump with the same answers",
+ "answers": {
+  "80 04 00": "80 12 a0 f6 94 08 77 32 08 54 13 28 04 08 36 07 37 70",
+  "d0 04 00": "d0 10 a0 06 93 68 36 25 35 30 14 35 04 09 36 91",
+  "b8 12 f1 02 1a 80": "b8 f1 12 1f 5a 80 00 00 07 56 13 82 00 00 00 11 31 43 20 05 01 27 04 00 0d 91 ff ff ff 02 03 01 ff ff ff a6",
+  "b8 12 f1 04 18 02 ff ff": "b8 f1 12 08 58 02 29 9a e8 27 c3 41 f7",
+  "32 04 00": "32 2e a0 37 35 35 32 37 30 30 32 39 30 30 31 30 36 30 33 36 30 35 30 30 30 30 30 30 30 30 30 30 39 30 31 30 30 30 31 33 39 31 37 35 37 b5",
+  "32 05 04 00": "32 09 a0 01 91 73 91 73 9a",
+  "32 05 04 01": "32 18 a0 01 81 70 03 00 00 00 7a 91 73 00 00 79 91 73 00 00 79 91 73 e1",
+  "44 04 00": "44 10 a0 86 90 56 70 03 81 81 07 30 04 06 08 fa",
+  "44 05 04 00": "44 05 a0 01 e0",
+  "44 05 04 01": "44 07 a0 01 0f ff 12",
+  "b8 29 f1 02 1a 80": "b8 f1 29 1f 5a 80 00 00 06 76 54 52 01 12 00 06 00 06 20 04 07 21 24 00 00 00 00 00 70 00 00 00 00 00 00 96",
+  "b8 29 f1 04 18 02 ff ff": "b8 f1 29 0b 58 03 5e 15 20 5e 14 e0 5e 19 e0 56",
+  "57 04 00": "57 10 a0 06 76 02 32 04 01 30 60 29 04 02 04 d9",
+  "57 05 04 00": "57 05 a0 02 f0",
+  "57 05 04 01": "57 14 a0 02 0b 3f b9 09 09 b5 00 00 00 00 00 00 00 00 00 d9",
+  "5b 04 00": "5b 10 a0 86 94 17 32 37 17 33 0e 32 04 55 18 ba",
+  "5b 05 04 00": "5b 05 a0 01 ff",
+  "5b 05 04 01": "5b 0f a0 01 20 42 ff 24 5c f0 98 50 03 85 ae",
+  "a4 04 00": "a4 10 a0 86 93 32 38 10 32 09 14 33 04 08 33 38",
+  "a4 06 90 ff ff": "a4 04 a0 00",
+  "a4 08 95 33 04 08 33": "a4 04 a0 00",
+  "a4 05 04 00": "a4 05 a0 03 02",
+  "a4 05 04 01": "a4 0e a0 03 0d 42 01 e1 82 c4 ff ff ff 1f",
+  "a4 05 04 02": "a4 0e a0 03 01 42 01 e1 82 c4 ff ff ff 13",
+  "a4 05 04 03": "a4 0e a0 03 50 20 01 e3 c7 cd e3 c8 42 f8",
+  "a4 05 14 00": "a4 05 a0 07 06",
+  "a4 05 14 01": "a4 07 a0 07 01 40 45",
+  "a4 05 14 02": "a4 07 a0 07 0d 40 49",
+  "a4 05 14 03": "a4 07 a0 07 50 20 74",
+  "a4 05 14 04": "a4 07 a0 07 51 08 5d",
+  "a4 05 14 05": "a4 07 a0 07 02 08 0e",
+  "a4 05 14 06": "a4 07 a0 07 06 40 42",
+  "a4 05 14 07": "a4 07 a0 07 05 40 41",
+  "80 05 04 00": "80 05 a0 05 20",
+  "80 05 04 01": "80 14 a0 05 be e8 50 f4 88 1d f7 88 ff f8 88 ff f5 88 59 7d",
+  "d0 05 04 00": "d0 05 a0 00 75",
+  "d0 05 04 01": "d0 23 a0 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 53",
+  "d0 05 04 02": "d0 23 a0 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 53",
+  "d0 05 04 03": "d0 23 a0 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 53",
+  "d0 05 04 04": "d0 23 a0 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 53",
+  "d0 05 04 05": "d0 23 a0 01 3a 23 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 4b",
+  "d0 05 04 06": "d0 23 a0 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 53",
+  "d0 05 04 07": "d0 23 a0 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 53",
+  "d0 05 04 08": "d0 23 a0 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 53",
+  "00 04 00": "00 10 a0 86 94 48 40 20 05 46 13 31 04 19 41 b7",
+  "00 05 04 00": "00 09 a0 01 00 00 50 1c e4",
+  "00 05 14 00": "00 0b a0 03 90 28 9e 01 9a 01 14",
+  "e8 04 00": "e8 10 a0 06 92 39 54 40 02 10 00 30 04 02 32 f7",
+  "e8 04 04": "e8 08 a0 00 00 00 00 40",
+  "c8 04 00": "c8 10 a0 86 94 69 93 35 04 21 12 13 04 23 27 81",
+  "c8 05 04 00": "c8 05 a0 02 6f",
+  "c8 05 04 01": "c8 09 a0 02 6b 07 6e 1f 7e",
+  "c8 05 14 00": "c8 05 a0 02 6f",
+  "c8 05 14 01": "c8 09 a0 02 15 3f 11 02 5a",
+  "f5 04 00": "f5 10 a0 86 92 55 01 02 20 20 78 29 04 22 04 74",
+  "f5 05 04 00": "f5 05 a0 01 51",
+  "f5 05 04 01": "f5 07 a0 01 04 21 76",
+  "f5 05 14 00": "f5 05 a0 01 51",
+  "f5 05 14 01": "f5 07 a0 01 05 01 57",
+  "08 04 00": "08 10 a0 86 92 87 56 b4 04 04 78 22 04 25 19 ab",
+  "08 04 04": "08 0f a0 00 00 00 00 00 00 00 00 00 00 00 a7",
+  "72 04 00": "72 10 a0 87 03 61 25 08 01 01 01 30 04 02 0b 36",
+  "72 05 04 00": "72 05 a0 00 d7"
+ },
+ "expected": {
+  "DME": {
+   "errors": [
+    {
+     "code": "299A",
+     "param": "E8",
+     "text": "Error managment EGS",
+     "state": 2
+    },
+    {
+     "code": "27C3",
+     "param": "41",
+     "text": "Thermal oil level sensor",
+     "state": 2
+    }
+   ],
+   "shadow": [],
+   "variant": 68
+  },
+  "EGS": {
+   "errors": [
+    {
+     "code": "81",
+     "param": "70",
+     "text": "CAN Timeout DME",
+     "state": 1
+    }
+   ],
+   "shadow": [],
+   "variant": 10
+  },
+  "EWS": {
+   "errors": [
+    {
+     "code": "0F",
+     "param": "FF",
+     "text": "Power on reset",
+     "state": 2
+    }
+   ],
+   "shadow": [],
+   "variant": 2
+  },
+  "ABS": {
+   "errors": [
+    {
+     "code": "5E15",
+     "param": "20",
+     "text": "CAN Timeout EGS",
+     "state": 1
+    },
+    {
+     "code": "5E14",
+     "param": "E0",
+     "text": "CAN Timeout DME/DDE",
+     "state": 2
+    },
+    {
+     "code": "5E19",
+     "param": "E0",
+     "text": "CAN DME/DDE, engine torque not adjustable.",
+     "state": 2
+    }
+   ],
+   "shadow": [],
+   "variant": 19
+  },
+  "LEW": {
+   "errors": [
+    {
+     "code": "0B",
+     "param": "B9",
+     "text": "Wrong LWS-ID",
+     "state": 2
+    },
+    {
+     "code": "09",
+     "param": "B5",
+     "text": "No CAN message (ASC)",
+     "state": 2
+    }
+   ],
+   "shadow": [],
+   "variant": 3
+  },
+  "A/C": {
+   "errors": [
+    {
+     "code": "20",
+     "param": "42",
+     "text": "AUC heating",
+     "state": 2
+    }
+   ],
+   "shadow": [],
+   "variant": 13
+  },
+  "SRS": {
+   "errors": [
+    {
+     "code": "0D",
+     "param": "42",
+     "text": "Driver's airbag, stage 2, resistance too high",
+     "state": 2
+    },
+    {
+     "code": "01",
+     "param": "42",
+     "text": "Driver's airbag, stage 1, resistance too high",
+     "state": 2
+    },
+    {
+     "code": "50",
+     "param": "20",
+     "text": "Power supply, undervoltage",
+     "state": 1
+    }
+   ],
+   "shadow": [
+    {
+     "code": "01",
+     "param": "40",
+     "text": "Driver's airbag, stage 1, resistance too high",
+     "state": 1
+    },
+    {
+     "code": "0D",
+     "param": "40",
+     "text": "Driver's airbag, stage 2, resistance too high",
+     "state": 1
+    },
+    {
+     "code": "50",
+     "param": "20",
+     "text": "Power supply, undervoltage",
+     "state": 1
+    },
+    {
+     "code": "51",
+     "param": "08",
+     "text": "Fault lamp, short circuit to negative or open circuit",
+     "state": 1
+    },
+    {
+     "code": "02",
+     "param": "08",
+     "text": "Driver's belt tensioner, short circuit to negative",
+     "state": 1
+    },
+    {
+     "code": "06",
+     "param": "40",
+     "text": "Side airbag, front right door, resistance too high",
+     "state": 1
+    },
+    {
+     "code": "05",
+     "param": "40",
+     "text": "Side airbag, front left door, resistance too high",
+     "state": 1
+    }
+   ],
+   "variant": 7
+  },
+  "IKE": {
+   "errors": [
+    {
+     "code": "BE",
+     "param": "E8",
+     "text": "Data-filing difference to central light module (LCM)",
+     "state": 2
+    },
+    {
+     "code": "F4",
+     "param": "88",
+     "text": "No CAN message",
+     "state": 1
+    },
+    {
+     "code": "F7",
+     "param": "88",
+     "text": "No CAN message (DME2)",
+     "state": 1
+    },
+    {
+     "code": "F8",
+     "param": "88",
+     "text": "No CAN message (DME4)",
+     "state": 1
+    },
+    {
+     "code": "F5",
+     "param": "88",
+     "text": "No CAN message (ASC1)",
+     "state": 1
+    }
+   ],
+   "shadow": [],
+   "variant": 14
+  },
+  "LCM": {
+   "errors": [],
+   "shadow": [
+    {
+     "code": "3A",
+     "param": "23",
+     "text": "High beam, right",
+     "state": 2
+    }
+   ],
+   "variant": 8
+  },
+  "ZKE": {
+   "errors": [
+    {
+     "code": "50",
+     "param": "1C",
+     "text": "Passenger mirror: Potentiometer axel 2/4",
+     "state": 1
+    }
+   ],
+   "shadow": [
+    {
+     "code": "90",
+     "param": "28",
+     "text": "Battery Voltage: Open circuit",
+     "state": 2
+    },
+    {
+     "code": "9E",
+     "param": "01",
+     "text": "Driver mirror: undervoltage Mirror heating",
+     "state": 1
+    },
+    {
+     "code": "9A",
+     "param": "01",
+     "text": "Passenger mirror: undervoltage Mirror heating",
+     "state": 1
+    }
+   ],
+   "variant": 9
+  },
+  "AIC": {
+   "errors": [],
+   "shadow": [],
+   "variant": 2
+  },
+  "TEL": {
+   "errors": [
+    {
+     "code": "6B",
+     "param": "07",
+     "text": "GPS communication error",
+     "state": 1
+    },
+    {
+     "code": "6E",
+     "param": "1F",
+     "text": "E-call LED not connected",
+     "state": 1
+    }
+   ],
+   "shadow": [
+    {
+     "code": "15",
+     "param": "3F",
+     "text": "NAD transceiver failure",
+     "state": 2
+    },
+    {
+     "code": "11",
+     "param": "02",
+     "text": "I-Bus access error",
+     "state": 1
+    }
+   ],
+   "variant": 6
+  },
+  "SZM": {
+   "errors": [
+    {
+     "code": "04",
+     "param": "21",
+     "text": "Temperature sensor Seat heating left, Open circuit",
+     "state": 2
+    }
+   ],
+   "shadow": [
+    {
+     "code": "05",
+     "param": "01",
+     "text": "Seat heating Lower voltage recognised",
+     "state": 1
+    }
+   ],
+   "variant": 2
+  },
+  "SHD": {
+   "errors": [],
+   "shadow": [],
+   "variant": 2
+  },
+  "SMF": {
+   "errors": [],
+   "shadow": [],
+   "variant": 3
+  }
+ }
+}

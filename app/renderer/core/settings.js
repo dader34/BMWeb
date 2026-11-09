@@ -272,3 +272,8 @@ const lang = () => Settings.get('lang', 'en');
  * @returns {string}
  */
 const itemLabel = (it) => (lang() === 'orig' ? it.job : irLabel(it.label));
+
+// the ES-module screens (screens/*/shell.mjs) read these off globalThis; a
+// top-level const is not a property of it (and a minifier may rename it), so
+// each is put there by name
+globalThis.Settings = Settings;

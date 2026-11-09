@@ -134,8 +134,21 @@ let busRawExchange = null;
  */
 function webBusRawExchange(out, comm) {
   if (busShell) return busShell.webBusRawExchange(out, comm);
+  const pa = busPasoftOnly();
+  if (pa) return Promise.reject(pa);
   if (!busRawExchange) throw new Error('bus not initialised');
   return busRawExchange(out, comm);
+}
+
+/**
+ * The refusal while the PA Soft cable (pasoft-usb-port.js) is the only cable
+ * in: its adapter cannot forward an arbitrary telegram, so no SGBD job,
+ * coding or flash may go to it.
+ * @returns {Error|null} The error to fail with, or null to carry on.
+ */
+function busPasoftOnly() {
+  if (webBus.connected || typeof pasoftBusRefusal !== 'function') return null;
+  return pasoftBusRefusal();
 }
 
 /**
@@ -189,7 +202,13 @@ function lockBus(bus, onDisconnect) {
     }
     return withBusLock(() => raw.disconnect(...a));
   };
-  bus.exchange = (...a) => withBusLock(() => raw.exchange(...a));
+  bus.exchange = (...a) => {
+    // only the PA Soft cable is in: it carries no SGBD telegram, refuse
+    // before anything queues or reaches a wire
+    const pa = busPasoftOnly();
+    if (pa) return Promise.reject(pa);
+    return withBusLock(() => raw.exchange(...a));
+  };
   // The unlocked exchange, for a caller that ALREADY holds the bus lock and
   // must not queue behind itself. Kept so coding-write reaches the same raw
   // wire reads do.

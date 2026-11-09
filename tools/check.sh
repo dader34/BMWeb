@@ -144,6 +144,13 @@ run node tools/verify/test_logging_tracer.js
 run node tools/verify/test_flash_logview.js
 run node tools/verify/test_faults_page.js
 run node tools/verify/test_tcu_identify.js
+run node tools/verify/test_scanner.js
+run node tools/verify/test_scanner_proc.js
+run node tools/verify/test_scanner_carinfo.js
+run node tools/verify/test_scanner_faults.js
+run node tools/verify/test_scanner_unit.js
+run node tools/verify/test_scanner_eeprom.js
+run node tools/verify/test_shell_globals.js
 
 echo
 echo "== Engine protection builder: byte-identical to the emulator-tested build, gates, config =="
@@ -256,6 +263,10 @@ run node tools/verify/test_readsome.js
 echo
 echo "== ISO 9141 slow init: 5-baud wake, 10400 8N1, framing (E46 DME) =="
 run node tools/verify/test_iso9141.js
+
+echo
+echo "== PA Soft V14x cable (WebUSB): scramble, frames, readers, retries =="
+run node tools/verify/test_pasoft_usb.js
 
 echo
 echo "== BMW-FAST long form (0xB8): XOR checksum, length byte, short->long fallback =="

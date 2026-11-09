@@ -15,6 +15,7 @@
 //   #apps/parts/vin       the VIN Decoder page (showVinDecoder)
 //   #apps/tool32          Tool32 (showTool32)
 //   #apps/webkfp          WebKFP (showWebKfp)
+//   #apps/scanner         BMWeb Scanner (showScanner)
 //   #apps/coding          Coding (showNcsExpert)
 
 /**
@@ -35,6 +36,8 @@ const APPS_ROUTES = {
     typeof showVinDecoder === 'function' ? showVinDecoder() : null,
   'apps/tool32': () => (typeof showTool32 === 'function' ? showTool32() : null),
   'apps/webkfp': () => (typeof showWebKfp === 'function' ? showWebKfp() : null),
+  'apps/scanner': () =>
+    typeof showScanner === 'function' ? showScanner() : null,
   'apps/coding': () =>
     typeof showNcsExpert === 'function' ? showNcsExpert() : null,
   'apps/job-search': () =>
@@ -81,6 +84,7 @@ const ROUTE_FOR_SCREEN = {
   showVinDecoder: 'apps/parts/vin',
   showTool32: 'apps/tool32',
   showWebKfp: 'apps/webkfp',
+  showScanner: 'apps/scanner',
   showNcsExpert: 'apps/coding',
   showJobSearch: 'apps/job-search',
   showFlashing: 'apps/flashing',

@@ -248,3 +248,9 @@ async function istaBundleFile(chassis, rel) {
   if (!body) return null;
   return new Response(body, { status: 200 });
 }
+
+// the ES-module screens (screens/*/shell.mjs) read these off globalThis; a
+// top-level const is not a property of it (and a minifier may rename it), so
+// each is put there by name
+globalThis.HF_MIRRORS = HF_MIRRORS;
+globalThis.HF_FILES_MIRRORS = HF_FILES_MIRRORS;

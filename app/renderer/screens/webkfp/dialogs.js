@@ -83,6 +83,9 @@ function wkfpDialog(win, o) {
       resolve(v);
     };
     const onKey = (e) => {
+      // only the topmost dialog answers the keyboard
+      const shades = document.querySelectorAll('.wkfp-shade');
+      if (shades[shades.length - 1] !== shade) return;
       if (e.key === 'Escape') {
         e.preventDefault();
         e.stopPropagation();

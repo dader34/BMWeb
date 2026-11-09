@@ -6355,23 +6355,74 @@ body.remote-helper::after {
   border-radius: 0 !important;
   box-shadow: none !important;
 }
-:root .js-win .lkd-menu {
+:root .js-win :is(.lkd-menu, .lkd-pop) {
+  top: 100%;
+  min-width: 100%;
   background: #fff !important;
   border: 1px solid #828790 !important;
   border-radius: 0 !important;
   box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3) !important;
 }
-:root .js-win .lkd-opt {
+:root .js-win .lkd.drop-up .lkd-pop {
+  top: auto;
+  bottom: 100%;
+}
+/* the list's filter box: a plain white edit field, not the modern bar */
+:root .js-win .lkd-search {
+  margin: 2px;
+  width: calc(100% - 4px);
+  padding: 3px 4px;
   font:
     12px Tahoma,
     'Segoe UI',
     sans-serif;
   color: #000 !important;
-  border-radius: 0 !important;
+  background: #fff !important;
+  border: 1px solid #7a7a7a !important;
 }
-:root .js-win :is(.lkd-opt:hover, .lkd-opt.active) {
+:root .js-win .lkd-list {
+  padding: 0;
+}
+:root .js-win :is(.lkd-opt, .lkd-item) {
+  min-height: 0;
+  padding: 2px 6px;
+  font:
+    12px Tahoma,
+    'Segoe UI',
+    sans-serif;
+  color: #000 !important;
+  background: #fff !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+:root .js-win .lkd-item :is(.lkd-item-label, .lkd-item-meta) {
+  font: inherit;
+  color: inherit !important;
+}
+:root .js-win .lkd-item-count {
+  font: inherit;
+  color: inherit !important;
+  background: none !important;
+  border: 0 !important;
+}
+:root
+  .js-win
+  :is(.lkd-opt:hover, .lkd-opt.active, .lkd-item:hover, .lkd-item.active) {
   color: #fff !important;
   background: var(--t32-sel) !important;
+}
+/* while the pointer is in the list the highlight follows it, as a listbox */
+:root .js-win .lkd-list:hover .lkd-item.active:not(:hover) {
+  color: #000 !important;
+  background: #fff !important;
+}
+:root .js-win .lkd-empty {
+  font:
+    12px Tahoma,
+    'Segoe UI',
+    sans-serif;
+  color: #000;
 }
 /* the results pane: a sunken white list, scrolled inside the window */
 :root .js-win .job-search-results {
