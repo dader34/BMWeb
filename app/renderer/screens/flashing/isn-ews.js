@@ -391,7 +391,7 @@ async function fbIsnFlashVirginize() {
     return;
   }
   const ok = await fbConfirm(
-    "Wipes the DME's ISN. The program, tune and log are kept, but the car will not start until you write the car's ISN back with Write ISN.\n\nKeep the ignition on, a charger connected and the cable plugged in until it finishes.\n\nVirginize the DME?",
+    "Wipes the DME's ISN. The program, tune and log are kept.\n\nThe car will not start while the DME's ISN differs from the EWS's, unless the DME is EWS-deleted.\n\nKeep the ignition on, a charger connected and the cable plugged in until it finishes.\n\nVirginize the DME?",
     'Virginize'
   );
   if (!ok) {
