@@ -646,7 +646,7 @@ async function fbBlOverwrite() {
   }
   const facts = `${file.name}: ${bl.bootFileFacts(r)}`;
   const ok = await fbConfirm(
-    `Writes the DME's whole boot region, reset vector and all, from this file exactly. Its loader, tag, hardware number, ISN and programming log replace the DME's own; a flasher ring stays only if the file has one.\n\n${facts}\n\nKeep the ignition on, a charger on the battery and the cable plugged in until it has finished. A power or cable loss while the 16 KB sector is erased leaves a DME only a BDM rig can recover.\n\nUpdate the boot sector?`,
+    `Replaces the DME's whole boot region with this file, including its loader, ISN and programming log.\n\n${facts}\n\nIf power or the cable is lost during the write, the DME can only be recovered on a bench.\n\nUpdate the boot sector?`,
     'Update boot sector'
   );
   if (!ok) {

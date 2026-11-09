@@ -344,7 +344,7 @@ async function fbDmeVerifyProgramming() {
   if (!d.identified || fbState.running) return;
   if (
     !(await fbConfirm(
-      "This runs the DME's program and calibration signature checks and resets it. Nothing is written.\n\nUse it when a flash stopped after the program was written but before it was verified: the program and the tune are on the DME, but it stays in the bootloader (programming status 5) until both checks have passed.\n\nIgnition on, engine off. Continue?",
+      "Runs the DME's signature checks and restarts it. Nothing is written. Use it when a flash stopped before it was verified and the DME is stuck in its bootloader.\n\nIgnition on, engine off. Continue?",
       'Finish Programming'
     ))
   ) {

@@ -397,8 +397,7 @@ async function fbDmeGateLoadedFiles() {
       !fileProgramDeleted &&
       d.carTuneEwsDeleted === true &&
       !(await fbConfirm(
-        'The tune on the car has the immobilizer switched off, and this program has it on.\n\nA .0PA has no tune in it, so on its own the tune on the car stays as it is, ' +
-          'and the car may not start with this program.\n\nTo keep the car EWS deleted, load the program\'s .0DA next with "Load .0da (optional)". The EWS delete can then be applied to both.\n\nDo you wish to load it anyway?',
+        "The car's tune has the immobilizer off, but this program has it on, so the car may not start. To keep it EWS-deleted, also load the program's .0DA.\n\nLoad it anyway?",
         'Immobilizer Mismatch'
       ))
     ) {

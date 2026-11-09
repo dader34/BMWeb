@@ -391,7 +391,7 @@ async function fbIsnFlashVirginize() {
     return;
   }
   const ok = await fbConfirm(
-    "Wipes the DME's ISN to blank (erase + rewrite of the flash boot sector). The DME then presents 0xFFFF to the EWS. The program, tune and log are kept.\n\nNote: the EWS does not write the flash ISN back during a sync. To pair the DME afterwards, use Write ISN with the car's ISN.\n\nKeep the ignition on, a charger on the battery and the cable plugged in until it has finished. A power or cable loss mid-write can leave the DME unbootable.\n\nAfter this, the car will not start until an ISN is written back.\n\nVirginize the DME?",
+    "Wipes the DME's ISN. The program, tune and log are kept, but the car will not start until you write the car's ISN back with Write ISN.\n\nKeep the ignition on, a charger connected and the cable plugged in until it finishes.\n\nVirginize the DME?",
     'Virginize'
   );
   if (!ok) {
