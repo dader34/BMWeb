@@ -148,10 +148,10 @@ const FF_FAST_LINES = [
   // cost the 2026-11-08 read a reconnect at 5 % -- each garble is a
   // re-read and two of them a step-down, which costs more than the 20 %
   // of wire time 250000 gives up. 250000 has carried every frame so far.
-  // 2026-11-09: the session starts at 416667 again (the user's call): a
-  // garble steps down a rate, and a dropped push now resumes where the DME
-  // stopped, so a marginal top rate costs a reconnect, not the work so far
-  [416667, 3],
+  // 2026-11-09: the session starts at 312500 (the user's call; 416667 tried
+  // first the same night and taken back down a rate): a garble steps down a
+  // rate, and a dropped push now resumes where the DME stopped, so a
+  // marginal top rate costs a reconnect, not the work so far
   [312500, 4],
   [250000, 5],
   [208333, 6],
