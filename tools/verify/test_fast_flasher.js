@@ -1377,6 +1377,39 @@ const be32 = (b, at) =>
     ok(
       'v26 link: after a v26 HELLO it already waits out filler, before the session sets the timing'
     );
+
+    // a flasher stranded at a rate the cable cannot hear: RESET sent blind
+    // at every rate it could be on, nothing awaited
+    const sentAt = [];
+    let rateNow = 0;
+    const blindBus = {
+      config: null,
+      port: { setSignals: async () => {}, device: 'test' },
+      reopen: async (c) => {
+        rateNow = c.baudRate;
+      },
+      writer: {
+        async write(f) {
+          sentAt.push([rateNow, W.parse(f).svc]);
+        },
+      },
+      async readSome() {
+        return { value: new Uint8Array(0), done: false };
+      },
+    };
+    const tried = await W.webLink(blindBus).blindReset();
+    assert(
+      tried.includes(416667) && tried.includes(115200) && tried.includes(250000)
+    );
+    assert.deepStrictEqual(
+      sentAt.map((x) => x[0]),
+      tried,
+      'one RESET at each rate'
+    );
+    assert(sentAt.every((x) => x[1] === W.SVC.RESET));
+    ok(
+      'a stranded flasher: RESET sent blind once at every rate it could be on (416667 included), no answer awaited'
+    );
   }
 
   // ---- 5. detection ----------------------------------------------------------

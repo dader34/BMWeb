@@ -2323,6 +2323,42 @@ function ffWebLink(bus, opts = {}) {
       }
       return reply;
     },
+    /**
+     * A flasher stranded at a rate the cable cannot hear (a SET_BAUD the
+     * host could not follow: the car, 2026-11-09, at 416667 -- the echo
+     * clean, every reply garbled) still hears the host there. RESET is sent
+     * blind at each rate it could be on: the body that takes it parks
+     * without serving the watchdog and the DME restarts on its program (or
+     * in its loader). A rate the body is not on hears line noise, which it
+     * drops. Nothing waits for an answer.
+     * @param {number[]} [rates]
+     * @returns {Promise<number[]>} The rates tried.
+     */
+    async blindReset(rates) {
+      const list = rates || [
+        ...new Set([
+          ...FF_RESUME_RATES,
+          ...FF_FAST_LINES.map(([r]) => r),
+          FF_BAUD,
+        ]),
+      ];
+      for (const rate of list) {
+        await bus.reopen({
+          baudRate: rate,
+          dataBits: 8,
+          stopBits: 1,
+          parity: 'even',
+        });
+        rx = [];
+        step(
+          `Restarting a stranded flasher at ${rate} baud (no answer awaited)`
+        );
+        await bus.writer.write(ffFrame(FF_SVC.RESET, []));
+        await sleep(60);
+      }
+      rx = [];
+      return list;
+    },
     /** v26: the packet size the body now pads its replies to (0: none). */
     setPad(size) {
       pad = size | 0;

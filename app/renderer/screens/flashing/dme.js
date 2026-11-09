@@ -342,6 +342,17 @@ async function fbDmeIdentifyRun(afterFlash) {
     // (not gated on the live flag: an incognito window closed in between
     // loses it, the flasher in the DME does not)
     if (await fbDmeIdentifyThroughFlasher()) return;
+    // a flasher stranded at a rate the cable cannot hear answers nothing,
+    // and a key cycle does not clear it (the DME holds its own relay):
+    // restart it blind, once, and ask again
+    if (!fbDmeIdentifyRun.rescued && (await fbDmeRescueStrandedFlasher())) {
+      fbDmeIdentifyRun.rescued = true;
+      try {
+        return await fbDmeIdentifyRun(afterFlash);
+      } finally {
+        fbDmeIdentifyRun.rescued = false;
+      }
+    }
     d.identified = false;
     fbSetStatus('No response from the DME');
     await fbMessage(
@@ -396,6 +407,45 @@ async function fbDmeIdentifyRun(afterFlash) {
  * in it. Flash Program reconnects to it and writes the program without it.
  * @returns {Promise<boolean>} Whether the flasher answered.
  */
+/**
+ * Nothing answered identify, not even a flasher: send the flasher's RESET
+ * blind at every rate it could be stranded on (fastFlashWire link
+ * blindReset), then give the DME time to restart.
+ * @returns {Promise<boolean>} True when the rescue ran (the caller asks again).
+ */
+async function fbDmeRescueStrandedFlasher() {
+  let claim = null;
+  let link = null;
+  fbSetStatus('No answer: restarting a fast flasher that may be stranded…');
+  try {
+    claim = await webClaimBus('Identify');
+    link = fastFlashWire.webLink(webBus, { onStep: (s) => flashLog.note(s) });
+    await link.blindReset();
+  } catch (e) {
+    flashLog.note(`The stranded-flasher restart could not run (${e.message})`);
+    return false;
+  } finally {
+    if (link) {
+      try {
+        await link.leave();
+      } catch (e) {
+        /* the identify reopens the port */
+      }
+    }
+    if (claim) claim.release();
+  }
+  fbDmeSetFastLive(false);
+  fbState.dme.fastFlasher = null;
+  // the watchdog resets the DME ~100 ms after the RESET; its program (or
+  // its loader) is up within ~2 s
+  await new Promise((r) => setTimeout(r, 3000));
+  if (typeof webDropSession === 'function') webDropSession(MS45_SGBD);
+  fbLog(
+    'Restarted a fast flasher that may have been stranded; identifying again'
+  );
+  return true;
+}
+
 async function fbDmeIdentifyThroughFlasher() {
   const d = fbState.dme;
   let claim = null;
