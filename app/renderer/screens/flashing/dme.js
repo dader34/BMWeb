@@ -94,14 +94,15 @@ function fbDmeWire() {
   // with "Use the fast flasher" on and a ready flasher on the DME, the two
   // write buttons go through it; with it on and NO flasher on the DME, the
   // one-click starts one (selector-5 grant, nothing installed); otherwise
-  // through the stock loader
+  // through the stock loader -- which first restarts a DME that identify
+  // found sitting in its flasher (fbDmeViaStockLoader)
   fbEls['dme-flash-tune'].onclick = () =>
     fbDmeGuard('Flash Tune', () =>
       fbDmeUseFastFlasher()
         ? fbDmeFastFlashTune()
         : fbDmeOneClickDue()
           ? fbDmeOneClickFlashTune()
-          : fbDmeFlashTune()
+          : fbDmeViaStockLoader('Flash Tune', fbDmeFlashTune)
     );
   fbEls['dme-flash-program'].onclick = () =>
     fbDmeGuard('Flash Program', () =>
@@ -109,7 +110,7 @@ function fbDmeWire() {
         ? fbDmeFastFlashProgram()
         : fbDmeOneClickDue()
           ? fbDmeOneClickFlashProgram()
-          : fbDmeFlashProgram()
+          : fbDmeViaStockLoader('Flash Program', () => fbDmeFlashProgram())
     );
   fbEls['dme-fullbin'].onchange = () => fbDmeFullBinChanged();
 }

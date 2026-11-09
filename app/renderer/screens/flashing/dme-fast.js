@@ -5,7 +5,7 @@
 // protocol is core/flash/fast-flasher-wire.js, detection and the bootstrap
 // splice core/flash/fast-flasher.js. Part of the DME screen with dme.js;
 // one scope.
-/* exported fbDmeFastFlashTune, fbDmeFastFlashProgram, fbDmeFastFlasherAvailable, fbDmeFastRead */
+/* exported fbDmeFastFlashTune, fbDmeFastFlashProgram, fbDmeFastFlasherAvailable, fbDmeFastRead, fbDmeViaStockLoader */
 
 // ---- Fast Flash ------------------------------------------------------------------------------------------
 /**
@@ -575,6 +575,94 @@ async function fbDmeResumablePushCal(client, signedCal, cb) {
           ? `written (${r.sent} of ${n} chunks)`
           : `resumed: ${r.sent} of ${n} chunks were missing and are written`,
   };
+}
+
+/**
+ * A stock-loader operation on a DME that identify found in its fast
+ * flasher: the flasher is told to restart the DME first, and the DME is
+ * identified again on whatever came up (its program, or the loader when a
+ * push was cut short and the program's marks are gone).
+ *
+ * The flasher answers nothing of KWP, so the stock route into it died at
+ * its first question -- "Could not read the DME serial number / Security
+ * Access Denied" -- and a key cycle does not help: with the stock program
+ * stopped nothing lets go of the DME's main relay, so the body in RAM keeps
+ * running with the ignition off (the car, 2026-11-08). Its own RESET is the
+ * way out.
+ * @param {string} title - The operation, for the status line and the claim.
+ * @returns {Promise<boolean>} True when the DME is out of the flasher (or
+ *   was never in it) and the stock operation can go on.
+ */
+async function fbDmeLeaveFastFlasher(title) {
+  const d = fbState.dme;
+  if (!(d.ident && d.ident.inFlasher)) return true;
+  fbSetStatus(`${title}: leaving the fast flasher first…`);
+  flashLog.note(
+    `${title} by the stock loader, and the DME is in its fast flasher: restarting it`
+  );
+  let claim = null;
+  let link = null;
+  try {
+    claim = await webClaimBus(title);
+    link = fastFlashWire.webLink(webBus, { onStep: (s) => flashLog.note(s) });
+    await link.resume();
+    const client = new fastFlashWire.Client(link, {
+      trace: (t) => flashLog.trace(t),
+    });
+    try {
+      await client.reset();
+    } catch (e) {
+      // the DME may restart before its answer is out: the identify below
+      // says whether the reset took
+      flashLog.note(
+        `The flasher's answer to RESET was not heard (${e.message})`
+      );
+    }
+  } catch (e) {
+    // gone already (a battery or relay pull since identify): identify decides
+    flashLog.note(`No flasher answered (${e.message})`);
+  } finally {
+    if (link) {
+      try {
+        await link.leave();
+      } catch (e) {
+        /* the identify below reopens the port */
+      }
+    }
+    if (claim) claim.release();
+  }
+  // the body is gone from RAM: nothing of it is live, and what identify
+  // synthesized for it (a blank-stamp body has no detection of its own) goes
+  fbDmeSetFastLive(false);
+  d.fastFlasher = null;
+  d.ident = { ...d.ident, inFlasher: false };
+  await new Promise((resolve) => setTimeout(resolve, FB_FAST_REBOOT_MS));
+  if (typeof webDropSession === 'function') webDropSession(MS45_SGBD);
+  await fbDmeIdentifyRun(false);
+  if (d.ident && d.ident.inFlasher) {
+    fbSetStatus(`${title}: the DME is still in its fast flasher`);
+    await fbMessage(
+      'The DME did not leave its fast flasher.\n\nTurn "Use the fast flasher" back on and run the fast flash again (it resumes where it stopped), or pull the DME main relay for a few seconds and identify again.',
+      title
+    );
+    return false;
+  }
+  if (!d.identified) return false; // identify has said why
+  flashLog.note('The DME left its fast flasher');
+  return true;
+}
+
+/**
+ * Run a stock-loader operation, leaving the fast flasher first when the
+ * DME is sitting in it (fbDmeLeaveFastFlasher).
+ * @template T
+ * @param {string} title
+ * @param {() => Promise<T>} fn - The stock operation.
+ * @returns {Promise<T|undefined>}
+ */
+async function fbDmeViaStockLoader(title, fn) {
+  if (!(await fbDmeLeaveFastFlasher(title))) return undefined;
+  return fn();
 }
 
 /** How many times the reset trigger is tried: a late break is a safe miss. */
