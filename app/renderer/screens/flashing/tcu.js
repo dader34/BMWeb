@@ -4,10 +4,26 @@
 // Calibration (a 64 KB .bin or a BMW .0DA), Load / Write Program (256 KB,
 // a 512 KB image or a .0PA), Install Read Patch, Read Full, and the
 // programming-log entry after a write.
-/* exported fbTcuFreshState, fbTcuPanelHtml, fbTcuWire, fbTcuReset, fbTcuRefresh, fbTcuIdentify, fbTcuNoUpshiftBlockedReason */
+/* exported fbTcuFreshState, fbTcuPanelHtml, fbTcuWire, fbTcuReset, fbTcuRefresh, fbTcuIdentify, fbTcuNoUpshiftBlockedReason, FB_TCU_VARIANTS */
 
-/** The E46 automatic-transmission SGBDs BMW's D_EGS group dispatches to; GS20 first. */
+/**
+ * The E46 automatic-transmission SGBDs BMW's D_EGS group dispatches to; GS20
+ * first. The faults page's clear-after-a-DME-flash goes by this list (any
+ * E46 automatic has fault memory to clear); identify on THIS page does not.
+ */
 const FB_TCU_VARIANTS = ['gs20', 'gs8600', 'gs8602', 'gs8603', 'gs8604'];
+/**
+ * The one transmission this page reads and writes: its calibration layout,
+ * its checksum, its program and its read patch are the GS20's, so identify
+ * asks as a GS20 and nothing else. It used to walk FB_TCU_VARIANTS and take
+ * the first SGBD that answered IDENT: the others answer the same telegram,
+ * so one unanswered first question put a GS20 down as gs8600 (or 8602, ...)
+ * -- a different .prg on every identify, and every GS20 function greyed out.
+ */
+const FB_TCU_SGBD = 'gs20';
+/** How often identify asks before it calls the transmission silent, and the pause between, ms. */
+const FB_TCU_IDENT_TRIES = 3;
+const FB_TCU_IDENT_PAUSE_MS = 400;
 
 /** @returns {Object} A fresh TCU state. */
 function fbTcuFreshState() {
@@ -148,9 +164,9 @@ function fbTcuDescribeSoftware() {
 
 // ---- identify --------------------------------------------------------------------------------------------
 /**
- * Ask each of BMW's E46 auto-TCU variants for its IDENT; the first that
- * answers wins. A GS20 then has its programming log read and is probed for
- * the read patch.
+ * Ask the transmission for its IDENT as a GS20 (FB_TCU_SGBD), a few times
+ * before giving up, then read its programming log and probe it for the read
+ * patch.
  * @returns {Promise<void>}
  */
 /**
@@ -167,30 +183,39 @@ function fbTcuRunner() {
 
 async function fbTcuIdentify() {
   const t = fbState.tcu;
-  let found = null;
+  const found = FB_TCU_SGBD;
   let res = null;
   let lastProblem = '';
-  for (const variant of FB_TCU_VARIANTS) {
+  for (let attempt = 1; attempt <= FB_TCU_IDENT_TRIES && !res; attempt++) {
+    if (attempt > 1) {
+      // the first question after the cable was busy elsewhere is the one
+      // that goes unanswered: a fresh session and a moment, then again
+      if (typeof webDropSession === 'function') webDropSession(found);
+      await new Promise((resolve) =>
+        setTimeout(resolve, FB_TCU_IDENT_PAUSE_MS)
+      );
+    }
     try {
-      const r = await fbTcuRunner()(variant, 'IDENT', '');
+      const r = await fbTcuRunner()(found, 'IDENT', '');
       const status = fbTcuField(r, 'JOB_STATUS');
-      if (status === 'OKAY') {
-        found = variant;
-        res = r;
-        break;
-      }
-      lastProblem = `${variant}: ${status || 'no answer'}`;
+      if (status === 'OKAY') res = r;
+      else lastProblem = status || 'no answer';
     } catch (e) {
       // a job that could not even run (no job code, cable gone) is worth
       // telling apart from a transmission that simply does not answer
-      lastProblem = `${variant}: ${fbDescribeError(e)}`;
+      lastProblem = fbDescribeError(e);
     }
+    if (!res)
+      flashLog.note(
+        `TCU identify, try ${attempt} of ${FB_TCU_IDENT_TRIES}: ${lastProblem}`
+      );
   }
-  if (!found) {
-    fbLog(lastProblem);
+  if (!res) {
+    t.sgbd = null;
+    fbLog(`${found}: ${lastProblem}`);
     fbSetStatus('No response from the TCU');
     await fbMessage(
-      `The transmission did not respond to any known E46 auto-TCU variant. Check ignition and the cable.\n\nLast attempt: ${lastProblem}`,
+      `The transmission did not answer as a GS20 (${FB_TCU_IDENT_TRIES} tries). Check ignition and the cable.\n\nThis page reads and writes the GS20 only.\n\nLast attempt: ${lastProblem}`,
       'Identify TCU'
     );
     return;
@@ -227,11 +252,6 @@ async function fbTcuIdentify() {
     /* the counter stays unknown */
   }
   fbTcuLogAif(t.aif);
-  if (found !== 'gs20') {
-    t.cal = null;
-    fbSetStatus(`TCU identified (${found}.prg)`);
-    return;
-  }
   // a module that already answers the patched read has nothing to install
   const problem = await gs20ProbeReadPatch();
   t.hasReadPatch = problem == null;
