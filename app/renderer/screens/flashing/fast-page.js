@@ -53,7 +53,11 @@ function fbFastAvailable() {
   // flasher is the one thing certainly on it, and this page is how a cut
   // push is finished
   if (d.ident.inFlasher) return true;
-  return !!(d.ident.progRef && d.ident.progRef.includes('0044570LO02S'));
+  // any identified MS45.1 (2026-11-09, the user's call): the page used to
+  // need the program reference 0044570LO02S, which a DME waiting in its
+  // loader ("program missing") does not report -- the very DME a flash is
+  // for. The one-click from the loader state is untested
+  return true;
 }
 
 /** The page shown: everything on it from the current state. */
