@@ -11060,3 +11060,44 @@ html .apps-list.home .home-search input[type]:focus-visible {
     display: none;
   }
 }
+
+/* ---- the flashing app's dropdowns in its modern skin: a native select is
+   white on the dark panels unless a theme happens to restyle it (Brackets
+   did; Instrument does not). The classic skin has its own rule and the two
+   light skins keep the native control. ---------------------------------- */
+.fb:not(.fb-classic):not(.fb-skin-tabs):not(.fb-skin-rail) select {
+  appearance: none;
+  -webkit-appearance: none;
+  color-scheme: dark;
+  min-width: 220px;
+  max-width: 100%;
+  padding: 8px 34px 8px 12px;
+  font: inherit;
+  font-size: 13.5px;
+  color: var(--ink);
+  background-color: var(--bg);
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--ink-dim) 50%),
+    linear-gradient(135deg, var(--ink-dim) 50%, transparent 50%);
+  background-position:
+    calc(100% - 17px) 50%,
+    calc(100% - 12px) 50%;
+  background-size:
+    5px 5px,
+    5px 5px;
+  background-repeat: no-repeat;
+  border: 1px solid var(--line-bright);
+  border-radius: 6px;
+  cursor: pointer;
+}
+.fb:not(.fb-classic):not(.fb-skin-tabs):not(.fb-skin-rail) select:hover {
+  border-color: var(--ink-dim);
+}
+.fb:not(.fb-classic):not(.fb-skin-tabs):not(.fb-skin-rail) select:focus {
+  outline: none;
+  border-color: var(--amber);
+}
+.fb:not(.fb-classic):not(.fb-skin-tabs):not(.fb-skin-rail) select option {
+  color: var(--ink);
+  background: var(--panel);
+}
