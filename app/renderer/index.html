@@ -292,8 +292,9 @@
               localStorage.getItem('bmacw.settings') ||
               '{}'
           );
-        // a first visit (nothing saved) gets the default skin, brackets
-        const theme = early.theme || 'brackets';
+        // a first visit (nothing saved) gets the default skin, instrument
+        // (core/settings.js DEFAULT_THEME; the two must agree)
+        const theme = early.theme || 'instrument';
         if (theme !== 'instrument') {
           document.documentElement.setAttribute('data-theme', theme);
         }

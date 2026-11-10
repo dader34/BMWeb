@@ -20,7 +20,7 @@ const API =
 /**
  * The keys the app persists. Every key is optional; readers pass a default.
  * @typedef {Object} AppSettings
- * @property {string} [theme] - Skin id from {@link THEMES} (DEFAULT_THEME, 'brackets', by default).
+ * @property {string} [theme] - Skin id from {@link THEMES} (DEFAULT_THEME, 'instrument', by default).
  * @property {'en'|'orig'} [lang] - Translated captions, or raw EDIABAS names.
  * @property {'on'|'off'} [inpaScreens] - INPA-faithful layout on desktop; off (the modern layout) by default.
  * @property {'on'|'off'} [confirmActuators] - Ask before firing an actuator test.
@@ -84,7 +84,7 @@ const Settings = {
  * @type {Array<{id: string, name: string}>}
  */
 /** The skin a first-time user gets (no theme saved yet). */
-const DEFAULT_THEME = 'brackets';
+const DEFAULT_THEME = 'instrument';
 
 const THEMES = [
   { id: 'instrument', name: 'Instrument' },
