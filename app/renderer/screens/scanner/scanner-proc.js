@@ -12,7 +12,7 @@
  * them (K+DCAN raw exchange, or the reference's own cable) is passed in.
  */
 
-/* exported SCANNER_KWP_ADDRESS, scannerKwpAddress, scannerReadCounts, scannerClearProc, scannerProcLink */
+/* exported SCANNER_KWP_ADDRESS, SCANNER_COMM, scannerKwpAddress, scannerReadCounts, scannerClearProc, scannerProcLink, scannerPasoftWord, scannerPasoftLink */
 
 /**
  * The address a module answers KWP2000 on, where it is not its DS2 one
@@ -216,6 +216,47 @@ async function scannerClearProc(link, m, found) {
 }
 
 /**
+ * The line parameters, in one place. Identification asks sixty units, most
+ * of them not fitted, so it waits less for an answer than the procedures do.
+ */
+const SCANNER_COMM = {
+  ds2Ident: {
+    concept: 6,
+    baud: 9600,
+    timeout: 400,
+    regen: 30,
+    timeoutNr78: null,
+    repeats: 0,
+    answerLen: [-1, 0],
+  },
+  kwpIdent: {
+    concept: 0x10d,
+    baud: 9600,
+    timeout: 600,
+    regen: 25,
+    timeoutNr78: 5000,
+    repeats: 0,
+  },
+  ds2: {
+    concept: 6,
+    baud: 9600,
+    timeout: 600,
+    regen: 30,
+    timeoutNr78: null,
+    repeats: 0,
+    answerLen: [-1, 0],
+  },
+  kwp: {
+    concept: 0x10d,
+    baud: 9600,
+    timeout: 800,
+    regen: 25,
+    timeoutNr78: 5000,
+    repeats: 0,
+  },
+};
+
+/**
  * The link over BMWeb's own cable: raw DS2 and KWP2000* telegrams through
  * the bus exchange, under one bus lock per call (the caller holds none).
  * @param {(out: number[], comm: CommParams) => Promise<number[]>} exchange -
@@ -224,29 +265,110 @@ async function scannerClearProc(link, m, found) {
  * @returns {ScannerLink}
  */
 function scannerProcLink(exchange, lock) {
-  const ds2Comm = {
-    concept: 6,
-    baud: 9600,
-    timeout: 600,
-    regen: 30,
-    timeoutNr78: null,
-    repeats: 0,
-    answerLen: [-1, 0],
-  };
-  const kwpComm = {
-    concept: 0x10d,
-    baud: 9600,
-    timeout: 800,
-    regen: 25,
-    timeoutNr78: 5000,
-    repeats: 0,
-  };
   return {
     ds2: (addr, payload) =>
-      lock(() => exchange([addr, payload.length + 3, ...payload], ds2Comm)),
+      lock(() =>
+        exchange([addr, payload.length + 3, ...payload], {
+          ...SCANNER_COMM.ds2,
+        })
+      ),
     kwp: (addr, payload) =>
       lock(() =>
-        exchange([0xb8, addr, 0xf1, payload.length, ...payload], kwpComm)
+        exchange([0xb8, addr, 0xf1, payload.length, ...payload], {
+          ...SCANNER_COMM.kwp,
+        })
+      ),
+    sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
+  };
+}
+
+/**
+ * The reference adapter's command word for a telegram. Its cable takes no
+ * telegrams, only words; each row here is a word whose telegram the adapter
+ * echoed in the USB captures (capture-words.txt), so the same procedure
+ * drives either cable.
+ * @param {'ds2'|'kwp'} kind
+ * @param {number[]} pl - The telegram's payload (after address and length).
+ * @returns {{word: number, payload: number[], mode: number}|null} Null for a
+ *   telegram no captured word produces.
+ */
+function scannerPasoftWord(kind, pl) {
+  const n = pl.length;
+  const is = (...b) => n === b.length && b.every((x, i) => x === pl[i]);
+  const w = (word, payload = []) => ({
+    word,
+    payload,
+    mode: kind === 'kwp' ? 3 : 2,
+  });
+  if (kind === 'kwp') {
+    if (is(0x1a, 0x80)) return w(0x06f3);
+    if (is(0x18, 0x02, 0xff, 0xff)) return w(0xc358);
+    if (n === 3 && pl[0] === 0x17) return w(0x4ee3, pl.slice(1));
+    if (is(0x14, 0xff, 0xff)) return w(0x41ac);
+    if (is(0x14, 0x00, 0x00)) return w(0xc370);
+    return null;
+  }
+  if (is(0x00)) return w(0x46f1);
+  if (is(0x02, 0x02)) return w(0xc6e1);
+  if (is(0x02, 0x01)) return w(0x8de3);
+  if (is(0x02, 0x00)) return w(0xa370);
+  if (is(0x04)) return w(0xe350);
+  if (n === 2 && pl[0] === 0x04) return w(0xc731, [pl[1]]);
+  if (n === 2 && pl[0] === 0x14) return w(0x9e56, [pl[1]]);
+  if (n === 2 && pl[0] === 0x15) return w(0x79de, [pl[1]]);
+  if (is(0x0e)) return w(0x71a0);
+  if (is(0x05)) return w(0x1bcf);
+  if (is(0x05, 0x00, 0x00)) return w(0xc6a3);
+  if (n === 2 && pl[0] === 0x05) return w(0xe390, [pl[1]]);
+  if (is(0x9e)) return w(0xe245);
+  if (is(0x9f)) return w(0x4ed1);
+  if (is(0x90, 0xff, 0xff)) return w(0x44db);
+  if (n === 5 && pl[0] === 0x95) return w(0xc751, pl.slice(1));
+  if (n === 6 && pl[0] === 0x06 && pl[1] === 0x03 && pl[2] === 0x00)
+    return w(0xc563, pl.slice(3));
+  if (n === 5 && pl[0] === 0x06 && pl[1] === 0x10)
+    return w(0x514c, pl.slice(2));
+  if (n === 4 && pl[0] === 0x07) return w(0xa394, pl.slice(1));
+  return null;
+}
+
+/**
+ * The same link over the reference's own cable: every telegram becomes its
+ * adapter word. A telegram without one is refused by name -- it is not a
+ * silent unit. The procedures do the busy asking themselves, so the cable is
+ * told not to (one rule for both cables).
+ * @param {{run: (fn: (port: any) => Promise<any>) => Promise<any>}} cable -
+ *   pasoftCable.
+ * @returns {ScannerLink & {word: (w: number, addr: number, payload: number[]) => Promise<number[]|null>}}
+ */
+function scannerPasoftLink(cable) {
+  const hex = (p) => p.map((b) => b.toString(16).padStart(2, '0')).join(' ');
+  const answer = (r) =>
+    r && r.reply && ['ok', 'busy', 'negative'].includes(r.status)
+      ? Array.from(r.reply)
+      : null;
+  const send = (kind) => async (addr, pl) => {
+    const w = scannerPasoftWord(kind, pl);
+    if (!w) {
+      const e = new Error(
+        `not supported on the BMW Scanner cable: ${kind.toUpperCase()} ${hex(pl)}`
+      );
+      e.unsupported = true;
+      throw e;
+    }
+    return answer(
+      await cable.run((port) =>
+        port.transfer(w.word, addr, w.payload, w.mode, { retries: 0 })
+      )
+    );
+  };
+  return {
+    ds2: send('ds2'),
+    kwp: send('kwp'),
+    // an adapter word the captures did not show the telegram of
+    word: async (w, addr, pl) =>
+      answer(
+        await cable.run((port) => port.transfer(w, addr, pl, 2, { retries: 0 }))
       ),
     sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
   };
@@ -260,5 +382,8 @@ if (typeof module !== 'undefined' && module.exports) {
     scannerReadCounts,
     scannerClearProc,
     scannerProcLink,
+    scannerPasoftWord,
+    scannerPasoftLink,
+    SCANNER_COMM,
   };
 }

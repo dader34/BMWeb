@@ -12,12 +12,11 @@ const path = require('path');
 const fx = require(path.join(__dirname, 'fixtures/scanner-faults.json'));
 const data = require('../../app/renderer/screens/scanner/scanner-data.js');
 const proc = require('../../app/renderer/screens/scanner/scanner-proc.js');
-Object.assign(
-  global,
-  data,
-  proc,
-  require('../../app/renderer/core/generated/scanner-fault-texts.js')
-);
+const pack = require('./scanner_pack.js').scannerPackOrSkip('scanner faults');
+Object.assign(global, data, proc, {
+  SCANNER_FAULT_TEXTS: pack.faultTexts,
+  SCANNER_FAULT_ALPHABET: pack.faultAlphabet,
+});
 const f = require('../../app/renderer/screens/scanner/scanner-faults.js');
 
 const hex = (a) => a.map((b) => b.toString(16).padStart(2, '0')).join(' ');

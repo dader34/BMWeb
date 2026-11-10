@@ -155,7 +155,7 @@ const bcd2 = (b) => (b >> 4).toString(16) + (b & 15).toString(16);
 
 /**
  * A VIN as the IKE (02 02) and the LCM (02 00) answer it: two letters, then
- * five digits as BCD ("4E 4A 87 37 90" -> "NJ87379").
+ * five digits as BCD ("41 42 12 34 50" -> "AB12345").
  * @param {ArrayLike<number>} r - The answer frame.
  * @param {number} at - Offset of the first letter.
  * @returns {string|null}
@@ -170,12 +170,12 @@ function scannerParseVin(r, at) {
 }
 
 /**
- * The odometer: the IKE's 02 01 answer carries it as BCD ("37 23 63" ->
- * 372363 km), the LCM's 02 00 answer as a 16-bit count of hundreds of
- * kilometres after its VIN ("0B B8" -> 300000 km).
+ * The odometer: the IKE's 02 01 answer carries it as BCD ("12 34 56" ->
+ * 123456 km), the LCM's 02 00 answer as a 16-bit count of hundreds of
+ * kilometres after its VIN ("04 D2" -> 123400 km).
  * @param {ArrayLike<number>} r - The answer frame.
  * @param {'ike'|'lcm'} from
- * @returns {string|null} "372363 km", or null.
+ * @returns {string|null} "123456 km", or null.
  */
 function scannerParseOdometer(r, from) {
   if (!r) return null;

@@ -121,6 +121,7 @@ function scannerRenderForm(form) {
   ctl[form.n] = root;
   const pics =
     (typeof SCANNER_FORM_IMAGES !== 'undefined' &&
+      SCANNER_FORM_IMAGES &&
       SCANNER_FORM_IMAGES.map[form.c]) ||
     {};
   const picture = (name) => {
@@ -329,16 +330,22 @@ function scannerRenderForm(form) {
 }
 
 /**
- * Open one of the reference's forms as a dialog over the scanner window.
- * @param {HTMLElement} win - The scanner window.
+ * Open one of the reference's forms as a dialog over the whole app.
+ * @param {HTMLElement} win - The scanner window (its screen owns the form).
  * @param {string} cls - The form's class (TForm8, ...).
- * @param {(ctl: Object<string, HTMLElement>, close: () => void, layer: HTMLElement) => void} [bind] -
+ * @param {(ctl: Object<string, HTMLElement>, close: () => void,
+ *   layer: HTMLElement) => ({canClose?: () => boolean, cancel?: () => void}|void)} [bind] -
  *   Fills the form and wires its controls; `close` closes it; `layer` is
- *   where its own dialogs go, over it.
+ *   where its own dialogs go, over it. It may hand back `canClose` (false
+ *   keeps the form open, e.g. while it writes) and `cancel` (stop the work
+ *   in hand: the app is leaving the screen).
  * @returns {Promise<void>} Resolves when the form is closed.
  */
 async function scannerOpenForm(win, cls, bind) {
-  const form = SCANNER_FORMS[cls];
+  const form =
+    typeof SCANNER_FORMS !== 'undefined' && SCANNER_FORMS
+      ? SCANNER_FORMS[cls]
+      : null;
   if (!form) throw new Error(`no form ${cls}`);
   const { el, ctl } = scannerRenderForm(form);
   const wrap = document.createElement('div');
@@ -349,18 +356,25 @@ async function scannerOpenForm(win, cls, bind) {
   layer.className = 'vcl-layer';
   document.body.appendChild(layer);
   let closer = null;
+  let hooks = null;
+  let leaving = false;
   const done = wkfpDialog(layer, {
     title: (form.p && form.p.Caption) || cls,
     body: wrap,
     cls: 'vcl-dlg',
     buttons: [],
+    canClose: () => leaving || !hooks || !hooks.canClose || hooks.canClose(),
     onOpen: (dlg) => {
       closer = () => dlg.querySelector('.wkfp-x').click();
     },
   });
-  if (bind) bind(ctl, () => closer && closer(), layer);
-  // the app moving to another screen closes it, as leaving the scanner would
-  const away = () => closer && closer();
+  if (bind) hooks = bind(ctl, () => closer && closer(), layer) || null;
+  // the app moving to another screen stops the form's work and closes it
+  const away = () => {
+    leaving = true;
+    if (hooks && hooks.cancel) hooks.cancel();
+    if (closer) closer();
+  };
   window.addEventListener('hashchange', away);
   try {
     await done;

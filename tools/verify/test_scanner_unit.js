@@ -48,10 +48,9 @@ global.document = {
   createElement: (t) => new El(t),
   createTextNode: (t) => ({ textContent: t }),
 };
-global.SCANNER_FORMS =
-  require('../../app/renderer/core/generated/scanner-forms.js').SCANNER_FORMS;
-global.SCANNER_FORM_IMAGES =
-  require('../../app/renderer/core/generated/scanner-form-images.js').SCANNER_FORM_IMAGES;
+const pack = require('./scanner_pack.js').scannerPackOrSkip('scanner unit');
+global.SCANNER_FORMS = pack.forms;
+global.SCANNER_FORM_IMAGES = pack.formImages;
 const vcl = require('../../app/renderer/screens/scanner/scanner-vcl.js');
 global.scannerZkeVariant =
   require('../../app/renderer/screens/scanner/scanner-eeprom.js').scannerZkeVariant;
@@ -148,5 +147,41 @@ const zf = unit.scannerUnitFields(
 );
 assert.strictEqual(zf.PanelFGSTNR, '-');
 assert.strictEqual(zf.PanelAlgo, 'ZKE5 S12');
+
+// the button table: every name is a real button of that form with the
+// caption its action expects, and no button with such a caption is missed
+const CAPTION = {
+  ok: /^OK$/,
+  errors: /^Errors? \.\.\.$/,
+  readEeprom: /^Read EEPROM$/,
+  writeEeprom: /^Write EEPROM$/,
+};
+for (const cls of new Set([
+  ...Object.values(unit.SCANNER_UNIT_FORM),
+  'TForm3',
+])) {
+  const table = unit.SCANNER_UNIT_ACTIONS[cls];
+  assert.ok(table, `${cls} has a button table`);
+  const { ctl } = vcl.scannerRenderForm(SCANNER_FORMS[cls]);
+  for (const [name, action] of Object.entries(table)) {
+    assert.ok(ctl[name] && ctl[name].tagName === 'BUTTON', `${cls}.${name}`);
+    assert.ok(
+      CAPTION[action].test(ctl[name].textContent),
+      `${cls}.${name} is ${action}: "${ctl[name].textContent}"`
+    );
+  }
+  for (const [name, el] of Object.entries(ctl)) {
+    if (el.tagName !== 'BUTTON') continue;
+    const action = Object.keys(CAPTION).find((a) =>
+      CAPTION[a].test(el.textContent)
+    );
+    if (action)
+      assert.strictEqual(
+        table[name],
+        action,
+        `${cls}.${name} "${el.textContent}" is in the table`
+      );
+  }
+}
 
 console.log(`scanner unit: ${n} forms draw, unit windows OK`);

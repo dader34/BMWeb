@@ -1,5 +1,5 @@
 {
- "source": "BMW Scanner 1.4.0.7 USB capture, E46 car identification (capture-frames.txt)",
+ "source": "BMW Scanner 1.4.0.7 USB capture, E46 car identification (capture-frames.txt); VIN and odometer replaced with made-up values",
  "answers": {
   "80 09 06 03 00 00 c2 10": "80 24 a0 02 41 94 14 95 45 bf 97 44 d7 41 35 54 ad 4c f7 41 04 10 41 04 10 41 04 10 41 04 10 41 04 10 42 8d",
   "80 09 06 03 00 00 d2 10": "80 24 a0 11 8e 14 90 55 24 50 49 44 12 51 94 97 65 35 54 51 04 d4 45 15 13 45 44 d8 51 44 54 55 95 17 4d b7",
@@ -13,9 +13,9 @@
   "80 09 06 03 00 01 52 10": "80 24 a0 ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 04",
   "80 09 06 03 00 01 62 10": "80 24 a0 ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 04",
   "80 09 06 03 00 01 72 10": "80 24 a0 ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 04",
-  "80 05 02 02": "80 0a a0 02 4e 4a 87 37 90 0c",
-  "80 05 02 01": "80 08 a0 01 37 23 63 5e",
-  "d0 05 02 00": "d0 12 a0 00 4e 4a 87 37 90 0b b8 00 12 0e 00 06 8e 61",
+  "80 05 02 02": "80 0a a0 02 41 42 12 34 50 5d",
+  "80 05 02 01": "80 08 a0 01 12 34 56 59",
+  "d0 05 02 00": "d0 12 a0 00 41 42 12 34 50 04 d2 00 12 0e 00 06 8e 55",
   "d0 05 15 00": "d0 14 a0 02 41 94 14 95 45 bf 97 44 d7 41 35 54 ad 4c f7 fa",
   "d0 05 15 01": "d0 14 a0 41 04 10 41 04 10 41 04 10 41 04 10 41 04 10 42 73",
   "d0 05 15 02": "d0 14 a0 11 8e 14 90 55 24 50 49 44 12 51 94 97 65 35 54 17",

@@ -5,7 +5,7 @@
 // The fixtures are REAL BYTES from this cable (live run 2026-11-09, IKE and
 // MS45 on the bus) and from the BMW Scanner process dump:
 //   hello (27 raw)    9b cd aa af af d9 f5 a2 9b 17 28 fe 72 d1 17 4c 5e ...
-//   A77A plain        22 a7 7a 56 31 34 34 42 6e 39 9d 3e ... 03 da
+//   A77A plain        22 a7 7a 56 31 34 34 42 6e 39 <25 key bytes> <sum>
 //   A77A on the wire  b9 41 4b 2a f6 26 69 ea 9d 07 14 ea b0 44 1c 45 ...
 //   adapter OK        77 07 77 07 77 07 70
 //   83F0 plain/wire   09 83 f0 80 e5 50 47 66 28 14 1a / 2e f1 4d 88 ...
@@ -15,7 +15,7 @@ const {
   pasoftCable,
   pasoftBusRefusal,
   PasoftUsbPort,
-  PASOFT_LICENSE,
+  pasoftParseKey,
   pasoftFrame,
   pasoftScramble,
   pasoftDecodeHello,
@@ -46,12 +46,16 @@ const eq = (a, b) => a.length === b.length && a.every((v, i) => v === b[i]);
 const HELLO = hex(
   '9b cd aa af af d9 f5 a2 9b 17 28 fe 72 d1 17 4c 5e 80 38 09 ed 2e b5 cf aa 07 2b'
 );
-const A77A_PLAIN = hex(
-  '22 a7 7a 56 31 34 34 42 6e 39 9d 3e af 2e a9 45 78 80 b7 aa f6 a9 fc 9f ee d2 7c 59 90 79 80 59 84 88 03 da'
-);
-const A77A_WIRE = hex(
-  'b9 41 4b 2a f6 26 69 ea 9d 07 14 ea b0 44 1c 45 33 16 56 86 81 6b f1 c7 4d 3c 45 dd 5f 63 e5 e9 7f ce 92 06'
-);
+// a made-up 25-byte cable key: the real one is the user's own and is never
+// in the repo. The frame's first ten bytes do not depend on it, and those
+// are held to the capture.
+const TEST_KEY = Uint8Array.from({ length: 25 }, (_, i) => i + 1);
+const A77A_PLAIN = pasoftFrame(0xa77a, 0x56, [
+  ...hex('31 34 34 42 6e 39'),
+  ...TEST_KEY,
+]);
+const A77A_WIRE = pasoftScramble(A77A_PLAIN, 0x9b).bytes;
+const A77A_WIRE_HEAD = hex('b9 41 4b 2a f6 26 69 ea 9d 07');
 const BUS_PLAIN = hex('09 83 f0 80 e5 50 47 66 28 14 1a');
 const BUS_WIRE = hex('2e f1 4d 88 b6 ce ae 52 57 de 0f');
 const ID_WIRE = hex('63 ed 07 c1 36');
@@ -70,7 +74,7 @@ console.log('frame building');
   const b = pasoftFrame(0x83f0, 0x80, [0xe5, 0x50, 0x47, 0x66, 40, 20]);
   ok(eq(b, BUS_PLAIN), '83F0 frame matches the dump byte for byte');
   const hello = pasoftDecodeHello(HELLO);
-  const p = [...hello.decoded.subarray(2, 8), ...PASOFT_LICENSE];
+  const p = [...hello.decoded.subarray(2, 8), ...TEST_KEY];
   ok(eq(pasoftFrame(0xa77a, hello.decoded[1], p), A77A_PLAIN), 'A77A frame');
   ok(f[0] === 3 && b[0] === 9, 'len byte = payload count + 3');
 }
@@ -79,8 +83,28 @@ console.log('scramble stream');
 {
   const s = pasoftScramble(A77A_PLAIN, 0x9b);
   ok(
-    eq(s.bytes, A77A_WIRE),
-    'A77A with key 0x9b gives the captured wire bytes'
+    eq(s.bytes.subarray(0, 10), A77A_WIRE_HEAD),
+    'A77A with key 0x9b starts with the captured wire bytes'
+  );
+  ok(
+    eq(
+      pasoftParseKey(
+        '01 02 03 04 05 06 07 08 09 0a 0b 0c 0d 0e 0f 10 11 12 13 14 15 16 17 18 19'
+      ),
+      TEST_KEY
+    ) &&
+      eq(
+        pasoftParseKey(
+          'aa bb ' +
+            Array.from(TEST_KEY, (b) => b.toString(16).padStart(2, '0')).join(
+              ''
+            ) +
+            ' cc'
+        ),
+        TEST_KEY
+      ) &&
+      pasoftParseKey('01 02') === null,
+    'key text: 25 bytes, or the 28-byte stored value (bytes 2..26)'
   );
   const s2 = pasoftScramble(BUS_PLAIN, s.key);
   ok(eq(s2.bytes, BUS_WIRE), 'the key carries over into 83F0');
@@ -267,7 +291,11 @@ const fastSleep = (ms) => {
   console.log('connect sequence');
   {
     const dev = new MockAdapter(carScript());
-    const port = new PasoftUsbPort({ sleep: fastSleep, byteTimeoutMs: 30 });
+    const port = new PasoftUsbPort({
+      sleep: fastSleep,
+      byteTimeoutMs: 30,
+      license: TEST_KEY,
+    });
     const info = await port.open(dev);
     ok(
       info.id === 'V144Bn9' && info.key === 0x9b,
@@ -317,7 +345,11 @@ const fastSleep = (ms) => {
     bad[3] ^= 0x40;
     const dev = new MockAdapter(carScript());
     dev.helloRaw = (n) => (n === 1 ? bad : HELLO);
-    const port = new PasoftUsbPort({ sleep: fastSleep, byteTimeoutMs: 30 });
+    const port = new PasoftUsbPort({
+      sleep: fastSleep,
+      byteTimeoutMs: 30,
+      license: TEST_KEY,
+    });
     await port.open(dev);
     ok(
       dev.helloCount === 2 && port.connected,
@@ -330,9 +362,11 @@ const fastSleep = (ms) => {
     );
     let err = null;
     try {
-      await new PasoftUsbPort({ sleep: fastSleep, byteTimeoutMs: 30 }).open(
-        dev2
-      );
+      await new PasoftUsbPort({
+        sleep: fastSleep,
+        byteTimeoutMs: 30,
+        license: TEST_KEY,
+      }).open(dev2);
     } catch (e) {
       err = e;
     }
@@ -347,7 +381,11 @@ const fastSleep = (ms) => {
     const dev = new MockAdapter(
       carScript((c) => (c === 0x46f1 && n++ === 0 ? [IKE_ECHO, busy] : null))
     );
-    const port = new PasoftUsbPort({ sleep: fastSleep, byteTimeoutMs: 30 });
+    const port = new PasoftUsbPort({
+      sleep: fastSleep,
+      byteTimeoutMs: 30,
+      license: TEST_KEY,
+    });
     await port.open(dev);
     sleeps.length = 0;
     const r = await port.identifyDs2(0x80);
@@ -362,7 +400,11 @@ const fastSleep = (ms) => {
     const dev2 = new MockAdapter(
       carScript((c) => (c === 0x46f1 ? (n++, [IKE_ECHO, busy]) : null))
     );
-    const p2 = new PasoftUsbPort({ sleep: fastSleep, byteTimeoutMs: 30 });
+    const p2 = new PasoftUsbPort({
+      sleep: fastSleep,
+      byteTimeoutMs: 30,
+      license: TEST_KEY,
+    });
     await p2.open(dev2);
     const r2 = await p2.identifyDs2(0x80);
     ok(
@@ -378,7 +420,11 @@ const fastSleep = (ms) => {
         c === 0x06f3 ? (n++, [DME_ECHO, pend, pend, DME_ANSWER]) : null
       )
     );
-    const p3 = new PasoftUsbPort({ sleep: fastSleep, byteTimeoutMs: 30 });
+    const p3 = new PasoftUsbPort({
+      sleep: fastSleep,
+      byteTimeoutMs: 30,
+      license: TEST_KEY,
+    });
     await p3.open(dev3);
     const r3 = await p3.identifyKwp(0x12);
     ok(pasoftChecksumOk(3, pend), '(fixture 7F 78 frame has a valid XOR)');
@@ -393,7 +439,11 @@ const fastSleep = (ms) => {
     const dev4 = new MockAdapter(
       carScript((c) => (c === 0x06f3 && n++ === 0 ? [DME_ECHO, busyK] : null))
     );
-    const p4 = new PasoftUsbPort({ sleep: fastSleep, byteTimeoutMs: 30 });
+    const p4 = new PasoftUsbPort({
+      sleep: fastSleep,
+      byteTimeoutMs: 30,
+      license: TEST_KEY,
+    });
     await p4.open(dev4);
     sleeps.length = 0;
     const r4 = await p4.identifyKwp(0x12);
@@ -410,7 +460,11 @@ const fastSleep = (ms) => {
           : null
       )
     );
-    const p5 = new PasoftUsbPort({ sleep: fastSleep, byteTimeoutMs: 30 });
+    const p5 = new PasoftUsbPort({
+      sleep: fastSleep,
+      byteTimeoutMs: 30,
+      license: TEST_KEY,
+    });
     await p5.open(dev5);
     const r5 = await p5.identifyKwp(0x12, true);
     ok(
@@ -423,7 +477,11 @@ const fastSleep = (ms) => {
     const dev6 = new MockAdapter(
       carScript((c) => (c === 0x46f1 ? (n++, [IKE_ECHO]) : null))
     );
-    const p6 = new PasoftUsbPort({ sleep: fastSleep, byteTimeoutMs: 20 });
+    const p6 = new PasoftUsbPort({
+      sleep: fastSleep,
+      byteTimeoutMs: 20,
+      license: TEST_KEY,
+    });
     await p6.open(dev6);
     const r6 = await p6.identifyDs2(0x80);
     ok(
@@ -439,6 +497,7 @@ const fastSleep = (ms) => {
       sleep: fastSleep,
       byteTimeoutMs: 20,
       retries: 0,
+      license: TEST_KEY,
     });
     await p7.open(dev7);
     const r7 = await p7.identifyDs2(0x80);
@@ -464,7 +523,7 @@ const fastSleep = (ms) => {
     );
     // the app's singleton, with fast timings for the mock
     const cable = pasoftCable;
-    cable._opts = { sleep: fastSleep, byteTimeoutMs: 20 };
+    cable._opts = { sleep: fastSleep, byteTimeoutMs: 20, license: TEST_KEY };
     await cable._openOn(dev);
     ok(
       cable.connected && /V144Bn9/.test(cable.label),
@@ -514,14 +573,14 @@ const fastSleep = (ms) => {
       kwp: false,
       raw: null,
     });
-    ok(
-      !cl.ok && /not available/.test(cl.error),
-      'clear is refused on this cable'
-    );
     const sent = dev.plain.map(cmdOf);
     ok(
-      sent.every((c) => ALLOWED.has(c)),
-      'only read words went out: ' +
+      !/not available/.test(cl.error || '') && sent.includes(0x1bcf),
+      "clear goes out as the adapter's own word for DS2 05 (1BCF)"
+    );
+    ok(
+      sent.every((c) => ALLOWED.has(c) || c === 0x1bcf),
+      'only captured words went out: ' +
         [...new Set(sent)].map((c) => c.toString(16)).join(' ')
     );
     const dme12 = dev.plain.find((f) => cmdOf(f) === 0x83f0);

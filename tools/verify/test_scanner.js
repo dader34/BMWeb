@@ -52,12 +52,12 @@ ok('DS2 identification -> the reference line', () => {
   );
   assert.strictEqual(
     s.scannerLogLine('IKE', id, {
-      odometer: '372358 km',
-      vin: 'NJ87379',
+      odometer: '123456 km',
+      vin: 'AB12345',
       adfg: '01FF5A',
       algorithm: 'M35080 - 2 (E46R)',
     }),
-    'IKE   ->  6.940.877  32  36           08  54    13     28/04   372358 km   NJ87379            01FF5A   M35080 - 2 (E46R)'
+    'IKE   ->  6.940.877  32  36           08  54    13     28/04   123456 km   AB12345            01FF5A   M35080 - 2 (E46R)'
   );
   // nothing read yet: the reference's "-" in every later column
   assert.strictEqual(
@@ -78,11 +78,11 @@ ok(
     assert.strictEqual(
       s.scannerLogLine('DME', dme, {
         odometer: '0 km',
-        vin: 'NJ87379',
+        vin: 'AB12345',
         adfg: '000000',
         algorithm: 'MS45 M54/M56 (EWS3)',
       }),
-      'DME*  ->  7.561.382  00  x.x.x        00  0011  3143   01.05   0 km        NJ87379            000000   MS45 M54/M56 (EWS3)'
+      'DME*  ->  7.561.382  00  x.x.x        00  0011  3143   01.05   0 km        AB12345            000000   MS45 M54/M56 (EWS3)'
     );
     const dsc = s.scannerParseKwpIdent(
       h(

@@ -19,7 +19,7 @@
  * over the reference's own cable, which knows them.
  */
 
-/* exported SCANNER_EEPROM, scannerZkeVariant, scannerEepromPlan, scannerEepromRead, scannerEepromWrite, scannerHexEditor */
+/* exported SCANNER_EEPROM, scannerZkeVariant, scannerHexQuery, scannerHexFind, scannerEepromPlan, scannerEepromRead, scannerEepromWrite, scannerHexEditor */
 
 /** The ZKE's EEPROM range per variant (0x5DD798). */
 const SCANNER_EEPROM = {
@@ -95,6 +95,16 @@ function scannerEepromPlan(m, variant, raw) {
  */
 
 /**
+ * The error a cancelled read or write ends with: `stopped`, and `at`, the
+ * offset it had reached (everything before it is done).
+ * @param {number} at
+ * @returns {Error & {stopped: boolean, at: number}}
+ */
+function scannerStopped(at) {
+  return Object.assign(new Error('stopped'), { stopped: true, at });
+}
+
+/**
  * Read the range.
  * @param {ScannerEepromLink} link
  * @param {ScannerModule} m
@@ -106,7 +116,7 @@ function scannerEepromPlan(m, variant, raw) {
 async function scannerEepromRead(link, m, plan, progress, cancelled) {
   const out = new Uint8Array(plan.size);
   for (let at = 0; at < plan.size; at += 0x10) {
-    if (cancelled && cancelled()) throw new Error('stopped');
+    if (cancelled && cancelled()) throw scannerStopped(at);
     const a = plan.base + at;
     const hi = (a >> 8) & 0xff;
     const lo = a & 0xff;
@@ -151,7 +161,7 @@ async function scannerEepromWrite(link, m, plan, data, progress, cancelled) {
   const refused = [];
   const step = plan.byteWrite ? 1 : 0x10;
   for (let at = 0; at < plan.size; at += step) {
-    if (cancelled && cancelled()) throw new Error('stopped');
+    if (cancelled && cancelled()) throw scannerStopped(at);
     const a = plan.base + at;
     const hi = (a >> 8) & 0xff;
     const lo = a & 0xff;
@@ -181,23 +191,58 @@ async function scannerEepromWrite(link, m, plan, data, progress, cancelled) {
     if (!r || r[2] !== 0xa0) refused.push(at);
     if (progress) progress(at + step, plan.size);
   }
-  const back = await scannerEepromRead(link, m, plan, null, cancelled);
+  // the read back is never cancelled: it is what says what the unit holds
+  const back = await scannerEepromRead(link, m, plan);
   const differ = [];
   for (let i = 0; i < plan.size; i++) if (back[i] !== data[i]) differ.push(i);
   return { refused, differ, back };
 }
 
 /**
+ * A Find text as bytes: hex pairs ("4E 4A", "4e4a") or, failing that, the
+ * characters themselves.
+ * @param {string} q
+ * @returns {number[]}
+ */
+function scannerHexQuery(q) {
+  const hex = String(q || '').replace(/\s+/g, '');
+  if (/^([0-9a-fA-F]{2})+$/.test(hex))
+    return hex.match(/../g).map((x) => parseInt(x, 16));
+  return Array.from(String(q || ''), (c) => c.charCodeAt(0) & 0xff);
+}
+
+/**
+ * The first place `pat` stands in `data` at or after `from`.
+ * @param {Uint8Array} data
+ * @param {number[]} pat
+ * @param {number} [from]
+ * @returns {number} The offset, or -1.
+ */
+function scannerHexFind(data, pat, from = 0) {
+  if (!pat.length) return -1;
+  for (let i = Math.max(0, from); i + pat.length <= data.length; i++) {
+    let k = 0;
+    while (k < pat.length && data[i + k] === pat[k]) k++;
+    if (k === pat.length) return i;
+  }
+  return -1;
+}
+
+/** Height of one editor row, px (css .scn-hex-row). */
+const SCANNER_HEX_ROW = 17;
+
+/**
  * The Internal HEX-Editor: the reference's THexEditor in PanelEditor --
  * offset, sixteen bytes, their characters; a byte is changed by clicking
  * it and typing two hex digits. Shift+click / Shift+arrows select a run;
  * Backspace / Delete set the selection (or the byte) to FF. Find takes hex
- * bytes or text.
+ * bytes or text. Only the rows in view are drawn, so a memory dump of any
+ * size scrolls and edits the same as a kilobyte.
  * @param {HTMLElement} host - The HexEditor1 control.
  * @param {(text: string) => void} status - Panel7.
  * @returns {{set: (data: Uint8Array, base: number, name: string) => void,
- *   get: () => Uint8Array|null, name: () => string,
- *   find: (q: string, next?: boolean) => boolean}}
+ *   get: () => Uint8Array|null, name: () => string, dirty: () => boolean,
+ *   saved: () => void, find: (q: string, next?: boolean) => boolean}}
  */
 function scannerHexEditor(host, status) {
   let data = null;
@@ -207,51 +252,78 @@ function scannerHexEditor(host, status) {
   let anchor = -1;
   let found = -1;
   let typed = '';
+  let dirty = false;
   host.innerHTML = '';
   const view = document.createElement('div');
   view.className = 'scn-hex';
   view.tabIndex = 0;
+  const sizer = document.createElement('div');
+  sizer.className = 'scn-hex-sizer';
+  const rowsEl = document.createElement('div');
+  rowsEl.className = 'scn-hex-rows';
+  sizer.appendChild(rowsEl);
+  view.appendChild(sizer);
   host.appendChild(view);
   const h2 = (b) => b.toString(16).toUpperCase().padStart(2, '0');
   const ch = (b) => (b >= 0x20 && b < 0x7f ? String.fromCharCode(b) : '.');
+  const off = (i) => (base + i).toString(16).toUpperCase().padStart(6, '0');
+  const range = () => {
+    const a = anchor < 0 ? cursor : anchor;
+    return [Math.min(a, cursor), Math.max(a, cursor)];
+  };
   const paint = () => {
     if (!data) {
-      view.innerHTML = '';
+      sizer.style.height = '0';
+      rowsEl.innerHTML = '';
       return;
     }
+    const total = Math.ceil(data.length / 16);
+    sizer.style.height = `${total * SCANNER_HEX_ROW}px`;
+    const first = Math.max(0, Math.floor(view.scrollTop / SCANNER_HEX_ROW) - 4);
+    const shown = Math.ceil((view.clientHeight || 420) / SCANNER_HEX_ROW) + 8;
+    const last = Math.min(total, first + shown);
+    const [lo, hi] = cursor >= 0 ? range() : [-1, -1];
     const rows = [];
-    for (let at = 0; at < data.length; at += 16) {
+    for (let r = first; r < last; r++) {
+      const at = r * 16;
       let hex = '';
       let txt = '';
       for (let i = at; i < Math.min(at + 16, data.length); i++) {
-        const lo = Math.min(anchor < 0 ? cursor : anchor, cursor);
-        const hi = Math.max(anchor < 0 ? cursor : anchor, cursor);
         const cls =
           i === cursor
             ? ' class="scn-hex-cur"'
-            : i >= lo && i <= hi && cursor >= 0
+            : i >= lo && i <= hi
               ? ' class="scn-hex-sel"'
               : '';
         hex += `<span data-i="${i}"${cls}>${h2(data[i])}</span>`;
         txt += `<span data-i="${i}"${cls}>${esc(ch(data[i]))}</span>`;
       }
-      const off = (base + at).toString(16).toUpperCase().padStart(6, '0');
       rows.push(
-        `<div class="scn-hex-row"><span class="scn-hex-off">${off}</span><span class="scn-hex-b">${hex}</span><span class="scn-hex-t">${txt}</span></div>`
+        `<div class="scn-hex-row"><span class="scn-hex-off">${off(at)}</span><span class="scn-hex-b">${hex}</span><span class="scn-hex-t">${txt}</span></div>`
       );
     }
-    view.innerHTML = rows.join('');
-  };
-  const off = (i) => (base + i).toString(16).toUpperCase().padStart(6, '0');
-  const range = () => {
-    const a = anchor < 0 ? cursor : anchor;
-    return [Math.min(a, cursor), Math.max(a, cursor)];
+    rowsEl.style.transform = `translateY(${first * SCANNER_HEX_ROW}px)`;
+    rowsEl.innerHTML = rows.join('');
   };
   const show = () => {
     if (cursor < 0) return;
     const [lo, hi] = range();
     status(lo === hi ? off(cursor) : `${off(lo)}-${off(hi)}`);
   };
+  /** Scroll so the cursor's row is in view, then draw. */
+  const reveal = (center) => {
+    if (cursor >= 0) {
+      const top = Math.floor(cursor / 16) * SCANNER_HEX_ROW;
+      const h = view.clientHeight || 420;
+      if (center) view.scrollTop = Math.max(0, top - h / 2);
+      else if (top < view.scrollTop) view.scrollTop = top;
+      else if (top + SCANNER_HEX_ROW > view.scrollTop + h)
+        view.scrollTop = top + SCANNER_HEX_ROW - h;
+    }
+    paint();
+    show();
+  };
+  view.onscroll = paint;
   view.onclick = (e) => {
     const t = e.target.closest('[data-i]');
     if (!t) return;
@@ -269,7 +341,19 @@ function scannerHexEditor(host, status) {
     // the editor keeps its keys: Backspace here is never the app's "back"
     if (e.key !== 'Escape' && e.key !== 'Tab') e.stopPropagation();
     if (!data || cursor < 0) return;
-    const move = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -16, ArrowDown: 16 };
+    const page =
+      Math.max(
+        1,
+        Math.floor((view.clientHeight || 420) / SCANNER_HEX_ROW) - 1
+      ) * 16;
+    const move = {
+      ArrowLeft: -1,
+      ArrowRight: 1,
+      ArrowUp: -16,
+      ArrowDown: 16,
+      PageUp: -page,
+      PageDown: page,
+    };
     if (move[e.key] != null) {
       if (e.shiftKey) {
         if (anchor < 0) anchor = cursor;
@@ -279,27 +363,20 @@ function scannerHexEditor(host, status) {
     } else if (e.key === 'Backspace' || e.key === 'Delete') {
       const [lo, hi] = range();
       data.fill(0xff, lo, hi + 1);
+      dirty = true;
       typed = '';
     } else if (/^[0-9a-fA-F]$/.test(e.key)) {
       anchor = -1;
       typed += e.key;
       if (typed.length === 2) {
         data[cursor] = parseInt(typed, 16);
+        dirty = true;
         typed = '';
         if (cursor < data.length - 1) cursor++;
       }
     } else return;
     e.preventDefault();
-    paint();
-    show();
-    const cur = view.querySelector('.scn-hex-cur');
-    if (cur) cur.scrollIntoView({ block: 'nearest' });
-  };
-  const parseQuery = (q) => {
-    const hex = q.replace(/\s+/g, '');
-    if (/^([0-9a-fA-F]{2})+$/.test(hex))
-      return hex.match(/../g).map((x) => parseInt(x, 16));
-    return Array.from(q, (c) => c.charCodeAt(0) & 0xff);
+    reveal(false);
   };
   return {
     set(d, b, n) {
@@ -309,27 +386,27 @@ function scannerHexEditor(host, status) {
       cursor = -1;
       anchor = -1;
       found = -1;
+      dirty = false;
+      view.scrollTop = 0;
       paint();
       status(n);
     },
     get: () => data,
     name: () => name,
+    dirty: () => dirty,
+    saved() {
+      dirty = false;
+    },
     find(q, next = false) {
       if (!data || !q) return false;
-      const pat = parseQuery(q);
-      for (let i = next ? found + 1 : 0; i + pat.length <= data.length; i++) {
-        if (pat.every((b, k) => data[i + k] === b)) {
-          found = i;
-          cursor = i;
-          anchor = pat.length > 1 ? i + pat.length - 1 : -1;
-          paint();
-          show();
-          const cur = view.querySelector('.scn-hex-cur');
-          if (cur) cur.scrollIntoView({ block: 'center' });
-          return true;
-        }
-      }
-      return false;
+      const pat = scannerHexQuery(q);
+      const i = scannerHexFind(data, pat, next ? found + 1 : 0);
+      if (i < 0) return false;
+      found = i;
+      cursor = i;
+      anchor = pat.length > 1 ? i + pat.length - 1 : -1;
+      reveal(true);
+      return true;
     },
   };
 }
@@ -341,5 +418,7 @@ if (typeof module !== 'undefined' && module.exports) {
     scannerEepromPlan,
     scannerEepromRead,
     scannerEepromWrite,
+    scannerHexQuery,
+    scannerHexFind,
   };
 }

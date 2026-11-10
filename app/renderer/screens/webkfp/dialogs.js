@@ -77,6 +77,8 @@ function wkfpDialog(win, o) {
     win.appendChild(shade);
     wkfpDraggable(dlg);
     const close = (v) => {
+      // a window with work in hand may refuse to go (o.canClose)
+      if (o.canClose && !o.canClose(v)) return;
       if (v != null && o.check && !o.check(v, dlg)) return;
       shade.remove();
       document.removeEventListener('keydown', onKey, true);

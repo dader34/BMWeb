@@ -181,7 +181,7 @@ function scannerFaultCode(code) {
  */
 function scannerFaultText(unit, code, param, shadow = false) {
   const all =
-    typeof SCANNER_FAULT_TEXTS !== 'undefined' ? SCANNER_FAULT_TEXTS : {};
+    (typeof SCANNER_FAULT_TEXTS !== 'undefined' && SCANNER_FAULT_TEXTS) || {};
   const set = (shadow && all[unit] && all[unit].shadow) || all[unit];
   const hex = code.toString(16).toUpperCase();
   const fallback = `Error number ${hex.padStart(code >= 0x100 ? 4 : 2, '0')}`;

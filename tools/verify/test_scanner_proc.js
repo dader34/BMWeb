@@ -218,6 +218,76 @@ const ok = async (name, fn) => {
     }
   );
 
+  // every telegram the procedures send has the adapter word the reference's
+  // own cable echoed it for (capture-words.txt: word, payload -> bus)
+  {
+    const rows = [
+      ['ds2', '00', 0x46f1, ''],
+      ['ds2', '02 02', 0xc6e1, ''],
+      ['ds2', '02 01', 0x8de3, ''],
+      ['ds2', '02 00', 0xa370, ''],
+      ['ds2', '06 03 00 00 c2 10', 0xc563, '00 c2 10'],
+      ['ds2', '15 00', 0x79de, '00'],
+      ['ds2', '04 00', 0xc731, '00'],
+      ['ds2', '04', 0xe350, ''],
+      ['ds2', '14 00', 0x9e56, '00'],
+      ['ds2', '0e', 0x71a0, ''],
+      ['ds2', '05', 0x1bcf, ''],
+      ['ds2', '9e', 0xe245, ''],
+      ['ds2', '9f', 0x4ed1, ''],
+      ['ds2', '05 01', 0xe390, '01'],
+      ['ds2', '05 00 00', 0xc6a3, ''],
+      ['ds2', '90 ff ff', 0x44db, ''],
+      ['ds2', '95 33 04 08 33', 0xc751, '33 04 08 33'],
+      ['ds2', '06 10 28 00 00', 0x514c, '28 00 00'],
+      ['ds2', '07 28 04 4c', 0xa394, '28 04 4c'],
+      ['kwp', '1a 80', 0x06f3, ''],
+      ['kwp', '18 02 ff ff', 0xc358, ''],
+      ['kwp', '17 29 9a', 0x4ee3, '29 9a'],
+      ['kwp', '14 ff ff', 0x41ac, ''],
+      ['kwp', '14 00 00', 0xc370, ''],
+    ];
+    const bytes = (h) => (h ? h.split(' ').map((x) => parseInt(x, 16)) : []);
+    for (const [kind, tg, word, pl] of rows) {
+      const w = p.scannerPasoftWord(kind, bytes(tg));
+      assert.ok(w, `${kind} ${tg}`);
+      assert.strictEqual(w.word, word, `${kind} ${tg}`);
+      assert.deepStrictEqual(w.payload, bytes(pl), `${kind} ${tg}`);
+      assert.strictEqual(w.mode, kind === 'kwp' ? 3 : 2);
+    }
+    assert.strictEqual(p.scannerPasoftWord('ds2', [0x0b, 0x01]), null);
+    assert.strictEqual(p.scannerPasoftWord('kwp', [0x31, 0x02]), null);
+
+    // the link over the reference's cable: words go out with no cable-side
+    // retry, A1 comes back to the procedure, an unknown telegram is refused
+    // by name (not a silent unit)
+    const sent = [];
+    const cable = {
+      run: (fn) =>
+        fn({
+          transfer: async (word, addr, payload, mode, opts) => {
+            sent.push([word, addr, payload, mode, opts.retries]);
+            return word === 0x1bcf
+              ? { status: 'busy', reply: Uint8Array.from([addr, 4, 0xa1, 0]) }
+              : { status: 'ok', reply: Uint8Array.from([addr, 5, 0xa0, 3, 0]) };
+          },
+        }),
+    };
+    const link = p.scannerPasoftLink(cable);
+    assert.deepStrictEqual(
+      await link.ds2(0x80, [0x04, 0x00]),
+      [0x80, 5, 0xa0, 3, 0]
+    );
+    assert.deepStrictEqual(sent[0], [0xc731, 0x80, [0x00], 2, 0]);
+    assert.strictEqual((await link.ds2(0x80, [0x05]))[2], 0xa1);
+    await assert.rejects(
+      () => link.ds2(0x80, [0x0b, 0x01]),
+      (e) =>
+        e.unsupported === true &&
+        /not supported on the BMW Scanner cable/.test(e.message)
+    );
+  }
+
   console.log('ALL PASS');
 })().catch((e) => {
   console.error(e);

@@ -16,44 +16,9 @@
 
 /* exported showScanner */
 
-/** DS2 identification: ms the module may take to start answering. */
-const SCANNER_DS2_TIMEOUT_MS = 400;
-/** KWP2000* identification: ms the module may take to start answering. */
-const SCANNER_KWP_TIMEOUT_MS = 600;
-/** Quiet the K line owes a module between telegrams. */
-const SCANNER_GAP_MS = 30;
-
-/** The running scan's token; leaving the screen or a new scan bumps it. */
-let _scannerToken = 0;
-
-/**
- * The wire parameters of a raw DS2 identification: concept 6, 9600 8E1,
- * byte 1 is the total length, one transmission.
- * @returns {CommParams}
- */
-const scannerDs2Comm = () => ({
-  concept: 6,
-  baud: 9600,
-  timeout: SCANNER_DS2_TIMEOUT_MS,
-  regen: SCANNER_GAP_MS,
-  timeoutNr78: null,
-  repeats: 0,
-  answerLen: [-1, 0],
-});
-
-/**
- * The wire parameters of a raw KWP2000* identification: concept 0x10D,
- * 9600 8E1, 25 ms regeneration (the MS45's own), "busy" polled.
- * @returns {CommParams}
- */
-const scannerKwpComm = () => ({
-  concept: 0x10d,
-  baud: 9600,
-  timeout: SCANNER_KWP_TIMEOUT_MS,
-  regen: 25,
-  timeoutNr78: 5000,
-  repeats: 0,
-});
+/** The identification line parameters (scanner-proc.js holds them all). */
+const scannerDs2Comm = () => ({ ...SCANNER_COMM.ds2Ident });
+const scannerKwpComm = () => ({ ...SCANNER_COMM.kwpIdent });
 
 /**
  * Identify one module, holding the bus for the whole question so nothing
@@ -134,78 +99,34 @@ function scannerIdentifyPasoft(pa, m) {
 }
 
 /**
- * The link the reference's procedures send through on BMWeb's own cable.
+ * The one link everything after identification sends through: BMWeb's own
+ * cable with raw telegrams, or the reference's cable with its adapter's word
+ * for each (scannerPasoftLink). With `rec`, every telegram and its answer
+ * (or error) is written down.
+ * @param {string[]} [rec]
  * @returns {ScannerLink}
  */
 const scannerLink = (rec) => {
-  if (!rec) return scannerProcLink(webBusRawExchange, withBusLock);
-  // the same link, every telegram and its answer (or error) written down
+  const pa = scannerPasoft();
+  const base = pa
+    ? scannerPasoftLink(pa)
+    : scannerProcLink(webBusRawExchange, withBusLock);
+  if (!rec) return base;
   const hex = (a) =>
     Array.from(a || [], (b) => b.toString(16).padStart(2, '0')).join(' ');
-  return scannerProcLink(async (out, comm) => {
+  const noted = (kind, fn) => async (addr, payload) => {
+    const out = `${kind} ${hex([addr])}: ${hex(payload)}`;
     try {
-      const r = await webBusRawExchange(out, comm);
-      rec.push(`${hex(out)}  ->  ${r && r.length ? hex(r) : '(empty)'}`);
+      const r = await fn(addr, payload);
+      rec.push(`${out}  ->  ${r && r.length ? hex(r) : '(empty)'}`);
       return r;
     } catch (e) {
-      rec.push(`${hex(out)}  ->  ${(e && (e.ifh || e.message)) || e}`);
+      rec.push(`${out}  ->  ${(e && (e.ifh || e.message)) || e}`);
       throw e;
     }
-  }, withBusLock);
+  };
+  return { ...base, ds2: noted('DS2', base.ds2), kwp: noted('KWP', base.kwp) };
 };
-
-/**
- * The link Car ident reads through: BMWeb's own cable, or the PA Soft
- * cable with its adapter's word for each of the reads (all read-only, from
- * the capture: C6E1 = 02 02, 8DE3 = 02 01, A370 = 02 00, C563 = 06 03 ..,
- * 79DE = 15 n).
- * @returns {{ds2: (addr: number, payload: number[]) => Promise<number[]|null>}}
- */
-function scannerCarInfoLink() {
-  const pa = scannerPasoft();
-  if (!pa) return scannerLink();
-  const word = (pl) => {
-    const k = pl.slice(0, 2).join(',');
-    if (k === '2,2') return [0xc6e1, []];
-    if (k === '2,1') return [0x8de3, []];
-    if (k === '2,0') return [0xa370, []];
-    if (k === '6,3') return [0xc563, pl.slice(3)];
-    if (pl[0] === 0x15) return [0x79de, pl.slice(1)];
-    // the fault-memory reads (read-only, from the capture): C731 = 04 n,
-    // E350 = 04, 9E56 = 14 n, and the SRS access 44DB = 90 FF FF,
-    // C751 = 95 + four bytes
-    if (pl[0] === 0x04 && pl.length === 2) return [0xc731, [pl[1]]];
-    if (pl[0] === 0x04 && pl.length === 1) return [0xe350, []];
-    if (pl[0] === 0x14 && pl.length === 2) return [0x9e56, [pl[1]]];
-    if (k === '144,255') return [0x44db, []];
-    if (pl[0] === 0x95 && pl.length === 5) return [0xc751, pl.slice(1)];
-    // the body module's EEPROM (capture-eeprom-frames.txt): 514C = 06 10
-    // hi lo 00, A394 = 07 hi lo b
-    if (k === '6,16' && pl.length === 5) return [0x514c, pl.slice(2)];
-    if (pl[0] === 0x07 && pl.length === 4) return [0xa394, pl.slice(1)];
-    return null;
-  };
-  return {
-    ds2: async (addr, pl) => {
-      const w = word(pl);
-      if (!w) return null;
-      const r = await pa.run((port) => port.transfer(w[0], addr, w[1], 2));
-      return r && r.status === 'ok' && r.reply ? Array.from(r.reply) : null;
-    },
-    // KWP2000: only the fault list (C358 = 18 02 FF FF)
-    kwp: async (addr, pl) => {
-      if (pl.join(',') !== '24,2,255,255') return null;
-      const r = await pa.run((port) => port.transfer(0xc358, addr, [], 3));
-      return r && r.reply ? Array.from(r.reply) : null;
-    },
-    // an adapter word the capture did not show the telegram of
-    word: async (w, addr, pl) => {
-      const r = await pa.run((port) => port.transfer(w, addr, pl, 2));
-      return r && r.status === 'ok' && r.reply ? Array.from(r.reply) : null;
-    },
-    sleep: (ms) => new Promise((res) => setTimeout(res, ms)),
-  };
-}
 
 /** The tool buttons' glyphs (css/scanner.css), by tool id. */
 const SCANNER_GLYPH = {
@@ -221,27 +142,13 @@ const SCANNER_GLYPH = {
 
 /**
  * The fault and shadow-memory counts, read the reference's way: DS2 04 00
- * and 14 00, KWP2000 18 02 FF FF (scanner-proc.js). Over the PA Soft cable
- * its adapter's own words for the same reads (C731, C358); no shadow there
- * yet. Null for a count the module did not give.
+ * and 14 00, KWP2000 18 02 FF FF (scanner-proc.js), on either cable. Null
+ * for a count the module did not give.
  * @param {ScannerModule} m
  * @param {{kwp: boolean, raw: number[]|null}} found - How it identified.
  * @returns {Promise<{errors: number|null, shadow: number|null}>}
  */
 async function scannerCounts(m, found, rec) {
-  const pa = scannerPasoft();
-  if (pa) {
-    try {
-      const errors = await pa.run((port) =>
-        found.kwp
-          ? port.faultCountKwp(scannerKwpAddress(m))
-          : port.faultCountDs2(m.address)
-      );
-      return { errors, shadow: null };
-    } catch (e) {
-      return { errors: null, shadow: null };
-    }
-  }
   try {
     return await scannerReadCounts(scannerLink(rec), m, found);
   } catch (e) {
@@ -250,17 +157,14 @@ async function scannerCounts(m, found, rec) {
 }
 
 /**
- * Clear one module exactly as the reference does -- its telegrams, its
- * order, its waits (scannerClearProc) -- then read the counts again: what
- * comes back is what is left, not what the clear claimed. Never over the
- * PA Soft cable: nothing that clears goes to its adapter.
+ * Clear one module's fault memory the reference's way (scannerClearProc),
+ * then read its count again.
  * @param {ScannerModule} m
- * @param {{kwp: boolean, raw: number[]|null}} found
+ * @param {{kwp: boolean, raw: number[]|null}} found - How it identified.
+ * @param {string[]} [rec] - Telegram log.
  * @returns {Promise<{ok: boolean, left: number|null, sent?: string[], error?: string}>}
  */
 async function scannerClearFaults(m, found, rec) {
-  if (scannerPasoft())
-    return { ok: false, left: null, error: 'not available on this cable' };
   try {
     const out = await scannerClearProc(scannerLink(rec), m, found);
     const after = await scannerCounts(m, found, rec);
@@ -365,6 +269,9 @@ function showScanner() {
   ]);
   document.body.classList.add('apps-section', 'scn-page');
   sbLeft.textContent = 'scanner';
+  // the reference data pack (layouts, texts, glyphs): fetched once, in the
+  // background; the windows that need it wait for it themselves
+  scannerAssetsLoad();
   view.innerHTML = '';
   const leave = () => {
     _scannerToken++;
@@ -657,6 +564,7 @@ function showScanner() {
    */
   async function carIdent() {
     if (!(await needCable())) return;
+    await scannerAssetsLoad();
     const go = await message(
       'info',
       'Switch ON ignition and press "Continue"',
@@ -668,7 +576,7 @@ function showScanner() {
     let info = null;
     try {
       setStatus('Car identification: reading the IKE and the LCM…');
-      info = await scannerReadCarInfo(scannerCarInfoLink());
+      info = await scannerReadCarInfo(scannerLink());
     } catch (e) {
       setStatus('Stopped: ' + ((e && e.message) || e));
     }
@@ -852,10 +760,11 @@ function showScanner() {
       return;
     }
     if (!(await needCable())) return;
+    await scannerAssetsLoad();
     const found = { kwp: !!r.id.kwp, raw: r.raw };
     await scannerErrorsWindow(where, m, found, {
       read: async () => {
-        const res = await scannerReadFaultList(scannerCarInfoLink(), m, found);
+        const res = await scannerReadFaultList(scannerLink(), m, found);
         if (res.errors) r.errors = res.errors.length;
         if (res.shadow) r.shadow = res.shadow.length;
         paintRow(m);
@@ -872,10 +781,19 @@ function showScanner() {
    * The reference's Unit info window (double-click on a unit's name).
    * @param {ScannerModule} m
    */
-  function explore(m) {
+  async function explore(m) {
+    if (!(await scannerAssetsLoad())) {
+      await message(
+        'warn',
+        'The window layouts could not be loaded (no connection to the data mirrors). Try again when online.',
+        ['OK'],
+        m.name
+      );
+      return;
+    }
     return scannerUnitInfo(win, m, scannerLive.results.get(m.name), {
       errors: (where) => errorsWindow(m, where),
-      link: () => (connected() ? scannerCarInfoLink() : null),
+      link: () => (connected() ? scannerLink() : null),
     });
   }
 

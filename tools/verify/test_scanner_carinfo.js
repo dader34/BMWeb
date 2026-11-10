@@ -8,9 +8,8 @@
 // Run: node tools/verify/test_scanner_carinfo.js
 const assert = require('assert');
 const path = require('path');
-const {
-  SCANNER_FA_TABLES,
-} = require('../../app/renderer/core/generated/scanner-fa-tables.js');
+const SCANNER_FA_TABLES =
+  require('./scanner_pack.js').scannerPackOrSkip('scanner carinfo').faTables;
 global.SCANNER_FA_TABLES = SCANNER_FA_TABLES;
 const c = require('../../app/renderer/screens/scanner/scanner-carinfo.js');
 const fx = require(path.join(__dirname, 'fixtures/scanner-carinfo.json'));
@@ -33,7 +32,7 @@ const link = {
     ['LCM', info.lcm],
   ]) {
     assert.ok(m, name + ' answered');
-    assert.strictEqual(m.vin, 'NJ87379');
+    assert.strictEqual(m.vin, 'AB12345');
     assert.deepStrictEqual(
       [m.fa.chassis, m.fa.time, m.fa.typeKey, m.fa.paint, m.fa.upholstery],
       ['E46', '0904', 'ET37', '0354', 'K4SW']
@@ -51,8 +50,8 @@ const link = {
       `  ok   ${name}: E46 325i M54B25 Automatic, ${m.car.options.length} options`
     );
   }
-  assert.strictEqual(info.ike.odometer, '372363 km');
-  assert.strictEqual(info.lcm.odometer, '300000 km');
+  assert.strictEqual(info.ike.odometer, '123456 km');
+  assert.strictEqual(info.lcm.odometer, '123400 km');
   // the reads, in the reference's order
   assert.deepStrictEqual(sent.slice(0, 3), [
     '80 05 02 02',

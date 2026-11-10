@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 // BMWeb Scanner's Read / Write EEPROM (app/renderer/screens/scanner/
-// scanner-eeprom.js) held to BMW Scanner 1.4.0.7's own read of an E46 body
-// module (USB capture, fixtures/scanner-eeprom.json): the same 64 telegrams,
-// the same image; and its write: DS2 07 hi lo b per byte, an A1 answer asked
+// scanner-eeprom.js) held to BMW Scanner 1.4.0.7's own read of a body
+// module: the 64 telegrams of its USB capture, answered in
+// fixtures/scanner-eeprom.json with a made-up image; the same telegrams, the
+// same image; and its write: DS2 07 hi lo b per byte, an A1 answer asked
 // once more, then a read back.
 //
 // Run: node tools/verify/test_scanner_eeprom.js
@@ -135,6 +136,55 @@ const zke = { name: 'ZKE', address: 0x00 };
   assert.deepStrictEqual(out.refused, []);
   assert.deepStrictEqual(out.differ, []);
   assert.strictEqual(mem[0x10], data[0x10]);
+  // a stop asked for mid-write ends at the next byte and says where; nothing
+  // more goes out, and a cancelled read does the same
+  {
+    let n = 0;
+    const stopLink = {
+      ds2: async (addr, pl) => {
+        if (pl[0] === 0x07) n++;
+        return [0x00, 0x04, 0xa0, 0xa4];
+      },
+      sleep: async () => {},
+    };
+    await assert.rejects(
+      () => e.scannerEepromWrite(stopLink, zke, plan, data, null, () => n >= 5),
+      (err) => err.stopped === true && err.at === 5
+    );
+    assert.strictEqual(n, 5);
+    let reads = 0;
+    await assert.rejects(
+      () =>
+        e.scannerEepromRead(
+          {
+            ds2: async () => (
+              reads++,
+              [0, 0x14, 0xa0, ...new Array(16).fill(0), 0]
+            ),
+            sleep: async () => {},
+          },
+          zke,
+          plan,
+          null,
+          () => reads >= 2
+        ),
+      (err) => err.stopped === true && err.at === 0x20
+    );
+  }
+
+  // the editor's Find: hex pairs or text, first match at or after a place
+  assert.deepStrictEqual(e.scannerHexQuery('4e 4A'), [0x4e, 0x4a]);
+  assert.deepStrictEqual(e.scannerHexQuery('4E4a'), [0x4e, 0x4a]);
+  assert.deepStrictEqual(e.scannerHexQuery('ZKE'), [0x5a, 0x4b, 0x45]);
+  {
+    const hay = Uint8Array.from([1, 2, 3, 1, 2, 3, 4]);
+    assert.strictEqual(e.scannerHexFind(hay, [1, 2, 3]), 0);
+    assert.strictEqual(e.scannerHexFind(hay, [1, 2, 3], 1), 3);
+    assert.strictEqual(e.scannerHexFind(hay, [3, 4]), 5);
+    assert.strictEqual(e.scannerHexFind(hay, [4, 5]), -1);
+    assert.strictEqual(e.scannerHexFind(hay, []), -1);
+  }
+
   await assert.rejects(() =>
     e.scannerEepromWrite(writeLink, zke, plan, new Uint8Array(10))
   );

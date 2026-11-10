@@ -32,7 +32,7 @@
  *      hello[0] is the starting key, hello[1..26] are XORed with it and the
  *      XOR of all 27 raw bytes is 0. Decoded, hello[1..7] is "V144Bn9".
  *   3. A77A, addressed to hello[1], payload hello[2..7] plus the 25 bytes
- *      PA Soft keeps in the registry (PASOFT_LICENSE). The adapter answers
+ *      PA Soft keeps in its installation (the cable key, opts.license). The adapter answers
  *      77 07 77 07 77 07 70. Only the echo/status frame is read.
  *   4. Before the first module request: 83F0 to that module with
  *      E5 50 47 66 [Delay2 or 200] [Delay] (bmwscan.ini [Communication]
@@ -48,7 +48,7 @@
  *   // r.reply = 80 12 a0 ...      (the IKE's DS2 identify answer)
  *   await port.close();
  */
-/* exported PasoftCable, pasoftCable, pasoftBusRefusal, PasoftUsbPort, PASOFT_USB, PASOFT_CMD, PASOFT_LICENSE, pasoftFrame, pasoftScramble, pasoftDecodeHello, pasoftNeed, pasoftChecksumOk, ftdiStripStatus, ftdiBaudValue, ftdiLineValue */
+/* exported PasoftCable, pasoftCable, pasoftBusRefusal, PasoftUsbPort, PASOFT_USB, PASOFT_CMD, pasoftParseKey, pasoftFrame, pasoftScramble, pasoftDecodeHello, pasoftNeed, pasoftChecksumOk, ftdiStripStatus, ftdiBaudValue, ftdiLineValue */
 
 /** USB identity of the cable. */
 const PASOFT_USB = { vendorId: 0x0333, productId: 0x0137 };
@@ -74,15 +74,25 @@ const PASOFT_CMD = {
   kwpFaults: 0xc358,
 };
 
+/** Length of the key A77A carries after the hello echo. */
+const PASOFT_KEY_LEN = 25;
+
 /**
- * The 25 bytes A77A carries after the hello echo. PA Soft reads them from its
- * registry value; the shipped default (image 0x6D94E0, bytes 2..26) is what
- * this cable accepted.
+ * The cable key from text. A77A carries 25 bytes the reference keeps in its
+ * own installation (a 28-byte stored value, of which bytes 2..26 are sent).
+ * They are the owner's, from their own copy -- never in this repository;
+ * BMWeb asks for them once and keeps them in this browser only.
+ * @param {string} text - 25 or 28 bytes as hex, spaces optional.
+ * @returns {Uint8Array|null} The 25 bytes, or null for anything else.
  */
-const PASOFT_LICENSE = Uint8Array.from([
-  0x9d, 0x3e, 0xaf, 0x2e, 0xa9, 0x45, 0x78, 0x80, 0xb7, 0xaa, 0xf6, 0xa9, 0xfc,
-  0x9f, 0xee, 0xd2, 0x7c, 0x59, 0x90, 0x79, 0x80, 0x59, 0x84, 0x88, 0x03,
-]);
+function pasoftParseKey(text) {
+  const h = String(text || '').replace(/[\s,]|0x/gi, '');
+  if (!/^([0-9a-f]{2})+$/i.test(h)) return null;
+  const b = Uint8Array.from(h.match(/../g), (x) => parseInt(x, 16));
+  if (b.length === PASOFT_KEY_LEN) return b;
+  if (b.length === PASOFT_KEY_LEN + 3) return b.subarray(2, 2 + PASOFT_KEY_LEN);
+  return null;
+}
 
 /** Full handshakes (DTR pulse, hello, A77A) tried before giving up. */
 const PASOFT_HANDSHAKE_TRIES = 3;
@@ -302,6 +312,7 @@ class PasoftUsbPort {
    * @param {number} [opts.maxPending=40] - Cap on KWP 7F xx 78 re-reads.
    * @param {number} [opts.delay=20] - bmwscan.ini Delay (83F0 last byte).
    * @param {number} [opts.delay2=40] - bmwscan.ini Delay2 (83F0 byte 5).
+   * @param {Uint8Array} opts.license - The 25-byte cable key (pasoftParseKey).
    * @param {(dir: string, bytes: Uint8Array) => void} [opts.trace] - Called
    *   with 'tx' (plain frame), 'wire' (scrambled), 'echo' and 'reply'.
    */
@@ -316,6 +327,7 @@ class PasoftUsbPort {
     this._delay = opts.delay ?? 20;
     this._delay2 = opts.delay2 ?? 40;
     this._trace = opts.trace ?? null;
+    this._license = opts.license ?? null;
     /** @type {USBDevice|null} */
     this._device = null;
     this._key = 0;
@@ -356,6 +368,8 @@ class PasoftUsbPort {
    * @returns {Promise<{id: string, key: number}>} Adapter id and start key.
    */
   async open(device) {
+    if (!this._license || this._license.length !== PASOFT_KEY_LEN)
+      throw new Error('PA Soft cable: no cable key set');
     this._device = device ?? (await PasoftUsbPort.requestDevice(this._usb));
     const dev = this._device;
     // a session left open (a reconnect, a page that dropped its port) is
@@ -501,7 +515,7 @@ class PasoftUsbPort {
   async transfer(cmd, addr, payload, mode, opts = {}) {
     if (!this.connected) throw new Error('PA Soft cable: not open');
     if (!this._busReady) await this.setupBus(addr, !!opts.slow);
-    let budget = this._retries;
+    let budget = opts.retries ?? this._retries;
     for (;;) {
       const r = await this._once(cmd, addr, payload, mode, !opts.noReply);
       let again = false;
@@ -548,9 +562,9 @@ class PasoftUsbPort {
       await this._sleep(PASOFT_HELLO_GAP_MS);
       this._key = hello.key;
       const d = hello.decoded;
-      const payload = new Uint8Array(6 + PASOFT_LICENSE.length);
+      const payload = new Uint8Array(6 + PASOFT_KEY_LEN);
       payload.set(d.subarray(2, 8), 0);
-      payload.set(PASOFT_LICENSE, 6);
+      payload.set(this._license, 6);
       const r = await this._once(PASOFT_CMD.hello, d[1], payload, 2, false);
       if (r.status === 'ok') {
         this.hello = hello;
@@ -758,6 +772,8 @@ class PasoftUsbPort {
 
 /** localStorage key that remembers the user picked this cable. */
 const PASOFT_REMEMBER_KEY = 'bmweb.cable.pasoft';
+/** Where this browser keeps the owner's cable key (hex). */
+const PASOFT_KEY_STORE = 'bmweb.cable.pasoft.key';
 
 /**
  * The PA Soft cable as the app sees it: connect from the top-bar chip,
@@ -800,8 +816,56 @@ class PasoftCable {
    * @returns {Promise<string>} The label.
    */
   async connect() {
+    // the chooser first: it needs the click that brought us here
     const dev = await PasoftUsbPort.requestDevice(this._opts.usb);
+    if (!this.key()) {
+      const text =
+        typeof window !== 'undefined' && window.prompt
+          ? window.prompt(
+              'BMW Scanner cable key: paste the 25 bytes (hex) from your own BMW Scanner installation. Kept in this browser only.'
+            )
+          : null;
+      if (text == null) throw new Error('the cable key is needed to connect');
+      if (!this.setKey(text))
+        throw new Error('that is not a cable key (25 bytes as hex)');
+    }
     return this._openOn(dev);
+  }
+
+  /**
+   * The owner's cable key kept in this browser, or null.
+   * @returns {Uint8Array|null}
+   */
+  key() {
+    if (this._opts.license) return this._opts.license;
+    try {
+      return typeof localStorage === 'undefined'
+        ? null
+        : pasoftParseKey(localStorage.getItem(PASOFT_KEY_STORE));
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Keep (or with an empty text forget) the cable key in this browser.
+   * @param {string} text - Hex, as pasoftParseKey takes it.
+   * @returns {boolean} False when the text is not a key.
+   */
+  setKey(text) {
+    const k = text ? pasoftParseKey(text) : null;
+    if (text && !k) return false;
+    try {
+      if (k)
+        localStorage.setItem(
+          PASOFT_KEY_STORE,
+          Array.from(k, (b) => b.toString(16).padStart(2, '0')).join(' ')
+        );
+      else localStorage.removeItem(PASOFT_KEY_STORE);
+    } catch {
+      /* storage blocked */
+    }
+    return true;
   }
 
   /**
@@ -825,7 +889,7 @@ class PasoftCable {
         d.vendorId === PASOFT_USB.vendorId &&
         d.productId === PASOFT_USB.productId
     );
-    return dev ? this._openOn(dev) : null;
+    return dev && this.key() ? this._openOn(dev) : null;
   }
 
   /**
@@ -891,7 +955,7 @@ class PasoftCable {
    */
   async _openNow(dev) {
     if (this._port) await this.disconnect(false);
-    const port = new PasoftUsbPort(this._opts);
+    const port = new PasoftUsbPort({ ...this._opts, license: this.key() });
     await port.open(dev);
     this._port = port;
     this._device = dev;
@@ -954,7 +1018,7 @@ if (typeof module !== 'undefined' && module.exports) {
     PasoftUsbPort,
     PASOFT_USB,
     PASOFT_CMD,
-    PASOFT_LICENSE,
+    pasoftParseKey,
     pasoftFrame,
     pasoftScramble,
     pasoftDecodeHello,
