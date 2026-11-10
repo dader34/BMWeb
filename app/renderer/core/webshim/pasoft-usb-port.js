@@ -48,7 +48,7 @@
  *   // r.reply = 80 12 a0 ...      (the IKE's DS2 identify answer)
  *   await port.close();
  */
-/* exported PasoftCable, pasoftCable, pasoftBusRefusal, PasoftUsbPort, PASOFT_USB, PASOFT_CMD, pasoftParseKey, pasoftFrame, pasoftScramble, pasoftDecodeHello, pasoftNeed, pasoftChecksumOk, ftdiStripStatus, ftdiBaudValue, ftdiLineValue */
+/* exported PasoftCable, pasoftCable, pasoftBusRefusal, PasoftUsbPort, PASOFT_USB, PASOFT_CMD, PASOFT_LICENSE, pasoftParseKey, pasoftFrame, pasoftScramble, pasoftDecodeHello, pasoftNeed, pasoftChecksumOk, ftdiStripStatus, ftdiBaudValue, ftdiLineValue */
 
 /** USB identity of the cable. */
 const PASOFT_USB = { vendorId: 0x0333, productId: 0x0137 };
@@ -78,10 +78,19 @@ const PASOFT_CMD = {
 const PASOFT_KEY_LEN = 25;
 
 /**
+ * The key A77A carries after the hello echo: the value the reference ships
+ * with (its image 0x6D94E0, bytes 2..26), which the cable accepts. A browser
+ * may hold another one (PasoftCable.setKey) and that one wins.
+ */
+const PASOFT_LICENSE = Uint8Array.from([
+  0x9d, 0x3e, 0xaf, 0x2e, 0xa9, 0x45, 0x78, 0x80, 0xb7, 0xaa, 0xf6, 0xa9, 0xfc,
+  0x9f, 0xee, 0xd2, 0x7c, 0x59, 0x90, 0x79, 0x80, 0x59, 0x84, 0x88, 0x03,
+]);
+
+/**
  * The cable key from text. A77A carries 25 bytes the reference keeps in its
  * own installation (a 28-byte stored value, of which bytes 2..26 are sent).
- * They are the owner's, from their own copy -- never in this repository;
- * BMWeb asks for them once and keeps them in this browser only.
+ * PASOFT_LICENSE is the shipped default; this reads another one from text.
  * @param {string} text - 25 or 28 bytes as hex, spaces optional.
  * @returns {Uint8Array|null} The 25 bytes, or null for anything else.
  */
@@ -816,34 +825,24 @@ class PasoftCable {
    * @returns {Promise<string>} The label.
    */
   async connect() {
-    // the chooser first: it needs the click that brought us here
     const dev = await PasoftUsbPort.requestDevice(this._opts.usb);
-    if (!this.key()) {
-      const text =
-        typeof window !== 'undefined' && window.prompt
-          ? window.prompt(
-              'BMW Scanner cable key: paste the 25 bytes (hex) from your own BMW Scanner installation. Kept in this browser only.'
-            )
-          : null;
-      if (text == null) throw new Error('the cable key is needed to connect');
-      if (!this.setKey(text))
-        throw new Error('that is not a cable key (25 bytes as hex)');
-    }
     return this._openOn(dev);
   }
 
   /**
-   * The owner's cable key kept in this browser, or null.
-   * @returns {Uint8Array|null}
+   * The cable key: one kept in this browser, else the built-in one.
+   * @returns {Uint8Array}
    */
   key() {
     if (this._opts.license) return this._opts.license;
     try {
-      return typeof localStorage === 'undefined'
-        ? null
-        : pasoftParseKey(localStorage.getItem(PASOFT_KEY_STORE));
+      const own =
+        typeof localStorage === 'undefined'
+          ? null
+          : pasoftParseKey(localStorage.getItem(PASOFT_KEY_STORE));
+      return own || PASOFT_LICENSE;
     } catch {
-      return null;
+      return PASOFT_LICENSE;
     }
   }
 
@@ -1018,6 +1017,7 @@ if (typeof module !== 'undefined' && module.exports) {
     PasoftUsbPort,
     PASOFT_USB,
     PASOFT_CMD,
+    PASOFT_LICENSE,
     pasoftParseKey,
     pasoftFrame,
     pasoftScramble,
