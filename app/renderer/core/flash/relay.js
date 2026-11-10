@@ -5,14 +5,17 @@
 // while its own diagnostics stay alive -- it stages the transmission's RAM
 // monitor word by word, redirects its stack pointer mid-answer, then
 // write, read, a DPP window, a flash read, the echo, and LAST a stock
-// 0x20 readback of the payload's own first word. The readback is the
+// 0x20 readback of the payload's own first word. That word is the marker
+// ladder's cell (car run 3 read it back one byte corrupted: the payload
+// survived, the code didn't -- so the monitor now rewrites it with a
+// block number at every structural boundary). The readback is the
 // post-mortem: a live monitor answers [20 9F 00...] -- its unknown-
 // command tag, which the stock program never sends -- and a dead one
 // leaves the post-reset stock program answering instead, its reply
-// carrying the staged word itself: intact bytes (the blob's probeWord)
-// mean the payload was fine and the monitor died on entry; zeros mean
-// the payload never survived in the transmission's RAM. One step, three
-// verdicts. Emu-proven ALL PASS 2026-11-07 (gs20-emu tools/
+// carrying word 0: pristine staged bytes = died before or at the first
+// instruction, a marker value = ran and died in that named block,
+// zeros/junk = the payload never survived or the span is dirty. One
+// step, four verdicts. Emu-proven ALL PASS 2026-11-07 (gs20-emu tools/
 // dme_relay_p1.py) on these exact bytes: one build for chip and
 // emulator, watchdog in the firmware-proven 4-byte form.
 //
@@ -205,18 +208,73 @@ async function relayAwaitVerdict(sender, opts = {}) {
 }
 
 /**
+ * Name what the last answer says when the blob is the SAFE PROBE (no
+ * redirect, no monitor: the box's own firmware ran the whole time and
+ * the stock program answered every frame). The last answer is stock's
+ * read of word 0, the pad, so it is a two-way verdict the v10 runs never
+ * lived to give: the pad intact (cc 00) = the payload SURVIVED staging
+ * at monitorBase on the real transmission -- the killer of the three
+ * service builds is the redirect itself, not the span; any other word =
+ * the span did not hold on real silicon (the clean-span bitmap was
+ * measured on the emulator's GS20 model, not this box).
+ * @param {number[]} last
+ * @returns {string}
+ */
+function relayDiagnoseProbe(last) {
+  const b = relayBlob_;
+  if (last.length >= 8 && last.every((v, i) => v === b.expectLast[i]))
+    return (
+      'the payload SURVIVED staging: word 0 reads back cc 00 on the real ' +
+      'transmission -- the span holds, so the killer of the service ' +
+      'builds is the redirect/landing, not staging'
+    );
+  if (
+    last[0] === 0x20 &&
+    last[1] === 0x81 &&
+    last[2] === b.probeWord[0] &&
+    last[3] === b.probeWord[1]
+  )
+    return (
+      'word 0 survived (cc 00) but the reply tail differs from the ' +
+      'emulated one -- the span held; save the full answer'
+    );
+  if (last[0] === 0x20 && last[1] === 0x81)
+    return (
+      'the span did NOT hold: word 0 came back ' +
+      `${last[2].toString(16)} ${last[3].toString(16)}, not the staged ` +
+      'cc 00 -- the emulated clean-span bitmap does not describe ' +
+      'this transmission (next: probe other spans)'
+    );
+  if (last.every((v) => v === 0))
+    return (
+      "no answer was ever recorded -- the staging itself stalled on the " +
+      'real box (the step counter says where)'
+    );
+  if (last[1] === 0x81)
+    return (
+      'a stock answer of an unexpected class (' +
+      `${last[0].toString(16)}) -- save the full answer`
+    );
+  return 'an answer the stock read format does not shape -- save it';
+}
+
+/**
  * Name what the last answer says about the run, whatever it is. The final
  * step is the post-mortem readback (a stock 0x20 read of the payload's
- * own first word), so the answer is a three-way verdict: the monitor's
- * [20 9F] unknown-command tag (stock never sends it -- liveness), the
- * stock reply carrying the staged word intact (payload fine, the monitor
- * died on entry), or the stock reply carrying zeros (the payload never
- * survived in RAM). Older and odder flavors are named too.
+ * own first word -- the marker ladder's cell), so the answer is a
+ * four-way verdict: the monitor's [20 9F] unknown-command tag (stock
+ * never sends it -- liveness), the staged word pristine (the code was
+ * fine; the monitor died before or at its first instruction), a small
+ * marker value 0x000k (the monitor RAN and died in block k -- the
+ * ladder names it), or zeros/junk (the payload never survived, or the
+ * span is written by something on the real unit). Older and odder
+ * flavors are named too.
  * @param {number[]} last
  * @returns {string}
  */
 function relayDiagnoseLast(last) {
   const b = relayBlob_;
+  if (b.mode === 'probe') return relayDiagnoseProbe(last);
   if (last.length >= 8 && last.every((v, i) => v === b.expectLast[i]))
     return (
       'the monitor itself answered the readback probe -- alive at ' +
@@ -229,19 +287,63 @@ function relayDiagnoseLast(last) {
     last[3] === b.probeWord[1]
   )
     return (
-      'the staged payload is intact and even survived the reset -- ' +
-      'the monitor died on entry (the killer is execution, not staging)'
+      'the staged code is intact and survived the reset -- the monitor ' +
+      'died before or at its first instruction (the first instruction ' +
+      'itself is the killer, not staging)'
+    );
+  if (
+    last[0] === 0x20 &&
+    last[1] === 0x81 &&
+    last[3] === 0 &&
+    last[2] === b.markers.length
+  )
+    return (
+      'the monitor RAN, went DEAF (no command ever reached it) and ' +
+      'self-rescued: it reset the transmission cleanly when its silence ' +
+      'deadline fired, so the box came back by itself -- the monitor ' +
+      'lives; its CAN receive never armed on this box'
+    );
+  // 01 00 doubles as the boot's own reset counter: on real silicon every
+  // reset flavor (the deaf monitor's deadline SRST, or a dead monitor's
+  // watchdog) funnels through the boot, which rewrites the span -- so a
+  // readback of 1 means "the box reset", and the two tell apart only by
+  // how the run FELT (below), not by this word
+  if (last[0] === 0x20 && last[1] === 0x81 && last[2] === 1 && last[3] === 0)
+    return (
+      'word 0 came back 01 00 -- a boot value, not the staged pad: the ' +
+      'transmission had reset by the time of the readback and no monitor ' +
+      'answered the tail. Died at entry (a fast reset) or ran deaf and ' +
+      'self-rescued (the clicking stopped by itself after about a minute)'
+    );
+  if (
+    last[0] === 0x20 &&
+    last[1] === 0x81 &&
+    last[3] === 0 &&
+    last[2] >= 2 &&
+    last[2] < b.markers.length
+  )
+    return (
+      `the monitor RAN and died in the "${b.markers[last[2] - 1]}"` +
+      ` block (marker ${last[2]} of ${b.markers.length})`
     );
   if (last[0] === 0x20 && last[1] === 0x81 && last[2] === 0 && last[3] === 0)
     return (
-      "the staged payload is gone from the transmission's RAM -- " +
-      'corrupted in the supposedly quiet span, or cleared by the reset ' +
-      'after the monitor died'
+      'word 0 read back zeros: the boot rewrote the span after a reset ' +
+      '-- no monitor answered the tail (stock did). Either it died at ' +
+      'entry (the box reset fast) or it ran deaf and its silence ' +
+      'deadline rescued it (about a minute of clicking, then it stopped ' +
+      'by itself)'
     );
   if (last[0] === 0x2a && last[1] === 0x81)
     return (
       'an echo answer: this verdict block is from the previous ' +
       "build's run (its table ended at the echo; re-run to refresh it)"
+    );
+  if (last[0] === 0x20 && last[1] === 0x81)
+    return (
+      `word 0 came back ${last[2].toString(16)} ${last[3].toString(16)} ` +
+      '-- a boot value, not the staged pad: the transmission had reset ' +
+      'by the time of the readback and no monitor answered the tail'
     );
   if (last[1] === 0x81)
     return (

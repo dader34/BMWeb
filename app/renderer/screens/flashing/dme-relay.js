@@ -11,17 +11,33 @@
 // first word -- while its own diagnostics stay alive. BMWeb sends no CAN
 // frame at any point; the only wire is the K-line the flash used.
 //
+// PROBE MODE (relayBlob.mode === 'probe', stamped by relay_blob_js.py
+// --probe): the same staging, then ONLY stock-answered reads -- no pair,
+// no STKOV, no SP write, no monitor commands. The redirect is the one
+// step that can derail the transmission, so the probe build physically
+// cannot: three car builds staged hundreds of writes with the box alive,
+// and the clicking always began at the redirect. It answers ONE question
+// the v10 runs died before answering: does the payload survive staging
+// at 0xCAD4 on the REAL box (the clean-span bitmap was measured on the
+// emulator's GS20 model). Word 0 read back cc 00 = the span held and the
+// killer is the redirect; anything else = the span is shadow on this
+// transmission. Every frame is stock-answered, so expectReplies equals
+// expectGood equals steps in this mode.
+//
 // The verdict block at 0x3F9E74 (the livetune RAM tier: car-proven quiet,
 // far below the heap) is read back with the stock read-by-address (no
 // login) and judged: every answering step answered, all but two acked
 // (the redirect answers nothing; the readback's 0x9F tag is not an ack),
-// and the last answer is a three-way verdict -- the monitor's own [20 9F]
-// reply (alive: stock never sends that tag), the stock reply carrying the
-// staged word intact (payload fine, monitor died on entry), or the stock
-// reply carrying zeros (the payload never survived in RAM). The service
-// itself is seconds, but a real transmission can sit minutes on one
-// answer (car 2026-11-07: a stall at 127/240 that self-healed), so the
-// poll waits up to five minutes.
+// and the last answer is a four-way verdict -- the monitor's own [20 9F]
+// reply (alive: stock never sends that tag), the pad word pristine
+// (died before or at the first instruction -- v8 spends word 0 on a NOP
+// the car's one-byte clobber can eat harmlessly, entering at word 1), a
+// marker value (the monitor RAN and died in that named block -- the
+// ladder rewrites word 0 at every boundary), or zeros/junk (payload
+// never survived / span dirty).  Car run 3 read word 0 back one byte
+// corrupted: the payload survived, the code didn't. The service itself is seconds, but a real
+// transmission can sit minutes on one answer (car 2026-11-07: a stall at
+// 127/240 that self-healed), so the poll waits up to five minutes.
 //
 // WHAT STAYS BEHIND: the transmission's monitor is RAM-only -- ignition
 // off clears it by itself. The DME keeps the relay program until "Restore
@@ -39,7 +55,7 @@ function fbRelayHtml() {
         <div class="fb-code">GS20 RELAY</div>
         <div class="fb-row">
           <button class="btn danger" id="fb-relay-run" disabled
-            title="Reads the DME's own program, adds the relay payload and flashes it back. The DME then services the transmission alone over the car's PT-CAN -- no CAN hardware on this side.">Run the relay test</button>
+            title="Reads the DME's own program, adds the relay payload and flashes it back. The DME then services the transmission alone over the car's PT-CAN -- no CAN hardware on this side.">Run the ${relayBlob.mode === 'probe' ? 'safe probe' : 'relay test'}</button>
           <button class="btn" id="fb-relay-again" disabled
             title="Reads the verdict block again over the K-line.">Read the verdict</button>
           <button class="btn" id="fb-relay-restore" disabled
@@ -70,7 +86,9 @@ function fbRelayRefresh() {
   fbEls['relay-restore'].disabled = !fbRelaySaved || !!fbState.running;
   fbEls['relay-reason'].textContent =
     why ||
-    "Ready: reads the DME's own program, adds the payload, flashes back. The DME services the transmission alone (seconds, minutes if it dawdles); the verdict is read over the K-line.";
+    (relayBlob.mode === 'probe'
+      ? 'Ready (SAFE PROBE): same staging, then readbacks only -- no redirect, nothing that can disturb the transmission. Says whether the RAM span held on the real box.'
+      : "Ready: reads the DME's own program, adds the payload, flashes back. The DME services the transmission alone (seconds, minutes if it dawdles); the verdict is read over the K-line.");
 }
 
 /** Why the relay test cannot run, or null. */
@@ -99,14 +117,12 @@ async function fbRelayRun() {
     await fbMessage(why, 'GS20 relay');
     return;
   }
+  const probeMode = relayBlob.mode === 'probe';
   const go = await fbConfirm(
-    'GS20 relay test\n\n' +
-      "Reads the DME's own program, adds the relay payload (a stub in the free window at 0xDCC00 plus one hook word in the MPC) and flashes it back.\n\n" +
-      "On the reboot the DME alone services the transmission over the car's PT-CAN -- no CAN frames leave this side; the only wire is the K-line. The service itself takes seconds (minutes when the transmission dawdles; the read waits up to five minutes): 241 steps, 240 answered, and the final step is a readback that says which side failed -- the monitor's own reply (alive), the staged bytes read back intact (it died on entry), or zeros (the staging never survived).\n\n" +
-      'The transmission\'s monitor is RAM-only: ignition off clears it by itself. The DME keeps the relay program until "Restore stock program" runs (the stock pair is saved to files too).\n\n' +
-      'Parked, in P, ignition on, engine OFF. Keep the cable plugged in until it has finished.\n\n' +
-      'Run the relay test?',
-    'GS20 relay'
+    probeMode
+      ? 'Start the SAFE PROBE? Same staging as the relay test, then readbacks only -- NO redirect, so nothing can disturb the transmission (its own firmware runs throughout). The last readback says why the full service died on this car: the staged word intact = the RAM span held (the killer is the redirect step); changed = the span did not hold on the real box.'
+      : 'Start the relay test? This will read your program and patch it. If the monitor hears nothing for about a minute it now resets the transmission by itself -- even a healthy run reboots the box shortly after the verdict; that is the deadline doing its job, and any clicking stops on its own.',
+    probeMode ? 'GS20 relay safe probe' : 'GS20 relay'
   );
   if (!go) {
     flashLog.note('GS20 relay not confirmed: nothing was sent');
@@ -120,8 +136,25 @@ async function fbRelayRun() {
     what: 'program',
     counter: true,
     confirmed: true,
-    note: `DME ${d.ident.hwRef} / prog ${d.ident.progRef} / GS20 relay service (no CAN from this side)`,
+    note: `DME ${d.ident.hwRef} / prog ${d.ident.progRef} / GS20 relay ${probeMode ? 'safe probe' : 'service'} (no CAN from this side)`,
     prepare: async () => {
+      // A DME that identify found in its fast flasher answers no stock
+      // KWP, so the selector-5 ladder cannot even ask for a seed. The
+      // gate is installed in this DME (the relay push writes the whole
+      // flash back, gate included) and it listens first at every key-on
+      // -- well over twenty seconds on the car -- before the program
+      // boots and the stub runs its service. The car's run 5 pressed
+      // inside that window: identify's HELLO probe answered, the ladder
+      // got 4-byte garbage, IFH-0019, twice. The runner's own entry
+      // reaches the body by HELLO without the one-click -- and taking it
+      // during the window is ideal: the program never boots, so the old
+      // payload's service never runs at all this key cycle.
+      if (fbState.dme.ident && fbState.dme.ident.inFlasher) {
+        flashLog.note(
+          'GS20 relay: the DME is in its fast flasher; entering it by HELLO, no one-click'
+        );
+        return {};
+      }
       await fbDmeOneClickInto('GS20 relay');
       return {};
     },
@@ -151,7 +184,14 @@ async function fbRelayRun() {
           ...cb,
           progress: (p) => cb.progress(55 + Math.floor((p * 45) / 100)),
         },
-        { mpc: patched.mpc, pagesets: true, block0InSets: false }
+        // block 0 follows the app's own rule (dme-fast.js fbDmeBlock0InSets:
+        // alone and last where the resident hook sits at MPC 0x8, in the
+        // sets on a one-click DME -- ~16 s faster and just as safe there)
+        {
+          mpc: patched.mpc,
+          pagesets: true,
+          block0InSets: fbDmeBlock0InSets(),
+        }
       );
       flashed = true;
       return {
@@ -205,10 +245,13 @@ async function fbRelayShowVerdict(title) {
   fbRelayLastText(text);
   flashLog.note(`GS20 relay verdict: ${text.split('\n').join('; ')}`);
   const v = s.magic === relayBlob.magic ? relayVerdict(s).ok : false;
+  const probeMode = relayBlob.mode === 'probe';
   await fbMessage(
     text +
       (v
-        ? "\n\nThe transmission's monitor is RAM-only: ignition off clears it. Restore the DME with the button below when done."
+        ? probeMode
+          ? '\n\nThe staged payload is RAM-only: ignition off clears it. Restore the DME with the button below when done.'
+          : "\n\nThe transmission's monitor is RAM-only: ignition off clears it. Restore the DME with the button below when done."
         : ''),
     title
   );
@@ -275,6 +318,14 @@ async function fbRelayRestore() {
     confirmed: true,
     note: `DME ${fbState.dme.ident.hwRef} / restore the stock program after the relay test`,
     prepare: async () => {
+      // same as the run: inside the gate's listen window there is no
+      // stock KWP for the ladder -- the runner's HELLO entry takes over
+      if (fbState.dme.ident && fbState.dme.ident.inFlasher) {
+        flashLog.note(
+          'GS20 relay restore: the DME is in its fast flasher; entering it by HELLO, no one-click'
+        );
+        return {};
+      }
       await fbDmeOneClickInto('GS20 relay restore');
       return {};
     },
@@ -286,7 +337,7 @@ async function fbRelayRestore() {
         client,
         chip,
         { ...cb, progress: (p) => cb.progress(p) },
-        { mpc: saved.mpc, pagesets: true, block0InSets: false }
+        { mpc: saved.mpc, pagesets: true, block0InSets: fbDmeBlock0InSets() }
       );
       done = true;
       return r;
