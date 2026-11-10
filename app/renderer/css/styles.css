@@ -10691,3 +10691,350 @@ body:is(.fb-skin-tabs-on, .fb-skin-rail-on) .modal-overlay .fb-logview {
   cursor: pointer;
   padding: 4px 0;
 }
+
+/* ---- the cable picker under the status chip (app.js showCablePicker) ---- */
+.cable-picker {
+  position: fixed;
+  z-index: 10000;
+  width: min(380px, calc(100vw - 16px));
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: var(--ink);
+  background: var(--panel);
+  border: 1px solid var(--line-bright);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  animation: cable-picker-in 0.12s ease-out;
+}
+@keyframes cable-picker-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cable-picker {
+    animation: none;
+  }
+}
+.cable-picker-head {
+  padding: 2px 4px 0;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+.cable-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.cable-card.is-on {
+  border-color: var(--green);
+}
+.cable-card.is-off {
+  opacity: 0.55;
+}
+.cable-card-body {
+  flex: 1;
+  min-width: 0;
+}
+.cable-card-name {
+  font-weight: 700;
+  font-size: 14px;
+}
+.cable-card-sub {
+  margin-left: 8px;
+  font-family: var(--mono);
+  font-weight: 400;
+  font-size: 10px;
+  color: var(--ink-faint);
+}
+.cable-card-uses {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--ink-dim);
+}
+.cable-card-state {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cable-card-btn {
+  flex: none;
+  min-width: 96px;
+}
+@media (max-width: 480px) {
+  .cable-card {
+    flex-wrap: wrap;
+  }
+  .cable-card-btn {
+    width: 100%;
+  }
+}
+
+/* ---- the modern home (screens/apps.js appsHome): a launcher. One slim
+   header with the search box, then the tools as rows in one panel per
+   section, all on one screen ---------------------------------------------- */
+.apps-list.home {
+  display: block;
+  max-width: 1240px;
+}
+.home-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+.home-head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+.home-title {
+  margin: 0;
+  font-family: var(--display);
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  color: var(--ink);
+}
+.home-count {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-faint);
+}
+.home-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: min(320px, 100%);
+  height: 32px;
+  padding: 0 8px 0 10px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  transition: border-color 0.12s;
+}
+.home-search:focus-within {
+  border-color: var(--amber);
+}
+.home-search svg {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: var(--ink-faint);
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+/* the themes give every text input a border and a focus ring of their own,
+   !important and three classes deep (themes.css); this one sits inside the
+   search box, which has both, so the selector here is deliberately heavier */
+html .apps-list.home .home-search input[type],
+html .apps-list.home .home-search input[type]:focus,
+html .apps-list.home .home-search input[type]:focus-visible {
+  flex: 1;
+  min-width: 0;
+  height: auto;
+  margin: 0;
+  padding: 0 !important;
+  appearance: none;
+  -webkit-appearance: none;
+  background: none !important;
+  border: 0 !important;
+  border-radius: 0;
+  box-shadow: none !important;
+  outline: none !important;
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 13px;
+}
+.home-search input::placeholder {
+  color: var(--ink-faint);
+}
+.home-search input::-webkit-search-cancel-button {
+  display: none;
+}
+.home-key {
+  flex: none;
+  min-width: 16px;
+  padding: 0 4px;
+  font-family: var(--mono);
+  font-size: 10px;
+  line-height: 16px;
+  text-align: center;
+  color: var(--ink-faint);
+  background: none;
+  border: 1px solid var(--line);
+  box-shadow: none;
+}
+.home-cols {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+.home-group {
+  background: var(--panel);
+  border: 1px solid var(--line);
+}
+.home-group[hidden] {
+  display: none;
+}
+.home-group-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0;
+  padding: 9px 12px;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  border-bottom: 1px solid var(--line);
+}
+.home-group-title span {
+  letter-spacing: 0;
+  color: var(--ink-faint);
+}
+.home-grid {
+  display: flex;
+  flex-direction: column;
+}
+.home-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 12px;
+  text-align: left;
+  color: var(--ink);
+  background: none;
+  border: 0;
+  border-radius: 0;
+  cursor: pointer;
+  font: inherit;
+}
+.home-card + .home-card {
+  border-top: 1px solid var(--line);
+}
+.home-card[hidden] {
+  display: none;
+}
+.home-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--amber);
+  opacity: 0;
+}
+.home-card:not(:disabled):hover,
+.home-card:focus-visible {
+  background: var(--raised);
+  outline: none;
+}
+.home-card:not(:disabled):hover::before,
+.home-card:focus-visible::before {
+  opacity: 1;
+}
+.home-card-ico {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  color: var(--ink-dim);
+}
+.home-card:not(:disabled):hover .home-card-ico,
+.home-card:focus-visible .home-card-ico {
+  color: var(--amber);
+}
+.home-card-ico svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.home-card-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.home-card-title {
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+.home-card-desc {
+  font-size: 11.5px;
+  line-height: 1.35;
+  color: var(--ink-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.home-card-side {
+  flex: none;
+  display: flex;
+  align-items: center;
+}
+.home-card-go {
+  display: none;
+}
+.home-card.app-absent {
+  cursor: default;
+}
+.home-pill {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  color: var(--ink-faint);
+  white-space: nowrap;
+}
+.home-none {
+  padding: 24px 0;
+  font-size: 13px;
+  color: var(--ink-dim);
+}
+@media (max-width: 760px) {
+  .home-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .home-search {
+    width: 100%;
+    height: 38px;
+  }
+  .home-card {
+    padding: 12px;
+  }
+  .home-card .home-key {
+    display: none;
+  }
+}

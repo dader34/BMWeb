@@ -20,7 +20,8 @@
  * @property {string} id - stable id; also the card's data-app, which the guided tour spotlights
  * @property {string} icon - a single glyph for the card
  * @property {string} title - card title
- * @property {string} desc - one-line description
+ * @property {string} desc - one-line description (the classic status line, the card's tooltip, search)
+ * @property {string} [short] - a few words that fit a home row
  * @property {string} tag - the BMW tool it was ported from ("ETK", "WDS · ISTA"); kept on the entry, not drawn
  * @property {() => void} open - opens the app's screen
  * @property {() => Promise<boolean>} [hasData] - did the app's data ship in this build? Absent = always
@@ -40,6 +41,7 @@ const APP_REGISTRY = [
     id: 'inpa',
     icon: '▣',
     title: 'Diagnostics',
+    short: 'Modules, faults, live values',
     desc: 'Pick a vehicle, then its modules, faults and live values',
     tag: 'INPA',
     open: () => showChassis(),
@@ -49,6 +51,7 @@ const APP_REGISTRY = [
     id: 'ista',
     icon: '▤',
     title: 'Workshop',
+    short: 'Dealership diagnostics',
     desc: "Every read on one vehicle behind one set of tabs, ISTA's way",
     tag: 'ISTA',
     open: () => (typeof showIsta === 'function' ? showIsta() : null),
@@ -63,6 +66,7 @@ const APP_REGISTRY = [
     id: 'scanner',
     icon: '⌖',
     title: 'BMWeb Scanner',
+    short: 'Scan every module on the car',
     desc: 'Scan every module on the car and log what it reports',
     tag: 'PA Soft',
     open: () => (typeof showScanner === 'function' ? showScanner() : null),
@@ -72,6 +76,7 @@ const APP_REGISTRY = [
     id: 'lookup',
     icon: '⌕',
     title: 'Fault codes',
+    short: 'Fault codes and service data',
     desc: 'Search fault codes, read ISTA service data and diagnostic procedures',
     tag: 'DTC',
     open: () => showLookup(),
@@ -82,6 +87,7 @@ const APP_REGISTRY = [
     id: 'job-search',
     icon: '⌕',
     title: 'Job search',
+    short: 'Find any INPA screen or job',
     desc: "Find any screen or key in INPA's scripts by what it does, and open it",
     tag: 'IPO',
     open: () => (typeof showJobSearch === 'function' ? showJobSearch() : null),
@@ -98,6 +104,7 @@ const APP_REGISTRY = [
     id: 'wiring',
     icon: '⌁',
     title: 'Wiring & Documents',
+    short: 'Wiring diagrams and documents',
     desc: 'Interactive wiring and documents search',
     tag: 'WDS · ISTA',
     open: () => wiring.showWiringChassis(),
@@ -116,6 +123,7 @@ const APP_REGISTRY = [
     id: 'etk',
     icon: '⊞',
     title: 'Parts Catalogue',
+    short: 'Parts search',
     desc: 'Interactive parts search',
     tag: 'ETK',
     open: () => etk.showEtk(),
@@ -136,6 +144,7 @@ const APP_REGISTRY = [
     id: 'backup',
     icon: '↯',
     title: 'Flashing/Tuning & Logging',
+    short: 'Read, write, tune and log',
     desc: 'Read/Write control units, tune files, and log data',
     tag: 'FLASH',
     open: () => (typeof showFlashing === 'function' ? showFlashing() : null),
@@ -146,6 +155,7 @@ const APP_REGISTRY = [
     id: 'webkfp',
     icon: '↯',
     title: 'WebKFP',
+    short: 'Flash stock programs',
     desc: 'Flash stock programs',
     tag: 'WinKFP',
     open: () => (typeof showWebKfp === 'function' ? showWebKfp() : null),
@@ -157,6 +167,7 @@ const APP_REGISTRY = [
     id: 'coding',
     icon: '⚙',
     title: 'Coding',
+    short: 'Change car configuration',
     desc: 'Change car configurations',
     tag: 'NCS',
     // NCS Expert's flow either way; it draws its own window in the INPA-style
@@ -171,6 +182,7 @@ const APP_REGISTRY = [
     id: 'tool32',
     icon: '⌗',
     title: 'Web32',
+    short: 'Run any SGBD job',
     desc: 'Run any SGBD job directly and read its raw result registers',
     tag: 'SGBD',
     open: () => (typeof showTool32 === 'function' ? showTool32() : null),
@@ -192,6 +204,7 @@ const APP_REGISTRY = [
     id: 'workspace',
     icon: '▦',
     title: 'Workspace',
+    short: 'Apps side by side',
     desc: 'Two to four apps side by side on one cable: tuning live, logging, fault memory and Web32 at once',
     tag: 'LAYOUT',
     open: () => (typeof showWorkspace === 'function' ? showWorkspace() : null),
@@ -200,6 +213,7 @@ const APP_REGISTRY = [
     id: 'script',
     icon: '⌁',
     title: 'Script runner',
+    short: 'Run your own INPA script',
     desc: 'Run an INPA script of your own: a compiled .IPO, or a .IPS / .SRC compiled in the browser',
     tag: 'INPA',
     open: () =>
@@ -237,28 +251,183 @@ async function appIsReady(app) {
 }
 
 /**
- * One hub card. An absent app renders greyed and disabled with a "not in
- * this build" note.
+ * The modern home's line icons, one per app id (24 px grid, drawn for this
+ * page): the inner markup of an <svg>.
+ */
+const APP_ICONS = {
+  inpa: '<path d="M4 13a8 8 0 0 1 16 0"/><path d="M12 13l4-4"/><circle cx="12" cy="13" r="1.2"/><path d="M5 18h14"/>',
+  ista: '<rect x="3.5" y="5" width="17" height="14" rx="2"/><path d="M3.5 9.5h17"/><path d="M8 5v4.5"/><path d="M13 5v4.5"/>',
+  scanner:
+    '<path d="M4 8V6a2 2 0 0 1 2-2h2"/><path d="M16 4h2a2 2 0 0 1 2 2v2"/><path d="M20 16v2a2 2 0 0 1-2 2h-2"/><path d="M8 20H6a2 2 0 0 1-2-2v-2"/><path d="M4 12h16"/>',
+  lookup:
+    '<path d="M12 4l9 15.5H3z"/><path d="M12 10v4.5"/><circle cx="12" cy="17" r=".6"/>',
+  'job-search': '<circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>',
+  wiring:
+    '<circle cx="6" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><path d="M8 6h5a3 3 0 0 1 3 3v7"/><path d="M6 8v5a3 3 0 0 0 3 3h3"/>',
+  etk: '<path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M4 7.5l8 4.5 8-4.5"/><path d="M12 12v9"/>',
+  backup: '<path d="M13 3L5 13.5h6L10 21l9-11h-6.5z"/>',
+  webkfp:
+    '<rect x="6" y="6" width="12" height="12" rx="1.5"/><path d="M9.5 3v3M14.5 3v3M9.5 18v3M14.5 18v3M3 9.5h3M3 14.5h3M18 9.5h3M18 14.5h3"/>',
+  coding:
+    '<path d="M4 7h10"/><path d="M18 7h2"/><circle cx="16" cy="7" r="2"/><path d="M4 17h2"/><path d="M10 17h10"/><circle cx="8" cy="17" r="2"/>',
+  tool32:
+    '<rect x="3.5" y="5" width="17" height="14" rx="2"/><path d="M7.5 10l3 2.5-3 2.5"/><path d="M12.5 15h4"/>',
+  workspace:
+    '<rect x="3.5" y="4" width="7" height="7" rx="1.5"/><rect x="13.5" y="4" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/>',
+  script:
+    '<path d="M8 5l-5 7 5 7"/><path d="M16 5l5 7-5 7"/><path d="M13.5 4l-3 16"/>',
+};
+
+/**
+ * The modern home's sections, in reading order. An app not named here lands
+ * in the last one.
+ */
+const APPS_HOME_GROUPS = [
+  { title: 'Diagnose', ids: ['inpa', 'ista', 'scanner', 'lookup'] },
+  { title: 'Reference', ids: ['wiring', 'etk', 'job-search'] },
+  { title: 'Program', ids: ['backup', 'webkfp', 'coding'] },
+  { title: 'Expert', ids: ['tool32', 'workspace', 'script'] },
+];
+
+/**
+ * One home card: icon tile, title and description, and at the right the
+ * number key that opens it. An absent app renders greyed and disabled with
+ * a "not in this build" note. (.app-entry / data-app are what the guided
+ * tour spotlights.)
  * @param {AppEntry} app - the app
  * @param {boolean} ready - its data shipped
+ * @param {string} [key] - the number key that opens it, when it has one
  * @returns {HTMLButtonElement}
  */
-function appCard(app, ready) {
+function appCard(app, ready, key) {
   const card = document.createElement('button');
-  card.className = 'lookup-entry app-entry' + (ready ? '' : ' app-absent');
-  card.dataset.app = app.id; // lets the guided tour spotlight a named app
+  card.type = 'button';
+  card.className = 'home-card app-entry' + (ready ? '' : ' app-absent');
+  card.dataset.app = app.id;
+  card.title = app.desc;
+  card.dataset.find =
+    `${app.title} ${app.short || ''} ${app.desc} ${app.tag || ''}`.toLowerCase();
   card.innerHTML = `
-      <span class="lookup-entry-icon">${app.icon}</span>
-      <span class="lookup-entry-text">
-        <span class="lookup-entry-title">${esc(app.title)}</span>
-        <span class="lookup-entry-desc">${esc(app.desc)}${
-          ready ? '' : ' · not in this build'
-        }</span>
+      <span class="home-card-ico"><svg viewBox="0 0 24 24" aria-hidden="true">${APP_ICONS[app.id] || ''}</svg></span>
+      <span class="home-card-text">
+        <span class="home-card-title">${esc(app.title)}</span>
+        <span class="home-card-desc">${esc(app.short || app.desc)}</span>
       </span>
-      <span class="lookup-entry-arrow">${ready ? '→' : ''}</span>`;
+      <span class="home-card-side">${
+        ready
+          ? (key ? `<kbd class="home-key">${esc(key)}</kbd>` : '') +
+            '<span class="home-card-go" aria-hidden="true">→</span>'
+          : '<span class="home-pill">Not in this build</span>'
+      }</span>`;
   if (ready) card.onclick = () => app.open();
   else card.disabled = true;
   return card;
+}
+
+/**
+ * The modern home: a search box over the tools, then the tools in labelled
+ * sections. Typing filters the cards as it goes ("/" puts the cursor in the
+ * box, Enter opens the first match, Escape clears it).
+ * @param {HTMLElement} list - The .apps-list container.
+ * @param {{app: AppEntry, ready: boolean}[]} states
+ * @param {AppEntry[]} openable - in number-key order
+ * @param {string[]} keys - the number keys, in the same order
+ * @returns {void}
+ */
+function appsHome(list, states, openable, keys) {
+  list.classList.add('home');
+  const bar = document.createElement('div');
+  bar.className = 'home-bar';
+  bar.innerHTML = `
+    <div class="home-head">
+      <h1 class="home-title">${esc(APP_NAME)}</h1>
+      <span class="home-count"></span>
+    </div>
+    <label class="home-search">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>
+      <input type="search" placeholder="Search tools" aria-label="Search tools" autocomplete="off" spellcheck="false">
+      <kbd class="home-key">/</kbd>
+    </label>`;
+  list.appendChild(bar);
+  const cols = document.createElement('div');
+  cols.className = 'home-cols';
+  list.appendChild(cols);
+  const input = bar.querySelector('input');
+  const count = bar.querySelector('.home-count');
+
+  const grouped = (id) => APPS_HOME_GROUPS.some((g) => g.ids.includes(id));
+  const sections = [];
+  APPS_HOME_GROUPS.forEach((g, gi) => {
+    const last = gi === APPS_HOME_GROUPS.length - 1;
+    const members = states
+      .filter((s) => g.ids.includes(s.app.id) || (last && !grouped(s.app.id)))
+      .sort((a, b) => {
+        const at = (s) => {
+          const i = g.ids.indexOf(s.app.id);
+          return i < 0 ? g.ids.length : i;
+        };
+        return at(a) - at(b);
+      });
+    if (!members.length) return;
+    const sec = document.createElement('section');
+    sec.className = 'home-group';
+    sec.innerHTML = `<h2 class="home-group-title">${esc(g.title)}<span>${members.length}</span></h2><div class="home-grid stagger"></div>`;
+    const grid = sec.querySelector('.home-grid');
+    for (const { app, ready } of members) {
+      const k = openable.indexOf(app);
+      grid.appendChild(appCard(app, ready, k >= 0 ? keys[k] : ''));
+    }
+    cols.appendChild(sec);
+    stagger(grid, APPS_STAGGER);
+    sections.push(sec);
+  });
+  const none = document.createElement('div');
+  none.className = 'home-none';
+  none.hidden = true;
+  list.appendChild(none);
+
+  const cards = () => [...list.querySelectorAll('.home-card')];
+  const filter = () => {
+    const q = input.value.trim().toLowerCase();
+    let shown = 0;
+    for (const c of cards()) {
+      const hit = !q || q.split(/\s+/).every((w) => c.dataset.find.includes(w));
+      c.hidden = !hit;
+      if (hit) shown++;
+    }
+    for (const sec of sections)
+      sec.hidden = !sec.querySelector('.home-card:not([hidden])');
+    none.hidden = shown > 0;
+    none.textContent = shown ? '' : `No tool matches "${input.value.trim()}".`;
+    count.textContent = q
+      ? `${shown} of ${states.length}`
+      : `${states.length} tools`;
+  };
+  input.oninput = filter;
+  input.onkeydown = (e) => {
+    if (e.key === 'Enter') {
+      const first = cards().find((c) => !c.hidden && !c.disabled);
+      if (first) first.click();
+    } else if (e.key === 'Escape' && input.value) {
+      e.stopPropagation();
+      input.value = '';
+      filter();
+    }
+  };
+  // "/" from anywhere on the page puts the cursor in the box
+  const slash = (e) => {
+    if (!document.body.contains(input)) {
+      document.removeEventListener('keydown', slash);
+      return;
+    }
+    const t = e.target;
+    if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (t && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) return;
+    e.preventDefault();
+    input.focus();
+  };
+  document.addEventListener('keydown', slash);
+  filter();
 }
 
 /**
@@ -382,18 +551,12 @@ async function showApps() {
   document.body.classList.add('apps-section'); // hides the F-key bar on mobile (touch nav)
   sbLeft.textContent = 'home';
   // the classic launcher's title bar names the screen: no page heading over it
-  view.innerHTML = inpaMode()
-    ? ''
-    : head(
-        'Home',
-        APP_NAME,
-        'Diagnose, code, flash and look things up: pick a tool.'
-      );
+  view.innerHTML = '';
   // the root: nothing to go back to
   setActions([]);
 
   const list = document.createElement('div');
-  list.className = 'apps-list stagger';
+  list.className = 'apps-list';
   view.appendChild(list);
 
   // availability checks may hit the network (ETK probes Hugging Face), so show
@@ -423,10 +586,18 @@ async function showApps() {
     keys = APPS_CLASSIC_KEYS;
     list.replaceWith(appsClassicWindow(groups, openable));
   } else {
-    openable = states.filter((s) => s.ready).map((s) => s.app);
+    // number keys follow the page's reading order, section by section
+    const order = APPS_HOME_GROUPS.flatMap((g) => g.ids);
+    const at = (s) => {
+      const i = order.indexOf(s.app.id);
+      return i < 0 ? order.length : i;
+    };
+    openable = states
+      .filter((s) => s.ready)
+      .sort((a, b) => at(a) - at(b))
+      .map((s) => s.app);
     keys = APPS_CLASSIC_KEYS.slice(0, APPS_FKEY_SLOTS);
-    states.forEach(({ app, ready }) => list.appendChild(appCard(app, ready)));
-    stagger(list, APPS_STAGGER);
+    appsHome(list, states, openable, keys);
   }
   sbRight.textContent = `${openable.length} app${openable.length === 1 ? '' : 's'}`;
 

@@ -363,52 +363,78 @@ class StatusPoller {
 }
 
 /**
- * A small menu under the cable chip: one entry per cable kind. Each entry
+ * The cable picker under the status chip: one card per cable kind, with
+ * what it is for, whether it is connected, and its one action. Each button
  * is its own click, which the WebUSB and Web Serial choosers need.
  * @param {HTMLElement} anchor - The chip.
- * @param {{label: string, hint?: string, fn: () => void}[]} items - Entries.
+ * @param {{id: string, name: string, sub: string, uses: string,
+ *   connected: boolean, detail?: string, unavailable?: string,
+ *   connect: () => void, disconnect: () => void}[]} cables - The cards.
  * @returns {void}
  */
-function showCableMenu(anchor, items) {
-  document.querySelector('.cable-menu')?.remove();
-  const menu = document.createElement('div');
-  menu.className = 'cable-menu';
+function showCablePicker(anchor, cables) {
+  const old = document.querySelector('.cable-picker');
+  if (old) {
+    // a second click on the chip closes it
+    old.remove();
+    return;
+  }
+  const pop = document.createElement('div');
+  pop.className = 'cable-picker';
+  pop.setAttribute('role', 'dialog');
+  pop.setAttribute('aria-label', 'Cable');
   const r = anchor.getBoundingClientRect();
-  Object.assign(menu.style, {
-    position: 'fixed',
-    top: `${Math.round(r.bottom + 4)}px`,
-    left: `${Math.round(Math.max(8, r.left))}px`,
-    zIndex: 10000,
-    background: 'var(--panel, #fff)',
-    color: 'var(--text, #111)',
-    border: '1px solid var(--border, #ccc)',
-    borderRadius: '6px',
-    boxShadow: '0 6px 20px rgba(0,0,0,.25)',
-    padding: '4px',
-    display: 'flex',
-    flexDirection: 'column',
-    minWidth: '240px',
-  });
+  pop.style.top = `${Math.round(r.bottom + 6)}px`;
+  pop.style.right = `${Math.round(Math.max(8, window.innerWidth - r.right))}px`;
   const close = () => {
-    menu.remove();
-    document.removeEventListener('click', close);
+    pop.remove();
+    document.removeEventListener('click', away, true);
+    document.removeEventListener('keydown', onKey, true);
   };
-  for (const it of items) {
+  const away = (e) => {
+    if (!pop.contains(e.target) && !anchor.contains(e.target)) close();
+  };
+  const onKey = (e) => {
+    if (e.key === 'Escape') {
+      e.stopPropagation();
+      close();
+    }
+  };
+  const head = document.createElement('div');
+  head.className = 'cable-picker-head';
+  head.textContent = 'Cable';
+  pop.appendChild(head);
+  for (const c of cables) {
+    const card = document.createElement('div');
+    card.className =
+      'cable-card' +
+      (c.connected ? ' is-on' : '') +
+      (c.unavailable ? ' is-off' : '');
+    card.innerHTML = `
+      <div class="cable-card-body">
+        <div class="cable-card-name">${esc(c.name)}<span class="cable-card-sub">${esc(c.sub)}</span></div>
+        <div class="cable-card-uses">${esc(c.uses)}</div>
+        <div class="cable-card-state"><span class="led ${c.connected ? 'ok' : 'idle'}"></span>${esc(
+          c.unavailable ||
+            (c.connected ? c.detail || 'Connected' : 'Not connected')
+        )}</div>
+      </div>`;
     const b = document.createElement('button');
     b.type = 'button';
-    b.className = 'btn';
-    b.style.textAlign = 'left';
-    b.style.margin = '2px';
-    b.textContent = it.label + (it.hint ? ` (${it.hint})` : '');
+    b.className = 'btn cable-card-btn' + (c.connected ? '' : ' primary');
+    b.textContent = c.connected ? 'Disconnect' : 'Connect';
+    b.disabled = !!c.unavailable;
     b.onclick = (e) => {
       e.stopPropagation();
       close();
-      it.fn();
+      (c.connected ? c.disconnect : c.connect)();
     };
-    menu.appendChild(b);
+    card.appendChild(b);
+    pop.appendChild(card);
   }
-  document.body.appendChild(menu);
-  setTimeout(() => document.addEventListener('click', close), 0);
+  document.body.appendChild(pop);
+  document.addEventListener('click', away, true);
+  document.addEventListener('keydown', onKey, true);
 }
 
 /** The app's one connection poller. */
@@ -610,7 +636,7 @@ function setScreenLayout(v) {
   if (window.webBus) {
     const chip = document.getElementById('link-status');
     chip.style.cursor = 'pointer';
-    chip.title = 'Click to connect or disconnect the cable';
+    chip.title = 'Click to choose, connect or disconnect the cable';
     const pa = typeof pasoftCable !== 'undefined' ? pasoftCable : null;
     const paUsable = () =>
       !!pa &&
@@ -632,37 +658,64 @@ function setScreenLayout(v) {
       }
       await statusPoller.refresh();
     };
-    chip.onclick = async (ev) => {
+    /** Let go of whichever cable is held. */
+    const releaseCables = async () => {
+      if (webBus.connected) await webBus.disconnect();
+      if (pa && pa.connected) await pa.disconnect();
+    };
+    /** Run one picker action and show how it went on the chip. */
+    const act = async (fn) => {
       try {
-        if (webBus.connected) {
-          await webBus.disconnect();
-        } else if (pa && pa.connected) {
-          await pa.disconnect();
-        } else if (paUsable()) {
-          // two cable kinds: a small menu, each entry its own click
-          ev.stopPropagation();
-          showCableMenu(chip, [
-            {
-              label: 'K+DCAN cable (Web Serial)',
-              fn: () => connectCable('kdcan'),
-            },
-            {
-              label: 'BMW Scanner cable (PA Soft, USB)',
-              hint: 'BMWeb Scanner only',
-              fn: () => connectCable('pasoft'),
-            },
-          ]);
-          return;
-        } else {
-          await connectCable('kdcan');
-          return;
-        }
+        await fn();
       } catch (e) {
         led.className = 'led off';
         linkText.textContent = e.message;
         return;
       }
       await statusPoller.refresh();
+    };
+    chip.onclick = () => {
+      // one cable kind (the native shell, or a browser without WebUSB): the
+      // chip stays the plain connect / disconnect switch
+      if (!paUsable()) {
+        act(async () => {
+          if (webBus.connected) await webBus.disconnect();
+          else await connectCable('kdcan');
+        });
+        return;
+      }
+      showCablePicker(chip, [
+        {
+          id: 'kdcan',
+          name: 'K+DCAN cable',
+          sub: 'Web Serial',
+          uses: 'Everything: diagnostics, coding, flashing, the scanner',
+          connected: webBus.connected,
+          detail: webBus.connected
+            ? linkText.textContent.replace(/^cable:\s*/, 'Connected: ')
+            : '',
+          connect: () =>
+            act(async () => {
+              await releaseCables();
+              await connectCable('kdcan');
+            }),
+          disconnect: () => act(() => webBus.disconnect()),
+        },
+        {
+          id: 'pasoft',
+          name: 'BMW Scanner cable',
+          sub: 'PA Soft V14x · USB',
+          uses: 'BMWeb Scanner only',
+          connected: !!pa && pa.connected,
+          detail: pa && pa.connected ? `Connected: ${pa.label}` : '',
+          connect: () =>
+            act(async () => {
+              await releaseCables();
+              await connectCable('pasoft');
+            }),
+          disconnect: () => act(() => pa.disconnect()),
+        },
+      ]);
     };
     // a PA Soft cable picked last time comes back without a chooser
     if (paUsable() && !webBus.connected) {
