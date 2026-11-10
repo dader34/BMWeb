@@ -704,7 +704,7 @@ function setScreenLayout(v) {
         {
           id: 'pasoft',
           name: 'BMW Scanner cable',
-          sub: 'PA Soft V14x · USB',
+          sub: 'Web USB',
           uses: 'BMWeb Scanner only',
           connected: !!pa && pa.connected,
           detail: pa && pa.connected ? `Connected: ${pa.label}` : '',

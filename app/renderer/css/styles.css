@@ -6566,6 +6566,28 @@ body.remote-helper::after {
   font-size: 18px;
   cursor: pointer;
 }
+/* the rail's drawn icons (screens/flashing/screen.js): one 24 px line
+   drawing per page, in the button's own colour in every skin */
+.fb-rail-ico {
+  display: block;
+  width: 20px;
+  height: 20px;
+  margin: 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+/* the tabs skin names its tabs in words: no drawing there */
+:root .fb.fb-skin-tabs .fb-rail-ico {
+  display: none;
+}
+:root .fb.fb-skin-rail .fb-rail-ico {
+  width: 22px;
+  height: 22px;
+}
 .fb-rail-btn:hover {
   color: var(--ink);
   border-color: var(--line-bright);

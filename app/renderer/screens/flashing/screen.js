@@ -210,15 +210,15 @@ async function showFlashing(page) {
   wrap.className = 'fb';
   wrap.innerHTML = `
     <div class="fb-rail">
-      <button class="fb-rail-btn current" id="fb-rail-flashing" title="Flashing">&#x21AF;</button>
-      <button class="fb-rail-btn" id="fb-rail-tuning" title="Tuning">&#x26C3;</button>
-      <button class="fb-rail-btn" id="fb-rail-logging" title="Data logging">&#x223F;</button>
-      <button class="fb-rail-btn" id="fb-rail-faults" title="Fault codes">&#x26A0;&#xFE0E;</button>
-      <button class="fb-rail-btn" id="fb-rail-history" title="History">&#x27F2;</button>
+      <button class="fb-rail-btn current" id="fb-rail-flashing" title="Flashing"><svg class="fb-rail-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M13 3L5 13.5h6L10 21l9-11h-6.5z"/></svg></button>
+      <button class="fb-rail-btn" id="fb-rail-tuning" title="Tuning"><svg class="fb-rail-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10"/><path d="M18 7h2"/><circle cx="16" cy="7" r="2"/><path d="M4 17h2"/><path d="M10 17h10"/><circle cx="8" cy="17" r="2"/></svg></button>
+      <button class="fb-rail-btn" id="fb-rail-logging" title="Data logging"><svg class="fb-rail-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h4l3-7 4 14 3-7h4"/></svg></button>
+      <button class="fb-rail-btn" id="fb-rail-faults" title="Fault codes"><svg class="fb-rail-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4l9 15.5H3z"/><path d="M12 10v4.5"/><circle cx="12" cy="17" r=".6"/></svg></button>
+      <button class="fb-rail-btn" id="fb-rail-history" title="History"><svg class="fb-rail-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1"/><path d="M3 4v4h4"/><path d="M12 7.5V12l3 2"/></svg></button>
       <button class="fb-rail-btn fb-rail-word" id="fb-rail-aif" title="AIF" hidden><span>AIF</span></button>
       <button class="fb-rail-btn fb-rail-word" id="fb-rail-isn" title="ISN / EWS" hidden><span>EWS</span><span>ISN</span></button>
       <button class="fb-rail-btn fb-rail-word" id="fb-rail-fast" title="Fast flasher" hidden><span>FAST</span></button>
-      <button class="fb-rail-btn" id="fb-rail-settings" title="Settings">&#x2699;&#xFE0E;</button>
+      <button class="fb-rail-btn" id="fb-rail-settings" title="Settings"><svg class="fb-rail-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="6.5"/><circle cx="12" cy="12" r="2.6"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/></svg></button>
     </div>
     <div class="fb-main">
       <div class="fb-topbar" id="fb-topbar">
