@@ -993,7 +993,7 @@ async function fill(lt, offset, length, value) {
     assert(
       err instanceof LtError &&
         err.code === 'refused' &&
-        /build 4/.test(err.message),
+        /older live tune program/.test(err.message),
       'an old build is refused by name'
     );
     ok('a DME on an earlier build is refused with its version');

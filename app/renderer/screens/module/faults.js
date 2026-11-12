@@ -170,7 +170,16 @@ function faultFields(c, sgbd) {
       ? 'intermittent'
       : phraseText(art) || art || '';
   const count = c.F_HFK || c.F_LZ || '';
-  const code = textCode || pstr || ortNr || hex || '—';
+  // A FAULT ITS READER ALREADY WORDED IS SHOWN AS IT CAME. The BMWeb
+  // Scanner's lists (scanner-report.js) are read with no SGBD, so there is
+  // no codespace to look the code up in, and the flat DB is the wrong one
+  // to guess from: 27C7 is the main relay on an MS45 and an O2 sensor trim
+  // elsewhere. Such an entry carries its code as printed (F_CODE_STRING)
+  // and its text; neither is replaced.
+  const worded = c.F_CODE_STRING != null && c.F_CODE_STRING !== '';
+  const code = worded
+    ? String(c.F_CODE_STRING)
+    : textCode || pstr || ortNr || hex || '—';
   const pcode = c.F_PCODE_STRING || c.F_PCODE7_STRING || '';
   // `hex` is the ECU's raw fault word ("F6-88-A6"); `code` is the shorter
   // location byte the DB keys on. The screen shows both, so the report can too.
@@ -178,7 +187,9 @@ function faultFields(c, sgbd) {
     code,
     hex: hex !== code ? hex : '',
     pcode: pcode !== code ? pcode : '',
-    name: faultName(c.F_ORT_TEXT, hex, sgbd),
+    name: worded
+      ? String(c.F_ORT_TEXT || '')
+      : faultName(c.F_ORT_TEXT, hex, sgbd),
     present,
     ftype,
     count,

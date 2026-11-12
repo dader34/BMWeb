@@ -259,6 +259,9 @@ class ActionBar {
    */
   fire(a) {
     if (!a || !a.fn) return;
+    // a flash is running: the way out of the screen waits (core/nav-lock.js)
+    if (a.kind === 'back' && typeof navRefuse === 'function' && navRefuse())
+      return;
     if (a._el) {
       a._el.classList.remove('flash');
       void a._el.offsetWidth;

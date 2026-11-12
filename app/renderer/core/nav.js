@@ -280,7 +280,6 @@ async function showScriptSelection(chassisId, onAbort) {
         <div class="inpa-ss-left" id="ss-left">
           <button class="inpa-ss-item inpa-ss-chassis" data-i="-1">${esc(dispChassis(chassisId))}</button>
           ${ch.sections.map((s, i) => `<button class="inpa-ss-item" data-i="${i}">${esc(s.name)}</button>`).join('')}
-          ${typeof showVehicleIdentity === 'function' ? '<button class="inpa-ss-item inpa-ss-identity" data-i="-3" hidden>Identity</button>' : ''}
         </div>
         <div class="inpa-ss-right" id="ss-right">
           <div class="inpa-ss-head" id="ss-head">Functional jobs</div>
@@ -346,38 +345,13 @@ async function showScriptSelection(chassisId, onAbort) {
     close();
     showCodingHub(chassisId);
   };
-  const openIdentity = () => {
-    close();
-    showVehicleIdentity(chassisId);
-  };
 
   items.forEach((it) => {
     const i = Number(it.dataset.i);
     it.onclick = () =>
-      i === -1
-        ? showChassisJobs()
-        : i === -2
-          ? openCoding()
-          : i === -3
-            ? openIdentity()
-            : showSection(i);
+      i === -1 ? showChassisJobs() : i === -2 ? openCoding() : showSection(i);
   });
 
-  // The Identity row is built hidden and revealed only once a module on this
-  // chassis is confirmed to answer with a build record. The list is drawn
-  // synchronously and the probe is async, so revealing beats inserting: the
-  // dialog never reflows under the pointer, and a chassis with no identity
-  // source simply never shows the row rather than showing a dead end.
-  const identRow = overlay.querySelector('.inpa-ss-identity');
-  if (identRow && typeof chassisHasIdentity === 'function') {
-    chassisHasIdentity(chassisId)
-      .then((has) => {
-        if (has) identRow.hidden = false;
-      })
-      .catch(() => {
-        /* no identity source: the row stays hidden */
-      });
-  }
   showChassisJobs(); // open on the chassis row: Functional Jobs only
 }
 

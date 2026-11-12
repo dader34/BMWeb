@@ -354,7 +354,7 @@ async function scanCoding(chassisId, host, saCodes) {
  */
 async function readVehicleSaCodes(chassisId) {
   if (
-    typeof showVehicleIdentity !== 'function' ||
+    typeof readIdentityCodes !== 'function' ||
     typeof VehicleIdentity === 'undefined'
   )
     return [];

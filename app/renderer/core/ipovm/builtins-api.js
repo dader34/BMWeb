@@ -367,6 +367,73 @@ function bBmwebStatus(vm, stack) {
 }
 
 /**
+ * @typedef {{start: (what: string) => void, read: (what: string) => string}} IpoRecoveryHost
+ */
+
+/** @type {IpoRecoveryHost|null} The app's recovery host (ipoRecoverySetHost). */
+let _ipoRecoveryHost = null;
+
+/**
+ * Give the recovery script its host: the screen that runs the script does,
+ * with the Flashing app's (screens/flashing/recovery.js, fbRecoveryFor).
+ * @param {IpoRecoveryHost|null} host
+ */
+function ipoRecoverySetHost(host) {
+  _ipoRecoveryHost = host || null;
+}
+
+/**
+ * The recovery script's host: the app's, or one a host of another kind
+ * hangs on the VM.
+ * @param {IpoVm} vm
+ * @returns {IpoRecoveryHost|null}
+ */
+function ipoRecoveryHost(vm) {
+  return _ipoRecoveryHost || (vm.host && vm.host.recovery) || null;
+}
+
+/**
+ * bmweb_recovery(what): tell the host to start a step of the DME recovery
+ * ("ident", "recover") and come straight back. The step runs on the host
+ * while the script's screen keeps cycling, which is how the screen shows
+ * it happening (bmweb_recovery_read).
+ *
+ * ONLY A DRIVEN RUN STARTS ANYTHING. The decoders run every body of a
+ * script to see what it sends; a body run that way must never reach a car.
+ * @type {IpoBuiltin}
+ */
+function bBmwebRecovery(vm, stack) {
+  if (!vm.wireJobs) return;
+  const host = ipoRecoveryHost(vm);
+  const what = stack.filter((x) => !isRef(x)).map((x) => asStr(x))[0] || '';
+  if (!host || typeof host.start !== 'function') return;
+  try {
+    host.start(what);
+  } catch (e) {
+    // the host reports its own failures through the fields the screen reads
+  }
+}
+
+/**
+ * bmweb_recovery_read(what, ->text): one field of the recovery as the host
+ * has it now ("state", "vin", "percent", ...); '' for a field it does not
+ * have, and for every field when there is no host.
+ * @type {IpoBuiltin}
+ */
+function bBmwebRecoveryRead(vm, stack) {
+  const host = ipoRecoveryHost(vm);
+  const what = stack.filter((x) => !isRef(x)).map((x) => asStr(x))[0] || '';
+  let text = '';
+  try {
+    if (host && typeof host.read === 'function')
+      text = String(host.read(what) || '');
+  } catch (e) {
+    text = '';
+  }
+  storeOut(vm, stack, text);
+}
+
+/**
  * The input family (inputint, inputhex, input2int, ...): record the prompts
  * on the item, store the placeholder through every out-ref, and taint the
  * next job (mirrors Python _b_input: a job sent after an ask has no static
@@ -596,6 +663,9 @@ if (typeof module !== 'undefined' && module.exports) {
     IPO_INPUT_CONFIRMED,
     bBmwebPick,
     bBmwebStatus,
+    ipoRecoverySetHost,
+    bBmwebRecovery,
+    bBmwebRecoveryRead,
     bJob,
     bFsmode,
     bCheckStatus,

@@ -50,14 +50,14 @@ const main = async () => {
   // stock answers and acks all n; service: n-1 answered, n-2 acked)
   check(
     'blob: the mode names itself and the counts match it',
-    (relayBlob.mode === 'probe'
+    relayBlob.mode === 'probe'
       ? relayBlob.steps === 281 &&
-        relayBlob.expectReplies === 281 &&
-        relayBlob.expectGood === 281
+          relayBlob.expectReplies === 281 &&
+          relayBlob.expectGood === 281
       : relayBlob.mode === 'service' &&
-        relayBlob.steps === 310 &&
-        relayBlob.expectReplies === 309 &&
-        relayBlob.expectGood === 308),
+          relayBlob.steps === 310 &&
+          relayBlob.expectReplies === 309 &&
+          relayBlob.expectGood === 308,
     `mode ${relayBlob.mode}, steps ${relayBlob.steps}, ` +
       `${relayBlob.expectReplies}/${relayBlob.expectGood}`
   );
@@ -294,16 +294,7 @@ const main = async () => {
     // liveness check, and the note must name it for what it is)
     const deaf = broken((b) =>
       b.set(
-        [
-          0x20,
-          0x81,
-          relayBlob.markers.length,
-          0,
-          0xff,
-          0xff,
-          0xff,
-          0xff,
-        ],
+        [0x20, 0x81, relayBlob.markers.length, 0, 0xff, 0xff, 0xff, 0xff],
         16
       )
     );

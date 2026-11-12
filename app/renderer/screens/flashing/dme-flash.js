@@ -18,14 +18,13 @@ async function fbDmeFlashTune() {
     flashLog.note(
       `DME ${d.ident.hwRef} / prog ${d.ident.progRef} / diag ${d.ident.diagProtocol}${d.flashName ? ` / file ${d.flashName}` : ''}`
     );
-    if (!(await fbProgrammingCounter(false))) return;
     // the other maps of a block-layout map switch take what they do not
     // store from map 1, so a new map 1 changes them too
     if (
       d.carMapLayout === 'blocks' &&
       d.carMapCount > 1 &&
       !(await fbConfirm(
-        `The car carries the map switch with ${d.carMapCount} maps. Maps 2 and up store only what differs from map 1 and take the rest from it, so writing a different map 1 changes them as well.\n\nTo keep them as they are, rebuild the map switch with this tune as map 1 and flash the program instead.\n\nWrite the tune anyway?`,
+        'This car has the map switch. Writing a new tune changes maps 2 and up as well. To keep them, rebuild the map switch with this tune as map 1.\n\nWrite the tune anyway?',
         'Flash Tune'
       ))
     ) {
@@ -36,7 +35,6 @@ async function fbDmeFlashTune() {
     const result = await fbFlashRun('dme-tune', {
       cal,
       diagProtocol: d.ident.diagProtocol,
-      aifArgs: fbAifArgs(),
       describe: `DME calibration (Flash Tune), data version ${mapSwitch.readDataVersion(cal) || 'unknown'}`,
       vin: d.ident.vin,
       hwRef: d.ident.hwRef,
@@ -280,7 +278,6 @@ async function fbDmeFlashProgram(opts = {}) {
     flashLog.note(
       `DME ${d.ident.hwRef} / prog ${d.ident.progRef} / diag ${d.ident.diagProtocol} / EWS delete ${d.ews}${d.flashName ? ` / ${d.flashName}` : ''}${d.mpcName && d.mpcName !== d.flashName ? ` + ${d.mpcName}` : ''}`
     );
-    if (!(await fbProgrammingCounter(false))) return false;
     let images;
     try {
       images = fbDmeApplyProgramEdits(prompts);
@@ -309,7 +306,6 @@ async function fbDmeFlashProgram(opts = {}) {
         mpc: mpcOut,
         hasCal,
         diagProtocol: d.ident.diagProtocol,
-        aifArgs: fbAifArgs(progRef),
         describe: `DME program ${progRef || '(unreadable version)'}${hasCal ? ' + calibration' : ''}${opts.carry ? ' + installer body' : ''}${opts.patchName ? ` + ${opts.patchName}` : ''}, 1 MB external + 448 KB MPC`,
         vin: d.ident.vin,
         hwRef: d.ident.hwRef,
@@ -363,17 +359,11 @@ async function fbDmeVerifyProgramming() {
     flashLog.note(
       `DME ${d.ident.hwRef} / prog ${d.ident.progRef} / diag ${d.ident.diagProtocol}`
     );
-    if (!(await fbProgrammingCounter(false))) {
-      success = false;
-      return;
-    }
     if (!(await ms45SecurityAccess(d.ident.diagProtocol, fbSetStatus))) {
       fbSetStatus('Security Access Denied');
       success = false;
       return;
     }
-    // while in programming mode: the default session refuses the write
-    await fbWriteAif();
     fbSetStatus('Checking the program signature');
     success = await ms45FinishFlash(
       'Programm',

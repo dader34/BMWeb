@@ -1109,7 +1109,7 @@ function blHealth(h) {
 /** One line for the log. */
 function blHealthText(r) {
   return r.broken
-    ? `Bootloader check: PROBLEM -- ${r.problems.join('; ')}. Install / update the fast flash bootloader puts the boot region right.`
+    ? `Bootloader check: PROBLEM -- ${r.problems.join('; ')}.`
     : 'Bootloader check: OK';
 }
 

@@ -5,7 +5,7 @@
 // Program, Finish Programming) and dme-fast.js (the resident fast flasher).
 // They share one scope; every write asks before it starts and logs
 // everything it does to a session (History).
-/* exported fbDmeFreshState, fbDmePanelHtml, fbDmeWire, fbDmeReset, fbDmeRefresh, fbDmeIdentify, fbDmeIsMs451, fbDmeReadProtocol, fbDmeGuard, fbDmeReadCarCalibration */
+/* exported fbDmeFreshState, fbDmePanelHtml, fbDmeWire, fbDmeReset, fbDmeRefresh, fbDmeIdentify, fbDmeIsMs45, fbDmeIsMs451,fbDmeReadProtocol, fbDmeGuard, fbDmeReadCarCalibration, fbDmeFlashProgramRoute */
 
 /** @returns {Object} A fresh DME state. */
 function fbDmeFreshState() {
@@ -105,14 +105,27 @@ function fbDmeWire() {
           : fbDmeViaStockLoader('Flash Tune', fbDmeFlashTune)
     );
   fbEls['dme-flash-program'].onclick = () =>
-    fbDmeGuard('Flash Program', () =>
-      fbDmeUseFastFlasher()
-        ? fbDmeFastFlashProgram()
-        : fbDmeOneClickDue()
-          ? fbDmeOneClickFlashProgram()
-          : fbDmeViaStockLoader('Flash Program', () => fbDmeFlashProgram())
-    );
+    fbDmeGuard('Flash Program', fbDmeFlashProgramRoute);
   fbEls['dme-fullbin'].onchange = () => fbDmeFullBinChanged();
+}
+
+/**
+ * Flash Program by whichever way reaches this DME (see fbDmeWire): the
+ * button's action, and the recovery's once it has loaded the pair.
+ * @param {{confirmed?: boolean}} [opts] - confirmed: the caller has asked
+ *   the flash's question itself (the recovery, which names the files it
+ *   chose in its own), so it is not asked a second time.
+ * @returns {Promise<*>}
+ */
+function fbDmeFlashProgramRoute(opts = {}) {
+  const confirmed = !!opts.confirmed;
+  return fbDmeUseFastFlasher()
+    ? fbDmeFastFlashProgram({ confirmed })
+    : fbDmeOneClickDue()
+      ? fbDmeOneClickFlashProgram({ confirmed })
+      : fbDmeViaStockLoader('Flash Program', () =>
+          fbDmeFlashProgram({ confirmed })
+        );
 }
 
 /**
@@ -370,7 +383,7 @@ async function fbDmeIdentifyRun(afterFlash) {
   else if (d.fastFlasher) fbLog(fastFlasher.describe(d.fastFlasher));
   fbRefreshAll();
   fbOptionsRefreshEwsGate();
-  fbOptionsRefreshBenchGate();
+  fbLtInstallRefresh();
   const summary = fbDmeImmobilizerSummary() + fbDmeMapSwitchSummary();
   const carRead = d.carProgramEwsDeleted !== null || d.carMapSwitch !== null;
   // after a flash the flash's own result stays up; a bare "Identified"
@@ -495,6 +508,21 @@ async function fbDmeIdentifyThroughFlasher() {
     }
     if (claim) claim.release();
   }
+}
+
+/** The MS45 family's hardware references: MS45.1 (0044570) and MS45.0 (0044560). */
+const FB_MS45_HWREFS = ['0044570', '0044560'];
+
+/**
+ * Whether the identified DME is an MS45 (either MS45.1 or MS45.0). The two
+ * carry byte-identical build-A loaders, so the fast flasher, its one-click
+ * entry (the staged descriptor's part number follows the DME, see
+ * core/flash/trigger.js) and the tools that ride on it serve both.
+ * @returns {boolean}
+ */
+function fbDmeIsMs45() {
+  const d = fbState.dme;
+  return !!(d && d.ident && FB_MS45_HWREFS.includes(d.ident.hwRef));
 }
 
 /** Whether the identified DME is the MS45.1 (hardware reference 0044570), the one every patch here is built for. */

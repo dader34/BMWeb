@@ -76,7 +76,9 @@ function showNcsExpert() {
 
   const win = document.createElement('div');
   if (modern) {
-    win.className = 'ncs-modern';
+    // (.ncsm-coding: this screen's own arrangement of the shared modern
+    // skin -- the car and the keys in a side column, the messages beside)
+    win.className = 'ncs-modern ncsm-coding';
     win.innerHTML =
       '<div class="ncsm-head">' +
       '<div><div class="ncsm-eyebrow">Coding</div>' +
@@ -85,13 +87,16 @@ function showNcsExpert() {
       '</div>' +
       '<div class="ncsm-steps" id="ncsm-steps"></div>' +
       '<div class="ncsm-grid">' +
+      '<div class="ncsm-side">' +
       '<section class="ncsm-card"><div class="ncsm-label">Vehicle</div>' +
       '<div class="ncs-car ncsm-car" id="ncs-car"></div>' +
       '<div class="ncsm-nrcl">Session <span id="ncs-nrcl"></span></div></section>' +
+      '<section class="ncsm-card"><div class="ncsm-label">Actions</div>' +
+      '<div class="ncsm-actions" id="ncs-fkeys"></div></section>' +
+      '</div>' +
       '<section class="ncsm-card ncsm-msgcard"><div class="ncsm-label">Messages</div>' +
       '<div class="ncs-msg ncsm-msg" id="ncs-msg"></div></section>' +
       '</div>' +
-      '<div class="ncsm-actions" id="ncs-fkeys"></div>' +
       '<div class="ncsm-status"><span id="ncs-status">Ready</span></div>' +
       '<input type="file" id="ncs-file" hidden>';
   } else {
@@ -196,7 +201,7 @@ function showNcsExpert() {
           `<span class="ncsm-step-text"><span class="ncsm-step-name">${esc(name)}</span>` +
           `<span class="ncsm-step-val">${esc(value)}</span></span></div>`
       )
-      .join('<span class="ncsm-step-sep">›</span>');
+      .join('<span class="ncsm-step-sep" aria-hidden="true">›</span>');
   }
 
   /** The module panel's lines while an ECU is picked ("get coded: ..."). */
@@ -284,13 +289,17 @@ function showNcsExpert() {
     box.innerHTML = '';
     if (modern) {
       // the same six keys as buttons, their F-key beside the name; NCS's
-      // blank slots are left out
-      keys().forEach(([label, on, fn], i) => {
+      // blank slots are left out. The last key is always the way out (Exit,
+      // Back): it is drawn apart from the ones that do something
+      const all = keys();
+      all.forEach(([label, on, fn], i) => {
         if (!label) return;
         const b = document.createElement('button');
         b.className =
-          'btn ncsm-key' + (i === 2 && state.mode === 'ecu' ? ' primary' : '');
-        b.innerHTML = `<kbd>F${i + 1}</kbd><span>${esc(label)}</span>`;
+          'btn ncsm-key' +
+          (i === 2 && state.mode === 'ecu' ? ' primary' : '') +
+          (i === all.length - 1 ? ' ncsm-key-out' : '');
+        b.innerHTML = `<span>${esc(label)}</span><kbd>F${i + 1}</kbd>`;
         b.disabled = !on;
         if (on && fn) b.onclick = fn;
         box.appendChild(b);

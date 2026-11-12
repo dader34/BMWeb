@@ -467,7 +467,7 @@ const mapSwitch = {
         mapSwitch.isAlreadyPatched(mpc)
       )
     ) {
-      return `The program does not carry the ${MS_UPPER_SITES} accesses to the calibration's upper half and the two sensor-table readers the map switch rewrites (found ${upper}, readers ${sensor || 'unexpected'}), so it is not what the map switch was built for.`;
+      return 'This program is not one the map switch supports.';
     }
     if (mapSwitch.isAlreadyPatched(mpc)) return null;
     for (let i = MAPSWITCH_FREE_START; i < MAPSWITCH_FREE_END; i++) {

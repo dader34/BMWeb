@@ -7,7 +7,7 @@
  * plus viRunValues, the one way every read here drives a job.
  */
 
-/* exported viKeysFrom, viFaText, viVinBody, viTypeKey */
+/* exported viKeysFrom, viFaText, viVinBody */
 
 /**
  * The coding keys as read off a reply.
@@ -50,9 +50,6 @@ const VI_FA_BLOCK = 1;
 const VI_VIN_CHECKED_LEN = 18;
 /** A full VIN. */
 const VI_VIN_LEN = 17;
-/** Positions 4..7 of a full VIN carry the type key (WBA AV36 ...). */
-const VI_VIN_TYPE_KEY = [3, 7];
-
 /**
  * hex text -> bytes, or null. Accepts "0A 0B", "0A-0B", "0x0A0B" and plain
  * hex, plus a byte array or typed array as the web VM hands binary results
@@ -279,19 +276,4 @@ function viVinBody(v) {
     }
   }
   return s.slice(0, VI_VIN_LEN);
-}
-
-/**
- * A full 17-char VIN carries the type key at positions 4..7 (WBA AV36 ...).
- * A short VIN cannot say; the row stays honest and empty.
- * @param {unknown} vin - The VIN.
- * @returns {string|null} The type key, or null for a short VIN.
- */
-function viTypeKey(vin) {
-  const v = String(vin || '')
-    .toUpperCase()
-    .replace(/\s/g, '');
-  return new RegExp(`^[A-Z0-9]{${VI_VIN_LEN}}$`).test(v)
-    ? v.slice(VI_VIN_TYPE_KEY[0], VI_VIN_TYPE_KEY[1])
-    : null;
 }

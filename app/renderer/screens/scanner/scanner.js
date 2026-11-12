@@ -134,6 +134,7 @@ const SCANNER_GLYPH = {
   page1: 'page-1',
   page2: 'page-2',
   page3: 'page-3',
+  page4: 'page-4',
   scan: 'scan',
   clear: 'clear-dtc',
   settings: 'settings',
@@ -174,6 +175,18 @@ async function scannerClearFaults(m, found, rec) {
   }
 }
 
+/**
+ * The cable a scan runs over (scanner-scan.js): whichever is connected,
+ * through the functions above.
+ * @returns {ScannerScanIo}
+ */
+const scannerCableIo = () => ({
+  identify: scannerIdentify,
+  counts: scannerCounts,
+  faultList: (m, found) => scannerReadFaultList(scannerLink(), m, found),
+  clearFaults: scannerClearFaults,
+});
+
 /** The log's title line, the reference's layout with this app's name. */
 function scannerTitle() {
   const left = `${typeof APP_NAME === 'string' ? APP_NAME : 'BMWeb'} Scanner`;
@@ -188,7 +201,7 @@ const SCANNER_PAGE_ROWS = 20;
 
 /**
  * The modules on a page: twenty per page in table order, the last page
- * taking the remainder (page 1 is DME .. BMBT, as the reference shows it).
+ * holding what is left (page 1 is DME .. BMBT, as the reference shows it).
  * @param {number} page - 1-based.
  * @returns {ScannerModule[]}
  */
@@ -201,13 +214,14 @@ function scannerPage(page) {
 }
 
 /**
- * The modules the grid and the scan walk: the table less the second DME,
- * which the reference keeps off its pages (its page 1 runs DME, EGS, EWS
- * ... BMBT), leaving sixty units on three pages of twenty.
+ * The modules the grid and the scan walk: the reference's table less the
+ * second DME, which it keeps off its pages (its page 1 runs DME, EGS, EWS
+ * ... BMBT) -- sixty units on three pages of twenty -- and then the units
+ * it does not have (SCANNER_EXTRA_MODULES), on a page of their own.
  * @returns {ScannerModule[]}
  */
 const scannerGridModules = () =>
-  SCANNER_MODULES.filter((m) => m.name !== 'DME2');
+  scannerUnits().filter((m) => m.name !== 'DME2');
 
 /**
  * The page a module sits on.
@@ -222,7 +236,7 @@ const scannerPageOf = (m) =>
 
 /** @returns {number} How many pages the table fills. */
 const scannerPageCount = () =>
-  Math.max(1, Math.floor(scannerGridModules().length / SCANNER_PAGE_ROWS));
+  Math.max(1, Math.ceil(scannerGridModules().length / SCANNER_PAGE_ROWS));
 
 /**
  * What a module's second cell says once it is identified: the part number,
@@ -239,6 +253,9 @@ const scannerIdentText = (id) => `${id.part}   hw: ${id.hw}  sw: ${id.sw}`;
  */
 const scannerCountText = (n) =>
   n == null ? '' : n === 0 ? 'no errors' : n === 1 ? '1 error' : `${n} errors`;
+
+/** The running scan's token; leaving the screen or a new scan bumps it. */
+let _scannerToken = 0;
 
 /**
  * What the scanner keeps between visits: the page shown and what each
@@ -258,15 +275,38 @@ const scannerLive = {
  * The BMWeb Scanner screen: the reference's main window -- tool buttons on
  * the left, the unit grid on the right, one page of twenty units at a time,
  * every unit listed before anything is asked.
+ *
+ * Opened for a Garage car (its Fault scan or its Identification), every
+ * reading scan of the visit also reads the units' fault lists and is filed
+ * against that car, and Back returns to its page.
+ * @param {object} [opts]
+ * @param {GarageCar} [opts.car] - The Garage car the scans are kept against.
+ * @param {boolean} [opts.scan] - Start a scan at once.
+ * @param {boolean} [opts.ident] - Start Car ident at once.
  * @returns {void}
  */
-function showScanner() {
-  lastScreen = showScanner;
-  setCrumbs([
-    { label: 'Vehicles', fn: showChassis },
-    { label: 'Apps', fn: showApps },
-    { label: 'BMWeb Scanner' },
-  ]);
+function showScanner(opts) {
+  const car = (opts && opts.car) || null;
+  // coming back to the screen redraws it; it does not scan again. The plain
+  // Scanner is routed by its own name (#scanner); for a Garage car the
+  // address carries the car, set below
+  lastScreen = car ? () => showScanner({ car }) : showScanner;
+  setCrumbs(
+    car
+      ? [
+          { label: 'Vehicles', fn: showChassis },
+          { label: 'Garage', fn: showGarage },
+          { label: garageCarLabel(car), fn: () => showGarageCar(car.id) },
+          { label: 'BMWeb Scanner' },
+        ]
+      : [
+          { label: 'Vehicles', fn: showChassis },
+          { label: 'Apps', fn: showApps },
+          { label: 'BMWeb Scanner' },
+        ]
+  );
+  if (car && typeof garageRouteSet === 'function')
+    garageRouteSet(`scanner/${car.id}`);
   document.body.classList.add('apps-section', 'scn-page');
   sbLeft.textContent = 'scanner';
   // the reference data pack (layouts, texts, glyphs): fetched once, in the
@@ -276,7 +316,8 @@ function showScanner() {
   const leave = () => {
     _scannerToken++;
     scannerLive.running = false;
-    showApps();
+    if (car) showGarageCar(car.id);
+    else showApps();
   };
   setActions([
     { key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: leave },
@@ -348,16 +389,30 @@ function showScanner() {
     const errCell = row.querySelector('.scn-err');
     const shadowCell = row.querySelector('.scn-shadow');
     row.classList.toggle('scn-busy', !!r && r.state === 'asking');
+    // the row's colours are the reference's: green for a unit that answered
+    // and has no faults (one whose count was read, and is zero), blue for
+    // one that answered KWP2000, grey for one that did not answer, the
+    // window's own colour until it has been asked
+    const faults = !r
+      ? null
+      : r.after !== undefined && r.errors
+        ? r.after
+        : r.errors;
     row.classList.toggle('scn-found', !!(r && r.id));
+    row.classList.toggle('scn-clean', !!(r && r.id) && faults === 0);
+    row.classList.toggle('scn-kwp', !!(r && r.id && r.id.kwp));
     row.classList.toggle('scn-missing', !!r && r.state === 'silent');
     if (!r) {
       idCell.textContent = '';
       errCell.textContent = '';
+      errCell.classList.remove('scn-bad');
       shadowCell.textContent = '';
+      shadowCell.classList.remove('scn-bad');
       return;
     }
     shadowCell.textContent =
       r.id && r.shadow != null ? scannerCountText(r.shadow) : '';
+    shadowCell.classList.toggle('scn-bad', !!(r.id && r.shadow));
     if (r.state === 'asking') idCell.textContent = 'scanning…';
     else if (r.id) idCell.textContent = scannerIdentText(r.id);
     else idCell.textContent = '<not found>';
@@ -370,10 +425,7 @@ function showScanner() {
           ? ` → ${r.after == null ? '?' : r.after}`
           : '')
       : '';
-    errCell.classList.toggle(
-      'scn-bad',
-      r.after !== undefined && r.errors ? !!r.after : !!r.errors
-    );
+    errCell.classList.toggle('scn-bad', !!faults);
     row.querySelector('.scn-name').textContent =
       m.name + (r.id && r.id.kwp ? '*' : '');
   }
@@ -516,35 +568,6 @@ function showScanner() {
     return false;
   }
 
-  /** Ask one module and paint its row as the answer comes in. */
-  async function askModule(m, alive) {
-    scannerLive.results.set(m.name, {
-      id: null,
-      raw: null,
-      errors: null,
-      state: 'asking',
-    });
-    paintRow(m);
-    let found;
-    try {
-      found = await scannerIdentify(m);
-    } catch (e) {
-      scannerLive.results.delete(m.name);
-      paintRow(m);
-      throw e;
-    }
-    if (!alive()) return null;
-    const r = {
-      id: found ? found.id : null,
-      raw: found ? found.raw : null,
-      errors: null,
-      state: found ? 'found' : 'silent',
-    };
-    scannerLive.results.set(m.name, r);
-    paintRow(m);
-    return found ? r : null;
-  }
-
   function begin() {
     const token = ++_scannerToken;
     scannerLive.running = true;
@@ -627,60 +650,69 @@ function showScanner() {
       return;
     }
     const alive = begin();
-    const answered = [];
     const title = scannerTitle();
     const started = Date.now();
-    let cleared = 0;
-    try {
-      const list = scannerGridModules();
-      for (let i = 0; i < list.length && alive(); i++) {
-        const m = list[i];
-        const page = scannerPageOf(m);
-        // the grid follows the scan until the user picks a page
-        if (scannerLive.follow && page !== scannerLive.page) {
-          scannerLive.page = page;
-          paintGrid();
-        }
-        setStatus(
-          `${clear ? 'Clear DTC' : 'Scanning'}: ${m.name} (${i + 1}/${list.length})…`
-        );
-        const r = await askModule(m, alive);
-        if (!r) continue;
-        answered.push({ module: m, r });
-        const found = { kwp: !!(r.id && r.id.kwp), raw: r.raw };
-        const rec = clear ? [] : null;
-        r.trace = rec;
-        const counts = await scannerCounts(m, found, rec);
-        r.errors = counts.errors;
-        r.shadow = counts.shadow;
-        paintRow(m);
-        // the reference clears a unit with stored OR shadow-memory faults
-        if (clear && (r.errors || r.shadow) && alive()) {
+    const list = scannerGridModules();
+    const verb = clear ? 'Clear DTC' : 'Scanning';
+    // a reading scan for a Garage car is kept: it needs the faults
+    // themselves, not only their counts
+    const keep = !!car && !clear;
+    /** What the Garage is handed: units read to the end, and the silent. */
+    const read = [];
+    const silent = [];
+    const { answered, cleared, error } = await scannerScanUnits({
+      units: list,
+      alive,
+      clear,
+      faults: keep,
+      io: scannerCableIo(),
+      on: (phase, m, r, i) => {
+        if (phase === 'ask') {
+          // the grid follows the scan until the user picks a page
+          const page = scannerPageOf(m);
+          if (scannerLive.follow && page !== scannerLive.page) {
+            scannerLive.page = page;
+            paintGrid();
+          }
+          setStatus(`${verb}: ${m.name} (${i + 1}/${list.length})…`);
+          scannerLive.results.set(m.name, {
+            id: null,
+            raw: null,
+            errors: null,
+            state: 'asking',
+          });
+        } else if (phase === 'failed') {
+          scannerLive.results.delete(m.name);
+        } else if (phase === 'silent') {
+          silent.push(m);
+          scannerLive.results.set(m.name, {
+            id: null,
+            raw: null,
+            errors: null,
+            state: 'silent',
+          });
+        } else if (phase === 'found') {
+          scannerLive.results.set(m.name, r);
+        } else if (phase === 'clearing') {
           setStatus(`Clear DTC: clearing ${m.name}…`);
-          const out = await scannerClearFaults(m, found, rec);
-          if (out.error) rec.push('clear: ' + out.error);
-          r.after = out.left;
-          if (out.ok) cleared++;
-          paintRow(m);
+        } else if (phase === 'done' && alive()) {
+          // (a unit the stop cut short is left out rather than half filed)
+          read.push(r);
         }
-      }
-    } catch (e) {
-      setStatus('Stopped: ' + ((e && e.message) || e));
-    }
+        paintRow(m);
+      },
+    });
+    if (error) setStatus('Stopped: ' + error.message);
     scannerLive.log = scannerLog({
       title,
       clear,
-      rows: answered.map((a) => ({
-        module: a.module,
-        id: a.r.id,
-        errors: a.r.errors,
-        shadow: a.r.shadow == null ? null : a.r.shadow,
-        trace: a.r.trace || null,
-        after: clear
-          ? a.r.errors || a.r.shadow
-            ? a.r.after
-            : a.r.errors
-          : undefined,
+      rows: answered.map((r) => ({
+        module: r.module,
+        id: r.id,
+        errors: r.errors,
+        shadow: r.shadow == null ? null : r.shadow,
+        trace: r.trace || null,
+        after: clear ? (r.errors || r.shadow ? r.after : r.errors) : undefined,
       })),
     });
     const secs = Math.round((Date.now() - started) / 1000);
@@ -694,7 +726,27 @@ function showScanner() {
       setStatus(
         `Scan finished: ${answered.length} unit(s) answered in ${secs} s. View log > Scan log.`
       );
+    const stopped = !alive();
     end();
+    if (keep && read.length) await keepInGarage(read, silent, stopped);
+  }
+
+  /**
+   * File a scan against the Garage car this visit is for, and say so after
+   * the scan's own status.
+   * @param {ScannerUnitResult[]} read - The units read to the end.
+   * @param {ScannerModule[]} silent - The units that did not answer.
+   * @param {boolean} stopped - The scan was stopped before its end.
+   */
+  async function keepInGarage(read, silent, stopped) {
+    const said = $('scn-status') ? $('scn-status').textContent : '';
+    const report = await scannerGarageReport(car.chassis, read, silent);
+    const kept = garageAddScan(car.id, { report }, { chassis: car.chassis });
+    // the reader may have left, or started another scan, while it was filed
+    if (!kept || !win.isConnected || scannerLive.running) return;
+    setStatus(
+      `${said} ${stopped ? 'What was read is kept' : 'Kept'} in the Garage against ${garageCarLabel(car)}.`
+    );
   }
 
   const clearDtc = () => scan(true);
@@ -809,6 +861,20 @@ function showScanner() {
   paintGrid();
   if (!connected())
     setStatus('Connect the cable in the top bar, then Car ident or Scan!');
+  if (opts && opts.scan) whenCableIsUp(scan);
+  else if (opts && opts.ident) whenCableIsUp(carIdent);
+
+  /**
+   * Start what the screen was opened for, once the cable has had its chance
+   * to come up: right after a page load it is still reconnecting, and a
+   * read started then would only say there is none.
+   * @param {() => void} start - The scan, or Car ident.
+   */
+  async function whenCableIsUp(start) {
+    if (typeof window !== 'undefined' && window.cableReady)
+      await window.cableReady.catch(() => {});
+    if (win.isConnected && !scannerLive.running) start();
+  }
 }
 
 if (typeof module !== 'undefined' && module.exports) {
@@ -817,6 +883,7 @@ if (typeof module !== 'undefined' && module.exports) {
     scannerPasoft,
     scannerCounts,
     scannerClearFaults,
+    scannerCableIo,
     scannerPageOf,
     scannerDs2Comm,
     scannerKwpComm,

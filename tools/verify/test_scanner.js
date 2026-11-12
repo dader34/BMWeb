@@ -200,6 +200,25 @@ ok('module table', () => {
   );
 });
 
+ok('the units the reference does not have', () => {
+  const all = s.scannerUnits();
+  assert.strictEqual(
+    all.length,
+    s.SCANNER_MODULES.length + s.SCANNER_EXTRA_MODULES.length
+  );
+  // the reference's table comes first, untouched
+  assert.deepStrictEqual(all.slice(0, 61), s.SCANNER_MODULES);
+  // no name and no address is asked twice
+  assert.strictEqual(new Set(all.map((m) => m.name)).size, all.length);
+  assert.strictEqual(new Set(all.map((m) => m.address)).size, all.length);
+  for (const m of s.SCANNER_EXTRA_MODULES) {
+    // nothing is known of how they talk: DS2 first, then KWP2000
+    assert.ok(!s.scannerKwpOnly(m) && s.scannerTriesKwp(m), m.name);
+    // the log's unit column is six wide, '*' included
+    assert.ok(m.name.length <= 5, m.name);
+  }
+});
+
 ok('refusals and protocol choice', () => {
   const refused = IKE.slice();
   refused[2] = 0xa2;
@@ -226,7 +245,12 @@ ok('whole log', () => {
 ok('pages: the reference grid, twenty units a page, no DME2', () => {
   Object.assign(global, s, { inpaMode: () => false });
   const w = require('../../app/renderer/screens/scanner/scanner.js');
-  assert.strictEqual(w.scannerPageCount(), 3);
+  // three pages of the reference's units, then the units it does not have
+  assert.strictEqual(w.scannerPageCount(), 4);
+  assert.deepStrictEqual(
+    w.scannerPage(4).map((m) => m.name),
+    s.SCANNER_EXTRA_MODULES.map((m) => m.name)
+  );
   assert.deepStrictEqual(
     w.scannerPage(1).map((m) => m.name),
     [

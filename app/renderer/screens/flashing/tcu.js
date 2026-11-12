@@ -594,7 +594,6 @@ async function fbTcuWriteCal() {
   ) {
     return;
   }
-  if (!(await fbProgrammingCounter(true))) return;
 
   let eraseStarted;
   fbFlashingBar(true);
@@ -606,15 +605,12 @@ async function fbTcuWriteCal() {
     const image = t.noUpshift ? gs20NoUpshift.apply(t.cal) : t.cal;
     if (image !== t.cal) flashLog.note('auto upshift removed');
     flashLog.attach('tcu_calibration_0x090000.bin', image);
-    const aifRecord = fbTcuAifRecord(null, image);
     const res = await fbFlashRun(
       'tcu-cal',
       {
         calibration: image,
         fast: !!t.fast,
-        aifRecord,
         describe: `TCU calibration ${gs20Checksum.version(image) || 'of unknown version'}${t.noUpshift ? ', auto upshift removed' : ''}, 64 KB at 0x090000`,
-        vin: fbState.aifVin || '',
       },
       {
         stage: fbSetStage,
@@ -626,7 +622,6 @@ async function fbTcuWriteCal() {
     );
     if (res.ok) {
       eraseStarted = !!res.eraseStarted;
-      if (res.aifLeft != null) t.aif.AIF_ANZ_FREI = String(res.aifLeft);
       await fbFaultsClearAfterFlash('tcu');
       fbSetStatus('Calibration written. Cycle the ignition before driving.');
       await fbMessage(
@@ -647,67 +642,6 @@ async function fbTcuWriteCal() {
     fbFlashingBar(false);
     fbProgress(0);
     await fbSessionStop();
-  }
-}
-
-/**
- * The programming-log entry for this write: the VIN from the counter
- * question, the DME when it was identified this session, else the module's
- * own last entry; today's date; the data and assembly numbers from the
- * calibration's own reference (ER10 = 7558009 / 7558008 ...), else the file
- * name, else carried forward; the program reference from the image tail.
- * @param {Uint8Array|null} program - The program image written, if any.
- * @param {Uint8Array|null} calibration - The calibration written, if any.
- * @returns {Uint8Array|null} The record, or null when none can be made.
- */
-function fbTcuAifRecord(program, calibration) {
-  if (!fbAifWanted()) return null;
-  const t = fbState.tcu;
-  const a = (f) => t.aif[f] || '';
-  let vin = fbState.aifVin || '';
-  if (!fbIsAlnum(vin, 17))
-    vin =
-      (fbState.dme && fbState.dme.aif && fbState.dme.aif.AIF_FG_NR_LANG) || '';
-  if (!fbIsAlnum(vin, 17)) vin = a('AIF_FG_NR');
-  if (!fbIsAlnum(vin, 17)) {
-    flashLog.note(
-      'AIF not written: no 17-character VIN known (type one at the counter question or identify the DME first)'
-    );
-    return null;
-  }
-  const ident = gs20IdentTail(program) || gs20IdentTail(calibration);
-  const progRef = ident
-    ? [0, parseInt(ident.slice(0, 2), 16), parseInt(ident.slice(2, 4), 16)]
-    : [0, 0, 0];
-  const known = gs20Aif.partNumbers(
-    calibration ? gs20Checksum.version(calibration) : null
-  );
-  const fileNr = (name) => {
-    const m = /(?<!\d)(\d{7})(?!\d)/.exec(name || '');
-    return m ? parseInt(m[1], 10) : null;
-  };
-  const zb = known ? known.assemblyNr : gs20Aif.number(a('AIF_ZB_NR'));
-  const sw = known
-    ? known.dataNr
-    : fileNr(t.calName) || gs20Aif.number(a('AIF_SW_NR'));
-  let index = a('AIF_AENDERUNGS_INDEX');
-  if (index.length !== 2) index = '00';
-  try {
-    return gs20Aif.build(
-      vin,
-      new Date(),
-      sw,
-      index,
-      gs20Aif.number(a('AIF_BEHOERDEN_NR')),
-      zb,
-      fbTesterSerial,
-      gs20Aif.number(a('AIF_WERKSCODE')),
-      gs20Aif.number(a('AIF_KM_STAND')),
-      progRef
-    );
-  } catch (e) {
-    flashLog.note(`AIF not written: ${e.message}`);
-    return null;
   }
 }
 
@@ -915,7 +849,6 @@ async function fbTcuWriteProgram() {
   ) {
     return;
   }
-  if (!(await fbProgrammingCounter(true))) return;
 
   let erased;
   fbFlashingBar(true);
@@ -939,16 +872,13 @@ async function fbTcuWriteProgram() {
         `calibration ${gs20Checksum.version(t.cal) || 'unknown version'} / checksum 0x${gs20Checksum.stored(t.cal).toString(16).toUpperCase().padStart(4, '0')} follows the program`
       );
     }
-    const aifRecord = fbTcuAifRecord(image, calImage);
     const res = await fbFlashRun(
       'tcu-program',
       {
         program: image,
         calibration: calImage,
         fast: !!t.fast,
-        aifRecord,
         describe: `TCU program release ${release}${gs20ProgramHasReadPatch(image) ? ' (read patch)' : ''}${calImage ? ` + calibration ${gs20Checksum.version(t.cal) || 'of unknown version'}` : ''}, 256 KB at 0x0A0000`,
-        vin: fbState.aifVin || '',
       },
       {
         stage: (s) => {
@@ -964,7 +894,6 @@ async function fbTcuWriteProgram() {
       }
     );
     if (res.ok) {
-      if (res.aifLeft != null) t.aif.AIF_ANZ_FREI = String(res.aifLeft);
       flashLog.note('RESULT: written and committed');
       await fbFaultsClearAfterFlash('tcu');
       if (calImage) {

@@ -155,7 +155,11 @@ const CAPTION = {
   errors: /^Errors? \.\.\.$/,
   readEeprom: /^Read EEPROM$/,
   writeEeprom: /^Write EEPROM$/,
+  steeringAngle: /^Steering wheel angle$/,
+  srsReprogramming: /^Reprogramming$/,
 };
+// "Reprogramming" is on every unit's window; only the airbag unit's is built
+const ONLY_ON = { srsReprogramming: 'TForm10' };
 for (const cls of new Set([
   ...Object.values(unit.SCANNER_UNIT_FORM),
   'TForm3',
@@ -175,13 +179,136 @@ for (const cls of new Set([
     const action = Object.keys(CAPTION).find((a) =>
       CAPTION[a].test(el.textContent)
     );
-    if (action)
+    if (action && (!ONLY_ON[action] || ONLY_ON[action] === cls))
       assert.strictEqual(
         table[name],
         action,
         `${cls}.${name} "${el.textContent}" is in the table`
       );
   }
+}
+
+// the "Please wait ..." window: its form is in the pack, and the light
+// follows each telegram the reference's way
+{
+  const { ctl } = vcl.scannerRenderForm(SCANNER_FORMS.TForm98);
+  for (const name of ['Panel1', 'PanelLight', 'Button1'])
+    assert.ok(ctl[name], `TForm98.${name}`);
+  const seen = [];
+  const lit = vcl.scannerLitLink(
+    {
+      ds2: async (addr, payload) => {
+        if (payload[0] === 0xee) throw new Error('IFH-0009');
+        return [addr, 4, payload[0] === 0x06 ? 0xa0 : 0xa1, 0];
+      },
+      sleep: async () => {},
+    },
+    { light: (state) => seen.push(state) }
+  );
+  (async () => {
+    await lit.ds2(0x00, [0x06]);
+    await lit.ds2(0x00, [0x07]);
+    await lit.ds2(0x00, [0xee]).catch(() => {});
+    assert.deepStrictEqual(seen, ['ok', 'refused', 'silent']);
+    assert.strictEqual(lit.word, undefined, 'no word on a link without one');
+    assert.strictEqual(
+      vcl.scannerVclColor(vcl.SCANNER_WAIT_LIGHT.ok),
+      'rgb(0, 240, 0)'
+    );
+    assert.strictEqual(
+      vcl.scannerVclColor(vcl.SCANNER_WAIT_LIGHT.refused),
+      'rgb(240, 240, 0)'
+    );
+    assert.strictEqual(
+      vcl.scannerVclColor(vcl.SCANNER_WAIT_LIGHT.silent),
+      'rgb(255, 0, 0)'
+    );
+    console.log('scanner unit: the wait light follows the telegrams');
+  })().catch((e) => {
+    console.error(e);
+    process.exit(1);
+  });
+}
+
+// the read-only functions, against a unit that answers as the handlers expect
+{
+  const reads = require('../../app/renderer/screens/scanner/scanner-reads.js');
+  for (const cls of ['TForm92', 'TForm10R', 'TForm10CR'])
+    assert.ok(SCANNER_FORMS[cls], `the pack has ${cls}`);
+  const sent = [];
+  const link = (answers) => ({
+    sleep: async () => {},
+    ds2: async (addr, payload) => {
+      sent.push(['ds2', addr, ...payload]);
+      return answers.ident;
+    },
+    word: async (w, addr, payload) => {
+      sent.push([w, addr, ...payload]);
+      return answers.word(w, payload);
+    },
+  });
+  const lew = { name: 'LEW', address: 0x57 };
+  const srs = { name: 'SRS', address: 0xa4 };
+  (async () => {
+    // steering angle: identify, then A651; bytes 3..6 are the values
+    let l = link({
+      ident: [0x57, 4, 0xa0, 0],
+      word: () => [0x57, 8, 0xa0, 12, 200, 7, 255, 0],
+    });
+    assert.deepStrictEqual(await reads.scannerSteeringAngle(l, lew), {
+      relative: 12,
+      absolute: 200,
+      constant1: 7,
+      constant2: 255,
+    });
+    assert.deepStrictEqual(sent, [
+      ['ds2', 0x57, 0x00],
+      [0xa651, 0x57],
+    ]);
+    // a refusal leaves the values alone; silence is a connection error
+    l = link({ ident: [0x57, 4, 0xa0, 0], word: () => [0x57, 4, 0xa1, 0] });
+    assert.strictEqual(await reads.scannerSteeringAngle(l, lew), null);
+    l = link({ ident: null, word: () => null });
+    await assert.rejects(
+      reads.scannerSteeringAngle(l, lew),
+      /Connection error with LEW/
+    );
+    // no adapter words on this cable: said, not sent
+    sent.length = 0;
+    await assert.rejects(
+      reads.scannerSteeringAngle({ ds2: async () => [1], sleep() {} }, lew),
+      (e) => e.unsupported === true
+    );
+    assert.deepStrictEqual(sent, []);
+    // crash data: blocks 1..8, the data bytes of each in hex, one line each
+    sent.length = 0;
+    l = link({
+      word: (w, [block]) =>
+        block === 2
+          ? [0xa4, 4, 0xa1, 0]
+          : block === 3
+            ? [0xa4, 5, 0xa0, 0, 0]
+            : [0xa4, 8, 0xa0, block, 0x0a, 0xbc, 0x01, 0],
+    });
+    const text = await reads.scannerCrashData(l, srs);
+    assert.deepStrictEqual(
+      sent.map((x) => x.slice(0, 3)),
+      [1, 2, 3, 4, 5, 6, 7, 8].map((b) => [0xa3a8, 0xa4, b])
+    );
+    assert.strictEqual(
+      text,
+      'Crash data buffer:\r\n' + '0A BC 01 \r\n'.repeat(6)
+    );
+    l = link({ word: () => null });
+    await assert.rejects(
+      reads.scannerCrashData(l, srs),
+      /Connection error with SRS/
+    );
+    console.log('scanner unit: steering angle and crash data as the handlers');
+  })().catch((e) => {
+    console.error(e);
+    process.exit(1);
+  });
 }
 
 console.log(`scanner unit: ${n} forms draw, unit windows OK`);

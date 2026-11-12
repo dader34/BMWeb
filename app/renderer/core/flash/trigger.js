@@ -139,10 +139,22 @@ function triggerReceiver() {
  * after the fire (triggerUploadFrame), straight into SRAM.
  * @param {Uint8Array} body - The fast-flash body, checked against the space
  *   below the receiver it will be written into.
+ * @param {string} [partNo] - The six characters the MTOS gate checks the
+ *   descriptor's ID field against: the loader compares them with the DME's
+ *   own part number at flash 0x1F9F4 ("004457" on the MS45.1, "004456" on
+ *   the MS45.0) and will NOT execute the entry on a mismatch. The DME's
+ *   hwRef gives it; defaults to the MS45.1's for callers that have none.
+ *   Not covered by the gate CRC, so it is free to vary per DME.
  * @returns {{img: Uint8Array, stub: Uint8Array, crc: number, end: number}}
- * @throws {Error} When the body would overrun the receiver.
+ * @throws {Error} When the body would overrun the receiver, or the part
+ *   number is not six characters.
  */
-function triggerImage(body) {
+function triggerImage(body, partNo = '004457') {
+  const id = String(partNo).slice(0, 6);
+  if (id.length !== 6)
+    throw new Error(
+      `the MTOS part number must be six characters, got "${partNo}"`
+    );
   if (body.length % 4)
     throw new Error('the body is not a whole number of words');
   if (TRIGGER.SRAM_BASE + body.length > TRIGGER.STUB_AT)
@@ -167,7 +179,7 @@ function triggerImage(body) {
   trigBytes.putBe32(img, 0x5e, TRIGGER.D_ENTRY); // range start (unaligned by design)
   trigBytes.putBe32(img, 0x62, end); // range end
   img.set(
-    Array.from('004457MTOS', (c) => c.charCodeAt(0)),
+    Array.from(`${id}MTOS`, (c) => c.charCodeAt(0)),
     0x66
   );
   img.set(code, 0x70);
@@ -313,11 +325,14 @@ function _triggerNrc(r) {
  *   ms45LiveTuneSender-shaped send path.
  * @param {Uint8Array} body - The fast-flash body (triggerBodyFromBlob).
  * @param {{stage?: (s: string) => void, note?: (s: string) => void,
- *   progress?: (n: number, total: number) => void,
+ *   progress?: (n: number, total: number) => void, partNo?: string,
  *   markers?: {unlocked: boolean, note?: string}}} [cb] - Progress
  *   callbacks.  markers: what the caller's ROMX read of the boot markers
  *   found -- {unlocked: false} refuses before anything is sent; leave it
  *   out to skip the check (a misfire is safe: the gate just NRCs).
+ *   partNo: the DME's part number (its hwRef), which the MTOS gate matches
+ *   against the staged descriptor -- "004457" (MS45.1) or "004456"
+ *   (MS45.0); a wrong one is accepted at the fire but never executed.
  * @returns {Promise<{replied: number[]|Uint8Array|null}>}
  * @throws {Error} When a step is refused or the answer is not what the
  *   proof says comes back.
@@ -359,7 +374,7 @@ async function triggerFire(sender, body, cb = {}) {
       `the write enable was not answered as expected (${r ? Array.from(r, (x) => x.toString(16).padStart(2, '0')).join(' ') : 'no answer'})`
     );
 
-  const image = triggerImage(body);
+  const image = triggerImage(body, cb.partNo);
   const tgs = triggerStageTelegrams(
     [image.img, TRIGGER.DESC],
     [image.stub, TRIGGER.STUB_AT]

@@ -4620,126 +4620,6 @@ body.apps-section .view {
   color: var(--ink-dim);
 }
 
-/* ---- VEHICLE IDENTITY ----------------------------------------------------
-   The reading is the headline: one summary card saying what the car IS, the
-   equipment beneath it as labelled chips, and the control units that answered
-   as a footnote strip. Which ECU replied matters when a read fails and almost
-   never otherwise, so it sits last rather than first. */
-.vi-panel {
-  display: grid;
-  gap: 18px;
-  max-width: 860px;
-}
-
-/* what the car is: a label/value pair grid, values in mono so keys and
-   paint codes line up and stay checkable against a build sheet */
-
-.vi-block {
-  display: grid;
-  gap: 9px;
-}
-.vi-block h3 {
-  margin: 0;
-  font-size: 12px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--ink-dim);
-  font-weight: 700;
-}
-
-/* An option code is the number FIRST -- that is what a predicate tests and
-   what a forum post quotes -- with the catalogue name under it. */
-
-.vi-none {
-  color: var(--ink-dim);
-  font-size: 13px;
-}
-
-/* what could NOT be resolved: collapsed, but present and countable */
-
-.vi-raw > summary {
-  cursor: pointer;
-  font-size: 12px;
-  color: var(--ink-dim);
-  list-style: none;
-}
-.vi-raw > summary::-webkit-details-marker {
-  display: none;
-}
-.vi-raw code {
-  display: block;
-  margin-top: 8px;
-  padding: 10px 12px;
-  border-radius: 8px;
-  background: var(--panel);
-  border: 1px solid var(--line);
-  font-size: 12px;
-  color: var(--ink);
-  word-break: break-all;
-}
-
-/* which control unit answered, and how */
-/* NCS-style parameter tables: label column plus one column per identity
-   master, so the record's copies sit side by side and a disagreement between
-   them is visible at a glance. */
-.vi-ncs-wrap {
-  overflow-x: auto;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--panel);
-}
-.vi-ncs {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
-}
-.vi-ncs th,
-.vi-ncs td {
-  text-align: left;
-  padding: 8px 14px;
-  white-space: nowrap;
-  border-bottom: 1px solid var(--line);
-}
-.vi-ncs tbody tr:last-child td {
-  border-bottom: 0;
-}
-.vi-ncs th {
-  font-size: 10.5px;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-  color: var(--ink-faint);
-  font-weight: 700;
-}
-.vi-ncs td:first-child {
-  font-size: 11.5px;
-  letter-spacing: 0.04em;
-  color: var(--ink-dim);
-}
-.vi-ncs td.mono {
-  color: var(--ink);
-}
-/* the finding this screen exists for: the copies disagree */
-.vi-ncs tr.vi-mismatch td {
-  color: var(--amber);
-}
-.vi-ncs tr.vi-mismatch td:first-child::after {
-  content: ' ≠';
-}
-
-/* the decoded option lists, one per master, NCS's <0530> style */
-.vi-opt-grid {
-  display: grid;
-  gap: 16px;
-  grid-template-columns: repeat(var(--vi-cols, 2), minmax(0, 1fr));
-}
-.vi-opt-grid h4 {
-  margin: 0 0 6px;
-  font-size: 11px;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--ink-faint);
-  font-weight: 700;
-}
 .vi-opt {
   list-style: none;
   margin: 0;
@@ -4764,42 +4644,6 @@ body.apps-section .view {
   font-size: 12px;
   margin-left: 6px;
   font-family: var(--mono, ui-monospace, monospace);
-}
-/* the read in progress: several jobs over a slow bus, so say which */
-.vi-loading {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 18px 8px;
-  color: var(--ink-dim);
-  font-size: 13px;
-}
-
-.vi-src {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 14px;
-  padding-top: 12px;
-  border-top: 1px solid var(--line);
-}
-.vi-src-i {
-  font-size: 11.5px;
-  color: var(--ink-faint);
-}
-.vi-src-i b {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-}
-.vi-src-i.ok b {
-  color: var(--green);
-}
-.vi-src-i.bad b {
-  color: var(--ink-dim);
-}
-
-@media (max-width: 760px) {
-  .vi-opt-grid {
-    grid-template-columns: 1fr;
-  }
 }
 
 /* INPA-mode picker: the shared act-key-row grid is "76px 1fr auto 14px", whose
@@ -6497,6 +6341,11 @@ body.remote-helper::after {
 }
 :root .js-win .search-row:is(:hover, :focus-visible) * {
   color: #fff !important;
+}
+/* a job-name badge keeps its own grey face on the selected row, so its text
+   stays black: white on that face cannot be read */
+:root .js-win .search-row:is(:hover, :focus-visible) .search-row-jobs code {
+  color: #000 !important;
 }
 :root .js-win .search-row-label {
   color: #000 !important;
@@ -8678,13 +8527,6 @@ body.remote-helper::after {
   font-size: 13px;
 }
 
-/* identity screen before its first read (the ISTA row lands here) */
-.vi-idle {
-  padding: 18px 16px;
-  color: var(--muted, #8a8f98);
-  line-height: 1.5;
-}
-
 /* a tree box's sheet: the read's findings, then the way into the module */
 .modal.tree-sheet {
   width: min(720px, 94vw);
@@ -8865,6 +8707,31 @@ html[data-theme='inpa'] .ipo-key:hover {
     inset 1px 1px 0 var(--t32-sh),
     inset -1px -1px 0 var(--t32-hi);
 }
+.apps-win-icon svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+/* the colour pictures (apps.js, APP_ICONS_RETRO): their own fills, one
+   screen pixel a unit, no smoothing */
+.apps-win-icon svg.apps-ico-retro {
+  width: 24px;
+  height: 24px;
+  fill: #000;
+  stroke: none;
+  stroke-width: 1;
+  stroke-linecap: butt;
+  stroke-linejoin: miter;
+  shape-rendering: crispEdges;
+}
+.apps-win-btn:disabled .apps-win-icon svg.apps-ico-retro {
+  filter: grayscale(1);
+  opacity: 0.5;
+}
 .apps-win-btn:disabled .apps-win-icon {
   color: #8d8d8d;
   background: var(--t32-face);
@@ -8872,15 +8739,6 @@ html[data-theme='inpa'] .ipo-key:hover {
 .apps-win-label {
   flex: 1;
   min-width: 0;
-}
-.apps-win-key {
-  flex: none;
-  min-width: 16px;
-  padding: 0 3px;
-  font-size: 11px;
-  text-align: center;
-  color: #444;
-  border: 1px solid var(--t32-sh);
 }
 .apps-win-status {
   display: flex;
@@ -10555,6 +10413,182 @@ body:is(.fb-skin-tabs-on, .fb-skin-rail-on) .modal-overlay .fb-logview {
     grid-template-columns: 1fr;
   }
 }
+/* ---- BMWeb Coding's own arrangement of the modern skin (.ncsm-coding):
+   the steps as three bars that fill as the flow goes, the car and the keys
+   in a side column, the messages as the page's main pane beside them ---- */
+.ncsm-coding {
+  gap: 18px;
+}
+.ncsm-coding .ncsm-steps {
+  gap: 10px;
+  flex-wrap: nowrap;
+  padding: 0;
+  background: none;
+  border: 0;
+}
+.ncsm-coding .ncsm-step {
+  flex: 1 1 0;
+  align-items: flex-start;
+  gap: 10px;
+  padding-top: 10px;
+  border-top: 2px solid var(--line);
+  opacity: 1;
+}
+.ncsm-coding .ncsm-step.done {
+  border-top-color: var(--amber);
+}
+.ncsm-coding .ncsm-step.current {
+  border-top-color: var(--amber);
+  border-image: linear-gradient(90deg, var(--amber) 40%, var(--line) 40%) 1;
+}
+.ncsm-coding .ncsm-step-sep {
+  display: none;
+}
+.ncsm-coding .ncsm-step-n {
+  width: 20px;
+  height: 20px;
+  font-size: 10.5px;
+  color: var(--ink-faint);
+  border-color: var(--line);
+}
+.ncsm-coding .ncsm-step-name {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.ncsm-coding .ncsm-step-val {
+  max-width: none;
+  font-size: 13px;
+  color: var(--ink-dim);
+}
+.ncsm-coding .ncsm-step:is(.done, .current) .ncsm-step-val {
+  color: var(--ink);
+}
+.ncsm-coding .ncsm-grid {
+  grid-template-columns: minmax(0, 300px) minmax(0, 1fr);
+  align-items: stretch;
+  gap: 16px;
+}
+.ncsm-coding .ncsm-side {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+.ncsm-coding .ncsm-card {
+  gap: 12px;
+  padding: 16px;
+}
+.ncsm-coding .ncsm-label {
+  color: var(--ink-faint);
+}
+/* the car: a quiet list, a dash where nothing is known yet */
+.ncsm-coding .ncsm-car {
+  grid-template-columns: 78px minmax(0, 1fr);
+  gap: 0;
+  font-size: 12.5px;
+}
+.ncsm-coding .ncsm-car span {
+  display: flex;
+  align-items: center;
+  min-height: 31px;
+  padding: 4px 0;
+  border-top: 1px solid var(--line);
+  overflow-wrap: anywhere;
+}
+.ncsm-coding .ncsm-car span:nth-child(-n + 2) {
+  border-top: 0;
+}
+.ncsm-coding .ncsm-car span:nth-child(odd) {
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+}
+.ncsm-coding .ncsm-car span:nth-child(even):empty::before {
+  content: '\2014';
+  color: var(--ink-faint);
+}
+.ncsm-coding .ncsm-nrcl:has(#ncs-nrcl:empty) {
+  display: none;
+}
+/* the keys: one a row, its F-key at the right; the way out apart, below */
+.ncsm-coding .ncsm-actions {
+  grid-template-columns: 1fr;
+  gap: 6px;
+}
+.ncsm-coding .ncsm-key {
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 13px;
+  text-align: left;
+}
+.ncsm-coding .ncsm-key kbd {
+  flex: none;
+  font-size: 10px;
+  border-color: var(--line);
+  background: none;
+  box-shadow: none;
+}
+.ncsm-coding .ncsm-key-out {
+  margin-top: 8px;
+  color: var(--ink-dim);
+  background: none;
+  border-color: transparent;
+  border-top-color: var(--line);
+}
+.ncsm-coding .ncsm-key-out:not(:disabled):hover {
+  color: var(--ink);
+}
+/* the messages: the main pane, as tall as the side column */
+.ncsm-coding .ncsm-msgcard {
+  min-height: 340px;
+}
+.ncsm-coding .ncsm-msg {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--ink);
+  white-space: pre-wrap;
+  overflow: auto;
+}
+.ncsm-coding .ncsm-msg:empty {
+  display: grid;
+  place-items: center;
+  text-align: center;
+}
+.ncsm-coding .ncsm-msg:empty::before {
+  max-width: 260px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.ncsm-coding .ncsm-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-top: 12px;
+}
+.ncsm-coding .ncsm-status::before {
+  content: '';
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--amber);
+}
+@media (max-width: 760px) {
+  .ncsm-coding .ncsm-grid {
+    grid-template-columns: 1fr;
+  }
+  .ncsm-coding .ncsm-steps {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .ncsm-coding .ncsm-msgcard {
+    min-height: 200px;
+  }
+}
 .ncs-modern :is(.ncsd-count, .ncsd-origin, .ncsd-kw) {
   color: var(--ink-faint);
 }
@@ -11056,9 +11090,6 @@ html .apps-list.home .home-search input[type]:focus-visible {
   .home-card {
     padding: 12px;
   }
-  .home-card .home-key {
-    display: none;
-  }
 }
 
 /* ---- the flashing app's dropdowns in its modern skin: a native select is
@@ -11100,4 +11131,26 @@ html .apps-list.home .home-search input[type]:focus-visible {
 .fb:not(.fb-classic):not(.fb-skin-tabs):not(.fb-skin-rail) select option {
   color: var(--ink);
   background: var(--panel);
+}
+
+/* ---- navigation locked while a flash runs (core/nav-lock.js): the line
+   that says why Back did nothing ---- */
+.nav-lock-notice {
+  position: fixed;
+  top: 64px;
+  left: 50%;
+  z-index: 9000;
+  transform: translateX(-50%);
+  max-width: calc(100vw - 32px);
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--amber-ink);
+  background: var(--amber);
+  border-radius: 8px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+}
+.nav-lock-notice[hidden] {
+  display: none;
 }

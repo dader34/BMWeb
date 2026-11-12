@@ -736,7 +736,7 @@ class LiveTune {
       if (!d && !this.supported())
         throw new LtError(
           'refused',
-          `this DME runs live tune build ${this.version}; flash the current one (${LT_VERSION}) to edit it live`
+          'This DME has an older live tune program. Install live tune again to edit it live.'
         );
       if (!d) {
         if (open.length >= LT_DESC_SLOTS)

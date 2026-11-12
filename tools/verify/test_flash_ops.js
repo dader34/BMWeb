@@ -182,7 +182,9 @@ const {
   const back = flashOps.decode('dme-tune', text);
   assert.deepStrictEqual(back.cal, cal);
   assert.strictEqual(back.diagProtocol, 'KWP-2000*');
-  assert.strictEqual(back.aifArgs, 'WBA;01.01.2026;x');
+  // a programming record a helper on an older build still sends is not
+  // taken: the flash operations write none
+  assert.ok(!('aifArgs' in back));
   const prog = flashOps.decode(
     'dme-program',
     flashOps.encode({
@@ -196,7 +198,6 @@ const {
   assert.strictEqual(prog.flash.length, 0x100000);
   assert.strictEqual(prog.mpc[5], bytes(0x70000, 3)[5]);
   assert.strictEqual(prog.hasCal, true);
-  assert.strictEqual(prog.aifArgs, null);
   const tcu = flashOps.decode(
     'tcu-program',
     flashOps.encode({
@@ -208,7 +209,7 @@ const {
   );
   assert.strictEqual(tcu.program.length, 0x40000);
   assert.strictEqual(tcu.calibration.length, 0x10000);
-  assert.strictEqual(tcu.aifRecord.length, 40);
+  assert.ok(!('aifRecord' in tcu));
   const tcuNoCal = flashOps.decode(
     'tcu-program',
     flashOps.encode({
@@ -219,23 +220,11 @@ const {
     })
   );
   assert.strictEqual(tcuNoCal.calibration, null);
-  assert.strictEqual(tcuNoCal.aifRecord, null);
   ok("every operation's payload round-trips through base64 JSON");
 
   assert.throws(
     () => flashOps.decode('dme-tune', flashOps.encode({ cal: bytes(100, 1) })),
     /cal: expected 118784 bytes, got 100/
-  );
-  assert.throws(
-    () =>
-      flashOps.decode(
-        'tcu-cal',
-        flashOps.encode({
-          calibration: bytes(0x10000, 1),
-          aifRecord: bytes(500, 1),
-        })
-      ),
-    /aifRecord: 500 bytes is not a record/
   );
   assert.throws(
     () => flashOps.decode('dme-tune', 'x'.repeat(5 * 1024 * 1024)),
@@ -266,20 +255,18 @@ const {
   assert.deepStrictEqual(r, { ok: true, status: 'Flash successful' });
   assert.deepStrictEqual(
     calls.map((c) => c[0]),
-    ['unlock', 'erase', 'write', 'aif', 'finish']
+    ['unlock', 'erase', 'write', 'finish'],
+    'no programming record is written, though the payload carried one'
   );
   assert.deepStrictEqual(calls[1], ['erase', 0x2040000, 0x20000]);
   assert.deepStrictEqual(calls[2], ['write', 0x2040000, 0x205cfff, 0x1d000]);
-  assert.deepStrictEqual(calls[3], ['aif', 'WBA;01.01.2026;x']);
-  assert.deepStrictEqual(calls[4], ['finish', 'Daten', true]);
+  assert.deepStrictEqual(calls[3], ['finish', 'Daten', true]);
   assert.ok(
-    stages.includes('Erasing Flash') &&
-      stages.includes('Flashing ECU') &&
-      stages.includes('AIF written (entry 3)')
+    stages.includes('Erasing Flash') && stages.includes('Flashing ECU')
   );
   assert.deepStrictEqual(progress, ['Flashing 50', 'Flashing 100']);
   ok(
-    'Flash Tune: unlock, erase 0x2040000, write the partition, the record, verify Daten with a reset'
+    'Flash Tune: unlock, erase 0x2040000, write the partition, verify Daten with a reset'
   );
 
   calls.length = 0;
@@ -352,14 +339,13 @@ const {
     ok: true,
     status: 'Calibration written',
     eraseStarted: true,
-    aifLeft: 11,
   });
-  assert.deepStrictEqual(calls[0], ['tcu-cal', 0x10000, true, 40]);
+  // the transmission's writer is handed no record either
+  assert.deepStrictEqual(calls[0], ['tcu-cal', 0x10000, true, undefined]);
   r = await flashOps.run('tcu-program', tcu);
   assert.deepStrictEqual(r, {
     ok: true,
     status: 'Program and calibration written',
-    aifLeft: null,
   });
   global.failTcu = true;
   r = await flashOps.run('tcu-cal', {

@@ -12,7 +12,7 @@
 // upshift) in options.js, the fault memory page in faults-page.js. The engines underneath are core/ms45/ms45.js (the DME
 // over the SGBD's jobs), core/flash/gs20.js + core/flash/gs20-program.js (the
 // transmission over raw DS2), core/flash/mapswitch.js and core/flash/flash-history.js.
-/* exported showFlashing, fbApplyLayout, fbState, fbEls, fbSetStatus, fbSetStage, fbSetStatusInPlace, fbLog, fbProgress, fbFlashingBar, fbBusy, fbConfirm, fbMessage, fbChoose, fbConfirmAck, fbPickFile, fbIsIos, fbReadBytes, fbReadText, fbSaveBytes, fbEnsureCable, fbDescribeError, fbProgrammingCounter, fbRefreshCustomOptionsGate, fbShowOptions, fbAifArgs, fbOnSharedCar, fbRemoteAction, fbFlashRun, fbAifWanted, fbFastFlasherWanted, fbSetEcuBox, fbRefreshAll, fbDevUi, fbWriteAif, fbTesterSerial, fbSessionStart, fbSessionStop */
+/* exported showFlashing, fbMountHidden, fbQuietly, FB_AIF_SLOTS, fbApplyLayout, fbState, fbEls, fbSetStatus, fbSetStage, fbSetStatusInPlace, fbLog, fbProgress, fbFlashingBar, fbBusy, fbConfirm, fbMessage, fbChoose, fbConfirmAck, fbPickFile, fbIsIos, fbReadBytes, fbReadText, fbSaveBytes, fbEnsureCable, fbDescribeError, fbRefreshCustomOptionsGate, fbShowOptions, fbOnSharedCar, fbRemoteAction, fbFlashRun, fbFastFlasherWanted, fbSetEcuBox, fbRefreshAll, fbDevUi, fbTesterSerial, fbSessionStart, fbSessionStop */
 
 /**
  * The app's looks, chosen on its own Settings page (not the top bar's
@@ -86,15 +86,6 @@ const FB_PAGE_TITLES = {
   fast: 'Fast flasher',
   settings: 'Settings',
 };
-
-/**
- * Whether a flash writes a programming-log entry (AIF): a setting, off
- * unless switched on, since the entries cannot be erased.
- * @returns {boolean}
- */
-function fbAifWanted() {
-  return Settings.get('flashWriteAif', false) === true;
-}
 
 /**
  * Whether Flash Tune and Flash Program go through the resident fast flasher
@@ -181,8 +172,22 @@ async function showFlashing(page) {
     },
   ];
   setActions(fbState.actions);
-  fbState.tuningActions = null; // the editor is mounted when its page is first shown
+  const returning = fbStateBegin();
+  fbMount(view, returning);
+  // opened on one of its other pages (its address named it), or back on
+  // the one it was left on
+  const open =
+    page && page !== 'flashing' ? page : returning ? fbState.page : null;
+  if (open && open !== 'flashing' && fbEls[`page-${open}`]) fbShowPage(open);
+}
 
+/**
+ * The app's state, started fresh on its first use and kept after that: the
+ * module, what was identified, the files loaded, the options ticked, the
+ * log and the page stay as they were left.
+ * @returns {boolean} Whether there was state already (a return visit).
+ */
+function fbStateBegin() {
   // the app keeps its state across visits: the module, what was
   // identified, the files loaded, the options ticked, the log and the page
   // stay as they were left; only the first visit starts fresh
@@ -199,10 +204,26 @@ async function showFlashing(page) {
     fbState.dme = fbDmeFreshState();
     fbState.tcu = fbTcuFreshState();
   }
+  return returning;
+}
 
+/**
+ * Build the app's window into an element and wire it: every element by id
+ * into fbEls, every button to its action.
+ *
+ * The app's actions read and paint through fbEls, so they need the window
+ * built; they do not need it shown. showFlashing builds it into the page;
+ * fbMountHidden builds it into an element that is never attached, for a
+ * caller that drives the app from a screen of its own.
+ * @param {HTMLElement} host - What the window is built into (emptied first).
+ * @param {boolean} returning - Whether fbState carries an earlier visit to
+ *   put back.
+ */
+function fbMount(host, returning) {
+  fbState.tuningActions = null; // the editor is mounted when its page is first shown
   // no page heading: the breadcrumb names the screen and the Flasher's layout
   // wants the whole window (the log and the pages size themselves to it)
-  view.innerHTML = '';
+  host.innerHTML = '';
   const wrap = document.createElement('div');
   // the INPA-style layout draws the app as a classic Windows tool, like
   // Web32 and WebKFP: its own grey, a title bar, raised buttons; a skin
@@ -296,11 +317,6 @@ async function showFlashing(page) {
           <div class="fb-dim">Each flash or write session keeps the exact images sent to the module with its History entry; Save Files hands them back. Everything stays in this browser.</div>
         </div>
         <div class="fb-section">
-          <div class="fb-code">PROGRAMMING RECORD</div>
-          <label class="fb-check"><input type="checkbox" id="fb-set-aif"> Log every flash in the module (AIF)</label>
-          <div class="fb-dim">A module keeps 14 entries and they cannot be erased. Before a flash the app says how many are left and asks whether to go on. With this off, nothing is written to the log and no question is asked.</div>
-        </div>
-        <div class="fb-section">
           <div class="fb-code">AFTER A FLASH</div>
           <label class="fb-check"><input type="checkbox" id="fb-set-clearfaults"> Clear the DME's and the TCU's fault memories after a flash</label>
           <div class="fb-dim">Once Flash Tune, Flash Program or a transmission write has finished and the module answers again, both modules' stored faults are cleared: a programming session leaves faults in the module written, and the other one logs losing it on the bus meanwhile. A transmission not identified is tried by variant. Nothing is cleared after a read or after a write that failed.</div>
@@ -326,7 +342,7 @@ async function showFlashing(page) {
         <div class="fb-bar"><span class="fb-bar-fill" id="fb-fill"></span></div>
       </div>
     </div>`;
-  view.appendChild(wrap);
+  host.appendChild(wrap);
 
   fbEls = {};
   wrap.querySelectorAll('[id^="fb-"]').forEach((el) => {
@@ -375,7 +391,6 @@ async function showFlashing(page) {
     fbApplyLayout();
   };
   fbEls['set-keep'].checked = !!Settings.get('flashKeepFiles', false);
-  fbEls['set-aif'].checked = fbAifWanted();
   fbEls['set-dev'].checked = fbDevUi();
   fbEls['set-keep'].onchange = () =>
     Settings.set('flashKeepFiles', fbEls['set-keep'].checked);
@@ -384,8 +399,6 @@ async function showFlashing(page) {
     Settings.set('flashFullOneFile', fbEls['set-onefile'].checked);
     fbRefreshAll();
   };
-  fbEls['set-aif'].onchange = () =>
-    Settings.set('flashWriteAif', fbEls['set-aif'].checked);
   fbEls['set-clearfaults'].checked = fbFaultsClearAfterFlashWanted();
   fbEls['set-clearfaults'].onchange = () =>
     Settings.set('flashClearFaults', fbEls['set-clearfaults'].checked);
@@ -447,11 +460,17 @@ async function showFlashing(page) {
     };
     window.addEventListener('bmweb-cable', fbCableListener);
   }
-  // opened on one of its other pages (its address named it), or back on
-  // the one it was left on
-  const open =
-    page && page !== 'flashing' ? page : returning ? fbState.page : null;
-  if (open && open !== 'flashing' && fbEls[`page-${open}`]) fbShowPage(open);
+}
+
+/**
+ * Make sure the app's window exists, without showing it: built once into an
+ * unattached element when the Flashing screen has not been opened yet this
+ * visit (a window from an earlier visit, on or off the page, serves as is).
+ * @returns {void}
+ */
+function fbMountHidden() {
+  if (fbEls.actions) return;
+  fbMount(document.createElement('div'), fbStateBegin());
 }
 
 /**
@@ -648,6 +667,7 @@ function fbProgress(pct) {
  */
 function fbFlashingBar(flashing) {
   fbState.barFlashing = !!flashing;
+  navSetLocked(fbState.barFlashing);
   if (fbEls.fill) fbEls.fill.classList.toggle('flashing', fbState.barFlashing);
 }
 
@@ -745,6 +765,28 @@ function fbConfirm(message, title) {
   });
 }
 
+/** True while messages go to the log instead of the screen (fbQuietly). */
+let fbQuiet = false;
+
+/**
+ * Run something with the app's messages noted in its log rather than shown:
+ * for a caller that asks again by itself (the recovery screen looking for a
+ * DME), where a dialog for every unanswered try would have to be dismissed
+ * each time. Questions are not messages and are still asked.
+ * @template T
+ * @param {() => Promise<T>} fn
+ * @returns {Promise<T>}
+ */
+async function fbQuietly(fn) {
+  const was = fbQuiet;
+  fbQuiet = true;
+  try {
+    return await fn();
+  } finally {
+    fbQuiet = was;
+  }
+}
+
 /**
  * One OK button.
  * @param {string} message - The message.
@@ -752,6 +794,10 @@ function fbConfirm(message, title) {
  * @returns {Promise<void>}
  */
 async function fbMessage(message, title = 'Flashing/Tuning & Logging') {
+  if (fbQuiet) {
+    fbLog(`${title}: ${String(message).split('\n')[0]}`);
+    return;
+  }
   await messageDialog({ title: esc(title), body: fbHtml(message) });
 }
 
@@ -1244,178 +1290,6 @@ function fbOpenOptions() {
   if (!fbCustomOptionsAllowed()) return;
   fbOptionsShowFor(fbState.module);
   fbShowOptions(true);
-}
-
-// ---- the programming counter question and the AIF entry ------------------------------------------------
-/**
- * The question before a flash: how many programming entries the module has
- * left, whether to go on, and which VIN to put in the entry. Nothing to ask
- * when the programming record is switched off.
- * @param {boolean} tcu - Which module.
- * @returns {Promise<boolean>} Whether to go on; the typed VIN is kept in fbState.aifVin.
- */
-function fbProgrammingCounter(tcu) {
-  fbState.aifVin = '';
-  if (!fbAifWanted()) return Promise.resolve(true);
-  const module = tcu ? 'transmission' : 'DME';
-  const aif = tcu ? fbState.tcu.aif : fbState.dme.aif;
-  const free = parseInt((aif && aif.AIF_ANZ_FREI) || '', 10);
-  const known = Number.isFinite(free);
-  const counter = !known
-    ? `The ${module}'s programming counter could not be read; an entry is written if it has room.`
-    : free <= 0
-      ? `The ${module}'s programming log is full: 0 of ${FB_AIF_SLOTS} entries left. The flash can still go ahead, but no entry can be written for it.`
-      : `Remaining programming operations for this ${module}: ${free} of ${FB_AIF_SLOTS}. This flash uses one; the entries cannot be erased.`;
-  const dmeAif = (fbState.dme && fbState.dme.aif) || {};
-  let suggested = dmeAif.AIF_FG_NR_LANG || '';
-  if (!fbIsAlnum(suggested, 17))
-    suggested = (aif && (aif.AIF_FG_NR_LANG || aif.AIF_FG_NR)) || '';
-  if (!fbIsAlnum(suggested, 17) && !fbIsAlnum(suggested, 7))
-    suggested =
-      (fbState.dme && fbState.dme.ident && fbState.dme.ident.vin) || '';
-
-  return new Promise((resolve) => {
-    const { overlay, close } = openModal(
-      `<div class="modal" role="dialog" aria-modal="true">
-        <div class="modal-title">Programming counter</div>
-        <div class="modal-body">${fbHtml(counter)}
-          <div class="fb-field-label">VIN for the entry (optional)</div>
-          <input class="modal-input fb-vin" type="text" maxlength="17" value="${esc(suggested)}" placeholder="17 characters, or leave empty">
-          <div class="fb-dim fb-vin-hint"></div>
-        </div>
-        <div class="modal-actions">
-          <button class="btn modal-cancel">Cancel<span class="modal-key">Esc</span></button>
-          <button class="btn primary modal-confirm">Continue</button>
-        </div>
-      </div>`,
-      {
-        backdropValue: false,
-        onClose: (v) => resolve(!!v),
-      }
-    );
-    const box = overlay.querySelector('.fb-vin');
-    const hint = overlay.querySelector('.fb-vin-hint');
-    const go = overlay.querySelector('.modal-confirm');
-    const validate = () => {
-      const v = (box.value || '').trim().toUpperCase();
-      const ok =
-        v.length === 0 || fbIsAlnum(v, 17) || (!tcu && fbIsAlnum(v, 7));
-      go.disabled = !ok;
-      hint.textContent =
-        v.length === 0
-          ? tcu
-            ? 'Empty: the entry is written with the VIN already known, if there is one.'
-            : "Empty: the last entry's VIN is kept."
-          : ok
-            ? ''
-            : tcu
-              ? 'A transmission entry needs all 17 characters.'
-              : '7 or 17 letters and digits.';
-    };
-    box.oninput = validate;
-    validate();
-    overlay.querySelector('.modal-cancel').onclick = () => close(false);
-    go.onclick = () => {
-      fbState.aifVin = (box.value || '').trim().toUpperCase();
-      close(true);
-    };
-    box.focus();
-  });
-}
-
-/**
- * @param {string} s - A string.
- * @param {number} n - The exact length wanted.
- * @returns {boolean}
- */
-function fbIsAlnum(s, n) {
-  return !!s && s.length === n && /^[0-9A-Za-z]+$/.test(s);
-}
-
-/**
- * Append the DME's programming entry through the SGBD's own job. The previous
- * entry's values are carried forward; today's date, the program reference and
- * the typed VIN fill in what changed. Never fatal: the flash itself is done.
- *
- * Must run while the DME is still in programming mode (security access +
- * diagnose_mode ECUPM), i.e. after the last block is written and before
- * ms45FinishFlash: the job's $3D WriteMemoryByAddress into the AIF area is
- * refused with ERROR_ECU_SERVICE_NOT_SUPPORTED_IN_ACTIVE_DIAGNOSTIC_MODE in
- * the default session, before or after the reset and whether or not the
- * SGBD's INITIALISIERUNG ran again (seen on the car, and reproduced against
- * the firmware in the emulator: only 10 85 opens the service).
- * @param {string} [progRef] - The program reference of the image just
- *   written, when it differs from the one identified before the flash.
- * @returns {Promise<void>}
- */
-/**
- * The programming record (AIF) a flash writes, as AIF_SCHREIBEN's
- * semicolon-joined arguments, or null when none is to be written (switched
- * off in Settings, or no usable VIN). Pure: the write itself happens where
- * the cable is (core/ms45-write.js).
- * @param {string} [progRef] - The program reference to record; identify's when absent.
- * @returns {string|null}
- */
-function fbAifArgs(progRef) {
-  if (!fbAifWanted()) return null;
-  const d = fbState.dme;
-  const aif = d.aif || {};
-  const a = (f) => aif[f] || '';
-  const sevenOrNine = (s, fb) => (fbIsAlnum(s, 7) || fbIsAlnum(s, 9) ? s : fb);
-  let vin = fbState.aifVin || '';
-  if (!fbIsAlnum(vin, 17) && !fbIsAlnum(vin, 7)) vin = a('AIF_FG_NR_LANG');
-  if (!fbIsAlnum(vin, 17)) vin = d.ident.vin || '';
-  if (!fbIsAlnum(vin, 17) && !fbIsAlnum(vin, 7)) {
-    flashLog.note(`AIF not written: no usable VIN (${vin})`);
-    return null;
-  }
-  const zb = sevenOrNine(a('AIF_ZB_NR'), '0000000');
-  const sw = sevenOrNine(a('AIF_SW_NR'), sevenOrNine(d.ident.swRef, '0000000'));
-  const approval = sevenOrNine(a('AIF_BEHOERDEN_NR'), '0000000');
-  const dealer = /^\d{6}$/.test(a('AIF_HAENDLER_NR'))
-    ? a('AIF_HAENDLER_NR')
-    : '000000';
-  if (!fbIsAlnum(progRef, 12)) {
-    progRef = fbIsAlnum(d.ident.progRef, 12)
-      ? d.ident.progRef
-      : fbIsAlnum(a('AIF_PROG_NR'), 12)
-        ? a('AIF_PROG_NR')
-        : '000000000000';
-  }
-  let km = parseInt(a('AIF_KM'), 10);
-  if (!Number.isFinite(km) || km < 0) km = 0;
-  if (km > 152999) km = 152999;
-  const now = new Date();
-  const p = (n) => String(n).padStart(2, '0');
-  const args = [
-    vin,
-    `${p(now.getDate())}.${p(now.getMonth() + 1)}.${now.getFullYear()}`,
-    zb,
-    sw,
-    approval,
-    dealer,
-    fbTesterSerial,
-    String(km),
-    progRef,
-  ].join(';');
-  return args;
-}
-
-/**
- * Write the programming record, while the DME is in programming mode.
- * @param {string} [progRef] - The program reference to record.
- * @returns {Promise<void>}
- */
-async function fbWriteAif(progRef) {
-  const args = fbAifArgs(progRef);
-  if (!args) return;
-  fbSetStatus('Writing the programming record (AIF)');
-  const r = await ms45WriteAif(args);
-  const outcome = r.ok
-    ? `AIF written${r.number ? ` (entry ${r.number})` : ''}`
-    : `AIF not written: ${r.status}`;
-  flashLog.note(`${outcome} [${args}]`);
-  fbSetStatus(outcome);
 }
 
 // ---- History ----------------------------------------------------------------------------------------

@@ -148,6 +148,8 @@ run node tools/verify/test_scanner.js
 run node tools/verify/test_scanner_proc.js
 run node tools/verify/test_scanner_carinfo.js
 run node tools/verify/test_scanner_faults.js
+run node tools/verify/test_scanner_scan.js
+run node tools/verify/test_recovery.js
 run node tools/verify/test_scanner_unit.js
 run node tools/verify/test_scanner_eeprom.js
 run node tools/verify/test_shell_globals.js
@@ -294,9 +296,6 @@ echo
 echo "== Vehicle identity: masters, ZCS->SA bridge, FA round-trip, discovery =="
 run node tools/verify/test_vehicle_identity.js
 
-echo
-echo "== identity screen end to end: shipped tables + fa decode against a stubbed E46 =="
-run node tools/verify/test_identity_screen.js
 
 echo
 echo "== Coding selection: SGET predicates pick the module and its coding file =="

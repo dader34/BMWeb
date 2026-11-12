@@ -134,6 +134,42 @@ const hex = [
   assert.strictEqual(daten.latestZb(his, '7561383', rows).zb, '7561383');
   assert.strictEqual(daten.latestZb(his, '0000001', rows), null);
   ok('latestZb follows the history while the table still lists the successor');
+
+  // a family sold for several chassis has a table and a history per chassis
+  // (all named alike); a module's ZB is in its own chassis's only
+  const e60 = '7544306,0,7544306,A,7544307DA,x\n7550125,0,7550125,A,,x';
+  const e85 = '7561466,0,7561380,A,7561467DA,x\n7550125,9,7550125,B,,x';
+  const merged = daten.mergeZbTables([e60, e85]);
+  assert.deepStrictEqual(
+    merged.map((r) => r.zb),
+    ['7544306', '7550125', '7561466']
+  );
+  assert.strictEqual(merged[1].ix, 'A');
+  assert.strictEqual(
+    daten.latestZb(new Map(), '7561466', daten.parseZbTable(e60)),
+    null
+  );
+  assert.strictEqual(
+    daten.latestZb(new Map(), '7561466', merged).zb,
+    '7561466'
+  );
+  ok("mergeZbTables: every chassis's ZBs, one listed twice taken once");
+  const histories = daten.mergeHistories([
+    '7550125,7544306,x\n',
+    '7544306,7561466,x\n7550125,9999999,x\n',
+  ]);
+  assert.deepStrictEqual(
+    [...histories],
+    [
+      ['7550125', '7544306'],
+      ['7544306', '7561466'],
+    ]
+  );
+  assert.strictEqual(
+    daten.latestZb(histories, '7550125', merged).zb,
+    '7561466'
+  );
+  ok('mergeHistories: a chain that runs through two chassis is followed');
 }
 
 // ---- WinKFP's own logic in run.js ------------------------------------------
@@ -147,6 +183,119 @@ const hex = [
   ok('progOrder: coapiKfGetProgOrderBsuD2');
   assert.strictEqual(kfp.aifDate(new Date(2026, 10, 7)), '071126');
   ok('aifDate: ddmmyy');
+
+  // the record's fields: what this programming knows, and what it does not
+  // carried forward from the module's newest record rather than zeroed
+  {
+    const record = {
+      AIF_FG_NR: 'WBAET37495NJ87379',
+      AIF_SW_NR: '7545151',
+      AIF_AENDERUNGS_INDEX: 'CA',
+      AIF_BEHOERDEN_NR: '1037367',
+      AIF_ZB_NR: '7545150',
+      AIF_SERIEN_NR: 'NFS01',
+      AIF_HAENDLER_NR: '000240',
+      AIF_KM: '81234',
+      AIF_PROG_NR: '0044570LO00S',
+    };
+    const zb = {
+      vin: 'WBAET37495NJ87379',
+      zb: '7561532',
+      sw: '7561533',
+      changeIndex: 'DA',
+      approval: '0000000',
+    };
+    assert.deepStrictEqual(kfp.aifFields(zb, record, '0044570LO02S'), {
+      AIF_FG_NR: 'WBAET37495NJ87379',
+      // the ZB programmed, its software number and index: never the record's
+      AIF_ZB_NR: '7561532',
+      AIF_SW_NR: '7561533',
+      AIF_AENDERUNGS_INDEX: 'DA',
+      AIF_BEHOERDEN_NR: '0000000',
+      // who programmed it
+      AIF_SERIEN_NR: 'BMWEB',
+      // what the programming does not know stays as the workshop wrote it
+      AIF_HAENDLER_NR: '000240',
+      AIF_KM: '81234',
+      // the program file's own reference, not the record's older one
+      AIF_PROG_NR: '0044570LO02S',
+    });
+    ok('aifFields: the ZB programmed, with dealer and mileage carried forward');
+
+    // a module with no record (or one that could not be read): the defaults
+    for (const none of [null, {}, { AIF_HAENDLER_NR: '', AIF_KM: '' }])
+      assert.deepStrictEqual(kfp.aifFields(zb, none, ''), {
+        AIF_FG_NR: 'WBAET37495NJ87379',
+        AIF_ZB_NR: '7561532',
+        AIF_SW_NR: '7561533',
+        AIF_AENDERUNGS_INDEX: 'DA',
+        AIF_BEHOERDEN_NR: '0000000',
+        AIF_SERIEN_NR: 'BMWEB',
+        AIF_HAENDLER_NR: '000000',
+        AIF_KM: '0',
+        AIF_PROG_NR: '',
+      });
+    ok('aifFields: a module with no record gets the defaults');
+
+    // the last seven of the VIN: completed from the record that ends in
+    // them, left alone when the record is another car's
+    assert.strictEqual(
+      kfp.aifFields({ ...zb, vin: 'nj87379' }, record, '').AIF_FG_NR,
+      'WBAET37495NJ87379'
+    );
+    assert.strictEqual(
+      kfp.aifFields({ ...zb, vin: 'KR12345' }, record, '').AIF_FG_NR,
+      'KR12345'
+    );
+    ok('aifFields: a seven-character VIN is completed from its own record');
+
+    // data alone in expert mode (no program file): the program on the
+    // module is the one it had, and so is its reference
+    assert.strictEqual(
+      kfp.aifFields(zb, record, '').AIF_PROG_NR,
+      '0044570LO00S'
+    );
+    // a ZB that names no data file: the data, and its number, stay
+    const noData = kfp.aifFields(
+      { ...zb, sw: '', changeIndex: '' },
+      record,
+      ''
+    );
+    assert.strictEqual(noData.AIF_SW_NR, '7545151');
+    assert.strictEqual(noData.AIF_AENDERUNGS_INDEX, 'CA');
+    // a table with no approval number: the record's
+    assert.strictEqual(
+      kfp.aifFields({ ...zb, approval: '' }, record, '').AIF_BEHOERDEN_NR,
+      '1037367'
+    );
+    // what is given wins, and a malformed value in the record is not carried
+    const given = kfp.aifFields(
+      {
+        ...zb,
+        dealer: '123456',
+        km: '99000',
+        tester: 'ABC12',
+        progRef: '0044570LN00S',
+      },
+      { ...record, AIF_HAENDLER_NR: '24', AIF_KM: 'n/a' },
+      '0044570LO02S'
+    );
+    assert.strictEqual(given.AIF_HAENDLER_NR, '123456');
+    assert.strictEqual(given.AIF_KM, '99000');
+    assert.strictEqual(given.AIF_SERIEN_NR, 'ABC12');
+    assert.strictEqual(given.AIF_PROG_NR, '0044570LN00S');
+    const bad = kfp.aifFields(
+      zb,
+      { AIF_HAENDLER_NR: '24', AIF_KM: 'n/a', AIF_PROG_NR: 'short' },
+      ''
+    );
+    assert.strictEqual(bad.AIF_HAENDLER_NR, '000000');
+    assert.strictEqual(bad.AIF_KM, '0');
+    assert.strictEqual(bad.AIF_PROG_NR, '');
+    ok(
+      'aifFields: what is given wins; a malformed record value is not carried'
+    );
+  }
   const exec = (calls) => ({
     procs: {
       cabimain: [{ op: 'const', t: 's', v: 'JOBNAME' }],

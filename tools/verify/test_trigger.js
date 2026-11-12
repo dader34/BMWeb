@@ -76,6 +76,23 @@ check(
   'image: the MTOS tag closes the descriptor',
   String.fromCharCode(...image.img.slice(0x66, 0x70)) === '004457MTOS'
 );
+// the part number follows the DME: the MTOS gate matches it against the
+// DME's own, so an MS45.0 (0044560) must stage 004456, not 004457
+const img450 = triggerWire.triggerImage(body, '0044560').img;
+check(
+  'image: the part number follows the DME (MS45.0 -> 004456)',
+  String.fromCharCode(...img450.slice(0x66, 0x70)) === '004456MTOS'
+);
+check(
+  'image: a long hwRef is cut to six chars',
+  String.fromCharCode(
+    ...triggerWire.triggerImage(body, '0044570XYZ').img.slice(0x66, 0x6c)
+  ) === '004457'
+);
+check(
+  'image: the gate CRC does not cover the part number (unchanged)',
+  be32(img450, 0x58) === be32(image.img, 0x58)
+);
 check(
   'image: the entry branch word is b 0x3FBAA0 (0x4800192C)',
   be32(image.img, 0x70) === 0x4800192c

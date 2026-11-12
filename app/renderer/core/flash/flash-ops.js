@@ -41,7 +41,6 @@ const FLASH_WRITES = ['dme-tune', 'dme-program', 'tcu-cal', 'tcu-program'];
 /** The transmission's regions, as core/flash/gs20.js and core/flash/gs20-program.js read and write them. */
 const FLASH_TCU_CAL_LENGTH = 0x10000;
 const FLASH_TCU_PROGRAM_LENGTH = 0x40000;
-const FLASH_TCU_AIF_MAX = 256;
 /** The biggest payload an owner accepts from a helper (1 MB + 448 KB, base64, with room). */
 const FLASH_PAYLOAD_MAX = 4 * 1024 * 1024;
 
@@ -58,7 +57,6 @@ const FLASH_PAYLOAD_MAX = 4 * 1024 * 1024;
  * @typedef {Object} FlashResult
  * @property {boolean} ok
  * @property {string} status - What to tell the user.
- * @property {number|null} [aifLeft] - Programming-log entries left, when the transmission wrote one.
  * @property {boolean} [eraseStarted] - Transmission calibration: whether the erase had begun when it failed.
  * @property {number} [erasedSectors] - Transmission program: sectors erased when it failed.
  * @property {boolean} [programWritten] - Transmission program: the program was on, the calibration failed.
@@ -85,21 +83,9 @@ async function flashDmeEnterFast(diagProtocol) {
   return (await ms45Job('normaler_datenverkehr', 'ja;nein;nein')).ok;
 }
 
-/** The DME's programming record, while it is still in programming mode. */
-async function flashDmeRecord(aifArgs, c) {
-  if (!aifArgs) return;
-  c.stage('Writing the programming record (AIF)');
-  const r = await ms45WriteAif(aifArgs);
-  const outcome = r.ok
-    ? `AIF written${r.number ? ` (entry ${r.number})` : ''}`
-    : `AIF not written: ${r.status}`;
-  c.note(`${outcome} [${aifArgs}]`);
-  c.stage(outcome);
-}
-
 /**
  * Flash Tune: erase and write the calibration partition, record, verify.
- * @param {{cal: Uint8Array, diagProtocol: string, aifArgs: string|null}} p -
+ * @param {{cal: Uint8Array, diagProtocol: string}} p -
  *   `cal` is the prepared 0x1D000-byte calibration; checksummed and signed here.
  * @param {FlashCallbacks} c
  * @returns {Promise<FlashResult>}
@@ -124,9 +110,6 @@ async function flashDmeTune(p, c) {
     onProgress: (pct) => c.progress(pct, 'Flashing'),
   });
   if (!written) return { ok: false, status: 'Flash failed' };
-  // the record goes in while the DME is still in programming mode; the
-  // default session refuses the write
-  await flashDmeRecord(p.aifArgs, c);
   const ok = await ms45FinishFlash('Daten', true, p.diagProtocol, c.stage);
   return { ok, status: ok ? 'Flash successful' : 'Flash failed' };
 }
@@ -134,7 +117,7 @@ async function flashDmeTune(p, c) {
 /**
  * Flash Program: erase and write the external program, the MPC, then the
  * calibration when there is one; record; verify both.
- * @param {{flash: Uint8Array, mpc: Uint8Array, hasCal: boolean, diagProtocol: string, aifArgs: string|null}} p -
+ * @param {{flash: Uint8Array, mpc: Uint8Array, hasCal: boolean, diagProtocol: string}} p -
  *   `flash` is the prepared 1 MB external image; checksummed and signed here.
  * @param {FlashCallbacks} c
  * @returns {Promise<FlashResult>}
@@ -201,9 +184,6 @@ async function flashDmeProgram(p, c) {
     }
   }
   if (!ok) return { ok: false, status: 'Flash failed' };
-  // the record goes in while the DME is still in programming mode (the
-  // default session refuses the write), naming the program just written
-  await flashDmeRecord(p.aifArgs, c);
   // the erase above always takes the marks sector, so the program pair is
   // blank now and only this check re-programs it. The DME reads fine
   // without the check (the loader starts on the calibration pair) but
@@ -228,7 +208,7 @@ async function flashDmeProgram(p, c) {
 // becomes a result the other end of a data channel can carry.
 
 /**
- * @param {{calibration: Uint8Array, fast: boolean, aifRecord: Uint8Array|null}} p
+ * @param {{calibration: Uint8Array, fast: boolean}} p
  * @param {FlashCallbacks} c
  * @returns {Promise<FlashResult>}
  */
@@ -239,7 +219,6 @@ async function flashTcuCal(p, c) {
     const r = await gs20WriteCalibration(p.calibration, {
       confirmed: true,
       fast: !!p.fast,
-      aifRecord: p.aifRecord || null,
       onStage: c.stage,
       onTrace: c.trace,
       onProgress: (pct) => c.progress(pct, ''),
@@ -248,7 +227,6 @@ async function flashTcuCal(p, c) {
       ok: true,
       status: 'Calibration written',
       eraseStarted: !!r.eraseStarted,
-      aifLeft: r.aif ? r.aif.left : null,
     };
   } catch (e) {
     return {
@@ -260,7 +238,7 @@ async function flashTcuCal(p, c) {
 }
 
 /**
- * @param {{program: Uint8Array, calibration: Uint8Array|null, fast: boolean, aifRecord: Uint8Array|null}} p
+ * @param {{program: Uint8Array, calibration: Uint8Array|null, fast: boolean}} p
  * @param {FlashCallbacks} c
  * @returns {Promise<FlashResult>}
  */
@@ -270,11 +248,10 @@ async function flashTcuProgram(p, c) {
   if (p.calibration && p.calibration.length !== FLASH_TCU_CAL_LENGTH)
     return { ok: false, status: 'The calibration is not 64 KB' };
   try {
-    const r = await gs20WriteProgram(p.program, {
+    await gs20WriteProgram(p.program, {
       confirmed: true,
       fast: !!p.fast,
       calibration: p.calibration || null,
-      aifRecord: p.aifRecord || null,
       onStage: c.stage,
       onTrace: c.trace,
       onProgress: (pct) => c.progress(pct, ''),
@@ -284,7 +261,6 @@ async function flashTcuProgram(p, c) {
       status: p.calibration
         ? 'Program and calibration written'
         : 'Program written',
-      aifLeft: r.aif ? r.aif.left : null,
     };
   } catch (e) {
     return {
@@ -616,13 +592,6 @@ const flashOps = {
         throw new Error(`${k}: expected ${length} bytes, got ${b.length}`);
       return b;
     };
-    const bytesOpt = (k, max) => {
-      if (raw[k] == null || raw[k] === '') return null;
-      const b = flashFromBase64(String(raw[k]));
-      if (!b.length || b.length > max)
-        throw new Error(`${k}: ${b.length} bytes is not a record`);
-      return b;
-    };
     const common = {
       describe: str('describe', 160) || '',
       vin: str('vin', 17) || '',
@@ -634,7 +603,6 @@ const flashOps = {
           ...common,
           cal: bytes('cal', MS45_CAL_LENGTH),
           diagProtocol: str('diagProtocol', 20) || '',
-          aifArgs: str('aifArgs', 200),
         };
       case 'dme-program':
         return {
@@ -643,14 +611,12 @@ const flashOps = {
           mpc: bytes('mpc', MS45_MPC_LENGTH),
           hasCal: !!raw.hasCal,
           diagProtocol: str('diagProtocol', 20) || '',
-          aifArgs: str('aifArgs', 200),
         };
       case 'tcu-cal':
         return {
           ...common,
           calibration: bytes('calibration', FLASH_TCU_CAL_LENGTH),
           fast: !!raw.fast,
-          aifRecord: bytesOpt('aifRecord', FLASH_TCU_AIF_MAX),
         };
       case 'tcu-program':
         return {
@@ -661,7 +627,6 @@ const flashOps = {
               ? null
               : bytes('calibration', FLASH_TCU_CAL_LENGTH),
           fast: !!raw.fast,
-          aifRecord: bytesOpt('aifRecord', FLASH_TCU_AIF_MAX),
         };
       case 'dme-read':
         return {

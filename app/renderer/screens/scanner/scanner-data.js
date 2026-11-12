@@ -10,7 +10,7 @@
  * output without a cable.
  */
 
-/* exported scannerClearWaitMs, SCANNER_MODULES, SCANNER_FLAG, scannerTriesKwp, scannerKwpOnly, scannerParseDs2Ident, scannerParseKwpIdent, scannerLogLine, scannerLogHeader, scannerErrorsLine, scannerLog, SCANNER_RULE */
+/* exported scannerClearWaitMs, SCANNER_MODULES, SCANNER_EXTRA_MODULES, scannerUnits, SCANNER_FLAG, scannerTriesKwp, scannerKwpOnly, scannerParseDs2Ident, scannerParseKwpIdent, scannerLogLine, scannerLogHeader, scannerErrorsLine, scannerLog, SCANNER_RULE */
 
 /**
  * One module the reference scanner knows. Order matters: the scan walks this
@@ -240,6 +240,50 @@ const SCANNER_MODULES = [
     flags: 0x000,
   },
 ];
+
+/**
+ * Units the reference's table does not have, asked after it.
+ *
+ * These are the diagnostic addresses the E46 control unit tree carries that
+ * no row above reaches (the whole-car scan the Garage used to run walked
+ * that tree; this list is what it read and the reference never asked). The
+ * reference has no record for them, so nothing is known about how each one
+ * talks: every unit is asked in DS2 and then in KWP2000, and read with the
+ * default procedures.
+ *
+ * A name the reference already uses for another address carries its own
+ * address ("DME10"), so nothing keyed by a reference name -- its clear
+ * procedure, its fault-list layout -- is applied to a unit it was never
+ * captured on. The description stays the plain one: these are the same
+ * kind of unit at the address another generation uses (KOMBI at 0D is the
+ * instrument cluster of the cars before the IKE's 80).
+ * @type {ScannerModule[]}
+ */
+const SCANNER_EXTRA_MODULES = [
+  ['KOMBI', 'Instrument Cluster', 0x0d],
+  ['DME10', 'Digital Motor Electronics', 0x10],
+  ['ZKE11', 'Central Body Electronic', 0x11],
+  ['DME14', 'Digital Motor Electronics, Slave', 0x14],
+  ['DDSHD', 'Twin-Panel Sliding/Tilting Sunroof', 0x15],
+  ['EHPS', 'Electro-Hydraulic Power Steering', 0x31],
+  ['LSM', 'Steering Column Memory / Electric Power Steering', 0x35],
+  ['ABS36', 'Anti-lock Braking System', 0x36],
+  ['CID', 'Central Information Display', 0x46],
+  ['HKA', 'Rear Automatic Air Conditioning', 0x59],
+  ['CDC', 'CD Changer', 0x76],
+  ['SBSL', 'B-Pillar Satellite, Left', 0xa1],
+  ['SBSR', 'B-Pillar Satellite, Right', 0xa2],
+  ['STVL', 'Front Door Satellite, Left', 0xad],
+  ['STVR', 'Front Door Satellite, Right', 0xae],
+  ['BC', 'On-board Computer', 0xcd],
+].map(([name, desc, address]) => ({ name, desc, address, flags: 0x020 }));
+
+/**
+ * Every unit a scan asks, in order: the reference's table, then the units
+ * it does not have.
+ * @returns {ScannerModule[]}
+ */
+const scannerUnits = () => [...SCANNER_MODULES, ...SCANNER_EXTRA_MODULES];
 
 /**
  * Does the module get a KWP2000 identification when DS2 stays silent?
@@ -525,6 +569,8 @@ function scannerLog(scan) {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     SCANNER_MODULES,
+    SCANNER_EXTRA_MODULES,
+    scannerUnits,
     SCANNER_FLAG,
     SCANNER_RULE,
     scannerTriesKwp,

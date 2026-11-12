@@ -157,7 +157,6 @@ async function fbDmeFastFlash(spec) {
   try {
     flashLog.note(spec.note);
     const prepared = spec.prepare ? await spec.prepare() : {};
-    if (spec.counter && !(await fbProgrammingCounter(false))) return;
     if (prepared.attach) flashLog.attach(...prepared.attach);
     // prepare() is done; the painter now owns the status line (it was
     // quiet during prepare so a slow pre-read's status writes were not
@@ -504,10 +503,12 @@ async function fbDmeFastPushWithResume(client, ui, push) {
     try {
       await client.hello();
     } catch (e2) {
+      // (why it stopped is the note above; this is why it could not resume)
+      flashLog.note(`The flasher did not answer a HELLO: ${e2.message}`);
       throw new Error(
         fbDmeResumes()
-          ? `${e.message}. The flasher did not answer a HELLO either (${e2.message}). The DME carries the fast flash bootloader, which survives a power loss: switch the ignition on, Identify, load the same file and run the same fast flash again -- it reads what the DME already holds and writes only the rest.`
-          : `${e.message}. The flasher did not answer a HELLO either (${e2.message}). If the ignition stayed on, run the same fast flash again: it reconnects to the flasher and finishes. If the power was lost, the DME is in its loader -- Identify shows "program missing" -- and a standard Flash Program restores it.`,
+          ? 'The fast flash stopped. Switch the ignition on, Identify, and run the same fast flash again. It continues where it stopped.'
+          : 'The fast flash stopped. Run it again. If Identify shows "program missing", use Flash Program instead.',
         { cause: e2 }
       );
     }
@@ -978,7 +979,7 @@ async function fbDmeEnterFastFlasher(owner, ui, opts = {}) {
           `The DME does not answer on its program after the reset (${probe.error || probe.status || 'no answer'}): it is most likely waiting in the fast flasher`
         );
         throw new Error(
-          `The fast flasher did not answer (${e.message}), and the DME no longer answers on its program either: it is most likely waiting in the flasher. Nothing was written. Switch the ignition off for ten seconds and back on: the DME starts its program again (the dash warnings go with it).`,
+          'The DME did not answer. Nothing was written. Switch the ignition off for ten seconds and back on.',
           { cause: e }
         );
       }
@@ -1145,7 +1146,6 @@ async function fbDmeFastFlashProgram(opts = {}) {
     after: opts.after,
     operation: 'fast-flash-program',
     what: 'program',
-    counter: true,
     confirm:
       `${fbDmeProgramLead(true)}\n\n` +
       `${fbDmeProgramTuneNote(hasCal)}\n\n` +

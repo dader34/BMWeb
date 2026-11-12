@@ -30,7 +30,7 @@
  * So the keys are matched by POSITION IN THE DECLARATION, not by name.
  */
 
-/* exported viIdentityModulesCached, chassisHasIdentity */
+/* exported viIdentityModulesCached */
 
 /**
  * A job as the runtime's job list names it.
@@ -464,18 +464,4 @@ function viIdentityCached(chassisId) {
  */
 function viIdentityModulesCached(chassisId) {
   return viIdentityCached(chassisId).all;
-}
-
-/**
- * Does this chassis have anything that can answer? Drives the nav tile, and
- * is the same test the screen runs -- so the tile never opens a dead end.
- * @param {string|null|undefined} chassisId - Chassis id, any case.
- * @returns {Promise<boolean>} True when at least one master was found.
- */
-async function chassisHasIdentity(chassisId) {
-  try {
-    return await viIdentityCached(chassisId).any;
-  } catch (e) {
-    return false;
-  }
 }

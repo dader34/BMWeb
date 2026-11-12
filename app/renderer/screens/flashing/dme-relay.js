@@ -134,7 +134,6 @@ async function fbRelayRun() {
     title: 'GS20 relay',
     operation: 'gs20-relay',
     what: 'program',
-    counter: true,
     confirmed: true,
     note: `DME ${d.ident.hwRef} / prog ${d.ident.progRef} / GS20 relay ${probeMode ? 'safe probe' : 'service'} (no CAN from this side)`,
     prepare: async () => {
@@ -314,7 +313,6 @@ async function fbRelayRestore() {
     title: 'GS20 relay restore',
     operation: 'gs20-relay-restore',
     what: 'program',
-    counter: true,
     confirmed: true,
     note: `DME ${fbState.dme.ident.hwRef} / restore the stock program after the relay test`,
     prepare: async () => {

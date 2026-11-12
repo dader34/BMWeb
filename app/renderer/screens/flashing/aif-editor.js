@@ -457,7 +457,7 @@ async function fbAifEdReadLoader() {
   const d = fbState.dme;
   d.bootLoader = null;
   let answered = false;
-  if (fbDmeIsMs451())
+  if (fbDmeIsMs45())
     for (const at of FB_AIF_ED_LOADER_AT) {
       try {
         const st = await ms45ReadCarBytes(
@@ -599,13 +599,15 @@ function fbAifEdLoaderAsFlasher(have) {
   };
 }
 
-/** Whether the rail offers the editor: an identified DME. Entry into
- * the fast flasher happens on click (fbDmeGuard autoEnter), so neither
- * a pre-installed ring nor a prior one-click this session is required. */
+/** Whether the rail offers the editor: an identified MS45.1 (the editor
+ * reads and writes through the fast flasher, which is proven on the MS45.1
+ * only). Entry into the fast flasher happens on click (fbDmeGuard
+ * autoEnter), so neither a pre-installed ring nor a prior one-click this
+ * session is required. */
 function fbAifEdAvailable() {
   if (fbDevUi()) return true; // the dev UI toggle forces the rail page on
   const d = fbState.dme;
-  return !!(fbState.module === 'dme' && d && d.identified);
+  return !!(fbState.module === 'dme' && d && d.identified && fbDmeIsMs45());
 }
 
 /** Why the DME cannot be read or written from here, or null.
@@ -623,6 +625,8 @@ function fbAifEdWhyNot(write) {
   const d = fbState.dme;
   if (fbState.module !== 'dme' || !d || !d.identified)
     return 'Identify the DME on the Flashing tab first.';
+  // (the page can be up on another DME: the dev UI shows it for any)
+  if (!fbDmeIsMs45()) return 'The AIF editor is for the MS45 only.';
   if (typeof webBus === 'undefined' || !webBus.port || !webBus.port.setSignals)
     return 'Needs a cable that can hold the break line (Web Serial or a gateway).';
   if (write && typeof aifLog === 'undefined')

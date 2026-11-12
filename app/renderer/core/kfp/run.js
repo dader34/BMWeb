@@ -246,6 +246,61 @@
   }
 
   /**
+   * The fields of a programming record, from what this programming knows
+   * and what the module's newest record already says.
+   *
+   * WHAT THE PROGRAMMING DOES NOT KNOW IS CARRIED FORWARD, NOT ZEROED. The
+   * record is what the next tool reads the car's identity from -- the VIN it
+   * shows, the assembly number a ZB update or a recovery starts from, the
+   * dealer and the mileage a workshop wrote -- and an entry of zeros would
+   * hide the good one under it for good (the newest entry is the one read):
+   *   VIN       given by its last seven characters, it is completed from
+   *             the module's record when that record ends in them
+   *   dealer    the record's, when none is given (000000 with neither)
+   *   mileage   the record's, when none is given (0 with neither)
+   *   software  the record's, for a ZB that names no data file (the data
+   *   number    on the module is then the one it had)
+   *   approval  the record's, when the ZB table has none
+   *   program   the reference of the program file being written; with no
+   *   reference program file (data alone, the program untouched), the
+   *             record's
+   * The assembly number is never carried forward: it is the one being
+   * programmed, which is the whole point of the entry.
+   * @param {KfpAif} a - What this programming says.
+   * @param {Object<string, *>|null} previous - The module's newest record
+   *   (SG_AIF_LESEN's results), null or empty for a module with none.
+   * @param {string} [programRef] - The program file's own reference.
+   * @returns {Object<string, string>} AIF_FG_NR ... AIF_PROG_NR.
+   */
+  function aifFields(a, previous, programRef) {
+    const p = previous || {};
+    const s = (v) => String(v == null ? '' : v).trim();
+    const first = (re, ...vals) => vals.map(s).find((v) => re.test(v));
+    let vin = s(a.vin).toUpperCase();
+    const recordVin = s(p.AIF_FG_NR).toUpperCase();
+    if (vin.length === 7 && recordVin.length === 17 && recordVin.endsWith(vin))
+      vin = recordVin;
+    const ownSw = /^\d{7}$/.test(s(a.sw));
+    return {
+      AIF_FG_NR: vin,
+      AIF_ZB_NR: s(a.zb),
+      AIF_SW_NR: first(/^\d{7}$/, a.sw, p.AIF_SW_NR) || '',
+      // the change index belongs to the software number it follows
+      AIF_AENDERUNGS_INDEX: ownSw
+        ? s(a.changeIndex)
+        : s(p.AIF_AENDERUNGS_INDEX),
+      AIF_BEHOERDEN_NR:
+        first(/^[0-9A-Z]{7,9}$/, a.approval, p.AIF_BEHOERDEN_NR) || '',
+      AIF_SERIEN_NR: s(a.tester) || 'BMWEB',
+      AIF_HAENDLER_NR:
+        first(/^\d{6}$/, a.dealer, p.AIF_HAENDLER_NR) || '000000',
+      AIF_KM: first(/^\d+$/, a.km, p.AIF_KM) || '0',
+      AIF_PROG_NR:
+        first(/^[0-9A-Z]{12}$/, a.progRef, programRef, p.AIF_PROG_NR) || '',
+    };
+  }
+
+  /**
    * The key to an MS45's seed, from BMWeb's own MS45 signing
    * (core/ms45/ms45.js): the 68 bytes from offset 21 of the message its
    * AUTHENTISIERUNG_START sends.
@@ -390,16 +445,22 @@
         // calibration dataset, SW and approval numbers). Without it the MS45
         // gets VIN;date;ZB and refuses (7F .. 84, calibration dataset)
         size: aif.params.AIF_GROESSE,
+        // the newest record's own fields, read by the same job
+        record: aif.params,
       };
     };
     let aifAddress = '';
     let aifSize;
     let records = 0;
+    // the module's newest record as it stood before this programming: what
+    // the new one carries forward (aifFields)
+    let previous = null;
     if (opts.aif) {
       const slot = await readSlot();
       if (slot.fail) return slot.fail;
       aifAddress = slot.address;
       aifSize = slot.size;
+      previous = slot.record;
     }
 
     for (const [at, kind] of order.entries()) {
@@ -425,31 +486,21 @@
         aifSize = slot.size;
       }
       if (withAif) {
-        const a = opts.aif;
         // WinKFP fills the tester serial, dealer and program reference from
         // its own configuration (SY_SERNO, SY_KDNR, record symbol 11), and an
         // MS45 checks each one's shape (ERROR_REPAIR_SHOP_NR for a dealer
-        // that is not six digits). Empty, they take what BMWeb's own flasher
-        // writes on an MS45, and the program file's own 12-character
-        // reference (7561382A.0PA: 0044570LO02S).
-        const programRef = String(
+        // that is not six digits). Here they come from this programming
+        // where it knows them and from the module's own record where it
+        // does not (aifFields); the program reference is the program file's
+        // own 12 characters (7561382A.0PA: 0044570LO02S) whenever the ZB
+        // has one, whether or not the module asked for the program too.
+        const programRef =
           (opts.files.program &&
             opts.files.program.file &&
             opts.files.program.file.reference) ||
-            ''
-        );
-        Object.assign(params, {
-          AIF_FG_NR: a.vin,
+          '';
+        Object.assign(params, aifFields(opts.aif, previous, programRef), {
           AIF_DATUM: aifDate(opts.today || new Date()),
-          AIF_AENDERUNGS_INDEX: a.changeIndex || '',
-          AIF_SW_NR: a.sw || '',
-          AIF_BEHOERDEN_NR: a.approval || '',
-          AIF_ZB_NR: a.zb,
-          AIF_SERIEN_NR: a.tester || 'BMWEB',
-          AIF_HAENDLER_NR: a.dealer || '000000',
-          AIF_KM: a.km || '0',
-          AIF_PROG_NR:
-            a.progRef || (/^[0-9A-Z]{12}$/.test(programRef) ? programRef : ''),
           AIF_ADRESSE: aifAddress,
         });
         if (aifSize !== undefined && aifSize !== '')
@@ -509,6 +560,7 @@
     program,
     progOrder,
     aifDate,
+    aifFields,
     ms45Key,
     unservedCalls,
   };

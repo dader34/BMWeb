@@ -85,7 +85,7 @@ body.scn-page #layout-toggle {
   background: var(--wk-face);
   border: 1px solid;
   border-color: var(--wk-hi) var(--wk-dk) var(--wk-dk) var(--wk-hi);
-  color: #555;
+  color: #000;
   font:
     12px Tahoma,
     Verdana,
@@ -108,18 +108,31 @@ body.scn-page #layout-toggle {
 .scn-win .scn-desc {
   color: #6a6a6a;
 }
+/* the reference's own colours for a unit's row -- its name and the cells
+   beside it, which take the row's font: 0x006600 for a unit that answered
+   and has no faults, 0x880000 (BGR) for one that answered KWP2000,
+   clGrayText for one that did not answer */
 .scn-win .scn-found .scn-name {
-  color: #000;
   font-weight: bold;
 }
-.scn-win .scn-missing .scn-id {
+.scn-win .scn-clean .scn-name,
+.scn-win .scn-clean .scn-cell {
+  color: #006600;
+}
+.scn-win .scn-found.scn-kwp .scn-name,
+.scn-win .scn-found.scn-kwp .scn-cell {
+  color: #000088;
+}
+.scn-win .scn-missing .scn-name,
+.scn-win .scn-missing .scn-cell {
   color: var(--wk-dis);
 }
 .scn-win .scn-busy .scn-id {
   color: #0040c0;
 }
-.scn-win .scn-bad {
-  color: #c00000;
+/* a fault count that is not zero: the reference's clMaroon */
+.scn-win .scn-row .scn-cell.scn-bad {
+  color: #800000;
 }
 
 /* ---- modern ----------------------------------------------------------- */

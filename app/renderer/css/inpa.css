@@ -301,9 +301,6 @@ html[data-theme='inpa'] .inpa-ss-job.func {
 .inpa-ss-coding {
   margin-top: 6px;
 }
-.inpa-ss-identity[hidden] {
-  display: none;
-}
 /* what the coding screen can offer: "values" (editable read) or "map" */
 .inpa-ss-empty {
   font-family: var(--mono);

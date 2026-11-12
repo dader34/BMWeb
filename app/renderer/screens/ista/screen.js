@@ -23,7 +23,7 @@
  * keeps its body, the shell keeps its URL, and Back lands in the shell.
  */
 
-/* exported ISTA_CAR_KEY, ISTA_CHASSIS_KEY, istaState, istaChassis, istaSetCar, istaRestoreCar, istaOpenFaultMemory, istaTestRun, istaTestDone, istaTestError, istaOpenVehicleTest, istaTestPhase, istaTestCancel, istaOpenIdentScan, istaOpenService, istaOpenServiceResets, istaOpenTree, istaOpenHistory, istaOpenLatestReport, istaOpenIdentity, istaOpenModules, istaOpenCoding, istaProbe, istaSubReady */
+/* exported ISTA_CAR_KEY, ISTA_CHASSIS_KEY, istaState, istaChassis, istaSetCar, istaRestoreCar, istaOpenFaultMemory, istaTestRun, istaTestDone, istaTestError, istaOpenVehicleTest, istaTestPhase, istaTestCancel, istaOpenIdentScan, istaOpenService, istaOpenServiceResets, istaOpenTree, istaOpenHistory, istaOpenLatestReport, istaOpenModules, istaOpenCoding, istaProbe, istaSubReady */
 
 /** Settings key holding the car the shell was last pointed at. */
 const ISTA_CAR_KEY = 'bmweb.ista.car';
@@ -552,15 +552,6 @@ function istaOpenLatestReport() {
   const scans =
     typeof garageScans === 'function' ? garageScans(istaState.car.id) : [];
   return showGarageScan(istaState.car.id, scans[0].id);
-}
-
-/**
- * What the car reports about its own build.
- * @returns {Promise<void>}
- */
-function istaOpenIdentity() {
-  // the tab lands on the screen; the read is the user's key
-  return showVehicleIdentity(istaChassis(), { idle: true });
 }
 
 /**

@@ -11,7 +11,7 @@
  * reference uses (PanelBMWTNR, Button7, ...).
  */
 
-/* exported scannerRenderForm, scannerOpenForm, scannerVclColor */
+/* exported scannerRenderForm, scannerOpenForm, scannerVclColor, scannerPleaseWait, scannerLitLink */
 
 /** The VCL's named colours the forms use. */
 const SCANNER_VCL_COLORS = {
@@ -384,6 +384,109 @@ async function scannerOpenForm(win, cls, bind) {
   }
 }
 
+/**
+ * What the light of the "Please wait ..." window shows, as the reference's
+ * cable transaction sets it after every telegram (0x6CD1E4, through the
+ * form's own 0x5FDFE4): the unit answered and took it, the unit answered
+ * with a refusal, or nothing came back. The form opens with it off
+ * (FormActivate, 0x5FDFC8).
+ */
+const SCANNER_WAIT_LIGHT = {
+  ok: 0x00f000,
+  refused: 0x00f0f0,
+  silent: 0x0000ff,
+  off: 'clBtnFace',
+};
+
+/**
+ * The reference's "Please wait ..." window (TForm98), up while a unit is
+ * read or written: one line saying what is being done, a light for how the
+ * last telegram went, and Cancel.
+ *
+ * Cancel (and the window's X, and Escape) does not close it: it asks the
+ * work to stop, as the reference's sets a flag its loops look at
+ * (Button1Click, 0x5FDFC0), and the work closes the window when it ends.
+ * @param {HTMLElement} win - The window the work belongs to.
+ * @param {string} text - What is being done.
+ * @param {() => void} onCancel - The user asked the work to stop.
+ * @returns {{say: (text: string) => void,
+ *   light: (state: keyof typeof SCANNER_WAIT_LIGHT) => void,
+ *   close: () => void}}
+ */
+function scannerPleaseWait(win, text, onCancel) {
+  let line = null;
+  let lamp = null;
+  let shut = null;
+  let finished = false;
+  const api = {
+    say(t) {
+      if (line) line.textContent = t;
+    },
+    light(state) {
+      if (lamp)
+        lamp.style.background = scannerVclColor(SCANNER_WAIT_LIGHT[state]);
+    },
+    close() {
+      if (finished) return;
+      finished = true;
+      if (shut) shut();
+    },
+  };
+  scannerOpenForm(win, 'TForm98', (ctl, close) => {
+    shut = close;
+    line = ctl.Panel1 && ctl.Panel1.querySelector(':scope > .vcl-caption');
+    lamp = ctl.PanelLight || null;
+    // the frame's design-time name is not something the reference shows
+    const frame =
+      ctl.Panel2 && ctl.Panel2.querySelector(':scope > .vcl-caption');
+    if (frame) frame.textContent = '';
+    api.say(text);
+    api.light('off');
+    if (ctl.Button1) ctl.Button1.onclick = close;
+    return {
+      canClose: () => {
+        if (!finished) onCancel();
+        return finished;
+      },
+      cancel: onCancel,
+    };
+  }).catch(() => {
+    // no such form in the pack: the work runs without the window
+  });
+  return api;
+}
+
+/**
+ * A link whose every telegram sets the light of a "Please wait ..." window,
+ * the reference's way: green for an answer the unit took (A0), yellow for
+ * one it refused, red when nothing came back.
+ * @param {ScannerLink} link
+ * @param {{light: (state: string) => void}} wait
+ * @returns {ScannerLink}
+ */
+function scannerLitLink(link, wait) {
+  const lit = (fn) =>
+    fn &&
+    (async (...args) => {
+      let r;
+      try {
+        r = await fn(...args);
+      } catch (e) {
+        wait.light('silent');
+        throw e;
+      }
+      wait.light(!r || !r.length ? 'silent' : r[2] === 0xa0 ? 'ok' : 'refused');
+      return r;
+    });
+  return { ...link, ds2: lit(link.ds2), word: lit(link.word) };
+}
+
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { scannerVclAlign, scannerVclColor, scannerRenderForm };
+  module.exports = {
+    scannerVclAlign,
+    scannerVclColor,
+    scannerRenderForm,
+    scannerLitLink,
+    SCANNER_WAIT_LIGHT,
+  };
 }

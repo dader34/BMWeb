@@ -2235,10 +2235,32 @@ function ffWebLink(bus, opts = {}) {
      * The body it jumps to sends a HELLO unprompted, right after our echo.
      * A receiver that saw a bad sum is back hunting for A5 5A, so the whole
      * frame is sent once more before giving up.
+     *
+     * `opts.within` bounds the whole of it in wall-clock time, emulator or
+     * not. Every wait below is stretched FF_EMULATOR_SCALE times on the
+     * emulator, which made a DME whose body never started take five minutes
+     * to give up; with the bound, each wait is cut to what is left of it and
+     * nothing more is sent once it has run out -- the upload stops by
+     * itself, rather than going on writing to the line behind the caller's
+     * back.
      * @param {Uint8Array} frame
+     * @param {{within?: number}} [opts] - within: ms the upload may take.
      * @returns {Promise<Uint8Array>} The stamp the body's HELLO carries.
+     * @throws {Error} With `timedOut` set when `within` ran out.
      */
-    async upload(frame) {
+    async upload(frame, opts = {}) {
+      const stopAt = opts.within ? Date.now() + opts.within : Infinity;
+      const left = () => stopAt - Date.now();
+      const outOfTime = () =>
+        Object.assign(
+          new Error(
+            `fast flasher: no HELLO within ${Math.round(opts.within / 1000)} s of the upload`
+          ),
+          { timedOut: true }
+        );
+      // a wait, in the unscaled ms readFrame and askHello take, cut to the
+      // time that is left (they multiply by `scale` themselves)
+      const capped = (ms) => Math.max(1, Math.min(ms, left() / scale));
       await bus.reopen({
         baudRate: FF_BAUD,
         dataBits: 8,
@@ -2247,6 +2269,7 @@ function ffWebLink(bus, opts = {}) {
       });
       let last = null;
       for (let attempt = 1; attempt <= 2; attempt++) {
+        if (left() <= 0) throw outOfTime();
         rx = [];
         heard = [];
         step(`Uploading the fast flasher${attempt > 1 ? ' (try 2)' : ''}`);
@@ -2254,7 +2277,7 @@ function ffWebLink(bus, opts = {}) {
         // the echo comes back first (a wired K line hears itself); what
         // follows it is the body's unprompted HELLO
         const txMs = Math.ceil((frame.length * 11 * 1000) / FF_BAUD);
-        const deadline = Date.now() + (txMs + 1500) * scale;
+        const deadline = Math.min(Date.now() + (txMs + 1500) * scale, stopAt);
         // the body's HELLO is taken the moment it is in the stream, echo
         // complete or not: the cable has dropped echo bytes on the car, and
         // waiting for the whole echo and then for a HELLO that was already
@@ -2279,8 +2302,9 @@ function ffWebLink(bus, opts = {}) {
           return hello.data;
         }
         rx = got >= frame.length ? rx.slice(frame.length) : [];
+        if (left() <= 0) throw outOfTime();
         try {
-          hello = ffParse(await readFrame(FF_TIMEOUT.HELLO, null));
+          hello = ffParse(await readFrame(capped(FF_TIMEOUT.HELLO), null));
           if (hello && hello.svc === (FF_SVC.HELLO | 0x40)) {
             learn(hello);
             step(`The flasher answered at ${FF_BAUD} baud`);
@@ -2292,8 +2316,13 @@ function ffWebLink(bus, opts = {}) {
         // no unprompted HELLO seen (an adapter without echo, a lost byte):
         // ask for one before sending the frame again
         rx = [];
+        if (left() <= 0) throw outOfTime();
         try {
-          const hello = await askHello(this);
+          const hello = await askHello(
+            this,
+            FF_HELLO_ASKS,
+            capped(FF_TIMEOUT.HELLO)
+          );
           learn(hello);
           step(`The flasher answered at ${FF_BAUD} baud`);
           return hello.data;
@@ -2301,6 +2330,7 @@ function ffWebLink(bus, opts = {}) {
           last = e;
         }
       }
+      if (left() <= 0) throw outOfTime();
       throw last || new Error('fast flasher: no HELLO after the upload');
     },
     /**

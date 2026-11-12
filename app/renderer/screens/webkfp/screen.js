@@ -574,7 +574,13 @@ function showWebKfp() {
         const rows = kfpDaten
           .parseZbTable(await wkfpText(m.table))
           .map((r) => ({ ...r, ...kfpDaten.filesFor(r, names) }));
-        state.tables[mod.id] = { rows, files: m.files };
+        state.tables[mod.id] = {
+          rows,
+          files: m.files,
+          histories: [...m.files]
+            .filter(([name]) => isHistory(mod, name))
+            .map(([, file]) => file),
+        };
         found.push(`${mod.folder}: ${rows.length} ZB numbers`);
       } catch (e) {
         found.push(
@@ -628,6 +634,43 @@ function showWebKfp() {
     return [];
   }
 
+  /** @returns {boolean} Whether a file is the family's history (<family>.HIS). */
+  function isHistory(mod, name) {
+    return name.toUpperCase() === `${mod.folder.toUpperCase()}.HIS`;
+  }
+
+  /**
+   * A family's online files, from every chassis that ships it. A family
+   * sold for several chassis (MDS450: E60, E65, E83, E85) has a folder per
+   * chassis, and a module carries a ZB only its own chassis's table lists,
+   * so one chassis's folder is not the family. Each folder names its ZB
+   * table and its history the same (MDS450.DAT, MDS450.HIS), so those two
+   * are kept per chassis; the program and data files go by name.
+   * @param {KfpModule} mod - The family.
+   * @returns {Promise<{files: Map<string, object>, tables: object[],
+   *   histories: object[]}|null>} The program and data files by name, and
+   *   each chassis's ZB table and history; null when the online index does
+   *   not list the family.
+   */
+  async function familyOnline(mod) {
+    const idx = await wkfpSpdIndex();
+    const byChassis = idx && idx.modules[mod.folder];
+    if (!byChassis || !Object.keys(byChassis).length) return null;
+    const files = new Map();
+    const tables = [];
+    const histories = [];
+    for (const chassis of Object.keys(byChassis).sort()) {
+      const entry = byChassis[chassis];
+      for (const [name, size] of Object.entries(entry.files)) {
+        const file = wkfpRemoteFile(entry.path + name, name, size);
+        if (name === entry.table) tables.push(file);
+        else if (isHistory(mod, name)) histories.push(file);
+        else if (!files.has(name)) files.set(name, file);
+      }
+    }
+    return { files, tables, histories };
+  }
+
   /**
    * A module's ZB table, fetched the first time it is needed (imported
    * folders have theirs already). The program and data files it names are
@@ -640,24 +683,16 @@ function showWebKfp() {
   async function ensureTable(mod, quiet) {
     if (state.tables[mod.id]) return true;
     if (state.source !== 'hf') return false;
-    const idx = await wkfpSpdIndex();
-    const byChassis = idx && idx.modules[mod.folder];
-    const chassis = byChassis && Object.keys(byChassis).sort()[0];
-    if (!chassis) return false;
-    const entry = byChassis[chassis];
-    const files = new Map(
-      Object.entries(entry.files).map(([name, size]) => [
-        name,
-        wkfpRemoteFile(entry.path + name, name, size),
-      ])
-    );
-    if (!quiet) setStatus(`Fetching ${entry.table}...`);
+    const online = await familyOnline(mod);
+    if (!online) return false;
+    const { files, tables, histories } = online;
+    if (!quiet) setStatus(`Fetching ${mod.table}...`);
     try {
       const names = Array.from(files.keys());
       const rows = kfpDaten
-        .parseZbTable(await wkfpText(files.get(entry.table)))
+        .mergeZbTables(await Promise.all(tables.map(wkfpText)))
         .map((r) => ({ ...r, ...kfpDaten.filesFor(r, names) }));
-      state.tables[mod.id] = { rows, files };
+      state.tables[mod.id] = { rows, files, histories };
       return true;
     } catch (e) {
       if (!quiet)
@@ -809,11 +844,18 @@ function showWebKfp() {
     );
   }
 
-  /** Enter VIN: 17 characters, or the last 7. */
-  async function enterVin() {
+  /**
+   * Enter VIN: 17 characters, or the last 7.
+   * @param {string} [suggested] - What the box holds when no VIN has been
+   *   entered yet (the module's own record's, before a programming).
+   * @returns {Promise<boolean>} Whether one was entered.
+   */
+  async function enterVin(suggested) {
+    // (the key hands its click event in, which is not a suggestion)
+    const start = state.vin || (typeof suggested === 'string' ? suggested : '');
     const body = document.createElement('div');
     body.className = 'wkfp-form';
-    body.innerHTML = `<label>Vehicle identification number:<input class="wkfp-input wkfp-vin" maxlength="17" spellcheck="false" value="${esc(state.vin)}"></label>`;
+    body.innerHTML = `<label>Vehicle identification number:<input class="wkfp-input wkfp-vin" maxlength="17" spellcheck="false" value="${esc(start)}"></label>`;
     const input = body.querySelector('input');
     input.oninput = () => (input.value = input.value.toUpperCase());
     const b = await wkfpDialog(wkfpLive.win, {
@@ -908,9 +950,6 @@ function showWebKfp() {
   async function findUpdate(mod) {
     if (!(await ensureTable(mod))) return null;
     const t = state.tables[mod.id];
-    const hisName = [...t.files.keys()].find(
-      (n) => n.toUpperCase() === `${mod.folder.toUpperCase()}.HIS`
-    );
     setStatus('Reading the user info field...');
     try {
       const exec = await wkfpScript(mod);
@@ -928,9 +967,9 @@ function showWebKfp() {
       setStatus('Identifying the module...');
       const id = await identifyModule(exec, base);
       const from = /^\d{7}$/.test(uif) ? uif : id.zb;
-      const history = hisName
-        ? kfpDaten.parseHistory(await wkfpText(t.files.get(hisName)))
-        : new Map();
+      const history = kfpDaten.mergeHistories(
+        await Promise.all(t.histories.map(wkfpText))
+      );
       return {
         uif,
         row: from ? kfpDaten.latestZb(history, from, t.rows) : null,
@@ -1004,7 +1043,7 @@ function showWebKfp() {
       return;
     }
     const withAif = state.ini.KOMFORT_MIT_AIF;
-    if (withAif && !state.vin && !(await enterVin())) return;
+    if (withAif && !(await vinForRecord(mod))) return;
     const files = state.tables[mod.id].files;
     const pick = {};
     for (const kind of ['program', 'data'])
@@ -1045,25 +1084,55 @@ function showWebKfp() {
   }
 
   /**
-   * How many more programming records the module takes, for WinKFP's
-   * UIF-Info question.
+   * The module's newest programming record (SG_AIF_LESEN, record 0).
    * @param {KfpModule} mod - The module.
-   * @returns {Promise<number|null>} AIF_ANZ_FREI, or null when it cannot say.
+   * @returns {Promise<Object<string, *>|null>} Its fields, or null when the
+   *   module cannot be asked.
    */
-  async function freeRecords(mod) {
+  async function moduleRecord(mod) {
     setStatus('Reading the user info field...');
     try {
       const r = await kfp.runJob(await wkfpScript(mod), 'SG_AIF_LESEN', {
         ...jobBase(mod),
         params: { AIF_NUMMER: '0' },
       });
-      const n = Number(r.params.AIF_ANZ_FREI);
-      return r.ok && Number.isFinite(n) ? n : null;
+      return r.ok ? r.params : null;
     } catch (e) {
       return null;
     } finally {
       setStatus('');
     }
+  }
+
+  /**
+   * How many more programming records the module takes, for WinKFP's
+   * UIF-Info question.
+   * @param {KfpModule} mod - The module.
+   * @returns {Promise<number|null>} AIF_ANZ_FREI, or null when it cannot say.
+   */
+  async function freeRecords(mod) {
+    const record = await moduleRecord(mod);
+    const n = Number(record && record.AIF_ANZ_FREI);
+    return record && Number.isFinite(n) ? n : null;
+  }
+
+  /**
+   * The VIN a programming record is written with: the one entered, or,
+   * with none entered yet, asked for with the module's own record's VIN in
+   * the box. A record names the car to every tool that reads the module
+   * afterwards, so the VIN it already carries is offered rather than left
+   * to be typed again (and mistyped); another car's module still gets its
+   * new VIN by typing over it.
+   * @param {KfpModule} mod - The module.
+   * @returns {Promise<boolean>} Whether there is a VIN to write.
+   */
+  async function vinForRecord(mod) {
+    if (state.vin) return true;
+    const record = await moduleRecord(mod);
+    const own = String((record && record.AIF_FG_NR) || '')
+      .trim()
+      .toUpperCase();
+    return enterVin(/^[A-HJ-NPR-Z0-9]{17}$/.test(own) ? own : '');
   }
 
   /**
@@ -1139,12 +1208,32 @@ function showWebKfp() {
     // WinKFP's question before it programs: how many more records the
     // module takes (SG_AIF_LESEN's AIF_ANZ_FREI), then Program ECU?
     const free = await freeRecords(mod);
+    // a record is asked for and the module has no room for one: WinKFP
+    // refuses, and so does the script. Said here, before anything is
+    // fetched or sent, with the way on
+    if (job.aif && free === 0) {
+      await wkfpMessage(
+        wkfpLive.win,
+        'error',
+        'The user info field is full: the module takes no further programming record.\n\n' +
+          `Turn off "UIF write in ${job.expert ? 'expert' : 'comfort'} mode" (Options > Ini Options) to program it without one.`,
+        ['OK'],
+        'UIF-Info'
+      );
+      return;
+    }
     const go = await wkfpMessage(
       wkfpLive.win,
       'question',
       (free != null
         ? `The user info field can still be programmed ${free} times\n\n`
-        : '') + 'Program ECU?',
+        : '') +
+        // with no record the module goes on naming the ZB it named before,
+        // and a later ZB update or recovery starts from that one
+        (job.aif
+          ? ''
+          : 'No user info field entry is written: the module keeps the VIN and assembly number of its last entry.\n\n') +
+        'Program ECU?',
       ['Yes', 'No'],
       'UIF-Info'
     );
@@ -1384,17 +1473,8 @@ function showWebKfp() {
   async function familyFiles(mod) {
     if (state.tables[mod.id]) return state.tables[mod.id].files;
     if (state.source !== 'hf') return null;
-    const idx = await wkfpSpdIndex();
-    const byChassis = idx && idx.modules[mod.folder];
-    const chassis = byChassis && Object.keys(byChassis).sort()[0];
-    if (!chassis) return null;
-    const entry = byChassis[chassis];
-    return new Map(
-      Object.entries(entry.files).map(([name, size]) => [
-        name,
-        wkfpRemoteFile(entry.path + name, name, size),
-      ])
-    );
+    const online = await familyOnline(mod);
+    return online ? online.files : null;
   }
 
   /**
@@ -1458,21 +1538,58 @@ function showWebKfp() {
   /**
    * The record for an expert-mode programming: WinKFP writes it there only
    * with "UIF write in expert mode", and it needs the ZB the files belong to.
+   *
+   * THE ZB IS NEVER GUESSED FROM A FILE SEVERAL ZBs SHARE. One program file
+   * serves many assembly numbers (every MS45.1 ZB names 7561382A.0PA), and
+   * the record's ZB is what a later ZB update or recovery picks the car's
+   * DATA by: taking the first row that names the program wrote some other
+   * car's assembly number into the module. The files being programmed must
+   * single one ZB out; where they leave several, the module's own record
+   * decides when it names one of them (a program alone leaves its data as
+   * it was), and otherwise the record is refused, not invented.
+   * @param {{program?: {name: string}, data?: {name: string}}} files - The
+   *   files this programming writes.
    * @returns {Promise<KfpAif|null|false>} null for none, false to stop.
    */
-  async function expAif() {
+  async function expAif(files) {
     if (!state.ini.EXPERT_MIT_AIF) return null;
-    if (!state.vin && !(await enterVin())) return false;
     const pick = state.exp.data || state.exp.program;
     if (!(await ensureTable(pick.mod))) return false;
-    const row = state.tables[pick.mod.id].rows.find(
-      (r) => r.data === pick.name || r.program === pick.name
+    if (!(await vinForRecord(expModule()))) return false;
+    const named = [files.program, files.data]
+      .filter(Boolean)
+      .map((f) => f.name)
+      .join(' and ');
+    const off =
+      'Turn off "UIF write in expert mode" to program without a record.';
+    const rows = state.tables[pick.mod.id].rows.filter(
+      (r) =>
+        (!files.program || r.program === files.program.name) &&
+        (!files.data || r.data === files.data.name)
     );
+    let row = rows.length === 1 ? rows[0] : null;
+    if (rows.length > 1) {
+      const record = await moduleRecord(expModule());
+      const own = String((record && record.AIF_ZB_NR) || '').trim();
+      row = rows.find((r) => r.zb === own) || null;
+      if (!row) {
+        await wkfpMessage(
+          wkfpLive.win,
+          'error',
+          `${rows.length} ZB numbers in ${pick.mod.table} use ${named}, and the module's own record ` +
+            `(${own || 'none'}) is not one of them, so the record cannot say which this module becomes. ` +
+            (files.data
+              ? off
+              : `Choose its data file as well, or ${off[0].toLowerCase()}${off.slice(1)}`)
+        );
+        return false;
+      }
+    }
     if (!row) {
       await wkfpMessage(
         wkfpLive.win,
         'error',
-        `${pick.name} belongs to no ZB number in ${pick.mod.table}, so the record has none to name. Turn off "UIF write in expert mode" to program it without one.`
+        `${named} ${files.program && files.data ? 'belong together to' : 'belongs to'} no ZB number in ${pick.mod.table}, so the record has none to name. ${off}`
       );
       return false;
     }
@@ -1493,7 +1610,7 @@ function showWebKfp() {
       files.program = { name: e.program.name, file: e.program.file };
     if (e.data && only !== 'program')
       files.data = { name: e.data.name, file: e.data.file };
-    const aif = await expAif();
+    const aif = await expAif(files);
     if (aif === false) return;
     const mod = expModule();
     await runProgramming({

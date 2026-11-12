@@ -98,6 +98,16 @@ async function fbDmeOneClickGate(title, opts = {}) {
   return true;
 }
 
+/**
+ * How long the triggered body may take to be uploaded and to say HELLO
+ * before the one-click gives up, ms, emulator or car. On the car the upload
+ * and the HELLO take about two seconds; the emulator's body needs about 15
+ * (measured 2026-11-11), so the bound leaves it room. A body that never
+ * starts -- an entry on a DME it was not proven on -- is given up on here
+ * instead of after the emulator's stretched waits (about five minutes).
+ */
+const FB_ONECLICK_PICKUP_MS = 20000;
+
 /** The trigger's body out of the bootstrap blob (fails loudly if it grew). */
 function fbDmeOneClickBody() {
   return triggerWire.triggerBodyFromBlob(fastFlasherBlob);
@@ -255,6 +265,10 @@ async function fbDmeOneClickTrigger(title, ui = {}) {
   try {
     await oneClick.grantAndFire(sender, body, {
       stage,
+      // the staged descriptor's part number must match the DME's own, or the
+      // loader's MTOS gate accepts the fire but never runs the body (the
+      // MS45.0 reports 0044560, the MS45.1 0044570)
+      partNo: hw,
       // flashLog note: drop these -- fbOneClickStage already drives the
       // single-line progress; per-stage notes (seed fields, slot values,
       // "granted") would re-introduce the old spammy log
@@ -280,7 +294,22 @@ async function fbDmeOneClickTrigger(title, ui = {}) {
     });
     try {
       // the receiver is waiting at 115200: send it the body, take its HELLO
-      const stamp = await link.upload(triggerWire.triggerUploadFrame(body));
+      // bounded in wall-clock time: on the emulator every wait inside is
+      // stretched twentyfold, which left a DME whose body never started
+      // standing at 91 % for minutes. The upload stops by itself at the
+      // bound, so nothing goes on writing to the line after this gives up
+      let stamp;
+      try {
+        stamp = await link.upload(triggerWire.triggerUploadFrame(body), {
+          within: FB_ONECLICK_PICKUP_MS,
+        });
+      } catch (e) {
+        if (!e || !e.timedOut) throw e;
+        throw new Error(
+          `nothing came back within ${FB_ONECLICK_PICKUP_MS / 1000} s; switch the ignition off for ten seconds and back on, then Identify`,
+          { cause: e }
+        );
+      }
       // A body that answered HELLO at this 115200 rate IS the body we
       // just triggered: we staged it ourselves one function call ago,
       // the staging chunks landed byte-identical, and the KWP line
@@ -332,6 +361,8 @@ async function fbDmeOneClickTrigger(title, ui = {}) {
     // overwriting the next op's progress number while the caller
     // bubbles an error up the UI.
     fbEntryProgressReset();
+    // (the bar's last word was a percentage: it must not stand as the result)
+    fbSetStatus('The fast flasher did not answer');
     throw new Error(
       `The one-click fired, but the flasher did not answer its HELLO (${e.message}).`,
       { cause: e }
@@ -444,13 +475,18 @@ async function fbDmeOneClickFlashTune() {
  * here). Note the stock program flow needs a break-capable cable for its
  * availability check even though this entry does not.
  */
-async function fbDmeOneClickFlashProgram() {
+async function fbDmeOneClickFlashProgram(opts = {}) {
   const d = fbState.dme;
   if (!d.identified || !d.flash || !d.mpc) return;
   if (!(await fbDmeOneClickGate('Flash Program'))) return;
   // asked here, before the flasher is started: once the DME has been fired
   // into the body there is no choice left to make, only the push to run
-  if (!(await fbDmeOneClickConfirm('Flash Program', 'program'))) return;
+  // (a caller that asked the question itself says so: opts.confirmed)
+  if (
+    !opts.confirmed &&
+    !(await fbDmeOneClickConfirm('Flash Program', 'program'))
+  )
+    return;
   try {
     await fbDmeOneClickInto('Flash Program');
   } catch (e) {
@@ -555,7 +591,7 @@ function fbOneClickToolsRefresh() {
 /**
  * Gate the "Restore stock bootloader" section.
  * Shows when Identify found a BL ring in the boot sector (d.bootLoader).
- * Delegates to fbBlRestore / fbBlRestoreWhyNot from bl-install.js --
+ * Delegates to fbBlRestore / fbBlRestoreWhyNot from bootloader.js --
  * the same two-stage ring removal that used to live in Custom Options.
  * No program files are needed: the removal runs entirely on the boot sector
  * via the resident fast flasher.

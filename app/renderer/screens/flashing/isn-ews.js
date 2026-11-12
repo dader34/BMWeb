@@ -1,6 +1,5 @@
-// Flashing/Tuning: the ISN / EWS page of the rail beside the AIF editor,
-// and the matching section in Custom Options. BENCH ONLY (localhost): the
-// used-DME repair lane.
+// Flashing/Tuning: the ISN / EWS page of the rail beside the AIF editor:
+// the used-DME repair lane.
 //
 // WHAT PAIRS A USED DME (car-verified twice, 2026-10-28, two donors
 // started): the DME's flash ISN at ext 0x1FB00 must equal the ISN the
@@ -18,7 +17,7 @@
 // the EWS's value (the EWS's side of the exchange is one-way). The operator
 // supplies the car's ISN: the original DME's, from Read ISN on it or from
 // its flash dump.
-/* exported fbIsnPageHtml, fbIsnShow, fbIsnAvailable, fbIsnEepromHtml, fbIsnEepromRefresh */
+/* exported fbIsnPageHtml, fbIsnShow, fbIsnAvailable */
 
 /**
  * Whether the rail offers the page: a DME identified with the fast flash
@@ -28,7 +27,7 @@
 function fbIsnAvailable() {
   if (fbDevUi()) return true;
   const d = fbState.dme;
-  return !!(fbState.module === 'dme' && d && d.identified && fbDmeIsMs451());
+  return !!(fbState.module === 'dme' && d && d.identified && fbDmeIsMs45());
 }
 
 /**
@@ -51,7 +50,7 @@ function fbIsnWhyNot(eeprom) {
   const d = fbState.dme;
   if (fbState.module !== 'dme' || !d || !d.identified)
     return 'Identify the DME on the Flashing tab first.';
-  if (!fbDmeIsMs451()) return 'The ISN tools are MS45.1 only.';
+  if (!fbDmeIsMs45()) return 'The ISN tools are for the MS45 only.';
   if (typeof webBus === 'undefined' || !webBus.port || !webBus.port.setSignals)
     return 'Needs a cable that can hold the break line (Web Serial or a gateway).';
   if (eeprom && typeof eepromDump === 'undefined')
@@ -75,44 +74,6 @@ function fbIsnPageHtml() {
         <div class="fb-faint" id="fb-isnp-reason"></div>
       </div>
     </div>`;
-}
-
-// ---- the Custom Options section: EEPROM read + flash ISN -----------------------------------------------------
-/** The section's markup, under the bootloader's in Custom Options. */
-function fbIsnEepromHtml() {
-  return `
-      <div class="fb-code">EEPROM</div>
-      <div class="fb-dim">The DME's 4 KB serial EEPROM.</div>
-      <div class="fb-row">
-        <button class="btn" id="fb-opt-eeprom-read" disabled title="Resets the DME into its fast flash bootloader, reads the whole EEPROM, restarts the DME and saves the dump as a file. Nothing is written.">Read EEPROM to file</button>
-      </div>
-      <div class="fb-faint" id="fb-opt-eeprom-reason"></div>`;
-}
-
-/** The section's gate: a DME identified with a bootloader that carries the read window. */
-function fbIsnEepromRefresh() {
-  const btn = fbEls['opt-eeprom-read'];
-  if (!btn) return;
-  // the section follows the identification (an Identify while Custom
-  // Options is open), not only the view's opening
-  // Ungated: the EEPROM read is available on any identified DME. If no
-  // ring is installed, the button handler auto-enters via the one-click.
-  fbEls['opt-eeprom-section'].hidden = !(
-    fbState.module === 'dme' &&
-    fbState.dme &&
-    fbState.dme.identified
-  );
-  if (!btn.dataset.wired) {
-    btn.dataset.wired = '1';
-    btn.onclick = () => {
-      fbShowPage('flashing');
-      fbDmeGuard('Read EEPROM', fbIsnDump, { autoEnter: true });
-    };
-  }
-  const why = fbIsnWhyNot(true);
-  btn.disabled = !!why;
-  fbEls['opt-eeprom-reason'].textContent =
-    why || 'Ready: nothing is written; the dump is saved as a file.';
 }
 
 /** The DME's SGBD for diagnostic jobs (the EWS start-value jobs run here). */

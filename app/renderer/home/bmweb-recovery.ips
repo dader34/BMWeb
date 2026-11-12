@@ -1,0 +1,131 @@
+//**********************************************************************
+//*
+//* BMWeb DME recovery: identify the DME and, when it is not on a
+//* working program (program missing, in its loader, in a flasher), flash
+//* the newest program and data for it. A DME that is fine is offered
+//* nothing but the identification.
+//*
+//* One script for every DME that has a recovery (MS45.1, MS45.0): which
+//* one this run is for is the host's, and so is the title.
+//*
+//* The script draws the screen and owns the keys; the identification and
+//* the flash are the Flashing app's own, started through bmweb_recovery
+//* and read back, a field at a time, through bmweb_recovery_read.
+//*
+//* Written by the BMWeb project.
+//*
+//**********************************************************************
+#include "bmweb-recovery.h"
+
+string state = "";
+string text  = "";
+string title = "";
+
+inpainit()
+{
+  bmweb_recovery_read("title", title);
+  settitle(title);
+  setscreen(s_main, TRUE);
+  setmenu(m_main);
+}
+
+// a DME that is fine, not read yet, or busy: the identification only
+MENU m_main()
+{
+  INIT {
+    bmweb_recovery_read("title", title);
+    setmenutitle(title);
+  }
+  ITEM( 1 ,"Ident")  {
+    bmweb_recovery("ident");
+  }
+  ITEM( 20 ,"Exit")  {
+    exit();
+  }
+}
+
+// a DME that needs its program: the identification, and the recovery
+MENU m_recover()
+{
+  INIT {
+    bmweb_recovery_read("title", title);
+    setmenutitle(title);
+  }
+  ITEM( 1 ,"Ident")  {
+    bmweb_recovery("ident");
+  }
+  ITEM( 2 ,"Recover")  {
+    bmweb_recovery("recover");
+  }
+  ITEM( 20 ,"Exit")  {
+    exit();
+  }
+}
+
+SCREEN s_main()
+{
+  // no DME identified: the screen looks for one by itself, a try at a
+  // time, saying nothing when a try goes unanswered
+  bmweb_recovery_read("state", state);
+  if (state == "")
+  {
+    bmweb_recovery("watch");
+  }
+  if (state == "silent")
+  {
+    bmweb_recovery("watch");
+  }
+  // the keys follow the DME: Recover is there only while it is needed
+  setscreen(s_main, TRUE);
+  if (state == "recover")
+  {
+    setmenu(m_recover);
+  }
+  else
+  {
+    setmenu(m_main);
+  }
+  bmweb_recovery_read("title", title);
+  ftextout(title, 1, 0, 1, 0);
+  ftextout("", 3, 0, 0, 0);
+  LINE("","")
+  {
+    bmweb_recovery_read("headline", text);
+    ftextout(text, 4, 5, 0, 1);
+
+    ftextout("DME", 6, 5, 0, 1);
+    bmweb_recovery_read("dme", text);
+    ftextout(text, 6, 25, 0, 1);
+    ftextout("VIN", 7, 5, 0, 1);
+    bmweb_recovery_read("vin", text);
+    ftextout(text, 7, 25, 0, 1);
+    ftextout("Program", 8, 5, 0, 1);
+    bmweb_recovery_read("program", text);
+    ftextout(text, 8, 25, 0, 1);
+    ftextout("Data", 9, 5, 0, 1);
+    bmweb_recovery_read("data", text);
+    ftextout(text, 9, 25, 0, 1);
+    ftextout("Assembly number", 10, 5, 0, 1);
+    bmweb_recovery_read("assembly", text);
+    ftextout(text, 10, 25, 0, 1);
+    ftextout("Programming status", 11, 5, 0, 1);
+    bmweb_recovery_read("status", text);
+    ftextout(text, 11, 25, 0, 1);
+
+    ftextout("Newest", 13, 5, 0, 1);
+    bmweb_recovery_read("newest", text);
+    ftextout(text, 13, 25, 0, 1);
+
+    bmweb_recovery_read("step", text);
+    ftextout(text, 15, 5, 0, 1);
+    bmweb_recovery_read("bar", text);
+    ftextout(text, 16, 5, 0, 1);
+
+    ftextout("< F1 >  Ident", 19, 5, 0, 1);
+    if (state == "recover")
+    {
+      ftextout("< F2 >  Recover: flash the newest program and data", 20, 5, 0, 1);
+    }
+    ftextout("<Shift> + < F10>  Exit", 22, 45, 0, 1);
+  }
+}

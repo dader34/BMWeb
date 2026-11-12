@@ -976,7 +976,6 @@ if (typeof window !== 'undefined') {
   window.istaOpenTree = istaOpenTree;
   window.istaOpenHistory = istaOpenHistory;
   window.istaOpenLatestReport = istaOpenLatestReport;
-  window.istaOpenIdentity = istaOpenIdentity;
   window.istaOpenCoding = istaOpenCoding;
   window.istaOpenModules = istaOpenModules;
 }

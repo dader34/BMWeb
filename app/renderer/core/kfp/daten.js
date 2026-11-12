@@ -262,6 +262,35 @@
     return best;
   }
 
+  /**
+   * One ZB table from several: a family sold for several chassis (MDS450:
+   * E60, E65, E83, E85) has a table per chassis, and a module carries a ZB
+   * only its own chassis's table lists. A ZB in more than one is taken once.
+   * @param {string[]} texts - Each chassis's table text.
+   * @returns {KfpZbRow[]} Every ZB the tables list, in their order.
+   */
+  function mergeZbTables(texts) {
+    const byZb = new Map();
+    for (const text of texts)
+      for (const row of parseZbTable(text))
+        if (!byZb.has(row.zb)) byZb.set(row.zb, row);
+    return [...byZb.values()];
+  }
+
+  /**
+   * One history from several (see mergeZbTables): the first to name a ZB's
+   * successor is kept.
+   * @param {string[]} texts - Each chassis's .HIS text.
+   * @returns {Map<string, string>} old ZB -> new ZB.
+   */
+  function mergeHistories(texts) {
+    const next = new Map();
+    for (const text of texts)
+      for (const [from, to] of parseHistory(text))
+        if (!next.has(from)) next.set(from, to);
+    return next;
+  }
+
   const api = {
     parseFile,
     runs,
@@ -270,6 +299,8 @@
     filesFor,
     parseHistory,
     latestZb,
+    mergeZbTables,
+    mergeHistories,
   };
   if (typeof root !== 'undefined') root.kfpDaten = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

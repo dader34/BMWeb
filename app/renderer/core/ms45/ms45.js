@@ -10,7 +10,7 @@
 //
 // MD5 and the modular exponentiation come from core/flash/flasher.js (_md5,
 // _modPow, _bytesLEToBigInt, _bigIntToBytesLE), which loads first.
-/* exported MS45_SGBD, MS45_FULL_FLASH_LENGTH, MS45_MPC_LENGTH, MS45_CAL_START, MS45_CAL_LENGTH, MS45_PROGRAM_START, ms45Crc32, ms45Checksums, ewsDelete, ms45ExchangeFile, ms45Job, ms45SetJobTrace, ms45Identify, ms45ReadMemory, ms45ReadCarBytes, ms45SecurityAccess, ms45LeaveProgrammingMode, ms45RaiseBaud, ms45DefaultBaud, ms45FinishFlash, ms45Erase, ms45FlashBlock, ms45WriteAif, ms45AifFields, ms45ReadAscii, ms45VerifyParameterMatch, ms45VerifyProgramMatch, ms45VerifyFlashMpcMatch, ms45LiveTuneSender, ms45ReadResetRecord, ms45ResetRecordText */
+/* exported MS45_SGBD, MS45_FULL_FLASH_LENGTH, MS45_MPC_LENGTH, MS45_CAL_START, MS45_CAL_LENGTH, MS45_PROGRAM_START, ms45Crc32, ms45Checksums, ewsDelete, ms45ExchangeFile, ms45Job, ms45SetJobTrace, ms45Identify, ms45ReadMemory, ms45ReadCarBytes, ms45SecurityAccess, ms45LeaveProgrammingMode, ms45RaiseBaud, ms45DefaultBaud, ms45FinishFlash, ms45Erase, ms45FlashBlock, ms45AifFields, ms45ReadAscii, ms45VerifyParameterMatch, ms45VerifyProgramMatch, ms45VerifyFlashMpcMatch, ms45LiveTuneSender, ms45ReadResetRecord, ms45ResetRecordText */
 
 /** The SGBD whose jobs drive the MS45 family. */
 const MS45_SGBD = 'ms450ds0';
@@ -1556,22 +1556,6 @@ async function ms45FlashBlock(toFlash, blockStart, blockEnd, opts = {}) {
   return true;
 }
 
-/**
- * AIF_SCHREIBEN: append a programming entry. The job checks every argument's
- * shape (VIN 7 or 17, date TT.MM.JJJJ, ZB / SW / approval 7 or 9, dealer 6,
- * tester serial 5, program reference 12, km long).
- * @param {string} args - The semicolon-joined arguments.
- * @returns {Promise<{ok: boolean, status: string, number: string}>}
- */
-async function ms45WriteAif(args) {
-  const r = await ms45Job('AIF_SCHREIBEN', args);
-  return {
-    ok: r.ok,
-    status: r.status || (r.error ? `job failed: ${r.error}` : 'job failed'),
-    number: _ms45Field(r.res, 'AIF_NUMMER'),
-  };
-}
-
 if (typeof window !== 'undefined') {
   Object.assign(window, {
     MS45_SGBD,
@@ -1595,7 +1579,6 @@ if (typeof window !== 'undefined') {
     ms45Erase,
     ms45FlashBlock,
     ms45FlashRuns,
-    ms45WriteAif,
     ms45AifFields,
     ms45ReadAscii,
     ms45VerifyParameterMatch,
@@ -1730,7 +1713,6 @@ if (typeof module !== 'undefined' && module.exports) {
     ms45Erase,
     ms45FlashBlock,
     ms45FlashRuns,
-    ms45WriteAif,
     ms45AifFields,
     ms45ReadAscii,
     ms45VerifyParameterMatch,

@@ -247,7 +247,7 @@ function relayDiagnoseProbe(last) {
     );
   if (last.every((v) => v === 0))
     return (
-      "no answer was ever recorded -- the staging itself stalled on the " +
+      'no answer was ever recorded -- the staging itself stalled on the ' +
       'real box (the step counter says where)'
     );
   if (last[1] === 0x81)

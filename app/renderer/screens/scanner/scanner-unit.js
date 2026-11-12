@@ -34,6 +34,17 @@ const SCANNER_UNIT_FORM = {
  */
 const scannerUnitFormFor = (m) => SCANNER_UNIT_FORM[m.name] || 'TForm3';
 
+/**
+ * What the "Please wait ..." window says over an EEPROM read or write, the
+ * reference's texts (its 0x42, 0x46 and 0x49); each is followed by the
+ * address in hand, four hex digits ("Reading EEPROM ... 2800").
+ */
+const SCANNER_WAIT_TEXT = {
+  read: 'Reading EEPROM ...',
+  write: 'Writing EEPROM ...',
+  verify: 'Verifying EEPROM ...',
+};
+
 /** The body module's algorithm per variant (the reference's 0x5E0BF8). */
 const SCANNER_ZKE_ALGORITHM = [
   '-',
@@ -54,7 +65,7 @@ const SCANNER_ZKE_ALGORITHM = [
  * spells it "Error ..."). A button not listed is drawn and stays disabled
  * until its function is built; tools/verify/test_scanner_unit.js holds every
  * name here to a real button with the caption the action expects.
- * @type {Object<string, Object<string, 'ok'|'errors'|'readEeprom'|'writeEeprom'>>}
+ * @type {Object<string, Object<string, 'ok'|'errors'|'readEeprom'|'writeEeprom'|'steeringAngle'|'srsReprogramming'>>}
  */
 const SCANNER_UNIT_ACTIONS = {
   TForm3: {
@@ -87,12 +98,14 @@ const SCANNER_UNIT_ACTIONS = {
     Button10: 'errors',
     Button2: 'readEeprom',
     Button3: 'writeEeprom',
+    Button6: 'steeringAngle',
   },
   TForm10: {
     Button1: 'ok',
     Button10: 'errors',
     Button2: 'readEeprom',
     Button3: 'writeEeprom',
+    Button6: 'srsReprogramming',
   },
   TForm11: {
     Button1: 'ok',
@@ -192,6 +205,10 @@ function scannerUnitInfo(win, m, r, ops) {
         if (!SCANNER_EEPROM[m.name])
           el.title = 'Not in BMWeb yet for this unit';
         el.onclick = action === 'readEeprom' ? tools.read : tools.write;
+      } else if (SCANNER_UNIT_WINDOWS[action]) {
+        // a function with a window of its own, over this one
+        el.disabled = !(r && r.id);
+        el.onclick = () => SCANNER_UNIT_WINDOWS[action](layer, m, ops.link);
       } else {
         el.disabled = true;
         el.title = 'Not in BMWeb yet';
@@ -200,6 +217,150 @@ function scannerUnitInfo(win, m, r, ops) {
     return { canClose: tools.canClose, cancel: tools.cancel };
   });
 }
+
+/** The title of a Unit info window's message boxes. */
+const SCANNER_UNIT_TITLE = 'Unit info';
+
+/**
+ * The link to the car, or the error that says there is no cable.
+ * @param {() => ScannerEepromLink|null} link
+ * @returns {ScannerEepromLink}
+ */
+function scannerUnitLink(link) {
+  const l = link();
+  if (!l)
+    throw new Error('No cable is connected. Connect it in the top bar first.');
+  return l;
+}
+
+/**
+ * Wire one of the reference's small windows: the buttons named in `built`
+ * get their function, every other button is drawn and stays disabled until
+ * its function is built.
+ * @param {Object<string, HTMLElement>} ctl
+ * @param {Object<string, () => void>} built - Button name -> what it does.
+ */
+function scannerWireButtons(ctl, built) {
+  for (const [name, el] of Object.entries(ctl)) {
+    if (el.tagName !== 'BUTTON') continue;
+    if (built[name]) el.onclick = built[name];
+    else {
+      el.disabled = true;
+      el.title = 'Not in BMWeb yet';
+    }
+  }
+}
+
+/**
+ * The reference's "Steering wheel angle" window (TForm92) of the LEW: its
+ * four values, asked again and again until the window is closed. A
+ * connection error ends it with the reference's message.
+ * @param {HTMLElement} layer - The Unit info window's layer.
+ * @param {ScannerModule} m
+ * @param {() => ScannerEepromLink|null} link
+ * @returns {Promise<void>}
+ */
+async function scannerSteeringWindow(layer, m, link) {
+  /** How long between two readings: the window must stay answerable. */
+  const PAUSE_MS = 50;
+  let open = true;
+  let failure = null;
+  await scannerOpenForm(layer, 'TForm92', (ctl, close) => {
+    const show = (name, value) => {
+      const c = ctl[name] && ctl[name].querySelector('.vcl-caption');
+      if (c) c.textContent = String(value);
+    };
+    scannerWireButtons(ctl, { Button1: close });
+    (async () => {
+      try {
+        while (open) {
+          const l = scannerUnitLink(link);
+          const v = await scannerSteeringAngle(l, m);
+          if (!open) return;
+          if (v) {
+            show('Panel2', v.relative);
+            show('Panel3', v.absolute);
+            show('Panel4', v.constant1);
+            show('Panel5', v.constant2);
+          }
+          await l.sleep(PAUSE_MS);
+        }
+      } catch (e) {
+        failure = e;
+        close();
+      }
+    })();
+    return {
+      cancel: () => {
+        open = false;
+      },
+    };
+  });
+  open = false;
+  if (failure)
+    await wkfpMessage(
+      layer,
+      'error',
+      String(failure.message || failure),
+      ['OK'],
+      SCANNER_UNIT_TITLE
+    );
+}
+
+/**
+ * The airbag unit's "Used module reprogramming" window (TForm10R), as far
+ * as it is built: Crash data, and there Read crash data buffer.
+ * @param {HTMLElement} layer - The Unit info window's layer.
+ * @param {ScannerModule} m
+ * @param {() => ScannerEepromLink|null} link
+ * @returns {Promise<void>}
+ */
+function scannerSrsReprogramming(layer, m, link) {
+  let busy = false;
+  const read = async (where) => {
+    if (busy) return;
+    busy = true;
+    const wait = scannerPleaseWait(where, 'Please wait ...', () => {});
+    let text = null;
+    let failure = null;
+    try {
+      text = await scannerCrashData(
+        scannerLitLink(scannerUnitLink(link), wait),
+        m
+      );
+    } catch (e) {
+      failure = e;
+    } finally {
+      wait.close();
+      busy = false;
+    }
+    await wkfpMessage(
+      where,
+      failure ? 'error' : 'info',
+      failure ? String(failure.message || failure) : text,
+      ['OK'],
+      'Crash data'
+    );
+  };
+  const crash = (where) =>
+    scannerOpenForm(where, 'TForm10CR', (ctl, close, own) => {
+      scannerWireButtons(ctl, { Button0: close, Button1: () => read(own) });
+      return { canClose: () => !busy };
+    });
+  return scannerOpenForm(layer, 'TForm10R', (ctl, close, own) => {
+    scannerWireButtons(ctl, { Button0: close, Button3: () => crash(own) });
+  });
+}
+
+/**
+ * The unit functions that open a window of their own, by action.
+ * @type {Object<string, (layer: HTMLElement, m: ScannerModule,
+ *   link: () => ScannerEepromLink|null) => Promise<void>>}
+ */
+const SCANNER_UNIT_WINDOWS = {
+  steeringAngle: scannerSteeringWindow,
+  srsReprogramming: scannerSrsReprogramming,
+};
 
 /**
  * Read / Write EEPROM and the Internal HEX-Editor of a Unit info window.
@@ -264,8 +425,27 @@ function scannerUnitTools(ctl, m, r, layer, ops) {
   // from its identification answer (scannerZkeVariant)
   let plan = null;
   const thePlan = () => plan || (plan = scannerEepromPlan(m, null, r && r.raw));
-  const progress = (what) => (done, size) =>
-    status(`${what} ${Math.min(100, Math.round((done / size) * 100))}%`);
+  /**
+   * Do a piece of cable work under the reference's "Please wait ..." window:
+   * its line says what is being done, its light how each telegram went, and
+   * its Cancel asks the work to stop.
+   * @template T
+   * @param {string} text - What is being done.
+   * @param {(lit: ScannerEepromLink, say: (text: string) => void) => Promise<T>} work
+   * @returns {Promise<T>}
+   */
+  const waited = async (text, work) => {
+    const wait = scannerPleaseWait(layer, text, () => {
+      stop = true;
+    });
+    try {
+      return await work(scannerLitLink(link(), wait), wait.say);
+    } finally {
+      wait.close();
+    }
+  };
+  /** A block's address as the reference prints it beside the line. */
+  const hex4 = (a) => a.toString(16).toUpperCase().padStart(4, '0');
   /** Edits not written or saved are only lost when the user says so. */
   const mayReplace = async () =>
     !hex.dirty() ||
@@ -278,15 +458,16 @@ function scannerUnitTools(ctl, m, r, layer, ops) {
   const read = () =>
     run('read', async () => {
       if (!(await mayReplace())) return;
-      const l = link();
       const p = thePlan();
       try {
-        const data = await scannerEepromRead(
-          l,
-          m,
-          p,
-          progress('Reading'),
-          stopped
+        const data = await waited(SCANNER_WAIT_TEXT.read, (l, tell) =>
+          scannerEepromRead(
+            l,
+            m,
+            p,
+            (a) => tell(`${SCANNER_WAIT_TEXT.read} ${hex4(a)}`),
+            stopped
+          )
         );
         showEditor();
         hex.set(data, p.base, `${m.name}_eep.bin`);
@@ -306,7 +487,7 @@ function scannerUnitTools(ctl, m, r, layer, ops) {
         );
         return;
       }
-      const l = link();
+      link(); // no cable: say so before asking anything
       const p = thePlan();
       if (data.length !== p.size) {
         await say(
@@ -323,13 +504,18 @@ function scannerUnitTools(ctl, m, r, layer, ops) {
       if (ok !== 'Write') return;
       let out;
       try {
-        out = await scannerEepromWrite(
-          l,
-          m,
-          p,
-          data,
-          progress('Writing'),
-          stopped
+        out = await waited(SCANNER_WAIT_TEXT.write, (lit, tell) =>
+          scannerEepromWrite(
+            lit,
+            m,
+            p,
+            data,
+            (a, verifying) =>
+              tell(
+                `${verifying ? SCANNER_WAIT_TEXT.verify : SCANNER_WAIT_TEXT.write} ${hex4(a)}`
+              ),
+            stopped
+          )
         );
       } catch (e) {
         if (!e || !e.stopped) throw e;

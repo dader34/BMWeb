@@ -97,6 +97,9 @@ const IPOF_BUILTINS = {
   // every number the INPA corpus uses, so a BMW script never collides.
   0xe0: 'bmweb_pick',
   0xe1: 'bmweb_status',
+  // the recovery script's (home/bmweb-recovery.h): start a step, read a field
+  0xe2: 'bmweb_recovery',
+  0xe3: 'bmweb_recovery_read',
 };
 
 /** Binary operator opcodes to names. */

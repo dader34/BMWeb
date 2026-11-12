@@ -568,22 +568,28 @@ function fbDmeStoredMapsWithoutImmobilizer(flash, mpc) {
 }
 
 /**
- * Take the map switch build as the full binary to flash (from Custom Options).
- * @param {{flash: Uint8Array, mpc: Uint8Array}} built - The built pair.
+ * Take a pair as the full binary to flash: the map switch build (from Custom
+ * Options), or the recovery's chosen program and MPC.
+ * @param {{flash: Uint8Array, mpc: Uint8Array}} built - The pair.
+ * @param {{flashName?: string, mpcName?: string, status?: string}} [as] -
+ *   What the pills and the status line call it; the map switch build's
+ *   names without.
  */
-async function fbDmeLoadBuiltPair(built) {
+async function fbDmeLoadBuiltPair(built, as = {}) {
   const d = fbState.dme;
   fbDmeClearExchangeFile(false);
   d.fullBin = true;
   fbEls['dme-fullbin'].checked = true;
   d.flash = Uint8Array.from(built.flash);
   d.mpc = Uint8Array.from(built.mpc);
-  d.flashName = 'Map switch build (external)';
-  d.mpcName = 'Map switch build (MPC)';
+  d.flashName = as.flashName || 'Map switch build (external)';
+  d.mpcName = as.mpcName || 'Map switch build (MPC)';
   fbRefreshAll();
   fbOptionsRefreshEwsGate();
   fbShowOptions(false);
-  fbSetStatus('Loaded the map switch build. Use Flash Program to write it.');
+  fbSetStatus(
+    as.status || 'Loaded the map switch build. Use Flash Program to write it.'
+  );
   await fbDmeGateLoadedFiles();
   fbRefreshAll();
   fbOptionsRefreshEwsGate();

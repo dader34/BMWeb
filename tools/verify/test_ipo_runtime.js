@@ -2324,6 +2324,120 @@ const sysSet = (sgbd) => ({
   }
 
   // ===========================================================================
+  // 6b. The MS45.1 recovery as an INPA script: compiled from the checked-in
+  //     source; its screen reads the host's fields every cycle, its keys
+  //     start the host's steps and come straight back, and the Recover key
+  //     is there only while the host says the DME needs it
+  // ===========================================================================
+  {
+    const src = RT.ipoRecoverySource();
+    assert.strictEqual(
+      fs.readFileSync(R('home/bmweb-recovery.ips'), 'utf8'),
+      src.ips,
+      'recovery.js carries home/bmweb-recovery.ips verbatim'
+    );
+    assert.strictEqual(
+      fs.readFileSync(R('home/bmweb-recovery.h'), 'utf8'),
+      src.h,
+      'recovery.js carries home/bmweb-recovery.h verbatim'
+    );
+    const rec = RT.ipoRecoveryExec();
+    assert.ok(rec.procs.m_main && rec.procs.m_recover && rec.procs.s_main);
+    ok('the recovery script compiles from its own source and include');
+
+    const started = [];
+    const fields = { state: '', headline: 'Not identified yet.' };
+    ipoRecoverySetHost({
+      start: (what) => started.push(what),
+      read: (what) => fields[what] || '',
+    });
+    const keys = (p) =>
+      p.items.filter((i) => i.label).map((i) => `${i.nr}:${i.label}`);
+    const screenText = (p) =>
+      [...p.cells.values()].map((c) => c.text).join('\n');
+    const p = new IpoProgram(
+      {
+        sgbd: 'bmweb_recovery',
+        label: 'MS45.1 recovery',
+        _variant: 'BMWEB_RECOVERY',
+      },
+      rec,
+      fakeUi()
+    );
+    const r = await p.start();
+    assert.strictEqual(r.ok, true, `recovery start failed: ${r.reason}`);
+    assert.strictEqual(p.menu, 'm_main');
+    assert.deepStrictEqual(keys(p), ['1:Ident', '20:Exit']);
+    assert.ok(/Not identified yet\./.test(screenText(p)));
+    // with no DME identified the screen asks the host to look for one,
+    // every cycle (the host decides when a try is due); nothing else starts
+    assert.ok(started.length > 0 && started.every((s) => s === 'watch'));
+    ok('the recovery opens on the identification alone, looking for a DME');
+
+    fields.state = 'silent';
+    started.length = 0;
+    await p.cycle(p.gen);
+    assert.deepStrictEqual(
+      started,
+      ['watch'],
+      'an unanswered try is made again'
+    );
+    ok('a DME that did not answer is looked for again');
+
+    await p.press(1);
+    assert.deepStrictEqual(started, ['watch', 'ident']);
+    ok('F1 starts the identification and comes straight back');
+    started.length = 0;
+
+    // the DME identified as fine: still nothing but the identification
+    Object.assign(fields, {
+      state: 'ok',
+      headline: 'The DME is fine. Nothing to recover.',
+      vin: 'NJ87379',
+      status: 'Normal operation',
+    });
+    await p.cycle(p.gen);
+    assert.strictEqual(p.menu, 'm_main');
+    assert.deepStrictEqual(keys(p), ['1:Ident', '20:Exit']);
+    assert.ok(/NJ87379/.test(screenText(p)) && /fine/.test(screenText(p)));
+    assert.ok(!/F2/.test(screenText(p)));
+    await p.press(2);
+    assert.deepStrictEqual(started, [], 'no Recover key, and no more looking');
+    ok('a DME that is fine is offered nothing but the identification');
+
+    // it needs its program: the Recover key appears, and starts the recovery
+    Object.assign(fields, {
+      state: 'recover',
+      headline: 'The DME is not on a working program. It can be recovered.',
+      status: 'Program missing or incomplete',
+    });
+    await p.cycle(p.gen);
+    assert.strictEqual(p.menu, 'm_recover');
+    assert.strictEqual(p.screen, 's_main');
+    assert.deepStrictEqual(keys(p), ['1:Ident', '2:Recover', '20:Exit']);
+    assert.ok(/F2 > {2}Recover/.test(screenText(p)));
+    await p.press(2);
+    assert.deepStrictEqual(started, ['recover']);
+    ok('a DME without its program gets the Recover key, which starts it');
+
+    // while it runs the key is gone again and the screen shows the progress
+    Object.assign(fields, {
+      state: 'busy',
+      headline: 'Recovering the DME. Do not switch off.',
+      step: 'Writing the program...',
+      bar: '[##########..............................]  25 %',
+    });
+    await p.cycle(p.gen);
+    assert.strictEqual(p.menu, 'm_main');
+    assert.ok(
+      /25 %/.test(screenText(p)) && /Writing the program/.test(screenText(p))
+    );
+    ok('a running recovery shows its progress and offers no second start');
+    p.close();
+    ipoRecoverySetHost(null);
+  }
+
+  // ===========================================================================
   // 7. INPA's API fault read: the E46 airbag script reads fault memory only
   //    through INPAapiFsLesen, which INPA's own API turns into FS_LESEN plus
   //    the detail of every entry and a protocol file the script viewopen()s

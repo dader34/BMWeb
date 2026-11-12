@@ -1543,6 +1543,8 @@ class IpoProgram {
    * @returns {Promise<boolean|void>}
    */
   async back() {
+    // a flash is running: the script's screen stays up (core/nav-lock.js)
+    if (typeof navRefuse === 'function' && navRefuse()) return;
     if (this.running || this.busy) {
       this.queued = 'back';
       return;
@@ -1574,6 +1576,8 @@ class IpoProgram {
    */
   async leaveModule() {
     if (this.closed || this.leaving) return;
+    // a flash is running: Exit waits for it too (core/nav-lock.js)
+    if (typeof navRefuse === 'function' && navRefuse()) return;
     // inpaexit runs BEFORE the program is marked closed: drive() answers a
     // closed program with "cancelled" at its first step, so marking it first
     // meant the exit proc's own job (DIAGNOSE_ENDE) never reached the wire

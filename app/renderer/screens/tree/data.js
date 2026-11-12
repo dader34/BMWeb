@@ -88,6 +88,18 @@ async function ecuTreeNameFor(chassis) {
   return idx.chassis[String(chassis).toUpperCase()] || null;
 }
 
+/**
+ * The buses a chassis's tree draws, from the index alone (no tree fetched).
+ * @param {string} chassis - the chassis id
+ * @returns {Promise<string[]>} empty when ISTA has no tree for it
+ */
+async function ecuTreeBusesFor(chassis) {
+  const idx = await ecuTreeIndex();
+  const name = idx && idx.chassis[String(chassis).toUpperCase()];
+  const tree = name && idx.trees[name];
+  return (tree && tree.buses) || [];
+}
+
 /** scan-extras.json, once: {CHASSIS: [{group, label}]}. */
 let ecuTreeExtrasCache = null;
 
@@ -130,6 +142,7 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     ECU_TREE_HIDDEN,
     ecuTreeFetchJson,
+    ecuTreeBusesFor,
     ecuTreeForChassis,
     ecuTreeScanExtras,
   };

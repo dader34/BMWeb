@@ -1,7 +1,6 @@
 // Flashing/Tuning: "Install live tune" -- one button in Custom Options that
 // writes the loaded pair as a program flash with live tune in it
-// (core/flash/livetune-patch.js). BENCH ONLY (localhost), like the rest of
-// that area.
+// (core/flash/livetune-patch.js).
 //
 // The loaded pair is the starting point: its program must be the stock
 // 0044570 program or a live tune build of it (an older one is upgraded in
@@ -32,10 +31,9 @@ function fbLtInstallSurvey() {
 function fbLtInstallWhyNot() {
   const d = fbState.dme;
   if (!d.identified) return 'Identify the DME first.';
-  if (!(d.fullBin && d.flash && d.mpc))
-    return 'Needs Full Binary with a pair loaded: the program flash writes it with live tune in it.';
+  if (!(d.fullBin && d.flash && d.mpc)) return 'Load a full binary first.';
   if (d.flash.length < 0x5d000 || fbDmeProgramHasNoTune())
-    return 'The loaded pair needs its tune: live tune keeps a copy of it to save against.';
+    return 'The loaded file has no tune in it.';
   if (!fbLtInstallSurvey())
     return 'The loaded program is not the stock 0044570 program or a live tune build of it.';
   return null;
@@ -69,7 +67,7 @@ async function fbLtInstall() {
   const v = liveTunePatch.VERSION;
   const fast = fbDmeUseFastFlasher();
   const ok = await fbConfirm(
-    `Writes the loaded pair as a ${fast ? 'Fast Flash Program' : 'Flash Program'} with live tune ${v} in it. Keep the ignition on, a charger on the battery and the cable plugged in until it has finished.\n\nInstall live tune?`,
+    `Writes the loaded pair as a ${fast ? 'Fast Flash Program' : 'Flash Program'} with the live tune program in it. Keep the ignition on, a charger on the battery and the cable plugged in until it has finished.\n\nInstall live tune?`,
     'Install live tune'
   );
   if (!ok) {
@@ -88,12 +86,12 @@ async function fbLtInstall() {
       );
       return r;
     },
-    patchName: `live tune ${v}`,
+    patchName: 'live tune program',
     after: async () => {
       await fbDmeIdentify(true);
       fbSetStatus(
         fbState.dme.carProgramKind === 'livetune'
-          ? `Install live tune: done, the DME runs live tune ${v}`
+          ? 'Install live tune: done, the DME runs the live tune program'
           : `Install live tune: written. Open Tuning and switch LIVE on to check it answers.`
       );
     },

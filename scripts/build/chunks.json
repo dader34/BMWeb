@@ -18,6 +18,7 @@
       "showTuning": "load",
       "showLogging": "load",
       "showLoggingChassis": "load",
+      "fbRecoveryFor": "load",
       "stopDataLogging": "noop",
       "fbApplyLayout": "noop"
     }
@@ -26,7 +27,8 @@
     "about": "BMWeb Scanner: loaded the first time the scanner is opened (its reference data pack is fetched from the data mirrors, not bundled).",
     "include": ["screens/scanner/"],
     "entries": {
-      "showScanner": "load"
+      "showScanner": "load",
+      "scannerScansChassis": "load"
     }
   }
 }

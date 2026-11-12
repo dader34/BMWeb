@@ -15,7 +15,9 @@
 //   #apps/parts/vin       the VIN Decoder page (showVinDecoder)
 //   #apps/tool32          Tool32 (showTool32)
 //   #apps/webkfp          WebKFP (showWebKfp)
-//   #apps/scanner         BMWeb Scanner (showScanner)
+//   #scanner              BMWeb Scanner (showScanner); #scanner/<CAR> is the
+//                         Scanner opened for a Garage car. #apps/scanner,
+//                         its address before it had its own, still opens it
 //   #apps/coding          Coding (showNcsExpert)
 
 /**
@@ -36,6 +38,8 @@ const APPS_ROUTES = {
     typeof showVinDecoder === 'function' ? showVinDecoder() : null,
   'apps/tool32': () => (typeof showTool32 === 'function' ? showTool32() : null),
   'apps/webkfp': () => (typeof showWebKfp === 'function' ? showWebKfp() : null),
+  scanner: () => (typeof showScanner === 'function' ? showScanner() : null),
+  // (the Scanner's address before it had its own: old links still open it)
   'apps/scanner': () =>
     typeof showScanner === 'function' ? showScanner() : null,
   'apps/coding': () =>
@@ -68,6 +72,12 @@ const APPS_ROUTES = {
     typeof wiring !== 'undefined' ? wiring.showWiringChassis() : null,
   // the app's home as an INPA script (screens/ipo-runtime/home.js)
   inpa: () => (typeof showIpoHome === 'function' ? showIpoHome() : null),
+  // the DME recovery script (screens/ipo-runtime/recovery.js): the MS45.1's,
+  // and the MS45.0's
+  recovery: () =>
+    typeof showIpoRecovery === 'function' ? showIpoRecovery() : null,
+  'recovery/ms450': () =>
+    typeof showIpoRecoveryMs450 === 'function' ? showIpoRecoveryMs450() : null,
   // workshop mode (screens/ista/). Top-level like garage and inpa: it is a
   // mode over the whole app, not one more app under the hub.
   ista: () => (typeof showIsta === 'function' ? showIsta() : null),
@@ -84,7 +94,7 @@ const ROUTE_FOR_SCREEN = {
   showVinDecoder: 'apps/parts/vin',
   showTool32: 'apps/tool32',
   showWebKfp: 'apps/webkfp',
-  showScanner: 'apps/scanner',
+  showScanner: 'scanner',
   showNcsExpert: 'apps/coding',
   showJobSearch: 'apps/job-search',
   showFlashing: 'apps/flashing',
@@ -96,6 +106,8 @@ const ROUTE_FOR_SCREEN = {
   showEcuTree: 'apps/tree',
   showService: 'apps/service',
   showIpoHome: 'inpa',
+  showIpoRecovery: 'recovery',
+  showIpoRecoveryMs450: 'recovery/ms450',
 };
 
 // Some routes carry parameters (a chassis, a specific diagram) so a single
@@ -159,6 +171,17 @@ function resolveRoute(route) {
     if (scanId && typeof showGarageScan === 'function')
       return () => showGarageScan(carId, scanId);
     if (typeof showGarageCar === 'function') return () => showGarageCar(carId);
+  }
+  // #scanner/<CAR> -- the Scanner opened for a saved vehicle: its scans are
+  // kept against that car. A car this browser does not have opens the plain
+  // Scanner.
+  const sc = /^scanner\/([A-Za-z0-9_-]+)$/.exec(route);
+  if (sc && typeof showScanner === 'function') {
+    const carId = decodeURIComponent(sc[1]);
+    return () => {
+      const car = typeof garageCar === 'function' ? garageCar(carId) : null;
+      return showScanner(car ? { car } : undefined);
+    };
   }
   // #report/<payload> -- a stored scan someone sent as a link; the payload
   // IS the report (deflated, base64url), nothing is fetched
@@ -395,7 +418,9 @@ function routeSyncFromScreen(fn) {
       EXIT_APPS_SCREEN.has(name) &&
       (here.startsWith('apps') ||
         here.startsWith('car') ||
-        here.startsWith('garage'))
+        here.startsWith('garage') ||
+        here.startsWith('scanner') ||
+        here.startsWith('recovery'))
     ) {
       _routing = true;
       _openRoute = null;
@@ -471,6 +496,22 @@ function _onLocationChange() {
   if (_routing) return; // our own hash write; ignore
   const route = currentRoute();
   if (route === _openRoute) return; // already on this screen; no-op
+  // a flash is running (core/nav-lock.js): the browser's Back or Forward, or
+  // an address typed over this one, does not take the app off its screen.
+  // The address is put back to the screen that is up.
+  if (typeof navRefuse === 'function' && navRefuse()) {
+    _routing = true;
+    try {
+      history.pushState(
+        null,
+        '',
+        _openRoute ? '#' + _openRoute : location.pathname + location.search
+      );
+    } finally {
+      _routing = false;
+    }
+    return;
+  }
   // the ISTA shell opening a wrapped screen: that screen writes its own
   // route mid-render and the shell re-stamps it after; replaying either
   // here would open the screen a second time, without what the shell asked

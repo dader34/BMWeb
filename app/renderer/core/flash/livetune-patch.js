@@ -1,5 +1,5 @@
 // Flashing/Tuning: live tune put on a DME from the pair BMWeb has loaded --
-// "Install live tune" in Custom Options. BENCH ONLY (localhost).
+// "Install live tune" in Custom Options.
 //
 // Live tune (ms45-emu docs/livetune-design.md) is four patches on the stock
 // 0044570 program: the RAM overlay that redirects table reads into SRAM
@@ -118,7 +118,7 @@ function liveTuneSplice(flash, mpc) {
   const from = liveTuneSurvey(flash, mpc);
   if (!from)
     throw new Error(
-      'The loaded program is not the stock 0044570 program (or a live tune build of it) where live tune goes: another program, or an edit such as a protection in the same place. Nothing was written.'
+      'The loaded program is not the stock 0044570 program. Nothing was written.'
     );
   const f = Uint8Array.from(flash);
   const m = Uint8Array.from(mpc);
@@ -137,13 +137,13 @@ function liveTuneSplice(flash, mpc) {
       .some((x) => x !== 0xff)
   )
     throw new Error(
-      `The tune has data past calibration offset 0x${gl.toString(16)}, which a live tune save would not keep. Nothing was written.`
+      'The tune is too large for live tune. Nothing was written.'
     );
   const mon = ltData.monitor;
   const want = _ltMonitorSum(cal);
   if (cal.subarray(mon.at, mon.at + 8).some((x, i) => x !== want[i]))
     throw new Error(
-      "The tune's safety-monitor sum is not right, so a live tune save could not keep it in step. Nothing was written."
+      "The tune's safety-monitor sum is not right. Nothing was written."
     );
   if (
     ltBytes.be32(f, mon.table) !== (0xffe40000 + mon.from) >>> 0 ||

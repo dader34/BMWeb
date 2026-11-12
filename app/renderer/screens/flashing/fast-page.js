@@ -1,17 +1,15 @@
 /**
  * @file The Fast flasher rail page: what Identify found of the fast flash
  * bootloader and the flasher on the DME, the "Use the fast flasher"
- * setting, and the bootloader's own buttons (screens/flashing/bl-install.js)
- * and EEPROM read (screens/flashing/isn-ews.js), which used to sit in
- * Custom Options.
+ * setting, the full backup, Restore stock bootloader (dme-oneclick.js) and,
+ * on a bench, the GS20 relay test.
  */
 /* exported fbFastPageHtml, fbFastWire, fbFastAvailable, fbFastShow, fbFastPaint */
 
 function fbFastPageHtml() {
-  // One "Use the fast flasher" toggle, then the bootloader section
-  // (fbOneClickToolsHtml) and the GS20 relay section. The one-click
-  // tools (Read/Write ISN, Read EEPROM) and the fault page live on their
-  // own rail tabs, not here.
+  // One "Use the fast flasher" toggle, then the full backup, the bootloader
+  // section (fbOneClickToolsHtml) and the GS20 relay section. The ISN and
+  // EEPROM tools and the fault page live on their own rail tabs, not here.
   return `
       <div class="fb-page" id="fb-page-fast" hidden>
         <div class="fb-section">
@@ -19,9 +17,9 @@ function fbFastPageHtml() {
           <label class="fb-check"><input type="checkbox" id="fb-set-fast"> Use the fast flasher</label>
           <div class="fb-faint" id="fb-fast-route"></div>
         </div>
+        ${fbBackupHtml()}
         ${fbOneClickToolsHtml()}
         ${fbRelayAllowed() ? `${fbRelayHtml()}` : ''}
-        ${fbBlHtml()}
       </div>`;
 }
 
@@ -47,7 +45,7 @@ function fbFastWire() {
 function fbFastAvailable() {
   if (fbDevUi()) return true;
   const d = fbState.dme;
-  if (!(d && d.identified && fbDmeIsMs451())) return false;
+  if (!(d && d.identified && fbDmeIsMs45())) return false;
   // a DME found in its fast flasher answers no KWP, so its program reference
   // is whatever an earlier identify left (nothing after a reload) -- but the
   // flasher is the one thing certainly on it, and this page is how a cut
@@ -74,8 +72,7 @@ function fbFastPaint() {
     d && d.identified && fbDmeUseFastFlasher()
       ? 'Now: Read DME, Flash Tune and Flash Program use the fast flasher.'
       : '';
-  fbBlRefresh();
-  fbIsnEepromRefresh();
+  fbBackupRefresh();
   fbOneClickToolsRefresh();
   if (fbRelayAllowed()) fbRelayRefresh();
 }

@@ -1116,7 +1116,7 @@ const notInstalled = {
   const fewer = syntheticPair();
   w32(fewer.mpc, 0x4ec88, 0x60000000);
   assert.ok(
-    /found 780, readers stock/.test(
+    /not one the map switch supports/.test(
       mapSwitch.blockedReason(fewer.flash, fewer.mpc)
     ),
     'a program without all the upper-half accesses is refused'

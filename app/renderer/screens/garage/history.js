@@ -201,99 +201,6 @@ function garageRunScan(car, menu, pressKey) {
   showVehicleScript(car.chassis, menu, null, pressKey);
 }
 
-/** The live tree scan on a car's page, so only one runs at a time. */
-let garageTreeScan = null;
-
-/**
- * Run the merged fault scan on the car's own page, the way the tool does.
- *
- * NOT the whole-car .IPO script: that reads only the groups its author typed
- * out (41 on the E46) and sends every fault read with an empty argument,
- * which hides the blocks a module stores past the third. This walks ISTA's
- * control unit tree unioned with the groups only the script names (98 on the
- * E46) and asks each module for the read IT declares -- see
- * ecuTreeWalkTargets and ecuTreeFaultJobFor.
- *
- * The report is painted as each module answers, through the same renderer
- * the script path uses, and filed against the car when the walk ends.
- * @param {GarageCar} car - the car
- * @param {HTMLElement} box - the run row, for the buttons and the status line
- * @returns {void}
- */
-function garageRunTreeScan(car, box) {
-  if (garageTreeScan) return;
-  const faultsBtn = box.querySelector('.garage-run-faults');
-  const identBtn = box.querySelector('.garage-run-ident');
-  const stopBtn = box.querySelector('.garage-run-stop');
-  const out = box.querySelector('.garage-run-out');
-  const note = box.querySelector('.garage-run-note');
-  const wasNote = note ? note.textContent : '';
-  if (faultsBtn) faultsBtn.hidden = true;
-  if (identBtn) identBtn.disabled = true;
-  if (stopBtn) stopBtn.hidden = false;
-  if (out) out.hidden = false;
-
-  /** Repaint the report, coalesced: a tick must not stack behind the last. */
-  let painting = false;
-  let latest = null;
-  const paint = () => {
-    if (!out || painting || !latest) return;
-    painting = true;
-    Promise.resolve(ipoProtocolRender(out, { view: { report: latest } }))
-      .catch(() => {})
-      .then(() => {
-        painting = false;
-      });
-  };
-
-  const handle = ecuTreeWalkStart(car.chassis, {
-    onProgress: (report, text) => {
-      if (garageTreeScan !== handle) return;
-      if (report) latest = report;
-      if (note && text) note.textContent = text;
-      paint();
-    },
-  });
-  garageTreeScan = handle;
-
-  const finish = () => {
-    if (garageTreeScan === handle) garageTreeScan = null;
-    if (faultsBtn) faultsBtn.hidden = false;
-    if (identBtn) identBtn.disabled = false;
-    if (stopBtn) stopBtn.hidden = true;
-  };
-  handle.done.then(
-    ({ report, lines, cancelled }) => {
-      finish();
-      latest = report || latest;
-      paint();
-      const got = report && (report.modules || []).length;
-      if (!got) {
-        if (note)
-          note.textContent = cancelled
-            ? 'Scan stopped. Nothing answered yet.'
-            : 'Nothing answered on the bus.';
-        return;
-      }
-      // the read is the car's own: filed without asking, as the tree screen does
-      if (typeof garageAddScan === 'function')
-        garageAddScan(
-          car.id,
-          { report, lines: lines || [] },
-          { chassis: car.chassis }
-        );
-      if (note)
-        note.textContent = cancelled
-          ? 'Scan stopped. What was read is kept.'
-          : 'Scan kept against this car.';
-    },
-    (e) => {
-      finish();
-      if (note) note.textContent = String((e && e.message) || e) || wasNote;
-    }
-  );
-}
-
 /**
  * The fault-memory read key of INPA's whole-vehicle scripts, by caption
  * (E46.IPO says "FS lesen"; others spell it out or ship it in English).
@@ -304,61 +211,47 @@ const GARAGE_FAULT_KEY = /^(FS lesen|Fehlerspeicher lesen|Read fault memory)$/i;
 const GARAGE_IDENT_KEY = /^(Ident|Identifikation|Identification)$/i;
 
 /**
- * The "run a scan" row on a car's page: Fault scan and Identification, where
- * INPA's whole-car script ships for the chassis; nothing where it does not
- * (the module view is then the only way to read, and Save to garage asks).
+ * The "run a scan" row on a car's page: Fault scan and Identification.
+ *
+ * BOTH ARE THE BMWEB SCANNER'S, in its own window, on the series it can
+ * talk to (scannerScansChassis: the K-line cars): its scan, filed against
+ * this car when it ends, and its Car ident. Any other chassis falls back to
+ * INPA's whole-car script where one ships. Neither: no row (the module view
+ * is then the only way to read, and Save to garage asks).
  * @param {GarageCar} car - the car
  * @returns {Promise<HTMLDivElement|null>}
  */
 async function garageRunBox(car) {
   if (!car.chassis) return null;
-  // THE FAULT SCAN NO LONGER NEEDS THE SCRIPT. It walks the control unit
-  // tree, so a chassis INPA ships no whole-car script for -- 17 of the 27 --
-  // can still be scanned; only Identification, which is still a script read,
-  // is gated on one being there.
-  const canWalk =
-    typeof ecuTreeWalkStart === 'function' &&
-    typeof ipoProtocolRender === 'function' &&
-    typeof ecuTreeNameFor === 'function' &&
-    !!(await ecuTreeNameFor(car.chassis).catch(() => null));
+  const hasScanner =
+    typeof showScanner === 'function' &&
+    typeof scannerScansChassis === 'function' &&
+    (await scannerScansChassis(car.chassis).catch(() => false));
   const hasScript =
     typeof showVehicleScript === 'function' &&
     typeof vehicleScriptShipped === 'function' &&
     (await vehicleScriptShipped(car.chassis).catch(() => false));
-  if (!canWalk && !hasScript) return null;
+  if (!hasScanner && !hasScript) return null;
   const box = document.createElement('div');
   box.className = 'garage-run';
   box.innerHTML = `
     <span class="garage-run-text">
       <span class="garage-run-title">Run a scan</span>
       <span class="garage-run-note">${esc(
-        canWalk
-          ? `Reads every control unit on ${dispChassis(car.chassis)}'s bus map; the result is kept here.`
+        hasScanner
+          ? `BMWeb Scanner asks every control unit on ${dispChassis(car.chassis)}'s diagnostic line; the result is kept here.`
           : `INPA's ${dispChassis(car.chassis)} script reads every module on the cable; the result is kept here.`
       )}</span>
     </span>
     <button type="button" class="btn garage-run-faults">Fault scan</button>
-    <button type="button" class="btn garage-run-stop" hidden>Stop</button>
     <button type="button" class="btn garage-run-ident">Identification</button>
     <button type="button" class="btn garage-run-tree" hidden>Control unit tree</button>`;
-  const outEl = document.createElement('div');
-  outEl.className = 'garage-run-out';
-  outEl.hidden = true;
-  box.appendChild(outEl);
-  // the fault scan runs HERE, on the tree, rather than opening the script;
-  // without tree data it falls back to the script the way it always did
-  const faultsEl = box.querySelector('.garage-run-faults');
-  faultsEl.onclick = canWalk
-    ? () => garageRunTreeScan(car, box)
+  box.querySelector('.garage-run-faults').onclick = hasScanner
+    ? () => showScanner({ car, scan: true })
     : () => garageRunScan(car, IPO_VEHICLE_FAULT_MENU, GARAGE_FAULT_KEY);
-  box.querySelector('.garage-run-stop').onclick = () => {
-    if (garageTreeScan) garageTreeScan.cancel();
-  };
-  // identification is still a script read: no script, no button
-  const identEl = box.querySelector('.garage-run-ident');
-  if (hasScript)
-    identEl.onclick = () => garageRunScan(car, null, GARAGE_IDENT_KEY);
-  else identEl.hidden = true;
+  box.querySelector('.garage-run-ident').onclick = hasScanner
+    ? () => showScanner({ car, ident: true })
+    : () => garageRunScan(car, null, GARAGE_IDENT_KEY);
   // ISTA's control unit tree, the boxes coloured by this car's last scan;
   // shown once the tree data says the chassis has one
   const treeBtn = box.querySelector('.garage-run-tree');
@@ -385,27 +278,24 @@ async function garageRunBox(car) {
  */
 function garageRunActions(car, from, box) {
   // the keys PRESS THE ROW'S OWN BUTTONS rather than repeating what they do:
-  // which scan Fault runs, and whether Identification exists at all, is
-  // decided once in garageRunBox and must not be decided a second way here.
+  // which scan and which identification run is decided once in garageRunBox
+  // and must not be decided a second way here.
   const click = (sel) => () => {
     const b = box && box.querySelector(sel);
     if (b && !b.hidden && !b.disabled) b.click();
   };
-  const acts = [
+  return [
     {
       key: String(from + 1),
       label: 'Fault scan',
       fn: click('.garage-run-faults'),
     },
-  ];
-  const ident = box && box.querySelector('.garage-run-ident');
-  if (!ident || !ident.hidden)
-    acts.push({
+    {
       key: String(from + 2),
       label: 'Identification',
       fn: click('.garage-run-ident'),
-    });
-  return acts;
+    },
+  ];
 }
 
 /**

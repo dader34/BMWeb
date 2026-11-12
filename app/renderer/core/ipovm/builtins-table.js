@@ -158,6 +158,9 @@ const BUILTINS = {
   // BMWeb's own (home/bmweb.h): a pick from the host, a status line
   bmweb_pick: bBmwebPick,
   bmweb_status: bBmwebStatus,
+  // the recovery script's (home/bmweb-recovery.h)
+  bmweb_recovery: bBmwebRecovery,
+  bmweb_recovery_read: bBmwebRecoveryRead,
   builtin_57: bUserboxClear, // userboxclear
   builtin_58: bUserboxSetcolor, // userboxsetcolor
   userboxsetcolor: bUserboxSetcolor,

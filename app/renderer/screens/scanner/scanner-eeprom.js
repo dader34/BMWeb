@@ -109,7 +109,8 @@ function scannerStopped(at) {
  * @param {ScannerEepromLink} link
  * @param {ScannerModule} m
  * @param {ReturnType<typeof scannerEepromPlan>} plan
- * @param {(done: number, size: number) => void} [progress]
+ * @param {(address: number) => void} [progress] - Told the address of each
+ *   block before it is asked for.
  * @param {() => boolean} [cancelled]
  * @returns {Promise<Uint8Array>}
  */
@@ -120,6 +121,7 @@ async function scannerEepromRead(link, m, plan, progress, cancelled) {
     const a = plan.base + at;
     const hi = (a >> 8) & 0xff;
     const lo = a & 0xff;
+    if (progress) progress(a);
     let r;
     if (plan.ds2) r = await link.ds2(m.address, [0x06, 0x10, hi, lo, 0x00]);
     else if (link.word)
@@ -137,7 +139,6 @@ async function scannerEepromRead(link, m, plan, progress, cancelled) {
         `${m.name} refused the read at ${a.toString(16).toUpperCase()}`
       );
     out.set(r.slice(3, 3 + Math.min(0x10, plan.size - at)), at);
-    if (progress) progress(at + 0x10, plan.size);
   }
   return out;
 }
@@ -148,8 +149,9 @@ async function scannerEepromRead(link, m, plan, progress, cancelled) {
  * @param {ScannerModule} m
  * @param {ReturnType<typeof scannerEepromPlan>} plan
  * @param {Uint8Array} data - Exactly plan.size bytes.
- * @param {(done: number, size: number) => void} [progress]
- * @param {() => boolean} [cancelled]
+ * @param {(address: number, verifying: boolean) => void} [progress] - Told
+ *   the address of each step before it: of the write, then of the read back.
+ * @param {() => boolean} [cancelled] - Stops the write; never the read back.
  * @returns {Promise<{refused: number[], differ: number[]}>} Offsets the unit
  *   would not take, and offsets that read back different.
  */
@@ -165,6 +167,7 @@ async function scannerEepromWrite(link, m, plan, data, progress, cancelled) {
     const a = plan.base + at;
     const hi = (a >> 8) & 0xff;
     const lo = a & 0xff;
+    if (progress) progress(a, false);
     let r = null;
     for (let tries = 0; tries < 2; tries++) {
       if (plan.ds2) r = await link.ds2(m.address, [0x07, hi, lo, data[at]]);
@@ -189,10 +192,14 @@ async function scannerEepromWrite(link, m, plan, data, progress, cancelled) {
       break;
     }
     if (!r || r[2] !== 0xa0) refused.push(at);
-    if (progress) progress(at + step, plan.size);
   }
   // the read back is never cancelled: it is what says what the unit holds
-  const back = await scannerEepromRead(link, m, plan);
+  const back = await scannerEepromRead(
+    link,
+    m,
+    plan,
+    progress && ((a) => progress(a, true))
+  );
   const differ = [];
   for (let i = 0; i < plan.size; i++) if (back[i] !== data[i]) differ.push(i);
   return { refused, differ, back };
