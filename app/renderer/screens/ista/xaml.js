@@ -204,6 +204,10 @@ function istaXamlEval(e, data, ctx) {
   if (e.res) v = istaXamlPath(istaXamlResource(e.res, data, ctx), e.bind);
   // a binding to another element or a relative source reads live WPF state
   // (a grid's actual width); nothing here stands in for that
+  // ...unless the page models that element (`ctx.elements`): a control with
+  // state of its own, like the fault filter's graph and its two cursors
+  else if (e.el && ctx && ctx.elements && ctx.elements[e.el])
+    v = istaXamlPath(ctx.elements[e.el], e.bind);
   else if (e.el || e.rel) v = undefined;
   else v = istaXamlPath(data, e.bind);
   if (e.conv) {
@@ -496,6 +500,8 @@ function istaXamlLayout(el, n) {
   if (a.col != null || a.colSpan)
     s.gridColumn = `${Number(a.col || 0) + 1} / span ${Number(a.colSpan || 1)}`;
   if (a.horizontalAlignment === 'Right') s.marginLeft = 'auto';
+  // a row pinned to the bottom of its panel (a dialog's buttons) goes last
+  if (a.verticalAlignment === 'Bottom' && a.height) s.order = '1';
   if (a.fontWeight === 'Bold') s.fontWeight = 'bold';
   if (n.style) el.dataset.xstyle = n.style;
   if (n.n) el.dataset.xname = n.n;
@@ -635,6 +641,17 @@ function istaXamlNode(n, data, ctx) {
     return el;
   }
 
+  // a control the page draws itself, by its name: a canvas the tool paints
+  // in code has no children to render and needs the app's own drawing
+  const named = n.n && ctx.widgets ? ctx.widgets[n.n] : null;
+  if (named) {
+    const el = document.createElement('div');
+    el.className = 'ixwidget';
+    istaXamlLayout(el, n);
+    named(el, n, scope, ctx);
+    return el;
+  }
+
   const kids = () => (n.kids || []).map((k) => istaXamlNode(k, scope, ctx));
   const text = () => {
     const v = istaXamlEval(n.text, scope, ctx);
@@ -679,15 +696,76 @@ function istaXamlNode(n, data, ctx) {
     }
     case 'Button':
     case 'ToggleButton':
+    case 'RepeatButton':
     case 'IstaButton': {
       el = document.createElement('button');
       el.type = 'button';
-      el.className = 'irbtn';
+      el.className = n.t === 'RepeatButton' ? 'irbtn ixstep' : 'irbtn';
       el.textContent = text();
-      const fn = n.cmd && ctx.commands ? ctx.commands[n.cmd.bind] : null;
-      if (fn && istaXamlEnabled(n.en, scope, ctx))
+      // a button acts through its command, or -- for one the view wires up
+      // in code (a Click handler) -- through the page's handler for its name
+      const tog = n.t === 'ToggleButton' && ctx.toggles && ctx.toggles[n.n];
+      const fn = tog
+        ? tog.toggle
+        : n.cmd && ctx.commands
+          ? ctx.commands[n.cmd.bind]
+          : ctx.clicks
+            ? ctx.clicks[n.n]
+            : null;
+      if (tog && tog.on) {
+        el.classList.add('on');
+        el.setAttribute('aria-pressed', 'true');
+      }
+      if (fn && !fn.off && istaXamlEnabled(n.en, scope, ctx))
         el.onclick = () => (typeof fn === 'function' ? fn : fn.run)(scope);
       else el.disabled = true;
+      break;
+    }
+    case 'TabControl': {
+      // WHICH TAB IS OPEN IS THE PAGE'S STATE (`ctx.tabs`), so a redraw
+      // keeps it; only the open tab's content is drawn
+      el = document.createElement('div');
+      el.className = 'ixtabs';
+      const items = (n.kids || []).filter(
+        (k) => k.t === 'TabItem' && istaXamlVisible(k.vis, scope, ctx)
+      );
+      const key = n.n || 'tabs';
+      const open = Math.min(
+        Number((ctx.tabs && ctx.tabs[key]) || 0),
+        Math.max(0, items.length - 1)
+      );
+      const strip = document.createElement('div');
+      strip.className = 'ixtabs-strip';
+      items.forEach((it, i) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = `iradmin-tab${i === open ? ' on' : ''}`;
+        const h = istaXamlEval(it.header, scope, ctx);
+        b.textContent = h == null ? '' : String(h);
+        if (!istaXamlEnabled(it.en, scope, ctx)) b.disabled = true;
+        else
+          b.onclick = () => {
+            ctx.tabs = ctx.tabs || {};
+            ctx.tabs[key] = i;
+            if (ctx.redraw) ctx.redraw();
+          };
+        strip.appendChild(b);
+      });
+      const body = document.createElement('div');
+      body.className = 'ixtabs-body';
+      if (items[open])
+        body.append(
+          ...(items[open].kids || []).map((k) => istaXamlNode(k, scope, ctx))
+        );
+      el.append(strip, body);
+      break;
+    }
+    case 'ItemsControl': {
+      // one copy of the item template per row, each reading its own row
+      el = document.createElement('div');
+      el.className = 'ixitems';
+      const rows = n.item ? istaXamlEval(n.items, scope, ctx) || [] : [];
+      for (const row of rows) el.appendChild(istaXamlNode(n.item, row, ctx));
       break;
     }
     case 'CheckBox':
@@ -702,7 +780,7 @@ function istaXamlNode(n, data, ctx) {
       const pick = n.cmd && ctx.commands ? ctx.commands[n.cmd.bind] : null;
       box.onchange = () => {
         if (n.checked && n.checked.bind && ctx.set)
-          ctx.set(n.checked.bind, box.checked, n);
+          ctx.set(n.checked.bind, box.checked, n, scope);
         // a radio that carries a command reports which answer it stands for
         if (pick)
           (typeof pick === 'function' ? pick : pick.run)(

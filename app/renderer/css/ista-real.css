@@ -2318,3 +2318,64 @@ html .ista-real-body .irabl-docl .wiring-share {
 .ista-real-body .ixvin .irvin-garage .irtable {
   width: 100%;
 }
+
+/* ---- dialogs drawn from the tool's layout ---------------------------------- */
+.ixdialog {
+  width: min(1010px, calc(100vw - 40px));
+  max-height: calc(100vh - 60px);
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  color: #111;
+  border-radius: 0;
+  padding: 0;
+}
+.ixdialog > .modal-title {
+  background: var(--ir-teal, #669999);
+  color: #fff;
+  font: 700 14px/1.2 var(--ir-font, Arial, sans-serif);
+  padding: 8px 10px;
+  margin: 0;
+}
+.ixdialog-host {
+  position: relative;
+  overflow: auto;
+  padding: 0;
+  background: #fff;
+  font: 12px/1.3 var(--ir-font, Arial, sans-serif);
+}
+.ista-real-body .ixtabs-strip {
+  display: flex;
+  gap: 2px;
+  padding: 6px 6px 0;
+  border-bottom: 2px solid var(--ir-teal, #669999);
+}
+.ista-real-body .ixtabs-body {
+  padding: 6px;
+}
+.ista-real-body .ixstep {
+  min-width: 32px;
+  padding: 2px 6px;
+}
+.ista-real-body .ixitems .ixcheck {
+  display: block;
+}
+.ista-real-body .ixgraph text {
+  font: 11px var(--ir-font, Arial, sans-serif);
+  fill: #222;
+}
+.ista-real-body .ixgraph .ax {
+  stroke: #222;
+  stroke-width: 1;
+}
+.ista-real-body .ixgraph .row {
+  stroke: #d6d6d6;
+  stroke-width: 1;
+}
+.ista-real-body .ixgraph .mark {
+  fill: var(--ir-teal, #669999);
+}
+.ista-real-body .ixgraph .cursor {
+  stroke: #c0392b;
+  stroke-width: 2;
+}

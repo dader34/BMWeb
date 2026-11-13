@@ -100,51 +100,332 @@ function istaXamlPaint(host, parts, ctx, extra) {
 // ---- Troubleshooting / Fault memory -----------------------------------------
 
 /**
+ * Whether the fault filter lets a fault through.
+ *
+ * A PORT OF Logic.FilterDTCRelevance (RheingoldSessionController), branch
+ * for branch:
+ *  - a fault the database marks not relevant is hidden while `hideBogus` is
+ *    on (the tool's default); one with no verdict is hidden only while
+ *    `hideUnknown` is on (off by default)
+ *  - a fault with no stored record at all is hidden as soon as either
+ *    mileage bound is set: it has no mileage to hold against the range
+ *  - with a lower bound, the fault passes when its current OR its first
+ *    entry is at or above it; with an upper bound, when either is at or
+ *    below it. An entry with no mileage counts as -1, which is how the tool
+ *    reads one, and a missing first entry takes the current one's value
+ *  - a fault whose class is ticked off is hidden
+ * @param {object} f - {relevance, current, first, cls}; `current` and
+ *   `first` are {km} or null
+ * @param {object} [filter] - {lower, upper, hidden}; null bounds are unset
+ * @param {object} [opts] - {hideBogus = true, hideUnknown = false}
+ * @returns {boolean}
+ */
+function istaFaultRelevant(f, filter, opts) {
+  if (!f) return false;
+  const o = opts || {};
+  const flt = filter || {};
+  if (f.relevance == null) {
+    if (o.hideUnknown) return false;
+  } else if (f.relevance !== true && o.hideBogus !== false) return false;
+  const lower = flt.lower == null ? null : Number(flt.lower);
+  const upper = flt.upper == null ? null : Number(flt.upper);
+  if (!f.current) {
+    if (upper != null || lower != null) return false;
+  } else {
+    const cur = f.current.km == null ? -1 : Number(f.current.km);
+    const first = f.first && f.first.km != null ? Number(f.first.km) : cur;
+    if (lower != null && !(lower <= cur) && !(lower <= first)) return false;
+    if (upper != null && upper < cur && upper < first) return false;
+  }
+  return !(flt.hidden && flt.hidden.includes(f.cls));
+}
+
+/**
+ * Whether a fault filter is the default one: no bounds, no class hidden.
+ * @param {object} [f] - {lower, upper, hidden}
+ * @returns {boolean}
+ */
+function istaFaultFilterDefault(f) {
+  return (
+    !f || (f.lower == null && f.upper == null && !(f.hidden && f.hidden.length))
+  );
+}
+
+/**
+ * How far one press of a cursor arrow moves it.
+ *
+ * A PORT OF FaultFilterSettingsGraph.ProgressiveClickStep. Presses on the
+ * same arrow less than 0.3 s apart count as a run, and the step grows with
+ * the run: one kilometre at first, then a thousandth, a hundredth and a
+ * tenth of the distance still open in that direction, never past it.
+ * @param {number} increment - -1 or 1
+ * @param {number} max - the distance left in that direction, in km
+ * @param {object} run - {time, count, button}, kept between presses
+ * @param {string} button - which arrow
+ * @param {number} now - ms
+ * @returns {number} the signed step in km
+ */
+function istaFaultCursorStep(increment, max, run, button, now) {
+  if (button === run.button && now - run.time < 300) run.count++;
+  else run.count = 0;
+  run.button = button;
+  run.time = now;
+  let step = increment;
+  if (run.count > 15) step *= Math.trunc(max / 10);
+  else if (run.count > 10) step *= Math.trunc(max / 100);
+  else if (run.count > 3) step *= Math.trunc(max / 1000);
+  if (step === 0) step = increment;
+  if (Math.abs(step) > Math.abs(max)) step = Math.sign(increment) * max;
+  return step;
+}
+
+/**
+ * The fault filter dialog, from InteractionFaultFilterSettingsView.
+ *
+ * Two tabs. "Mile axis" draws every fault at the mileage it was stored at
+ * and, with Cursor on, a pair of cursors: what lies between them is what the
+ * table keeps. "Class" ticks fault classes on and off, and is greyed while
+ * no fault carries one. Nothing changes until Accept.
+ *
+ * THE GRAPH IS DRAWN HERE. The tool paints it in code on a Canvas, so the
+ * template has an empty canvas where it goes; the axes and the cursors are
+ * this build's drawing of the same thing. Zoom doubles and halves the scale
+ * as the tool's does; its scroll bar is not built, so a zoomed axis shows
+ * the range from its lower end.
+ * @param {object} o - the dialog's inputs
+ * @param {Array<{code: string, km: number|null, cls: string}>} o.faults
+ * @param {object} o.filter - {lower, upper, hidden} as it stands
+ * @param {object} o.strings - the string table
+ * @param {(filter: object) => void} o.commit - Accept
+ * @returns {Promise<boolean>} false when the template is not in this build
+ */
+async function istaXamlFaultFilter(o) {
+  const tpl = await istaXamlLoad('InteractionFaultFilterSettingsView');
+  if (!tpl || typeof openModal !== 'function') return false;
+  const kms = o.faults.map((f) => f.km).filter((k) => k != null && k >= 0);
+  const span = kms.length ? Math.max(...kms) - Math.min(...kms) : 0;
+  const pad = Math.max(1000, Math.ceil(span * 0.1));
+  const min = kms.length ? Math.max(0, Math.min(...kms) - pad) : 0;
+  const max = kms.length ? Math.max(...kms) + pad : 1000;
+  const g = {
+    min,
+    max,
+    scale: 1,
+    on: o.filter.lower != null || o.filter.upper != null,
+    left: o.filter.lower == null ? min : Number(o.filter.lower),
+    right: o.filter.upper == null ? max : Number(o.filter.upper),
+  };
+  const classes = [...new Set(o.faults.map((f) => f.cls).filter(Boolean))]
+    .sort()
+    .map((name) => ({
+      Name: name,
+      IsChecked: !(o.filter.hidden || []).includes(name),
+    }));
+  const run = { time: 0, count: 0, button: '' };
+
+  const title = istaXamlText({ strings: o.strings }, '#FilterFaultCode');
+  const { overlay, close } = openModal(
+    `<div class="modal ixdialog" role="dialog" aria-modal="true">` +
+      `<div class="modal-title">${esc(title)}</div>` +
+      `<div class="ixdialog-host ista-real-body"></div></div>`
+  );
+  const host = overlay.querySelector('.ixdialog-host');
+  const ctx = {
+    strings: o.strings,
+    tabs: {},
+    data: { FaultClassList: classes },
+    elements: { faultFilterGraph: {} },
+    set: (path, value, n, row) => {
+      if (row && path === 'IsChecked') row.IsChecked = value;
+    },
+    commands: {
+      CmdCancel: () => close(),
+      CmdCommit: () => {
+        o.commit({
+          lower: g.on ? g.left : null,
+          upper: g.on ? g.right : null,
+          hidden: classes.filter((c) => !c.IsChecked).map((c) => c.Name),
+        });
+        close();
+      },
+      CmdZoomIn: () => {
+        g.scale *= 2;
+        draw();
+      },
+    },
+    widgets: {
+      coordinateSystem: (el) => {
+        el.innerHTML = istaFaultGraphSvg(o.faults, g);
+      },
+    },
+  };
+  // a cursor moves by a step that grows while its arrow is pressed in a run
+  const move = (button, increment, from, room) => () => {
+    const step = istaFaultCursorStep(
+      increment,
+      Math.max(0, room()),
+      run,
+      button,
+      Date.now()
+    );
+    if (from) g.left = Math.min(g.right, Math.max(g.min, g.left + step));
+    else g.right = Math.max(g.left, Math.min(g.max, g.right + step));
+    draw();
+  };
+  function draw() {
+    const e = ctx.elements.faultFilterGraph;
+    e.LowerKMBound = g.on ? g.left : '';
+    e.UpperKMBound = g.on ? g.right : '';
+    e.IsCursorFromDownEnabled = g.on && g.left > g.min;
+    e.IsCursorFromUpEnabled = g.on && g.left < g.right;
+    e.IsCursorToDownEnabled = g.on && g.right > g.left;
+    e.IsCursorToUpEnabled = g.on && g.right < g.max;
+    ctx.toggles = {
+      btnCursor: {
+        on: g.on,
+        toggle: () => {
+          g.on = !g.on;
+          // switching the cursors on puts them back at the ends of the axis
+          if (g.on) {
+            g.left = g.min;
+            g.right = g.max;
+          }
+          draw();
+        },
+      },
+    };
+    ctx.commands.CmdZoomOut =
+      g.scale > 1
+        ? () => {
+            g.scale /= 2;
+            draw();
+          }
+        : null;
+    ctx.clicks = {
+      cursorFromDown: move('fd', -1, true, () => g.left - g.min),
+      cursorFromUp: move('fu', 1, true, () => g.right - g.left),
+      cursorToDown: move('td', -1, false, () => g.right - g.left),
+      cursorToUp: move('tu', 1, false, () => g.max - g.right),
+    };
+    host.replaceChildren(
+      ...(tpl.root.kids || []).map((k) => istaXamlNode(k, ctx.data, ctx))
+    );
+  }
+  ctx.redraw = draw;
+  draw();
+  return true;
+}
+
+/**
+ * The mileage axis as SVG: one row per fault, a tick where it was stored,
+ * and the cursor pair when it is on.
+ * @param {Array<{code: string, km: number|null}>} faults - what to plot
+ * @param {object} g - {min, max, scale, on, left, right}
+ * @returns {string} the SVG markup
+ */
+function istaFaultGraphSvg(faults, g) {
+  const W = 840;
+  const rowH = 22;
+  const top = 12;
+  const x0 = 70;
+  const H = Math.max(160, top + faults.length * rowH + 40);
+  const hi = g.min + (g.max - g.min) / g.scale;
+  const x = (km) => x0 + ((km - g.min) / (hi - g.min || 1)) * (W - x0 - 20);
+  const inView = (km) => km >= g.min && km <= hi;
+  let out =
+    `<svg class="ixgraph" viewBox="0 0 ${W} ${H}" width="${W}" ` +
+    `height="${H}" role="img" aria-label="Faults by mileage">`;
+  const base = H - 28;
+  out += `<line x1="${x0}" y1="${base}" x2="${W - 20}" y2="${base}" class="ax"/>`;
+  for (let i = 0; i <= 4; i++) {
+    const km = Math.round(g.min + ((hi - g.min) * i) / 4);
+    out +=
+      `<line x1="${x(km)}" y1="${base}" x2="${x(km)}" y2="${base + 5}" ` +
+      `class="ax"/><text x="${x(km)}" y="${base + 18}" ` +
+      `text-anchor="middle">${km}</text>`;
+  }
+  faults.forEach((f, i) => {
+    const y = top + i * rowH + rowH / 2;
+    out +=
+      `<text x="${x0 - 8}" y="${y + 4}" text-anchor="end">` +
+      `${esc(f.code)}</text>` +
+      `<line x1="${x0}" y1="${y}" x2="${W - 20}" y2="${y}" class="row"/>`;
+    if (f.km != null && f.km >= 0 && inView(f.km))
+      out += `<rect x="${x(f.km) - 3}" y="${y - 6}" width="6" height="12" class="mark"/>`;
+  });
+  if (g.on)
+    for (const km of [g.left, g.right])
+      if (inView(km))
+        out += `<line x1="${x(km)}" y1="${top}" x2="${x(km)}" y2="${base}" class="cursor"/>`;
+  return `${out}</svg>`;
+}
+
+/**
  * Fault memory, from FaultMemoryView.
  *
- * The rows are the same rows the hand-built page lists (istaFaultRows over
- * the newest stored scan), projected onto the names the view binds:
- * DTC.FortAsHexString, FaultLabel, DTC.F_UW_KM, Existing, FaultClass.
+ * The rows are the newest stored scan's faults (istaFaultRows), projected
+ * onto the names the view binds and passed through the tool's own filter.
+ * What the buttons do is the tool's too:
+ *  - Delete fault memory clears the WHOLE VEHICLE, then reads it again
+ *  - Filter fault memory opens the mileage / class dialog
+ *  - Show completely is a toggle that lets long texts wrap
+ *  - Calculate test plan works on every fault the table shows
  * @param {HTMLElement} host - where to draw
  * @param {object} o - {car, chassis}
  * @returns {Promise<boolean>} false when the template is not in this build
  */
 async function istaXamlFaultMemory(host, o) {
-  const view = await istaXamlOpen('FaultMemoryView');
-  if (!view || !host.isConnected) return !!view;
   const car = o.car;
   let picked = null;
   let expanded = false;
+  let cable = false;
+  const filter = () => istaState.faultRange || null;
 
-  const draw = (chromeOnly) => {
+  const api = await istaXamlMount(host, 'FaultMemoryView', (page) => {
     const scan = istaNewestScan(car);
-    const all = istaFaultRows(scan && scan.report);
-    const filter = istaState.faultFilter || '';
-    const shown = (filter ? all.filter((r) => r.sgbd === filter) : all).map(
-      (r) => ({
+    const all = istaFaultRows(scan && scan.report).map((r) => {
+      const km = r.km === '' || r.km == null ? null : Number(r.km);
+      // a module that stored anything with the fault has a current record,
+      // whether or not that record carries a mileage
+      const stored =
+        km != null || Object.keys(r.raw || {}).some((k) => /^F_UW/.test(k));
+      return {
         DTC: { FortAsHexString: r.code, F_UW_KM: r.km || '' },
         ECU: { TITLE_ECUTREE: r.module, VARIANTE: r.sgbd, BUS: '' },
         FaultLabel: r.desc,
         Existing: r.present ? 'yes' : 'No',
         FaultClass: '-',
+        test: {
+          relevance: null,
+          current: stored ? { km: Number.isFinite(km) ? km : null } : null,
+          first: null,
+          cls: '',
+        },
         row: r,
-      })
-    );
+      };
+    });
+    const shown = all.filter((x) => istaFaultRelevant(x.test, filter()));
     // the rows are rebuilt on every pass, wrapper and fault row alike, so
     // the pick is carried by the scan's own code object underneath them
     picked = picked
       ? shown.find((x) => x.row.raw === picked.row.raw) || null
       : null;
-
-    const ctx = {
-      strings: view.strings,
+    const open = (it) =>
+      istaFaultDialog(it.row, {
+        rows: shown.map((x) => x.row),
+        index: shown.indexOf(it),
+      });
+    const modules = ((scan && scan.report && scan.report.modules) || []).filter(
+      (m) => m.sgbd
+    );
+    return {
       data: {
         FaultsCollectionView: shown,
         SelectedItem: picked,
-        FaultFilterSettings: { IsDefault: !filter },
+        FaultFilterSettings: { IsDefault: istaFaultFilterDefault(filter()) },
         IsAirActive: false,
         Logic: {
-          VecInfo: { PerceivedSymptoms: [] },
+          VecInfo: { PerceivedSymptoms: istaState.patterns || [] },
           CurrentOperation: {
             DataContext: { VecInfo: { FaultCodeSum: all.length } },
           },
@@ -153,20 +434,21 @@ async function istaXamlFaultMemory(host, o) {
       resources: { FaultCollectionViewSource: shown },
       converters: { FaultCodeSumStateConverter: (v) => v },
       empty: {
-        lvFaultList:
-          'No fault memory has been read on this vehicle yet. Run Start ' +
-          'vehicle test on Vehicle details or the Control unit list.',
+        lvFaultList: all.length
+          ? 'The filter hides every fault. Press Delete filter to see them.'
+          : 'No fault memory has been read on this vehicle yet. Run Start ' +
+            'vehicle test on Vehicle details or the Control unit list.',
       },
       select: (name, row) => {
         picked = row;
-        draw(true);
+        page.chrome();
       },
       toggles: {
         ExpandViewButton: {
           on: expanded,
           toggle: () => {
             expanded = !expanded;
-            draw();
+            page.draw();
           },
         },
       },
@@ -174,44 +456,131 @@ async function istaXamlFaultMemory(host, o) {
         // the button needs a pick; a double click brings its own row
         CmdDislpayFaultCode: {
           off: !picked,
-          run: (it) => istaFaultDialog((it && it.row ? it : picked).row),
+          run: (it) => open(it && it.row ? it : picked),
         },
-        CmdQuickDelete: picked
-          ? () => istaClearPicked(picked.row, () => draw())
-          : null,
-        CmdShowFaultFilterSettings:
-          picked && shown.length
-            ? () => {
-                istaState.faultFilter = picked.row.sgbd;
-                draw();
-              }
+        // THE WHOLE VEHICLE, as the tool's quick delete is. It needs the car
+        // on the cable and nothing else running on it.
+        CmdQuickDelete:
+          cable && modules.length && !istaTestRun
+            ? () => istaQuickDelete(modules)
             : null,
-        CmdDefaultFaultFilterSettings: filter
-          ? () => {
-              istaState.faultFilter = '';
-              draw();
-            }
+        CmdShowFaultFilterSettings: all.length
+          ? () =>
+              istaXamlFaultFilter({
+                faults: all.map((x) => ({
+                  code: x.row.code,
+                  km: x.test.current ? x.test.current.km : null,
+                  cls: x.test.cls,
+                })),
+                filter: filter() || {},
+                strings: page.strings,
+                commit: (f) => {
+                  istaState.faultRange = istaFaultFilterDefault(f) ? null : f;
+                  page.draw();
+                },
+              })
           : null,
-        CmdCalculateTestplan: picked
+        CmdDefaultFaultFilterSettings: istaFaultFilterDefault(filter())
+          ? null
+          : () => {
+              istaState.faultRange = null;
+              page.draw();
+            },
+        // every fault the table shows, as the tool calculates it
+        CmdCalculateTestplan: shown.length
           ? async () => {
-              const rows = await istaCalcPlan(picked.row, car, o.chassis);
+              const rows = await istaCalcPlanAll(
+                shown.map((x) => x.row),
+                car,
+                o.chassis
+              );
               if (typeof istaPlanSet === 'function') istaPlanSet(car, rows);
               if (!rows.length && typeof toast === 'function')
-                toast(
-                  `No procedure is linked to ${picked.row.code} in this build.`
-                );
+                toast('No procedure is linked to these faults in this build.');
               return istaGo('service-plan', 'test-plan', null);
             }
           : null,
       },
+      after: (h) => {
+        // Show completely lets a long fault text wrap instead of being cut
+        const table = h.querySelector('.ixtable');
+        if (table) table.classList.toggle('ixfull', expanded);
+      },
     };
-    istaXamlPaint(chromeOnly === true ? null : host, view.parts, ctx);
-    // Show completely lets a long fault text wrap instead of being cut
-    const table = host.querySelector('.ixtable');
-    if (table) table.classList.toggle('ixfull', expanded);
-  };
-  draw();
+  });
+  if (!api) return false;
+  // whether the car can be reached decides Delete fault memory, and is a
+  // question for the engine, not for this page: asked once, after the draw
+  try {
+    const st = await window.api('/api/state');
+    cable = !!(st && st.connected);
+  } catch (e) {
+    /* no engine: the button stays off */
+  }
+  if (!cable && typeof webBus === 'object' && webBus && webBus.connected)
+    cable = true;
+  if (cable && host.isConnected) api.chrome();
   return true;
+}
+
+/**
+ * Clear the fault memory of every module the last test reached, then test
+ * the vehicle again.
+ *
+ * ONE QUESTION, THEN EVERY MODULE. The tool's quick delete is one action on
+ * the car, not one per control unit. THE RE-READ IS THE RESULT: a clear that
+ * reports success hides a live fault that re-enters the moment its module
+ * sees it again, so the vehicle test runs afterwards and the table shows
+ * what that finds, not what the clear claimed.
+ * @param {Array<{sgbd: string, label?: string}>} modules - who to clear
+ * @returns {Promise<void>}
+ */
+async function istaQuickDelete(modules) {
+  const ok =
+    typeof confirmDialog === 'function'
+      ? await confirmDialog({
+          title: 'Delete fault memory?',
+          body:
+            `Erases the fault memory of all ${modules.length} control ` +
+            `units the last vehicle test reached, then reads the vehicle ` +
+            `again. Anything still present will show again.`,
+          confirmLabel: 'Delete',
+          danger: true,
+        })
+      : false;
+  if (!ok) return;
+  const failed = [];
+  for (const m of modules) {
+    try {
+      await window.api(`/api/ecu/${m.sgbd}/run/FS_LOESCHEN`, {
+        method: 'POST',
+      });
+    } catch (e) {
+      failed.push(m.label || m.sgbd);
+    }
+  }
+  if (failed.length && typeof toast === 'function')
+    toast(`Did not clear: ${failed.join(', ')}`);
+  return istaOpenVehicleTest();
+}
+
+/**
+ * The test plan for a list of faults: every fault's procedures, once each.
+ * @param {object[]} faults - fault rows
+ * @param {object|null} car - the picked car
+ * @param {string} chassis - its chassis
+ * @returns {Promise<object[]>} plan rows
+ */
+async function istaCalcPlanAll(faults, car, chassis) {
+  const out = [];
+  const seen = new Set();
+  for (const f of faults)
+    for (const row of await istaCalcPlan(f, car, chassis)) {
+      if (seen.has(row.id)) continue;
+      seen.add(row.id);
+      out.push(row);
+    }
+  return out;
 }
 
 // ---- Service plan / Test plan -----------------------------------------------
@@ -447,6 +816,7 @@ async function istaXamlMount(host, name, build) {
   const view = await istaXamlOpen(name);
   if (!view) return null;
   const api = {
+    strings: view.strings,
     draw: async (chromeOnly) => {
       const ctx = await build(api);
       if (!host.isConnected || !ctx) return;
@@ -1325,6 +1695,13 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     istaXamlCulture,
     istaXamlFaultMemory,
+    istaFaultRelevant,
+    istaFaultFilterDefault,
+    istaFaultCursorStep,
+    istaFaultGraphSvg,
+    istaXamlFaultFilter,
+    istaQuickDelete,
+    istaCalcPlanAll,
     istaXamlTestPlan,
     istaXamlBasic,
     istaXamlMount,

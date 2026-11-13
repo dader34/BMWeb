@@ -414,6 +414,76 @@ const view = {
   ok('the diagnosis search: title, path, number and body scopes');
 }
 
+// ---- the fault filter, as Logic.FilterDTCRelevance decides it ---------------
+{
+  const f = (o) => ({
+    relevance: null,
+    current: { km: 100 },
+    first: null,
+    ...o,
+  });
+  const pass = (fault, filter, opts) =>
+    X.istaFaultRelevant(fault, filter, opts);
+  // no filter: everything with an unknown verdict shows
+  assert.strictEqual(pass(f({})), true);
+  // a fault the database calls not relevant is hidden by default
+  assert.strictEqual(pass(f({ relevance: false })), false);
+  assert.strictEqual(
+    pass(f({ relevance: false }), null, { hideBogus: false }),
+    true
+  );
+  assert.strictEqual(pass(f({ relevance: true })), true);
+  assert.strictEqual(pass(f({}), null, { hideUnknown: true }), false);
+  // the bounds are inclusive
+  assert.strictEqual(pass(f({}), { lower: 100, upper: 100 }), true);
+  assert.strictEqual(pass(f({}), { lower: 101 }), false);
+  assert.strictEqual(pass(f({}), { upper: 99 }), false);
+  // either entry inside the range keeps the fault
+  const both = f({ current: { km: 500 }, first: { km: 50 } });
+  assert.strictEqual(pass(both, { lower: 400 }), true);
+  assert.strictEqual(pass(both, { upper: 60 }), true);
+  assert.strictEqual(pass(both, { lower: 501 }), false);
+  assert.strictEqual(pass(both, { upper: 49 }), false);
+  // no record at all: hidden as soon as a bound is set, shown otherwise
+  assert.strictEqual(pass(f({ current: null })), true);
+  assert.strictEqual(pass(f({ current: null }), { lower: 0 }), false);
+  assert.strictEqual(pass(f({ current: null }), { upper: 9e9 }), false);
+  // a record with no mileage counts as -1
+  assert.strictEqual(pass(f({ current: { km: null } }), { lower: 0 }), false);
+  assert.strictEqual(pass(f({ current: { km: null } }), { upper: 10 }), true);
+  // a class ticked off hides its faults
+  assert.strictEqual(pass(f({ cls: 'A' }), { hidden: ['A'] }), false);
+  assert.strictEqual(pass(f({ cls: 'B' }), { hidden: ['A'] }), true);
+  assert.strictEqual(X.istaFaultFilterDefault(null), true);
+  assert.strictEqual(X.istaFaultFilterDefault({ hidden: [] }), true);
+  assert.strictEqual(X.istaFaultFilterDefault({ lower: 0 }), false);
+  ok('the fault filter: relevance, mileage range on either entry, class');
+
+  // the cursor step grows while one arrow is pressed in a run
+  const run = { time: 0, count: 0, button: '' };
+  const press = (t, btn, max, inc) =>
+    X.istaFaultCursorStep(inc || 1, max, run, btn || 'a', t);
+  assert.strictEqual(press(1000, 'a', 100000), 1);
+  for (let i = 1; i <= 3; i++)
+    assert.strictEqual(press(1000 + i * 100, 'a', 100000), 1);
+  assert.strictEqual(press(1400, 'a', 100000), 100);
+  for (let i = 0; i < 6; i++) press(1500 + i * 100, 'a', 100000);
+  assert.strictEqual(press(2100, 'a', 100000), 1000);
+  for (let i = 0; i < 4; i++) press(2200 + i * 100, 'a', 100000);
+  assert.strictEqual(press(2600, 'a', 100000), 10000);
+  // a pause, or another arrow, starts over
+  assert.strictEqual(press(3000, 'a', 100000), 1);
+  press(3100, 'a', 100000);
+  assert.strictEqual(press(3200, 'b', 100000, -1), -1);
+  // never past what is left in that direction
+  run.count = 20;
+  run.time = 5000;
+  run.button = 'c';
+  assert.strictEqual(press(5100, 'c', 5), 1);
+  assert.strictEqual(press(5200, 'c', 0), 0);
+  ok('the filter cursor: the progressive step and its reset');
+}
+
 // ---- lengths ----------------------------------------------------------------
 assert.strictEqual(X.istaXamlLen('140'), '140px');
 assert.strictEqual(X.istaXamlLen('Auto'), 'auto');
