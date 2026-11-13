@@ -410,6 +410,15 @@ async function istaDrawPage(s, host) {
     // opened through istaOpen like any other wrapped screen, because that is
     // the path that holds the router's teardown off while it renders and
     // puts the shell's identity back afterwards.
+    // THE TOOL'S OWN TREE, where the build ships its layout: the units in
+    // the table's cells, the bus lines the tool draws, its colours. The
+    // app's own bus map below is what draws without it.
+    if (
+      real &&
+      istaXamlOn('tree') &&
+      (await istaXamlTree(host, { car, chassis }))
+    )
+      return;
     await istaOpen({
       label: s.label,
       _call: () => showEcuTreeChassis(chassis, car ? car.id : null),

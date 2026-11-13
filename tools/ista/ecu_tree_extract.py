@@ -66,13 +66,36 @@ def trees_in(dll_bytes):
     return list(zip(names, blobs))
 
 
+def _ints(el, tag):
+    """Every <tag> integer directly under an element."""
+    out = []
+    for c in el.findall(f"t:{tag}", NS):
+        text = (c.text or "").strip()
+        if text.lstrip("-").isdigit():
+            out.append(int(text))
+    return out
+
+
 def parse_tree(series, blob):
-    """One tree as the app reads it."""
+    """One tree as the app reads it.
+
+    EVERYTHING THE TOOL'S TREE READS IS CARRIED. The first cut of this kept
+    what a box-and-line drawing needed; the tool's own drawing
+    (EcuTreeNewViewModel) also reads each bus line's relative offsets and
+    its address rule, the lines that join two buses, the housings that frame
+    several units as one, the name each bus goes by on this series, and the
+    lists that decide which units a car is expected to carry. The earlier
+    keys are unchanged, so nothing that read the old shape has to move.
+    """
     root = ET.fromstring(blob)
+    text = lambda el, k, d="": (el.findtext(f"t:{k}", default=d, namespaces=NS) or d).strip()
+    num = lambda v, d=0.0: float(v) if v not in ("", None) else d
     ecus = []
     for e in root.findall(".//t:EcuLogisticsEntry", NS):
         groups = (e.findtext("t:GroupSgbd", default="", namespaces=NS) or "")
         sub = e.findtext("t:SubDiagAddress", default=None, namespaces=NS)
+        sub_bus = [b.text.strip() for b in e.findall("t:SubBusList/t:BusEntry", NS) if b.text]
+        short = text(e, "ShortName")
         ecus.append({
             "name": e.get("Name") or "",
             "addr": int(e.get("DiagAddress") or -1),
@@ -81,10 +104,13 @@ def parse_tree(series, blob):
             "col": int(e.findtext("t:Column", default="0", namespaces=NS) or 0),
             "row": int(e.findtext("t:Row", default="0", namespaces=NS) or 0),
             **({"sub": int(sub)} if sub and sub.strip().lstrip("-").isdigit() else {}),
+            **({"subBus": sub_bus} if sub_bus else {}),
+            **({"short": short} if short else {}),
         })
     buses = []
     for b in root.findall(".//t:BusLogisticsEntry", NS):
-        f = lambda k, d="": (b.findtext(f"t:{k}", default=d, namespaces=NS) or d).strip()
+        f = lambda k, d="": text(b, k, d)
+        req = _ints(b, "RequiredEcuAddresses")
         buses.append({
             "bus": b.get("Bus") or "",
             "col": int(f("Column", "0") or 0),
@@ -94,13 +120,69 @@ def parse_tree(series, blob):
             "connectOnlyRight": f("ConnectOnlyToRightEcu") == "true",
             "vertical": f("DrawVerticalLines") != "false",
             "horizontal": f("DrawHorizontalLines") != "false",
+            "x": num(f("XRelativeOffset", "0")),
+            "y": num(f("YRelativeOffset", "0")),
+            **({"bike": True} if f("BikeBus") == "true" else {}),
+            **({"req": req} if req else {}),
         })
-    return {
+    links = []
+    for c in root.findall(".//t:BusInterConnectionEntry", NS):
+        req = _ints(c, "RequiredEcuAddresses")
+        links.append({
+            "bus": c.get("Bus") or "",
+            "x1": num(text(c, "XStart", "0")), "y1": num(text(c, "YStart", "0")),
+            "x2": num(text(c, "XEnd", "0")), "y2": num(text(c, "YEnd", "0")),
+            **({"req": req} if req else {}),
+        })
+    housings = []
+    for h in root.findall(".//t:CombinedEcuHousingEntry", NS):
+        req = _ints(h, "RequiredEcuAddresses")
+        housings.append({
+            "col": int(text(h, "Column", "0") or 0),
+            "row": int(text(h, "Row", "0") or 0),
+            "count": int(text(h, "EcuCount", "1") or 1),
+            **({"req": req} if req else {}),
+        })
+    variants = []
+    for v in root.findall(".//t:SGBDBusLogisticsEntry", NS):
+        sub_bus = [b.text.strip() for b in v.findall("t:SubBusList/t:BusEntry", NS) if b.text]
+        variants.append({
+            "variant": text(v, "Variant").lower(),
+            "bus": text(v, "Bus"),
+            **({"subBus": sub_bus} if sub_bus else {}),
+        })
+    names = {n.get("Bus"): (n.text or "").strip()
+             for n in root.findall(".//t:BusNameEntry", NS) if n.get("Bus")}
+    out = {
         "series": series,
         "mainSgbd": root.get("MainSeriesSgbd") or "",
         "ecus": ecus,
         "buses": buses,
     }
+    if links:
+        out["links"] = links
+    if housings:
+        out["housings"] = housings
+    if variants:
+        out["variants"] = variants
+    if names:
+        out["busNames"] = names
+    # which units a car is expected to carry before any of them has answered
+    for key, tag in (("minimal", "MinimalConfigurationEntry"),
+                     ("excluded", "ExcludedConfigurationEntry"),
+                     ("optional", "OptionalConfigurationEntry"),
+                     ("unsure", "UnsureConfigurationEntry")):
+        vals = []
+        for c in root.iter("{%s}%s" % (NS["t"], tag)):
+            t = (c.text or "").strip()
+            if t.lstrip("-").isdigit():
+                vals.append(int(t))
+        if vals:
+            out[key] = vals
+    compat = text(root, "CompatibilityInfo")
+    if compat:
+        out["compat"] = [ln.strip() for ln in compat.splitlines() if len(ln.strip()) >= 10]
+    return out
 
 
 def main():

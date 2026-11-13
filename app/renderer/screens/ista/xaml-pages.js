@@ -2611,6 +2611,175 @@ async function istaXamlPatternDialog(o) {
   return true;
 }
 
+// ---- Vehicle information / Control unit tree ---------------------------------
+
+/**
+ * Control unit tree, from EcuTreeView, drawn by the port of the tool's own
+ * tree (screens/ista/ecu-tree.js).
+ *
+ * WHICH UNITS ARE ON IT. The tool draws the vehicle's units: the ones it
+ * expects from the build (the series' rules over the car's options) and the
+ * ones that answered. Here that is every unit a read reached or found
+ * silent, plus the expected set where the Garage holds the car's options.
+ * Without the options the rules cannot be run, so every unit the series'
+ * table places is drawn instead -- wider than the tool, and said so here
+ * rather than guessed at.
+ *
+ * A UNIT'S COLOUR follows the faults that COUNT: one the database calls not
+ * relevant does not turn a unit yellow, exactly as it does not appear in
+ * the fault memory.
+ * @param {HTMLElement} host - where to draw
+ * @param {object} o - {car, chassis}
+ * @returns {Promise<boolean>} false when the template or the tree is absent
+ */
+async function istaXamlTree(host, o) {
+  const car = o.car;
+  const tree = await istaProbe(() =>
+    typeof ecuTreeForChassis === 'function'
+      ? ecuTreeForChassis(o.chassis)
+      : null
+  );
+  if (!tree || !tree.ecus) return false;
+  let picked = null;
+
+  const api = await istaXamlMount(host, 'EcuTreeView', async (page) => {
+    const slots = await istaLoadSlots(o.chassis, car);
+    const scan = istaNewestScan(car);
+    // the faults that count, per module: relevant, or with no verdict
+    const counted = new Map();
+    for (const r of istaFaultRows(scan && scan.report)) {
+      const meta = istaFaultMeta(r, await istaFaultCodes(r.sgbd));
+      if (meta.relevance === false) continue;
+      const key = String(r.sgbd || '').toLowerCase();
+      counted.set(key, (counted.get(key) || 0) + 1);
+    }
+    const sa = new Set(
+      ((car && car.sa) || []).map((c) => String(c).toUpperCase())
+    );
+    const etk = istaState.etk || {};
+    const prod = String((car && car.prod) || etk.prod || '');
+    const expected = ecuTreeExpected(tree, {
+      sa,
+      motor: etk.motor || (car && car.motor) || '',
+      gearbox: /aut/i.test(String(etk.gearbox || etk.getriebe || ''))
+        ? 'AUT'
+        : '',
+      typ: String(etk.mospid || etk.typ || '').toUpperCase(),
+      prod: prod.length >= 6 ? Number(prod.slice(0, 6)) : 0,
+      absOnly: false,
+      mk60: slots.some((x) => /^dsc_mk60/i.test(x.sgbd || '')),
+    });
+    const units = [];
+    for (const slot of slots) {
+      const box = slot.box;
+      if (!box) continue;
+      const heard = slot.state !== 'unread';
+      if (expected && !heard && !expected.has(box.addr)) continue;
+      let state = slot.state;
+      if (state === 'faults' && !counted.get(String(slot.sgbd).toLowerCase()))
+        state = 'ok';
+      units.push({
+        addr: box.addr,
+        sub: box.sub,
+        name: box.short || box.name || slot.abbr,
+        bus: box.bus,
+        subBus: box.subBus,
+        variant: slot.sgbd || '',
+        col: box.col,
+        row: box.row,
+        state,
+        slot,
+        box,
+      });
+    }
+    // WITHOUT THE CAR'S OPTIONS, ALTERNATIVES SHARE A CELL. The table places
+    // units a car carries one of (DSC or DSC/DXC) in the same cell, and the
+    // tool never draws both because its car has only one. With no options
+    // to choose by, the one a read reached wins, then the one the series
+    // always expects, then the first the table lists.
+    if (!expected) {
+      const minimal = new Set(tree.minimal || []);
+      const rank = (u) =>
+        u.slot.state !== 'unread' ? 0 : minimal.has(u.addr) ? 1 : 2;
+      /** @type {Map<string, object>} */
+      const cell = new Map();
+      for (const u of units) {
+        const key = `${u.col}:${u.row}`;
+        const had = cell.get(key);
+        if (!had || rank(u) < rank(had)) cell.set(key, u);
+      }
+      units.splice(
+        0,
+        units.length,
+        ...units.filter((u) => cell.get(`${u.col}:${u.row}`) === u)
+      );
+    }
+    const built = ecuTreeBuild(tree, units);
+    const total = [...counted.values()].reduce((a, n) => a + n, 0);
+    const read = slots.some((x) => x.state !== 'unread');
+    if (picked && !slots.includes(picked.slot))
+      picked = units.find((u) => u.slot.id === picked.slot.id) || null;
+    return {
+      data: {
+        DefaultEcuStateBarVisibility: true,
+        IstaEcuStateBarVisibility: false,
+        TeleServiceEcuStateBarVisibility: false,
+        IsCommandSwitchEcuTreeViewModeVisible: false,
+        EcuTreeNewViewModel: { EcuTreeViewMode: 'Diagnosis' },
+        Logic: {
+          IndustrialCustomer: { UsesFaultMemory: true },
+          VecInfo: { FaultCodeSum: total },
+        },
+      },
+      converters: {
+        FaultCodeSumStateConverter: (v) => (read ? String(v) : 'Unknown'),
+        EcuTreeViewModeVisibilityConverter: () => true,
+      },
+      widgets: {
+        ecuTree: (el) =>
+          ecuTreeDraw(el, built, {
+            selected: (u) => !!picked && u.slot.id === picked.slot.id,
+            pick: (u) => {
+              picked = u;
+              page.draw();
+            },
+            tip: (u) =>
+              typeof istaEcuTip === 'function' ? istaEcuTip(u.box, u.slot) : '',
+          }),
+      },
+      commands: {
+        CommandStartVehicleTest: istaTestRun
+          ? null
+          : () => istaOpenVehicleTest(),
+        // the window is about ONE control unit, so it needs one picked
+        CommandECUFunctions:
+          picked && !istaTestRun
+            ? () => istaOpenEcuWindow(picked.slot, picked.box, o.chassis)
+            : null,
+        CommandNav32: istaTestRun
+          ? null
+          : () => istaGo('management', 'troubleshooting', 'fault-memory'),
+      },
+      extra: {
+        items: istaTestRun
+          ? [{ k: 'Vehicle test:', v: istaTestPhase() }]
+          : istaTestError
+            ? [{ k: 'Vehicle test:', v: istaTestError }]
+            : [],
+      },
+      chrome: () => {
+        if (istaTestRun)
+          istaBottomBar('unit-list-busy', { cancel: () => istaTestCancel() });
+      },
+      after: (h) => {
+        const root = h.querySelector('.ixaml');
+        if (root) root.classList.add('ixtreepage');
+      },
+    };
+  });
+  return !!api;
+}
+
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     istaXamlCulture,
@@ -2643,6 +2812,7 @@ if (typeof module !== 'undefined' && module.exports) {
     istaXamlActive,
     istaXamlHitList,
     istaXamlDetails,
+    istaXamlTree,
     istaPatterns,
     istaPatternNodes,
     istaPatternSearch,

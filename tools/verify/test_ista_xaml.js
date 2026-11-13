@@ -792,6 +792,156 @@ const view = {
   ok('fault patterns are kept per car');
 }
 
+// ---- the control unit tree, built as the tool builds it ----------------------
+{
+  const tree = {
+    series: 'T',
+    ecus: [],
+    buses: [
+      {
+        bus: 'KBUS',
+        col: 1,
+        minRow: 0,
+        maxRowLimit: -1,
+        paintToRoot: true,
+        connectOnlyRight: false,
+        vertical: true,
+        horizontal: true,
+        x: 0,
+        y: 0,
+      },
+      {
+        bus: 'FACAN',
+        col: 3,
+        minRow: 0,
+        maxRowLimit: -1,
+        paintToRoot: true,
+        connectOnlyRight: false,
+        vertical: true,
+        horizontal: true,
+        x: 0,
+        y: 0,
+      },
+      {
+        bus: 'MOST',
+        col: 5,
+        minRow: 1,
+        maxRowLimit: -1,
+        paintToRoot: false,
+        connectOnlyRight: false,
+        vertical: true,
+        horizontal: true,
+        x: 0,
+        y: 0,
+        req: [0x63],
+      },
+    ],
+    links: [{ bus: 'MOST', x1: 4, y1: 1.5, x2: 5, y2: 1.5, req: [99] }],
+    housings: [{ col: 0, row: 1, count: 2, req: [1, 2] }],
+    busNames: { FACAN: 'PT-CAN' },
+  };
+  const u = (name, addr, bus, col, row, state) => ({
+    name,
+    addr,
+    bus,
+    col,
+    row,
+    state: state || 'ok',
+  });
+  const units = [
+    u('KOMBI', 128, 'ROOT', 2, 0),
+    u('ZKE', 1, 'KBUS', 0, 1),
+    u('IHKA', 2, 'KBUS', 0, 2, 'faults'),
+    u('RADIO', 3, 'KBUS', 1, 3, 'silent'),
+    u('DME', 18, 'FACAN', 3, 1, 'unread'),
+    u('LOST', 77, 'KBUS', -1, -1),
+    u('GHOST', 78, 'VIRTUAL', 4, 4),
+  ];
+  const built = X.ecuTreeBuild(tree, units);
+  const seg = (l) => `${l.bus} ${l.x1},${l.y1} ${l.x2},${l.y2}`;
+  const lines = built.lines.map(seg);
+  // the K-bus column: a vertical from the root's row down to its lowest
+  // unit, a run across to the root, and a stub to each unit either side
+  assert.ok(lines.includes('KBUS 1,0.3 1,3.5'));
+  assert.ok(lines.includes('KBUS 1,0.3 2.5,0.3'));
+  assert.ok(lines.includes('KBUS 1,1.5 0.5,1.5'));
+  assert.ok(lines.includes('KBUS 1,2.5 0.5,2.5'));
+  assert.ok(lines.includes('KBUS 1,3.5 1.5,3.5'));
+  // a bus on the root's other side starts from the other fan
+  assert.ok(lines.includes('FACAN 3,0.7 3,1.5'));
+  assert.ok(lines.includes('FACAN 3,0.7 2.5,0.7'));
+  // a bus whose address rule fails draws nothing, nor does its link
+  assert.ok(!lines.some((l) => l.startsWith('MOST')));
+  // a housing frames its units when they are all fitted
+  assert.deepStrictEqual(built.housings, [{ col: 0, row: 1, count: 2 }]);
+  // the legend names each bus that drew a line, by the series' own name
+  assert.deepStrictEqual(
+    built.legend.map((l) => `${l.name} ${l.color}`),
+    ['KBUS #000000', 'PT-CAN #ffcc00']
+  );
+  // a unit with no cell is parked in the spare row; a virtual one is not drawn
+  const lost = built.units.find((x) => x.name === 'LOST');
+  assert.deepStrictEqual([lost.col, lost.row], [0, 14]);
+  assert.ok(!built.units.some((x) => x.name === 'GHOST'));
+  assert.strictEqual(built.rows, 15);
+  ok('the tree: bus columns, the fan at the root, rules, housings, legend');
+
+  // the address rule's operators
+  const fitted = [
+    { addr: 1, bus: 'KBUS' },
+    { addr: 2, bus: 'KBUS' },
+  ];
+  const rule = (r) => X.ecuTreeCheckRule(fitted, r, 'KBUS', tree);
+  assert.strictEqual(rule(undefined), true);
+  assert.strictEqual(rule([1, 2]), true);
+  assert.strictEqual(rule([1, 9]), false);
+  // OR (1): either is enough
+  assert.strictEqual(rule([0x10000 | 9, 0x10000 | 2]), true);
+  // NOT (128): the unit must be absent
+  assert.strictEqual(rule([0x800000 | 9]), true);
+  assert.strictEqual(rule([0x800000 | 1]), false);
+  // bus count (2): between low and high units on the bus
+  assert.strictEqual(rule([0x20000 | (5 << 8) | 2]), true);
+  assert.strictEqual(rule([0x20000 | (5 << 8) | 3]), false);
+  ok('the address rule: and, or, not, and the bus count');
+
+  // what a colour means
+  assert.strictEqual(X.ecuTreeUnitColor({ state: 'ok' }), '#008000');
+  assert.strictEqual(X.ecuTreeUnitColor({ state: 'faults' }), '#c39f0d');
+  assert.strictEqual(X.ecuTreeUnitColor({ state: 'silent' }), '#a52a2a');
+  assert.strictEqual(X.ecuTreeUnitColor({ state: 'unread' }), '#a9a9a9');
+  assert.strictEqual(
+    X.ecuTreeUnitColor({ state: 'ok', abort: true }),
+    '#4169e1'
+  );
+
+  // the units a car is expected to carry, from its options
+  const e46 = { series: 'E46', minimal: [0, 128], excluded: [154], compat: [] };
+  const facts = (sa, over) => ({
+    sa: new Set(sa),
+    motor: 'M54',
+    typ: 'ET37',
+    prod: 200409,
+    absOnly: false,
+    ...over,
+  });
+  assert.strictEqual(X.ecuTreeExpected(e46, facts([])), null);
+  const want = X.ecuTreeExpected(e46, facts(['534', '205', '403']));
+  // the engine, the automatic gearbox, climate control and the sunroof
+  for (const a of [18, 50, 91, 8, 87, 0, 128])
+    assert.ok(want.has(a), `expects ${a}`);
+  assert.ok(!want.has(114));
+  // a manual car has no gearbox unit
+  assert.ok(!X.ecuTreeExpected(e46, facts(['534'])).has(50));
+  // a compatibility line adds its unit for the right type key and options
+  const withLine = {
+    ...e46,
+    compat: ['5B;D_005B;ET37 EV53;534&-520;;012000;122005'],
+  };
+  assert.ok(X.ecuTreeExpected(withLine, facts(['534'])).has(0x5b));
+  ok('colours, and the units a car is expected to carry');
+}
+
 // ---- lengths ----------------------------------------------------------------
 assert.strictEqual(X.istaXamlLen('140'), '140px');
 assert.strictEqual(X.istaXamlLen('Auto'), 'auto');
