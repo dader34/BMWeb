@@ -347,24 +347,40 @@ const ISTA_TABS = [
         label: 'Workshop/Operating fluids',
         desc: 'Browse the reference documents by category, filtered to this car',
         subs3: [
+          // THE TOOL'S FOUR TABS, in its order. The first three are the one
+          // structure browser over different trees (info-tree.js); a build
+          // without those trees falls back to the app's own reference page
           {
             id: 'equipment',
             label: 'Workshop Equipment',
-            desc: 'Browse the reference documents by category',
-            page: 'techdata',
+            desc: 'Workshop equipment documents, by category',
+            page: 'infotree',
+            tree: 'sws',
+            types: 'workshop',
+            needsCar: true,
+          },
+          {
+            id: 'fluids',
+            label: 'Operating Fluids',
+            desc: 'Operating fluids and special tools, by assembly group',
+            page: 'infotree',
+            tree: 'product',
+            types: 'workshop',
+            needsCar: true,
+          },
+          {
+            id: 'mobile',
+            label: 'Mobile Service',
+            desc: 'Mobile service documents',
+            page: 'infotree',
+            tree: 'mob',
+            types: 'mobile',
             needsCar: true,
           },
           {
             id: 'text-search',
             label: 'Text Search',
             desc: 'Find a reference document by its title',
-            page: 'techdata',
-            needsCar: true,
-          },
-          {
-            id: 'hit-list',
-            label: 'Hit list',
-            desc: 'The documents the last search found',
             page: 'techdata',
             needsCar: true,
           },

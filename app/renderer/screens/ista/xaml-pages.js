@@ -2930,6 +2930,9 @@ function istaBrowseNodes(nodes, above) {
  * @param {object|null} [o.car] - the picked car, for Add to test plan
  * @param {boolean} [o.plan] - whether Add to test plan is offered
  * @param {(doc: object) => object} [o.planRow] - a document as a plan row
+ * @param {string|null} [o.types] - the page's document type filter
+ *   (InfoObjFilter): a comma list, or null/undefined to list every type.
+ *   Hits then reads "listed / found", as the tool counts them.
  * @returns {Promise<boolean>} false when the template is not in this build
  */
 async function istaXamlBrowsePanes(o) {
@@ -2972,13 +2975,21 @@ async function istaXamlBrowsePanes(o) {
       };
       const node = tree.selected ? byId.get(tree.selected) || null : null;
       const busy = !!state.loading;
-      const items = (state.hits || []).map((d) => ({
-        XepInfoObject: { InfoType: src.rowType(d), AwNummer: '' },
-        Title: src.rowTitle(d),
-        State: 'none',
-        key: docKey(d),
-        doc: d,
-      }));
+      const found = state.hits || [];
+      // the filter is applied to what was found (FilterSearchResults)
+      const items = found
+        .filter(
+          (d) =>
+            typeof istaInfoTypeOk !== 'function' ||
+            istaInfoTypeOk(o.types == null ? null : o.types, src.rowType(d))
+        )
+        .map((d) => ({
+          XepInfoObject: { InfoType: src.rowType(d), AwNummer: '' },
+          Title: src.rowTitle(d),
+          State: 'none',
+          key: docKey(d),
+          doc: d,
+        }));
       items.Count = items.length;
       const picked = state.pick
         ? items.find((x) => x.key === state.pick) || null
@@ -2996,7 +3007,7 @@ async function istaXamlBrowsePanes(o) {
       const selected = {
         Title: node ? node.Title : '',
         IsSearchInProgress: busy,
-        SingleTreeSearchResult: { InfoObjResult: { Count: items.length } },
+        SingleTreeSearchResult: { InfoObjResult: { Count: found.length } },
       };
       const vm = {
         TreeObjects: nodes,

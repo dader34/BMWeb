@@ -602,6 +602,40 @@ async function istaDrawPage(s, host) {
     return istaPageActive(host, car, chassis);
   }
 
+  // ---- the tool's own trees: Product structure and the Workshop tabs --------
+  // One mechanism, three trees (info-tree.js). A build that ships no trees
+  // for the chassis falls through to the app's own pages below.
+  const infoTree =
+    s.page === 'infotree'
+      ? { tree: s.tree, types: s.types }
+      : s.page === 'repair' && s.id === 'product-structure'
+        ? { tree: 'product', types: 'default' }
+        : null;
+  if (infoTree && real && istaXamlOn('browse')) {
+    const data = await istaProbe(() => istaInfoTreeLoad(chassis));
+    if (!host.isConnected) return;
+    if (data && (data.trees[infoTree.tree] || []).length) {
+      istaRealStatus({ items: [{ k: 'Hits:', v: '0 / 0' }] });
+      const holds = await istaCarRuleCheck(car, chassis);
+      if (!host.isConnected) return;
+      const src = istaInfoSource(data, infoTree.tree, holds, chassis);
+      istaBrowse(host, src, `info-${s.id}`, {
+        emptyTitle: s.label,
+        shell: { car, types: ISTA_INFO_TYPES[infoTree.types] },
+      });
+      return;
+    }
+  }
+  if (s.page === 'infotree') {
+    // no trees for this chassis: the app's reference page stands in
+    if (!real) return showTechData(host, car, chassis);
+    istaRealStatus({ items: [{ k: 'Filter:', v: 'Default' }] });
+    await showTechData(host, car, chassis);
+    if (!host.isConnected) return;
+    istaBottomBar('techdata', { filters: () => istaTechDataFilter(host) });
+    return;
+  }
+
   if (s.page === 'repair') {
     // The repair manual draws its own page; what the shell owns is the
     // frame around it and WHICH VIEW it is on, which is the level-3 tab the

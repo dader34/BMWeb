@@ -1121,6 +1121,69 @@ const view = {
   ok('the structure browser: resize steps, nodes, and the inner skeleton');
 }
 
+// ---- the tool's own trees ---------------------------------------------------
+{
+  // the type filter: the page's list holds the type, or it passes all
+  assert.strictEqual(X.istaInfoTypeOk('SBS,SWZ,MSM,SWS', 'SWZ'), true);
+  assert.strictEqual(X.istaInfoTypeOk('SBS,SWZ,MSM,SWS', 'REP'), false);
+  assert.strictEqual(X.istaInfoTypeOk(null, 'REP'), true);
+  assert.strictEqual(X.istaInfoTypeOk('SBS', ''), true);
+  // the tool's defaults: special tools are not in the product page's list,
+  // and the two workshop pages share one list
+  assert.ok(!X.ISTA_INFO_TYPES.default.includes('SWZ'));
+  assert.ok(X.ISTA_INFO_TYPES.default.includes('AZD'));
+  assert.strictEqual(X.ISTA_INFO_TYPES.workshop, 'SBS,SWZ,MSM,SWS');
+  assert.strictEqual(X.ISTA_INFO_TYPES.mobile, null);
+
+  // a node the car's rule excludes is not shown, nor anything under it
+  const holds = (r) => !r || r.yes === true;
+  const extract = [
+    {
+      id: 11,
+      t: '11 Engine',
+      d: [1, 2],
+      k: [
+        { id: 1100, t: '1100 Engine', d: [2, 3] },
+        { id: 1128, t: '1128 Belt', r: { yes: false }, d: [4] },
+      ],
+    },
+    { id: 28, t: '28 DKG', r: { yes: false }, k: [{ id: 2800, t: 'x' }] },
+  ];
+  const nodes = X.istaInfoNodes(extract, holds);
+  assert.deepStrictEqual(
+    nodes.map((n) => [n.id, n.label, n.kids.map((k) => k.id)]),
+    [['11', '11 Engine', ['1100']]]
+  );
+  // a node lists its own documents and those of every shown child, each
+  // once, less the ones the car's rule excludes
+  const docs = {
+    1: ['REP', 'one'],
+    2: ['TED', 'two'],
+    3: ['SWZ', 'three', { yes: false }],
+    4: ['REP', 'under a hidden node'],
+  };
+  assert.deepStrictEqual(
+    X.istaInfoDocsUnder(nodes[0], docs, holds).map((d) => [d.id, d.type]),
+    [
+      ['1', 'REP'],
+      ['2', 'TED'],
+    ]
+  );
+  // a source over the tree lists by path
+  const src = X.istaInfoSource(
+    { trees: { product: extract }, docs },
+    'product',
+    holds,
+    'E46'
+  );
+  assert.deepStrictEqual(
+    src.list(['11', '1100']).map((d) => d.id),
+    ['2']
+  );
+  assert.deepStrictEqual(src.list(['28']), []);
+  ok("the tool's trees: type filter, node validity, documents under a node");
+}
+
 // ---- lengths ----------------------------------------------------------------
 assert.strictEqual(X.istaXamlLen('140'), '140px');
 assert.strictEqual(X.istaXamlLen('Auto'), 'auto');
