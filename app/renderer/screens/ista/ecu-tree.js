@@ -415,7 +415,21 @@ function ecuTreeDraw(host, built, o) {
   const opt = o || {};
   const C = ECU_TREE_CELL;
   const W = Math.max(1, built.cols) * C.w;
-  const H = Math.max(1, built.rows) * C.h;
+  // THE PARKED ROWS ARE DRAWN CLOSER THAN THE TOOL PUTS THEM. The tool
+  // parks from row 14 whatever the tree's height, which on a short tree
+  // leaves the parked units below the fold. Here they sit one empty row
+  // under the lowest placed unit (or housing, or line), and never lower
+  // than the tool's own row.
+  let low = 0;
+  for (const u of built.units)
+    if (u.row < ECU_TREE_ROW_UNSET) low = Math.max(low, u.row);
+  for (const h of built.housings) low = Math.max(low, h.row + h.count - 1);
+  for (const l of built.lines)
+    low = Math.max(low, Math.ceil(Math.max(l.y1, l.y2)) - 1);
+  const lift = Math.max(0, ECU_TREE_ROW_UNSET - (low + 2));
+  const rowOf = (u) => (u.row >= ECU_TREE_ROW_UNSET ? u.row - lift : u.row);
+  const parked = built.units.some((u) => u.row >= ECU_TREE_ROW_UNSET);
+  const H = Math.max(1, built.rows - (parked ? lift : 0)) * C.h;
   const wrap = document.createElement('div');
   wrap.className = 'ixecutree';
   const grid = document.createElement('div');
@@ -456,7 +470,7 @@ function ecuTreeDraw(host, built, o) {
     const on = !!(opt.selected && opt.selected(u));
     b.className = `ixecutree-unit${on ? ' on' : ''}`;
     b.style.left = `${u.col * C.w + C.mx}px`;
-    b.style.top = `${u.row * C.h + C.my}px`;
+    b.style.top = `${rowOf(u) * C.h + C.my}px`;
     b.style.width = `${C.btnW}px`;
     b.style.height = `${C.btnH}px`;
     b.style.setProperty('--ecu', ecuTreeUnitColor(u));
@@ -476,7 +490,7 @@ function ecuTreeDraw(host, built, o) {
         }
         pop.innerHTML = html;
         pop.style.left = `${u.col * C.w + C.w}px`;
-        pop.style.top = `${u.row * C.h + C.h}px`;
+        pop.style.top = `${rowOf(u) * C.h + C.h}px`;
         pop.hidden = false;
       };
       b.onmouseleave = () => {
