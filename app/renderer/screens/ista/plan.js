@@ -104,6 +104,9 @@ function istaPlanRowOf(r) {
     state: String(r.state || 'none'),
     fault: r.fault ? String(r.fault) : '',
     doc: r.doc || null,
+    // a row that came from a fault pattern is a diagnosis document, opened
+    // from the structure it was found in
+    diag: r.diag || null,
   };
 }
 

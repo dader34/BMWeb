@@ -566,7 +566,7 @@ async function istaXamlFaultMemory(host, o) {
         FaultFilterSettings: { IsDefault: istaFaultFilterDefault(filter()) },
         IsAirActive: false,
         Logic: {
-          VecInfo: { PerceivedSymptoms: istaState.patterns || [] },
+          VecInfo: { PerceivedSymptoms: istaPatterns(car) },
           CurrentOperation: {
             DataContext: { VecInfo: { FaultCodeSum: all.length } },
           },
@@ -628,19 +628,23 @@ async function istaXamlFaultMemory(host, o) {
               page.draw();
             },
         // every fault the table shows, as the tool calculates it
-        CmdCalculateTestplan: shown.length
-          ? async () => {
-              const rows = await istaCalcPlanAll(
-                shown.map((x) => ({ ...x.row, meta: x.meta })),
-                car,
-                o.chassis
-              );
-              if (typeof istaPlanSet === 'function') istaPlanSet(car, rows);
-              if (!rows.length && typeof toast === 'function')
-                toast('No procedure is linked to these faults in this build.');
-              return istaGo('service-plan', 'test-plan', null);
-            }
-          : null,
+        CmdCalculateTestplan:
+          shown.length || istaPatterns(car).length
+            ? async () => {
+                const rows = await istaCalcPlanAll(
+                  shown.map((x) => ({ ...x.row, meta: x.meta })),
+                  car,
+                  o.chassis,
+                  istaPatterns(car)
+                );
+                if (typeof istaPlanSet === 'function') istaPlanSet(car, rows);
+                if (!rows.length && typeof toast === 'function')
+                  toast(
+                    'No procedure is linked to these faults in this build.'
+                  );
+                return istaGo('service-plan', 'test-plan', null);
+              }
+            : null,
       },
       after: (h) => {
         // Show completely lets a long fault text wrap instead of being cut
@@ -720,11 +724,35 @@ async function istaQuickDelete(modules) {
  * @param {object[]} faults - fault rows, each with its `meta` (istaFaultMeta)
  * @param {object|null} car - the picked car
  * @param {string} chassis - its chassis
+ * @param {object[]} [patterns] - the selected fault patterns (istaPatterns)
  * @returns {Promise<object[]>} plan rows, strongest component first
  */
-async function istaCalcPlanAll(faults, car, chassis) {
+async function istaCalcPlanAll(faults, car, chassis, patterns) {
   /** @type {Map<string, object>} procedure id -> its plan row */
   const by = new Map();
+  // A FAULT PATTERN BRINGS ITS OWN DOCUMENTS, and its components are filed
+  // under priority F ahead of everything a fault memory entry ranks
+  // (TestplanCalculator.CollectInfoObjectsForTestplan): the symptom's own
+  // documents, then those of every symptom beneath it.
+  const collect = (node, title) => {
+    for (const d of node.docs || []) {
+      const id = `DIAG-${d.id}`;
+      if (!by.has(id))
+        by.set(id, {
+          id,
+          type: d.type || '-',
+          title: d.title || '',
+          component: title,
+          priority: 'F',
+          state: 'none',
+          fault: title,
+          diag: d,
+          links: [],
+        });
+    }
+    for (const k of node.kids || []) collect(k, title);
+  };
+  for (const p of patterns || []) collect(p.node, p.label);
   for (const f of faults) {
     const meta = f.meta || { known: false, relevance: null, weight: null };
     if (meta.known && meta.relevance !== true) continue;
@@ -763,10 +791,11 @@ async function istaXamlTestPlan(host, o) {
   const draw = async (chromeOnly) => {
     const groups = await istaPlanGroups('test-plan', car);
     if (!host.isConnected) return;
+    // F (fault pattern) and M (manual) come before every number
+    const rank = (p) => (p === 'F' ? -2 : p === 'M' ? -1 : Number(p) || 0);
     const sorted = [...groups].sort(
       (a, b) =>
-        (Number(a.priority) - Number(b.priority)) *
-        (istaState.planDesc ? -1 : 1)
+        (rank(a.priority) - rank(b.priority)) * (istaState.planDesc ? -1 : 1)
     );
     const items = [];
     for (const g of sorted)
@@ -793,7 +822,10 @@ async function istaXamlTestPlan(host, o) {
           (x) => x.row.id === picked.row.id && x.row.title === picked.row.title
         ) || null
       : null;
-    const open = (it) => istaOpenPlanRow(it.row, car, o.chassis, () => draw());
+    const open = (it) =>
+      it.row.diag
+        ? istaOpenDiagDoc(o.chassis, it.row.diag)
+        : istaOpenPlanRow(it.row, car, o.chassis, () => draw());
 
     const ctx = {
       strings: view.strings,
@@ -980,10 +1012,21 @@ async function istaXamlMount(host, name, build) {
       ctx.strings = view.strings;
       const active =
         typeof document !== 'undefined' ? document.activeElement : null;
+      // a box being typed in is found again by its place among the page's
+      // boxes: the element is rebuilt by the draw and may carry no name
+      const boxes = () => [...host.querySelectorAll('input, textarea')];
       const typing =
-        !chromeOnly && active && host.contains(active) && active.dataset
-          ? { name: active.dataset.xname, at: active.selectionStart }
+        !chromeOnly && active && host.contains(active)
+          ? { at: boxes().indexOf(active), caret: active.selectionStart }
           : null;
+      // WHERE THE READER HAD SCROLLED TO SURVIVES A REDRAW. A draw rebuilds
+      // the page, so a click half-way down a long tree would otherwise
+      // throw the reader back to its top; each scrolling pane is found
+      // again by its place among the page's panes.
+      const panes = () => [
+        ...host.querySelectorAll('.ixtree, .ixscroll, .ixaml, .ixtable'),
+      ];
+      const scrolled = chromeOnly ? [] : panes().map((p) => p.scrollTop);
       istaXamlPaint(
         chromeOnly === true ? null : host,
         view.parts,
@@ -991,12 +1034,16 @@ async function istaXamlMount(host, name, build) {
         ctx.extra
       );
       if (chromeOnly !== true && ctx.after) ctx.after(host);
-      if (typing && typing.name) {
-        const again = host.querySelector(`[data-xname="${typing.name}"]`);
+      if (scrolled.some(Boolean))
+        panes().forEach((p, i) => {
+          if (scrolled[i]) p.scrollTop = scrolled[i];
+        });
+      if (typing && typing.at >= 0) {
+        const again = boxes()[typing.at];
         if (again) {
           again.focus();
-          if (typing.at != null && again.setSelectionRange)
-            again.setSelectionRange(typing.at, typing.at);
+          if (typing.caret != null && again.setSelectionRange)
+            again.setSelectionRange(typing.caret, typing.caret);
         }
       }
       if (ctx.chrome) ctx.chrome();
@@ -1848,6 +1895,299 @@ async function istaXamlDiagSearch(host, o) {
   return !!form;
 }
 
+// ---- Troubleshooting / Fault pattern ----------------------------------------
+
+/**
+ * The fault patterns selected for a car: what the customer says is wrong,
+ * in BMW's own vocabulary.
+ *
+ * They belong to the operation, as the tool has it: kept for as long as the
+ * shell is up and never written to the Garage, because a complaint is about
+ * this visit and not a fact about the car.
+ * @param {object|null} car - the picked car
+ * @returns {Array<{id: number, label: string, node: object}>} the live list
+ */
+function istaPatterns(car) {
+  const key = car && car.id ? car.id : '-';
+  if (!istaState.patterns || typeof istaState.patterns !== 'object')
+    istaState.patterns = {};
+  if (!Array.isArray(istaState.patterns[key])) istaState.patterns[key] = [];
+  return istaState.patterns[key];
+}
+
+/**
+ * The symptom tree as the view's nodes.
+ *
+ * WHICH NODES CAN BE PICKED is the tool's rule (PerceivedSymptomViewModel):
+ * one the database marks SELECTABLE = 0 is a heading, and so is a root.
+ * @param {object[]} nodes - the extract's nodes: {id, label, kids, sel}
+ * @param {boolean} [root] - these are the tree's first level
+ * @returns {object[]} {id, Title, Children, IsSelectable, node}
+ */
+function istaPatternNodes(nodes, root) {
+  return (nodes || []).map((n) => ({
+    id: n.id,
+    Title: n.label || '',
+    IsSelectable: n.sel !== 0 && !root,
+    Children: istaPatternNodes(n.kids, false),
+    node: n,
+  }));
+}
+
+/**
+ * Search the symptom tree: open the path to every symptom whose name holds
+ * the string, and count the ones that can be picked.
+ *
+ * AS StartResultProcessing DOES IT: the tree is collapsed first, each hit's
+ * ancestors are opened, and the number shown is of SELECTABLE hits -- a
+ * heading that matches is opened but not counted. The tool also searches a
+ * synonym table this build does not ship, so only the names are searched.
+ * @param {object[]} nodes - istaPatternNodes output
+ * @param {string} query - what was typed
+ * @returns {{open: Set<number>, hits: number, first: object|null}}
+ */
+function istaPatternSearch(nodes, query) {
+  const q = String(query || '')
+    .trim()
+    .toLowerCase();
+  const open = new Set();
+  let hits = 0;
+  let first = null;
+  const walk = (list, trail) => {
+    for (const n of list) {
+      if (q && String(n.Title).toLowerCase().includes(q)) {
+        for (const id of trail) open.add(id);
+        if (n.IsSelectable) {
+          hits++;
+          if (!first) first = n;
+        }
+      }
+      walk(n.Children, trail.concat([n.id]));
+    }
+  };
+  walk(nodes, []);
+  return { open, hits, first };
+}
+
+/**
+ * Fault pattern, from FaultPatternView.
+ *
+ * The page is the symptom tree with its search, and three live buttons:
+ * Add fault pattern (for a symptom that can be picked and is not in the list
+ * yet), Show fault pattern (the list, where one can be taken out again) and
+ * Calculate test plan, which runs over the stored faults AND the patterns.
+ * @param {HTMLElement} host - where to draw
+ * @param {object} o - {car, chassis, data} with `data` the loaded tree
+ * @returns {Promise<boolean>} false when the template is not in this build
+ */
+async function istaXamlFaultPattern(host, o) {
+  const car = o.car;
+  const data = o.data || {};
+  const roots = Array.isArray(data)
+    ? data
+    : Array.isArray(data.tree)
+      ? data.tree
+      : Array.isArray(data.kids)
+        ? data.kids
+        : [];
+  const nodes = istaPatternNodes(roots, false);
+  const tree = { open: new Set(), selected: null, node: null };
+  const state = { SearchString: '', ResultNumber: '', SearchSynonym: '' };
+  const patterns = () => istaPatterns(car);
+
+  const page = await istaXamlMount(host, 'FaultPatternView', (api) => {
+    tree.select = (n) => {
+      tree.node = n;
+      api.draw();
+    };
+    const picked = tree.node;
+    const scan = istaNewestScan(car);
+    const stored = istaFaultRows(scan && scan.report).length > 0;
+    const canAdd =
+      !!picked &&
+      picked.IsSelectable &&
+      !patterns().some((p) => p.id === picked.id);
+    const vm = {
+      ...state,
+      TreeObjects: nodes,
+      SelectedPerceivedSymptom: picked,
+      IsSearchInProgress: false,
+      IsProcessingResult: false,
+    };
+    return {
+      trees: { perceivedSymptomsTreeView: tree },
+      elements: { perceivedSymptomsTreeView: { SelectedItem: picked } },
+      data: {
+        TraversablePerceivedSymptomsTreeViewModel: vm,
+        IsRefreshButtonVisible: false,
+        IsAirActive: false,
+        Logic: { VecInfo: { PerceivedSymptoms: patterns() } },
+      },
+      converters: {
+        SelectedTreeItemTitleConverter: (v) => (v && v.Title) || '',
+      },
+      set: (path, value) => {
+        state[path.split('.').pop()] = value;
+        // the search buttons sit in the page, not the bottom bar, so the
+        // page is what has to notice the box is no longer empty
+        api.draw();
+      },
+      commands: {
+        CmdStartSearch: state.SearchString.trim()
+          ? () => {
+              const found = istaPatternSearch(nodes, state.SearchString);
+              tree.open = found.open;
+              state.ResultNumber = String(found.hits);
+              state.SearchSynonym = '';
+              api.draw();
+            }
+          : null,
+        CmdCollapseAll: () => {
+          tree.open = new Set();
+          api.draw();
+        },
+        CmdAddFaultPattern: canAdd
+          ? () => {
+              patterns().push({
+                id: picked.id,
+                label: picked.Title,
+                node: picked.node,
+              });
+              api.draw();
+            }
+          : null,
+        CmdShowFaultPattern: patterns().length
+          ? () =>
+              istaXamlPatternDialog({
+                patterns: patterns(),
+                strings: api.strings,
+                commit: (keep) => {
+                  const list = patterns();
+                  list.splice(0, list.length, ...keep);
+                  api.draw();
+                },
+              })
+          : null,
+        // LIVE ONLY WHEN THERE IS SOMETHING TO CALCULATE FROM, as the tool
+        // has it (CanCalculateTestplanExecute): a stored fault, or a fault
+        // pattern. With neither the button is off rather than a press that
+        // visibly does nothing.
+        CmdCalculateTestplan:
+          stored || patterns().length
+            ? async () => {
+                const faults = await istaPlanFaults(car);
+                const rows = await istaCalcPlanAll(
+                  faults,
+                  car,
+                  o.chassis,
+                  patterns()
+                );
+                if (typeof istaPlanSet === 'function') istaPlanSet(car, rows);
+                // a symptom is a heading in BMW's vocabulary first and a
+                // pointer to documents second: many carry none for a car
+                if (!rows.length && typeof toast === 'function')
+                  toast(
+                    'Nothing is linked to these fault patterns or faults ' +
+                      'for this vehicle, so the test plan is empty.'
+                  );
+                return istaGo('service-plan', 'test-plan', null);
+              }
+            : null,
+      },
+      after: (h) => {
+        const root = h.querySelector('.ixaml');
+        if (root) root.classList.add('ixpattern');
+      },
+    };
+  });
+  return !!page;
+}
+
+/**
+ * The stored faults a test plan is calculated from: the newest scan's, with
+ * the database's verdict on each, as the fault filter leaves them.
+ * @param {object|null} car - the picked car
+ * @returns {Promise<object[]>} fault rows carrying `meta`
+ */
+async function istaPlanFaults(car) {
+  const scan = istaNewestScan(car);
+  const found = istaFaultRows(scan && scan.report);
+  const out = [];
+  for (const r of found) {
+    const meta = istaFaultMeta(r, await istaFaultCodes(r.sgbd));
+    const km = r.km === '' || r.km == null ? null : Number(r.km);
+    const stored =
+      km != null || Object.keys(r.raw || {}).some((k) => /^F_UW/.test(k));
+    const test = {
+      relevance: meta.relevance,
+      current: stored ? { km: Number.isFinite(km) ? km : null } : null,
+      first: null,
+      cls: '',
+    };
+    if (istaFaultRelevant(test, istaState.faultRange || null))
+      out.push({ ...r, meta });
+  }
+  return out;
+}
+
+/**
+ * The "Show fault pattern" dialog, from FaultPatternDialog.
+ *
+ * IT WORKS ON A COPY. Delete takes the picked pattern out of the dialog's
+ * list; only Close makes that so, and Cancel leaves the selection as it was.
+ * @param {object} o - {patterns, strings, commit(kept)}
+ * @returns {Promise<boolean>} false when the template is not in this build
+ */
+async function istaXamlPatternDialog(o) {
+  const tpl = await istaXamlLoad('FaultPatternDialog');
+  if (!tpl || typeof openModal !== 'function') return false;
+  const copy = o.patterns.slice();
+  let picked = null;
+  const title = istaXamlText({ strings: o.strings }, '#ChosenFaultPatterns');
+  const { overlay, close } = openModal(
+    `<div class="modal ixdialog ixdialog-narrow" role="dialog" ` +
+      `aria-modal="true"><div class="modal-title">${esc(title)}</div>` +
+      `<div class="ixdialog-host ista-real-body"></div></div>`
+  );
+  const host = overlay.querySelector('.ixdialog-host');
+  const ctx = { strings: o.strings };
+  const draw = () => {
+    ctx.data = { FaultPattern: copy };
+    ctx.cells = {
+      lvContentFaultPattern: { '#ListFaultPatterns': (p) => esc(p.label) },
+    };
+    ctx.select = (name, row) => {
+      picked = row;
+      draw();
+    };
+    ctx.commands = {
+      CommandCancelDialog: () => close(),
+      CommandDeleteFaultPattern:
+        picked && copy.includes(picked)
+          ? () => {
+              copy.splice(copy.indexOf(picked), 1);
+              picked = null;
+              draw();
+            }
+          : null,
+      CommandCommitDialog: () => {
+        o.commit(copy);
+        close();
+      },
+    };
+    host.replaceChildren(
+      ...(tpl.root.kids || []).map((k) => istaXamlNode(k, ctx.data, ctx))
+    );
+    // the pick is the dialog's own state: the view binds no SelectedItem
+    host.querySelectorAll('.ixtable tbody tr').forEach((tr) => {
+      if (copy[Number(tr.dataset.i)] === picked) tr.classList.add('sel');
+    });
+  };
+  ctx.redraw = draw;
+  draw();
+  return true;
+}
+
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     istaXamlCulture,
@@ -1872,6 +2212,12 @@ if (typeof module !== 'undefined' && module.exports) {
     istaXamlActive,
     istaXamlHitList,
     istaXamlDetails,
+    istaPatterns,
+    istaPatternNodes,
+    istaPatternSearch,
+    istaXamlFaultPattern,
+    istaPlanFaults,
+    istaXamlPatternDialog,
     istaXamlHitView,
     istaXamlVin,
     istaXamlReadout,

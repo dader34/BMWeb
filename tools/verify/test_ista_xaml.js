@@ -556,6 +556,54 @@ const view = {
   ok('plan priorities: weighting buckets, shared ranks, suspected, F kept');
 }
 
+// ---- fault patterns ----------------------------------------------------------
+{
+  const tree = [
+    {
+      id: 1,
+      label: '01 Powertrain',
+      sel: 0,
+      kids: [
+        {
+          id: 2,
+          label: 'Engine noise',
+          docs: [{ id: 10, title: 'Noise check', type: 'ABL' }],
+          kids: [
+            {
+              id: 3,
+              label: 'Noise when cold',
+              docs: [
+                { id: 11, title: 'Cold start', type: 'FUB' },
+                { id: 10, title: 'Noise check', type: 'ABL' },
+              ],
+            },
+          ],
+        },
+        { id: 4, label: 'Engine noise group', sel: 0, kids: [] },
+      ],
+    },
+  ];
+  const nodes = X.istaPatternNodes(tree);
+  // SELECTABLE = 0 is a heading; everything else can be picked
+  assert.strictEqual(nodes[0].IsSelectable, false);
+  assert.strictEqual(nodes[0].Children[0].IsSelectable, true);
+  const found = X.istaPatternSearch(nodes, 'NOISE');
+  // the path to every match is opened, but only pickable matches count
+  assert.deepStrictEqual([...found.open].sort(), [1, 2]);
+  assert.strictEqual(found.hits, 2);
+  assert.strictEqual(found.first.id, 2);
+  assert.strictEqual(X.istaPatternSearch(nodes, '').hits, 0);
+  ok('the symptom tree: which nodes can be picked, and the search');
+
+  // the patterns live with the operation, one list per car
+  global.istaState = global.istaState || {};
+  const mine = X.istaPatterns({ id: 'car-a' });
+  mine.push({ id: 2, label: 'Engine noise', node: tree[0].kids[0] });
+  assert.strictEqual(X.istaPatterns({ id: 'car-a' }).length, 1);
+  assert.strictEqual(X.istaPatterns({ id: 'car-b' }).length, 0);
+  ok('fault patterns are kept per car');
+}
+
 // ---- lengths ----------------------------------------------------------------
 assert.strictEqual(X.istaXamlLen('140'), '140px');
 assert.strictEqual(X.istaXamlLen('Auto'), 'auto');

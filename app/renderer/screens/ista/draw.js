@@ -261,6 +261,13 @@ async function istaDrawPage(s, host) {
         `no ${s.label.toLowerCase()} data ships for ${chassis || 'this vehicle'} ` +
           `in this build: run tools/ista/diag_structure_extract.py to add it`
       );
+    if (
+      real &&
+      s.id === 'fault-pattern' &&
+      istaXamlOn('fault-pattern') &&
+      (await istaXamlFaultPattern(host, { car, chassis, data }))
+    )
+      return;
     const src = istaDiagSource(data, (d) => istaDiagBody(chassis, d));
     istaBrowse(host, src, `diag-${s.id}`, { emptyTitle: s.label });
     return;

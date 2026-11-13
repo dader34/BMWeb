@@ -141,6 +141,9 @@ const istaXamlInv = (p) => /^(true|invers|inverse)$/i.test(String(p || ''));
 const ISTA_XAML_CONVERTERS = {
   BooleanVisibilityConverter: (v, p) => !!v !== istaXamlInv(p),
   BooleanInversionConverter: (v) => !v,
+  // every input false: a control that is live only while nothing is busy
+  MultiBooleanInversionConverter: (v) =>
+    !(Array.isArray(v) ? v : [v]).some(Boolean),
   HasValueVisibilityConverter: (v, p) =>
     (v != null && v !== '') !== istaXamlInv(p),
   HasValueBooleanConverter: (v, p) =>
@@ -217,6 +220,22 @@ function istaXamlEval(e, data, ctx) {
   }
   if (v == null && e.fallback != null) v = e.fallback;
   return v;
+}
+
+/**
+ * A command by the name a view binds it under.
+ *
+ * A view may reach its command through a nested view model
+ * (`TreeViewModel.CmdStartSearch`); a page supplies it under the full path
+ * or, more usually, under the command's own name.
+ * @param {object} ctx - the render context
+ * @param {object|undefined} e - the Command expression
+ * @returns {Function|object|null}
+ */
+function istaXamlCommand(ctx, e) {
+  if (!e || !e.bind || !ctx || !ctx.commands) return null;
+  const name = String(e.bind);
+  return ctx.commands[name] || ctx.commands[name.split('.').pop()] || null;
 }
 
 /**
@@ -371,7 +390,7 @@ function istaXamlButtons(nodes, ctx) {
       return;
     }
     const name = n.cmd && n.cmd.bind;
-    let fn = name && ctx.commands ? ctx.commands[name] : null;
+    let fn = istaXamlCommand(ctx, n.cmd);
     const tog = n.t === 'ToggleButton' && ctx.toggles && ctx.toggles[n.n];
     if (tog) fn = tog.toggle;
     const off =
@@ -599,7 +618,7 @@ function istaXamlTable(n, data, ctx) {
       }
       if (ctx.select) ctx.select(name, row, i);
     };
-    const dbl = n.dbl && ctx.commands ? ctx.commands[n.dbl.bind] : null;
+    const dbl = istaXamlCommand(ctx, n.dbl);
     if (dbl)
       tr.ondblclick = () => (typeof dbl === 'function' ? dbl : dbl.run)(row);
   });
@@ -609,6 +628,20 @@ function istaXamlTable(n, data, ctx) {
     const td = tr.insertCell();
     td.colSpan = cols.length;
     td.textContent = ctx.empty[name];
+  }
+  // A LIST WITH A HEIGHT OF ITS OWN IS A SCROLLING PANE, NOT A TALL TABLE.
+  // A <table> given a height shares it out among its rows, so one entry in
+  // a 512-pixel list would sit in the middle of a 512-pixel row. The height
+  // goes on a pane around the table and the rows keep their own.
+  if (table.style.height) {
+    const pane = document.createElement('div');
+    pane.className = 'ixlist';
+    for (const k of ['height', 'width', 'margin', 'gridRow', 'gridColumn']) {
+      pane.style[k] = table.style[k];
+      table.style[k] = '';
+    }
+    pane.appendChild(table);
+    return pane;
   }
   return table;
 }
@@ -670,7 +703,19 @@ function istaXamlNode(n, data, ctx) {
         el.style.gridTemplateColumns = n.cols
           .map((c) => istaXamlLen(c, true) || 'auto')
           .join(' ');
-      el.append(...kids());
+      // columns that are all Auto take their content's width and stay
+      // together at the start; CSS would stretch them across the row
+      if (n.cols && n.cols.every((c) => /^auto$/i.test(c)))
+        el.style.justifyContent = 'start';
+      // A GRID CHILD WITH NO CELL OF ITS OWN SITS IN THE FIRST ONE, and
+      // several may share it (a progress ring laid over a tree). Left to
+      // CSS they would each take the next free cell and push one another
+      // down the page, so the default is written out.
+      for (const kid of kids()) {
+        if (kid.style && !kid.style.gridRow) kid.style.gridRow = '1';
+        if (kid.style && !kid.style.gridColumn) kid.style.gridColumn = '1';
+        el.appendChild(kid);
+      }
       break;
     }
     case 'StackPanel':
@@ -701,14 +746,32 @@ function istaXamlNode(n, data, ctx) {
       el = document.createElement('button');
       el.type = 'button';
       el.className = n.t === 'RepeatButton' ? 'irbtn ixstep' : 'irbtn';
+      // a button the tool draws as an icon alone is named by its style,
+      // and gets the words the tool uses for the same action elsewhere
       el.textContent = text();
+      const icon = /StartSearch/.test(n.style || '')
+        ? [
+            '#Search',
+            '<circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5 L14 14"/>',
+          ]
+        : /CancelSearch/.test(n.style || '')
+          ? ['#Button.Cancel', '<path d="M3 3 L13 13 M13 3 L3 13"/>']
+          : null;
+      if (!el.textContent && icon) {
+        el.classList.add('ixicon');
+        el.title = istaXamlText(ctx, icon[0]);
+        el.setAttribute('aria-label', el.title);
+        el.innerHTML =
+          `<svg viewBox="0 0 16 16" width="16" height="16" fill="none" ` +
+          `stroke="currentColor" stroke-width="1.6">${icon[1]}</svg>`;
+      }
       // a button acts through its command, or -- for one the view wires up
       // in code (a Click handler) -- through the page's handler for its name
       const tog = n.t === 'ToggleButton' && ctx.toggles && ctx.toggles[n.n];
       const fn = tog
         ? tog.toggle
-        : n.cmd && ctx.commands
-          ? ctx.commands[n.cmd.bind]
+        : n.cmd
+          ? istaXamlCommand(ctx, n.cmd)
           : ctx.clicks
             ? ctx.clicks[n.n]
             : null;
@@ -760,6 +823,49 @@ function istaXamlNode(n, data, ctx) {
       el.append(strip, body);
       break;
     }
+    case 'TreeView': {
+      // WHAT IS OPEN AND WHAT IS PICKED IS THE PAGE'S STATE (`ctx.trees`),
+      // so a redraw keeps both. A node is {id, Title, Children}; one with
+      // IsSelectable false is a heading: it opens, and reads greyed.
+      el = document.createElement('div');
+      el.className = 'ixtree';
+      const key = n.n || 'tree';
+      const st = (ctx.trees && ctx.trees[key]) || { open: new Set() };
+      const level = (nodes) => {
+        const ul = document.createElement('ul');
+        for (const node of nodes || []) {
+          const li = document.createElement('li');
+          const kidsOf = node.Children || [];
+          const open = st.open.has(node.id);
+          const row = document.createElement('div');
+          row.className =
+            'ixtree-row' +
+            (st.selected === node.id ? ' sel' : '') +
+            (node.IsSelectable === false ? ' off' : '');
+          const tw = document.createElement('span');
+          tw.className = 'ixtree-tw';
+          tw.textContent = kidsOf.length ? (open ? '▾' : '▸') : '';
+          const label = document.createElement('span');
+          label.textContent = node.Title == null ? '' : String(node.Title);
+          row.append(tw, label);
+          row.onclick = () => {
+            if (kidsOf.length) {
+              if (open) st.open.delete(node.id);
+              else st.open.add(node.id);
+            }
+            st.selected = node.id;
+            if (st.select) st.select(node);
+            else if (ctx.redraw) ctx.redraw();
+          };
+          li.appendChild(row);
+          if (open && kidsOf.length) li.appendChild(level(kidsOf));
+          ul.appendChild(li);
+        }
+        return ul;
+      };
+      el.appendChild(level(istaXamlEval(n.items, scope, ctx) || []));
+      break;
+    }
     case 'ItemsControl': {
       // one copy of the item template per row, each reading its own row
       el = document.createElement('div');
@@ -777,7 +883,7 @@ function istaXamlNode(n, data, ctx) {
       if ((n.a || {}).groupName) box.name = n.a.groupName;
       box.checked = !!istaXamlEval(n.checked, scope, ctx);
       box.disabled = !istaXamlEnabled(n.en, scope, ctx);
-      const pick = n.cmd && ctx.commands ? ctx.commands[n.cmd.bind] : null;
+      const pick = istaXamlCommand(ctx, n.cmd);
       box.onchange = () => {
         if (n.checked && n.checked.bind && ctx.set)
           ctx.set(n.checked.bind, box.checked, n, scope);
@@ -805,7 +911,7 @@ function istaXamlNode(n, data, ctx) {
       // the view's own key binding: Enter runs the command it names
       if (n.key && n.key.bind)
         el.onkeydown = (e) => {
-          const fn = ctx.commands ? ctx.commands[n.key.bind] : null;
+          const fn = istaXamlCommand(ctx, n.key);
           if (e.key === 'Enter' && fn)
             (typeof fn === 'function' ? fn : fn.run)();
         };
@@ -823,6 +929,15 @@ function istaXamlNode(n, data, ctx) {
       el.className = 'ixwarn';
       if (typeof istaRealIcon === 'function')
         el.innerHTML = istaRealIcon('warn');
+      break;
+    }
+    case 'CircularProgressBar':
+    case 'ProgressBar': {
+      // a busy indicator the tool shows from code while it loads; it is
+      // laid over the control it waits for, so it must not be there at rest
+      el = document.createElement('div');
+      el.className = 'ixbusy';
+      el.hidden = !ctx.busy;
       break;
     }
     default: {
@@ -875,5 +990,6 @@ if (typeof module !== 'undefined' && module.exports) {
     istaXamlLen,
     istaXamlThickness,
     istaXamlRender,
+    istaXamlCommand,
   };
 }
