@@ -2672,21 +2672,8 @@ html[data-theme] .ista-real-body .modal.ixdialog table.ixtable thead th {
 .ista-real-body .ixecutree-tip[hidden] {
   display: none;
 }
-/* the root's row: a teal bar the full width of the tree, over the lines that
-   run to the root and under the root's own button */
 .ista-real-body .ixecutree-grid {
   min-width: 100%;
-}
-.ista-real-body .ixecutree-rootband {
-  position: absolute;
-  left: 0;
-  right: 0;
-  background: #5f9ea0;
-  z-index: 1;
-}
-.ista-real-body .ixecutree-unit {
-  font-weight: 700;
-  box-shadow: 1px 1px 2px rgba(0, 0, 0, 0.35);
 }
 .ista-real-body .ixecutree {
   padding-right: 3px;

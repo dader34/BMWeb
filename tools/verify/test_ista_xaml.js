@@ -925,7 +925,14 @@ const view = {
     absOnly: false,
     ...over,
   });
-  assert.strictEqual(X.ecuTreeExpected(e46, facts([])), null);
+  // a car with no known options is run with none: the minimal units and
+  // the engine, nothing that hangs on an option
+  const bare = X.ecuTreeExpected(e46, facts([]));
+  assert.deepStrictEqual(
+    [...bare].sort((x, y) => x - y),
+    [0, 18, 87, 128]
+  );
+  assert.strictEqual(X.ecuTreeExpected(null, facts([])), null);
   const want = X.ecuTreeExpected(e46, facts(['534', '205', '403']));
   // the engine, the automatic gearbox, climate control and the sunroof
   for (const a of [18, 50, 91, 8, 87, 0, 128])
@@ -940,6 +947,61 @@ const view = {
   };
   assert.ok(X.ecuTreeExpected(withLine, facts(['534'])).has(0x5b));
   ok('colours, and the units a car is expected to carry');
+
+  // the text on a unit's button
+  const names = {
+    variants: { lsz: 'LSZ', zke5: 'GM' },
+    groups: { d_0000: ['GM'], d_zke_gm: ['GM'], d_00d0: ['LCM', 'LM', 'LSZ'] },
+  };
+  const title = (v) => X.ecuTreeTitle(names, v);
+  // every candidate variant agrees: the representative's name
+  assert.strictEqual(
+    title({ name: 'ZKE', addr: 0, groups: ['d_0000', 'D_ZKE_GM'] }),
+    'GM'
+  );
+  // candidates disagree: the series' name with the address
+  assert.strictEqual(
+    title({ name: 'LM', addr: 208, groups: ['d_00d0'] }),
+    'LM_0xD0'
+  );
+  // identified: its own variant decides
+  assert.strictEqual(
+    title({ name: 'LM', addr: 208, groups: ['d_00d0'], variant: 'LSZ' }),
+    'LSZ'
+  );
+  // no candidates at all, and a one-digit address
+  assert.strictEqual(title({ name: 'SHD', addr: 8, groups: [] }), 'SHD_0x08');
+  // without the name data the series' name stands
+  assert.strictEqual(X.ecuTreeTitle(null, { name: 'LM', addr: 208 }), 'LM');
+
+  // one-of sets: an identified member removes the ones that are not
+  const shape = (us, t) => X.ecuTreeShape(t, us).map((x) => x.addr);
+  const oneOf = { xor: [[41, 86, 54]], unsure: [7] };
+  assert.deepStrictEqual(
+    shape([{ addr: 41, identified: true }, { addr: 86 }, { addr: 9 }], oneOf),
+    [41, 9]
+  );
+  // nothing identified yet: both stay
+  assert.deepStrictEqual(shape([{ addr: 41 }, { addr: 86 }], oneOf), [41, 86]);
+  // a unit the series is unsure of stays only when it identified
+  assert.deepStrictEqual(shape([{ addr: 7 }, { addr: 9 }], oneOf), [9]);
+  assert.deepStrictEqual(shape([{ addr: 7, identified: true }], oneOf), [7]);
+
+  // the second unit of a cell is parked beside the ones with no cell
+  const two = X.ecuTreeBuild({ buses: [] }, [
+    u('A', 1, 'KBUS', 3, 2),
+    u('B', 2, 'KBUS', 3, 2),
+    u('C', 3, 'KBUS', -1, -1),
+  ]);
+  assert.deepStrictEqual(
+    two.units.map((x) => [x.name, x.col, x.row]),
+    [
+      ['A', 3, 2],
+      ['B', 0, 14],
+      ['C', 1, 14],
+    ]
+  );
+  ok('unit titles, one-of sets, and parking a shared cell');
 }
 
 // ---- lengths ----------------------------------------------------------------

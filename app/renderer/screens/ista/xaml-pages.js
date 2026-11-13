@@ -2669,22 +2669,33 @@ async function istaXamlTree(host, o) {
       absOnly: false,
       mk60: slots.some((x) => /^dsc_mk60/i.test(x.sgbd || '')),
     });
-    const units = [];
+    const names = await istaProbe(() =>
+      hfFetchFirst(`ista/ecu-names/${String(o.chassis).toUpperCase()}.json`)
+    );
+    let units = [];
     for (const slot of slots) {
       const box = slot.box;
       if (!box) continue;
-      const heard = slot.state !== 'unread';
+      // a unit that answered: it identified, or its fault memory was read
+      const heard = slot.state === 'ok' || slot.state === 'faults';
       if (expected && !heard && !expected.has(box.addr)) continue;
       let state = slot.state;
       if (state === 'faults' && !counted.get(String(slot.sgbd).toLowerCase()))
         state = 'ok';
+      const variant = heard ? slot.sgbd || '' : '';
       units.push({
         addr: box.addr,
         sub: box.sub,
-        name: box.short || box.name || slot.abbr,
+        name: ecuTreeTitle(names, {
+          name: box.name || slot.abbr,
+          addr: box.addr,
+          variant,
+          groups: box.groups,
+        }),
         bus: box.bus,
         subBus: box.subBus,
-        variant: slot.sgbd || '',
+        variant,
+        identified: heard,
         col: box.col,
         row: box.row,
         state,
@@ -2692,28 +2703,12 @@ async function istaXamlTree(host, o) {
         box,
       });
     }
-    // WITHOUT THE CAR'S OPTIONS, ALTERNATIVES SHARE A CELL. The table places
-    // units a car carries one of (DSC or DSC/DXC) in the same cell, and the
-    // tool never draws both because its car has only one. With no options
-    // to choose by, the one a read reached wins, then the one the series
-    // always expects, then the first the table lists.
-    if (!expected) {
-      const minimal = new Set(tree.minimal || []);
-      const rank = (u) =>
-        u.slot.state !== 'unread' ? 0 : minimal.has(u.addr) ? 1 : 2;
-      /** @type {Map<string, object>} */
-      const cell = new Map();
-      for (const u of units) {
-        const key = `${u.col}:${u.row}`;
-        const had = cell.get(key);
-        if (!had || rank(u) < rank(had)) cell.set(key, u);
-      }
-      units.splice(
-        0,
-        units.length,
-        ...units.filter((u) => cell.get(`${u.col}:${u.row}`) === u)
-      );
-    }
+    units = ecuTreeShape(tree, units);
+    // WHERE TWO UNITS SHARE A CELL, THE ONE THAT ANSWERED KEEPS IT and the
+    // other is parked below. (The tool keeps whichever its list holds
+    // first; ours has no such order, and the unit on the car is the one to
+    // show in place.)
+    units.sort((a, b) => Number(b.identified) - Number(a.identified));
     const built = ecuTreeBuild(tree, units);
     const total = [...counted.values()].reduce((a, n) => a + n, 0);
     const read = slots.some((x) => x.state !== 'unread');

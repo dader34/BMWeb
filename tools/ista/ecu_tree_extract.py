@@ -179,6 +179,15 @@ def parse_tree(series, blob):
                 vals.append(int(t))
         if vals:
             out[key] = vals
+    # sets a car carries ONE of: once one member has identified, the tool
+    # drops the others that have not (ShapeECUConfiguration)
+    xor = []
+    for c in root.iter("{%s}XorConfigurationEntry" % NS["t"]):
+        one_of = [int(i.text) for i in c if (i.text or "").strip().lstrip("-").isdigit()]
+        if len(one_of) >= 2:
+            xor.append(one_of)
+    if xor:
+        out["xor"] = xor
     compat = text(root, "CompatibilityInfo")
     if compat:
         out["compat"] = [ln.strip() for ln in compat.splitlines() if len(ln.strip()) >= 10]

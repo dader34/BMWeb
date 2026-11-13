@@ -8,7 +8,11 @@
  * every bus a column, and this follows the tool's own steps over them.
  *
  *   1. each unit takes its cell from the table; one with no cell, or with a
- *      cell another unit already has, is parked in a spare row below (14 on)
+ *      cell another unit already has, is parked in a spare row below (14 on).
+ *      (Parking a SECOND unit of a cell is the tool's ECUTreeShowDuplicates
+ *      switch, off by default in 4.15, where the two are drawn on top of
+ *      each other. It is on here: a workshop install's tree shows the E46's
+ *      second brake unit parked, and one box hiding another helps nobody.)
  *   2. each bus line is a vertical at its column, from the root's row (or
  *      its MinRow) down to the lowest unit it serves, with a stub out to
  *      every unit on either side; where it runs to the root, lines sharing a
@@ -31,7 +35,7 @@
 
 /* exported ECU_TREE_CELL ECU_TREE_BUS_COLOR ECU_TREE_COLOR ecuTreeCheckRule
    ecuTreeHasBus ecuTreeBuild ecuTreeUnitColor ecuTreeDraw ecuTreeExpected
-   ecuTreeHasGearboxEcu ECU_TREE_SERIES_RULES */
+   ecuTreeHasGearboxEcu ECU_TREE_SERIES_RULES ecuTreeTitle ecuTreeShape */
 
 /** One grid cell: EcuTreeButtonDiagnosisViewModel's size plus its margins. */
 const ECU_TREE_CELL = { w: 72, h: 31, btnW: 60, btnH: 25, mx: 6, my: 3 };
@@ -169,6 +173,68 @@ function ecuTreeUnitColor(u) {
 }
 
 /**
+ * The text on a unit's button (its TITLE_ECUTREE).
+ *
+ * A PORT OF VehicleDataConverter.FillEcuNames and ECU.FillEcuTitleTree. The
+ * unit's candidate variants are the one it identified as, else every
+ * variant of its group(s) valid for the car; each variant's clique names a
+ * representative ("GM", "RAD", "MRS"). When the candidates agree on one
+ * representative, that is the title; otherwise it is the series' own name
+ * for the unit with its address, "SM_0x72".
+ * @param {{variants: Object<string, string>, groups: Object<string,
+ *   string[]>}|null} names - tools/ista/ecu_names_extract.py, for the chassis
+ * @param {object} u - {name, addr, variant (when identified), groups}
+ * @returns {string}
+ */
+function ecuTreeTitle(names, u) {
+  const hex = Number(u.addr).toString(16).toUpperCase().padStart(2, '0');
+  const fallback = `${u.name || ''}_0x${hex}`;
+  if (!names) return u.name || fallback;
+  const shorts = new Set();
+  const own = u.variant && names.variants[String(u.variant).toLowerCase()];
+  if (own) shorts.add(own);
+  else
+    for (const g of u.groups || [])
+      for (const s of names.groups[String(g).toLowerCase()] || [])
+        shorts.add(s);
+  return shorts.size === 1 ? [...shorts][0] : fallback;
+}
+
+/**
+ * Drop the units a read has ruled out.
+ *
+ * A PORT OF BaseEcuCharacteristics.ShapeECUConfiguration, which the tool
+ * runs after identification: of each set the car carries ONE of, once a
+ * member has identified the members that have not are removed; and a unit
+ * the series is unsure of is removed unless it identified.
+ * @param {object} tree - the series' tree ({xor, unsure})
+ * @param {object[]} units - the car's units: {addr, identified}
+ * @returns {object[]} the units that stay
+ */
+function ecuTreeShape(tree, units) {
+  const gone = new Set();
+  const at = (addr) => units.find((u) => u.addr === addr);
+  for (const set of (tree && tree.xor) || []) {
+    if (!set || set.length < 2) continue;
+    let valid = -1;
+    for (const a of set) {
+      const u = at(a);
+      if (u && u.identified) valid = a;
+    }
+    if (valid < 0) continue;
+    for (const a of set) {
+      const u = at(a);
+      if (a !== valid && u && !u.identified) gone.add(u);
+    }
+  }
+  for (const a of (tree && tree.unsure) || []) {
+    const u = at(a);
+    if (u && !u.identified) gone.add(u);
+  }
+  return units.filter((u) => !gone.has(u));
+}
+
+/**
  * Build the tree for a car.
  * @param {object} tree - the series' tree (ecu_tree_extract.py)
  * @param {object[]} input - the car's units: {addr, sub, name, bus, subBus,
@@ -198,12 +264,15 @@ function ecuTreeBuild(tree, input) {
     }
     return [col, rowUnset];
   };
+  const taken = new Set();
   const units = (input || []).map((u) => {
     let col = u.col == null ? -1 : u.col;
     let row = u.row == null ? -1 : u.row;
-    // a taken cell is only logged by the tool (duplicates are not moved
-    // unless a debug switch says so); a missing one is parked
-    if (col === -1 || row === -1) [col, row] = park();
+    // a unit with no cell is parked, and so is the second unit of a cell
+    // (ECUTreeShowDuplicates; see the note at the top of the file)
+    if (col === -1 || row === -1 || taken.has(`${col}:${row}`))
+      [col, row] = park();
+    taken.add(`${col}:${row}`);
     return { ...u, col, row };
   });
 
@@ -365,23 +434,6 @@ function ecuTreeDraw(host, built, o) {
   }
   grid.appendChild(svg);
 
-  // THE ROOT'S ROW IS A BAND ACROSS THE WHOLE TREE, which is how the tool
-  // shows it: the gateway sits in a teal bar and every bus line drops out of
-  // the bar's lower edge, so the runs that carry a line across to the root
-  // are behind it rather than drawn as a fan of wires. (Not in the 4.15
-  // layout file, which has no such element; taken from the tool's later
-  // screens, where the same builder's lines end under it.)
-  const root = built.units.find(
-    (u) => u.bus === 'ROOT' || u.bus === 'VIRTUALROOT'
-  );
-  if (root) {
-    const band = document.createElement('div');
-    band.className = 'ixecutree-rootband';
-    band.style.top = `${root.row * C.h}px`;
-    band.style.height = `${C.h}px`;
-    grid.appendChild(band);
-  }
-
   for (const h of built.housings) {
     const box = document.createElement('div');
     box.className = 'ixecutree-housing';
@@ -504,15 +556,17 @@ const ECU_TREE_SERIES_RULES = {
  * own rules, then the table's compatibility lines (address; group; type
  * keys; options; and optionally an I-level and a build-date window), then
  * the minimal configuration, less what the series excludes and removes.
- * Null when the car's options are not known: without them the rules cannot
- * be run, and "nothing optional is fitted" would be a guess.
+ * A car whose options are not known is run with none, as the tool runs one
+ * whose vehicle order it could not read: the units that hang on an option
+ * are then simply not expected until a read finds them.
  * @param {object} tree - the series' tree
  * @param {object|null} f - {motor, gearbox, typ, sa: Set, prod: number
  *   (yyyymm), absOnly, mk60}
- * @returns {Set<number>|null}
+ * @returns {Set<number>|null} null only when there is no tree
  */
 function ecuTreeExpected(tree, f) {
-  if (!tree || !f || !f.sa || !f.sa.size) return null;
+  if (!tree || !f) return null;
+  if (!f.sa) f = { ...f, sa: new Set() };
   const want = new Set();
   const rule = ECU_TREE_SERIES_RULES[tree.series];
   const [add, remove] = rule ? rule(f) : [[], []];
@@ -556,6 +610,8 @@ if (typeof module !== 'undefined' && module.exports) {
     ecuTreeDraw,
     ecuTreeHasGearboxEcu,
     ecuTreeExpected,
+    ecuTreeTitle,
+    ecuTreeShape,
     ECU_TREE_SERIES_RULES,
   };
 }
