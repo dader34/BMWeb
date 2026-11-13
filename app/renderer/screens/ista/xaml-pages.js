@@ -3028,6 +3028,7 @@ function istaBrowseNodes(nodes, above) {
  *   loading}, to which `layout` and `pick` are added
  * @param {() => void} o.paint - the browser's own repaint (opens a document)
  * @param {object|null} [o.car] - the picked car, for Add to test plan
+ * @param {string} [o.chassis] - its chassis, for running a test module
  * @param {boolean} [o.plan] - whether Add to test plan is offered
  * @param {string|null} [o.types] - the page's document type filter
  *   (InfoObjFilter): a comma list, or null/undefined to list every type.
@@ -3112,7 +3113,9 @@ async function istaXamlBrowsePanes(o) {
       // lands under the tool's "Manual selection" component with priority
       // M, not called.
       const manual = (d) => ({
-        id: `DIAG-${docKey(d)}`,
+        // a module the pool names is filed by that name, which is what the
+        // test plan runs it by
+        id: d.ident || `DIAG-${docKey(d)}`,
         type: src.rowType(d),
         title: src.rowTitle(d),
         component: istaXamlText({ strings: api.strings }, '#ManualSelection'),
@@ -3128,6 +3131,29 @@ async function istaXamlBrowsePanes(o) {
         // DISPLAYING A TEST MODULE PUTS IT IN THE PLAN FIRST, implicitly
         // (ExecuteDisplayClass): what a technician runs is on record
         if (isAbl(row) && o.car) istaPlanAdd(o.car, [manual(row.doc)]);
+        // ... and then RUNS it, where this build ships the module; one it
+        // does not ship opens as the document it is
+        if (
+          isAbl(row) &&
+          row.doc.ident &&
+          o.chassis &&
+          typeof istaAblLoad === 'function' &&
+          typeof istaOpenPlanRow === 'function'
+        ) {
+          const ident = row.doc.ident;
+          istaProbe(() => istaAblLoad(ident, o.chassis)).then((graph) => {
+            if (!host.isConnected) return;
+            if (graph)
+              return istaOpenPlanRow(manual(row.doc), o.car, o.chassis, () =>
+                api.draw()
+              );
+            state.doc = row.doc;
+            istaRealStatus({ items: [] });
+            istaRealBottom(null);
+            o.paint();
+          });
+          return;
+        }
         state.doc = row.doc;
         // the open document is the browser's page, with its own bar
         istaRealStatus({ items: [] });

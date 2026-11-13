@@ -10,6 +10,7 @@ page shows (InfoBrowserTreeFactory, DiagnosisObjectsTree, InfoObjFilter):
 
     function  DiagnosticObjectFunctionalRoot        Function structure
     component DiagnosticObjectComponentRoot         Component structure
+    service   DiagnosticObjectServicefunctionRoot   Service functions
     product   DiagnosticObjectConstructiveRoot      Product structure, and
                                                     Operating fluids, which
                                                     is this same tree shown
@@ -48,7 +49,9 @@ Writes data/ista/infotree/<CHASSIS>.json.gz:
 
     {"trees": {"product": [node, ...], "function": [...], "component": [...],
                "sws": [...], "mob": [...]},
-     "docs": {"<id>": [type, title, rule?]}}
+     "docs": {"<id>": [type, title, rule?, identifier?]}}
+    (the identifier is a test module's, ABL-...; a rule of null holds its
+    place when a module has none)
     node = {"id": control id, "t": title, "r": rule?, "d": [doc id, ...],
             "k": [node, ...]}
 
@@ -260,7 +263,7 @@ class Trees:
             self.links.setdefault(node, []).append(doc)
         self.infos = {
             row[0]: row for row in con.execute(
-                "SELECT ID, INFOTYPE, TITLE_ENGB, VERSTECKT, NODECLASS "
+                "SELECT ID, INFOTYPE, TITLE_ENGB, VERSTECKT, NODECLASS, IDENTIFIER "
                 "FROM XEP_INFOOBJECTS")}
         self.classes = dict(con.execute("SELECT NAME, ID FROM XEP_NODECLASSES"))
         self.docs = {}
@@ -327,8 +330,13 @@ class Trees:
                 continue
             if doc not in self.docs:
                 entry = [info[1] or "", info[2] or ""]
-                if tree is not None:
+                # a test module is run by its identifier, which is how the
+                # module pool names it
+                ident = info[5] if info[1] == "ABL" else None
+                if tree is not None or ident:
                     entry.append(tree)
+                if ident:
+                    entry.append(ident)
                 self.docs[doc] = entry
             if self.own_bodies:
                 self.body_docs.add(doc)
@@ -432,6 +440,7 @@ def main():
         trees.own_bodies = False
         built["function"] = trees.tree("DiagnosticObjectFunctionalRoot")
         built["component"] = trees.tree("DiagnosticObjectComponentRoot")
+        built["service"] = trees.tree("DiagnosticObjectServicefunctionRoot")
         out = {
             "version": 1,
             "chassis": chassis,

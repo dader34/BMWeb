@@ -202,7 +202,7 @@ function istaInfoNodes(nodes, holds) {
  * @param {object} node - a node from istaInfoNodes
  * @param {object} docs - the extract's documents: id -> [type, title, rule]
  * @param {(rule: object|undefined) => boolean} holds - the car's rule check
- * @returns {Array<{id: string, type: string, title: string}>}
+ * @returns {Array<{id: string, type: string, title: string, ident?: string}>}
  */
 function istaInfoDocsUnder(node, docs, holds) {
   const seen = new Set();
@@ -214,7 +214,13 @@ function istaInfoDocsUnder(node, docs, holds) {
       seen.add(key);
       const d = docs[key];
       if (!d || !holds(d[2])) continue;
-      out.push({ id: key, type: d[0] || '', title: d[1] || '' });
+      out.push({
+        id: key,
+        type: d[0] || '',
+        title: d[1] || '',
+        // a test module's identifier, by which the module pool names it
+        ...(d[3] ? { ident: d[3] } : {}),
+      });
     }
     for (const k of n.kids || []) walk(k);
   })(node);

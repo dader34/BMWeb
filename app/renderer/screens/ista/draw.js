@@ -238,13 +238,38 @@ async function istaDrawPage(s, host) {
       typeof serviceIndexLoad === 'function' ? serviceIndexLoad() : null
     );
     if (!host.isConnected) return;
+    // THE TOOL'S OWN SERVICE FUNCTION TREE where the build ships it
+    // (info-tree.js): the service function root, its test modules under
+    // each node, Add to test plan, and Display running the module. Without
+    // it the app's own index of service functions stands in.
+    const trees =
+      real && istaXamlOn('browse')
+        ? await istaProbe(() => istaInfoTreeLoad(chassis))
+        : null;
+    if (!host.isConnected) return;
+    if (trees && (trees.trees.service || []).length) {
+      const holds = await istaCarRuleCheck(car, chassis);
+      if (!host.isConnected) return;
+      istaBrowse(
+        host,
+        istaInfoSource(trees, 'service', holds, chassis),
+        'info-service',
+        {
+          emptyTitle: 'Service Functions',
+          shell: {
+            car,
+            chassis,
+            plan: true,
+            types: ISTA_INFO_TYPES.default,
+          },
+        }
+      );
+      return;
+    }
     const src = istaServiceSource(cfg, index, chassis, (hit) => {
       if (typeof serviceRunHit === 'function') serviceRunHit(hit, chassis);
     });
-    istaBrowse(host, src, 'service', {
-      emptyTitle: 'Service Functions',
-      shell: { car, types: ISTA_INFO_TYPES.default },
-    });
+    istaBrowse(host, src, 'service', { emptyTitle: 'Service Functions' });
     return;
   }
 
@@ -300,6 +325,7 @@ async function istaDrawPage(s, host) {
       // structure's (ModuleExecutionOrigin.HitListFunctionStructure)
       shell: {
         car,
+        chassis,
         // the tool's default document types, as on every structure page
         types: ISTA_INFO_TYPES.default,
         plan: s.id === 'function-structure',
@@ -639,7 +665,7 @@ async function istaDrawPage(s, host) {
       const src = istaInfoSource(data, infoTree.tree, holds, chassis);
       istaBrowse(host, src, `info-${s.id}`, {
         emptyTitle: s.label,
-        shell: { car, types: ISTA_INFO_TYPES[infoTree.types] },
+        shell: { car, chassis, types: ISTA_INFO_TYPES[infoTree.types] },
       });
       return;
     }
