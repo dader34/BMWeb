@@ -93,7 +93,14 @@ function istaPlanRowOf(r) {
     type: String(r.type || 'ABL'),
     title: String(r.title || r.id || ''),
     component: String(r.component || r.title || ''),
-    priority: r.priority == null ? 0 : Number(r.priority),
+    // F (from a fault pattern) and M (added by hand) are priorities too,
+    // and outrank every number
+    priority:
+      r.priority === 'F' || r.priority === 'M'
+        ? r.priority
+        : r.priority == null
+          ? 0
+          : Number(r.priority),
     state: String(r.state || 'none'),
     fault: r.fault ? String(r.fault) : '',
     doc: r.doc || null,

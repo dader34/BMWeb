@@ -99,6 +99,135 @@ function istaXamlPaint(host, parts, ctx, extra) {
 
 // ---- Troubleshooting / Fault memory -----------------------------------------
 
+/** @type {Map<string, Promise<object|null>>} ECU variant -> its fault codes */
+const istaFaultCodeTables = new Map();
+
+/**
+ * What ISTA's database says about one ECU variant's fault codes, or null
+ * when this build ships nothing for it: {"<code, decimal>": [weighting,
+ * relevance]} (tools/ista/faultcodes_extract.py).
+ * @param {string} sgbd - the variant, as the app keys a module (ms450ds0)
+ * @returns {Promise<object|null>}
+ */
+function istaFaultCodes(sgbd) {
+  const key = String(sgbd || '').toLowerCase();
+  if (!key) return Promise.resolve(null);
+  if (!istaFaultCodeTables.has(key))
+    istaFaultCodeTables.set(
+      key,
+      typeof hfFetchFirst === 'function'
+        ? hfFetchFirst(`ista/faultcodes/${key}.json`).catch(() => null)
+        : Promise.resolve(null)
+    );
+  return istaFaultCodeTables.get(key);
+}
+
+/**
+ * A fault's verdict and weighting, as the tool resolves them when it reads
+ * the fault memory (VehicleIdent.doECUReadFS).
+ *
+ * THREE ANSWERS, AND THE THIRD IS NOT A NO. A code the variant's table
+ * lists is relevant unless RELEVANCE is 0. A code it does not list has no
+ * verdict (null): the tool still SHOWS such a fault, but it never enters the
+ * test plan. With no table for the variant at all, `known` is false so a
+ * caller can tell "ISTA has no verdict" from "this build has no data".
+ * @param {object} row - a fault row (`raw.F_ORT_NR`, `code`)
+ * @param {object|null} table - the variant's fault codes
+ * @returns {{known: boolean, relevance: boolean|null, weight: number|null}}
+ */
+function istaFaultMeta(row, table) {
+  if (!table) return { known: false, relevance: null, weight: null };
+  const raw = (row && row.raw) || {};
+  // the fault location is a number on the wire and decimal in the database;
+  // the hex on screen is a rendering of it
+  const ort = Number(raw.F_ORT_NR);
+  const code =
+    Number.isFinite(ort) && raw.F_ORT_NR !== '' && raw.F_ORT_NR != null
+      ? ort
+      : parseInt(String((row && row.code) || ''), 16);
+  const hit = Number.isFinite(code) ? table[String(code)] : null;
+  if (!hit) return { known: true, relevance: null, weight: null };
+  return { known: true, relevance: hit[1] !== 0, weight: hit[0] };
+}
+
+/**
+ * How two components rank against each other in the test plan.
+ *
+ * A PORT OF MainPriorityCalculator.DiagObjectPriorityComparer: by how many
+ * faults point at the component with sure suspicion, then strong, middle
+ * and low weighting, and last by whether any of those faults is present.
+ * @param {object} x - {sure, strong, middle, low, present}
+ * @param {object} y - the same
+ * @returns {number} negative, zero or positive
+ */
+function istaPlanCompare(x, y) {
+  for (const k of ['sure', 'strong', 'middle', 'low']) {
+    const d = Math.sign((x[k] || 0) - (y[k] || 0));
+    if (d) return d;
+  }
+  if (!!x.present !== !!y.present) return x.present ? 1 : -1;
+  return 0;
+}
+
+/**
+ * Give every row of a calculated plan its component's priority.
+ *
+ * A PORT OF TestplanCalculator.CalculatePriorityNew followed by
+ * MainPriorityCalculator.Calculate:
+ *  - every fault counts ONCE toward each component it is linked to, in the
+ *    bucket its weighting names (100 sure, 75 strong, 50 middle, 25 low);
+ *    a component is "present" when one of its faults is
+ *  - the rows are ordered by their component, strongest first; the first
+ *    component gets priority 3 and the number goes up by one each time the
+ *    ranking changes, so components that rank the same share a priority
+ *  - a row already marked suspected reads a tenth lower than its peers
+ *  - a component added from a fault pattern (F) or by hand (M) keeps that
+ *    letter and is never renumbered
+ * @param {object[]} rows - plan rows: {component, state, priority, links}
+ *   where `links` is [{fault, weight, present}], the faults that led to it
+ * @returns {object[]} the same rows, `priority` set, strongest first
+ */
+function istaPlanPrioritise(rows) {
+  /** @type {Map<string, object>} component -> its counts */
+  const by = new Map();
+  const bucket = { 100: 'sure', 75: 'strong', 50: 'middle', 25: 'low' };
+  for (const r of rows) {
+    const key = r.component || r.title || '-';
+    if (!by.has(key))
+      by.set(key, {
+        sure: 0,
+        strong: 0,
+        middle: 0,
+        low: 0,
+        present: false,
+        seen: new Set(),
+      });
+    const c = by.get(key);
+    for (const l of r.links || []) {
+      if (c.seen.has(l.fault)) continue;
+      c.seen.add(l.fault);
+      if (l.present) c.present = true;
+      if (bucket[l.weight]) c[bucket[l.weight]]++;
+    }
+  }
+  const of = (r) => by.get(r.component || r.title || '-');
+  const fixed = (r) => r.priority === 'F' || r.priority === 'M';
+  const out = rows
+    .map((r, i) => [r, i])
+    .sort((a, b) => istaPlanCompare(of(b[0]), of(a[0])) || a[1] - b[1])
+    .map(([r]) => r);
+  let num = 3;
+  /** @type {Map<object, number|string>} counts -> the priority they got */
+  const given = new Map();
+  out.forEach((r, i) => {
+    if (fixed(r)) return;
+    if (i > 0 && istaPlanCompare(of(out[i - 1]), of(r)) !== 0) num++;
+    given.set(of(r), r.state === 'suspected' ? num + 0.1 : num);
+  });
+  for (const r of out) if (!fixed(r)) r.priority = given.get(of(r));
+  return out;
+}
+
 /**
  * Whether the fault filter lets a fault through.
  *
@@ -381,9 +510,20 @@ async function istaXamlFaultMemory(host, o) {
   let cable = false;
   const filter = () => istaState.faultRange || null;
 
-  const api = await istaXamlMount(host, 'FaultMemoryView', (page) => {
+  const api = await istaXamlMount(host, 'FaultMemoryView', async (page) => {
     const scan = istaNewestScan(car);
-    const all = istaFaultRows(scan && scan.report).map((r) => {
+    const found = istaFaultRows(scan && scan.report);
+    // what ISTA's database says about each module's codes; cached, so only
+    // the first draw waits for it
+    const sgbds = [...new Set(found.map((r) => r.sgbd).filter(Boolean))];
+    const tables = {};
+    await Promise.all(
+      sgbds.map(async (sg) => {
+        tables[sg] = await istaFaultCodes(sg);
+      })
+    );
+    const all = found.map((r) => {
+      const meta = istaFaultMeta(r, tables[r.sgbd] || null);
       const km = r.km === '' || r.km == null ? null : Number(r.km);
       // a module that stored anything with the fault has a current record,
       // whether or not that record carries a mileage
@@ -395,8 +535,9 @@ async function istaXamlFaultMemory(host, o) {
         FaultLabel: r.desc,
         Existing: r.present ? 'yes' : 'No',
         FaultClass: '-',
+        meta,
         test: {
-          relevance: null,
+          relevance: meta.relevance,
           current: stored ? { km: Number.isFinite(km) ? km : null } : null,
           first: null,
           cls: '',
@@ -490,7 +631,7 @@ async function istaXamlFaultMemory(host, o) {
         CmdCalculateTestplan: shown.length
           ? async () => {
               const rows = await istaCalcPlanAll(
-                shown.map((x) => x.row),
+                shown.map((x) => ({ ...x.row, meta: x.meta })),
                 car,
                 o.chassis
               );
@@ -565,22 +706,38 @@ async function istaQuickDelete(modules) {
 }
 
 /**
- * The test plan for a list of faults: every fault's procedures, once each.
- * @param {object[]} faults - fault rows
+ * The test plan for a list of faults.
+ *
+ * AS TestplanCalculator.CalculateTestplan RUNS IT: only a fault the database
+ * calls relevant is followed to its procedures -- one with no verdict stays
+ * in the fault memory but adds nothing to the plan. Each procedure is listed
+ * once, remembering every fault that led to it, and the components are then
+ * ranked by those faults' weightings (istaPlanPrioritise).
+ *
+ * A fault whose module this build has no database extract for is followed
+ * anyway: there the missing verdict means "no data here", not "ISTA has no
+ * entry", and dropping it would empty the plan for want of a file.
+ * @param {object[]} faults - fault rows, each with its `meta` (istaFaultMeta)
  * @param {object|null} car - the picked car
  * @param {string} chassis - its chassis
- * @returns {Promise<object[]>} plan rows
+ * @returns {Promise<object[]>} plan rows, strongest component first
  */
 async function istaCalcPlanAll(faults, car, chassis) {
-  const out = [];
-  const seen = new Set();
-  for (const f of faults)
+  /** @type {Map<string, object>} procedure id -> its plan row */
+  const by = new Map();
+  for (const f of faults) {
+    const meta = f.meta || { known: false, relevance: null, weight: null };
+    if (meta.known && meta.relevance !== true) continue;
     for (const row of await istaCalcPlan(f, car, chassis)) {
-      if (seen.has(row.id)) continue;
-      seen.add(row.id);
-      out.push(row);
+      if (!by.has(row.id)) by.set(row.id, { ...row, links: [] });
+      by.get(row.id).links.push({
+        fault: `${f.sgbd}:${f.code}`,
+        weight: meta.weight,
+        present: !!f.present,
+      });
     }
-  return out;
+  }
+  return istaPlanPrioritise([...by.values()]);
 }
 
 // ---- Service plan / Test plan -----------------------------------------------
@@ -1702,6 +1859,10 @@ if (typeof module !== 'undefined' && module.exports) {
     istaXamlFaultFilter,
     istaQuickDelete,
     istaCalcPlanAll,
+    istaFaultCodes,
+    istaFaultMeta,
+    istaPlanCompare,
+    istaPlanPrioritise,
     istaXamlTestPlan,
     istaXamlBasic,
     istaXamlMount,

@@ -484,6 +484,78 @@ const view = {
   ok('the filter cursor: the progressive step and its reset');
 }
 
+// ---- what the database says about a fault, and the plan's priorities --------
+{
+  const table = { 10179: [50, 1], 10200: [100, 0], 300: [25, 1] };
+  const meta = (row, t) => X.istaFaultMeta(row, t === undefined ? table : t);
+  // the fault location arrives as a number and is looked up in decimal
+  assert.deepStrictEqual(meta({ raw: { F_ORT_NR: '10179' }, code: 'XX' }), {
+    known: true,
+    relevance: true,
+    weight: 50,
+  });
+  // without one, the hex on screen is the same number
+  assert.strictEqual(meta({ raw: {}, code: '27C3' }).weight, 50);
+  // RELEVANCE 0 is a verdict; a code the table lacks has none
+  assert.strictEqual(meta({ raw: { F_ORT_NR: 10200 } }).relevance, false);
+  assert.strictEqual(meta({ raw: { F_ORT_NR: 999 } }).relevance, null);
+  assert.strictEqual(meta({ raw: { F_ORT_NR: 999 } }).known, true);
+  // no table for the variant is "no data here", not "no verdict"
+  assert.strictEqual(meta({ raw: { F_ORT_NR: 300 } }, null).known, false);
+  ok('a fault: relevant, not relevant, no verdict, no data');
+
+  const link = (fault, weight, present) => ({ fault, weight, present });
+  const rows = X.istaPlanPrioritise([
+    { id: 'a', component: 'Low', state: 'none', links: [link('f1', 25)] },
+    { id: 'b', component: 'Sure', state: 'none', links: [link('f2', 100)] },
+    {
+      id: 'c',
+      component: 'Middle x2',
+      state: 'none',
+      links: [link('f3', 50), link('f4', 50)],
+    },
+    { id: 'd', component: 'Middle', state: 'none', links: [link('f3', 50)] },
+    {
+      id: 'e',
+      component: 'Middle, present',
+      state: 'none',
+      links: [link('f5', 50, true)],
+    },
+    // a second procedure under the same component shares its priority
+    {
+      id: 'g',
+      component: 'Sure',
+      state: 'suspected',
+      links: [link('f2', 100)],
+    },
+    { id: 'h', component: 'Pattern', state: 'none', priority: 'F', links: [] },
+  ]);
+  const prio = Object.fromEntries(rows.map((r) => [r.id, r.priority]));
+  // strongest first, from 3; one step per change in ranking
+  assert.strictEqual(prio.c, 4);
+  assert.strictEqual(prio.e, 5);
+  assert.strictEqual(prio.d, 6);
+  assert.strictEqual(prio.a, 7);
+  // the component's rows share one priority: the last row walked sets it,
+  // and that row is suspected, so it reads a tenth lower
+  assert.strictEqual(prio.b, 3.1);
+  assert.strictEqual(prio.g, 3.1);
+  // a fault pattern's component keeps its letter
+  assert.strictEqual(prio.h, 'F');
+  // the same fault twice counts once for a component
+  const once = X.istaPlanPrioritise([
+    { id: 'x', component: 'A', links: [link('f', 50), link('f', 50)] },
+    { id: 'y', component: 'B', links: [link('g', 50)] },
+  ]);
+  assert.strictEqual(once[0].priority, once[1].priority);
+  assert.strictEqual(X.istaPlanCompare({ sure: 1 }, { strong: 9 }), 1);
+  assert.strictEqual(
+    X.istaPlanCompare({ low: 1, present: true }, { low: 1 }),
+    1
+  );
+  ok('plan priorities: weighting buckets, shared ranks, suspected, F kept');
+}
+
 // ---- lengths ----------------------------------------------------------------
 assert.strictEqual(X.istaXamlLen('140'), '140px');
 assert.strictEqual(X.istaXamlLen('Auto'), 'auto');
