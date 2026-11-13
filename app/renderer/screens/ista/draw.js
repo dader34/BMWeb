@@ -297,21 +297,12 @@ async function istaDrawPage(s, host) {
     istaBrowse(host, src, `diag-${s.id}`, {
       emptyTitle: s.label,
       // Add to test plan is the function structure's, not the component
-      // structure's (ModuleExecutionOrigin.HitListFunctionStructure); a row
-      // added by hand takes the tool's priority for one, M
+      // structure's (ModuleExecutionOrigin.HitListFunctionStructure)
       shell: {
         car,
         // the tool's default document types, as on every structure page
         types: ISTA_INFO_TYPES.default,
         plan: s.id === 'function-structure',
-        planRow: (d) => ({
-          id: String(d.id),
-          type: d.type || '',
-          title: d.title || '',
-          component: d.title || '',
-          priority: 'M',
-          diag: { id: d.id, type: d.type || '', title: d.title || '' },
-        }),
       },
     });
     return;

@@ -2964,6 +2964,24 @@ function istaBrowseRight(layout) {
 }
 
 /**
+ * The state each of a car's plan documents is in, by document id: what the
+ * browser's State column shows for a document that is in the test plan.
+ * @param {object|null} car - the picked car
+ * @returns {Map<string, string>} document id -> state
+ */
+function istaBrowsePlanStates(car) {
+  const out = new Map();
+  if (!car || typeof istaPlanRows !== 'function') return out;
+  for (const r of istaPlanRows(car) || []) {
+    const id = r.diag ? String(r.diag.id) : String(r.id).replace(/^DIAG-/, '');
+    // one document may sit under several components; a state that says
+    // something outranks "not called"
+    if (!out.has(id) || out.get(id) === 'none') out.set(id, r.state || 'none');
+  }
+  return out;
+}
+
+/**
  * A browser source's tree as the nodes the tree control draws. A node's id
  * is its path, which is what the browser's own state keys its open set by.
  * @param {object[]} nodes - BrowserNode[]
@@ -3011,7 +3029,6 @@ function istaBrowseNodes(nodes, above) {
  * @param {() => void} o.paint - the browser's own repaint (opens a document)
  * @param {object|null} [o.car] - the picked car, for Add to test plan
  * @param {boolean} [o.plan] - whether Add to test plan is offered
- * @param {(doc: object) => object} [o.planRow] - a document as a plan row
  * @param {string|null} [o.types] - the page's document type filter
  *   (InfoObjFilter): a comma list, or null/undefined to list every type.
  *   Hits then reads "listed / found", as the tool counts them.
@@ -3058,6 +3075,7 @@ async function istaXamlBrowsePanes(o) {
       const node = tree.selected ? byId.get(tree.selected) || null : null;
       const busy = !!state.loading;
       const found = state.hits || [];
+      const planState = istaBrowsePlanStates(o.car);
       // the page's filter, until the reader changes it in the dialog; a
       // page with none lists every type and has no dialog to change it
       const filtered = o.types !== undefined;
@@ -3079,7 +3097,9 @@ async function istaXamlBrowsePanes(o) {
         .map((d) => ({
           XepInfoObject: { InfoType: src.rowType(d), AwNummer: '' },
           Title: src.rowTitle(d),
-          State: 'none',
+          // a document that is in the test plan shows the state its row
+          // there is in; any other is "not called"
+          State: planState.get(docKey(d)) || 'none',
           key: docKey(d),
           doc: d,
         }));
@@ -3087,9 +3107,27 @@ async function istaXamlBrowsePanes(o) {
       const picked = state.pick
         ? items.find((x) => x.key === state.pick) || null
         : null;
+      // ADD TO TEST PLAN TAKES TEST MODULES ONLY (CommandAddToTestPlan): a
+      // row goes in when it is an ABL and is not already there by hand. It
+      // lands under the tool's "Manual selection" component with priority
+      // M, not called.
+      const manual = (d) => ({
+        id: `DIAG-${docKey(d)}`,
+        type: src.rowType(d),
+        title: src.rowTitle(d),
+        component: istaXamlText({ strings: api.strings }, '#ManualSelection'),
+        group: 'manual',
+        priority: 'M',
+        state: 'none',
+        diag: { id: docKey(d), type: src.rowType(d), title: src.rowTitle(d) },
+      });
+      const isAbl = (it) => !!it && it.XepInfoObject.InfoType === 'ABL';
       const show = (it) => {
         const row = it && it.doc ? it : picked;
         if (!row) return;
+        // DISPLAYING A TEST MODULE PUTS IT IN THE PLAN FIRST, implicitly
+        // (ExecuteDisplayClass): what a technician runs is on record
+        if (isAbl(row) && o.car) istaPlanAdd(o.car, [manual(row.doc)]);
         state.doc = row.doc;
         // the open document is the browser's page, with its own bar
         istaRealStatus({ items: [] });
@@ -3179,16 +3217,19 @@ async function istaXamlBrowsePanes(o) {
                 api.draw();
               }
             : null,
+          // live for a picked test module only (CanExecute: every picked
+          // document is an ABL)
           CommandAddToTestPlan:
-            o.plan && picked && o.car && o.planRow
+            o.plan && o.car && isAbl(picked)
               ? () => {
-                  const added = istaPlanAdd(o.car, [o.planRow(picked.doc)]);
+                  const added = istaPlanAdd(o.car, [manual(picked.doc)]);
                   if (typeof toast === 'function')
                     toast(
                       added
                         ? 'Added to the test plan.'
                         : 'Already in the test plan.'
                     );
+                  api.draw();
                 }
               : null,
           // the button needs a pick; a double click brings its own row
