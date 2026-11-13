@@ -2816,3 +2816,50 @@ html .ista-real-body .view .td-wrap .td-tree-title {
   width: 100%;
   min-width: 0;
 }
+
+/* ---- Administration, from the tool's own layout (screens/ista/admin.js) --- */
+.ista-real-body .iradmin.ixdialog {
+  width: min(1000px, 94vw);
+}
+.ista-real-body .iradmin .iradmin-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.ista-real-body .iradmin .iradmin-x {
+  border: 0;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+  padding: 0 4px;
+}
+.ista-real-body .iradmin .iradmin-host {
+  min-height: 320px;
+  max-height: 70vh;
+  overflow: auto;
+}
+.ista-real-body .iradmin .ixtabs-body {
+  padding: 10px 6px;
+}
+.ista-real-body .iradmin .ixtabs-body .ixcheck {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 220px;
+  margin: 3px 0;
+}
+.ista-real-body .iradmin .iradmin-country {
+  font: inherit;
+  padding: 2px 6px;
+}
+/* the tool lays a setting's choices out in a wrapping row */
+.ista-real-body
+  .iradmin
+  .ixtabs-body
+  :is(.ixbox, .ixgrid, .ixstack):has(> .ixcheck) {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+  margin: 2px 0 12px 15px;
+}

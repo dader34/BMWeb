@@ -1347,6 +1347,90 @@ const view = {
   ok('text search: terms, synonyms, the checks, the cap, and the body index');
 }
 
+// ---- Administration ------------------------------------------------------------
+{
+  // the tool's dialog with what this build cannot use taken out
+  const radio = (bind, param, caption) => ({
+    t: 'RadioButton',
+    checked: { bind, conv: 'EnumBooleanConverter', param },
+    en: { bind: '.', conv: 'LanguageAvailabilityConverter' },
+    kids: [
+      { t: 'StackPanel', kids: [{ t: 'TextBlock', text: { lit: caption } }] },
+    ],
+  });
+  const dialog = {
+    t: 'DialogBaseNew',
+    kids: [
+      { t: 'DialogHeader', kids: [{ t: 'Button', n: 'btnPrint' }] },
+      {
+        t: 'TabControl',
+        kids: [
+          {
+            t: 'TabItem',
+            n: 'admClient',
+            kids: [
+              { t: 'Button' },
+              { t: 'Label', text: { loc: '#SelectLanguage' } },
+              {
+                t: 'WrapPanel',
+                kids: [
+                  radio('Settings.AppLanguage', 'de_DE', 'Deutsch (de-DE)'),
+                ],
+              },
+              { t: 'Label', text: { loc: '#SelectBrand' } },
+              {
+                t: 'WrapPanel',
+                kids: [radio('Settings.Brand', 'Mini', 'MINI')],
+              },
+            ],
+          },
+          {
+            t: 'TabItem',
+            n: 'admDealer',
+            kids: [
+              { t: 'TextBlock', text: { loc: '#Address:' } },
+              { t: 'TextBlock', text: { loc: '#DealershipNumber' } },
+              { t: 'TextBlock', text: { bind: 'OutletCountry' } },
+              { t: 'TextBlock', text: { bind: 'OutletName' } },
+              { t: 'CheckBox' },
+            ],
+          },
+          { t: 'TabItem', n: 'admInterface', kids: [{ t: 'TextBox' }] },
+          { t: 'TabItem', n: 'admDataProtection', kids: [{ t: 'Button' }] },
+        ],
+      },
+    ],
+  };
+  const kept = X.istaAdminPrune(dialog);
+  const tabs = kept.kids[0].kids;
+  // the header and the tabs with nothing usable are gone
+  assert.deepStrictEqual(
+    kept.kids.map((k) => k.t),
+    ['TabControl']
+  );
+  assert.deepStrictEqual(
+    tabs.map((k) => k.n),
+    ['admClient', 'admDealer']
+  );
+  // language stays, with its caption as the radio's own text and every
+  // language on offer; brand does not
+  const client = tabs[0].kids;
+  assert.deepStrictEqual(
+    client.map((k) => k.t),
+    ['Label', 'WrapPanel']
+  );
+  assert.deepStrictEqual(client[1].kids[0].text, { lit: 'Deutsch (de-DE)' });
+  assert.strictEqual(client[1].kids[0].en, undefined);
+  // of the dealer record, the address line and the country
+  assert.deepStrictEqual(
+    tabs[1].kids.map(
+      (k) => (k.text.loc || k.text.bind) + (k.n ? `:${k.n}` : '')
+    ),
+    ['#Address:', 'OutletCountry:OutletCountry']
+  );
+  ok('Administration: only what this build can use is kept');
+}
+
 // ---- lengths ----------------------------------------------------------------
 assert.strictEqual(X.istaXamlLen('140'), '140px');
 assert.strictEqual(X.istaXamlLen('Auto'), 'auto');

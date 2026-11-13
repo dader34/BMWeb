@@ -29,11 +29,42 @@
    istaXamlBrowsePanes istaBrowseLeft istaBrowseRight istaBrowseNodes
    istaBrowseShell istaXamlTextSearch */
 
+/** The cultures the tool's string tables ship for. */
+const ISTA_XAML_CULTURES = [
+  'en-US',
+  'en-GB',
+  'de-DE',
+  'es-ES',
+  'fr-FR',
+  'it-IT',
+  'pl-PL',
+  'cs-CZ',
+  'pt-PT',
+  'tr-TR',
+  'sv-SE',
+  'nl-NL',
+  'id-ID',
+  'el-GR',
+  'ru-RU',
+  'zh-CN',
+  'zh-TW',
+  'ja-JP',
+  'ko-KR',
+  'th-TH',
+];
+
 /**
  * The string table's culture for the app's language setting.
  * @returns {string} e.g. 'en-GB'
  */
 function istaXamlCulture() {
+  // the workshop's own language choice (Administration / Client settings)
+  // comes first: one of the tool's twenty, as a culture
+  const own =
+    typeof Settings === 'object' && Settings
+      ? String(Settings.get('bmweb.ista.lang', '') || '')
+      : '';
+  if (ISTA_XAML_CULTURES.includes(own)) return own;
   const lang =
     typeof Settings === 'object' && Settings
       ? String(Settings.get('lang', 'en') || 'en')
@@ -1952,7 +1983,16 @@ async function istaXamlDetails(host, o) {
             Typ: by['Model code'],
             BaseVersion: by['Basic version'],
             FA: { POLSTER: by['Upholstery code'], LACK: by['Paint code'] },
-            Pannenfall: istaState.breakdown,
+            // not answered yet on this operation: the workshop's
+            // preselection decides (Administration / Dealer data)
+            Pannenfall:
+              istaState.breakdown == null
+                ? { Breakdown: true, Workshop: false }[
+                    typeof Settings === 'object' && Settings
+                      ? Settings.get('bmweb.ista.breakdownPre', '')
+                      : ''
+                  ]
+                : istaState.breakdown,
             TechnicalCampaigns: [],
           },
         },
