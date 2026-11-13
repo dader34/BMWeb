@@ -1034,10 +1034,13 @@ const view = {
   ];
   assert.deepStrictEqual(
     [...X.ecuTreePossible(table, list, (r) => !r)],
-    [0, 114]
+    [
+      [0, ['d_zke_gm']],
+      [114, ['d_0072']],
+    ]
   );
   assert.deepStrictEqual(
-    [...X.ecuTreePossible(table, list, () => true)],
+    [...X.ecuTreePossible(table, list, () => true).keys()],
     [0, 114, 156]
   );
   assert.strictEqual(X.ecuTreePossible(table, undefined, () => true).size, 0);

@@ -611,14 +611,24 @@ function ecuTreeExpected(tree, f) {
  * under (the first entry whose groups contain the name). They are the grey
  * boxes on a tree: possible on this car, never confirmed, and so never red
  * when they do not answer.
+ *
+ * THE TOOL DOES THIS ONLY AT THE END OF A VEHICLE TEST (HandleMissingEcus,
+ * from doVehicleTest and doVehicleShortTest), and drops the unconfirmed ones
+ * again when the next test starts. A car no test has read shows the
+ * expected units alone; the caller decides by whether a read exists.
+ *
+ * Each unit comes back with the listed groups that reached it, because
+ * those, not everything the table files under the unit, are the groups the
+ * tool gives it (SetupECUListByGrpList) and so the ones its title is
+ * worked out from.
  * @param {object} tree - the series' tree
  * @param {Array<{g: string, r?: object}>|undefined} full - the list, cut
  *   to the chassis (tools/ista/ecu_names_extract.py)
  * @param {(rule: object|undefined) => boolean} holds - the car's rule check
- * @returns {Set<number>} addresses
+ * @returns {Map<number, string[]>} address -> the listed groups
  */
 function ecuTreePossible(tree, full, holds) {
-  const out = new Set();
+  const out = new Map();
   for (const entry of full || []) {
     if (!holds(entry.r)) continue;
     const g = String(entry.g).toLowerCase();
@@ -626,7 +636,9 @@ function ecuTreePossible(tree, full, holds) {
     const hit = ((tree && tree.ecus) || []).find((e) =>
       (e.groups || []).join('|').toLowerCase().includes(g)
     );
-    if (hit) out.add(hit.addr);
+    if (!hit) continue;
+    if (!out.has(hit.addr)) out.set(hit.addr, []);
+    out.get(hit.addr).push(g);
   }
   return out;
 }

@@ -2672,9 +2672,14 @@ async function istaXamlTree(host, o) {
     const names = await istaProbe(() =>
       hfFetchFirst(`ista/ecu-names/${String(o.chassis).toUpperCase()}.json`)
     );
-    // the units the car might carry besides: grey until one answers
+    // the units the car might carry besides, grey until one answers. The
+    // tool adds them at the END of a vehicle test, so a car no test has
+    // read shows the expected units alone.
     const holds = await istaCarRuleCheck(car, o.chassis);
-    const possible = ecuTreePossible(tree, names && names.full, holds);
+    const tested = slots.some((x) => x.state !== 'unread');
+    const possible = tested
+      ? ecuTreePossible(tree, names && names.full, holds)
+      : new Map();
     let units = [];
     for (const slot of slots) {
       const box = slot.box;
@@ -2700,7 +2705,7 @@ async function istaXamlTree(host, o) {
             name: box.name || slot.abbr,
             addr: box.addr,
             variant,
-            groups: box.groups,
+            groups: wanted ? box.groups : possible.get(box.addr) || box.groups,
           },
           holds
         ),
@@ -2734,7 +2739,10 @@ async function istaXamlTree(host, o) {
             name: box.name,
             addr: box.addr,
             variant: '',
-            groups: box.groups,
+            groups:
+              expected && expected.has(box.addr)
+                ? box.groups
+                : possible.get(box.addr) || box.groups,
           },
           holds
         ),
