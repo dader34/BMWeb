@@ -2134,3 +2134,187 @@ html .ista-real-body .irabl-docl .wiring-share {
   font-size: 12px;
   color: #a60;
 }
+
+/* ---- pages drawn from the tool's own layout (screens/ista/xaml.js) --------
+   A template supplies structure and sizes; everything painted here is the
+   shell's existing look, so a page drawn from a template sits beside a
+   hand-built one without a seam. */
+.ista-real-body .ixaml {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  box-sizing: border-box;
+  overflow: auto;
+}
+.ista-real-body .ixaml > * {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.ista-real-body .ixgrid {
+  display: grid;
+  min-height: 0;
+}
+.ista-real-body .ixstack {
+  display: flex;
+  min-height: 0;
+}
+.ista-real-body .ixrow {
+  flex-direction: row;
+  align-items: stretch;
+}
+.ista-real-body .ixcol {
+  flex-direction: column;
+}
+.ista-real-body .ixscroll {
+  overflow: auto;
+}
+.ista-real-body .ixlabel,
+.ista-real-body .ixtext {
+  font: 12px/1.3 var(--ir-font);
+  color: var(--ir-ink);
+}
+.ista-real-body .ixtable {
+  align-self: flex-start;
+}
+.ista-real-body .ixaml > table {
+  flex: 0 0 auto;
+}
+/* one line per row, as the tool draws it; the page scrolls sideways */
+.ista-real-body .ixtable td {
+  white-space: nowrap;
+  max-width: 60vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Show completely: a long text wraps instead of running off the page */
+.ista-real-body .ixtable.ixfull td {
+  white-space: normal;
+  overflow: visible;
+}
+.ista-real-body .ixtable th.ixsort {
+  cursor: pointer;
+}
+.ista-real-body .ixtable tr.ixempty td {
+  white-space: normal;
+  color: var(--ir-off);
+  padding: 14px 8px;
+}
+/* Collapse / expand: only the group headings stay */
+.ista-real-body .ixtable.ixcollapsed tbody tr:not(.irgroup) {
+  display: none;
+}
+.ista-real-body .irbtn.on {
+  background: #b8b8b8;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+/* Basic Features: three lists side by side, each scrolling on its own.
+   Pinned to the page the way the hand-built panes are, so the lists have a
+   height to scroll inside. */
+.ista-real-body .ixaml.ixbasic {
+  position: absolute;
+  inset: 0;
+  height: auto;
+  overflow: hidden;
+}
+.ista-real-body .ixbasic .ixrow {
+  overflow: hidden;
+}
+.ista-real-body .ixbasic .ixtable {
+  display: block;
+  overflow-y: auto;
+  align-self: stretch;
+}
+.ista-real-body .ixbasic .ixtable td {
+  cursor: pointer;
+}
+.ista-real-body .ixcustom[hidden] {
+  display: none;
+}
+.ista-real-body .ixinput {
+  font: 16px/1.2 var(--ir-font);
+  border: 1px solid #9a9a9a;
+  padding: 2px 4px;
+  box-sizing: border-box;
+  width: 100%;
+}
+.ista-real-body .ixcheck {
+  font: 12px/1.3 var(--ir-font);
+  margin-right: 18px;
+}
+.ista-real-body .ixwarn svg {
+  width: 16px;
+  height: 16px;
+  vertical-align: middle;
+}
+.ista-real-body .ixdot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1px solid #777;
+}
+.ista-real-body .ixdot-op {
+  width: 16px;
+  height: 16px;
+  background: var(--ir-teal, #669999);
+  border-color: transparent;
+}
+/* the tool's text styles, by the key the view names */
+.ista-real-body [data-xstyle='styleTextLight'] {
+  color: #6a6a6a;
+  font-size: 11px;
+}
+.ista-real-body [data-xstyle='styleTextWithWrapOverflow'] {
+  font-weight: 700;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.ista-real-body [data-xstyle='styleLabelText'] {
+  font-size: 13px;
+  font-weight: 700;
+  display: block;
+  margin-bottom: 4px;
+}
+/* Vehicle details: the four-column grid, then the lists under it */
+.ista-real-body .ixdetails .ixgrid {
+  align-content: start;
+}
+.ista-real-body .ixdetails .ixtable {
+  width: auto;
+}
+.ista-real-body .ixdetails .ixtable thead:empty,
+.ista-real-body .ixdetails .ixtable th:empty {
+  display: none;
+}
+/* the operation's colour is a round swatch, as the tool draws it */
+.ista-real-body .irtable td .ixdot.ixdot-op {
+  border-radius: 50%;
+  vertical-align: middle;
+}
+/* VIN and text search: the form sits centred at the width the view gives it,
+   and the Garage list (ours) takes the full width under it */
+.ista-real-body .ixvin > .ixbox,
+.ista-real-body .ixsearch > .ixbox {
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: center;
+}
+.ista-real-body .ixvin .ixstack,
+.ista-real-body .ixsearch .ixstack {
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+/* centred on the same axis as the VIN box above it, as the hand-built page
+   had it: the list keeps its own 640px and sits under the form */
+.ista-real-body .ixvin .irvin-garage {
+  flex: 0 0 auto;
+  align-self: center;
+  margin: 26px auto 0;
+}
+.ista-real-body .ixsearch .ixcheck {
+  display: block;
+}
+.ista-real-body .ixvin .irvin-garage .irtable {
+  width: 100%;
+}

@@ -17,6 +17,13 @@ async function istaDrawPage(s, host) {
 
   if (s.page === 'vin') {
     if (!real) return istaPageVinModern(host);
+    if (istaXamlOn('vin')) {
+      istaRealStatus({ items: [] });
+      if (
+        await istaXamlVin(host, { open: (c, vin) => istaOpenOperation(c, vin) })
+      )
+        return;
+    }
     let valid = false;
     const bar = (ok) => {
       valid = ok;
@@ -93,6 +100,14 @@ async function istaDrawPage(s, host) {
         /* the texts are optional: the raw name still shows */
       }
     }
+    // the tool's own layout, where the setting asks for it and the build
+    // ships the template; otherwise the hand-built page below
+    if (
+      real &&
+      istaXamlOn('fault-memory') &&
+      (await istaXamlFaultMemory(host, { car, chassis }))
+    )
+      return;
     const draw = () => {
       const rows = istaPageFaultMemory(host, {
         car,
@@ -167,6 +182,12 @@ async function istaDrawPage(s, host) {
 
   // ---- Troubleshooting / SAE fault code input -------------------------------
   if (s.page === 'sae') {
+    if (
+      real &&
+      istaXamlOn('sae') &&
+      (await istaXamlSae(host, { car, chassis }))
+    )
+      return;
     let rows = [];
     const bar = () =>
       istaBottomBar('sae', {
@@ -262,6 +283,20 @@ async function istaDrawPage(s, host) {
         `no diagnosis structures ship for ${chassis || 'this vehicle'} in ` +
           `this build: run tools/ista/diag_structure_extract.py to add them`
       );
+    if (
+      real &&
+      istaXamlOn('diag-search') &&
+      (await istaXamlDiagSearch(host, {
+        data: {
+          'fault-pattern': fp,
+          'function-structure': fn,
+          'component-structure': cp,
+        },
+        open: (hit) => istaOpenDiagDoc(chassis, hit.doc),
+        loadBodies: () => istaDiagBodies(chassis),
+      }))
+    )
+      return;
     istaDiagSearch(host, {
       data: {
         'fault-pattern': fp,
@@ -289,6 +324,20 @@ async function istaDrawPage(s, host) {
   if (s.page === 'plan') {
     let picked = null;
     const plan = s.id === 'test-plan';
+    if (
+      real &&
+      plan &&
+      istaXamlOn('test-plan') &&
+      (await istaXamlTestPlan(host, { car, chassis }))
+    )
+      return;
+    if (
+      real &&
+      s.id === 'hit-list' &&
+      istaXamlOn('hit-list') &&
+      (await istaXamlHitList(host, { car, chassis }))
+    )
+      return;
     const draw = async () => {
       const groups = await istaPlanGroups(s.id, car);
       if (!host.isConnected) return;
@@ -403,6 +452,12 @@ async function istaDrawPage(s, host) {
   // ---- Vehicle information / Control unit list ------------------------------
   if (s.page === 'unit-list') {
     let picked = null;
+    if (
+      real &&
+      istaXamlOn('unit-list') &&
+      (await istaXamlUnitList(host, { car, chassis }))
+    )
+      return;
     const slots = await istaLoadSlots(chassis, car);
     if (!host.isConnected) return;
     const faults = slots.reduce((a, x) => a + x.faults, 0);
@@ -465,6 +520,7 @@ async function istaDrawPage(s, host) {
         "BMW's characteristic tree is not in this build, so a vehicle " +
           'cannot be described feature by feature here'
       );
+    if (real && istaXamlOn('basic') && (await istaXamlBasic(host))) return;
     istaPageBasic(host, {
       onChange: (n, row) => {
         istaRealStatus({ items: [{ k: 'Hits:', v: `${n} / ${n}` }] });
@@ -479,6 +535,7 @@ async function istaDrawPage(s, host) {
   }
 
   if (s.page === 'readout') {
+    if (real && istaXamlOn('readout') && (await istaXamlReadout(host))) return;
     istaRealStatus(real ? { items: [] } : null);
     // BOTH IDENTIFICATION BUTTONS READ THE CAR, so both need a cable. With
     // none connected they grey rather than offering a read that can only
@@ -499,6 +556,12 @@ async function istaDrawPage(s, host) {
   }
 
   if (s.page === 'active') {
+    if (
+      real &&
+      istaXamlOn('active') &&
+      (await istaXamlActive(host, { car, chassis }))
+    )
+      return;
     if (real) {
       istaRealStatus({ items: [] });
       istaBottomBar('none');
@@ -528,6 +591,11 @@ async function istaDrawPage(s, host) {
 
   if (s.page === 'details') {
     if (!real) return istaShowDetails(host, car, chassis);
+    if (
+      istaXamlOn('details') &&
+      (await istaXamlDetails(host, { car, chassis }))
+    )
+      return;
     istaRealStatus({ items: [] });
     istaBottomBar('details', {
       'vehicle-test': () => istaOpenVehicleTest(),

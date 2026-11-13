@@ -590,7 +590,9 @@ function istaRealBottom(buttons) {
       }
       fns.push(b.fn);
       return (
-        `<button type="button" class="irbtn" data-i="${fns.length - 1}"` +
+        `<button type="button" class="irbtn${b.on ? ' on' : ''}" ` +
+        `data-i="${fns.length - 1}"` +
+        (b.on ? ' aria-pressed="true"' : '') +
         `${b.off ? ' disabled' : ''}` +
         (b.title ? ` title="${esc(b.title)}"` : '') +
         `>${esc(b.label)}</button>`

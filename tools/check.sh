@@ -367,6 +367,9 @@ run node tools/verify/test_ista.js
 echo
 echo "== ISTA vehicle test: the read runs in the shell and is kept on the car =="
 run node tools/verify/test_ista_vehicle_test.js
+# pages drawn from ISTA's own layout: the compiler (when the decompiled XAML
+# is on this machine) and the renderer's split into content/status/buttons
+run node tools/verify/test_ista_xaml.js
 
 echo
 echo "== repair manual: the extractor's document model, groups and pictures =="
