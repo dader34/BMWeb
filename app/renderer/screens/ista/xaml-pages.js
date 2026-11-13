@@ -123,6 +123,123 @@ function istaFaultCodes(sgbd) {
 }
 
 /**
+ * A fault's location number: what the module reported, which is what ISTA's
+ * database keys a fault code by.
+ *
+ * It is a number on the wire and decimal in the database; the hex a screen
+ * shows is a rendering of the same number, and is what is read back when a
+ * module's answer did not carry the number itself.
+ * @param {object} row - a fault row (`raw.F_ORT_NR`, `code`)
+ * @returns {number|null}
+ */
+function istaFaultOrt(row) {
+  const raw = (row && row.raw) || {};
+  const ort = Number(raw.F_ORT_NR);
+  if (raw.F_ORT_NR != null && raw.F_ORT_NR !== '' && Number.isFinite(ort))
+    return ort;
+  const hex = parseInt(String((row && row.code) || ''), 16);
+  return Number.isFinite(hex) ? hex : null;
+}
+
+/** @type {Map<string, Promise<object|null>>} chassis -> its plan links */
+const istaTestPlanTables = new Map();
+
+/**
+ * What ISTA's test plan calculation reads for a chassis, or null when this
+ * build does not ship it: the diagnosis objects each fault code points at,
+ * every info object linked to each object, and the objects beneath it
+ * (tools/ista/testplan_extract.py).
+ * @param {string} chassis - e.g. 'E46'
+ * @returns {Promise<object|null>}
+ */
+function istaTestPlanData(chassis) {
+  const key = String(chassis || '').toUpperCase();
+  if (!key) return Promise.resolve(null);
+  if (!istaTestPlanTables.has(key))
+    istaTestPlanTables.set(
+      key,
+      typeof hfFetchFirst === 'function'
+        ? hfFetchFirst(`ista/testplan/${key}.json.gz`, { as: 'gzjson' }).catch(
+            () => null
+          )
+        : Promise.resolve(null)
+    );
+  return istaTestPlanTables.get(key);
+}
+
+/**
+ * The plan rows for a list of faults, from the tool's own links.
+ *
+ * A PORT OF TestplanCalculator.ProcessDiagObjects over the rows
+ * DatabaseProviderSQLite returns:
+ *  - a fault is resolved by its location number under its ECU variant, and
+ *    names the diagnosis objects it points at
+ *  - EVERY info object linked to an object joins the plan under it: the
+ *    documents (FUB, SSP ...) as well as the test modules (ABL)
+ *  - an object with no test module of its own is descended first: its
+ *    children's info objects join the plan under the children
+ *  - there is one row per (object, info object), however many faults lead
+ *    to it; each fault that pointed at the object itself is remembered on
+ *    its rows, which is what the ranking counts
+ * A child reached by descent carries no fault of its own, so it ranks after
+ * every object a fault named.
+ * @param {object} data - istaTestPlanData output
+ * @param {object[]} faults - fault rows the calculation follows
+ * @returns {object[]} plan rows, in the order the tool adds them
+ */
+function istaPlanExact(data, faults) {
+  /** @type {Map<string, object>} "object:info" -> its row */
+  const by = new Map();
+  const objects = (data && data.objects) || {};
+  const infos = (data && data.infos) || {};
+  const walk = (ids, link, path) => {
+    for (const oid of ids || []) {
+      const o = objects[String(oid)];
+      if (!o || !o.t || !o.i || path.includes(oid)) continue;
+      const own = o.i.map((i) => [i, infos[String(i)]]).filter(([, x]) => x);
+      if (own.every(([, x]) => x.y !== 'ABL'))
+        walk(o.k, null, path.concat([oid]));
+      for (const [iid, x] of own) {
+        const key = `${oid}:${iid}`;
+        if (!by.has(key))
+          by.set(key, {
+            // a test module is opened by its identifier, a document by its id
+            id: x.y === 'ABL' && x.n ? x.n : `DIAG-${iid}`,
+            type: x.y || '-',
+            title: x.t || x.n || '',
+            component: o.t,
+            group: String(oid),
+            priority: 0,
+            state: 'none',
+            fault: link ? link.label : '',
+            diag:
+              x.y === 'ABL' ? null : { id: Number(iid), title: x.t, type: x.y },
+            links: [],
+          });
+        if (link) by.get(key).links.push(link);
+      }
+    }
+  };
+  for (const f of faults || []) {
+    const ort = istaFaultOrt(f);
+    if (ort == null || !f.sgbd) continue;
+    const hit = data.faults[`${String(f.sgbd).toLowerCase()}:${ort}`];
+    if (!hit) continue;
+    walk(
+      hit,
+      {
+        fault: `${f.sgbd}:${ort}`,
+        label: f.code || '',
+        weight: f.meta ? f.meta.weight : null,
+        present: istaFaultPresent(f),
+      },
+      []
+    );
+  }
+  return [...by.values()];
+}
+
+/**
  * A fault's verdict and weighting, as the tool resolves them when it reads
  * the fault memory (VehicleIdent.doECUReadFS).
  *
@@ -137,15 +254,8 @@ function istaFaultCodes(sgbd) {
  */
 function istaFaultMeta(row, table) {
   if (!table) return { known: false, relevance: null, weight: null };
-  const raw = (row && row.raw) || {};
-  // the fault location is a number on the wire and decimal in the database;
-  // the hex on screen is a rendering of it
-  const ort = Number(raw.F_ORT_NR);
-  const code =
-    Number.isFinite(ort) && raw.F_ORT_NR !== '' && raw.F_ORT_NR != null
-      ? ort
-      : parseInt(String((row && row.code) || ''), 16);
-  const hit = Number.isFinite(code) ? table[String(code)] : null;
+  const code = istaFaultOrt(row);
+  const hit = code == null ? null : table[String(code)];
   if (!hit) return { known: true, relevance: null, weight: null };
   return { known: true, relevance: hit[1] !== 0, weight: hit[0] };
 }
@@ -217,7 +327,7 @@ function istaPlanPrioritise(rows) {
   const by = new Map();
   const bucket = { 100: 'sure', 75: 'strong', 50: 'middle', 25: 'low' };
   for (const r of rows) {
-    const key = r.component || r.title || '-';
+    const key = r.group || r.component || r.title || '-';
     if (!by.has(key))
       by.set(key, {
         sure: 0,
@@ -235,7 +345,7 @@ function istaPlanPrioritise(rows) {
       if (bucket[l.weight]) c[bucket[l.weight]]++;
     }
   }
-  const of = (r) => by.get(r.component || r.title || '-');
+  const of = (r) => by.get(r.group || r.component || r.title || '-');
   const fixed = (r) => r.priority === 'F' || r.priority === 'M';
   const out = rows
     .map((r, i) => [r, i])
@@ -780,6 +890,17 @@ async function istaCalcPlanAll(faults, car, chassis, patterns) {
     for (const k of node.kids || []) collect(k, title);
   };
   for (const p of patterns || []) collect(p.node, p.label);
+  // WITH THE TOOL'S OWN LINKS, THE CALCULATION IS THE TOOL'S. Where the
+  // build ships them for this chassis, the faults are resolved through them
+  // and nothing else; the index of test modules below is the older, looser
+  // route for a chassis that has no such extract yet.
+  const data = await istaTestPlanData(chassis);
+  if (data && data.faults) {
+    const relevant = faults.filter((f) => f.meta && f.meta.relevance === true);
+    for (const row of istaPlanExact(data, relevant))
+      by.set(`${row.group}:${row.id}`, row);
+    return istaPlanPrioritise([...by.values()]);
+  }
   for (const f of faults) {
     const meta = f.meta || { known: false, relevance: null, weight: null };
     if (meta.known && meta.relevance !== true) continue;
@@ -2248,6 +2369,9 @@ if (typeof module !== 'undefined' && module.exports) {
     istaFaultCodes,
     istaFaultMeta,
     istaPlanCompare,
+    istaFaultOrt,
+    istaTestPlanData,
+    istaPlanExact,
     istaFaultPresent,
     istaPlanPrioritise,
     istaXamlTestPlan,

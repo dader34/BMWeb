@@ -575,6 +575,80 @@ const view = {
   ok('plan priorities: weighting buckets, shared ranks, suspected, F kept');
 }
 
+// ---- the plan, from the tool's own links --------------------------------------
+{
+  const data = {
+    faults: {
+      'ms450ds0:10179': [1],
+      'ms450ds0:300': [2],
+      'dsc_mk60:5': [1, 3],
+    },
+    objects: {
+      1: { t: 'Oil level sensor', i: [10, 11, 12] },
+      // no test module of its own: the calculation descends
+      2: { t: 'Lambda control', i: [13], k: [4] },
+      3: { t: '', i: [14] },
+      4: { t: 'Lambda probe', i: [15] },
+    },
+    infos: {
+      10: { t: 'Oil level warning', y: 'FUB', n: 'FUB-1' },
+      11: { t: 'Oil level', y: 'SSP', n: 'SSP-1' },
+      12: { t: 'Oil level sensor', y: 'ABL', n: 'ABL-DIT-B1214' },
+      13: { t: 'Lambda control', y: 'FUB', n: 'FUB-2' },
+      14: { t: 'Untitled object', y: 'ABL', n: 'ABL-X' },
+      15: { t: 'Lambda probe', y: 'ABL', n: 'ABL-DIT-L1' },
+    },
+  };
+  const fault = (sgbd, ort, weight) => ({
+    sgbd,
+    code: ort.toString(16).toUpperCase(),
+    raw: { F_ORT_NR: String(ort) },
+    meta: { known: true, relevance: true, weight },
+  });
+  const rows = X.istaPlanExact(data, [
+    fault('ms450ds0', 10179, 50),
+    fault('ms450ds0', 300, 100),
+    fault('dsc_mk60', 5, 25),
+    fault('ms450ds0', 99999, 100),
+  ]);
+  const ids = rows.map((r) => `${r.component}/${r.type}/${r.id}`);
+  // every info object of the object joins the plan, documents included
+  assert.deepStrictEqual(ids.slice(0, 3), [
+    'Oil level sensor/FUB/DIAG-10',
+    'Oil level sensor/SSP/DIAG-11',
+    'Oil level sensor/ABL/ABL-DIT-B1214',
+  ]);
+  // an object with no test module: its children first, then its own rows
+  assert.deepStrictEqual(ids.slice(3), [
+    'Lambda probe/ABL/ABL-DIT-L1',
+    'Lambda control/FUB/DIAG-13',
+  ]);
+  // an untitled object is skipped; an unknown fault adds nothing
+  assert.ok(!ids.some((i) => i.includes('ABL-X')));
+  // one row however many faults lead to it, each fault remembered
+  const abl = rows.find((r) => r.id === 'ABL-DIT-B1214');
+  assert.deepStrictEqual(
+    abl.links.map((l) => l.fault),
+    ['ms450ds0:10179', 'dsc_mk60:5']
+  );
+  // a child reached by descent carries no fault of its own
+  assert.strictEqual(rows.find((r) => r.id === 'ABL-DIT-L1').links.length, 0);
+  // a document row opens from the structure, a module by its identifier
+  assert.deepStrictEqual(rows[0].diag, {
+    id: 10,
+    title: 'Oil level warning',
+    type: 'FUB',
+  });
+  assert.strictEqual(abl.diag, null);
+  const ranked = X.istaPlanPrioritise(rows);
+  const prio = Object.fromEntries(ranked.map((r) => [r.component, r.priority]));
+  // sure suspicion first, then the middle+low object, then the descended one
+  assert.strictEqual(prio['Lambda control'], 3);
+  assert.strictEqual(prio['Oil level sensor'], 4);
+  assert.strictEqual(prio['Lambda probe'], 5);
+  ok('the exact plan: documents, descent, one row per object and document');
+}
+
 // ---- fault patterns ----------------------------------------------------------
 {
   const tree = [
