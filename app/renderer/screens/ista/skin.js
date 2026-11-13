@@ -391,10 +391,6 @@ function istaPaintReal(el, ctx) {
   // the level-2 strip is the last one only when no level-3 strip follows it
   const lvl2Last = !subs3.length;
 
-  const star = (on) =>
-    `<span class="irsub-star${on ? ' on' : ''}" role="button" tabindex="-1" ` +
-    `aria-hidden="true">${istaRealIcon('star')}</span>`;
-
   const strip2 = subs.length
     ? `<div class="irstrip ${istaStripClass(lvl2Last)}">` +
       subs
@@ -409,7 +405,7 @@ function istaPaintReal(el, ctx) {
             off,
             title: s.why || '',
             data: { sub: s.id, owner },
-            extra: star(istaIsFavourite(owner, s.id)),
+            extra: '',
           });
         })
         .join('') +
@@ -427,7 +423,7 @@ function istaPaintReal(el, ctx) {
             off: !!s.why,
             title: s.why || '',
             data: { sub3: s.id },
-            extra: star(istaIsFavourite(ctx.tab, ctx.sub, s.id)),
+            extra: '',
           })
         )
         .join('') +

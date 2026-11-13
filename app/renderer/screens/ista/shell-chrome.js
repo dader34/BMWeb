@@ -122,27 +122,15 @@ function istaPaintModernChrome(el) {
               level === 2
                 ? s.id === istaState.sub && owner === istaState.tab
                 : s.id === istaState.sub3;
-            const pinned =
-              level === 2
-                ? istaIsFavourite(owner, s.id)
-                : istaIsFavourite(istaState.tab, istaState.sub, s.id);
             const attr =
               level === 2
                 ? `data-sub="${esc(s.id)}" data-owner="${esc(owner)}"`
                 : `data-sub3="${esc(s.id)}"`;
-            const star =
-              level === 2
-                ? `data-star="${esc(s.id)}" data-owner="${esc(owner)}"`
-                : `data-star3="${esc(s.id)}"`;
             return (
               `<span class="ista-sub-wrap">` +
               `<button type="button" class="ista-sub${on ? ' on' : ''}" ` +
               `${attr}>${esc(s.label)}</button>` +
-              `<button type="button" class="ista-star${pinned ? ' on' : ''}" ` +
-              `${star} ` +
-              `title="${pinned ? 'Unpin from Favourites' : 'Pin to Favourites'}" ` +
-              `aria-label="${pinned ? 'Unpin' : 'Pin'} ${esc(s.label)}">` +
-              `★</button></span>`
+              `</span>`
             );
           })
           .join('') +
@@ -164,20 +152,6 @@ function istaPaintModernChrome(el) {
   });
   el.querySelectorAll('.ista-sub[data-sub3]').forEach((b) => {
     b.onclick = () => istaGo(istaState.tab, istaState.sub, b.dataset.sub3);
-  });
-  el.querySelectorAll('.ista-star[data-star]').forEach((b) => {
-    b.onclick = (e) => {
-      e.stopPropagation();
-      istaFavouriteToggle(b.dataset.owner, b.dataset.star);
-      istaPaintChrome();
-    };
-  });
-  el.querySelectorAll('.ista-star[data-star3]').forEach((b) => {
-    b.onclick = (e) => {
-      e.stopPropagation();
-      istaFavouriteToggle(istaState.tab, istaState.sub, b.dataset.star3);
-      istaPaintChrome();
-    };
   });
   const pick = el.querySelector('#ista-car-pick');
   if (pick) pick.onclick = () => istaPickCar();

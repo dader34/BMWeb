@@ -66,27 +66,6 @@ async function istaDrawPage(s, host) {
     return;
   }
 
-  // ---- Vehicle information / Repair history ---------------------------------
-  if (s.page === 'history') {
-    let picked = null;
-    const bar = () =>
-      istaBottomBar('history', {
-        display: picked ? () => istaOpenStoredScan(picked) : null,
-      });
-    const scans = istaPageHistory(host, {
-      car,
-      onPick: (sc) => {
-        picked = sc;
-        bar();
-      },
-    });
-    istaRealStatus({
-      items: [{ k: 'Entries:', v: `${scans.length} / ${scans.length}` }],
-    });
-    bar();
-    return;
-  }
-
   // ---- Troubleshooting / Fault memory ---------------------------------------
   if (s.page === 'fault-memory') {
     let picked = null;

@@ -161,13 +161,10 @@ const ISTA_TABS = [
         page: 'equipment',
         needsCar: true,
       },
-      {
-        id: 'history',
-        label: 'Repair history',
-        desc: 'Every scan kept against this car, newest first',
-        page: 'history',
-        needsCar: true,
-      },
+      // (No Repair history tab: in the tool it is the dealer's service
+      // history from BMW's servers, which this build cannot reach. The scans
+      // it used to list are on Operations / Finished, where the tool keeps
+      // finished work.)
       {
         id: 'tree',
         label: 'Control unit tree',
@@ -331,12 +328,9 @@ const ISTA_TABS = [
       },
     ],
   },
-  {
-    id: 'favourites',
-    label: 'Favourites',
-    desc: 'The sub-tabs you pinned with the star',
-    subs: [],
-  },
+  // (No Favourites tab: the tool this follows, ISTA-D 4.15, has none, and
+  // with it goes the pin star beside each sub-tab. The store's functions
+  // below stay for the modern face's home, which never showed the tab.)
   {
     id: 'workshop',
     label: 'Workshop/\nOperating fluids',
