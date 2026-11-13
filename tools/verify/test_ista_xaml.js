@@ -1181,7 +1181,34 @@ const view = {
     ['2']
   );
   assert.deepStrictEqual(src.list(['28']), []);
-  ok("the tool's trees: type filter, node validity, documents under a node");
+
+  // the Filters dialog: Select all and Select nothing switch the tool's
+  // user selection, which leaves special tools as they were
+  const on = new Set(['SWZ', 'REP']);
+  X.istaInfoFilterSet(on, false);
+  assert.deepStrictEqual([...on], ['SWZ']);
+  X.istaInfoFilterSet(on, true);
+  assert.strictEqual(on.size, 20);
+  // Default settings: everything but special tools; the fault pattern
+  // page's is SIT and ABL alone
+  const def = X.istaInfoFilterDefault(false);
+  assert.strictEqual(def.size, 19);
+  assert.ok(!def.has('SWZ'));
+  assert.deepStrictEqual([...X.istaInfoFilterDefault(true)].sort(), [
+    'ABL',
+    'SIT',
+  ]);
+  // a filter is the default when it ticks what the page started with
+  const start = X.ISTA_INFO_TYPES.default;
+  assert.ok(X.istaInfoFilterSame([...def].join(','), start));
+  assert.ok(!X.istaInfoFilterSame(`${start},SWZ`, start));
+  // on a workshop page Default settings is NOT the page's starting filter
+  assert.ok(
+    !X.istaInfoFilterSame([...def].join(','), X.ISTA_INFO_TYPES.workshop)
+  );
+  // the dialog offers twenty types, the page's nineteen and special tools
+  assert.strictEqual(X.ISTA_INFO_DIALOG_TYPES.length, 20);
+  ok("the tool's trees: type filter, validity, documents, the dialog");
 }
 
 // ---- lengths ----------------------------------------------------------------
