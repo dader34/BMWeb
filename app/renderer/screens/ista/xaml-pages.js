@@ -2332,14 +2332,25 @@ async function istaXamlTextSearch(host, o) {
   ]);
   if (!index) return false;
   return istaXamlDiagSearch(host, {
-    find: (state) => {
+    find: async (state) => {
+      // "Search in document" asks the word index first; the documents it
+      // names go through the same checks as every other hit
+      const content = state.SelectContent
+        ? await istaProbe(() =>
+            istaSearchContent(state.SearchString, synonyms || {})
+          )
+        : null;
+      if (state.SelectContent && !content && typeof toast === 'function')
+        toast('Searching inside documents is not available for this term.');
       const got = istaSearchRun({
         text: state.SearchString,
         modes: {
           title: state.SelectTitel,
           number: state.SelectIdentifikator,
           structure: state.SelectStructures,
+          content: state.SelectContent,
         },
+        content,
         index,
         trees,
         synonyms: synonyms || {},
@@ -2352,8 +2363,6 @@ async function istaXamlTextSearch(host, o) {
           'The search found more than 100 hits. Only the first 100 are ' +
             'shown; narrow the search term.'
         );
-      if (state.SelectContent && typeof toast === 'function')
-        toast('Searching inside documents is not in this build.');
       return got.hits.map((doc) => ({ doc, where: 'search' }));
     },
     open: async (hit) =>

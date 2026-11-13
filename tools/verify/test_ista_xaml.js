@@ -1278,7 +1278,41 @@ const view = {
   });
   assert.strictEqual(capped.hits.length, 1);
   assert.strictEqual(capped.exceeded, true);
-  ok('text search: terms, synonyms, the four checks and the cap');
+
+  // "Search in document": a shard is word -> first place, then the gaps
+  const shard = { conrod: [2, 3], conrods: [9], connect: [1], bolt: [5, 4] };
+  assert.deepStrictEqual(
+    [...X.istaSearchWordDocs(shard, 'conrod')].sort((a, b) => a - b),
+    [2, 5, 9]
+  );
+  assert.strictEqual(X.istaSearchWordDocs(null, 'x').size, 0);
+  // every term must answer; a synonym of several words needs all of them
+  const docsOf = (w) => X.istaSearchWordDocs(shard, w);
+  const join = (v) => {
+    const got = X.istaSearchContentJoin(v, docsOf);
+    return got ? [...got].sort((a, b) => a - b) : got;
+  };
+  assert.deepStrictEqual(join([['CONROD'], ['BOLT']]), [5, 9]);
+  assert.deepStrictEqual(join([['NOTHING', 'CONROD']]), [2, 5, 9]);
+  assert.deepStrictEqual(join([['CONNECT BOLT', 'ZZ']]), []);
+  // a term too short to look up does not narrow the search
+  assert.deepStrictEqual(join([['A'], ['BOLT']]), [5, 9]);
+  assert.strictEqual(join([['A']]), null);
+  // a body hit is a hit like any other: checked against the car and type
+  assert.deepStrictEqual(
+    X.istaSearchRun({
+      text: 'whatever',
+      modes: { title: false, number: false, structure: false, content: true },
+      content: new Set(['2', '5', '4']),
+      index,
+      trees: null,
+      synonyms: {},
+      holds,
+      types: null,
+    }).hits.map((h) => h.id),
+    ['5']
+  );
+  ok('text search: terms, synonyms, the checks, the cap, and the body index');
 }
 
 // ---- lengths ----------------------------------------------------------------
