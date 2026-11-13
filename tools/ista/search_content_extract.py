@@ -12,7 +12,8 @@ chassis at once:
 
     content/ids.json.gz     every indexed document's id, in order; a
                             document is named in the index by its place here
-    content/<xx>.json.gz    the words starting with the two characters xx:
+    content/<xx>.json.gz    the words of two characters and more that
+                            start with xx:
                             {"<word>": [first place, then the gaps], ...}
 
 A search fetches only the shards its terms start with (a few tens of
@@ -23,15 +24,19 @@ which of those documents this car may see, exactly as for a title hit.
 WHICH DOCUMENTS: the ones some chassis's search index lists, so the union
 of data/ista/search/<CHASSIS>.json.gz. Run that extract first.
 
-WHICH WORDS: the tool's tokenizer is FTS4's "simple" one, lower-cased runs
-of letters and digits, and so is this. Three departures, each to keep the
-index small or honest:
-  - the tool indexes the stored XML as it is, markup and all, so a search
-    for "paragraph" matches every document with a PARAGRAPH tag. Here only
-    the text a reader sees is indexed.
-  - words of one character are left out, and so is a short list of English
-    function words nobody searches a workshop manual for.
-  - a search term must have two characters to pick a shard.
+WHICH WORDS: exactly the tool's. Its index is FTS4 with the "simple"
+tokenizer over the stored XML as it is, markup and all: lower-cased runs of
+ASCII letters and digits, and of anything above ASCII. So a tool number in
+an attribute is found, and so is a tag's name; and every word is kept,
+however short or common, because a term the tool would match must match
+here.
+
+A ONE-CHARACTER TERM is a prefix too, and matches any word beginning with
+that character. Rather than every shard that starts with it, a search
+fetches one list made for the purpose:
+
+    content/1<x>.json.gz    every document holding a word that begins
+                            with x: {"": [first place, then the gaps]}
 
 A document's words come from the tool's own copy of the body
 (fts_content), found from the document by the tool's own join
@@ -45,12 +50,12 @@ the rest of the ISTA extracts.
 import argparse
 import glob
 import gzip
-import html
 import json
 import os
 import re
 import sqlite3
 import sys
+from array import array
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.join(HERE, "..", "..")
@@ -60,26 +65,36 @@ from diag_structure_extract import write_json_gz  # noqa: E402
 
 BMWFILES = os.environ.get("BMWFILES", os.path.expanduser("~/Development/code/BMWFILES"))
 
-TAG = re.compile(r"<[^>]*>")
 # FTS4 "simple": ASCII letters and digits, and every character above ASCII
-WORD = re.compile(r"[0-9a-z\u0080-￿]+")
-
-STOP = frozenset(
-    "the and of to in is a an for with on be or at by as are it this that from "
-    "not if when all can must may will has have been was were its into than "
-    "then there these those their which only also".split())
+WORD = re.compile("[0-9a-z\\u0080-\\U0010ffff]+")
+FOLD = str.maketrans("ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")
+PLAIN = re.compile("[0-9a-z]")
 
 
 def words(data):
-    """The distinct indexed words of one stored body."""
-    text = html.unescape(TAG.sub(" ", data or "")).lower()
-    return {w for w in WORD.findall(text) if len(w) >= 2 and w not in STOP}
+    """The distinct words the tool's index holds for one stored body.
+
+    The simple tokenizer folds ASCII case only and reads the text as it is
+    stored, so nothing is stripped or unescaped first.
+    """
+    return set(WORD.findall((data or "").translate(FOLD)))
 
 
 def shard_of(word):
-    """The file a word is in: its first two characters, when plain ASCII."""
+    """The file a word of two characters or more is in."""
     key = word[:2]
-    return key if re.fullmatch(r"[0-9a-z]{2}", key) else "__"
+    return key if PLAIN.fullmatch(key[0]) and PLAIN.fullmatch(key[1]) else "__"
+
+
+def initial_of(word):
+    """The one-character list a word belongs to."""
+    return word[0] if PLAIN.fullmatch(word[0]) else "_"
+
+
+def gaps_of(places):
+    """Places as the first one, then the gap to each next."""
+    seq = sorted(set(places))
+    return [seq[0]] + [b - a for a, b in zip(seq, seq[1:])]
 
 
 def main():
@@ -120,6 +135,7 @@ def main():
 
     store = sqlite3.connect(f"file:{ns.content}?mode=ro", uri=True)
     postings = {}
+    initials = {}
     read = 0
     for body, data in store.execute("SELECT c0id, c1data FROM fts_content"):
         try:
@@ -131,8 +147,17 @@ def main():
             continue
         if isinstance(data, bytes):
             data = data.decode("utf-8", "replace")
-        for word in words(data):
-            postings.setdefault(word, set()).update(docs)
+        found = words(data)
+        for word in found:
+            got = postings.get(word)
+            if got is None:
+                got = postings[word] = array("I")
+            got.extend(docs)
+        for first in {initial_of(w) for w in found}:
+            got = initials.get(first)
+            if got is None:
+                got = initials[first] = array("I")
+            got.extend(docs)
         read += 1
         if read % 20000 == 0:
             print(f"  {read} bodies, {len(postings)} words...", file=sys.stderr)
@@ -144,17 +169,18 @@ def main():
     total = write_json_gz(os.path.join(out, "ids.json.gz"), ids)
     shards = {}
     for word, docs in postings.items():
-        seq = sorted(docs)
-        # the first place, then the gap to each next one
-        gaps = [seq[0]] + [b - a for a, b in zip(seq, seq[1:])]
-        shards.setdefault(shard_of(word), {})[word] = gaps
+        # a one-character word is answered by its initial's list
+        if len(word) >= 2:
+            shards.setdefault(shard_of(word), {})[word] = gaps_of(docs)
+    for first, docs in initials.items():
+        shards[f"1{first}"] = {"": gaps_of(docs)}
     biggest = 0
     for key, table in shards.items():
         size = write_json_gz(os.path.join(out, f"{key}.json.gz"), table)
         total += size
         biggest = max(biggest, size)
-    print(f"  {read} bodies read, {len(postings)} words in {len(shards)} shards; "
-          f"{total // (1024 * 1024)} MB in all, largest shard {biggest // 1024} KB")
+    print(f"  {read} bodies read, {len(postings)} words in {len(shards)} files; "
+          f"{total // (1024 * 1024)} MB in all, largest file {biggest // 1024} KB")
     return 0
 
 

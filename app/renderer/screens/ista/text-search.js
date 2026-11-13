@@ -28,16 +28,20 @@
  * THE CONTENT SEARCH WITHOUT THE BODIES. The tool asks a full-text index
  * over fifteen gigabytes of bodies for each term as a prefix. What that
  * needs is which documents hold which words, and
- * tools/ista/search_content_extract.py ships exactly that, cut into small
- * files by a word's first two characters. A search fetches the files its
- * terms start with, takes every word beginning with the term, and joins
- * the documents; the chassis's index then decides, as for any other hit,
- * which of them this car may see.
+ * tools/ista/search_content_extract.py ships exactly that, with exactly
+ * the tool's words (its tokenizer, over the stored text as it is), cut
+ * into small files by a word's first two characters. A search fetches the
+ * files its terms start with, takes every word beginning with the term,
+ * and joins the documents; the chassis's index then decides, as for any
+ * other hit, which of them this car may see. A term of ONE character is a
+ * prefix like any other, and has a list of its own: every document with a
+ * word beginning with it.
  */
 
 /* exported ISTA_SEARCH_MAX istaSearchLoad istaSearchSynonyms istaSearchTerms
    istaSearchVariants istaSearchHolds istaSearchRun istaSearchContent
-   istaSearchWordDocs istaSearchContentJoin */
+   istaSearchWordDocs istaSearchContentJoin istaSearchWords
+   istaSearchShardOf */
 
 /** BMW.Rheingold.ISTAGUI.Textsearch.MaxHitNumber. */
 const ISTA_SEARCH_MAX = 100;
@@ -155,17 +159,49 @@ function istaSearchContentFile(rel) {
 }
 
 /**
+ * A term as the words the tool looks up for it: lower-cased whole, as the
+ * tool lower-cases a term before asking (the bodies were lower-cased when
+ * they were indexed), then split the way its tokenizer splits (FTS4
+ * "simple"): runs of ASCII letters and digits and of anything above ASCII.
+ * @param {string} text - a term or a synonym
+ * @returns {string[]}
+ */
+function istaSearchWords(text) {
+  return String(text || '')
+    .toLowerCase()
+    .split(/[^0-9a-z\u0080-\u{10ffff}]+/u)
+    .filter((w) => w !== '');
+}
+
+/**
+ * The index file a word is looked up in: its first two characters, or for
+ * a word of one character the list of everything beginning with it.
+ * @param {string} word - a lower-case word
+ * @returns {string} the file's name, without its extension
+ */
+function istaSearchShardOf(word) {
+  const plain = (c) => /^[0-9a-z]$/.test(c);
+  const chars = [...word];
+  if (chars.length === 1) return `1${plain(chars[0]) ? chars[0] : '_'}`;
+  return plain(chars[0]) && plain(chars[1]) ? chars[0] + chars[1] : '__';
+}
+
+/**
  * The places (in the index's document order) of every document holding a
  * word that begins with `prefix`, from one shard's table.
  * @param {Object<string, number[]>|null} table - a shard: word -> the
  *   first place, then the gap to each next one
  * @param {string} prefix - lower case
+ * @param {boolean} [whole] - the word itself, not everything it begins
  * @returns {Set<number>}
  */
-function istaSearchWordDocs(table, prefix) {
+function istaSearchWordDocs(table, prefix, whole) {
   const out = new Set();
   for (const word of Object.keys(table || {})) {
-    if (!word.startsWith(prefix)) continue;
+    // (the one-character list is filed under the empty word, which every
+    // prefix it is asked for begins)
+    if (word !== '' && (whole ? word !== prefix : !word.startsWith(prefix)))
+      continue;
     let at = 0;
     for (const gap of table[word]) {
       at += gap;
@@ -177,11 +213,17 @@ function istaSearchWordDocs(table, prefix) {
 
 /**
  * Join what each term found: a document must answer EVERY term, by the
- * term itself or by one of its synonyms; a synonym of several words needs
- * all of them.
+ * term itself or by one of its synonyms.
+ *
+ * A SYNONYM OF SEVERAL WORDS is asked of the tool's index as a phrase whose
+ * last word is a prefix ("connecting rod*"): the words in a row, the
+ * earlier ones whole. The word index holds no positions, so here the
+ * earlier words must be there whole and the last as a prefix, anywhere in
+ * the body. That finds everything the tool finds and, for such a synonym,
+ * sometimes a document where the words are apart.
  * @param {string[][]} variants - per term, its alternatives
- * @param {(word: string) => Set<number>} docsOf - the documents holding a
- *   word beginning with this (lower-case) string
+ * @param {(word: string, whole?: boolean) => Set<number>} docsOf - the
+ *   documents holding this (lower-case) word, or a word beginning with it
  * @returns {Set<number>|null} null when no term could be searched
  */
 function istaSearchContentJoin(variants, docsOf) {
@@ -189,19 +231,16 @@ function istaSearchContentJoin(variants, docsOf) {
   for (const alts of variants) {
     let term = null;
     for (const alt of alts) {
-      const words = String(alt)
-        .toLowerCase()
-        .split(/[^0-9a-z\u0080-\uffff]+/)
-        .filter((w) => w.length >= 2);
+      const words = istaSearchWords(alt);
       if (!words.length) continue;
       let hit = null;
-      for (const w of words) {
-        const got = docsOf(w);
+      for (const [i, w] of words.entries()) {
+        const got = docsOf(w, i < words.length - 1);
         hit = hit ? new Set([...hit].filter((d) => got.has(d))) : got;
       }
       term = term ? new Set([...term, ...hit]) : hit;
     }
-    // a term too short to look up does not narrow the search
+    // a term with nothing to look up (all punctuation) does not narrow
     if (!term) continue;
     all = all ? new Set([...all].filter((d) => term.has(d))) : term;
   }
@@ -222,15 +261,12 @@ async function istaSearchContent(text, synonyms) {
     istaSearchContentIds = istaSearchContentFile('ids.json.gz');
   const ids = await istaSearchContentIds;
   if (!Array.isArray(ids)) return null;
-  // every shard the words begin with, fetched once and together
-  const keyOf = (w) => (/^[0-9a-z]{2}/.test(w) ? w.slice(0, 2) : '__');
+  // every file the words begin with, fetched once and together
+  const keyOf = istaSearchShardOf;
   const need = new Set();
   for (const alts of variants)
     for (const alt of alts)
-      for (const w of String(alt)
-        .toLowerCase()
-        .split(/[^0-9a-z\u0080-\uffff]+/))
-        if (w.length >= 2) need.add(keyOf(w));
+      for (const w of istaSearchWords(alt)) need.add(keyOf(w));
   await Promise.all(
     [...need].map((k) => {
       if (!istaSearchShards.has(k))
@@ -240,8 +276,10 @@ async function istaSearchContent(text, synonyms) {
   );
   const tables = new Map();
   for (const k of need) tables.set(k, await istaSearchShards.get(k));
-  const places = istaSearchContentJoin(variants, (w) =>
-    istaSearchWordDocs(tables.get(keyOf(w)), w)
+  // a whole word of one character is looked up among the two-character
+  // files' neighbours no better than as a prefix, so it stays one
+  const places = istaSearchContentJoin(variants, (w, whole) =>
+    istaSearchWordDocs(tables.get(keyOf(w)), w, whole && [...w].length > 1)
   );
   if (!places) return null;
   return new Set([...places].map((p) => String(ids[p])));
@@ -332,5 +370,7 @@ if (typeof module !== 'undefined' && module.exports) {
     istaSearchContent,
     istaSearchWordDocs,
     istaSearchContentJoin,
+    istaSearchWords,
+    istaSearchShardOf,
   };
 }

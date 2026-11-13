@@ -1294,10 +1294,42 @@ const view = {
   };
   assert.deepStrictEqual(join([['CONROD'], ['BOLT']]), [5, 9]);
   assert.deepStrictEqual(join([['NOTHING', 'CONROD']]), [2, 5, 9]);
-  assert.deepStrictEqual(join([['CONNECT BOLT', 'ZZ']]), []);
-  // a term too short to look up does not narrow the search
-  assert.deepStrictEqual(join([['A'], ['BOLT']]), [5, 9]);
-  assert.strictEqual(join([['A']]), null);
+  // a synonym of several words: the earlier words whole, the last a prefix
+  const docsOf2 = (w, whole) => X.istaSearchWordDocs(shard, w, whole);
+  const join2 = (v) =>
+    [...(X.istaSearchContentJoin(v, docsOf2) || [])].sort((a, b) => a - b);
+  assert.deepStrictEqual(join2([['CONNECT BOLT']]), []);
+  assert.deepStrictEqual(join2([['CONROD BOLT']]), [5]);
+  assert.deepStrictEqual(join2([['CONRODS BOLT']]), [9]);
+  assert.deepStrictEqual(join2([['BOLT CONROD']]), [5, 9]);
+  // a term of one character is a prefix like any other: here it finds the
+  // words beginning with "c", and then narrows as every term does
+  assert.deepStrictEqual(join([['C'], ['BOLT']]), [5, 9]);
+  assert.deepStrictEqual(join([['Z'], ['BOLT']]), []);
+  // a term that is all punctuation has nothing to look up, and does not
+  // narrow; a search of nothing but such terms is no search
+  assert.deepStrictEqual(join([['--'], ['BOLT']]), [5, 9]);
+  assert.strictEqual(join([['--']]), null);
+  // a term is lower-cased whole, then split as the tool's tokenizer
+  // splits: runs of letters and digits, and of anything above ASCII
+  assert.deepStrictEqual(X.istaSearchWords('11 9 240/Öl-FILTER_a'), [
+    '11',
+    '9',
+    '240',
+    'öl',
+    'filter',
+    'a',
+  ]);
+  // which file a word is looked up in
+  assert.strictEqual(X.istaSearchShardOf('oil'), 'oi');
+  assert.strictEqual(X.istaSearchShardOf('öl'), '__');
+  assert.strictEqual(X.istaSearchShardOf('a'), '1a');
+  assert.strictEqual(X.istaSearchShardOf('ö'), '1_');
+  // the one-character list is filed under the empty word
+  assert.deepStrictEqual(
+    [...X.istaSearchWordDocs({ '': [3, 2] }, 'a')].sort((x, y) => x - y),
+    [3, 5]
+  );
   // a body hit is a hit like any other: checked against the car and type
   assert.deepStrictEqual(
     X.istaSearchRun({
