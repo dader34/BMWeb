@@ -188,11 +188,13 @@ function ecuTreeUnitColor(u) {
  * @param {object} u - {name, addr, variant (when identified), groups}
  * @param {(rule: object|undefined) => boolean} [holds] - the car's rule
  *   check; without one every name the chassis allows is a candidate
+ * @param {boolean} [plain] - leave the address off the fallback: "SM", not
+ *   "SM_0x72". NOT the tool's behaviour; the app's choice for its tree.
  * @returns {string}
  */
-function ecuTreeTitle(names, u, holds) {
+function ecuTreeTitle(names, u, holds, plain) {
   const hex = Number(u.addr).toString(16).toUpperCase().padStart(2, '0');
-  const fallback = `${u.name || ''}_0x${hex}`;
+  const fallback = plain && u.name ? u.name : `${u.name || ''}_0x${hex}`;
   if (!names) return u.name || fallback;
   const shorts = new Set();
   const own = u.variant && names.variants[String(u.variant).toLowerCase()];

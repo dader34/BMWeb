@@ -984,6 +984,8 @@ const view = {
     X.ecuTreeTitle(names, dme, (r) => !r || r.petrol),
     'DME'
   );
+  // the app's plain form leaves the address off
+  assert.strictEqual(X.ecuTreeTitle(names, dme, null, true), 'DME');
   // no candidates at all, and a one-digit address
   assert.strictEqual(title({ name: 'SHD', addr: 8, groups: [] }), 'SHD_0x08');
   // without the name data the series' name stands
