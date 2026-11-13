@@ -2708,3 +2708,52 @@ html[data-theme] .ista-real-body .modal.ixdialog table.ixtable thead th {
   flex: 0 0 auto;
   margin-top: 4px;
 }
+
+/* The Workshop Equipment page is the app's own technical data screen
+   inside the tool's shell, and it brought the app's type with it: Archivo,
+   and small spaced capitals on the headers. Inside the shell it takes the
+   tool's: the skin's face throughout, and the list and tree headers the
+   tool draws (Arial 14 bold, white on #666, 36 high). */
+.ista-real-body .view .td-wrap,
+.ista-real-body .view .td-wrap * {
+  font-family: var(--ir-font);
+}
+html .ista-real-body .view .td-wrap .td-table thead th,
+html[data-theme] .ista-real-body .view .td-wrap .td-table thead th {
+  background: #666 !important;
+  color: #fff !important;
+  font:
+    700 14px/1.2 Arial,
+    'Arial Unicode MS',
+    sans-serif;
+  text-transform: none;
+  letter-spacing: 0;
+  height: 36px;
+  vertical-align: middle;
+  padding: 0 6px 0 10px;
+  border: 0;
+  border-right: 2px solid #fff;
+}
+.ista-real-body .view .td-wrap .td-table thead th:last-child {
+  border-right: 0;
+}
+html .ista-real-body .view .td-wrap .td-tree-head {
+  background: #666 !important;
+  height: 36px;
+  box-sizing: border-box;
+  padding: 0 6px 0 10px;
+}
+html .ista-real-body .view .td-wrap .td-tree-title {
+  color: #fff !important;
+  font:
+    700 14px/1.2 Arial,
+    'Arial Unicode MS',
+    sans-serif;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.ista-real-body .view .td-wrap .td-node-name,
+.ista-real-body .view .td-wrap .td-node-n,
+.ista-real-body .view .td-wrap .td-table td {
+  font-size: 12px;
+}
