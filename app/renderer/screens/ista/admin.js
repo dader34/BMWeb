@@ -116,6 +116,22 @@ function istaAdminPrune(node) {
     return null;
   const kids = (node.kids || []).map(istaAdminPrune).filter(Boolean);
   if (!kids.length) return null;
+  // A RECORD THINNED TO ONE FIELD IS ONE LINE. The dealer record is a grid
+  // of a dozen rows, name over street over country; with only the country
+  // left, its caption and its value would sit rows apart in an otherwise
+  // empty grid. What is left is put on one row: caption, then value.
+  if (node.t === 'Grid' && node.rows && kids.every((k) => k.t === 'TextBlock'))
+    return {
+      ...node,
+      rows: ['Auto'],
+      // caption, then value, from the left edge the other settings start at
+      cols: kids.map((k, i) => (i < kids.length - 1 ? 'Auto' : '*')),
+      a: { ...(node.a || {}), margin: '6,10,0,14' },
+      kids: kids.map((k, i) => ({
+        ...k,
+        a: { ...(k.a || {}), row: '0', col: String(i), margin: '0,0,12,0' },
+      })),
+    };
   return { ...node, kids };
 }
 

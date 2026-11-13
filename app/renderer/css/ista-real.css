@@ -2863,3 +2863,16 @@ html .ista-real-body .view .td-wrap .td-tree-title {
   gap: 2px 12px;
   margin: 2px 0 12px 15px;
 }
+/* the dealer record's one line: caption and value level with each other */
+.ista-real-body .iradmin .ixtabs-body .ixgrid:has(.iradmin-country) {
+  align-items: center;
+  justify-content: start;
+  margin-bottom: 16px !important;
+}
+.ista-real-body
+  .iradmin
+  .ixtabs-body
+  .ixgrid:has(.iradmin-country)
+  > .ixtext:first-child {
+  font-weight: 700;
+}
