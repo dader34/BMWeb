@@ -540,6 +540,25 @@ const view = {
   // and that row is suspected, so it reads a tenth lower
   assert.strictEqual(prio.b, 3.1);
   assert.strictEqual(prio.g, 3.1);
+  // ...but never the first row: it always takes the plain number
+  const lone = X.istaPlanPrioritise([
+    { id: 's', component: 'S', state: 'suspected', links: [link('f', 100)] },
+  ]);
+  assert.strictEqual(lone[0].priority, 3);
+  // present is read off the status number where the module reports one
+  const pres = (nr, ver, flag) =>
+    X.istaFaultPresent({
+      raw: { F_VORHANDEN_NR: nr, F_VERSION: ver },
+      present: flag,
+    });
+  assert.strictEqual(pres(0x23, 2), true);
+  assert.strictEqual(pres(0x22, 2), true);
+  assert.strictEqual(pres(0x21, 2, true), false);
+  assert.strictEqual(pres(0x01, 3), true);
+  assert.strictEqual(pres(0x41, 3), false);
+  assert.strictEqual(pres(0x02, 3), false);
+  // with no status number, the text the table shows decides
+  assert.strictEqual(X.istaFaultPresent({ raw: {}, present: true }), true);
   // a fault pattern's component keeps its letter
   assert.strictEqual(prio.h, 'F');
   // the same fault twice counts once for a component

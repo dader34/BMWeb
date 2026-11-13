@@ -151,6 +151,30 @@ function istaFaultMeta(row, table) {
 }
 
 /**
+ * Whether a fault is present right now, as the plan's ranking reads it.
+ *
+ * A PORT OF THE TEST IN TestplanCalculator.CalculatePriorityNew, which
+ * reads the status number rather than its text: for a fault memory of
+ * version 3, bit 0 set and bit 6 clear; for version 2, a status of hex 22 or
+ * 23. Anything else is not present. Where a module reports neither number,
+ * the status text the fault table shows is used instead.
+ * @param {object} row - a fault row (`raw`, `present`)
+ * @returns {boolean}
+ */
+function istaFaultPresent(row) {
+  const raw = (row && row.raw) || {};
+  const nr = Number(raw.F_VORHANDEN_NR);
+  const ver = Number(raw.F_VERSION);
+  const has = (v) => v != null && v !== '';
+  if (has(raw.F_VORHANDEN_NR) && has(raw.F_VERSION) && Number.isFinite(nr)) {
+    if (ver === 3) return (nr & 1) === 1 && (nr & 0x40) === 0;
+    if (ver === 2) return nr === 0x23 || nr === 0x22;
+    return false;
+  }
+  return !!(row && row.present);
+}
+
+/**
  * How two components rank against each other in the test plan.
  *
  * A PORT OF MainPriorityCalculator.DiagObjectPriorityComparer: by how many
@@ -181,6 +205,7 @@ function istaPlanCompare(x, y) {
  *    component gets priority 3 and the number goes up by one each time the
  *    ranking changes, so components that rank the same share a priority
  *  - a row already marked suspected reads a tenth lower than its peers
+ *    (from the second row on: the first always gets the plain number)
  *  - a component added from a fault pattern (F) or by hand (M) keeps that
  *    letter and is never renumbered
  * @param {object[]} rows - plan rows: {component, state, priority, links}
@@ -222,7 +247,9 @@ function istaPlanPrioritise(rows) {
   out.forEach((r, i) => {
     if (fixed(r)) return;
     if (i > 0 && istaPlanCompare(of(out[i - 1]), of(r)) !== 0) num++;
-    given.set(of(r), r.state === 'suspected' ? num + 0.1 : num);
+    // the first row is given the plain number: the tool applies the
+    // suspected tenth only from the second row on
+    given.set(of(r), i > 0 && r.state === 'suspected' ? num + 0.1 : num);
   });
   for (const r of out) if (!fixed(r)) r.priority = given.get(of(r));
   return out;
@@ -637,7 +664,7 @@ async function istaXamlFaultMemory(host, o) {
                   o.chassis,
                   istaPatterns(car)
                 );
-                if (typeof istaPlanSet === 'function') istaPlanSet(car, rows);
+                istaPlanReplace(car, rows);
                 if (!rows.length && typeof toast === 'function')
                   toast(
                     'No procedure is linked to these faults in this build.'
@@ -756,12 +783,15 @@ async function istaCalcPlanAll(faults, car, chassis, patterns) {
   for (const f of faults) {
     const meta = f.meta || { known: false, relevance: null, weight: null };
     if (meta.known && meta.relevance !== true) continue;
-    for (const row of await istaCalcPlan(f, car, chassis)) {
+    // where the database has the module's codes, only its own link for
+    // this exact fault counts; without them the looser lookup still runs
+    const found = await istaCalcPlan(f, car, chassis, { exact: meta.known });
+    for (const row of found) {
       if (!by.has(row.id)) by.set(row.id, { ...row, links: [] });
       by.get(row.id).links.push({
         fault: `${f.sgbd}:${f.code}`,
         weight: meta.weight,
-        present: !!f.present,
+        present: istaFaultPresent(f),
       });
     }
   }
@@ -2082,7 +2112,7 @@ async function istaXamlFaultPattern(host, o) {
                   o.chassis,
                   patterns()
                 );
-                if (typeof istaPlanSet === 'function') istaPlanSet(car, rows);
+                istaPlanReplace(car, rows);
                 // a symptom is a heading in BMW's vocabulary first and a
                 // pointer to documents second: many carry none for a car
                 if (!rows.length && typeof toast === 'function')
@@ -2101,6 +2131,22 @@ async function istaXamlFaultPattern(host, o) {
     };
   });
   return !!page;
+}
+
+/**
+ * Put a freshly calculated plan in place of the old one.
+ *
+ * THE OLD PLAN IS CLEARED FIRST, as the tool does before it calculates
+ * (IstaOperationActionImpl.PerformCalculateTestplan calls ClearTestplan):
+ * a recalculated plan starts every row at "not called", including one that
+ * was run under the plan before it.
+ * @param {object|null} car - the picked car
+ * @param {object[]} rows - the new plan
+ * @returns {void}
+ */
+function istaPlanReplace(car, rows) {
+  if (typeof istaPlanClear === 'function') istaPlanClear(car);
+  if (typeof istaPlanSet === 'function') istaPlanSet(car, rows);
 }
 
 /**
@@ -2202,6 +2248,7 @@ if (typeof module !== 'undefined' && module.exports) {
     istaFaultCodes,
     istaFaultMeta,
     istaPlanCompare,
+    istaFaultPresent,
     istaPlanPrioritise,
     istaXamlTestPlan,
     istaXamlBasic,
