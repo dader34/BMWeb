@@ -1211,6 +1211,76 @@ const view = {
   ok("the tool's trees: type filter, validity, documents, the dialog");
 }
 
+// ---- text search --------------------------------------------------------------
+{
+  // FormatSearchTerms: illegal characters out, split on spaces, upper case
+  assert.deepStrictEqual(X.istaSearchTerms("  oil  'filter' (m54);  "), [
+    'OIL',
+    'FILTER',
+    'M54',
+  ]);
+  assert.deepStrictEqual(X.istaSearchTerms('   '), []);
+  // each term stands for its synonyms too
+  const syn = { FILTER: ['Strainer'] };
+  const variants = X.istaSearchVariants(['OIL', 'FILTER'], syn);
+  assert.deepStrictEqual(variants, [['OIL'], ['STRAINER', 'FILTER']]);
+  // a title must hold every term, by itself or by a synonym
+  assert.ok(X.istaSearchHolds('Oil pump with strainer', variants));
+  assert.ok(!X.istaSearchHolds('Air filter', variants));
+
+  const holds = (r) => !r || r.yes === true;
+  const index = {
+    rules: [{ yes: false }, { yes: true }],
+    docs: [
+      [1, 'REP', 'Replacing oil filter', 'REP-1', '', -1],
+      [2, 'REP', 'Oil filter, other engine', 'REP-2', '', 0],
+      [3, 'SWZ', 'Oil filter wrench', 'SWZ-3', '11 9 240', 1],
+      [4, 'FKB', 'Oil filter', 'FKB-4', '', -1],
+      [5, 'TED', 'Brakes', 'TED-119', '', -1],
+    ],
+  };
+  const run = (text, modes, types) =>
+    X.istaSearchRun({
+      text,
+      modes: { title: false, number: false, structure: false, ...modes },
+      index,
+      trees: {
+        trees: {
+          product: [{ id: 11, t: 'Oil filter housing', d: [9], k: [] }],
+        },
+        docs: { 9: ['ABL', 'Check oil pressure'] },
+      },
+      synonyms: {},
+      holds,
+      types: types === undefined ? null : types,
+    }).hits.map((h) => h.id);
+  // by title: valid for the car, and not of a type the tool never lists
+  assert.deepStrictEqual(run('oil filter', { title: true }), ['1', '3']);
+  // the page's filter decides which types the hit list shows
+  assert.deepStrictEqual(run('oil filter', { title: true }, 'REP,TED'), ['1']);
+  // by number: the document number or a special tool's number, any term
+  assert.deepStrictEqual(run('119', { number: true }), ['5']);
+  assert.deepStrictEqual(run('240 zzz', { number: true }), ['3']);
+  // by structure: every document under a node whose title answers
+  assert.deepStrictEqual(run('oil filter', { structure: true }), ['9']);
+  // nothing typed finds nothing
+  assert.deepStrictEqual(run('  ', { title: true }), []);
+  // the search stops where it is told to, and says it did
+  const capped = X.istaSearchRun({
+    text: 'oil',
+    modes: { title: true, number: false, structure: false },
+    index,
+    trees: null,
+    synonyms: {},
+    holds,
+    types: null,
+    max: 1,
+  });
+  assert.strictEqual(capped.hits.length, 1);
+  assert.strictEqual(capped.exceeded, true);
+  ok('text search: terms, synonyms, the four checks and the cap');
+}
+
 // ---- lengths ----------------------------------------------------------------
 assert.strictEqual(X.istaXamlLen('140'), '140px');
 assert.strictEqual(X.istaXamlLen('Auto'), 'auto');

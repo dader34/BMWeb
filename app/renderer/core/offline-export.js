@@ -367,6 +367,7 @@ const OFFLINE_SHELL = [
   'screens/ista/wiring-docs.js',
   'screens/ista/ecu-tree.js',
   'screens/ista/info-tree.js',
+  'screens/ista/text-search.js',
   'screens/ista/xaml.js',
   'screens/ista/xaml-pages.js',
   'screens/ista/draw.js',

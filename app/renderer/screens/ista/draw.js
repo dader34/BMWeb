@@ -229,6 +229,30 @@ async function istaDrawPage(s, host) {
     return;
   }
 
+  // ---- Text Search, in the three places the tool has it ----------------------
+  // The tool's own search over every document (text-search.js). A build
+  // with no search index for the chassis falls through to the pages below.
+  const textSearch =
+    s.page === 'diag-search'
+      ? 'default'
+      : s.id === 'text-search' && s.page === 'repair'
+        ? 'default'
+        : s.id === 'text-search' && s.page === 'techdata'
+          ? 'workshop'
+          : null;
+  if (textSearch && real && istaXamlOn('text-search')) {
+    istaRealStatus({ items: [{ k: 'Hits:', v: '0 / 0' }] });
+    if (
+      await istaXamlTextSearch(host, {
+        car,
+        chassis,
+        types: ISTA_INFO_TYPES[textSearch],
+      })
+    )
+      return;
+    if (!host.isConnected) return;
+  }
+
   // ---- Vehicle management / Service functions -------------------------------
   if (s.page === 'service-tree') {
     istaRealStatus({ items: [{ k: 'Hits:', v: '0 / 0' }] });

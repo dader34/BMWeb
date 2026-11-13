@@ -27,7 +27,7 @@
    istaXamlHitList istaXamlDetails istaSaeLookup istaXamlVin
    istaXamlReadout istaXamlDiagSearch istaDiagSearchHits
    istaXamlBrowsePanes istaBrowseLeft istaBrowseRight istaBrowseNodes
-   istaBrowseShell */
+   istaBrowseShell istaXamlTextSearch */
 
 /**
  * The string table's culture for the app's language setting.
@@ -2218,7 +2218,9 @@ function istaDiagSearchHits(data, query, scopes, bodies) {
  * is where the tool puts it, and the hit list's Back comes back to the form
  * with the string and the ticks as they were left.
  * @param {HTMLElement} host - where to draw
- * @param {object} o - {data, open(hit), loadBodies()}
+ * @param {object} o - {data, open(hit), loadBodies()}; or, in place of
+ *   `data`, `find(state)`: the search itself, returning [{doc}] (the
+ *   tool's own search over every document, istaXamlTextSearch)
  * @returns {Promise<boolean>} false when a template is not in this build
  */
 async function istaXamlDiagSearch(host, o) {
@@ -2234,17 +2236,19 @@ async function istaXamlDiagSearch(host, o) {
   let form = null;
 
   const search = async () => {
-    const hits = istaDiagSearchHits(
-      o.data,
-      state.SearchString,
-      {
-        structures: state.SelectStructures,
-        title: state.SelectTitel,
-        number: state.SelectIdentifikator,
-        document: state.SelectContent,
-      },
-      bodies
-    );
+    const hits = o.find
+      ? await o.find(state)
+      : istaDiagSearchHits(
+          o.data,
+          state.SearchString,
+          {
+            structures: state.SelectStructures,
+            title: state.SelectTitel,
+            number: state.SelectIdentifikator,
+            document: state.SelectContent,
+          },
+          bodies
+        );
     const shown = await istaXamlHitView(host, {
       load: () =>
         hits.map((h) => ({
@@ -2282,8 +2286,19 @@ async function istaXamlDiagSearch(host, o) {
       form.chrome();
     },
     commands: {
-      CommandFullTextSearch:
-        state.SearchString.trim().length >= 2 ? search : null,
+      // the tool's own rule where the tool's own search runs
+      // (CanStartFullTextSearch): something typed, and a way to search
+      CommandFullTextSearch: (
+        o.find
+          ? state.SearchString.trim() &&
+            (state.SelectStructures ||
+              state.SelectTitel ||
+              state.SelectIdentifikator ||
+              state.SelectContent)
+          : state.SearchString.trim().length >= 2
+      )
+        ? search
+        : null,
     },
     extra: { items: [{ k: 'Hits:', v: '0 / 0' }] },
     after: (h) => {
@@ -2294,6 +2309,56 @@ async function istaXamlDiagSearch(host, o) {
     },
   }));
   return !!form;
+}
+
+/**
+ * A Text Search page over the tool's own search (text-search.js).
+ *
+ * One page for the three places the tool has it: Repair/maintenance,
+ * Troubleshooting and Workshop. They differ only in the filter the hit
+ * list is shown through: the workshop's four types, or the tool's default
+ * types everywhere else.
+ * @param {HTMLElement} host - where to draw
+ * @param {object} o - {car, chassis, types}
+ * @returns {Promise<boolean>} false when the build ships no search index
+ *   for the chassis, or no template
+ */
+async function istaXamlTextSearch(host, o) {
+  const [index, trees, synonyms, holds] = await Promise.all([
+    istaProbe(() => istaSearchLoad(o.chassis)),
+    istaProbe(() => istaInfoTreeLoad(o.chassis)),
+    istaProbe(() => istaSearchSynonyms()),
+    istaCarRuleCheck(o.car, o.chassis),
+  ]);
+  if (!index) return false;
+  return istaXamlDiagSearch(host, {
+    find: (state) => {
+      const got = istaSearchRun({
+        text: state.SearchString,
+        modes: {
+          title: state.SelectTitel,
+          number: state.SelectIdentifikator,
+          structure: state.SelectStructures,
+        },
+        index,
+        trees,
+        synonyms: synonyms || {},
+        holds,
+        types: o.types,
+      });
+      // the tool stops at a hundred and says so
+      if (got.exceeded && typeof toast === 'function')
+        toast(
+          'The search found more than 100 hits. Only the first 100 are ' +
+            'shown; narrow the search term.'
+        );
+      if (state.SelectContent && typeof toast === 'function')
+        toast('Searching inside documents is not in this build.');
+      return got.hits.map((doc) => ({ doc, where: 'search' }));
+    },
+    open: async (hit) =>
+      istaPlanDocModal(hit.doc, await istaInfoDocHtml(o.chassis, hit.doc)),
+  });
 }
 
 // ---- Troubleshooting / Fault pattern ----------------------------------------
@@ -3297,6 +3362,7 @@ async function istaXamlBrowsePanes(o) {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     istaBrowseShell,
+    istaXamlTextSearch,
     istaBrowseLeft,
     istaBrowseRight,
     istaBrowseNodes,

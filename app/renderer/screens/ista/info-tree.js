@@ -27,7 +27,8 @@
 
 /* exported ISTA_INFO_TYPES istaInfoTreeLoad istaInfoNodes istaInfoDocsUnder
    istaInfoSource istaInfoTypeOk ISTA_INFO_DIALOG_TYPES istaInfoFilterSet
-   istaInfoFilterDefault istaInfoFilterSame istaInfoTypeLabels */
+   istaInfoFilterDefault istaInfoFilterSame istaInfoTypeLabels
+   istaInfoDocHtml */
 
 /**
  * InfoObjFilter.SetDefault: the document types a page lists until the
