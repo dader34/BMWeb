@@ -85,9 +85,8 @@ function istaToolbarAct(act) {
   // New, and a second way in is a second answer to "which car is this" --
   // the one question a workshop tool must never have two of.
   if (act === 'sessions') return istaGo('operations', 'new', 'vin');
-  // tile and restore are window-manager buttons of the real tool's own
-  // desktop shell: drawn so the row is the row, inert because a browser tab
-  // has no windows to tile
+  // (the tool's tile and restore buttons manage its own desktop windows;
+  // a browser tab has none, so they are not drawn)
 }
 
 /**

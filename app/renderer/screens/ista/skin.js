@@ -9,8 +9,8 @@
  * it on Modern nothing here is called at all and the shell keeps the look it
  * had. One shell, two faces, no second copy of the routing.
  *
- * EVERY ICON IS DRAWN. The toolbar's home, print, settings, help, restore and
- * close glyphs are inline SVG paths, and so are the star, the nav arrows and
+ * EVERY ICON IS DRAWN. The toolbar's home, print, settings, help and close
+ * glyphs are inline SVG paths, and so are the star, the nav arrows and
  * the details page's warning triangle. No emoji: an emoji is a font the
  * machine may not have, and a workshop chrome that renders a tofu box where
  * its close button should be is worse than no icon at all.
@@ -63,8 +63,6 @@ function istaRealIcon(name) {
   const paths = {
     // a house: roof, then the box under it
     home: '<path d="M2 8 L8 2.5 L14 8"/><path d="M4 8 V14 H12 V8"/>',
-    // two windows, side by side (the tile button)
-    tile: '<path d="M2 3 H7 V13 H2 Z"/><path d="M9 3 H14 V13 H9 Z"/>',
     // a printer: paper above, body, sheet below
     print:
       '<path d="M4.5 6 V2.5 H11.5 V6"/><path d="M2.5 6 H13.5 V11 H2.5 Z"/>' +
@@ -77,8 +75,6 @@ function istaRealIcon(name) {
     help:
       '<path d="M5.6 5.4 a2.6 2.6 0 1 1 2.9 2.7 V10"/>' +
       '<path d="M8.4 12.4 h0.01"/>',
-    // the restore-window glyph: a bar over a box
-    restore: '<path d="M2.5 3.5 H13.5"/><path d="M2.5 6.5 H13.5 V13 H2.5 Z"/>',
     // a close cross
     close: '<path d="M3.5 3.5 L12.5 12.5"/><path d="M12.5 3.5 L3.5 12.5"/>',
     // the session list glyph: three dotted rows
@@ -308,11 +304,9 @@ function istaRealToolbar(sessions, activeId) {
     `<div class="irt-spacer"></div>` +
     `<span class="irt-clock" id="ista-clock">${esc(istaRealClock())}</span>` +
     ico('home', 'home', 'Back to the app') +
-    ico('tile', 'tile', 'Tile windows (not in this build)') +
     ico('print', 'print', 'Print this view') +
     ico('wrench', 'settings', 'Settings') +
     ico('help', 'help', 'Documentation') +
-    ico('restore', 'restore', 'Restore window (not in this build)') +
     ico('close', 'close', 'Leave the workshop view') +
     `</div>`
   );

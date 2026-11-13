@@ -842,11 +842,9 @@ const I = loadClassic('screens/ista/');
   // worse than no icon at all.
   for (const n of [
     'home',
-    'tile',
     'print',
     'wrench',
     'help',
-    'restore',
     'close',
     'list',
     'star',
