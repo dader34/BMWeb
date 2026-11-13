@@ -35,7 +35,8 @@
 
 /* exported ECU_TREE_CELL ECU_TREE_BUS_COLOR ECU_TREE_COLOR ecuTreeCheckRule
    ecuTreeHasBus ecuTreeBuild ecuTreeUnitColor ecuTreeDraw ecuTreeExpected
-   ecuTreeHasGearboxEcu ECU_TREE_SERIES_RULES ecuTreeTitle ecuTreeShape */
+   ecuTreeHasGearboxEcu ECU_TREE_SERIES_RULES ecuTreeTitle ecuTreeShape
+   ecuTreePossible */
 
 /** One grid cell: EcuTreeButtonDiagnosisViewModel's size plus its margins. */
 const ECU_TREE_CELL = { w: 72, h: 31, btnW: 60, btnH: 25, mx: 6, my: 3 };
@@ -182,11 +183,14 @@ function ecuTreeUnitColor(u) {
  * representative, that is the title; otherwise it is the series' own name
  * for the unit with its address, "SM_0x72".
  * @param {{variants: Object<string, string>, groups: Object<string,
- *   string[]>}|null} names - tools/ista/ecu_names_extract.py, for the chassis
+ *   Array<[string, object?]>>}|null} names - tools/ista/ecu_names_extract.py,
+ *   for the chassis: each group's names, with the rule to ask of the car
  * @param {object} u - {name, addr, variant (when identified), groups}
+ * @param {(rule: object|undefined) => boolean} [holds] - the car's rule
+ *   check; without one every name the chassis allows is a candidate
  * @returns {string}
  */
-function ecuTreeTitle(names, u) {
+function ecuTreeTitle(names, u, holds) {
   const hex = Number(u.addr).toString(16).toUpperCase().padStart(2, '0');
   const fallback = `${u.name || ''}_0x${hex}`;
   if (!names) return u.name || fallback;
@@ -195,8 +199,8 @@ function ecuTreeTitle(names, u) {
   if (own) shorts.add(own);
   else
     for (const g of u.groups || [])
-      for (const s of names.groups[String(g).toLowerCase()] || [])
-        shorts.add(s);
+      for (const [s, rule] of names.groups[String(g).toLowerCase()] || [])
+        if (!holds || holds(rule)) shorts.add(s);
   return shorts.size === 1 ? [...shorts][0] : fallback;
 }
 
@@ -598,6 +602,35 @@ function ecuTreeExpected(tree, f) {
   return want;
 }
 
+/**
+ * The units a K-bus car might carry beyond the ones it is expected to.
+ *
+ * A PORT OF VehicleIdent.GetFullVehicleECU and SetupECUListByGrpList. The
+ * tool walks a fixed list of group files, keeps each whose validity rule
+ * holds for the car, and adds the unit the series' table files that group
+ * under (the first entry whose groups contain the name). They are the grey
+ * boxes on a tree: possible on this car, never confirmed, and so never red
+ * when they do not answer.
+ * @param {object} tree - the series' tree
+ * @param {Array<{g: string, r?: object}>|undefined} full - the list, cut
+ *   to the chassis (tools/ista/ecu_names_extract.py)
+ * @param {(rule: object|undefined) => boolean} holds - the car's rule check
+ * @returns {Set<number>} addresses
+ */
+function ecuTreePossible(tree, full, holds) {
+  const out = new Set();
+  for (const entry of full || []) {
+    if (!holds(entry.r)) continue;
+    const g = String(entry.g).toLowerCase();
+    // getECUAdrByECU_GRUPPE: a substring match over the joined group names
+    const hit = ((tree && tree.ecus) || []).find((e) =>
+      (e.groups || []).join('|').toLowerCase().includes(g)
+    );
+    if (hit) out.add(hit.addr);
+  }
+  return out;
+}
+
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     ECU_TREE_CELL,
@@ -612,6 +645,7 @@ if (typeof module !== 'undefined' && module.exports) {
     ecuTreeExpected,
     ecuTreeTitle,
     ecuTreeShape,
+    ecuTreePossible,
     ECU_TREE_SERIES_RULES,
   };
 }

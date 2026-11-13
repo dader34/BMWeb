@@ -2672,26 +2672,38 @@ async function istaXamlTree(host, o) {
     const names = await istaProbe(() =>
       hfFetchFirst(`ista/ecu-names/${String(o.chassis).toUpperCase()}.json`)
     );
+    // the units the car might carry besides: grey until one answers
+    const holds = await istaCarRuleCheck(car, o.chassis);
+    const possible = ecuTreePossible(tree, names && names.full, holds);
     let units = [];
     for (const slot of slots) {
       const box = slot.box;
       if (!box) continue;
       // a unit that answered: it identified, or its fault memory was read
-      const heard = slot.state === 'ok' || slot.state === 'faults';
-      if (expected && !heard && !expected.has(box.addr)) continue;
+      const heard =
+        slot.state === 'ok' || slot.state === 'faults' || !!slot.ident;
+      const wanted = !expected || expected.has(box.addr);
+      if (!heard && !wanted && !possible.has(box.addr)) continue;
       let state = slot.state;
       if (state === 'faults' && !counted.get(String(slot.sgbd).toLowerCase()))
         state = 'ok';
+      // only a unit the car was EXPECTED to carry is "not responding"; one
+      // that was merely possible and stayed silent is not fitted
+      if (state === 'silent' && !wanted) state = 'unread';
       const variant = heard ? slot.sgbd || '' : '';
       units.push({
         addr: box.addr,
         sub: box.sub,
-        name: ecuTreeTitle(names, {
-          name: box.name || slot.abbr,
-          addr: box.addr,
-          variant,
-          groups: box.groups,
-        }),
+        name: ecuTreeTitle(
+          names,
+          {
+            name: box.name || slot.abbr,
+            addr: box.addr,
+            variant,
+            groups: box.groups,
+          },
+          holds
+        ),
         bus: box.bus,
         subBus: box.subBus,
         variant,
@@ -2700,6 +2712,40 @@ async function istaXamlTree(host, o) {
         row: box.row,
         state,
         slot,
+        box,
+      });
+    }
+    // A UNIT THE APP HAS NO MODULE FOR IS STILL ON THE CAR'S TREE. The slots
+    // come from the app's own module list, which does not reach every unit
+    // the series' table holds; one the car expects or might carry is drawn
+    // all the same, as a box with no module window behind it.
+    const drawn = new Set(units.map((u) => u.addr));
+    for (const box of tree.ecus) {
+      if (drawn.has(box.addr)) continue;
+      if (!(expected && expected.has(box.addr)) && !possible.has(box.addr))
+        continue;
+      drawn.add(box.addr);
+      units.push({
+        addr: box.addr,
+        sub: box.sub,
+        name: ecuTreeTitle(
+          names,
+          {
+            name: box.name,
+            addr: box.addr,
+            variant: '',
+            groups: box.groups,
+          },
+          holds
+        ),
+        bus: box.bus,
+        subBus: box.subBus,
+        variant: '',
+        identified: false,
+        col: box.col,
+        row: box.row,
+        state: 'unread',
+        slot: null,
         box,
       });
     }
@@ -2712,8 +2758,7 @@ async function istaXamlTree(host, o) {
     const built = ecuTreeBuild(tree, units);
     const total = [...counted.values()].reduce((a, n) => a + n, 0);
     const read = slots.some((x) => x.state !== 'unread');
-    if (picked && !slots.includes(picked.slot))
-      picked = units.find((u) => u.slot.id === picked.slot.id) || null;
+    if (picked) picked = units.find((u) => u.addr === picked.addr) || null;
     return {
       data: {
         DefaultEcuStateBarVisibility: true,
@@ -2733,7 +2778,7 @@ async function istaXamlTree(host, o) {
       widgets: {
         ecuTree: (el) =>
           ecuTreeDraw(el, built, {
-            selected: (u) => !!picked && u.slot.id === picked.slot.id,
+            selected: (u) => !!picked && u.addr === picked.addr,
             pick: (u) => {
               picked = u;
               page.draw();
@@ -2748,7 +2793,7 @@ async function istaXamlTree(host, o) {
           : () => istaOpenVehicleTest(),
         // the window is about ONE control unit, so it needs one picked
         CommandECUFunctions:
-          picked && !istaTestRun
+          picked && picked.slot && !istaTestRun
             ? () => istaOpenEcuWindow(picked.slot, picked.box, o.chassis)
             : null,
         CommandNav32: istaTestRun

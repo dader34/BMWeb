@@ -951,7 +951,15 @@ const view = {
   // the text on a unit's button
   const names = {
     variants: { lsz: 'LSZ', zke5: 'GM' },
-    groups: { d_0000: ['GM'], d_zke_gm: ['GM'], d_00d0: ['LCM', 'LM', 'LSZ'] },
+    groups: {
+      d_0000: [['GM']],
+      d_zke_gm: [['GM']],
+      d_00d0: [['LCM'], ['LM'], ['LSZ']],
+      d_motor: [
+        ['DME', { petrol: true }],
+        ['DDE', { petrol: false }],
+      ],
+    },
   };
   const title = (v) => X.ecuTreeTitle(names, v);
   // every candidate variant agrees: the representative's name
@@ -968,6 +976,13 @@ const view = {
   assert.strictEqual(
     title({ name: 'LM', addr: 208, groups: ['d_00d0'], variant: 'LSZ' }),
     'LSZ'
+  );
+  // the car's own rules narrow the candidates to one
+  const dme = { name: 'DME', addr: 18, groups: ['d_motor'] };
+  assert.strictEqual(title(dme), 'DME_0x12');
+  assert.strictEqual(
+    X.ecuTreeTitle(names, dme, (r) => !r || r.petrol),
+    'DME'
   );
   // no candidates at all, and a one-digit address
   assert.strictEqual(title({ name: 'SHD', addr: 8, groups: [] }), 'SHD_0x08');
@@ -1001,7 +1016,32 @@ const view = {
       ['C', 1, 14],
     ]
   );
-  ok('unit titles, one-of sets, and parking a shared cell');
+
+  // the units a K-bus car might carry: each listed group whose rule holds,
+  // found in the table by a substring of the unit's joined group names
+  const table = {
+    ecus: [
+      { addr: 0, groups: ['d_0000', 'd_zke_gm'] },
+      { addr: 114, groups: ['d_0072', 'd_0072b'] },
+      { addr: 156, groups: ['d_009c'] },
+    ],
+  };
+  const list = [
+    { g: 'd_zke_gm' },
+    { g: 'D_0072' },
+    { g: 'd_009c', r: { no: true } },
+    { g: 'd_nowhere' },
+  ];
+  assert.deepStrictEqual(
+    [...X.ecuTreePossible(table, list, (r) => !r)],
+    [0, 114]
+  );
+  assert.deepStrictEqual(
+    [...X.ecuTreePossible(table, list, () => true)],
+    [0, 114, 156]
+  );
+  assert.strictEqual(X.ecuTreePossible(table, undefined, () => true).size, 0);
+  ok('unit titles, one-of sets, and parking, and the possible units');
 }
 
 // ---- lengths ----------------------------------------------------------------
