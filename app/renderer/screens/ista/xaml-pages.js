@@ -168,6 +168,85 @@ function istaTestPlanData(chassis) {
 }
 
 /**
+ * The validity check for one car: does a shipped rule hold for it?
+ *
+ * THE EXTRACT IS CUT PER CHASSIS, AND A CHASSIS IS THE UNION OF ITS BUILDS.
+ * "An M54 or an N42" is true of an E46 and false of any one E46, so a rule
+ * that passed the extractor is decided again here against the car's own
+ * characteristic ids, build date and options -- which is the question the
+ * tool asks (EvaluateXepRulesById against the vehicle). Three-valued as
+ * everywhere: no rule holds, a rule the car's facts cannot decide holds,
+ * only a decided no drops. With no car to ask, everything holds.
+ * @param {object|null} car - the picked car
+ * @param {string} chassis - its chassis
+ * @returns {Promise<(rule: object|undefined) => boolean>}
+ */
+async function istaCarRuleCheck(car, chassis) {
+  const always = () => true;
+  if (!car || typeof techDataRuleApplies !== 'function') return always;
+  const keys = await istaProbe(() =>
+    typeof techDataCarKeys === 'function' ? techDataCarKeys(car, chassis) : null
+  );
+  if (!keys || !keys.ids || !keys.ids.size) return always;
+  const facts =
+    typeof techDataVehicleFacts === 'function'
+      ? (await istaProbe(() => techDataVehicleFacts(car, chassis))) || {}
+      : {};
+  return (rule) => !rule || techDataRuleApplies(rule, keys.ids, facts);
+}
+
+/**
+ * Open a plan row's document.
+ *
+ * A plan lists every kind of document the tool links to a component. A
+ * wiring diagram (SSP) lives in the wiring extract and the rest in the
+ * diagnosis documents, so each is asked for where it lives first and in the
+ * other place second, before the page says the body is not in this build.
+ * @param {string} chassis - the chassis
+ * @param {{id: number, title: string, type: string}} doc - the document
+ * @returns {Promise<void>}
+ */
+async function istaOpenPlanDiag(chassis, doc) {
+  if (!doc) return;
+  const wiring = () =>
+    typeof istaWiringDocHtml === 'function'
+      ? istaProbe(() => istaWiringDocHtml(chassis, doc.id))
+      : null;
+  const html = doc.type === 'SSP' ? await wiring() : null;
+  if (!html) {
+    // the diagnosis documents first for everything that is not a diagram;
+    // a body they do not hold may still be a diagram filed under another type
+    const body = await istaProbe(() => istaDiagBody(chassis, doc));
+    const missing = !body || /not in this build/i.test(String(body));
+    const other = missing && doc.type !== 'SSP' ? await wiring() : null;
+    if (!other) return istaOpenDiagDoc(chassis, doc);
+    return istaPlanDocModal(doc, other);
+  }
+  return istaPlanDocModal(doc, html);
+}
+
+/**
+ * Show a document body in the shell's document dialog.
+ * @param {{title: string, type: string}} doc - what it is
+ * @param {string} html - its body
+ * @returns {void}
+ */
+function istaPlanDocModal(doc, html) {
+  if (typeof openModal !== 'function') return;
+  const { overlay, close } = openModal(
+    `<div class="modal irdoc" role="dialog" aria-modal="true">` +
+      `<div class="irdoc-title">${esc(
+        `${doc.type || ''} ${doc.title || ''}`.trim()
+      )}</div>` +
+      `<div class="irdoc-body ista-repair">${html}</div>` +
+      `<div class="modal-actions">` +
+      `<button type="button" class="btn irdoc-close">Close</button>` +
+      `</div></div>`
+  );
+  overlay.querySelector('.irdoc-close').onclick = () => close();
+}
+
+/**
  * The plan rows for a list of faults, from the tool's own links.
  *
  * A PORT OF TestplanCalculator.ProcessDiagObjects over the rows
@@ -185,9 +264,12 @@ function istaTestPlanData(chassis) {
  * every object a fault named.
  * @param {object} data - istaTestPlanData output
  * @param {object[]} faults - fault rows the calculation follows
+ * @param {(rule: object|undefined) => boolean} [ok] - the car's validity
+ *   check (istaCarRuleCheck); everything holds without one
  * @returns {object[]} plan rows, in the order the tool adds them
  */
-function istaPlanExact(data, faults) {
+function istaPlanExact(data, faults, ok) {
+  const holds = ok || (() => true);
   /** @type {Map<string, object>} "object:info" -> its row */
   const by = new Map();
   const objects = (data && data.objects) || {};
@@ -196,13 +278,18 @@ function istaPlanExact(data, faults) {
     for (const oid of ids || []) {
       const o = objects[String(oid)];
       if (!o || !o.t || !o.i || path.includes(oid)) continue;
-      const own = o.i.map((i) => [i, infos[String(i)]]).filter(([, x]) => x);
+      // not valid for this car: the object, and everything under it, is out
+      if (!holds(o.r)) continue;
+      const own = o.i
+        .map((i) => [i, infos[String(i)]])
+        .filter(([, x]) => x && holds(x.r));
       if (own.every(([, x]) => x.y !== 'ABL'))
         walk(o.k, null, path.concat([oid]));
       for (const [iid, x] of own) {
         const key = `${oid}:${iid}`;
         if (!by.has(key))
           by.set(key, {
+            key,
             // a test module is opened by its identifier, a document by its id
             id: x.y === 'ABL' && x.n ? x.n : `DIAG-${iid}`,
             type: x.y || '-',
@@ -223,8 +310,9 @@ function istaPlanExact(data, faults) {
   for (const f of faults || []) {
     const ort = istaFaultOrt(f);
     if (ort == null || !f.sgbd) continue;
-    const hit = data.faults[`${String(f.sgbd).toLowerCase()}:${ort}`];
-    if (!hit) continue;
+    const fkey = `${String(f.sgbd).toLowerCase()}:${ort}`;
+    const hit = data.faults[fkey];
+    if (!hit || !holds((data.faultRules || {})[fkey])) continue;
     walk(
       hit,
       {
@@ -237,6 +325,82 @@ function istaPlanExact(data, faults) {
     );
   }
   return [...by.values()];
+}
+
+/**
+ * Add the plan rows of the selected fault patterns, from the tool's links.
+ *
+ * A PORT OF TestplanCalculator.CollectInfoObjectsForTestplan and
+ * ProcessDiagObjectsForSymptom:
+ *  - a symptom names diagnosis objects the way a fault code does; every info
+ *    object of each joins the plan under it
+ *  - beneath a symptom's object the tool ALWAYS descends, test module or
+ *    not, and the children's info objects join under the children
+ *  - the symptoms beneath the picked one are collected the same way
+ *  - every object reached is given priority F -- and it is the OBJECT that
+ *    carries it, so a row a stored fault had already put under that object
+ *    becomes F as well
+ * @param {object} data - istaTestPlanData output
+ * @param {Array<{id: number, label: string}>} patterns - the picked symptoms
+ * @param {Map<string, object>} by - "object:info" -> row, added to in place
+ * @param {(rule: object|undefined) => boolean} [ok] - the car's validity
+ *   check (istaCarRuleCheck)
+ * @returns {void}
+ */
+function istaPlanPatternsExact(data, patterns, by, ok) {
+  const holds = ok || (() => true);
+  const objects = (data && data.objects) || {};
+  const infos = (data && data.infos) || {};
+  const links = (data && data.symptoms) || {};
+  /** @type {Set<string>} the objects a pattern reached */
+  const marked = new Set();
+  const walk = (ids, label, path) => {
+    for (const oid of ids || []) {
+      const o = objects[String(oid)];
+      if (!o || path.includes(oid) || !holds(o.r)) continue;
+      marked.add(String(oid));
+      if (!o.t || !o.i) continue;
+      for (const iid of o.i) {
+        const x = infos[String(iid)];
+        if (!x || !holds(x.r)) continue;
+        const key = `${oid}:${iid}`;
+        if (!by.has(key))
+          by.set(key, {
+            key,
+            id: x.y === 'ABL' && x.n ? x.n : `DIAG-${iid}`,
+            type: x.y || '-',
+            title: x.t || x.n || '',
+            component: o.t,
+            group: String(oid),
+            priority: 'F',
+            state: 'none',
+            fault: label,
+            diag:
+              x.y === 'ABL' ? null : { id: Number(iid), title: x.t, type: x.y },
+            links: [],
+          });
+      }
+      walk(o.k, label, path.concat([oid]));
+    }
+  };
+  /** The symptom's node in the shipped trees, to reach the ones beneath it. */
+  const find = (nodes, id) => {
+    for (const n of nodes || []) {
+      if (n.id === id) return n;
+      const hit = find(n.kids, id);
+      if (hit) return hit;
+    }
+    return null;
+  };
+  const collect = (node, id, label) => {
+    walk(links[String(id)], label, []);
+    for (const k of (node && node.kids) || [])
+      if (holds(k.r)) collect(k, k.id, k.label);
+  };
+  for (const p of patterns || [])
+    collect(find(data.trees, p.id), p.id, p.label);
+  for (const row of by.values())
+    if (marked.has(String(row.group))) row.priority = 'F';
 }
 
 /**
@@ -282,6 +446,38 @@ function istaFaultPresent(row) {
     return false;
   }
   return !!(row && row.present);
+}
+
+/**
+ * What the Existent column says for a fault: yes, No or unknown.
+ *
+ * A PORT OF Fault.SetExisting. The answer is read off the status NUMBER and
+ * depends on the fault memory's protocol; anything the tables below do not
+ * list -- and every fault of the oldest (DS2) modules, which report no such
+ * number -- is "unknown", which is the tool's own word for it:
+ *   KWP (fault memory version 2)   34, 35 yes; 32, 33 no
+ *   UDS (version 3)                5, 9, 13, 33, 37, 41, 45 yes;
+ *                                  4, 8, 12, 32, 36, 40, 44 no
+ * A virtual fault (a control unit that did not answer) is always yes.
+ * @param {object} row - a fault row (`raw`, `virtual`)
+ * @param {object} [strings] - ISTA's string table, for the three words
+ * @returns {string}
+ */
+function istaFaultExisting(row, strings) {
+  const word = (key) => istaXamlText({ strings: strings || {} }, key);
+  if (row && row.virtual) return word('#YesSmall');
+  const raw = (row && row.raw) || {};
+  const has = (v) => v != null && v !== '';
+  const nr = Number(raw.F_VORHANDEN_NR);
+  if (!has(raw.F_VORHANDEN_NR) || !Number.isFinite(nr))
+    return word('#UnknownSmall');
+  const ver = Number(raw.F_VERSION);
+  const yes = ver === 3 ? [5, 9, 13, 33, 37, 41, 45] : [34, 35];
+  const no = ver === 3 ? [4, 8, 12, 32, 36, 40, 44] : [32, 33];
+  if (ver !== 2 && ver !== 3) return word('#UnknownSmall');
+  if (yes.includes(nr)) return word('#YesSmall');
+  if (no.includes(nr)) return word('#NoSmall');
+  return word('#UnknownSmall');
 }
 
 /**
@@ -670,7 +866,7 @@ async function istaXamlFaultMemory(host, o) {
         DTC: { FortAsHexString: r.code, F_UW_KM: r.km || '' },
         ECU: { TITLE_ECUTREE: r.module, VARIANTE: r.sgbd, BUS: '' },
         FaultLabel: r.desc,
-        Existing: r.present ? 'yes' : 'No',
+        Existing: istaFaultExisting(r, page.strings),
         FaultClass: '-',
         meta,
         test: {
@@ -682,6 +878,46 @@ async function istaXamlFaultMemory(host, o) {
         row: r,
       };
     });
+    // A CONTROL UNIT THAT DID NOT ANSWER HAS A FAULT OF ITS OWN: the tool
+    // files a virtual fault code under the unit's group ("S 0003 No
+    // communication possible with: ...") and lists it with the rest. It has
+    // no relevance verdict, so it is shown and never reaches the test plan.
+    const plan = await istaTestPlanData(o.chassis);
+    if (plan && plan.noAnswer) {
+      const holds = await istaCarRuleCheck(car, o.chassis);
+      for (const quiet of (scan && scan.report && scan.report.silent) || []) {
+        const group = String((quiet && quiet.target) || '').toLowerCase();
+        for (const v of plan.noAnswer[group] || []) {
+          if (!holds(v.r)) continue;
+          all.push({
+            DTC: { FortAsHexString: v.c, F_UW_KM: '' },
+            ECU: { TITLE_ECUTREE: quiet.label || group, VARIANTE: '', BUS: '' },
+            FaultLabel: v.t,
+            Existing: istaFaultExisting({ virtual: true }, page.strings),
+            FaultClass: '-',
+            meta: { known: true, relevance: null, weight: null },
+            test: {
+              relevance: null,
+              current: { km: null },
+              first: null,
+              cls: '',
+            },
+            row: {
+              code: v.c,
+              desc: v.t,
+              km: '',
+              present: true,
+              sgbd: '',
+              module: quiet.label || group,
+              // the extract's own row: stable across redraws, so a pick
+              // survives them the way a real fault's does
+              raw: v,
+              virtual: true,
+            },
+          });
+        }
+      }
+    }
     const shown = all.filter((x) => istaFaultRelevant(x.test, filter()));
     // the rows are rebuilt on every pass, wrapper and fault row alike, so
     // the pick is carried by the scan's own code object underneath them
@@ -889,18 +1125,22 @@ async function istaCalcPlanAll(faults, car, chassis, patterns) {
     }
     for (const k of node.kids || []) collect(k, title);
   };
-  for (const p of patterns || []) collect(p.node, p.label);
   // WITH THE TOOL'S OWN LINKS, THE CALCULATION IS THE TOOL'S. Where the
-  // build ships them for this chassis, the faults are resolved through them
-  // and nothing else; the index of test modules below is the older, looser
-  // route for a chassis that has no such extract yet.
+  // build ships them for this chassis, faults and fault patterns are both
+  // resolved through them and nothing else, in the tool's order: the
+  // faults first, then the patterns. The index of test modules below is the
+  // older, looser route for a chassis that has no such extract yet.
   const data = await istaTestPlanData(chassis);
   if (data && data.faults) {
     const relevant = faults.filter((f) => f.meta && f.meta.relevance === true);
-    for (const row of istaPlanExact(data, relevant))
-      by.set(`${row.group}:${row.id}`, row);
-    return istaPlanPrioritise([...by.values()]);
+    /** @type {Map<string, object>} "object:info" -> row */
+    const rows = new Map();
+    const ok = await istaCarRuleCheck(car, chassis);
+    for (const row of istaPlanExact(data, relevant, ok)) rows.set(row.key, row);
+    if (data.symptoms) istaPlanPatternsExact(data, patterns, rows, ok);
+    return istaPlanPrioritise([...rows.values()]);
   }
+  for (const p of patterns || []) if (p.node) collect(p.node, p.label);
   for (const f of faults) {
     const meta = f.meta || { known: false, relevance: null, weight: null };
     if (meta.known && meta.relevance !== true) continue;
@@ -975,7 +1215,7 @@ async function istaXamlTestPlan(host, o) {
       : null;
     const open = (it) =>
       it.row.diag
-        ? istaOpenDiagDoc(o.chassis, it.row.diag)
+        ? istaOpenPlanDiag(o.chassis, it.row.diag)
         : istaOpenPlanRow(it.row, car, o.chassis, () => draw());
 
     const ctx = {
@@ -2079,7 +2319,9 @@ function istaPatternNodes(nodes, root) {
   return (nodes || []).map((n) => ({
     id: n.id,
     Title: n.label || '',
-    IsSelectable: n.sel !== 0 && !root,
+    // not a root (by position, or by the type the database gives a root),
+    // and not marked unselectable
+    IsSelectable: n.sel !== 0 && !root && !/^Root/.test(n.vfc || ''),
     Children: istaPatternNodes(n.kids, false),
     node: n,
   }));
@@ -2134,14 +2376,28 @@ function istaPatternSearch(nodes, query) {
 async function istaXamlFaultPattern(host, o) {
   const car = o.car;
   const data = o.data || {};
-  const roots = Array.isArray(data)
-    ? data
-    : Array.isArray(data.tree)
-      ? data.tree
-      : Array.isArray(data.kids)
-        ? data.kids
-        : [];
-  const nodes = istaPatternNodes(roots, false);
+  // THE TOOL'S OWN TREES, where the build ships them: the roots the tool
+  // shows for this vehicle (an E46 gets "Fault patterns" alone -- the two
+  // newer vocabularies are ruled out for it), each a heading over its
+  // groups. Without them, the groups of the older extract are listed bare.
+  const plan = await istaTestPlanData(o.chassis);
+  const exact = !!(plan && Array.isArray(plan.trees) && plan.trees.length);
+  const roots = exact
+    ? plan.trees
+    : Array.isArray(data)
+      ? data
+      : Array.isArray(data.tree)
+        ? data.tree
+        : Array.isArray(data.kids)
+          ? data.kids
+          : [];
+  // a symptom the car's rule excludes is not shown, nor anything under it
+  const holds = exact ? await istaCarRuleCheck(car, o.chassis) : () => true;
+  const prune = (list) =>
+    (list || [])
+      .filter((n) => holds(n.r))
+      .map((n) => ({ ...n, kids: prune(n.kids) }));
+  const nodes = istaPatternNodes(prune(roots), exact);
   const tree = { open: new Set(), selected: null, node: null };
   const state = { SearchString: '', ResultNumber: '', SearchSynonym: '' };
   const patterns = () => istaPatterns(car);
@@ -2369,9 +2625,13 @@ if (typeof module !== 'undefined' && module.exports) {
     istaFaultCodes,
     istaFaultMeta,
     istaPlanCompare,
+    istaFaultExisting,
     istaFaultOrt,
     istaTestPlanData,
     istaPlanExact,
+    istaPlanPatternsExact,
+    istaCarRuleCheck,
+    istaOpenPlanDiag,
     istaFaultPresent,
     istaPlanPrioritise,
     istaXamlTestPlan,

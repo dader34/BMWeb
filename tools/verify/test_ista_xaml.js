@@ -557,6 +557,20 @@ const view = {
   assert.strictEqual(pres(0x01, 3), true);
   assert.strictEqual(pres(0x41, 3), false);
   assert.strictEqual(pres(0x02, 3), false);
+  // the Existent column reads the same number, by protocol
+  const ex = (nr, ver, virtual) =>
+    X.istaFaultExisting(
+      { raw: { F_VORHANDEN_NR: nr, F_VERSION: ver }, virtual },
+      { '#YesSmall': 'yes', '#NoSmall': 'No', '#UnknownSmall': 'unknown' }
+    );
+  assert.strictEqual(ex(35, 2), 'yes');
+  assert.strictEqual(ex(33, 2), 'No');
+  assert.strictEqual(ex(33, 3), 'yes');
+  assert.strictEqual(ex(32, 3), 'No');
+  assert.strictEqual(ex(99, 2), 'unknown');
+  // a module that reports no status number (the oldest protocol) is unknown
+  assert.strictEqual(ex('', ''), 'unknown');
+  assert.strictEqual(ex('', '', true), 'yes');
   // with no status number, the text the table shows decides
   assert.strictEqual(X.istaFaultPresent({ raw: {}, present: true }), true);
   // a fault pattern's component keeps its letter
@@ -647,6 +661,87 @@ const view = {
   assert.strictEqual(prio['Oil level sensor'], 4);
   assert.strictEqual(prio['Lambda probe'], 5);
   ok('the exact plan: documents, descent, one row per object and document');
+
+  // a fault pattern goes through the same objects, and always descends
+  const withSymptoms = {
+    ...data,
+    symptoms: { 500: [1], 501: [2] },
+    trees: [
+      {
+        id: 9,
+        label: 'Fault patterns',
+        vfc: 'RootOld',
+        kids: [
+          {
+            id: 500,
+            label: 'Oil warning',
+            kids: [{ id: 501, label: 'Lambda' }],
+          },
+        ],
+      },
+    ],
+  };
+  const map = new Map();
+  for (const r of X.istaPlanExact(withSymptoms, [fault('ms450ds0', 10179, 50)]))
+    map.set(r.key, r);
+  X.istaPlanPatternsExact(
+    withSymptoms,
+    [{ id: 500, label: 'Oil warning' }],
+    map
+  );
+  const got = [...map.values()];
+  // the object the fault had already named is the pattern's too: it is F now
+  assert.ok(
+    got.filter((r) => r.group === '1').every((r) => r.priority === 'F')
+  );
+  assert.strictEqual(got.filter((r) => r.group === '1').length, 3);
+  // the symptom beneath the picked one is collected, and its object descended
+  assert.deepStrictEqual(
+    got
+      .filter((r) => r.group !== '1')
+      .map((r) => `${r.component}/${r.id}/${r.priority}`),
+    ['Lambda control/DIAG-13/F', 'Lambda probe/ABL-DIT-L1/F']
+  );
+  // F is never renumbered by the ranking
+  assert.ok(X.istaPlanPrioritise(got).every((r) => r.priority === 'F'));
+  // the tree's root is a heading, never a pattern
+  const tn = X.istaPatternNodes(withSymptoms.trees, true);
+  assert.strictEqual(tn[0].IsSelectable, false);
+  assert.strictEqual(tn[0].Children[0].IsSelectable, true);
+  ok('fault patterns: same objects, full descent, priority F on the object');
+
+  // the car's own validity check narrows what the chassis extract kept
+  const ruled = {
+    faults: { 'ms450ds0:1': [1], 'ms450ds0:2': [1] },
+    faultRules: { 'ms450ds0:2': 'no' },
+    objects: {
+      1: { t: 'Obj', i: [10, 11], r: 'yes' },
+      2: { t: 'Out', i: [10], r: 'no' },
+    },
+    infos: {
+      10: { t: 'For M54', y: 'ABL', n: 'ABL-A', r: 'yes' },
+      11: { t: 'For N42', y: 'ABL', n: 'ABL-B', r: 'no' },
+    },
+  };
+  const check = (rule) => rule !== 'no';
+  const kept = X.istaPlanExact(
+    ruled,
+    [fault('ms450ds0', 1, 50), fault('ms450ds0', 2, 50)],
+    check
+  );
+  // the info object ruled out for this car is gone; so is the fault whose
+  // own rule says no, which would otherwise have been a second link
+  assert.deepStrictEqual(
+    kept.map((r) => r.id),
+    ['ABL-A']
+  );
+  assert.strictEqual(kept[0].links.length, 1);
+  ruled.faults['ms450ds0:1'] = [2];
+  assert.strictEqual(
+    X.istaPlanExact(ruled, [fault('ms450ds0', 1, 50)], check).length,
+    0
+  );
+  ok("the car's rules: an object, a document or a fault link can drop out");
 }
 
 // ---- fault patterns ----------------------------------------------------------
