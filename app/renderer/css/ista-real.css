@@ -2691,3 +2691,33 @@ html[data-theme] .ista-real-body .modal.ixdialog table.ixtable thead th {
 .ista-real-body .ixecutree {
   padding-right: 3px;
 }
+/* the tree page fills the body: the tree itself scrolls, and the bus legend
+   stays on the last line under it, as it does in the tool */
+.ista-real-body .ixaml.ixtreepage {
+  overflow: hidden;
+}
+.ista-real-body .ixaml.ixtreepage > .ixgrid {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+  grid-template-rows: minmax(0, 1fr) !important;
+}
+.ista-real-body .ixaml.ixtreepage .ixwidget {
+  height: 100%;
+  min-height: 0;
+}
+.ista-real-body .ixaml.ixtreepage .ixecutree {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  box-sizing: border-box;
+}
+.ista-real-body .ixaml.ixtreepage .ixecutree-grid {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+.ista-real-body .ixaml.ixtreepage .ixecutree-legend {
+  flex: 0 0 auto;
+  margin-top: 4px;
+}
