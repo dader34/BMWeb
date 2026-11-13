@@ -2847,6 +2847,88 @@ async function istaXamlTree(host, o) {
 // ---- the structure browsers ---------------------------------------------------
 
 /**
+ * The Filters dialog, from InteractionFilterSettingsView.
+ *
+ * Twenty document types in two columns, each named as the tool's database
+ * names it, over Cancel, Default settings, Select all, Select nothing and
+ * Accept. The dialog works on a COPY of the page's filter
+ * (InteractionFilterSettingsViewModel): nothing reaches the page until
+ * Accept, and Cancel leaves it as it was.
+ *
+ * Select all and Select nothing switch the types the tool's user selection
+ * names, which leaves special tools alone; Default settings ticks
+ * everything but special tools.
+ * @param {object} o - the dialog's inputs
+ * @param {string|null} o.types - the page's filter as it stands
+ * @param {boolean} [o.fault] - the fault pattern page's dialog
+ * @param {object} o.strings - the string table
+ * @param {(types: string) => void} o.commit - Accept, with the new list
+ * @returns {Promise<boolean>} false when the template is not in this build
+ */
+async function istaXamlInfoFilter(o) {
+  const tpl = await istaXamlLoad('InteractionFilterSettingsView');
+  if (!tpl || typeof openModal !== 'function') return false;
+  const labels = await istaInfoTypeLabels();
+  const on = new Set(
+    ISTA_INFO_DIALOG_TYPES.filter(
+      (t) => o.types != null && String(o.types).includes(t)
+    )
+  );
+  const title = istaXamlText({ strings: o.strings }, '#FilterSettings');
+  const { overlay, close } = openModal(
+    `<div class="modal ixdialog ixinfofilter" role="dialog" aria-modal="true">` +
+      `<div class="modal-title">${esc(title)}</div>` +
+      `<div class="ixdialog-host ista-real-body"></div></div>`
+  );
+  const host = overlay.querySelector('.ixdialog-host');
+  const ctx = {
+    strings: o.strings,
+    data: {},
+    converters: {
+      InfoTypeLabelConverter: (v, p) => labels[p] || p,
+    },
+    set: (path, value) => {
+      const m = /InfoType([A-Z]{3})$/.exec(path);
+      if (!m) return;
+      if (value) on.add(m[1]);
+      else on.delete(m[1]);
+    },
+    commands: {
+      CmdCancel: () => close(),
+      CommandDefaultSettings: () => {
+        const next = istaInfoFilterDefault(!!o.fault);
+        on.clear();
+        for (const t of next) on.add(t);
+        draw();
+      },
+      CommandSelectAll: () => {
+        istaInfoFilterSet(on, true);
+        draw();
+      },
+      CommandDeselectAll: () => {
+        istaInfoFilterSet(on, false);
+        draw();
+      },
+      CmdCommit: () => {
+        o.commit(ISTA_INFO_DIALOG_TYPES.filter((t) => on.has(t)).join(','));
+        close();
+      },
+    },
+  };
+  function draw() {
+    const filter = {};
+    for (const t of ISTA_INFO_DIALOG_TYPES) filter[`InfoType${t}`] = on.has(t);
+    ctx.data = { Filter: filter };
+    host.replaceChildren(
+      ...(tpl.root.kids || []).map((k) => istaXamlNode(k, ctx.data, ctx))
+    );
+  }
+  ctx.redraw = draw;
+  draw();
+  return true;
+}
+
+/**
  * The `panes` option for the browser, where the workshop shell is drawing
  * from the tool's layouts; undefined anywhere else, and the browser draws
  * its own panes.
@@ -2976,12 +3058,23 @@ async function istaXamlBrowsePanes(o) {
       const node = tree.selected ? byId.get(tree.selected) || null : null;
       const busy = !!state.loading;
       const found = state.hits || [];
+      // the page's filter, until the reader changes it in the dialog; a
+      // page with none lists every type and has no dialog to change it
+      const filtered = o.types !== undefined;
+      // (Mobile service's filter passes everything whatever is ticked: the
+      // tool's "bogus" filter)
+      const types =
+        !filtered || o.types === null
+          ? null
+          : state.types !== undefined
+            ? state.types
+            : o.types;
       // the filter is applied to what was found (FilterSearchResults)
       const items = found
         .filter(
           (d) =>
             typeof istaInfoTypeOk !== 'function' ||
-            istaInfoTypeOk(o.types == null ? null : o.types, src.rowType(d))
+            istaInfoTypeOk(types, src.rowType(d))
         )
         .map((d) => ({
           XepInfoObject: { InfoType: src.rowType(d), AwNummer: '' },
@@ -3017,7 +3110,12 @@ async function istaXamlBrowsePanes(o) {
         IsAddToTestPlanEnabled: !!o.plan,
         IsAirActive: false,
         SelectedDiagnosisObject: selected,
-        InfoObjFilter: { IsDefault: true },
+        InfoObjFilter: {
+          IsDefault:
+            !filtered ||
+            typeof istaInfoFilterSame !== 'function' ||
+            istaInfoFilterSame(types, o.types),
+        },
         Mode: 'Search',
       };
       return {
@@ -3048,6 +3146,18 @@ async function istaXamlBrowsePanes(o) {
           api.chrome();
         },
         commands: {
+          CommandShowFilterSettings: filtered
+            ? () =>
+                istaXamlInfoFilter({
+                  types,
+                  strings: api.strings,
+                  commit: (next) => {
+                    state.types = next;
+                    state.pick = null;
+                    api.draw();
+                  },
+                })
+            : null,
           CmdCollapseAll: () => {
             state.open.clear();
             api.draw();

@@ -241,7 +241,10 @@ async function istaDrawPage(s, host) {
     const src = istaServiceSource(cfg, index, chassis, (hit) => {
       if (typeof serviceRunHit === 'function') serviceRunHit(hit, chassis);
     });
-    istaBrowse(host, src, 'service', { emptyTitle: 'Service Functions' });
+    istaBrowse(host, src, 'service', {
+      emptyTitle: 'Service Functions',
+      shell: { car, types: ISTA_INFO_TYPES.default },
+    });
     return;
   }
 
@@ -276,6 +279,8 @@ async function istaDrawPage(s, host) {
       // added by hand takes the tool's priority for one, M
       shell: {
         car,
+        // the tool's default document types, as on every structure page
+        types: ISTA_INFO_TYPES.default,
         plan: s.id === 'function-structure',
         planRow: (d) => ({
           id: String(d.id),

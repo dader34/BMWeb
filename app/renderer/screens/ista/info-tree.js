@@ -26,7 +26,8 @@
  */
 
 /* exported ISTA_INFO_TYPES istaInfoTreeLoad istaInfoNodes istaInfoDocsUnder
-   istaInfoSource istaInfoTypeOk */
+   istaInfoSource istaInfoTypeOk ISTA_INFO_DIALOG_TYPES istaInfoFilterSet
+   istaInfoFilterDefault istaInfoFilterSame istaInfoTypeLabels */
 
 /**
  * InfoObjFilter.SetDefault: the document types a page lists until the
@@ -42,6 +43,97 @@ const ISTA_INFO_TYPES = {
   // MOBILESERVICE
   mobile: null,
 };
+
+/**
+ * The types the Filters dialog offers, in the order its layout places
+ * them (InteractionFilterSettingsView: two columns, read down).
+ */
+const ISTA_INFO_DIALOG_TYPES = [
+  'FTD',
+  'KFA',
+  'SIT',
+  'MSM',
+  'SSP',
+  'ABL',
+  'FUB',
+  'FEB',
+  'COM',
+  'REH',
+  'STA',
+  'TED',
+  'EBO',
+  'SPI',
+  'PIB',
+  'AZD',
+  'SWZ',
+  'REP',
+  'SBS',
+  'SWS',
+];
+
+/**
+ * Select all / Select nothing (InteractionFilterSettingsViewModel.SetAll):
+ * every type the tool's user selection names is switched; one it does not
+ * name is left as it was. Special tools (SWZ) are not in that selection,
+ * so neither button touches them.
+ * @param {Set<string>} on - the ticked types, changed in place
+ * @param {boolean} state - tick or clear
+ * @returns {Set<string>} `on`
+ */
+function istaInfoFilterSet(on, state) {
+  for (const t of ISTA_INFO_TYPES.default.split(',')) {
+    if (state) on.add(t);
+    else on.delete(t);
+  }
+  return on;
+}
+
+/**
+ * Default settings (ExecuteSetDefaultSettings): for the fault pattern page
+ * SIT and ABL alone; for every other page everything, less special tools.
+ * It is the same on the workshop pages, whose own starting filter is a
+ * different one, so there it reads as user-defined afterwards.
+ * @param {boolean} fault - the fault pattern page's dialog
+ * @returns {Set<string>}
+ */
+function istaInfoFilterDefault(fault) {
+  if (fault) return new Set(['SIT', 'ABL']);
+  const on = istaInfoFilterSet(new Set(), true);
+  on.delete('SWZ');
+  return on;
+}
+
+/**
+ * InfoObjFilter.IsDefault: whether a filter ticks exactly the types the
+ * page's starting filter does.
+ * @param {string|null} types - the filter's comma list
+ * @param {string|null} start - the page's starting list
+ * @returns {boolean}
+ */
+function istaInfoFilterSame(types, start) {
+  const has = (list, t) => list != null && String(list).includes(t);
+  return ISTA_INFO_DIALOG_TYPES.every((t) => has(types, t) === has(start, t));
+}
+
+/** @type {Promise<object>|null} the dialog's type names */
+let istaInfoTypeLabelsCache = null;
+
+/**
+ * The names the Filters dialog gives the types ("Repair Instructions
+ * (REP)"), or an empty table: the tool shows the bare abbreviation for a
+ * type it has no name for, and so does the dialog.
+ * @returns {Promise<Object<string, string>>}
+ */
+function istaInfoTypeLabels() {
+  if (!istaInfoTypeLabelsCache)
+    istaInfoTypeLabelsCache =
+      typeof hfFetchFirst === 'function'
+        ? hfFetchFirst('ista/infotree/types.json')
+            .then((d) => d || {})
+            .catch(() => ({}))
+        : Promise.resolve({});
+  return istaInfoTypeLabelsCache;
+}
 
 /** @type {Map<string, Promise<object|null>>} chassis -> its trees */
 const istaInfoTreeCache = new Map();
@@ -220,6 +312,11 @@ function istaInfoSource(data, which, holds, chassis) {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     ISTA_INFO_TYPES,
+    ISTA_INFO_DIALOG_TYPES,
+    istaInfoFilterSet,
+    istaInfoFilterDefault,
+    istaInfoFilterSame,
+    istaInfoTypeLabels,
     istaInfoTreeLoad,
     istaInfoTypeOk,
     istaInfoNodes,

@@ -59,10 +59,15 @@ reader the diagnosis structures use and written beside the trees:
 
     data/ista/infotree/<CHASSIS>/docs/<id>.json.gz
 
+and types.json, the names the Filters dialog gives each document type
+(XEP_WSCONFIGFILTERS, as DatabaseProvider.GetInfoTypeByAbbreviation reads
+it): {"REP": "Repair Instructions (REP)", ...}.
+
 The output is BMW-derived data: data/ista/ is gitignored and hosted like
 the rest of the ISTA extracts.
 """
 import argparse
+import json
 import xml.etree.ElementTree as ET
 import os
 import re
@@ -381,6 +386,15 @@ def main():
         raise SystemExit(f"no database at {ns.db} (see $BMWFILES/ista/README.md)")
     con = sqlite3.connect(f"file:{ns.db}?mode=ro", uri=True)
     typekeys, chars = read_typekeys(con), read_char_names(con)
+    # the Filters dialog's labels: a title ends in its abbreviation
+    labels = {}
+    for (title,) in con.execute("SELECT TITLE_ENGB FROM XEP_WSCONFIGFILTERS"):
+        m = re.search(r"\(([A-Z]{3})\)\s*$", title or "")
+        if m:
+            labels.setdefault(m.group(1), title.strip())
+    os.makedirs(ns.out, exist_ok=True)
+    with open(os.path.join(ns.out, "types.json"), "w", encoding="utf-8") as f:
+        json.dump(labels, f, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     wanted = [ns.chassis.upper()] if ns.chassis else sorted(CHASSIS_TREE)
     bodies = not ns.no_bodies and os.path.exists(ns.content)
     diag = Diag(ns.db) if bodies else None
