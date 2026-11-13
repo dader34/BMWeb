@@ -271,7 +271,29 @@ async function istaDrawPage(s, host) {
       (await istaXamlFaultPattern(host, { car, chassis, data }))
     )
       return;
-    const src = istaDiagSource(data, (d) => istaDiagBody(chassis, d));
+    // THE TREE IS THE TOOL'S OWN where the build ships it (info-tree.js):
+    // the same roots, with the tool's hidden nodes, titles, order and
+    // per-car rules. The older extract's tree stands in without it; the
+    // document bodies are that extract's either way.
+    const which = {
+      'function-structure': 'function',
+      'component-structure': 'component',
+    }[s.id];
+    const trees =
+      real && which && istaXamlOn('browse')
+        ? await istaProbe(() => istaInfoTreeLoad(chassis))
+        : null;
+    if (!host.isConnected) return;
+    const src =
+      trees && (trees.trees[which] || []).length
+        ? istaInfoSource(
+            trees,
+            which,
+            await istaCarRuleCheck(car, chassis),
+            chassis
+          )
+        : istaDiagSource(data, (d) => istaDiagBody(chassis, d));
+    if (!host.isConnected) return;
     istaBrowse(host, src, `diag-${s.id}`, {
       emptyTitle: s.label,
       // Add to test plan is the function structure's, not the component

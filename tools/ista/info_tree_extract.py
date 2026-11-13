@@ -8,6 +8,8 @@ document bodies) are all a DiagnosisObjectsTree over XEP_DIAGNOSISOBJECTS,
 told apart only by the root they start from and the document types the
 page shows (InfoBrowserTreeFactory, DiagnosisObjectsTree, InfoObjFilter):
 
+    function  DiagnosticObjectFunctionalRoot        Function structure
+    component DiagnosticObjectComponentRoot         Component structure
     product   DiagnosticObjectConstructiveRoot      Product structure, and
                                                     Operating fluids, which
                                                     is this same tree shown
@@ -44,7 +46,8 @@ document, as the tool keeps what it cannot rule out.
 
 Writes data/ista/infotree/<CHASSIS>.json.gz:
 
-    {"trees": {"product": [node, ...], "sws": [...], "mob": [...]},
+    {"trees": {"product": [node, ...], "function": [...], "component": [...],
+               "sws": [...], "mob": [...]},
      "docs": {"<id>": [type, title, rule?]}}
     node = {"id": control id, "t": title, "r": rule?, "d": [doc id, ...],
             "k": [node, ...]}
@@ -103,9 +106,11 @@ BMWFILES = os.environ.get("BMWFILES", os.path.expanduser("~/Development/code/BMW
 # technical_data_extract.py); everything else is written here.
 BODY_ELSEWHERE = {"REP", "TED", "AZD", "SBS", "SWZ", "SWS"}
 
-# The product root's node class: under it a node is titled by its group
-# number (DiagnosisObjectsTreeNode.Children).
+# How a root's node class titles the nodes under it
+# (DiagnosisObjectsTreeNode.Children): under the product root by group
+# number, under the component root by the component's code letters.
 CONSTRUCTIVE_ROOT_CLASS = 5215490
+COMPONENT_ROOT_CLASS = 5216642
 
 
 def pad_numbers(text):
@@ -259,6 +264,10 @@ class Trees:
                 "FROM XEP_INFOOBJECTS")}
         self.classes = dict(con.execute("SELECT NAME, ID FROM XEP_NODECLASSES"))
         self.docs = {}
+        # the documents whose bodies this extract writes: those reached
+        # while `own_bodies` is on
+        self.own_bodies = True
+        self.body_docs = set()
 
     def rule(self, key):
         """(tree or None, holds for the chassis); undecodable holds."""
@@ -279,12 +288,19 @@ class Trees:
         return found[:1]
 
     def title(self, row, by_group):
-        """XEP_DIAGNOSISOBJECTSEX.Title for the node's TitleMode."""
+        """XEP_DIAGNOSISOBJECTSEX.Title for the node's TitleMode.
+
+        `by_group` is the root's node class: it decides which of the node's
+        numbers, if any, leads the title.
+        """
         text = row[3] or ""
-        if by_group and row[5]:
-            return f"{row[5]} {text}"
-        if by_group and row[6]:
-            return f"{row[6]} {text}"
+        if by_group == CONSTRUCTIVE_ROOT_CLASS:
+            if row[5]:
+                return f"{row[5]} {text}"
+            if row[6]:
+                return f"{row[6]} {text}"
+        elif by_group == COMPONENT_ROOT_CLASS and row[7]:
+            return f"{row[7]} {text}"
         return text
 
     def sort_key(self, row, title):
@@ -314,6 +330,8 @@ class Trees:
                 if tree is not None:
                     entry.append(tree)
                 self.docs[doc] = entry
+            if self.own_bodies:
+                self.body_docs.add(doc)
             if doc not in out:
                 out.append(doc)
         return out
@@ -362,8 +380,7 @@ class Trees:
         if not roots:
             return []
         root = roots[0]
-        return self.children(
-            root[1] or root[0], root[2] == CONSTRUCTIVE_ROOT_CLASS, {root[1] or root[0]})
+        return self.children(root[1] or root[0], root[2], {root[1] or root[0]})
 
 
 def count(nodes):
@@ -405,14 +422,20 @@ def main():
             print(f"  {chassis}: not in this database, skipped")
             continue
         trees = Trees(con, ids)
+        built = {
+            "product": trees.tree("DiagnosticObjectConstructiveRoot"),
+            "sws": trees.tree("DiagnosticObjectRegisterStructure", "SWS"),
+            "mob": trees.tree("DiagnosticObjectRegisterStructure", "MOB"),
+        }
+        # the function and component structures' bodies are the diagnosis
+        # extract's (diag_structure_extract.py); only their trees are here
+        trees.own_bodies = False
+        built["function"] = trees.tree("DiagnosticObjectFunctionalRoot")
+        built["component"] = trees.tree("DiagnosticObjectComponentRoot")
         out = {
             "version": 1,
             "chassis": chassis,
-            "trees": {
-                "product": trees.tree("DiagnosticObjectConstructiveRoot"),
-                "sws": trees.tree("DiagnosticObjectRegisterStructure", "SWS"),
-                "mob": trees.tree("DiagnosticObjectRegisterStructure", "MOB"),
-            },
+            "trees": built,
             "docs": {str(k): v for k, v in trees.docs.items()},
         }
         size = write_json_gz(os.path.join(ns.out, f"{chassis}.json.gz"), out)
@@ -422,7 +445,7 @@ def main():
             need = {
                 (doc, trees.infos[doc][4])
                 for doc, entry in trees.docs.items()
-                if entry[0] not in BODY_ELSEWHERE
+                if doc in trees.body_docs and entry[0] not in BODY_ELSEWHERE
             }
             # the shared writer, reading unknown schemas by shape
             diag_structure_extract.parse_document = parse_any

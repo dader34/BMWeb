@@ -253,6 +253,21 @@ async function istaInfoDocHtml(chassis, doc) {
     const body = hit && (await quiet(() => techDataBody(hit)));
     if (hit && body) return techDataDocHtml(hit, body);
   }
+  // the wiring extract holds the diagrams, and with them the pin
+  // assignments, connector views and installation locations a diagram
+  // links to; the diagnosis extract may hold the last three as well
+  if (
+    /^(SSP|PIB|STA|EBO)$/.test(doc.type) &&
+    typeof istaWiringDocHtml === 'function'
+  ) {
+    const html = await quiet(() => istaWiringDocHtml(chassis, doc.id));
+    if (html) return html;
+    if (doc.type === 'SSP')
+      return (
+        `<div class="rp-none">This is a wiring diagram, and it is not in ` +
+        `this build's wiring data.</div>`
+      );
+  }
   // the bodies the tree extract ships itself: every type the two stores
   // above do not carry (SIT, REH, FTD, FEB, COM, MSM ...)
   if (
