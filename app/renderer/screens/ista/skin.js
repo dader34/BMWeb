@@ -71,6 +71,18 @@ function istaRealIcon(name) {
     wrench:
       '<path d="M10.6 2.2 a3.4 3.4 0 1 0 3.2 3.2 l-2.3 2.3 -1.6 -0.3 ' +
       '-0.3 -1.6 Z"/><path d="M9.1 7.4 L3 13.5"/>',
+    // a gear: a ring, its hub, and eight teeth
+    gear:
+      '<path d="M12.4 8 a4.4 4.4 0 1 0 -8.8 0 a4.4 4.4 0 1 0 8.8 0 Z"/>' +
+      '<path d="M9.9 8 a1.9 1.9 0 1 0 -3.8 0 a1.9 1.9 0 1 0 3.8 0 Z"/>' +
+      '<path d="M12.4 8.0 L14.3 8.0"/>' +
+      '<path d="M11.1 11.1 L12.5 12.5"/>' +
+      '<path d="M8.0 12.4 L8.0 14.3"/>' +
+      '<path d="M4.9 11.1 L3.5 12.5"/>' +
+      '<path d="M3.6 8.0 L1.7 8.0"/>' +
+      '<path d="M4.9 4.9 L3.5 3.5"/>' +
+      '<path d="M8.0 3.6 L8.0 1.7"/>' +
+      '<path d="M11.1 4.9 L12.5 3.5"/>',
     // a question mark, drawn as a stroke so it needs no font
     help:
       '<path d="M5.6 5.4 a2.6 2.6 0 1 1 2.9 2.7 V10"/>' +
@@ -305,7 +317,7 @@ function istaRealToolbar(sessions, activeId) {
     `<span class="irt-clock" id="ista-clock">${esc(istaRealClock())}</span>` +
     ico('home', 'home', 'Back to the app') +
     ico('print', 'print', 'Print this view') +
-    ico('wrench', 'settings', 'Settings') +
+    ico('gear', 'settings', 'Settings') +
     ico('help', 'help', 'Documentation') +
     ico('close', 'close', 'Leave the workshop view') +
     `</div>`

@@ -844,6 +844,7 @@ const I = loadClassic('screens/ista/');
     'home',
     'print',
     'wrench',
+    'gear',
     'help',
     'close',
     'list',
