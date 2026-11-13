@@ -25,7 +25,9 @@
 /* exported istaXamlFaultMemory istaXamlTestPlan istaXamlBasic
    istaXamlCulture istaXamlUnitList istaXamlSae istaXamlActive
    istaXamlHitList istaXamlDetails istaSaeLookup istaXamlVin
-   istaXamlReadout istaXamlDiagSearch istaDiagSearchHits */
+   istaXamlReadout istaXamlDiagSearch istaDiagSearchHits
+   istaXamlBrowsePanes istaBrowseLeft istaBrowseRight istaBrowseNodes
+   istaBrowseShell */
 
 /**
  * The string table's culture for the app's language setting.
@@ -60,17 +62,21 @@ function istaXamlCulture() {
 /**
  * Load a view and its strings, split into the shell's three parts.
  * @param {string} view - the view's class name
+ * @param {object} [opts] - passed to istaXamlParts
  * @returns {Promise<{parts: object, strings: object}|null>} null when this
  *   build does not ship the template
  */
-async function istaXamlOpen(view) {
+async function istaXamlOpen(view, opts) {
   const [tpl, strings, fallback] = await Promise.all([
     istaXamlLoad(view),
     istaXamlStrings(istaXamlCulture()),
     istaXamlStrings('en-GB'),
   ]);
   if (!tpl || !tpl.root) return null;
-  return { parts: istaXamlParts(tpl), strings: strings || fallback || {} };
+  return {
+    parts: istaXamlParts(tpl, opts),
+    strings: strings || fallback || {},
+  };
 }
 
 /**
@@ -93,7 +99,10 @@ function istaXamlPaint(host, parts, ctx, extra) {
     items: [...st.items, ...((extra && extra.items) || [])],
     legend: st.legend.length ? st.legend : null,
   });
-  const rows = istaXamlButtons(parts.buttons, ctx);
+  let rows = istaXamlButtons(parts.buttons, ctx);
+  // a page may reshape its row (the browser's two resize buttons are the
+  // bottom bar's centred arrow pair)
+  if (typeof ctx.buttons === 'function') rows = ctx.buttons(rows);
   istaRealBottom(rows.length ? rows : null);
 }
 
@@ -1389,11 +1398,12 @@ async function istaXamlBasic(host, o) {
  * @param {HTMLElement} host - the page
  * @param {string} name - the view's class name
  * @param {(api: object) => object|Promise<object>} build - the view model
+ * @param {object} [opts] - passed to istaXamlParts
  * @returns {Promise<object|null>} {draw, chrome}, or null when this build
  *   does not ship the template
  */
-async function istaXamlMount(host, name, build) {
-  const view = await istaXamlOpen(name);
+async function istaXamlMount(host, name, build, opts) {
+  const view = await istaXamlOpen(name, opts);
   if (!view) return null;
   const api = {
     strings: view.strings,
@@ -2834,8 +2844,274 @@ async function istaXamlTree(host, o) {
   return !!api;
 }
 
+// ---- the structure browsers ---------------------------------------------------
+
+/**
+ * The `panes` option for the browser, where the workshop shell is drawing
+ * from the tool's layouts; undefined anywhere else, and the browser draws
+ * its own panes.
+ * @param {object} [facts] - {car, plan, planRow} for Add to test plan
+ * @returns {((o: object) => Promise<boolean>)|undefined}
+ */
+function istaBrowseShell(facts) {
+  const real =
+    typeof document !== 'undefined' &&
+    document.body.classList.contains('ista-real-body');
+  if (!real || !istaXamlOn('browse')) return undefined;
+  return (o) => istaXamlBrowsePanes({ ...o, ...(facts || {}) });
+}
+
+/**
+ * The step the browser's left arrow takes (ResizeLeft), or null when the
+ * arrow is off: both panes -> the list alone; the tree alone -> both.
+ * @param {string} layout - both | tree | list
+ * @returns {string|null}
+ */
+function istaBrowseLeft(layout) {
+  return layout === 'list' ? null : layout === 'tree' ? 'both' : 'list';
+}
+
+/**
+ * The step the browser's right arrow takes (ResizeRight), or null when the
+ * arrow is off: both panes -> the tree alone; the list alone -> both.
+ * @param {string} layout - both | tree | list
+ * @returns {string|null}
+ */
+function istaBrowseRight(layout) {
+  return layout === 'tree' ? null : layout === 'list' ? 'both' : 'tree';
+}
+
+/**
+ * A browser source's tree as the nodes the tree control draws. A node's id
+ * is its path, which is what the browser's own state keys its open set by.
+ * @param {object[]} nodes - BrowserNode[]
+ * @param {string[]} [above] - the path above them
+ * @returns {object[]}
+ */
+function istaBrowseNodes(nodes, above) {
+  const base = above || [];
+  return (nodes || []).map((n) => {
+    const path = base.concat([String(n.id)]);
+    return {
+      id: path.join('/'),
+      Title: [n.num, n.label].filter((x) => x != null && x !== '').join(' '),
+      Children: istaBrowseNodes(n.kids, path),
+      path,
+    };
+  });
+}
+
+/**
+ * The two panes of a structure browser, from TreeviewInfoSearchView.
+ *
+ * The tool draws Product, Function and Component structure and the service
+ * functions with ONE view (TraversableDiagnosisObjectTreeView): the tree
+ * with the picked node's title over it and Collapse all beside that, the
+ * Type / Title / State list of every document under the picked node, a
+ * "Searching..." bar with Cancel while that list loads, and under them
+ * Hits, Filter and the state legend. This is its view model
+ * (TraversableDiagnosisObjectTreeViewModel) over the app's browser source
+ * and the browser's own state, so deep links and the open document, which
+ * stay with the browser, see the same selection.
+ *
+ * THE TWO ARROWS RESIZE; THEY DO NOT NAVIGATE. Left gives the list the
+ * whole width, right gives it to the tree, and each undoes the other
+ * (ResizeLeft / ResizeRight). With both panes shown the tree takes four
+ * sevenths.
+ *
+ * Add to test plan is drawn only where the tool draws it: for the function
+ * structure and the service functions, not the product structure.
+ * @param {object} o - the browser's hand-over, and the page's own facts
+ * @param {HTMLElement} o.host - where to draw
+ * @param {object} o.src - the BrowserSource
+ * @param {object} o.state - the browser's state: {path, open, hits, doc,
+ *   loading}, to which `layout` and `pick` are added
+ * @param {() => void} o.paint - the browser's own repaint (opens a document)
+ * @param {object|null} [o.car] - the picked car, for Add to test plan
+ * @param {boolean} [o.plan] - whether Add to test plan is offered
+ * @param {(doc: object) => object} [o.planRow] - a document as a plan row
+ * @returns {Promise<boolean>} false when the template is not in this build
+ */
+async function istaXamlBrowsePanes(o) {
+  const { host, src, state } = o;
+  if (!state.layout) state.layout = 'both';
+  const nodes = istaBrowseNodes(src.tree);
+  const byId = new Map();
+  (function index(list) {
+    for (const n of list) {
+      byId.set(n.id, n);
+      index(n.Children);
+    }
+  })(nodes);
+  const tree = {
+    open: state.open,
+    selected: state.path ? state.path.join('/') : null,
+  };
+  const docKey = (d) => (src.docId ? src.docId(d) : src.rowTitle(d));
+
+  const page = await istaXamlMount(
+    host,
+    'TreeviewInfoSearchView',
+    (api) => {
+      tree.selected = state.path ? state.path.join('/') : null;
+      tree.select = (n) => {
+        // the control has already opened or shut the node; what is left is
+        // the list of everything under it
+        state.path = n.path;
+        state.pick = null;
+        const token = {};
+        state.loading = token;
+        api.draw();
+        Promise.resolve(src.list(n.path)).then((rows) => {
+          // a slower earlier load must not overwrite a faster later one
+          if (state.loading !== token) return;
+          state.loading = null;
+          state.hits = rows || [];
+          if (host.isConnected) api.draw();
+        });
+      };
+      const node = tree.selected ? byId.get(tree.selected) || null : null;
+      const busy = !!state.loading;
+      const items = (state.hits || []).map((d) => ({
+        XepInfoObject: { InfoType: src.rowType(d), AwNummer: '' },
+        Title: src.rowTitle(d),
+        State: 'none',
+        key: docKey(d),
+        doc: d,
+      }));
+      items.Count = items.length;
+      const picked = state.pick
+        ? items.find((x) => x.key === state.pick) || null
+        : null;
+      const show = (it) => {
+        const row = it && it.doc ? it : picked;
+        if (!row) return;
+        state.doc = row.doc;
+        // the open document is the browser's page, with its own bar
+        istaRealStatus({ items: [] });
+        istaRealBottom(null);
+        o.paint();
+      };
+      // nothing picked yet still counts: "0 / 0", under an empty title bar
+      const selected = {
+        Title: node ? node.Title : '',
+        IsSearchInProgress: busy,
+        SingleTreeSearchResult: { InfoObjResult: { Count: items.length } },
+      };
+      const vm = {
+        TreeObjects: nodes,
+        IsTreeViewVisible: state.layout !== 'list',
+        IsTreeViewHitlistVisible: state.layout !== 'tree',
+        IsCollapsAllVisible: state.layout !== 'list',
+        IsAddToTestPlanEnabled: !!o.plan,
+        IsAirActive: false,
+        SelectedDiagnosisObject: selected,
+        InfoObjFilter: { IsDefault: true },
+        Mode: 'Search',
+      };
+      return {
+        trees: { diagObjTreeView: tree },
+        elements: { diagObjTreeView: { SelectedItem: selected } },
+        data: { ...vm, TraversableDiagnosisObjectTreeViewModel: vm },
+        resources: {
+          DiagObjectsCollectionViewSource: items,
+          ProxyDataContext: {
+            Data: { IsAwNumberVisible: false, IsStatusVisible: true },
+          },
+        },
+        converters: {
+          SelectedTreeItemTitleConverter: (v) => (v && v.Title) || '',
+          SearchPageVisibilityConverter: () => true,
+        },
+        cells: {
+          DiagObjectsCollectionViewSource: {
+            '#Type': (it) => esc(it.XepInfoObject.InfoType),
+            '#Status': (it) => istaPlanStateCell(it.State),
+          },
+        },
+        picked: {
+          DiagObjectsCollectionViewSource: (it) => it.key === state.pick,
+        },
+        select: (name, it) => {
+          state.pick = it ? it.key : null;
+          api.chrome();
+        },
+        commands: {
+          CmdCollapseAll: () => {
+            state.open.clear();
+            api.draw();
+          },
+          CancelSearchCommand: () => {
+            // a cancelled load leaves the previous list standing
+            state.loading = null;
+            api.draw();
+          },
+          ResizeLeftCommand: istaBrowseLeft(state.layout)
+            ? () => {
+                state.layout = istaBrowseLeft(state.layout);
+                api.draw();
+              }
+            : null,
+          ResizeRightCommand: istaBrowseRight(state.layout)
+            ? () => {
+                state.layout = istaBrowseRight(state.layout);
+                api.draw();
+              }
+            : null,
+          CommandAddToTestPlan:
+            o.plan && picked && o.car && o.planRow
+              ? () => {
+                  const added = istaPlanAdd(o.car, [o.planRow(picked.doc)]);
+                  if (typeof toast === 'function')
+                    toast(
+                      added
+                        ? 'Added to the test plan.'
+                        : 'Already in the test plan.'
+                    );
+                }
+              : null,
+          // the button needs a pick; a double click brings its own row
+          CommandDisplay: { off: !picked, run: show },
+          CommandDoNothing: () => {},
+        },
+        // the two resize buttons are the bar's centred arrow pair
+        buttons: (rows) => {
+          const arrow = (name) => rows.find((r) => r.command === name);
+          const left = arrow('ResizeLeftCommand');
+          const right = arrow('ResizeRightCommand');
+          if (!left || !right) return rows;
+          const rest = rows.filter(
+            (r) => r !== left && r !== right && !r.spacer
+          );
+          const at = rows.indexOf(left);
+          const before = rest.filter((r) => rows.indexOf(r) < at);
+          const after = rest.filter((r) => rows.indexOf(r) > at);
+          return [
+            ...before,
+            { nav: true, back: left.fn, fwd: right.fn },
+            ...after,
+          ];
+        },
+        after: (h) => {
+          const root = h.querySelector('.ixaml');
+          if (!root) return;
+          root.classList.add('ixbrowse', `ixbrowse-${state.layout}`);
+          const table = root.querySelector('.ixtable');
+          if (table) table.classList.add('irplan');
+        },
+      };
+    },
+    { inner: true }
+  );
+  return !!page;
+}
+
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
+    istaBrowseShell,
+    istaBrowseLeft,
+    istaBrowseRight,
+    istaBrowseNodes,
     istaXamlCulture,
     istaXamlFaultMemory,
     istaFaultRelevant,

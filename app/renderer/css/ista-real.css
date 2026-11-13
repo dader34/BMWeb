@@ -2757,3 +2757,62 @@ html .ista-real-body .view .td-wrap .td-tree-title {
 .ista-real-body .view .td-wrap .td-table td {
   font-size: 12px;
 }
+
+/* ---- the structure browsers (TraversableDiagnosisObjectTreeView) -----------
+   The tree and the hit list side by side: with both shown the tree takes
+   four sevenths (TreeViewColumnRoundedWithOffsetWidth), and each resize
+   arrow gives one of them the whole width. */
+.ista-real-body .ixaml.ixbrowse {
+  position: absolute;
+  inset: 0;
+  height: auto;
+  overflow: hidden;
+  padding: 6px;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  grid-template-columns: minmax(0, 4fr) minmax(0, 3fr);
+}
+.ista-real-body .ixaml.ixbrowse > * {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+}
+.ista-real-body .ixaml.ixbrowse-tree,
+.ista-real-body .ixaml.ixbrowse-list {
+  grid-template-columns: minmax(0, 1fr);
+}
+/* the tree's cell is still there when only the list is shown */
+.ista-real-body .ixaml.ixbrowse-list > :first-child {
+  display: none;
+}
+.ista-real-body .ixbrowse .ixtree {
+  border: 2px solid #a9a9a9;
+  border-top: 0;
+  background: #fff;
+  box-sizing: border-box;
+  padding: 4px 2px;
+}
+.ista-real-body .ixbrowse .ixtree-row {
+  padding: 2px 4px;
+}
+.ista-real-body .ixbrowse :is(.ixbox, .ixgrid):has(.ixtable) {
+  height: 100%;
+  min-height: 0;
+  box-sizing: border-box;
+}
+/* the picked node's title bar spans the pane even when nothing is picked */
+.ista-real-body .ixbrowse [data-xstyle='TreeViewHeaderStyle'] {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 36px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ista-real-body
+  .ixbrowse
+  :is(.ixbox, .ixgrid):has(> [data-xstyle='TreeViewHeaderStyle']) {
+  width: 100%;
+  min-width: 0;
+}

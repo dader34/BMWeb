@@ -59,7 +59,12 @@ function istaBrowse(host, src, key, opts) {
       hits: [],
       doc: null,
     };
-  browserPaint(host, src, istaState.browse[key], opts || {});
+  const options = { ...(opts || {}) };
+  // in the workshop shell the two panes come from the tool's own layout;
+  // the open document stays the browser's
+  if (!options.panes && typeof istaBrowseShell === 'function')
+    options.panes = istaBrowseShell(options.shell);
+  browserPaint(host, src, istaState.browse[key], options);
 }
 
 /**

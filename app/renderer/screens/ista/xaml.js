@@ -323,10 +323,13 @@ const istaXamlIsTable = (n) => !!(n.columns && n.columns.length);
  * by its index, because a view may wrap the grid in a Border, leave the
  * status row out, or put the buttons first.
  * @param {object} tpl - a compiled view
+ * @param {{inner?: boolean}} [opts] - `inner`: the view is a frame around
+ *   ONE nested view that carries the skeleton (a page that only hosts a
+ *   browser), so the split is made in the nested view's grid
  * @returns {{content: object[], status: object[], buttons: object[],
  *   resources: object}}
  */
-function istaXamlParts(tpl) {
+function istaXamlParts(tpl, opts) {
   const resources = { ...(tpl.resources || {}) };
   // nested views declare their own resources; one table for the page
   (function gather(n) {
@@ -338,6 +341,17 @@ function istaXamlParts(tpl) {
   while (grid && !(grid.t === 'Grid' && grid.rows)) {
     const kids = grid.kids || [];
     grid = kids.length === 1 ? kids[0] : kids.find((k) => k.t === 'Grid');
+  }
+  // a frame around one nested view: look through it for the grid that
+  // holds the rows
+  while (opts && opts.inner && grid && (grid.kids || []).length === 1) {
+    let deeper = grid.kids[0];
+    while (deeper && !(deeper.t === 'Grid' && deeper.rows)) {
+      const kids = deeper.kids || [];
+      deeper = kids.length === 1 ? kids[0] : kids.find((k) => k.t === 'Grid');
+    }
+    if (!deeper) break;
+    grid = deeper;
   }
   const out = { content: [], status: [], buttons: [], resources };
   if (!grid) {
@@ -587,7 +601,10 @@ function istaXamlTable(n, data, ctx) {
     }
     const tr = body.insertRow();
     tr.dataset.i = String(i);
-    if (selected !== undefined && selected === row) tr.className = 'sel';
+    // a page with no SelectedItem binding to read says which row is picked
+    const mine = ctx.picked && ctx.picked[name];
+    if ((selected !== undefined && selected === row) || (mine && mine(row)))
+      tr.className = 'sel';
     for (const c of cols) {
       const td = tr.insertCell();
       const own = custom[colKey(c)];
@@ -610,7 +627,7 @@ function istaXamlTable(n, data, ctx) {
     tr.onclick = () => {
       // the highlight moves in place: the page decides whether a pick needs
       // more than its chrome repainted
-      if (selected !== undefined || n.sel) {
+      if (selected !== undefined || n.sel || mine) {
         body.querySelectorAll('tr.sel').forEach((x) => {
           x.classList.remove('sel');
         });

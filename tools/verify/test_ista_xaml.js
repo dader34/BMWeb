@@ -1049,6 +1049,78 @@ const view = {
   ok('unit titles, one-of sets, and parking, and the possible units');
 }
 
+// ---- the structure browser ------------------------------------------------
+{
+  // the two arrows resize: left gives the list the width, right the tree,
+  // and each undoes the other (ResizeLeft / ResizeRight)
+  assert.strictEqual(X.istaBrowseLeft('both'), 'list');
+  assert.strictEqual(X.istaBrowseLeft('tree'), 'both');
+  assert.strictEqual(X.istaBrowseLeft('list'), null);
+  assert.strictEqual(X.istaBrowseRight('both'), 'tree');
+  assert.strictEqual(X.istaBrowseRight('list'), 'both');
+  assert.strictEqual(X.istaBrowseRight('tree'), null);
+  // a source's tree as the control's nodes: the id is the path
+  const nodes = X.istaBrowseNodes([
+    {
+      id: 11,
+      num: '11',
+      label: 'Engine',
+      kids: [{ id: 1100, label: 'Engine' }],
+    },
+    { id: 'x', label: '' },
+  ]);
+  assert.deepStrictEqual(
+    nodes.map((n) => [n.id, n.Title]),
+    [
+      ['11', '11 Engine'],
+      ['x', ''],
+    ]
+  );
+  assert.strictEqual(nodes[0].Children[0].id, '11/1100');
+  assert.deepStrictEqual(nodes[0].Children[0].path, ['11', '1100']);
+
+  // a view that only frames one nested view is split in the nested grid
+  const frame = {
+    root: {
+      t: 'UserControl',
+      kids: [
+        {
+          t: 'Grid',
+          rows: ['*', 'Auto'],
+          kids: [
+            {
+              t: 'Inner',
+              a: { row: '0' },
+              kids: [
+                {
+                  t: 'Grid',
+                  rows: ['*', 'Auto', 'Auto'],
+                  kids: [
+                    { t: 'Grid', a: { row: '0' }, kids: [{ t: 'TreeView' }] },
+                    { t: 'Grid', a: { row: '1' }, kids: [{ t: 'Label' }] },
+                    { t: 'Grid', a: { row: '2' }, kids: [{ t: 'Button' }] },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+  };
+  const outer = X.istaXamlParts(frame);
+  assert.deepStrictEqual(
+    [outer.content.length, outer.status.length, outer.buttons.length],
+    [1, 0, 0]
+  );
+  const inner = X.istaXamlParts(frame, { inner: true });
+  assert.deepStrictEqual(
+    [inner.content.length, inner.status.length, inner.buttons.length],
+    [1, 1, 1]
+  );
+  ok('the structure browser: resize steps, nodes, and the inner skeleton');
+}
+
 // ---- lengths ----------------------------------------------------------------
 assert.strictEqual(X.istaXamlLen('140'), '140px');
 assert.strictEqual(X.istaXamlLen('Auto'), 'auto');

@@ -269,7 +269,24 @@ async function istaDrawPage(s, host) {
     )
       return;
     const src = istaDiagSource(data, (d) => istaDiagBody(chassis, d));
-    istaBrowse(host, src, `diag-${s.id}`, { emptyTitle: s.label });
+    istaBrowse(host, src, `diag-${s.id}`, {
+      emptyTitle: s.label,
+      // Add to test plan is the function structure's, not the component
+      // structure's (ModuleExecutionOrigin.HitListFunctionStructure); a row
+      // added by hand takes the tool's priority for one, M
+      shell: {
+        car,
+        plan: s.id === 'function-structure',
+        planRow: (d) => ({
+          id: String(d.id),
+          type: d.type || '',
+          title: d.title || '',
+          component: d.title || '',
+          priority: 'M',
+          diag: { id: d.id, type: d.type || '', title: d.title || '' },
+        }),
+      },
+    });
     return;
   }
 
