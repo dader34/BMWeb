@@ -47,6 +47,12 @@ async function istaDrawPage(s, host) {
 
   // ---- Operations / Finished ------------------------------------------------
   if (s.page === 'finished') {
+    if (
+      real &&
+      istaXamlOn('finished') &&
+      (await istaXamlFinished(host, { car }))
+    )
+      return;
     let picked = null;
     const bar = () =>
       istaBottomBar('finished', {

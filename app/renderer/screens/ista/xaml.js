@@ -549,9 +549,17 @@ function istaXamlLayout(el, n) {
  * @returns {HTMLElement}
  */
 function istaXamlTable(n, data, ctx) {
-  const name = n.n || (n.items && (n.items.res || n.items.bind)) || '';
-  const cols = n.columns.filter((c) => istaXamlVisible(c.vis, data, ctx));
-  const rows = istaXamlEval(n.items, data, ctx) || [];
+  // a list the view fills from code has no name and no items binding; it
+  // goes by its control's name, and the page hands its rows over
+  const name = n.n || (n.items && (n.items.res || n.items.bind)) || n.t || '';
+  const hidden = (ctx.hideColumns && ctx.hideColumns[name]) || [];
+  const cols = n.columns.filter(
+    (c) => istaXamlVisible(c.vis, data, ctx) && !hidden.includes(c.n)
+  );
+  const rows =
+    (n.items ? istaXamlEval(n.items, data, ctx) : null) ||
+    (ctx.rows && ctx.rows[name]) ||
+    [];
   const selected = n.sel ? istaXamlEval(n.sel, data, ctx) : undefined;
   const custom = (ctx.cells && ctx.cells[name]) || {};
   const colKey = (c) =>

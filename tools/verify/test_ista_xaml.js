@@ -1431,6 +1431,35 @@ const view = {
   ok('Administration: only what this build can use is kept');
 }
 
+// ---- Operations / Finished ----------------------------------------------------
+{
+  const today = new Date(2026, 10, 13, 15, 30);
+  // the default: no VIN, the last three days up to today
+  const def = X.istaOpFilterDefault(today);
+  assert.deepStrictEqual(def, {
+    vin: '',
+    start: '2026-11-10',
+    end: '2026-11-13',
+  });
+  assert.ok(X.istaOpFilterIsDefault(def, today));
+  // the same dates a day later are no longer the default
+  assert.ok(!X.istaOpFilterIsDefault(def, new Date(2026, 10, 14)));
+  assert.ok(!X.istaOpFilterIsDefault({ ...def, vin: 'NJ8' }, today));
+  // listed: started on or after the start date, ended before the day after
+  // the end date, and the VIN holds the filter's, in any case
+  const op = (y, m, d, h, vin) => {
+    const at = new Date(y, m, d, h || 12);
+    return { start: at, end: at, vin: vin || 'WBAEV31040KL87379' };
+  };
+  assert.ok(X.istaOpFilterHolds(def, op(2026, 10, 13, 23)));
+  assert.ok(X.istaOpFilterHolds(def, op(2026, 10, 10, 0)));
+  assert.ok(!X.istaOpFilterHolds(def, op(2026, 10, 9, 23)));
+  assert.ok(!X.istaOpFilterHolds(def, op(2026, 10, 15, 1)));
+  assert.ok(X.istaOpFilterHolds({ ...def, vin: 'kl873' }, op(2026, 10, 12)));
+  assert.ok(!X.istaOpFilterHolds({ ...def, vin: 'ZZZ' }, op(2026, 10, 12)));
+  ok('finished operations: the default filter and what it lists');
+}
+
 // ---- lengths ----------------------------------------------------------------
 assert.strictEqual(X.istaXamlLen('140'), '140px');
 assert.strictEqual(X.istaXamlLen('Auto'), 'auto');

@@ -130,9 +130,8 @@ const ISTA_TABS = [
       {
         id: 'finished',
         label: 'Finished',
-        desc: 'Every scan the Garage has kept, newest first',
+        desc: 'Every operation finished on this machine, newest first',
         page: 'finished',
-        needsCar: true,
       },
       {
         id: 'active',

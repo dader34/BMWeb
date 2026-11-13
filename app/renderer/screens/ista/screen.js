@@ -680,8 +680,8 @@ async function istaSubReady(sub) {
       if (!name) return { ok: false, why: `no bus map ships for ${chassis}` };
     }
   }
-  if ((sub.id === 'history' || sub.id === 'finished') && !istaState.car)
-    return { ok: false, why: 'no saved car: add one in the Garage first' };
+  // (Finished lists every vehicle's operations, as the tool's does, so it
+  // needs no vehicle open)
   if (sub.id === 'report') {
     if (!istaState.car)
       return { ok: false, why: 'no saved car: add one in the Garage first' };

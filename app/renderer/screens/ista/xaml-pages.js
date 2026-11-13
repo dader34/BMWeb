@@ -27,7 +27,8 @@
    istaXamlHitList istaXamlDetails istaSaeLookup istaXamlVin
    istaXamlReadout istaXamlDiagSearch istaDiagSearchHits
    istaXamlBrowsePanes istaBrowseLeft istaBrowseRight istaBrowseNodes
-   istaBrowseShell istaXamlTextSearch */
+   istaBrowseShell istaXamlTextSearch istaXamlFinished istaOpFilterDefault
+   istaOpFilterIsDefault istaOpFilterHolds */
 
 /** The cultures the tool's string tables ship for. */
 const ISTA_XAML_CULTURES = [
@@ -128,7 +129,9 @@ function istaXamlPaint(host, parts, ctx, extra) {
   const st = istaXamlStatus(parts.status, ctx);
   istaRealStatus({
     items: [...st.items, ...((extra && extra.items) || [])],
-    legend: st.legend.length ? st.legend : null,
+    // a page may leave a view's legend out (one that explains a column
+    // the page does not draw)
+    legend: st.legend.length && ctx.legend !== false ? st.legend : null,
   });
   let rows = istaXamlButtons(parts.buttons, ctx);
   // a page may reshape its row (the browser's two resize buttons are the
@@ -1798,6 +1801,251 @@ async function istaXamlActive(host, o) {
   return !!api;
 }
 
+// ---- Operations / Finished ----------------------------------------------------
+
+/** Settings key: the operation filter, {vin, start, end} (dates yyyy-mm-dd). */
+const ISTA_OP_FILTER_KEY = 'bmweb.ista.operationFilter';
+
+/**
+ * A day as yyyy-mm-dd, local time.
+ * @param {Date} d - the day
+ * @returns {string}
+ */
+function istaOpDay(d) {
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+/**
+ * OperationFilter's defaults: no VIN, the last three days up to today.
+ * @param {Date} [now] - today
+ * @returns {{vin: string, start: string, end: string}}
+ */
+function istaOpFilterDefault(now) {
+  const today = now || new Date();
+  const from = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  from.setDate(from.getDate() - 3);
+  return { vin: '', start: istaOpDay(from), end: istaOpDay(today) };
+}
+
+/**
+ * OperationFilter.IsDefault: no VIN, and the default dates as they are
+ * TODAY, so a filter saved yesterday is no longer the default.
+ * @param {{vin: string, start: string, end: string}} f - the filter
+ * @param {Date} [now] - today
+ * @returns {boolean}
+ */
+function istaOpFilterIsDefault(f, now) {
+  const d = istaOpFilterDefault(now);
+  return !f.vin && f.start === d.start && f.end === d.end;
+}
+
+/**
+ * OperationFilter.FilterPredicate: an operation is listed when it started
+ * on or after the start date, ended before the day after the end date, and
+ * its VIN holds the filter's (any case).
+ * @param {{vin: string, start: string, end: string}} f - the filter
+ * @param {{start: Date, end: Date, vin: string}} op - an operation
+ * @returns {boolean}
+ */
+function istaOpFilterHolds(f, op) {
+  const day = (s) => {
+    const [y, m, d] = String(s).split('-').map(Number);
+    return new Date(y, (m || 1) - 1, d || 1);
+  };
+  const until = day(f.end);
+  until.setDate(until.getDate() + 1);
+  if (!(op.start >= day(f.start) && op.end <= until)) return false;
+  if (!f.vin) return true;
+  return String(op.vin || '')
+    .toUpperCase()
+    .includes(String(f.vin).toUpperCase());
+}
+
+/**
+ * The operation filter dialog, from InteractionOperationFilterSettingsView:
+ * a VIN, a start date and an end date, Cancel and OK.
+ * @param {object} o - {filter, strings, commit(filter)}
+ * @returns {Promise<boolean>} false when the template is not in this build
+ */
+async function istaXamlOpFilter(o) {
+  const tpl = await istaXamlLoad('InteractionOperationFilterSettingsView');
+  if (!tpl || typeof openModal !== 'function') return false;
+  const f = { ...o.filter };
+  const title = istaXamlText({ strings: o.strings }, '#FilterOperationList');
+  const { overlay, close } = openModal(
+    `<div class="modal ixdialog ixopfilter" role="dialog" aria-modal="true">` +
+      `<div class="modal-title">${esc(title)}</div>` +
+      `<div class="ixdialog-host ista-real-body"></div></div>`
+  );
+  const host = overlay.querySelector('.ixdialog-host');
+  const ctx = {
+    strings: o.strings,
+    data: { Vin: f.vin },
+    set: (path, value) => {
+      if (path === 'Vin') f.vin = String(value || '').trim();
+    },
+    commands: {
+      CmdCancel: () => close(),
+      CmdCommit: () => {
+        o.commit(f);
+        close();
+      },
+    },
+  };
+  host.replaceChildren(
+    ...(tpl.root.kids || []).map((k) => istaXamlNode(k, ctx.data, ctx))
+  );
+  // the on-screen keyboard is the tool's own; a browser has the real one
+  const kb = host.querySelector('[data-xname="btnKB"]');
+  if (kb) kb.remove();
+  // the two date pickers carry no binding in the layout (the tool fills
+  // them from code): first the start date, then the end date
+  [...host.querySelectorAll('[data-xstyle="DatePickerStyle"]')].forEach(
+    (cell, i) => {
+      const key = i === 0 ? 'start' : 'end';
+      const pick = document.createElement('input');
+      pick.type = 'date';
+      pick.className = 'ixinput ixdate';
+      pick.value = f[key];
+      pick.onchange = () => {
+        if (pick.value) f[key] = pick.value;
+      };
+      cell.replaceWith(pick);
+    }
+  );
+  return true;
+}
+
+/**
+ * Operations / Finished, from OperationFinishedListView.
+ *
+ * EVERY FINISHED OPERATION ON THIS MACHINE, not the open car's alone: the
+ * tool's list is the device's, and it does not need a vehicle open to be
+ * read. Here an operation is a scan the Garage kept, of any saved car.
+ *
+ * THE FILTER DECIDES WHAT IS LISTED (OperationFilter): by default the last
+ * three days; Filter operation list sets a VIN and a date range, and Set
+ * standard filter, live only when the filter is not the default, puts it
+ * back. The filter is remembered, as the tool remembers its own.
+ *
+ * Display operation opens the picked operation's report. Open operation
+ * makes its vehicle the open one.
+ *
+ * NOT DRAWN: the Transfer column, its legend and Transmission info. They
+ * report whether an operation's data reached BMW, and none is sent.
+ * @param {HTMLElement} host - where to draw
+ * @param {object} o - {car}
+ * @returns {Promise<boolean>} false when the template is not in this build
+ */
+async function istaXamlFinished(host, o) {
+  let picked = null;
+  const read = () => {
+    const saved =
+      typeof Settings === 'object' && Settings
+        ? Settings.get(ISTA_OP_FILTER_KEY, null)
+        : null;
+    return saved && saved.start && saved.end
+      ? { vin: saved.vin || '', start: saved.start, end: saved.end }
+      : istaOpFilterDefault();
+  };
+  let filter = read();
+  const save = (f) => {
+    filter = f;
+    if (typeof Settings === 'object' && Settings && Settings.set)
+      Settings.set(ISTA_OP_FILTER_KEY, f);
+  };
+  const api = await istaXamlMount(host, 'OperationFinishedListView', () => {
+    const cars = typeof garageCars === 'function' ? garageCars() : [];
+    const all = [];
+    for (const car of cars)
+      for (const scan of typeof garageScans === 'function'
+        ? garageScans(car.id)
+        : []) {
+        const at = new Date(scan.at);
+        if (Number.isNaN(at.getTime())) continue;
+        all.push({
+          LabelShortDescription:
+            typeof garageCarLabel === 'function'
+              ? garageCarLabel(car)
+              : car.label || '',
+          // the tool shows the short VIN, its last seven characters
+          DisplayVIN17: String(car.vin || '').slice(-7),
+          StartDate: at,
+          VehicleCommunication: scan.port || scan.interface || '',
+          key: `${car.id}:${scan.id}`,
+          car,
+          scan,
+        });
+      }
+    const rows = all
+      .filter((r) =>
+        istaOpFilterHolds(filter, {
+          start: r.StartDate,
+          end: r.StartDate,
+          vin: r.car.vin,
+        })
+      )
+      .sort((a, b) => b.StartDate - a.StartDate);
+    picked = picked ? rows.find((r) => r.key === picked.key) || null : null;
+    const isDefault = istaOpFilterIsDefault(filter);
+    return {
+      data: {
+        SelectedItem: picked,
+        SelectedMetaData: picked,
+        OperationFilter: { IsDefault: isDefault },
+        IsRefreshButtonVisible: false,
+        IsRefreshButtonAllVisible: false,
+      },
+      rows: { TreeList: rows },
+      hideColumns: { TreeList: ['TransferState'] },
+      legend: false,
+      empty: {
+        TreeList: all.length
+          ? 'No finished operation matches the operations filter.'
+          : 'No operation has been finished on this machine yet.',
+      },
+      converters: {
+        DateConverter: (v) =>
+          v instanceof Date ? v.toLocaleString() : v == null ? '' : String(v),
+      },
+      cells: {
+        TreeList: { Grundmerkmale: (r) => esc(r.LabelShortDescription) },
+      },
+      select: (name, r) => {
+        picked = r;
+        api.chrome();
+      },
+      commands: {
+        CommandShowOperationFilterSettings: () =>
+          istaXamlOpFilter({
+            filter,
+            strings: api.strings,
+            commit: (f) => {
+              save(f);
+              api.draw();
+            },
+          }),
+        CommandDefaultOperationFilterSettings: isDefault
+          ? null
+          : () => {
+              save(istaOpFilterDefault());
+              api.draw();
+            },
+        CommandDisplayOperation: picked
+          ? () => istaOpenStoredScan(picked.scan)
+          : null,
+        CommandAcceptOperation: picked
+          ? () => istaOpenOperation(picked.car, picked.car.vin)
+          : null,
+      },
+      // Transmission info belongs to the column that is not drawn
+      buttons: (list) => list.filter((b) => b.id !== 'btnTransferState'),
+    };
+  });
+  return !!api;
+}
+
 // ---- Service plan / Hit list ------------------------------------------------
 
 /**
@@ -3412,6 +3660,10 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     istaBrowseShell,
     istaXamlTextSearch,
+    istaXamlFinished,
+    istaOpFilterDefault,
+    istaOpFilterIsDefault,
+    istaOpFilterHolds,
     istaBrowseLeft,
     istaBrowseRight,
     istaBrowseNodes,
