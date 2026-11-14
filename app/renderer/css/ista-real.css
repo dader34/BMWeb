@@ -2938,3 +2938,159 @@ html .ista-real-body .view .td-wrap .td-tree-title {
 .ista-real-body .ista-repair .rp-doc .rp-doc-body > .rp-doc-h:first-child {
   display: none;
 }
+
+/* ---- a refining pass against the tool's own styles and screens --------------
+   Values from the tool's resource dictionary (RheingoldPresentationFramework
+   resourcedictionary.xaml), drawn at this shell's 0.8 scale of the tool's
+   1366-wide layout, and checked against screens of the tool itself.
+
+   styleContentButton: #CCCCCC, flat (its border is its own colour), Arial
+   13 BOLD, 141 x 45, 3 between; a disabled one reads #A9A9A9. */
+.ista-real-body {
+  --ir-bottom-h: 42px;
+}
+.ista-real-body .irbtn {
+  background: #ccc;
+  border: 1px solid #ccc;
+  font:
+    700 11px/1.15 Arial,
+    'Arial Unicode MS',
+    sans-serif;
+  width: 112px;
+  min-width: 112px;
+  height: 36px;
+  padding: 2px 6px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.ista-real-body .irbtn:hover:not(:disabled) {
+  background: #d9d9d9;
+  border-color: #d9d9d9;
+}
+.ista-real-body .irbtn:disabled {
+  color: #a9a9a9;
+}
+.ista-real-body .irbottom {
+  gap: 3px;
+  padding: 0 4px;
+}
+.ista-real-body .irnav {
+  background: #ccc;
+  border: 1px solid #ccc;
+  height: 36px;
+}
+/* styleVehicleAndProcessDataLabel / ...Value: Arial 14 BOLD, the label
+   #666666 and the value black */
+.ista-real-body .irstatus {
+  font:
+    700 11px/1 Arial,
+    'Arial Unicode MS',
+    sans-serif;
+  color: #666;
+}
+.ista-real-body .irstatus b {
+  color: #000;
+}
+/* the state legend: a small bordered box with the state's colour as a dot
+   inside, in the tool's own ECU colours */
+.ista-real-body .irlegend {
+  color: #666;
+  gap: 16px;
+}
+.ista-real-body .irlegend i {
+  width: 11px;
+  height: 11px;
+  border: 1px solid #444;
+  border-radius: 2px;
+  background: #fff;
+  box-sizing: border-box;
+}
+.ista-real-body .irlegend i.ok {
+  background: radial-gradient(circle, #008000 0 3px, #fff 3.6px);
+}
+.ista-real-body .irlegend i.warn {
+  background: radial-gradient(circle, #c39f0d 0 3px, #fff 3.6px);
+}
+.ista-real-body .irlegend i.bad {
+  background: radial-gradient(circle, #a52a2a 0 3px, #fff 3.6px);
+}
+.ista-real-body .irlegend i.blue {
+  background: radial-gradient(circle, #4169e1 0 3px, #fff 3.6px);
+}
+.ista-real-body .irlegend i.dim {
+  background: radial-gradient(circle, #a9a9a9 0 3px, #fff 3.6px);
+}
+/* the toolbar's buttons are boxes (iconButton: 33 square, bordered) */
+.ista-real-body .irt-ico {
+  width: 26px;
+  height: 22px;
+  border: 1px solid #8f8f8f;
+  background: #d2d2d2;
+  margin-left: 6px;
+}
+.ista-real-body .irt-ico:hover {
+  background: #e0e0e0;
+}
+.ista-real-body .irt-sq {
+  height: 22px;
+  line-height: 20px;
+}
+.ista-real-body .irt-clock {
+  font:
+    700 12px/1 Arial,
+    sans-serif;
+  color: #555;
+  margin-right: 14px;
+}
+/* the product's name is set large and plain, not bold */
+.ista-real-body .irtitle {
+  font:
+    400 19px/1 Arial,
+    sans-serif;
+}
+/* the main tabs sit on a black bar, each parted from the next by a white
+   rule */
+.ista-real-body .irtab {
+  margin-right: 0;
+  border-right: 2px solid #fff;
+  flex-basis: 124px;
+}
+/* the tool's lists: taller rows with no rules between the cells, white
+   and grey by turns, under a header parted by white rules */
+.ista-real-body {
+  --ir-row-alt: #dcdcdc;
+}
+.ista-real-body .view td,
+.ista-real-body .irtable td {
+  height: 27px;
+  padding: 3px 8px;
+  border-right: 0;
+}
+/* list and tree headers at the shell's scale: the tool's 36 high and
+   Arial 14 bold come to 29 and 12 here, as its screens show them */
+html .ista-real-body .ixtable thead th,
+html[data-theme] .ista-real-body .ixtable thead th,
+html .ista-real-body .view .td-wrap .td-table thead th,
+html[data-theme] .ista-real-body .view .td-wrap .td-table thead th {
+  height: 29px;
+  font:
+    700 12px/1.2 Arial,
+    'Arial Unicode MS',
+    sans-serif;
+}
+.ista-real-body .ixaml [data-xstyle='TreeViewHeaderStyle'] {
+  height: 29px;
+  min-height: 29px;
+  font:
+    700 12px/29px Arial,
+    'Arial Unicode MS',
+    sans-serif;
+}
+.ista-real-body .ixbrowse [data-xstyle='TreeViewHeaderStyle'] {
+  min-height: 29px;
+}
+/* a button inside a page (Collapse all, beside a header) is the header's
+   height, not the bottom bar's */
+.ista-real-body .ixaml .irbtn {
+  height: 29px;
+}
