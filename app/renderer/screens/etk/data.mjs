@@ -8,6 +8,14 @@
  * archive shape and loading path as the .wiring bundles -- fflate inflates,
  * and the offline export inlines base64.
  *
+ * A PACKED BUILD HAS NO BUNDLES. The complete offline build
+ * (scripts/build/pack_offline.py) keeps each picture ONCE, as a plain file
+ * under data/etk/img/<first two characters>/<name>: a picture is in the
+ * bundle of every car that uses the part, 177,878 of them for 42,506
+ * distinct, so the bundles were 6 GB of a catalogue that is 1.4. A car's
+ * tree and the list of pictures its bundle held come out of the packs
+ * beside them (data/etk/packs), and a picture is shown by its address.
+ *
  * The .etk bundles are 6.4 GB across 246 cars -- too big to ship in the Pages
  * repo. They live in a Hugging Face dataset and stream in at runtime (HF's
  * resolve URLs reflect the request Origin, so cross-origin fetch from
@@ -23,6 +31,7 @@ import {
   hfFetchFirst,
   hfMirrors,
   inlineEtk,
+  packedFolder,
   realFetch,
   webBase,
 } from './shell.mjs';
@@ -85,7 +94,10 @@ import {
  * A loaded chassis archive: its tree plus the raw files (images) inside it.
  * @typedef {object} EtkBundle
  * @property {EtkTree} tree - the parsed catalogue tree
- * @property {Map<string, Uint8Array>} files - archive entries by path ("img/319345.jpg")
+ * @property {Map<string, Uint8Array>} files - archive entries by path
+ *   ("img/319345.jpg"); empty for a packed build, whose pictures are files
+ * @property {Set<string>} [images] - a packed build only: the names of the
+ *   pictures this car's bundle held
  */
 
 /**
@@ -188,19 +200,40 @@ export async function loadEtk(chassisId, onProgress) {
   const id = chassisId.toUpperCase();
   if (ETK_CACHE.has(id)) return ETK_CACHE.get(id);
   let bytes;
+  /** @type {Set<string>|null} a packed build: the pictures this car's bundle held */
+  let images = null;
+  let tree;
+  let files;
   const inline = inlineEtk() ? inlineEtk()[id] : null;
-  if (inline) {
-    const bin = atob(inline);
-    bytes = new Uint8Array(bin.length);
-    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  const packed = inline ? null : packedFolder('etk');
+  if (packed && (await packed.has(`${id}.etk`))) {
+    // a packed build: the tree and the picture list out of the packs, the
+    // pictures themselves left where they are until one is shown
+    const [t, names] = await Promise.all([
+      packed.file(`${id}.etk`, 'tree.json'),
+      packed.file(`${id}.etk`, 'img.json'),
+    ]);
+    if (!t) throw new Error(`no parts data for ${dispChassis(id)}`);
+    tree = JSON.parse(new TextDecoder().decode(t.bytes));
+    images = new Set(
+      names ? JSON.parse(new TextDecoder().decode(names.bytes)) : []
+    );
+    files = new Map();
+    if (onProgress) onProgress(1, 1);
   } else {
-    const hit = await etkFetchFirst(`${id}.etk`);
-    if (!hit) throw new Error(`no parts data for ${dispChassis(id)}`);
-    bytes = await readWithProgress(hit.resp, onProgress);
+    if (inline) {
+      const bin = atob(inline);
+      bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    } else {
+      const hit = await etkFetchFirst(`${id}.etk`);
+      if (!hit) throw new Error(`no parts data for ${dispChassis(id)}`);
+      bytes = await readWithProgress(hit.resp, onProgress);
+    }
+    const unzipped = fflate.unzipSync(bytes);
+    tree = JSON.parse(new TextDecoder().decode(unzipped['tree.json']));
+    files = new Map(Object.entries(unzipped));
   }
-  const unzipped = fflate.unzipSync(bytes);
-  const tree = JSON.parse(new TextDecoder().decode(unzipped['tree.json']));
-  const files = new Map(Object.entries(unzipped));
   // THE LINES' VALIDITY RIDES BESIDE THE PUBLISHED BUNDLE (dates, steering,
   // condition, note -- see lines.js); a bundle built with them inline needs
   // nothing from the sidecar, and a chassis without one browses as before
@@ -216,6 +249,7 @@ export async function loadEtk(chassisId, onProgress) {
     if (side) etkRulesMerge(tree, side);
   }
   const data = { tree, files };
+  if (images) data.images = images;
   ETK_CACHE.set(id, data);
   return data;
 }
@@ -428,6 +462,19 @@ export function etkImageUrl(data, ref) {
   if (!ref) return null;
   const key = data.tree.chassis + '/' + ref;
   if (ETK_IMG_URLS.has(key)) return ETK_IMG_URLS.get(key);
+  if (data.images) {
+    // a packed build: the picture is a file, shared by every car that uses
+    // it, and an <img> takes its address. Absolute, because a print window
+    // has no base to resolve a relative one against.
+    if (!data.images.has(ref)) return null;
+    const head = ref.slice(0, 2).toLowerCase();
+    const shard = /^[a-z0-9]{2}$/.test(head) ? head : '_';
+    const at = `${webBase()}/data/etk/img/${shard}/${encodeURIComponent(ref)}`;
+    const url =
+      typeof location !== 'undefined' ? new URL(at, location.href).href : at;
+    ETK_IMG_URLS.set(key, url);
+    return url;
+  }
   const bytes = data.files.get(`img/${ref}`);
   if (!bytes) return null;
   const ext = ref.split('.').pop().toLowerCase();

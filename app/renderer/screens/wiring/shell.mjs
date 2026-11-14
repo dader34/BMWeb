@@ -56,6 +56,18 @@ export const inlineDocs = () =>
   typeof BMWEB_DOCS === 'object' && BMWEB_DOCS ? BMWEB_DOCS : null;
 
 /**
+ * A folder of packed archives under data/ ('wiring', 'docs'), in an offline
+ * build that carries its archives that way (core/webshim/data-fetch.js
+ * dataPackedFolder, over core/packs.js). Null anywhere else.
+ * @param {string} folder - the folder under data/
+ * @returns {{has: (archive: string) => Promise<boolean>,
+ *   file: (archive: string, member: string) =>
+ *     Promise<{bytes: Uint8Array, gz: boolean}|null|undefined>}|null}
+ */
+export const packedFolder = (folder) =>
+  typeof g.dataPackedFolder === 'function' ? g.dataPackedFolder(folder) : null;
+
+/**
  * The fetch to use for dataset files: the un-shimmed one when the web shim
  * has wrapped window.fetch (core/webshim/api-router.js), else the browser's.
  * @returns {typeof fetch}
@@ -147,5 +159,6 @@ export const hasFflate = () => typeof g.fflate !== 'undefined';
 export const fflate = {
   strFromU8: (...a) => g.fflate.strFromU8(...a),
   gunzipSync: (...a) => g.fflate.gunzipSync(...a),
+  gzipSync: (...a) => g.fflate.gzipSync(...a),
   unzipSync: (...a) => g.fflate.unzipSync(...a),
 };

@@ -5,8 +5,8 @@
 //   past the browser's HTTP cache, so a deploy shows up on the next load;
 //   the cached copy serves offline. Named by the commit, dropped and refilled
 //   on every release.
-//   DATA (.chassis / .wiring / .docs archives, /data/ and /api/ payloads,
-//   images): CACHE-FIRST, with a background revalidation when the cached
+//   DATA (.chassis / .wiring / .docs archives or the packs an offline build
+//   has in their place, /data/ and /api/ payloads, images): CACHE-FIRST, with a background revalidation when the cached
 //   copy carries an ETag or Last-Modified, so an unchanged 110 MB wiring
 //   archive is never downloaded twice and a changed one is picked up on the
 //   next load. Named on its own and KEPT across releases: this cache used to
@@ -32,6 +32,8 @@ function isDataRequest(url) {
   return (
     /\.(?:chassis|wiring|docs)$/i.test(url.pathname) ||
     url.pathname.includes('/api/chassis/') ||
+    // an offline build's ECU packs, which stand where the archives did
+    url.pathname.includes('/api/ecu-packs/') ||
     url.pathname.includes('/data/') ||
     /\.(?:json|json\.gz|png|jpg|jpeg|svg|gif|ico|pdf)(?:\?|$)/i.test(
       url.pathname

@@ -140,6 +140,27 @@ jobs:
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
 
+      # WebKFP's program and data files, packed (about 0.8 GB), which become
+      # their own release asset so that the build itself stays small. OFF
+      # until the packed set is on the bmw-files dataset as sp-daten-packed/
+      # (tools/export/kfp_spdaten_pack.py makes it): set the repository
+      # variable BMWEB_SPDATEN to "true" once it is. The fetch fails loudly
+      # if asked for and the set is not there, and reads every file back
+      # with the app's own decoder before the build may carry it.
+      - name: Restore the SP-Daten
+        if: vars.BMWEB_SPDATEN == 'true'
+        id: spdaten-cache
+        uses: actions/cache@v4
+        with:
+          path: dist-web/data/sp-daten
+          key: spdaten-v1-${{ steps.src.outputs.files }}-${{ hashFiles('scripts/build/fetch_spdaten.py', 'scripts/build/ci-fetch-hf-data.sh') }}
+
+      - name: SP-Daten for WebKFP (its own release asset)
+        if: vars.BMWEB_SPDATEN == 'true' && steps.spdaten-cache.outputs.cache-hit != 'true'
+        run: scripts/build/ci-fetch-hf-data.sh spdaten
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+
       - name: Wiring diagrams
         run: |
           set -euo pipefail

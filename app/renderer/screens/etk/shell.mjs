@@ -121,5 +121,17 @@ export const routeSetFiltered = (...a) => {
  * @returns {Promise<any|null>}
  */
 export const hfFetchFirst = (rel, opts) => g.hfFetchFirst(rel, opts);
+
+/**
+ * A folder of packed archives under data/ ('etk'), in an offline build that
+ * carries its archives that way (core/webshim/data-fetch.js
+ * dataPackedFolder, over core/packs.js). Null anywhere else.
+ * @param {string} folder - the folder under data/
+ * @returns {{has: (archive: string) => Promise<boolean>,
+ *   file: (archive: string, member: string) =>
+ *     Promise<{bytes: Uint8Array, gz: boolean}|null|undefined>}|null}
+ */
+export const packedFolder = (folder) =>
+  typeof g.dataPackedFolder === 'function' ? g.dataPackedFolder(folder) : null;
 /** @returns {string[]} the bmweb-etk dataset mirrors, in order */
 export const hfMirrors = () => g.HF_MIRRORS || [];

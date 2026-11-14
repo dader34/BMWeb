@@ -4,7 +4,7 @@
  * cached .chassis archives, job runs through the VM -- and routing every
  * genuine file read through the offline folder when one is picked.
  */
-/* exported WEB_API_BASE, WEB_BASE, installWebShim */
+/* exported WEB_API_BASE, WEB_BASE, installWebShim, webChassisPacked, webChassisArchive */
 
 /** The static API directory the exporter writes (tools/web_export.py). */
 const WEB_API_BASE = 'api';
@@ -23,10 +23,23 @@ const WEB_BASE = (
 ).replace(/\/$/, '');
 
 /**
- * One unpacked .chassis archive.
+ * One chassis's ECUs: an unpacked .chassis archive, or, in a build that
+ * carries its ECUs packed (see loadEcuPacks), where each is in the packs.
  * @typedef {object} ChassisData
  * @property {any} config - Its config.json.
- * @property {Map<string, Uint8Array>} ecuZips - sgbd (lowercased) -> .ecu bytes.
+ * @property {Map<string, Uint8Array|number>} ecuZips - sgbd (lowercased) ->
+ *   .ecu bytes, or the ECU's number in the packs' index.
+ * @property {EcuPacks} [packs] - The packs those numbers are in.
+ */
+
+/**
+ * The ECU packs of a build that has them.
+ * @typedef {object} EcuPacks
+ * @property {{packs: string[], raw: number[], ecus: number[][],
+ *   chassis: Record<string, {config: number[], ecus: Record<string, number>}>}} index
+ *   - api/ecu-packs/index.json: each ECU as [pack, offset, length, crc32].
+ * @property {{member: (name: string, rawLength: number, at: number[]) =>
+ *   Promise<Uint8Array>}} read - The pack reader (core/packs.js).
  */
 
 /**
@@ -47,6 +60,9 @@ const CHASSIS_LOADING = new Map();
 
 /** The sgbd -> chassis index, fetched once. @type {Promise<Record<string,string>|null>|null} */
 let ECU_INDEX_LOADING = null;
+
+/** The ECU packs, looked for once. @type {Promise<EcuPacks|null>|null} */
+let ECU_PACKS_LOADING = null;
 
 /**
  * Cache of parsed ECU files: sgbd (lowercased) -> Map(filename -> content).
@@ -74,6 +90,108 @@ function inlineData() {
 }
 
 /**
+ * The ECU packs, when this build carries its ECUs that way.
+ *
+ * AN OFFLINE BUILD HOLDS EVERY CAR, and the per-car .chassis archives hold
+ * the same ECU once per car that has it: 4,081 files of which 1,415 are
+ * distinct, 486 MB of a 1 GB download. scripts/build/pack_offline.py stores
+ * each ECU once, like beside like, in zstd packs (core/packs.js) at about a
+ * sixth of that, and leaves api/ecu-packs/index.json saying which car has
+ * which. An ECU is then read out of its pack when it is opened.
+ *
+ * Only an offline build is asked: the hosted site serves one car's archive
+ * to a reader who wants one car, and would answer this with a 404 on every
+ * visit. Null means "no packs here", and the .chassis archives are used.
+ * @param {RealFetch} realFetch - The unshimmed fetch.
+ * @returns {Promise<EcuPacks|null>}
+ */
+function loadEcuPacks(realFetch) {
+  if (ECU_PACKS_LOADING) return ECU_PACKS_LOADING;
+  if (
+    typeof bmwebPacks === 'undefined' ||
+    typeof fzstd === 'undefined' ||
+    !bmwebPacks.wanted()
+  ) {
+    ECU_PACKS_LOADING = Promise.resolve(null);
+    return ECU_PACKS_LOADING;
+  }
+  const dir = `${WEB_BASE}/${WEB_API_BASE}/ecu-packs`;
+  ECU_PACKS_LOADING = realFetch(`${dir}/index.json`)
+    .then((r) => (r.ok ? r.json() : null))
+    .then((index) => {
+      if (!index || !Array.isArray(index.packs) || !index.chassis) return null;
+      const read = bmwebPacks.reader({
+        fetchPack: async (name) => {
+          const r = await realFetch(`${dir}/${name}`);
+          if (!r.ok)
+            throw new Error(`ECU pack ${name}: ${r.statusText || r.status}`);
+          return new Uint8Array(await r.arrayBuffer());
+        },
+        decompress: fzstd.decompress,
+      });
+      return { index, read };
+    })
+    .catch(() => null);
+  return ECU_PACKS_LOADING;
+}
+
+/**
+ * One member of the ECU packs.
+ * @param {EcuPacks} packs - The packs.
+ * @param {number[]} at - [pack, offset, length, crc32].
+ * @returns {Promise<Uint8Array>}
+ * @throws {Error} When the pack cannot be read or the member does not check.
+ */
+function ecuPackMember(packs, at) {
+  const { index } = packs;
+  return packs.read.member(index.packs[at[0]], index.raw[at[0]], at.slice(1));
+}
+
+/**
+ * Whether this build has a car's ECUs in its packs (and so no .chassis
+ * archive for it).
+ * @param {string} chassisId - The chassis id (any case).
+ * @returns {Promise<boolean>}
+ */
+async function webChassisPacked(chassisId) {
+  const packs = await loadEcuPacks(window.webRealFetch);
+  return !!(packs && packs.index.chassis[String(chassisId).toUpperCase()]);
+}
+
+/**
+ * A car's .chassis archive, made from the packs, for the one reader that
+ * wants the FILE: the offline exporter, which hands a single car's archive
+ * to a copy that has no packs. Built as web_export.py builds one (each ECU
+ * deflated in its own archive, those stored in the outer one), so the copy
+ * reads it like any other. Slow by design's standards (it re-deflates a
+ * car's every ECU) and only ever run by an export.
+ * @param {string} chassisId - The chassis id (any case).
+ * @returns {Promise<Uint8Array|null>} null when this build has no packs or
+ *   they do not hold the car.
+ * @throws {Error} When a pack cannot be read or a member does not check.
+ */
+async function webChassisArchive(chassisId) {
+  const packs = await loadEcuPacks(window.webRealFetch);
+  const packed = packs && packs.index.chassis[String(chassisId).toUpperCase()];
+  if (!packed) return null;
+  const files = {
+    'config.json': [await ecuPackMember(packs, packed.config), { level: 6 }],
+  };
+  // by name, which is the order the packs are in: each pack is opened once
+  for (const sgbd of Object.keys(packed.ecus).sort()) {
+    const stored = await ecuPackMember(
+      packs,
+      packs.index.ecus[packed.ecus[sgbd]]
+    );
+    files[`ecu/${sgbd}.ecu`] = [
+      fflate.zipSync(fflate.unzipSync(stored), { level: 6 }),
+      { level: 0 },
+    ];
+  }
+  return fflate.zipSync(files, { level: 0 });
+}
+
+/**
  * Load and unpack a chassis archive, from the inlined data when it is there
  * and only reaching for the network otherwise.
  * @param {string} chassisId - The chassis id (any case).
@@ -96,6 +214,24 @@ async function loadChassis(chassisId, realFetch) {
 
   const fileUrl = `${WEB_BASE}/api/chassis/${upperId}.chassis`;
   const loading = (async () => {
+    // a build with its ECUs packed: the car's list, and nothing fetched
+    // until an ECU is opened
+    const packs = await loadEcuPacks(realFetch);
+    const packed = packs && packs.index.chassis[upperId];
+    if (packed) {
+      const config = JSON.parse(
+        new TextDecoder('utf-8').decode(
+          await ecuPackMember(packs, packed.config)
+        )
+      );
+      const data = {
+        config,
+        ecuZips: new Map(Object.entries(packed.ecus)),
+        packs,
+      };
+      CHASSIS_CACHE.set(upperId, data);
+      return data;
+    }
     const res = await realFetch(fileUrl);
     if (!res.ok)
       throw new Error(`Failed to load chassis ${upperId}: ${res.statusText}`);
@@ -217,9 +353,11 @@ async function loadEcu(sgbd, realFetch) {
 
   // Search cached chassis first
   let ecuZipBytes = null;
+  let from = null;
   for (const chassisData of CHASSIS_CACHE.values()) {
     if (chassisData.ecuZips.has(lowerSgbd)) {
       ecuZipBytes = chassisData.ecuZips.get(lowerSgbd);
+      from = chassisData;
       break;
     }
   }
@@ -228,14 +366,23 @@ async function loadEcu(sgbd, realFetch) {
   // archive -- loose copies duplicated all 310 for 47 MB and nothing read
   // them -- so find the car that owns this SGBD and load that. Costs one
   // chassis download, after which every ECU in the same car is already here.
-  if (!ecuZipBytes) {
+  if (ecuZipBytes === null) {
     const idx = await loadEcuIndex(realFetch);
     const cid = idx && idx[lowerSgbd];
     if (cid) {
       const data = await loadChassis(cid, realFetch);
-      ecuZipBytes = data.ecuZips.get(lowerSgbd) || null;
+      ecuZipBytes = data.ecuZips.has(lowerSgbd)
+        ? data.ecuZips.get(lowerSgbd)
+        : null;
+      from = data;
     }
   }
+  // packed: the map held the ECU's number, and its bytes are in a pack
+  if (typeof ecuZipBytes === 'number')
+    ecuZipBytes = await ecuPackMember(
+      from.packs,
+      from.packs.index.ecus[ecuZipBytes]
+    );
 
   if (!ecuZipBytes) {
     throw new Error(`ECU archive not found for ${lowerSgbd}`);
@@ -337,6 +484,70 @@ function offlineAwareFetch(nativeFetch) {
       }
     }
     return nativeFetch(input, init);
+  };
+}
+
+/**
+ * Answer this site's own data files out of an offline build's packs.
+ *
+ * AN OFFLINE BUILD CARRIES ITS PLAIN DATA FILES PACKED
+ * (scripts/build/pack_offline.py: the WinKFP scripts, the coding data, the
+ * group files, ISTA's tables), each once, in zstd packs under data/packs,
+ * with one list ("site") keyed by the path each had. This wraps the fetch
+ * every genuine file read funnels through, so a reader asks for
+ * data/kfp/ms450.json exactly as before and gets its bytes. A file that
+ * was gzipped is handed back gzipped (stored, which costs nothing to make
+ * or undo), so whoever gunzips it gets what it always got.
+ *
+ * Anything not in the list -- every file of a build without packs, a remote
+ * URL, the packs themselves -- goes on to the real fetch untouched.
+ * @param {RealFetch} inner - The fetch that reaches the files.
+ * @returns {RealFetch}
+ */
+function packedFilesFetch(inner) {
+  return async (input, init) => {
+    const method = String((init && init.method) || 'GET').toUpperCase();
+    if (
+      (method !== 'GET' && method !== 'HEAD') ||
+      typeof bmwebPacks === 'undefined' ||
+      typeof fzstd === 'undefined' ||
+      typeof fflate === 'undefined' ||
+      !bmwebPacks.wanted()
+    )
+      return inner(input, init);
+    const url = typeof input === 'string' ? input : (input && input.url) || '';
+    // this site's own files only: another host's URL is somebody else's
+    const here = typeof location !== 'undefined' ? `${location.origin}/` : '';
+    if (/^https?:\/\//i.test(url) && !(here && url.startsWith(here)))
+      return inner(input, init);
+    const rel = siteRelativePath(url.replace(/^file:\/\/[^/]*/, ''))
+      .split(/[?#]/)[0]
+      .slice(1);
+    if (!rel.startsWith('data/') || rel.includes('/packs/'))
+      return inner(input, init);
+    // the parts catalogue's side files are packed with the catalogue (so a
+    // build without it carries none of them); everything else together
+    const dir = rel.startsWith('data/etk/') ? 'data/etk/packs' : 'data/packs';
+    const folder = bmwebPacks.folder(
+      `${WEB_BASE}/${dir}`,
+      inner,
+      fzstd.decompress
+    );
+    let hit;
+    try {
+      hit = await folder.file('site', rel);
+    } catch (e) {
+      // a pack that cannot be read, or gave back other bytes than were
+      // packed: the fetch fails, it does not answer with the wrong file
+      console.error(`${rel}: ${e.message}`);
+      return errorResponse(`${rel}: ${e.message}`);
+    }
+    if (!hit) return inner(input, init);
+    if (method === 'HEAD') return new Response(null, { status: 200 });
+    return new Response(
+      hit.gz ? fflate.gzipSync(hit.bytes, { level: 0 }) : hit.bytes,
+      { status: 200 }
+    );
   };
 }
 
@@ -640,7 +851,7 @@ async function routeStatic(rel, real, init) {
  */
 function installWebShim() {
   const nativeFetch = window.fetch.bind(window);
-  const real = offlineAwareFetch(nativeFetch);
+  const real = packedFilesFetch(offlineAwareFetch(nativeFetch));
   window.webRealFetch = real;
   window.fetch = async (input, init) => {
     const rel = siteRelativePath(input);
