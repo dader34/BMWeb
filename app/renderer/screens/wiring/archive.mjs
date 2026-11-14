@@ -14,6 +14,7 @@ import {
   hfFilesMirrors,
   hfFolderMirrors,
   inlineWiring,
+  packedFolder,
   realFetch,
   webBase,
 } from './shell.mjs';
@@ -31,7 +32,10 @@ import {
  * A loaded .wiring archive.
  * @typedef {Object} WiringArchive
  * @property {WiringTreeNode} tree - the root of the WDS tree (tree.json)
- * @property {Map<string, Uint8Array>} files - every archive member by path
+ * @property {Map<string, Uint8Array>} files - every archive member by path;
+ *   for a PACKED archive, the members read so far (see wiringNeed)
+ * @property {{reader: any, name: string}} [packed] - set when the archive is
+ *   read out of an offline build's packs, member by member
  * @property {Map<string, string>} [imgUrls] - blob URLs minted for photos, by path
  */
 
@@ -104,6 +108,48 @@ export function wiringBase64Bytes(b64) {
 }
 
 /**
+ * Where an archive is in an offline build's packs, if this build has packs.
+ * @param {string} path - path under data/, e.g. 'wiring/E46.wiring'
+ * @returns {{reader: any, name: string} | null}
+ */
+function wiringPacked(path) {
+  const cut = path.indexOf('/');
+  const reader = cut > 0 ? packedFolder(path.slice(0, cut)) : null;
+  return reader ? { reader, name: path.slice(cut + 1) } : null;
+}
+
+/**
+ * Have these members of an archive ready in `data.files`.
+ *
+ * An archive that was fetched whole has them all, and this does nothing. A
+ * PACKED one (an offline build: scripts/build/pack_offline.py) is read a
+ * member at a time, so whoever is about to take a document out of
+ * `data.files` asks for it here first. A member that was gzipped in the
+ * archive comes back gzipped (stored, which costs nothing either way), so
+ * the readers below gunzip exactly what they always did. One that cannot
+ * be read whole is left out and said: a missing drawing, never a wrong one.
+ * @param {WiringArchive} data - the loaded archive
+ * @param {string[]} paths - the members about to be read
+ * @returns {Promise<void>}
+ */
+export async function wiringNeed(data, paths) {
+  if (!data || !data.packed) return;
+  for (const path of paths) {
+    if (data.files.has(path)) continue;
+    try {
+      const hit = await data.packed.reader.file(data.packed.name, path);
+      if (hit)
+        data.files.set(
+          path,
+          hit.gz ? fflate.gzipSync(hit.bytes, { level: 0 }) : hit.bytes
+        );
+    } catch (e) {
+      console.error(`${data.packed.name}/${path}: ${e.message}`);
+    }
+  }
+}
+
+/**
  * Fetch a zipped data archive, preferring an inlined copy (offline export)
  * over the network, and unpack it into its tree plus a member map.
  * @param {string} path - path under data/, e.g. 'wiring/E46.wiring'
@@ -116,6 +162,17 @@ export async function wiringFetchArchive(path, inline, missing) {
   if (inline) {
     bytes = wiringBase64Bytes(inline);
   } else {
+    // an offline build's packs: the tree now, a document when it is opened
+    const packed = wiringPacked(path);
+    if (packed && (await packed.reader.has(packed.name))) {
+      const tree = await packed.reader.file(packed.name, 'tree.json');
+      if (!tree) throw new Error(missing);
+      return {
+        tree: JSON.parse(new TextDecoder().decode(tree.bytes)),
+        files: new Map(),
+        packed,
+      };
+    }
     const r = await wiringRealFetch()(wiringDataUrl(path));
     if (!r.ok) throw new Error(missing);
     bytes = new Uint8Array(await r.arrayBuffer());
@@ -132,6 +189,8 @@ export async function wiringFetchArchive(path, inline, missing) {
  */
 export async function wiringDataExists(path) {
   try {
+    const packed = wiringPacked(path);
+    if (packed && (await packed.reader.has(packed.name))) return true;
     const r = await wiringRealFetch()(wiringDataUrl(path), { method: 'HEAD' });
     return r.ok;
   } catch {

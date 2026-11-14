@@ -6,6 +6,7 @@
 #   scripts/build/ci-fetch-hf-data.sh tuning   the XDF definition library, ~29 MB
 #   scripts/build/ci-fetch-hf-data.sh ista     the ISTA app's own data, ~360 MB
 #   scripts/build/ci-fetch-hf-data.sh ista-all adds the repair manual, ~1.0 GB
+#   scripts/build/ci-fetch-hf-data.sh spdaten  WebKFP's SP-Daten, packed, ~0.8 GB
 #   scripts/build/ci-fetch-hf-data.sh etk      the ETK parts tree, ~5.8 GB
 #   scripts/build/ci-fetch-hf-data.sh wiring   the WDS wiring archives, ~150 MB
 #   scripts/build/ci-fetch-hf-data.sh wiring-photos   with their photographs, ~1.0 GB
@@ -18,6 +19,7 @@
 # tree/data.js  -> data/ista/ecu-tree/  (the control unit tree AND the scan)
 # ista/plan.js  -> data/ista/abl/       (the test modules)
 # ista/*.js     -> data/ista/{diag,ecufn,techdata,wiring,repair}/
+# ista/*.js     -> data/ista/{xaml,infotree,search,faultcodes,testplan,ecu-names}/
 # tuning/xdf-library.js -> data/tuning/xdf/ (a DIFFERENT dataset: bmw-files)
 # wiring/archive.js     -> data/wiring/<chassis>.wiring (bmw-files as well)
 set -euo pipefail
@@ -73,11 +75,29 @@ case "${1:-}" in
     # wants five times it. One .ista per chassis is 26 downloads for the
     # same bytes, and it is the layout the app reads anyway.
     WANT='ista/bundles/* ista/ecu-tree/* ista/ecufn/* ista/techdata/*'
+    # the ISTA pages' own extracts (layouts, structure trees, search indexes,
+    # fault codes, test plans, unit names): six transport archives for 9,253
+    # files, unpacked by fetch_ista.py into data/ista/<set>/
+    WANT="$WANT ista/extract-bundles/*"
     # the repair manual as transport archives, not 55,480 separate files
     if [ "${1}" = "ista-all" ]; then WANT="$WANT ista/repair-bundles/*"; fi
     python3 scripts/build/fetch_ista.py "$DATASET" "$DIST/data" "$WANT"
     rm -rf "$DIST/data/.cache"
     du -sh "$DIST/data/ista"
+    ;;
+  spdaten)
+    # WebKFP's program and data files, packed: every module family but the
+    # head-unit, navigation and telephone images, which do not pack and are
+    # not in the packed set (about 0.8 GB). SPDATEN_MAX_MODULE_MB trims
+    # further: 5 leaves out the television and audio modules too (0.25 GB).
+    echo "==> SP-Daten -> $DIST/data/sp-daten"
+    python3 scripts/build/fetch_spdaten.py "${HF_FILES:-CraigFf/bmw-files}" "$DIST/data" \
+      --max-module-mb "${SPDATEN_MAX_MODULE_MB:-64}"
+    # the packer checked these with the zstd command; the app reads them
+    # with its own decoder, so read every file back with THAT before a
+    # build may carry them
+    node scripts/build/verify_packs.mjs --spdaten "$DIST/data/sp-daten"
+    du -sh "$DIST/data/sp-daten"
     ;;
   etk)
     echo "==> ETK parts tree -> $DIST/data/etk"
@@ -111,5 +131,5 @@ PY
     python3 scripts/build/fetch_wiring.py $PHOTOS "${HF_TUNING:-CraigFf/bmw-files}" "$DIST/data/wiring"
     du -sh "$DIST/data/wiring"
     ;;
-  *) echo "usage: $0 faults|tuning|ista|ista-all|etk|wiring|wiring-photos" >&2; exit 2 ;;
+  *) echo "usage: $0 faults|tuning|ista|ista-all|spdaten|etk|wiring|wiring-photos" >&2; exit 2 ;;
 esac

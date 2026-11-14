@@ -59,7 +59,12 @@ function istaBrowse(host, src, key, opts) {
       hits: [],
       doc: null,
     };
-  browserPaint(host, src, istaState.browse[key], opts || {});
+  const options = { ...(opts || {}) };
+  // in the workshop shell the two panes come from the tool's own layout;
+  // the open document stays the browser's
+  if (!options.panes && typeof istaBrowseShell === 'function')
+    options.panes = istaBrowseShell(options.shell);
+  browserPaint(host, src, istaState.browse[key], options);
 }
 
 /**
@@ -222,7 +227,7 @@ function istaOpenPlanDoc(row) {
  * @param {string} chassis - the development code
  * @returns {Promise<object[]>} the rows to push into the plan
  */
-async function istaCalcPlan(fault, car, chassis) {
+async function istaCalcPlan(fault, car, chassis, opts) {
   if (!fault) return [];
   /** @type {object[]} */
   const out = [];
@@ -272,16 +277,32 @@ async function istaCalcPlan(fault, car, chassis) {
     return out;
   };
   const tiers = [];
+  // 0. THE TOOL'S OWN LOOKUP: the fault location the module reported, under
+  //    the module's variant. That number is what ISTA resolves a fault code
+  //    by, so it is tried before any spelling recovered from the display.
+  const ort = Number(raw.F_ORT_NR);
+  if (
+    sgbd &&
+    raw.F_ORT_NR != null &&
+    raw.F_ORT_NR !== '' &&
+    Number.isFinite(ort)
+  )
+    tiers.push([`${sgbd}:${ort.toString(16).toUpperCase()}`]);
   // 1. this module's own link for this code
   if (sgbd)
     tiers.push(
       [...(full ? spell(full) : []), ...spell(code)].map((k) => `${sgbd}:${k}`)
     );
+  // AN EXACT CALCULATION STOPS HERE. The tool links a procedure to a fault
+  // code OF AN ECU VARIANT and to nothing looser; the unscoped tiers below
+  // are this build's guesses for a fault it cannot place, and a calculation
+  // that claims to be ISTA's must not mix them in.
+  const exact = !!(opts && opts.exact);
   // 2. the full fault word, which identifies one fault rather than a family
-  if (full && full !== code) tiers.push(spell(full));
+  if (!exact && full && full !== code) tiers.push(spell(full));
   // 3. the bare code, but only when it is a whole word rather than the
   //    location byte a hundred modules share
-  if (code.replace(/^0+/, '').length > 2) tiers.push(spell(code));
+  if (!exact && code.replace(/^0+/, '').length > 2) tiers.push(spell(code));
 
   const collect = (list) => {
     const got = [];
@@ -306,7 +327,7 @@ async function istaCalcPlan(fault, car, chassis) {
       fault: code,
     });
   }
-  if (out.length) return out;
+  if (out.length || exact) return out;
   // no index, or no link for this fault: the linked document still tells a
   // technician what BMW says to do, so the row is worth having
   await istaProbe(() =>

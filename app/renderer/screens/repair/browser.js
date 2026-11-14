@@ -197,7 +197,7 @@ function browserRowsHtml(rows, src, selected) {
  * @param {HTMLElement} host - where to draw
  * @param {BrowserSource} src - the data
  * @param {object} state - {path, open, hits, doc, loading} kept by the caller
- * @param {object} [opts] - {emptyTitle, onChange}
+ * @param {object} [opts] - {emptyTitle, onChange, panes}
  * @returns {void}
  */
 function browserPaint(host, src, state, opts) {
@@ -210,6 +210,15 @@ function browserPaint(host, src, state, opts) {
   function paint() {
     stamp();
     if (state.doc) return paintDoc();
+    // a caller may draw the two panes itself (the workshop shell draws them
+    // from the tool's own layout) and leave the open document to this file;
+    // it answers false when it cannot, and the panes below are drawn
+    if (typeof options.panes === 'function') {
+      Promise.resolve(options.panes({ host, src, state, paint })).then((ok) => {
+        if (!ok && host.isConnected && !state.doc) paintPanes();
+      });
+      return;
+    }
     paintPanes();
   }
 

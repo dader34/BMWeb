@@ -237,6 +237,10 @@ run node tools/verify/test_coding_scripts.js
 
 echo "== WebKFP: flash-file reader, ZB table, CDH host data pump, WinKFP's own logic, every exported script served =="
 run node tools/verify/test_kfp.js
+# an offline build's packed data, read back through the app's own loaders
+# (reference zstd), and the zstd decoder the app ships against the reference
+run node tools/verify/test_packs.js
+run node tools/verify/test_fzstd.js
 
 echo
 echo "== coding UI -> write flow: review builds the payload, write needs confirmed =="
@@ -367,6 +371,9 @@ run node tools/verify/test_ista.js
 echo
 echo "== ISTA vehicle test: the read runs in the shell and is kept on the car =="
 run node tools/verify/test_ista_vehicle_test.js
+# pages drawn from ISTA's own layout: the compiler (when the decompiled XAML
+# is on this machine) and the renderer's split into content/status/buttons
+run node tools/verify/test_ista_xaml.js
 
 echo
 echo "== repair manual: the extractor's document model, groups and pictures =="

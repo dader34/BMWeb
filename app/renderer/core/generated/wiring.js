@@ -60,6 +60,10 @@ var wiring = (() => {
     typeof BMWEB_WIRING === "object" && BMWEB_WIRING ? BMWEB_WIRING : null;
   var inlineDocs = () =>
     typeof BMWEB_DOCS === "object" && BMWEB_DOCS ? BMWEB_DOCS : null;
+  var packedFolder = (folder) =>
+    typeof g.dataPackedFolder === "function"
+      ? g.dataPackedFolder(folder)
+      : null;
   var realFetch = () =>
     typeof g.webRealFetch === "function"
       ? g.webRealFetch
@@ -121,6 +125,7 @@ var wiring = (() => {
   var fflate = {
     strFromU8: (...a) => g.fflate.strFromU8(...a),
     gunzipSync: (...a) => g.fflate.gunzipSync(...a),
+    gzipSync: (...a) => g.fflate.gzipSync(...a),
     unzipSync: (...a) => g.fflate.unzipSync(...a),
   };
 
@@ -151,11 +156,42 @@ var wiring = (() => {
     for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
     return bytes;
   }
+  function wiringPacked(path) {
+    const cut = path.indexOf("/");
+    const reader = cut > 0 ? packedFolder(path.slice(0, cut)) : null;
+    return reader ? { reader, name: path.slice(cut + 1) } : null;
+  }
+  async function wiringNeed(data, paths) {
+    if (!data || !data.packed) return;
+    for (const path of paths) {
+      if (data.files.has(path)) continue;
+      try {
+        const hit = await data.packed.reader.file(data.packed.name, path);
+        if (hit)
+          data.files.set(
+            path,
+            hit.gz ? fflate.gzipSync(hit.bytes, { level: 0 }) : hit.bytes,
+          );
+      } catch (e) {
+        console.error(`${data.packed.name}/${path}: ${e.message}`);
+      }
+    }
+  }
   async function wiringFetchArchive(path, inline, missing) {
     let bytes;
     if (inline) {
       bytes = wiringBase64Bytes(inline);
     } else {
+      const packed = wiringPacked(path);
+      if (packed && (await packed.reader.has(packed.name))) {
+        const tree2 = await packed.reader.file(packed.name, "tree.json");
+        if (!tree2) throw new Error(missing);
+        return {
+          tree: JSON.parse(new TextDecoder().decode(tree2.bytes)),
+          files: /* @__PURE__ */ new Map(),
+          packed,
+        };
+      }
       const r = await wiringRealFetch()(wiringDataUrl(path));
       if (!r.ok) throw new Error(missing);
       bytes = new Uint8Array(await r.arrayBuffer());
@@ -166,6 +202,8 @@ var wiring = (() => {
   }
   async function wiringDataExists(path) {
     try {
+      const packed = wiringPacked(path);
+      if (packed && (await packed.reader.has(packed.name))) return true;
       const r = await wiringRealFetch()(wiringDataUrl(path), {
         method: "HEAD",
       });
@@ -1391,6 +1429,7 @@ var wiring = (() => {
     return bar;
   }
   function wiringRenderEntry(ctx, entry) {
+    ctx.renderSeq = (ctx.renderSeq || 0) + 1;
     if (entry.isDoc || (entry.doc && String(entry.doc).startsWith("d:")))
       wiringRenderIstaDoc(ctx, entry);
     else if (!entry.doc) wiringRenderGlossary(ctx, entry);
@@ -1422,6 +1461,7 @@ var wiring = (() => {
         ctx.docsData = null;
       }
     }
+    if (ctx.docsData) await wiringNeed(ctx.docsData, [`docs/${id}.json`]);
     const doc = ctx.docsData ? docsDoc(ctx.docsData, id) : null;
     if (!doc || !doc.chapters || !doc.chapters.length) {
       viewEl.insertAdjacentHTML(
@@ -1516,14 +1556,16 @@ var wiring = (() => {
         return;
       }
       im.classList.add("wiring-img-loading");
-      wiringFetchImage(path.slice(4)).then((blob) => {
-        im.classList.remove("wiring-img-loading");
-        if (!blob) {
-          im.remove();
-          return;
-        }
-        im.src = wiringImageUrl(data, path, blob);
-      });
+      wiringNeed(data, [path])
+        .then(() => data.files.get(path) || wiringFetchImage(path.slice(4)))
+        .then((got) => {
+          im.classList.remove("wiring-img-loading");
+          if (!got) {
+            im.remove();
+            return;
+          }
+          im.src = wiringImageUrl(data, path, got);
+        });
     });
   }
   function wiringBindCrossLinks(art, ctx) {
@@ -1652,6 +1694,19 @@ var wiring = (() => {
       routeSetWiringDoc(ctx.chassisId, entry.doc, vin);
     }
     if (wiringIsPhone()) ctx.setPane("doc", false);
+    if (ctx.data && ctx.data.packed) {
+      const seq = ctx.renderSeq;
+      wiringNeed(ctx.data, [
+        `svg/${entry.doc}.svgz`,
+        `doc/${entry.doc}.html`,
+      ]).then(() => {
+        if (ctx.renderSeq === seq) wiringDrawDocument(ctx, entry);
+      });
+      return;
+    }
+    wiringDrawDocument(ctx, entry);
+  }
+  function wiringDrawDocument(ctx, entry) {
     const doc = wiringDoc(ctx.data, entry.doc);
     const viewEl = ctx.viewEl;
     viewEl.innerHTML = "";

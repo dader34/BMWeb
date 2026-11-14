@@ -259,6 +259,9 @@ async function showRepair(host, car, chassis, view) {
       browserPaint(body, src, repairState.browse, {
         emptyTitle: 'Product structure',
         onChange: repairStamp,
+        // inside the workshop shell the panes are the tool's own layout
+        panes:
+          typeof istaBrowseShell === 'function' ? istaBrowseShell() : undefined,
       });
       return;
     }

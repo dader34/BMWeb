@@ -2134,3 +2134,963 @@ html .ista-real-body .irabl-docl .wiring-share {
   font-size: 12px;
   color: #a60;
 }
+
+/* ---- pages drawn from the tool's own layout (screens/ista/xaml.js) --------
+   A template supplies structure and sizes; everything painted here is the
+   shell's existing look, so a page drawn from a template sits beside a
+   hand-built one without a seam. */
+.ista-real-body .ixaml {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  box-sizing: border-box;
+  overflow: auto;
+}
+.ista-real-body .ixaml > * {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.ista-real-body .ixgrid {
+  display: grid;
+  min-height: 0;
+}
+.ista-real-body .ixstack {
+  display: flex;
+  min-height: 0;
+}
+.ista-real-body .ixrow {
+  flex-direction: row;
+  align-items: stretch;
+}
+.ista-real-body .ixcol {
+  flex-direction: column;
+}
+.ista-real-body .ixscroll {
+  overflow: auto;
+}
+.ista-real-body .ixlabel,
+.ista-real-body .ixtext {
+  font: 12px/1.3 var(--ir-font);
+  color: var(--ir-ink);
+}
+.ista-real-body .ixtable {
+  align-self: flex-start;
+}
+.ista-real-body .ixaml > table {
+  flex: 0 0 auto;
+}
+/* one line per row, as the tool draws it; the page scrolls sideways */
+.ista-real-body .ixtable td {
+  white-space: nowrap;
+  max-width: 60vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Show completely: a long text wraps instead of running off the page */
+.ista-real-body .ixtable.ixfull td {
+  white-space: normal;
+  overflow: visible;
+}
+.ista-real-body .ixtable th.ixsort {
+  cursor: pointer;
+}
+.ista-real-body .ixtable tr.ixempty td {
+  white-space: normal;
+  color: var(--ir-off);
+  padding: 14px 8px;
+}
+/* Collapse / expand: only the group headings stay */
+.ista-real-body .ixtable.ixcollapsed tbody tr:not(.irgroup) {
+  display: none;
+}
+.ista-real-body .irbtn.on {
+  background: #b8b8b8;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+/* Basic Features: three lists side by side, each scrolling on its own.
+   Pinned to the page the way the hand-built panes are, so the lists have a
+   height to scroll inside. */
+.ista-real-body .ixaml.ixbasic {
+  position: absolute;
+  inset: 0;
+  height: auto;
+  overflow: hidden;
+}
+.ista-real-body .ixbasic .ixrow {
+  overflow: hidden;
+}
+.ista-real-body .ixbasic .ixtable {
+  display: block;
+  overflow-y: auto;
+  align-self: stretch;
+}
+.ista-real-body .ixbasic .ixtable td {
+  cursor: pointer;
+}
+.ista-real-body .ixcustom[hidden] {
+  display: none;
+}
+.ista-real-body .ixinput {
+  font: 16px/1.2 var(--ir-font);
+  border: 1px solid #9a9a9a;
+  padding: 2px 4px;
+  box-sizing: border-box;
+  width: 100%;
+}
+.ista-real-body .ixcheck {
+  font: 12px/1.3 var(--ir-font);
+  margin-right: 18px;
+}
+.ista-real-body .ixwarn svg {
+  width: 16px;
+  height: 16px;
+  vertical-align: middle;
+}
+.ista-real-body .ixdot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1px solid #777;
+}
+.ista-real-body .ixdot-op {
+  width: 16px;
+  height: 16px;
+  background: var(--ir-teal, #669999);
+  border-color: transparent;
+}
+/* the tool's text styles, by the key the view names */
+.ista-real-body [data-xstyle='styleTextLight'] {
+  color: #6a6a6a;
+  font-size: 11px;
+}
+.ista-real-body [data-xstyle='styleTextWithWrapOverflow'] {
+  font-weight: 700;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.ista-real-body [data-xstyle='styleLabelText'] {
+  font-size: 13px;
+  font-weight: 700;
+  display: block;
+  margin-bottom: 4px;
+}
+/* Vehicle details: the four-column grid, then the lists under it */
+.ista-real-body .ixdetails .ixgrid {
+  align-content: start;
+}
+.ista-real-body .ixdetails .ixtable {
+  width: auto;
+}
+.ista-real-body .ixdetails .ixtable thead:empty,
+.ista-real-body .ixdetails .ixtable th:empty {
+  display: none;
+}
+/* the operation's colour is a round swatch, as the tool draws it */
+.ista-real-body .irtable td .ixdot.ixdot-op {
+  border-radius: 50%;
+  vertical-align: middle;
+}
+/* VIN and text search: the form sits centred at the width the view gives it,
+   and the Garage list (ours) takes the full width under it */
+.ista-real-body .ixvin > .ixbox,
+.ista-real-body .ixsearch > .ixbox {
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: center;
+}
+.ista-real-body .ixvin .ixstack,
+.ista-real-body .ixsearch .ixstack {
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+/* centred on the same axis as the VIN box above it, as the hand-built page
+   had it: the list keeps its own 640px and sits under the form */
+.ista-real-body .ixvin .irvin-garage {
+  flex: 0 0 auto;
+  align-self: center;
+  margin: 26px auto 0;
+}
+.ista-real-body .ixsearch .ixcheck {
+  display: block;
+}
+.ista-real-body .ixvin .irvin-garage .irtable {
+  width: 100%;
+}
+
+/* ---- dialogs drawn from the tool's layout ---------------------------------- */
+.ixdialog {
+  width: min(1010px, calc(100vw - 40px));
+  max-height: calc(100vh - 60px);
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  color: #111;
+  border-radius: 0;
+  padding: 0;
+}
+.ixdialog > .modal-title {
+  background: var(--ir-teal, #669999);
+  color: #fff;
+  font: 700 14px/1.2 var(--ir-font, Arial, sans-serif);
+  padding: 8px 10px;
+  margin: 0;
+}
+.ixdialog-host {
+  position: relative;
+  overflow: auto;
+  padding: 0;
+  background: #fff;
+  font: 12px/1.3 var(--ir-font, Arial, sans-serif);
+}
+.ista-real-body .ixtabs-strip {
+  display: flex;
+  gap: 2px;
+  padding: 6px 6px 0;
+  border-bottom: 2px solid var(--ir-teal, #669999);
+}
+.ista-real-body .ixtabs-body {
+  padding: 6px;
+}
+.ista-real-body .ixstep {
+  min-width: 32px;
+  padding: 2px 6px;
+}
+.ista-real-body .ixitems .ixcheck {
+  display: block;
+}
+.ista-real-body .ixgraph text {
+  font: 11px var(--ir-font, Arial, sans-serif);
+  fill: #222;
+}
+.ista-real-body .ixgraph .ax {
+  stroke: #222;
+  stroke-width: 1;
+}
+.ista-real-body .ixgraph .row {
+  stroke: #d6d6d6;
+  stroke-width: 1;
+}
+.ista-real-body .ixgraph .mark {
+  fill: var(--ir-teal, #669999);
+}
+.ista-real-body .ixgraph .cursor {
+  stroke: #c0392b;
+  stroke-width: 2;
+}
+
+/* ---- the tree control (screens/ista/xaml.js) -------------------------------- */
+.ista-real-body .ixtree {
+  overflow: auto;
+  font: 12px/1.3 var(--ir-font);
+  height: 100%;
+}
+.ista-real-body .ixtree ul {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 16px;
+}
+.ista-real-body .ixtree > ul {
+  padding-left: 2px;
+}
+.ista-real-body .ixtree-row {
+  display: flex;
+  gap: 4px;
+  padding: 3px 4px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.ista-real-body .ixtree-row:hover {
+  background: #e8efef;
+}
+.ista-real-body .ixtree-row.sel {
+  background: var(--ir-teal, #669999);
+  color: #fff;
+}
+.ista-real-body .ixtree-row.off:not(.sel) {
+  color: #555;
+}
+.ista-real-body .ixtree-tw {
+  width: 10px;
+  flex: 0 0 10px;
+}
+.ista-real-body .ixaml.ixpattern {
+  position: absolute;
+  inset: 0;
+  height: auto;
+  overflow: hidden;
+  padding: 6px;
+}
+.ista-real-body .ixpattern [data-xstyle='TreeViewHeaderStyle'] {
+  display: block;
+  background: var(--ir-head);
+  color: #fff;
+  font-weight: 700;
+  padding: 4px 6px;
+  min-height: 22px;
+  box-sizing: border-box;
+}
+.ixdialog.ixdialog-narrow {
+  width: min(760px, calc(100vw - 40px));
+}
+/* a dialog's own header row repeats the title bar the modal already draws */
+.ixdialog [data-xstyle='styleDialogHeaderSmall'] {
+  display: none;
+}
+/* a button the tool draws as an icon alone fills the narrow cell it is given */
+.ista-real-body .irbtn.ixicon {
+  min-width: 0;
+  width: calc(100% - 4px);
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ista-real-body .ixgrid > .ixtext,
+.ista-real-body .ixgrid > .ixlabel {
+  align-self: center;
+}
+.ista-real-body .ixbusy[hidden] {
+  display: none;
+}
+/* Fault pattern: the search row sits tight above a framed tree that takes
+   the rest of the page */
+.ista-real-body .ixpattern .ixinput {
+  height: 26px;
+  font-size: 13px;
+}
+.ista-real-body .ixpattern .ixtree {
+  border: 1px solid var(--ir-grey-line, #b5b5b5);
+  border-top: 0;
+  background: #fff;
+  box-sizing: border-box;
+  padding: 4px 2px;
+}
+.ista-real-body .ixpattern .ixtree-row {
+  padding: 2px 4px;
+}
+/* A TREE SCROLLS INSIDE ITS OWN PANE. Every box between the page and the
+   tree has to pass the page's height down, or the tree simply grows past
+   the bottom of a page that clips it and cannot be scrolled at all. */
+.ista-real-body .ixaml :is(.ixbox, .ixgrid):has(.ixtree) {
+  height: 100%;
+  min-height: 0;
+  box-sizing: border-box;
+}
+/* the selected node's title bar is light on dark, whatever the page's own
+   text colour says */
+.ista-real-body .ixaml [data-xstyle='TreeViewHeaderStyle'] {
+  color: #fff !important;
+}
+/* Fault pattern's search row: the box, the two icon buttons and Collapse all
+   share one height and one right edge */
+.ista-real-body .ixpattern .ixgrid:has(> .ixinput) {
+  align-items: center;
+  column-gap: 4px;
+}
+.ista-real-body .ixpattern .ixgrid:has(> .ixinput) > * {
+  margin: 0 !important;
+}
+.ista-real-body .ixpattern .ixinput {
+  height: 28px;
+}
+.ista-real-body .ixpattern .irbtn.ixicon {
+  width: 100%;
+  height: 28px;
+}
+.ista-real-body .ixpattern .ixgrid:has(> .ixgrid > .ixinput) {
+  row-gap: 4px;
+  align-items: center;
+}
+.ista-real-body .ixpattern .ixgrid:has(> .ixgrid > .ixinput) > .ixgrid {
+  margin: 0 !important;
+}
+/* a list with its own height: the pane scrolls, the rows keep their height */
+.ista-real-body .ixlist {
+  overflow: auto;
+  border: 1px solid var(--ir-grey-line, #b5b5b5);
+  box-sizing: border-box;
+  max-width: 100%;
+}
+/* A DIALOG FITS THE WINDOW. The tool sizes its dialogs in fixed pixels for a
+   fixed screen; here the list gives way first so the buttons under it are
+   never pushed off the bottom. */
+.modal.ixdialog > .modal-title {
+  background: #669999 !important;
+  color: #fff !important;
+}
+.ixdialog .irtable th {
+  color: #fff !important;
+}
+.ixdialog-host .ixstack,
+.ixdialog-host .ixbox {
+  height: auto !important;
+  max-width: 100%;
+}
+.ixdialog-host .ixlist {
+  max-height: min(512px, calc(100vh - 230px));
+  min-height: 160px;
+  width: auto !important;
+}
+/* the shell's own dialogs print their row headings dark on light; a table
+   drawn from the tool's layout keeps the tool's light-on-dark column head */
+html .ista-real-body .modal.ixdialog table.irtable thead th,
+html[data-theme] .ista-real-body .modal.ixdialog table.irtable thead th {
+  color: #fff !important;
+  background: var(--ir-head, #4d4d4d) !important;
+}
+
+/* ---- headers, as the tool's own styles set them ----------------------------
+   styleListViewHeader / styleListViewDataGridColumnHeader / TreeViewHeaderStyle
+   in ISTA's resource dictionaries: Arial 14 bold, WHITE on #666666, 36 high,
+   10 in from the left, a 2px white rule between columns; a list is framed
+   2px #A9A9A9 on every side but the top. Applied to what is drawn from a
+   template, so those pages carry the tool's numbers rather than ours. */
+html .ista-real-body .ixtable thead th,
+html[data-theme] .ista-real-body .ixtable thead th,
+html .ista-real-body .modal.ixdialog table.ixtable thead th,
+html[data-theme] .ista-real-body .modal.ixdialog table.ixtable thead th {
+  background: #666 !important;
+  color: #fff !important;
+  font:
+    700 14px/1.2 Arial,
+    'Arial Unicode MS',
+    sans-serif;
+  height: 36px;
+  padding: 0 6px 0 10px;
+  border: 0;
+  border-right: 2px solid #fff;
+}
+.ista-real-body .ixtable thead th:last-child {
+  border-right: 0;
+}
+.ista-real-body .ixaml [data-xstyle='TreeViewHeaderStyle'] {
+  background: #666;
+  font:
+    700 14px/36px Arial,
+    'Arial Unicode MS',
+    sans-serif;
+  height: 36px;
+  padding: 0 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ista-real-body .ixlist,
+.ista-real-body .ixpattern .ixtree {
+  border: 2px solid #a9a9a9;
+  border-top: 0;
+}
+
+/* ---- the control unit tree, as the tool draws it (screens/ista/ecu-tree.js) -
+   EcuTreeNew.xaml: 60 x 25 buttons in 72 x 31 cells, white text on the
+   unit's colour inside a 1px white rule; the picked one turns light grey
+   with a 4px border in its own colour and black text. */
+.ista-real-body .ixaml.ixtreepage {
+  position: absolute;
+  inset: 0;
+  height: auto;
+  overflow: auto;
+  background: #fff;
+}
+.ista-real-body .ixecutree {
+  position: relative;
+  padding: 6px 0 0 3px;
+}
+.ista-real-body .ixecutree-grid {
+  position: relative;
+}
+.ista-real-body .ixecutree-lines {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 0;
+}
+.ista-real-body .ixecutree-housing {
+  position: absolute;
+  background: #5f9ea0;
+  z-index: 1;
+}
+.ista-real-body .ixecutree-unit {
+  position: absolute;
+  z-index: 2;
+  box-sizing: border-box;
+  background: var(--ecu, #a9a9a9);
+  color: #fff;
+  border: 1px solid #fff;
+  border-radius: 2px;
+  font:
+    10px/1 Arial,
+    sans-serif;
+  padding: 0 1px 1px 0;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.ista-real-body .ixecutree-unit:hover {
+  filter: brightness(1.12);
+}
+.ista-real-body .ixecutree-unit:active {
+  transform: scale(0.9);
+}
+.ista-real-body .ixecutree-unit.on {
+  background: #ccc;
+  color: #000;
+  border: 4px solid var(--ecu, #a9a9a9);
+}
+.ista-real-body .ixecutree-legend {
+  display: flex;
+  margin-top: 20px;
+  font:
+    10px/24px Arial,
+    sans-serif;
+}
+.ista-real-body .ixecutree-legend-item {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 20px;
+  gap: 6px;
+}
+.ista-real-body .ixecutree-legend-item i {
+  display: inline-block;
+  width: 30px;
+  height: 2px;
+}
+.ista-real-body .ixecutree-tip {
+  position: absolute;
+  z-index: 5;
+  background: #ffffe1;
+  border: 1px solid #767676;
+  padding: 4px 6px;
+  font:
+    11px/1.35 Arial,
+    sans-serif;
+  color: #000;
+  pointer-events: none;
+}
+.ista-real-body .ixecutree-tip[hidden] {
+  display: none;
+}
+.ista-real-body .ixecutree-grid {
+  min-width: 100%;
+}
+.ista-real-body .ixecutree {
+  padding-right: 3px;
+}
+/* the tree page fills the body: the tree itself scrolls, and the bus legend
+   stays on the last line under it, as it does in the tool */
+.ista-real-body .ixaml.ixtreepage {
+  overflow: hidden;
+}
+.ista-real-body .ixaml.ixtreepage > .ixgrid {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+  grid-template-rows: minmax(0, 1fr) !important;
+}
+.ista-real-body .ixaml.ixtreepage .ixwidget {
+  height: 100%;
+  min-height: 0;
+}
+.ista-real-body .ixaml.ixtreepage .ixecutree {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  box-sizing: border-box;
+}
+.ista-real-body .ixaml.ixtreepage .ixecutree-grid {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+.ista-real-body .ixaml.ixtreepage .ixecutree-legend {
+  flex: 0 0 auto;
+  margin-top: 4px;
+}
+
+/* The Workshop Equipment page is the app's own technical data screen
+   inside the tool's shell, and it brought the app's type with it: Archivo,
+   and small spaced capitals on the headers. Inside the shell it takes the
+   tool's: the skin's face throughout, and the list and tree headers the
+   tool draws (Arial 14 bold, white on #666, 36 high). */
+.ista-real-body .view .td-wrap,
+.ista-real-body .view .td-wrap * {
+  font-family: var(--ir-font);
+}
+html .ista-real-body .view .td-wrap .td-table thead th,
+html[data-theme] .ista-real-body .view .td-wrap .td-table thead th {
+  background: #666 !important;
+  color: #fff !important;
+  font:
+    700 14px/1.2 Arial,
+    'Arial Unicode MS',
+    sans-serif;
+  text-transform: none;
+  letter-spacing: 0;
+  height: 36px;
+  vertical-align: middle;
+  padding: 0 6px 0 10px;
+  border: 0;
+  border-right: 2px solid #fff;
+}
+.ista-real-body .view .td-wrap .td-table thead th:last-child {
+  border-right: 0;
+}
+html .ista-real-body .view .td-wrap .td-tree-head {
+  background: #666 !important;
+  height: 36px;
+  box-sizing: border-box;
+  padding: 0 6px 0 10px;
+}
+html .ista-real-body .view .td-wrap .td-tree-title {
+  color: #fff !important;
+  font:
+    700 14px/1.2 Arial,
+    'Arial Unicode MS',
+    sans-serif;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.ista-real-body .view .td-wrap .td-node-name,
+.ista-real-body .view .td-wrap .td-node-n,
+.ista-real-body .view .td-wrap .td-table td {
+  font-size: 12px;
+}
+
+/* ---- the structure browsers (TraversableDiagnosisObjectTreeView) -----------
+   The tree and the hit list side by side: with both shown the tree takes
+   four sevenths (TreeViewColumnRoundedWithOffsetWidth), and each resize
+   arrow gives one of them the whole width. */
+.ista-real-body .ixaml.ixbrowse {
+  position: absolute;
+  inset: 0;
+  height: auto;
+  overflow: hidden;
+  padding: 6px;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  grid-template-columns: minmax(0, 4fr) minmax(0, 3fr);
+}
+.ista-real-body .ixaml.ixbrowse > * {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+}
+.ista-real-body .ixaml.ixbrowse-tree,
+.ista-real-body .ixaml.ixbrowse-list {
+  grid-template-columns: minmax(0, 1fr);
+}
+/* the tree's cell is still there when only the list is shown */
+.ista-real-body .ixaml.ixbrowse-list > :first-child {
+  display: none;
+}
+.ista-real-body .ixbrowse .ixtree {
+  border: 2px solid #a9a9a9;
+  border-top: 0;
+  background: #fff;
+  box-sizing: border-box;
+  padding: 4px 2px;
+}
+.ista-real-body .ixbrowse .ixtree-row {
+  padding: 2px 4px;
+}
+.ista-real-body .ixbrowse :is(.ixbox, .ixgrid):has(.ixtable) {
+  height: 100%;
+  min-height: 0;
+  box-sizing: border-box;
+}
+/* the picked node's title bar spans the pane even when nothing is picked */
+.ista-real-body .ixbrowse [data-xstyle='TreeViewHeaderStyle'] {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 36px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ista-real-body
+  .ixbrowse
+  :is(.ixbox, .ixgrid):has(> [data-xstyle='TreeViewHeaderStyle']) {
+  width: 100%;
+  min-width: 0;
+}
+
+/* ---- Administration, from the tool's own layout (screens/ista/admin.js) --- */
+.ista-real-body .iradmin.ixdialog {
+  width: min(1000px, 94vw);
+}
+.ista-real-body .iradmin .iradmin-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.ista-real-body .iradmin .iradmin-x {
+  border: 0;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+  padding: 0 4px;
+}
+.ista-real-body .iradmin .iradmin-host {
+  min-height: 320px;
+  max-height: 70vh;
+  overflow: auto;
+}
+.ista-real-body .iradmin .ixtabs-body {
+  padding: 10px 6px;
+}
+.ista-real-body .iradmin .ixtabs-body .ixcheck {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 220px;
+  margin: 3px 0;
+}
+.ista-real-body .iradmin .iradmin-country {
+  font: inherit;
+  padding: 2px 6px;
+}
+/* the tool lays a setting's choices out in a wrapping row */
+.ista-real-body
+  .iradmin
+  .ixtabs-body
+  :is(.ixbox, .ixgrid, .ixstack):has(> .ixcheck) {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+  margin: 2px 0 12px 15px;
+}
+/* the dealer record's one line: caption and value level with each other */
+.ista-real-body .iradmin .ixtabs-body .ixgrid:has(.iradmin-country) {
+  align-items: center;
+  justify-content: start;
+  margin-bottom: 16px !important;
+}
+.ista-real-body
+  .iradmin
+  .ixtabs-body
+  .ixgrid:has(.iradmin-country)
+  > .ixtext:first-child {
+  font-weight: 700;
+}
+/* the hit list scrolls inside its own pane, under a header that stays */
+.ista-real-body .ixbrowse .ixbox:has(> .ixtable) {
+  overflow: auto;
+  height: 100%;
+  min-height: 0;
+}
+.ista-real-body .ixbrowse .ixbox:has(> .ixtable) thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+/* ---- an opened document is a page of its own (DocumentPage) -----------------
+   In the tool a document takes the whole area under the vehicle line: no
+   navigation tabs, a title band across the full width with its controls at
+   the right, the body under it, and the page's buttons at the bottom
+   right. So the browser's document view covers the tab strips while it is
+   open instead of sitting in what is left under them. */
+.ista-real-body :is(.ista-repair, .rp-body):has(> .rp-doc) {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: var(--ista-doc-top, 84px);
+  bottom: 0;
+  height: auto !important;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+}
+.ista-real-body :is(.ista-repair, .rp-body):has(> .rp-doc) > .rp-doc {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 0;
+  border: 0;
+}
+.ista-real-body .ista-repair .rp-doc .rp-doc-bar {
+  padding: 8px 10px;
+  font-size: 15px;
+}
+.ista-real-body .ista-repair .rp-doc .rp-doc-body {
+  padding: 16px 24px 32px;
+}
+/* the page's buttons: bottom right, as the tool has them */
+.ista-real-body :is(.ista-repair, .rp-body):has(> .rp-doc) > .rp-status {
+  justify-content: flex-end;
+  padding: 6px 6px 8px;
+  border-top: 1px solid #c8c8c8;
+}
+.ista-real-body
+  :is(.ista-repair, .rp-body):has(> .rp-doc)
+  > .rp-status
+  .rp-hits {
+  display: none;
+}
+/* the title is on the page's band; the tool's document does not say it a
+   second time at the top of the body */
+.ista-real-body .ista-repair .rp-doc .td-doc-crumb,
+.ista-real-body .ista-repair .rp-doc .td-doc-title,
+.ista-real-body .ista-repair .rp-doc .rp-doc-body > .rp-doc-h:first-child {
+  display: none;
+}
+
+/* ---- a refining pass against the tool's own styles and screens --------------
+   Values from the tool's resource dictionary (RheingoldPresentationFramework
+   resourcedictionary.xaml), drawn at this shell's 0.8 scale of the tool's
+   1366-wide layout, and checked against screens of the tool itself.
+
+   styleContentButton: #CCCCCC, flat (its border is its own colour), Arial
+   13 BOLD, 141 x 45, 3 between; a disabled one reads #A9A9A9. */
+.ista-real-body {
+  --ir-bottom-h: 42px;
+}
+.ista-real-body .irbtn {
+  background: #ccc;
+  border: 1px solid #ccc;
+  font:
+    700 11px/1.15 Arial,
+    'Arial Unicode MS',
+    sans-serif;
+  width: 112px;
+  min-width: 112px;
+  height: 36px;
+  padding: 2px 6px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.ista-real-body .irbtn:hover:not(:disabled) {
+  background: #d9d9d9;
+  border-color: #d9d9d9;
+}
+.ista-real-body .irbtn:disabled {
+  color: #a9a9a9;
+}
+.ista-real-body .irbottom {
+  gap: 3px;
+  padding: 0 4px;
+}
+.ista-real-body .irnav {
+  background: #ccc;
+  border: 1px solid #ccc;
+  height: 36px;
+}
+/* styleVehicleAndProcessDataLabel / ...Value: Arial 14 BOLD, the label
+   #666666 and the value black */
+.ista-real-body .irstatus {
+  font:
+    700 11px/1 Arial,
+    'Arial Unicode MS',
+    sans-serif;
+  color: #666;
+}
+.ista-real-body .irstatus b {
+  color: #000;
+}
+/* the state legend: a small bordered box with the state's colour as a dot
+   inside, in the tool's own ECU colours */
+.ista-real-body .irlegend {
+  color: #666;
+  gap: 16px;
+}
+.ista-real-body .irlegend i {
+  width: 11px;
+  height: 11px;
+  border: 1px solid #444;
+  border-radius: 2px;
+  background: #fff;
+  box-sizing: border-box;
+}
+.ista-real-body .irlegend i.ok {
+  background: radial-gradient(circle, #008000 0 3px, #fff 3.6px);
+}
+.ista-real-body .irlegend i.warn {
+  background: radial-gradient(circle, #c39f0d 0 3px, #fff 3.6px);
+}
+.ista-real-body .irlegend i.bad {
+  background: radial-gradient(circle, #a52a2a 0 3px, #fff 3.6px);
+}
+.ista-real-body .irlegend i.blue {
+  background: radial-gradient(circle, #4169e1 0 3px, #fff 3.6px);
+}
+.ista-real-body .irlegend i.dim {
+  background: radial-gradient(circle, #a9a9a9 0 3px, #fff 3.6px);
+}
+/* the toolbar's buttons are boxes (iconButton: 33 square, bordered) */
+.ista-real-body .irt-ico {
+  width: 26px;
+  height: 22px;
+  border: 1px solid #8f8f8f;
+  background: #d2d2d2;
+  margin-left: 6px;
+}
+.ista-real-body .irt-ico:hover {
+  background: #e0e0e0;
+}
+.ista-real-body .irt-sq {
+  height: 22px;
+  line-height: 20px;
+}
+.ista-real-body .irt-clock {
+  font:
+    700 12px/1 Arial,
+    sans-serif;
+  color: #555;
+  margin-right: 14px;
+}
+/* the product's name is set large and plain, not bold */
+.ista-real-body .irtitle {
+  font:
+    400 19px/1 Arial,
+    sans-serif;
+}
+/* the main tabs sit on a black bar, each parted from the next by a white
+   rule */
+.ista-real-body .irtab {
+  margin-right: 0;
+  border-right: 2px solid #fff;
+  flex-basis: 124px;
+}
+/* the tool's lists: taller rows with no rules between the cells, white
+   and grey by turns, under a header parted by white rules */
+.ista-real-body {
+  --ir-row-alt: #dcdcdc;
+}
+.ista-real-body .view td,
+.ista-real-body .irtable td {
+  height: 27px;
+  padding: 3px 8px;
+  border-right: 0;
+}
+/* list and tree headers at the shell's scale: the tool's 36 high and
+   Arial 14 bold come to 29 and 12 here, as its screens show them */
+html .ista-real-body .ixtable thead th,
+html[data-theme] .ista-real-body .ixtable thead th,
+html .ista-real-body .view .td-wrap .td-table thead th,
+html[data-theme] .ista-real-body .view .td-wrap .td-table thead th {
+  height: 29px;
+  font:
+    700 12px/1.2 Arial,
+    'Arial Unicode MS',
+    sans-serif;
+}
+.ista-real-body .ixaml [data-xstyle='TreeViewHeaderStyle'] {
+  height: 29px;
+  min-height: 29px;
+  font:
+    700 12px/29px Arial,
+    'Arial Unicode MS',
+    sans-serif;
+}
+.ista-real-body .ixbrowse [data-xstyle='TreeViewHeaderStyle'] {
+  min-height: 29px;
+}
+/* a button inside a page (Collapse all, beside a header) is the header's
+   height, not the bottom bar's */
+.ista-real-body .ixaml .irbtn {
+  height: 29px;
+}

@@ -18,6 +18,7 @@ import {
   wiringDoc,
   wiringFetchImage,
   wiringImageUrl,
+  wiringNeed,
 } from './archive.mjs';
 import { docsChapterHtml, docsDoc, docsTypeLabel, loadDocs } from './docs.mjs';
 import { printWiring, wiringShareButton } from './share-print.mjs';
@@ -83,6 +84,9 @@ export function wiringDocBar(title, kind) {
  * @returns {void}
  */
 export function wiringRenderEntry(ctx, entry) {
+  // which draw this is: one that had to wait for its document (a packed
+  // archive) must not land on top of a later one
+  ctx.renderSeq = (ctx.renderSeq || 0) + 1;
   if (entry.isDoc || (entry.doc && String(entry.doc).startsWith('d:')))
     wiringRenderIstaDoc(ctx, entry);
   else if (!entry.doc) wiringRenderGlossary(ctx, entry);
@@ -129,6 +133,7 @@ export async function wiringRenderIstaDoc(ctx, entry) {
       ctx.docsData = null;
     }
   }
+  if (ctx.docsData) await wiringNeed(ctx.docsData, [`docs/${id}.json`]);
   const doc = ctx.docsData ? docsDoc(ctx.docsData, id) : null;
   if (!doc || !doc.chapters || !doc.chapters.length) {
     viewEl.insertAdjacentHTML(
@@ -254,14 +259,18 @@ export function wiringResolveImages(art, data) {
       return;
     }
     im.classList.add('wiring-img-loading');
-    wiringFetchImage(path.slice(4)).then((blob) => {
-      im.classList.remove('wiring-img-loading');
-      if (!blob) {
-        im.remove();
-        return;
-      }
-      im.src = wiringImageUrl(data, path, blob);
-    });
+    // a packed archive is asked for the picture first; only one it does not
+    // hold comes from the CDN
+    wiringNeed(data, [path])
+      .then(() => data.files.get(path) || wiringFetchImage(path.slice(4)))
+      .then((got) => {
+        im.classList.remove('wiring-img-loading');
+        if (!got) {
+          im.remove();
+          return;
+        }
+        im.src = wiringImageUrl(data, path, got);
+      });
   });
 }
 
@@ -474,6 +483,28 @@ export function wiringRenderDocument(ctx, entry) {
   // pane, so loading into it means a 0x0 stage. Switch to it; no-op on
   // desktop.
   if (wiringIsPhone()) ctx.setPane('doc', false);
+  if (ctx.data && ctx.data.packed) {
+    // an offline build's packs: the document is read now, then drawn,
+    // unless another has been opened in the meantime
+    const seq = ctx.renderSeq;
+    wiringNeed(ctx.data, [
+      `svg/${entry.doc}.svgz`,
+      `doc/${entry.doc}.html`,
+    ]).then(() => {
+      if (ctx.renderSeq === seq) wiringDrawDocument(ctx, entry);
+    });
+    return;
+  }
+  wiringDrawDocument(ctx, entry);
+}
+
+/**
+ * Draw a WDS leaf whose document is at hand (see wiringRenderDocument).
+ * @param {WiringViewCtx} ctx - the open view
+ * @param {WiringTabEntry} entry - the leaf's tab entry
+ * @returns {void}
+ */
+function wiringDrawDocument(ctx, entry) {
   const doc = wiringDoc(ctx.data, entry.doc);
   const viewEl = ctx.viewEl;
   viewEl.innerHTML = '';

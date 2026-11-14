@@ -47,6 +47,8 @@ module.exports = [
         ...globals.browser,
         // build-time / host globals the renderer legitimately reads
         fflate: 'readonly',
+        fzstd: 'readonly',
+        bmwebPacks: 'readonly',
         bmweb: 'readonly',
         module: 'writable',
       },

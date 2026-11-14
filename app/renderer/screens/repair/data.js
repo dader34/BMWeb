@@ -201,6 +201,32 @@ function repairPicUrl(pic, hosted) {
   return hosted ? urls[1] : urls[0];
 }
 
+// A PICTURE THE LOCAL COPY LACKS IS ASKED OF THE DATASET. A document's
+// JSON is fetched local-first-then-hosted, but an <img> can only name one
+// address, and it names the local one: on a build with no local extract
+// (or a stale link to one) every illustration came up as a broken image
+// beside text that had loaded fine. One listener, on the capture phase
+// because image errors do not bubble, retries each failed picture once
+// against each remaining source in order.
+if (typeof document !== 'undefined' && !window.__repairPicFallback) {
+  window.__repairPicFallback = true;
+  document.addEventListener(
+    'error',
+    (ev) => {
+      const img = ev.target;
+      if (!(img instanceof HTMLImageElement)) return;
+      const m = /ista\/repair\/(pics\/[^?#]+)$/.exec(img.currentSrc || img.src);
+      if (!m) return;
+      const urls = repairUrls(m[1]);
+      const tried = Number(img.dataset.picTry || 0) + 1;
+      if (tried >= urls.length) return;
+      img.dataset.picTry = String(tried);
+      img.src = urls[tried];
+    },
+    true
+  );
+}
+
 /**
  * The pool folder a picture lives in: the last two digits of its stream id.
  *

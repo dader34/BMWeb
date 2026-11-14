@@ -26,14 +26,30 @@ fetches from the internet.
 
 | Build | Where | Contents |
 |---|---|---|
-| `bmweb-<ver>-offline.zip` | GitHub release | diagnostics, coding, fault lookup with service plans, wiring diagrams (~450 MB) |
-| `bmweb-<ver>-offline-no-wiring.zip` | GitHub release | the same without the wiring diagrams (~300 MB) |
-| `bmweb-<ver>-offline-complete.zip` | Hugging Face, linked from the release notes | everything above plus the parts catalogue for every chassis (~6.5 GB) |
+| `bmweb-<ver>-offline.zip` | GitHub release | diagnostics, coding, fault lookup with service plans, wiring diagrams (~200 MB) |
+| `bmweb-<ver>-offline-no-wiring.zip` | GitHub release | the same without the wiring diagrams (~180 MB) |
+| `bmweb-<ver>-offline-spdaten.zip` | GitHub release, when the release carries it | BMW's program and data files for WebKFP, to unzip into either build above: every module family but the head-unit images (~0.8 GB) |
+| `bmweb-<ver>-offline-complete.zip` | Hugging Face, linked from the release notes | everything above plus the repair manual and the parts catalogue for every chassis (~3 GB) |
 
-The parts catalogue is 5.8 GB on its own, more than a GitHub release asset
-may hold, which is why the complete build lives on Hugging Face. The two
-GitHub builds hide the Parts entry rather than offer a screen that would
-need the network.
+The complete build is more than a GitHub release asset may hold (2 GB),
+which is why it lives on Hugging Face. The two GitHub builds hide the Parts
+entry rather than offer a screen that would need the network.
+
+**The offline builds carry their data packed.** A car's ECUs, test modules
+and schematics are mostly another car's too, and as one archive per car the
+same file was in the download once per car that has it, each copy
+compressed alone. `scripts/build/pack_offline.py` stores each file once,
+like beside like, in zstd packs, which the app reads a file at a time
+(`app/renderer/core/packs.js`); the parts catalogue's pictures, which do not
+compress, are kept once each as plain files. That is a fifth of what the
+archives were. BMW's flash files go further
+(`tools/export/kfp_spdaten_pack.py`): each is Intel HEX text, taken apart
+into the bytes it describes and compressed with every other version of the
+same module, 13.9 GB as 0.8. Every file read out of a pack is checked
+against the length and checksum it was packed with, and the build reads
+every packed file back with the app's own decoder before a zip may carry it
+(`scripts/build/verify_packs.mjs`). The hosted site is not packed: a reader
+there fetches one car, and a pack is a slice of every car.
 
 On iPhone, open the page in Safari or from the home screen, not from the
 Files-app preview: Quick Look restricts scripts and the page hangs on the
@@ -226,7 +242,7 @@ data/                  generated data; fetched by scripts/setup/fetch_repo_data.
   chassis/             derived per-car tree, built locally
 tools/                 generators, exporters, verify/ test harnesses, beta/ collector
 scripts/setup/         fetch_repo_data.py, fetch.sh, check-vendor.sh, data-cache.sh
-scripts/build/         build-web.sh, deploy-inplace.sh (refresh a served dist-web without wiping it), build-bundle.sh, offline-build.mjs, build-faultdb.mjs
+scripts/build/         build-web.sh, deploy-inplace.sh (refresh a served dist-web without wiping it), build-bundle.sh, offline-build.mjs, pack_offline.py and verify_packs.mjs (an offline build's packs), fetch_spdaten.py, build-faultdb.mjs
 vendor/                build inputs: NOT in the repo
 ```
 

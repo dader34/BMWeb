@@ -9,8 +9,8 @@
  * it on Modern nothing here is called at all and the shell keeps the look it
  * had. One shell, two faces, no second copy of the routing.
  *
- * EVERY ICON IS DRAWN. The toolbar's home, print, settings, help, restore and
- * close glyphs are inline SVG paths, and so are the star, the nav arrows and
+ * EVERY ICON IS DRAWN. The toolbar's home, print, settings, help and close
+ * glyphs are inline SVG paths, and so are the star, the nav arrows and
  * the details page's warning triangle. No emoji: an emoji is a font the
  * machine may not have, and a workshop chrome that renders a tofu box where
  * its close button should be is worse than no icon at all.
@@ -63,8 +63,6 @@ function istaRealIcon(name) {
   const paths = {
     // a house: roof, then the box under it
     home: '<path d="M2 8 L8 2.5 L14 8"/><path d="M4 8 V14 H12 V8"/>',
-    // two windows, side by side (the tile button)
-    tile: '<path d="M2 3 H7 V13 H2 Z"/><path d="M9 3 H14 V13 H9 Z"/>',
     // a printer: paper above, body, sheet below
     print:
       '<path d="M4.5 6 V2.5 H11.5 V6"/><path d="M2.5 6 H13.5 V11 H2.5 Z"/>' +
@@ -73,12 +71,22 @@ function istaRealIcon(name) {
     wrench:
       '<path d="M10.6 2.2 a3.4 3.4 0 1 0 3.2 3.2 l-2.3 2.3 -1.6 -0.3 ' +
       '-0.3 -1.6 Z"/><path d="M9.1 7.4 L3 13.5"/>',
+    // a gear: a ring, its hub, and eight teeth
+    gear:
+      '<path d="M12.4 8 a4.4 4.4 0 1 0 -8.8 0 a4.4 4.4 0 1 0 8.8 0 Z"/>' +
+      '<path d="M9.9 8 a1.9 1.9 0 1 0 -3.8 0 a1.9 1.9 0 1 0 3.8 0 Z"/>' +
+      '<path d="M12.4 8.0 L14.3 8.0"/>' +
+      '<path d="M11.1 11.1 L12.5 12.5"/>' +
+      '<path d="M8.0 12.4 L8.0 14.3"/>' +
+      '<path d="M4.9 11.1 L3.5 12.5"/>' +
+      '<path d="M3.6 8.0 L1.7 8.0"/>' +
+      '<path d="M4.9 4.9 L3.5 3.5"/>' +
+      '<path d="M8.0 3.6 L8.0 1.7"/>' +
+      '<path d="M11.1 4.9 L12.5 3.5"/>',
     // a question mark, drawn as a stroke so it needs no font
     help:
       '<path d="M5.6 5.4 a2.6 2.6 0 1 1 2.9 2.7 V10"/>' +
       '<path d="M8.4 12.4 h0.01"/>',
-    // the restore-window glyph: a bar over a box
-    restore: '<path d="M2.5 3.5 H13.5"/><path d="M2.5 6.5 H13.5 V13 H2.5 Z"/>',
     // a close cross
     close: '<path d="M3.5 3.5 L12.5 12.5"/><path d="M12.5 3.5 L3.5 12.5"/>',
     // the session list glyph: three dotted rows
@@ -308,11 +316,9 @@ function istaRealToolbar(sessions, activeId) {
     `<div class="irt-spacer"></div>` +
     `<span class="irt-clock" id="ista-clock">${esc(istaRealClock())}</span>` +
     ico('home', 'home', 'Back to the app') +
-    ico('tile', 'tile', 'Tile windows (not in this build)') +
     ico('print', 'print', 'Print this view') +
-    ico('wrench', 'settings', 'Settings') +
+    ico('gear', 'settings', 'Settings') +
     ico('help', 'help', 'Documentation') +
-    ico('restore', 'restore', 'Restore window (not in this build)') +
     ico('close', 'close', 'Leave the workshop view') +
     `</div>`
   );
@@ -391,10 +397,6 @@ function istaPaintReal(el, ctx) {
   // the level-2 strip is the last one only when no level-3 strip follows it
   const lvl2Last = !subs3.length;
 
-  const star = (on) =>
-    `<span class="irsub-star${on ? ' on' : ''}" role="button" tabindex="-1" ` +
-    `aria-hidden="true">${istaRealIcon('star')}</span>`;
-
   const strip2 = subs.length
     ? `<div class="irstrip ${istaStripClass(lvl2Last)}">` +
       subs
@@ -409,7 +411,7 @@ function istaPaintReal(el, ctx) {
             off,
             title: s.why || '',
             data: { sub: s.id, owner },
-            extra: star(istaIsFavourite(owner, s.id)),
+            extra: '',
           });
         })
         .join('') +
@@ -427,7 +429,7 @@ function istaPaintReal(el, ctx) {
             off: !!s.why,
             title: s.why || '',
             data: { sub3: s.id },
-            extra: star(istaIsFavourite(ctx.tab, ctx.sub, s.id)),
+            extra: '',
           })
         )
         .join('') +
@@ -487,6 +489,14 @@ function istaRealMeasure(el) {
   if (!el || !el.isConnected || typeof document === 'undefined') return;
   const h = el.getBoundingClientRect().height;
   if (h > 0) document.body.style.setProperty('--ista-h', `${Math.round(h)}px`);
+  // where the navigation starts: an opened document is a page of its own
+  // in the tool, drawn from here down over the tab strips
+  const tabs = el.querySelector('.irtabs');
+  if (tabs) {
+    const top = tabs.getBoundingClientRect().top;
+    if (top > 0)
+      document.body.style.setProperty('--ista-doc-top', `${Math.round(top)}px`);
+  }
 }
 
 /**
@@ -590,7 +600,9 @@ function istaRealBottom(buttons) {
       }
       fns.push(b.fn);
       return (
-        `<button type="button" class="irbtn" data-i="${fns.length - 1}"` +
+        `<button type="button" class="irbtn${b.on ? ' on' : ''}" ` +
+        `data-i="${fns.length - 1}"` +
+        (b.on ? ' aria-pressed="true"' : '') +
         `${b.off ? ' disabled' : ''}` +
         (b.title ? ` title="${esc(b.title)}"` : '') +
         `>${esc(b.label)}</button>`

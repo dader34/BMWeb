@@ -216,9 +216,11 @@ function istaPageFaultMemory(host, ctx) {
  * "-" where the SGBD returned nothing -- a freeze frame is optional and many
  * modules ship none.
  * @param {IstaFaultRow} row - the picked fault
+ * @param {{rows: IstaFaultRow[], index: number}} [nav] - the list the fault
+ *   was opened from: Back and Forward step through it, as the tool's do
  * @returns {void}
  */
-function istaFaultDialog(row) {
+function istaFaultDialog(row, nav) {
   if (!row || typeof openModal !== 'function') return;
   let tab = 'description';
   const c = row.raw || {};
@@ -412,6 +414,22 @@ function istaFaultDialog(row) {
   }
 
   overlay.querySelector('.irfd-close').onclick = () => close();
+  // BACK AND FORWARD WALK THE FAULT LIST, not a history: the dialog was
+  // opened on one row of a table and these move to its neighbours
+  const step = (sel, to) => {
+    const b = overlay.querySelector(sel);
+    const next = nav && nav.rows ? nav.rows[to] : null;
+    if (!b || !next) return;
+    b.disabled = false;
+    b.onclick = () => {
+      close();
+      istaFaultDialog(next, { rows: nav.rows, index: to });
+    };
+  };
+  if (nav) {
+    step('.irfd-back', nav.index - 1);
+    step('.irfd-fwd', nav.index + 1);
+  }
   const x = overlay.querySelector('.irfd-x');
   if (x) x.onclick = () => close();
   const pr = overlay.querySelector('.irfd-print');

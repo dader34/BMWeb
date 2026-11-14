@@ -17,6 +17,13 @@ async function istaDrawPage(s, host) {
 
   if (s.page === 'vin') {
     if (!real) return istaPageVinModern(host);
+    if (istaXamlOn('vin')) {
+      istaRealStatus({ items: [] });
+      if (
+        await istaXamlVin(host, { open: (c, vin) => istaOpenOperation(c, vin) })
+      )
+        return;
+    }
     let valid = false;
     const bar = (ok) => {
       valid = ok;
@@ -40,6 +47,12 @@ async function istaDrawPage(s, host) {
 
   // ---- Operations / Finished ------------------------------------------------
   if (s.page === 'finished') {
+    if (
+      real &&
+      istaXamlOn('finished') &&
+      (await istaXamlFinished(host, { car }))
+    )
+      return;
     let picked = null;
     const bar = () =>
       istaBottomBar('finished', {
@@ -59,27 +72,6 @@ async function istaDrawPage(s, host) {
     return;
   }
 
-  // ---- Vehicle information / Repair history ---------------------------------
-  if (s.page === 'history') {
-    let picked = null;
-    const bar = () =>
-      istaBottomBar('history', {
-        display: picked ? () => istaOpenStoredScan(picked) : null,
-      });
-    const scans = istaPageHistory(host, {
-      car,
-      onPick: (sc) => {
-        picked = sc;
-        bar();
-      },
-    });
-    istaRealStatus({
-      items: [{ k: 'Entries:', v: `${scans.length} / ${scans.length}` }],
-    });
-    bar();
-    return;
-  }
-
   // ---- Troubleshooting / Fault memory ---------------------------------------
   if (s.page === 'fault-memory') {
     let picked = null;
@@ -93,6 +85,14 @@ async function istaDrawPage(s, host) {
         /* the texts are optional: the raw name still shows */
       }
     }
+    // the tool's own layout, where the setting asks for it and the build
+    // ships the template; otherwise the hand-built page below
+    if (
+      real &&
+      istaXamlOn('fault-memory') &&
+      (await istaXamlFaultMemory(host, { car, chassis }))
+    )
+      return;
     const draw = () => {
       const rows = istaPageFaultMemory(host, {
         car,
@@ -167,6 +167,12 @@ async function istaDrawPage(s, host) {
 
   // ---- Troubleshooting / SAE fault code input -------------------------------
   if (s.page === 'sae') {
+    if (
+      real &&
+      istaXamlOn('sae') &&
+      (await istaXamlSae(host, { car, chassis }))
+    )
+      return;
     let rows = [];
     const bar = () =>
       istaBottomBar('sae', {
@@ -208,6 +214,30 @@ async function istaDrawPage(s, host) {
     return;
   }
 
+  // ---- Text Search, in the three places the tool has it ----------------------
+  // The tool's own search over every document (text-search.js). A build
+  // with no search index for the chassis falls through to the pages below.
+  const textSearch =
+    s.page === 'diag-search'
+      ? 'default'
+      : s.id === 'text-search' && s.page === 'repair'
+        ? 'default'
+        : s.id === 'text-search' && s.page === 'techdata'
+          ? 'workshop'
+          : null;
+  if (textSearch && real && istaXamlOn('text-search')) {
+    istaRealStatus({ items: [{ k: 'Hits:', v: '0 / 0' }] });
+    if (
+      await istaXamlTextSearch(host, {
+        car,
+        chassis,
+        types: ISTA_INFO_TYPES[textSearch],
+      })
+    )
+      return;
+    if (!host.isConnected) return;
+  }
+
   // ---- Vehicle management / Service functions -------------------------------
   if (s.page === 'service-tree') {
     istaRealStatus({ items: [{ k: 'Hits:', v: '0 / 0' }] });
@@ -217,6 +247,34 @@ async function istaDrawPage(s, host) {
       typeof serviceIndexLoad === 'function' ? serviceIndexLoad() : null
     );
     if (!host.isConnected) return;
+    // THE TOOL'S OWN SERVICE FUNCTION TREE where the build ships it
+    // (info-tree.js): the service function root, its test modules under
+    // each node, Add to test plan, and Display running the module. Without
+    // it the app's own index of service functions stands in.
+    const trees =
+      real && istaXamlOn('browse')
+        ? await istaProbe(() => istaInfoTreeLoad(chassis))
+        : null;
+    if (!host.isConnected) return;
+    if (trees && (trees.trees.service || []).length) {
+      const holds = await istaCarRuleCheck(car, chassis);
+      if (!host.isConnected) return;
+      istaBrowse(
+        host,
+        istaInfoSource(trees, 'service', holds, chassis),
+        'info-service',
+        {
+          emptyTitle: 'Service Functions',
+          shell: {
+            car,
+            chassis,
+            plan: true,
+            types: ISTA_INFO_TYPES.default,
+          },
+        }
+      );
+      return;
+    }
     const src = istaServiceSource(cfg, index, chassis, (hit) => {
       if (typeof serviceRunHit === 'function') serviceRunHit(hit, chassis);
     });
@@ -240,8 +298,48 @@ async function istaDrawPage(s, host) {
         `no ${s.label.toLowerCase()} data ships for ${chassis || 'this vehicle'} ` +
           `in this build: run tools/ista/diag_structure_extract.py to add it`
       );
-    const src = istaDiagSource(data, (d) => istaDiagBody(chassis, d));
-    istaBrowse(host, src, `diag-${s.id}`, { emptyTitle: s.label });
+    if (
+      real &&
+      s.id === 'fault-pattern' &&
+      istaXamlOn('fault-pattern') &&
+      (await istaXamlFaultPattern(host, { car, chassis, data }))
+    )
+      return;
+    // THE TREE IS THE TOOL'S OWN where the build ships it (info-tree.js):
+    // the same roots, with the tool's hidden nodes, titles, order and
+    // per-car rules. The older extract's tree stands in without it; the
+    // document bodies are that extract's either way.
+    const which = {
+      'function-structure': 'function',
+      'component-structure': 'component',
+    }[s.id];
+    const trees =
+      real && which && istaXamlOn('browse')
+        ? await istaProbe(() => istaInfoTreeLoad(chassis))
+        : null;
+    if (!host.isConnected) return;
+    const src =
+      trees && (trees.trees[which] || []).length
+        ? istaInfoSource(
+            trees,
+            which,
+            await istaCarRuleCheck(car, chassis),
+            chassis
+          )
+        : istaDiagSource(data, (d) => istaDiagBody(chassis, d));
+    if (!host.isConnected) return;
+    istaBrowse(host, src, `diag-${s.id}`, {
+      emptyTitle: s.label,
+      // Add to test plan is the function structure's, not the component
+      // structure's (ModuleExecutionOrigin.HitListFunctionStructure)
+      shell: {
+        car,
+        chassis,
+        // the tool's default document types, as on every structure page
+        types: ISTA_INFO_TYPES.default,
+        plan: s.id === 'function-structure',
+      },
+    });
     return;
   }
 
@@ -262,6 +360,20 @@ async function istaDrawPage(s, host) {
         `no diagnosis structures ship for ${chassis || 'this vehicle'} in ` +
           `this build: run tools/ista/diag_structure_extract.py to add them`
       );
+    if (
+      real &&
+      istaXamlOn('diag-search') &&
+      (await istaXamlDiagSearch(host, {
+        data: {
+          'fault-pattern': fp,
+          'function-structure': fn,
+          'component-structure': cp,
+        },
+        open: (hit) => istaOpenDiagDoc(chassis, hit.doc),
+        loadBodies: () => istaDiagBodies(chassis),
+      }))
+    )
+      return;
     istaDiagSearch(host, {
       data: {
         'fault-pattern': fp,
@@ -289,6 +401,20 @@ async function istaDrawPage(s, host) {
   if (s.page === 'plan') {
     let picked = null;
     const plan = s.id === 'test-plan';
+    if (
+      real &&
+      plan &&
+      istaXamlOn('test-plan') &&
+      (await istaXamlTestPlan(host, { car, chassis }))
+    )
+      return;
+    if (
+      real &&
+      s.id === 'hit-list' &&
+      istaXamlOn('hit-list') &&
+      (await istaXamlHitList(host, { car, chassis }))
+    )
+      return;
     const draw = async () => {
       const groups = await istaPlanGroups(s.id, car);
       if (!host.isConnected) return;
@@ -354,6 +480,15 @@ async function istaDrawPage(s, host) {
     // opened through istaOpen like any other wrapped screen, because that is
     // the path that holds the router's teardown off while it renders and
     // puts the shell's identity back afterwards.
+    // THE TOOL'S OWN TREE, where the build ships its layout: the units in
+    // the table's cells, the bus lines the tool draws, its colours. The
+    // app's own bus map below is what draws without it.
+    if (
+      real &&
+      istaXamlOn('tree') &&
+      (await istaXamlTree(host, { car, chassis }))
+    )
+      return;
     await istaOpen({
       label: s.label,
       _call: () => showEcuTreeChassis(chassis, car ? car.id : null),
@@ -403,6 +538,12 @@ async function istaDrawPage(s, host) {
   // ---- Vehicle information / Control unit list ------------------------------
   if (s.page === 'unit-list') {
     let picked = null;
+    if (
+      real &&
+      istaXamlOn('unit-list') &&
+      (await istaXamlUnitList(host, { car, chassis }))
+    )
+      return;
     const slots = await istaLoadSlots(chassis, car);
     if (!host.isConnected) return;
     const faults = slots.reduce((a, x) => a + x.faults, 0);
@@ -465,6 +606,7 @@ async function istaDrawPage(s, host) {
         "BMW's characteristic tree is not in this build, so a vehicle " +
           'cannot be described feature by feature here'
       );
+    if (real && istaXamlOn('basic') && (await istaXamlBasic(host))) return;
     istaPageBasic(host, {
       onChange: (n, row) => {
         istaRealStatus({ items: [{ k: 'Hits:', v: `${n} / ${n}` }] });
@@ -479,6 +621,7 @@ async function istaDrawPage(s, host) {
   }
 
   if (s.page === 'readout') {
+    if (real && istaXamlOn('readout') && (await istaXamlReadout(host))) return;
     istaRealStatus(real ? { items: [] } : null);
     // BOTH IDENTIFICATION BUTTONS READ THE CAR, so both need a cable. With
     // none connected they grey rather than offering a read that can only
@@ -499,11 +642,51 @@ async function istaDrawPage(s, host) {
   }
 
   if (s.page === 'active') {
+    if (
+      real &&
+      istaXamlOn('active') &&
+      (await istaXamlActive(host, { car, chassis }))
+    )
+      return;
     if (real) {
       istaRealStatus({ items: [] });
       istaBottomBar('none');
     }
     return istaPageActive(host, car, chassis);
+  }
+
+  // ---- the tool's own trees: Product structure and the Workshop tabs --------
+  // One mechanism, three trees (info-tree.js). A build that ships no trees
+  // for the chassis falls through to the app's own pages below.
+  const infoTree =
+    s.page === 'infotree'
+      ? { tree: s.tree, types: s.types }
+      : s.page === 'repair' && s.id === 'product-structure'
+        ? { tree: 'product', types: 'default' }
+        : null;
+  if (infoTree && real && istaXamlOn('browse')) {
+    const data = await istaProbe(() => istaInfoTreeLoad(chassis));
+    if (!host.isConnected) return;
+    if (data && (data.trees[infoTree.tree] || []).length) {
+      istaRealStatus({ items: [{ k: 'Hits:', v: '0 / 0' }] });
+      const holds = await istaCarRuleCheck(car, chassis);
+      if (!host.isConnected) return;
+      const src = istaInfoSource(data, infoTree.tree, holds, chassis);
+      istaBrowse(host, src, `info-${s.id}`, {
+        emptyTitle: s.label,
+        shell: { car, chassis, types: ISTA_INFO_TYPES[infoTree.types] },
+      });
+      return;
+    }
+  }
+  if (s.page === 'infotree') {
+    // no trees for this chassis: the app's reference page stands in
+    if (!real) return showTechData(host, car, chassis);
+    istaRealStatus({ items: [{ k: 'Filter:', v: 'Default' }] });
+    await showTechData(host, car, chassis);
+    if (!host.isConnected) return;
+    istaBottomBar('techdata', { filters: () => istaTechDataFilter(host) });
+    return;
   }
 
   if (s.page === 'repair') {
@@ -528,6 +711,11 @@ async function istaDrawPage(s, host) {
 
   if (s.page === 'details') {
     if (!real) return istaShowDetails(host, car, chassis);
+    if (
+      istaXamlOn('details') &&
+      (await istaXamlDetails(host, { car, chassis }))
+    )
+      return;
     istaRealStatus({ items: [] });
     istaBottomBar('details', {
       'vehicle-test': () => istaOpenVehicleTest(),

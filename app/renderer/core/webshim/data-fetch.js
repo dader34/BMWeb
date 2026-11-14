@@ -6,7 +6,7 @@
  * shim -- so `data/job-code/<sgbd>.json` and friends are answered from the
  * cached ECU archives, not the network.
  */
-/* exported webFetchJson, webFetchGz, loadSharedTables, HF_MIRRORS, HF_FILES_MIRRORS, hfFolderMirrors, hfUrls, hfFetchFirst, istaBundle, istaBundleFile */
+/* exported webFetchJson, webFetchGz, loadSharedTables, HF_MIRRORS, HF_FILES_MIRRORS, hfFolderMirrors, hfUrls, hfFetchFirst, istaBundle, istaBundleFile, dataPackedFolder */
 
 /**
  * Fetch a JSON file, or null on any failure (404, bad JSON).
@@ -231,6 +231,64 @@ async function istaBundle(chassis) {
 }
 
 /**
+ * A folder of PACKED archives under data/, in a build that carries its data
+ * that way (scripts/build/pack_offline.py): what were zip archives of many
+ * members, each member now once in zstd packs and read when asked for.
+ * Null in a build that may not have packs at all (see bmwebPacks.wanted).
+ * @param {string} folder - the folder under data/ whose `packs` it is:
+ *   'ista', 'wiring' or 'docs'
+ * @returns {ReturnType<typeof bmwebPacks.archives>|null}
+ */
+function dataPackedFolder(folder) {
+  if (
+    typeof bmwebPacks === 'undefined' ||
+    typeof fzstd === 'undefined' ||
+    typeof fflate === 'undefined' ||
+    !bmwebPacks.wanted()
+  )
+    return null;
+  const base = typeof WEB_BASE === 'string' ? WEB_BASE : '';
+  return bmwebPacks.folder(
+    `${base}/data/${folder}/packs`,
+    typeof webRealFetch === 'function'
+      ? webRealFetch
+      : window.fetch.bind(window),
+    fzstd.decompress
+  );
+}
+
+/**
+ * One file out of a packed ISTA bundle. An offline build holds every car's
+ * bundle, and most of a car's test modules and schematics are another car's
+ * too; as archives they were 324 MB of the download.
+ * @param {string} id - the development code, upper case
+ * @param {string} rel - the path inside the bundle
+ * @returns {Promise<Response|null|undefined>} undefined when this build
+ *   does not carry that car's bundle packed; null when it does and the
+ *   bundle has no such file, or the file could not be read whole
+ */
+async function istaPackedFile(id, rel) {
+  const istaPacked = dataPackedFolder('ista');
+  if (!istaPacked) return undefined;
+  let hit;
+  try {
+    hit = await istaPacked.file(`${id}.ista`, rel);
+  } catch (e) {
+    // a pack that cannot be read, or gave back other bytes than were
+    // packed: said, and the file is "not there", never the wrong bytes
+    console.error(`ISTA data ${id}/${rel}: ${e.message}`);
+    return null;
+  }
+  if (!hit) return hit;
+  // a reader of a .gz member gunzips what it is given: wrap it again, as a
+  // stored gzip, which costs nothing to make or to undo
+  return new Response(
+    hit.gz ? fflate.gzipSync(hit.bytes, { level: 0 }) : hit.bytes,
+    { status: 200 }
+  );
+}
+
+/**
  * One file out of a chassis's bundle, as a Response the callers already
  * expect.
  *
@@ -243,6 +301,11 @@ async function istaBundle(chassis) {
  * @returns {Promise<Response|null>}
  */
 async function istaBundleFile(chassis, rel) {
+  const packed = await istaPackedFile(
+    String(chassis || '').toUpperCase(),
+    String(rel || '')
+  );
+  if (packed !== undefined) return packed;
   const map = await istaBundle(chassis);
   const body = map && map.get(String(rel || ''));
   if (!body) return null;
@@ -253,4 +316,5 @@ async function istaBundleFile(chassis, rel) {
 // top-level const is not a property of it (and a minifier may rename it), so
 // each is put there by name
 globalThis.HF_MIRRORS = HF_MIRRORS;
+globalThis.dataPackedFolder = dataPackedFolder;
 globalThis.HF_FILES_MIRRORS = HF_FILES_MIRRORS;

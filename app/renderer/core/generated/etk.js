@@ -1037,6 +1037,10 @@ var etk = (() => {
     if (typeof g.routeSetFiltered === "function") g.routeSetFiltered(...a);
   };
   var hfFetchFirst = (rel, opts) => g.hfFetchFirst(rel, opts);
+  var packedFolder = (folder) =>
+    typeof g.dataPackedFolder === "function"
+      ? g.dataPackedFolder(folder)
+      : null;
   var hfMirrors = () => g.HF_MIRRORS || [];
 
   // app/renderer/screens/etk/data.mjs
@@ -1070,19 +1074,37 @@ var etk = (() => {
     const id = chassisId.toUpperCase();
     if (ETK_CACHE.has(id)) return ETK_CACHE.get(id);
     let bytes;
+    let images = null;
+    let tree;
+    let files;
     const inline = inlineEtk() ? inlineEtk()[id] : null;
-    if (inline) {
-      const bin = atob(inline);
-      bytes = new Uint8Array(bin.length);
-      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    const packed = inline ? null : packedFolder("etk");
+    if (packed && (await packed.has(`${id}.etk`))) {
+      const [t, names] = await Promise.all([
+        packed.file(`${id}.etk`, "tree.json"),
+        packed.file(`${id}.etk`, "img.json"),
+      ]);
+      if (!t) throw new Error(`no parts data for ${dispChassis(id)}`);
+      tree = JSON.parse(new TextDecoder().decode(t.bytes));
+      images = new Set(
+        names ? JSON.parse(new TextDecoder().decode(names.bytes)) : [],
+      );
+      files = /* @__PURE__ */ new Map();
+      if (onProgress) onProgress(1, 1);
     } else {
-      const hit = await etkFetchFirst(`${id}.etk`);
-      if (!hit) throw new Error(`no parts data for ${dispChassis(id)}`);
-      bytes = await readWithProgress(hit.resp, onProgress);
+      if (inline) {
+        const bin = atob(inline);
+        bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      } else {
+        const hit = await etkFetchFirst(`${id}.etk`);
+        if (!hit) throw new Error(`no parts data for ${dispChassis(id)}`);
+        bytes = await readWithProgress(hit.resp, onProgress);
+      }
+      const unzipped = fflate.unzipSync(bytes);
+      tree = JSON.parse(new TextDecoder().decode(unzipped["tree.json"]));
+      files = new Map(Object.entries(unzipped));
     }
-    const unzipped = fflate.unzipSync(bytes);
-    const tree = JSON.parse(new TextDecoder().decode(unzipped["tree.json"]));
-    const files = new Map(Object.entries(unzipped));
     if (typeof etkMergeLines === "function") {
       const side = await loadEtkLines(id);
       if (side) etkMergeLines(tree, side);
@@ -1092,6 +1114,7 @@ var etk = (() => {
       if (side) etkRulesMerge(tree, side);
     }
     const data = { tree, files };
+    if (images) data.images = images;
     ETK_CACHE.set(id, data);
     return data;
   }
@@ -1209,6 +1232,16 @@ var etk = (() => {
     if (!ref) return null;
     const key = data.tree.chassis + "/" + ref;
     if (ETK_IMG_URLS.has(key)) return ETK_IMG_URLS.get(key);
+    if (data.images) {
+      if (!data.images.has(ref)) return null;
+      const head2 = ref.slice(0, 2).toLowerCase();
+      const shard = /^[a-z0-9]{2}$/.test(head2) ? head2 : "_";
+      const at = `${webBase()}/data/etk/img/${shard}/${encodeURIComponent(ref)}`;
+      const url2 =
+        typeof location !== "undefined" ? new URL(at, location.href).href : at;
+      ETK_IMG_URLS.set(key, url2);
+      return url2;
+    }
     const bytes = data.files.get(`img/${ref}`);
     if (!bytes) return null;
     const ext = ref.split(".").pop().toLowerCase();

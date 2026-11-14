@@ -130,9 +130,8 @@ const ISTA_TABS = [
       {
         id: 'finished',
         label: 'Finished',
-        desc: 'Every scan the Garage has kept, newest first',
+        desc: 'Every operation finished on this machine, newest first',
         page: 'finished',
-        needsCar: true,
       },
       {
         id: 'active',
@@ -161,13 +160,10 @@ const ISTA_TABS = [
         page: 'equipment',
         needsCar: true,
       },
-      {
-        id: 'history',
-        label: 'Repair history',
-        desc: 'Every scan kept against this car, newest first',
-        page: 'history',
-        needsCar: true,
-      },
+      // (No Repair history tab: in the tool it is the dealer's service
+      // history from BMW's servers, which this build cannot reach. The scans
+      // it used to list are on Operations / Finished, where the tool keeps
+      // finished work.)
       {
         id: 'tree',
         label: 'Control unit tree',
@@ -331,12 +327,9 @@ const ISTA_TABS = [
       },
     ],
   },
-  {
-    id: 'favourites',
-    label: 'Favourites',
-    desc: 'The sub-tabs you pinned with the star',
-    subs: [],
-  },
+  // (No Favourites tab: the tool this follows, ISTA-D 4.15, has none, and
+  // with it goes the pin star beside each sub-tab. The store's functions
+  // below stay for the modern face's home, which never showed the tab.)
   {
     id: 'workshop',
     label: 'Workshop/\nOperating fluids',
@@ -347,24 +340,40 @@ const ISTA_TABS = [
         label: 'Workshop/Operating fluids',
         desc: 'Browse the reference documents by category, filtered to this car',
         subs3: [
+          // THE TOOL'S FOUR TABS, in its order. The first three are the one
+          // structure browser over different trees (info-tree.js); a build
+          // without those trees falls back to the app's own reference page
           {
             id: 'equipment',
             label: 'Workshop Equipment',
-            desc: 'Browse the reference documents by category',
-            page: 'techdata',
+            desc: 'Workshop equipment documents, by category',
+            page: 'infotree',
+            tree: 'sws',
+            types: 'workshop',
+            needsCar: true,
+          },
+          {
+            id: 'fluids',
+            label: 'Operating Fluids',
+            desc: 'Operating fluids and special tools, by assembly group',
+            page: 'infotree',
+            tree: 'product',
+            types: 'workshop',
+            needsCar: true,
+          },
+          {
+            id: 'mobile',
+            label: 'Mobile Service',
+            desc: 'Mobile service documents',
+            page: 'infotree',
+            tree: 'mob',
+            types: 'mobile',
             needsCar: true,
           },
           {
             id: 'text-search',
             label: 'Text Search',
             desc: 'Find a reference document by its title',
-            page: 'techdata',
-            needsCar: true,
-          },
-          {
-            id: 'hit-list',
-            label: 'Hit list',
-            desc: 'The documents the last search found',
             page: 'techdata',
             needsCar: true,
           },

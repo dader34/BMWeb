@@ -93,10 +93,23 @@ function istaPlanRowOf(r) {
     type: String(r.type || 'ABL'),
     title: String(r.title || r.id || ''),
     component: String(r.component || r.title || ''),
-    priority: r.priority == null ? 0 : Number(r.priority),
+    // F (from a fault pattern) and M (added by hand) are priorities too,
+    // and outrank every number
+    priority:
+      r.priority === 'F' || r.priority === 'M'
+        ? r.priority
+        : r.priority == null
+          ? 0
+          : Number(r.priority),
     state: String(r.state || 'none'),
     fault: r.fault ? String(r.fault) : '',
     doc: r.doc || null,
+    // a row that came from a fault pattern is a diagnosis document, opened
+    // from the structure it was found in
+    diag: r.diag || null,
+    // the diagnosis object the row belongs to, where the plan was calculated
+    // from the tool's own links; two components may share a title
+    group: r.group ? String(r.group) : '',
   };
 }
 
@@ -106,7 +119,9 @@ function istaPlanRowOf(r) {
  * @returns {string} its identity
  */
 function istaPlanKeyOf(r) {
-  return `${r.type || 'ABL'}\u0000${r.id || r.title}`;
+  // the tool keeps one row per (component, document): the same document
+  // under two components is two rows, so the component is part of the key
+  return `${r.type || 'ABL'}\u0000${r.id || r.title}\u0000${r.group || ''}`;
 }
 
 function istaPlanAdd(car, rows) {
@@ -265,9 +280,13 @@ function istaPlanGroupRows(rows) {
   /** @type {Map<string, object>} */
   const by = new Map();
   for (const r of rows || []) {
-    const key = r.component || r.title || '-';
+    const key = r.group || r.component || r.title || '-';
     if (!by.has(key))
-      by.set(key, { title: key, priority: r.priority, rows: [] });
+      by.set(key, {
+        title: r.component || r.title || '-',
+        priority: r.priority,
+        rows: [],
+      });
     const g = by.get(key);
     if (Number(r.priority) < Number(g.priority)) g.priority = r.priority;
     g.rows.push(r);

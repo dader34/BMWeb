@@ -1,220 +1,176 @@
 /**
  * @file The Administration dialog: the wrench icon's window.
  *
- * WHY THIS IS NOT THE APP'S SETTINGS SCREEN. In ISTA the wrench opens a
- * WINDOW over the page you are on, you change something, you press OK, and
- * you are still on the same page. So this is a modal, and leaving the ISTA
- * page is not one of its outcomes.
+ * DRAWN FROM THE TOOL'S OWN LAYOUT (AdministrationDialog), with what this
+ * build cannot use taken out rather than drawn grey. The tool's dialog has
+ * six tabs for a dealership's installation; a build one person runs on
+ * their own car can act on a few of its settings, and an option that does
+ * nothing is not an option. What stays, and where the tool has it:
  *
- * IT EDITS THE APP'S REAL SETTINGS. The rows are drawn in the tool's own
- * radio-grid language, but each one reads and writes the same Settings key
- * the app's Settings screen does. There is no second copy of any preference:
- * change the layout here and the Settings screen agrees, and the other way
- * round. Nothing is applied until OK, so Cancel really does cancel.
+ *   Client settings   Select language: the tool's twenty languages. The
+ *                     workshop pages' own words come from the tool's string
+ *                     tables, which ship for all twenty; documents are in
+ *                     English whatever is picked.
+ *   Dealer data       Address: the workshop's country, which is what a
+ *                     validity rule's country test compares (the tool reads
+ *                     it from its dealer record, where it cannot be edited;
+ *                     here it is the one field of that record there is).
+ *                     Preselection operation type breakdown: whether a new
+ *                     operation starts as a workshop case or a breakdown.
+ *   Version           the tool's list of what is installed.
  *
- * WHAT IS GREY. The real tool's Administration has tabs for a dealership's
- * own data (Dealer data, Initial operation settings, Data protection) and a
- * brand picker for a franchise that sells several. None of that exists in a
- * build one person runs on their own car, so those tabs draw their layout
- * and say so rather than going missing.
+ * WHAT IS LEFT OUT, and why:
+ *   brand             this build serves one brand
+ *   printing type     the browser's print dialog chooses the printer
+ *   news range        there is no news feed
+ *   delete order data nothing is uploaded or kept on a server to expire
+ *   dealer numbers, licence, dealer data update   a franchise's records
+ *   Initial operation settings   its one option starts the tool's trace
+ *   Vehicle interface   the interface types and hosts are the tool's own
+ *                     network equipment; the cable is chosen when it is
+ *                     plugged in
+ *   Data protection   it lists vehicles whose data is not sent to BMW, and
+ *                     nothing is sent
+ *
+ * The app's own preferences that the tool has no place for (screen layout,
+ * confirming actuator tests, original ECU texts) are on the app's Settings
+ * screen, not here.
+ *
+ * NOTHING IS WRITTEN UNTIL OK, so Cancel really does cancel.
  */
 
-/* exported istaAdminOpen */
+/* exported istaAdminOpen ISTA_ADMIN_KEEP istaAdminPrune istaAdminLanguage
+   ISTA_ADMIN_LANG_KEY ISTA_ADMIN_BREAKDOWN_KEY */
 
-/** The dialog's tabs, in strip order. */
-const ISTA_ADMIN_TABS = [
-  { id: 'client', label: 'Client settings' },
-  { id: 'dealer', label: 'Dealer data' },
-  { id: 'version', label: 'Version' },
-  { id: 'initial', label: 'Initial operation settings' },
-  { id: 'interface', label: 'Vehicle interface' },
-  { id: 'privacy', label: 'Data protection' },
+/** Settings key: the workshop pages' language, as a culture (en-GB). */
+const ISTA_ADMIN_LANG_KEY = 'bmweb.ista.lang';
+/** Settings key: Workshop | Breakdown, or unset for neither. */
+const ISTA_ADMIN_BREAKDOWN_KEY = 'bmweb.ista.breakdownPre';
+
+/** What of the tool's dialog this build keeps. */
+const ISTA_ADMIN_KEEP = {
+  tabs: ['admClient', 'admDealer', 'admVersion'],
+  // a radio stays when it edits one of these settings
+  radios: ['Settings.AppLanguage', 'Settings.BreakdownPreSelection'],
+  labels: ['#SelectLanguage', '#BreakdownPreSelection'],
+  // the dealer record's one field there is here
+  texts: ['#Address:'],
+  values: ['OutletCountry'],
+};
+
+/** The workshop countries offered, as the dialog had them. */
+const ISTA_ADMIN_COUNTRIES = [
+  ['', 'Browser region'],
+  ['US', 'US'],
+  ['CA', 'CA'],
+  ['GB', 'GB'],
+  ['DE', 'DE'],
+  ['AU', 'AU'],
+  ['JP', 'JP'],
 ];
 
 /**
- * The settings the Client tab edits, as the tool's radio rows.
+ * The tool's dialog with what this build cannot use taken out.
  *
- * Each row names a real Settings key. `why` marks a row the tool has that
- * this build cannot honour: it draws with its choices visible and refuses
- * the click, which is the honest shape for a preference that exists in the
- * real tool and not here.
- * @returns {Array<object>} the rows
+ * A control stays when ISTA_ADMIN_KEEP names it; a container stays when
+ * something in it does. A language radio's caption is a child text block
+ * in the layout and becomes the radio's own text.
+ * @param {object} node - a node of the compiled layout
+ * @returns {object|null} the kept copy, or null when nothing in it stays
  */
-function istaAdminRows() {
-  return [
+function istaAdminPrune(node) {
+  const K = ISTA_ADMIN_KEEP;
+  const t = node.t;
+  if (t === 'TabItem' && !K.tabs.includes(node.n)) return null;
+  if (t === 'RadioButton') {
+    if (!node.checked || !K.radios.includes(node.checked.bind)) return null;
+    // the caption sits somewhere inside the radio's own content
+    const find = (n) =>
+      n.t === 'TextBlock' && n.text
+        ? n
+        : (n.kids || []).map(find).find(Boolean) || null;
+    const caption = (node.kids || []).map(find).find(Boolean);
+    return {
+      ...node,
+      kids: [],
+      text: node.text || (caption && caption.text) || { lit: '' },
+      // every language whose words ship is on offer
+      en: undefined,
+      vis: undefined,
+    };
+  }
+  if (t === 'Label')
+    return node.text && K.labels.includes(node.text.loc) ? node : null;
+  if (t === 'TextBlock') {
+    const x = node.text || {};
+    if (x.loc && K.texts.includes(x.loc)) return node;
+    if (x.bind && K.values.includes(x.bind)) return { ...node, n: x.bind };
+    return null;
+  }
+  if (node.columns && node.columns.length) return node;
+  if (
+    /^(Button|CheckBox|TextBox|PasswordBox|ComboBox|GroupBox|Image|DialogHeader)$/.test(
+      t
+    )
+  )
+    return null;
+  const kids = (node.kids || []).map(istaAdminPrune).filter(Boolean);
+  if (!kids.length) return null;
+  // A RECORD THINNED TO ONE FIELD IS ONE LINE. The dealer record is a grid
+  // of a dozen rows, name over street over country; with only the country
+  // left, its caption and its value would sit rows apart in an otherwise
+  // empty grid. What is left is put on one row: caption, then value.
+  if (node.t === 'Grid' && node.rows && kids.every((k) => k.t === 'TextBlock'))
+    return {
+      ...node,
+      rows: ['Auto'],
+      // caption, then value, from the left edge the other settings start at
+      cols: kids.map((k, i) => (i < kids.length - 1 ? 'Auto' : '*')),
+      a: { ...(node.a || {}), margin: '6,10,0,14' },
+      kids: kids.map((k, i) => ({
+        ...k,
+        a: { ...(k.a || {}), row: '0', col: String(i), margin: '0,0,12,0' },
+      })),
+    };
+  return { ...node, kids };
+}
+
+/**
+ * The workshop pages' language as the tool's dialog names it (en_GB).
+ * @returns {string}
+ */
+function istaAdminLanguage() {
+  const culture =
+    typeof istaXamlCulture === 'function' ? istaXamlCulture() : 'en-GB';
+  return String(culture).replace('-', '_');
+}
+
+/**
+ * The Version tab's rows, in the tool's columns.
+ * @returns {Array<object>}
+ */
+function istaAdminVersions() {
+  // the same answer every other screen gives: the shell's or the web
+  // build's version, or 'dev' on a checkout
+  const app =
+    typeof remoteVersion === 'function'
+      ? remoteVersion()
+      : (typeof window !== 'undefined' &&
+          ((window.bmweb && window.bmweb.version) || window.BMWEB_VERSION)) ||
+        '';
+  const rows = [
+    { Package: 'BMWeb', SubSystem: 'Application', VersionNumber: app || '-' },
     {
-      key: 'lang',
-      title: 'Select language',
-      options: [
-        { val: 'en', label: 'English' },
-        { val: 'orig', label: 'Original (EDIABAS)' },
-      ],
-      now: typeof Settings === 'object' ? Settings.get('lang', 'en') : 'en',
-    },
-    {
-      key: 'inpaScreens',
-      title: 'Screen layout',
-      options: [
-        { val: 'on', label: 'Classic' },
-        { val: 'off', label: 'Modern' },
-      ],
-      now:
-        typeof Settings === 'object'
-          ? Settings.get('inpaScreens', 'off')
-          : 'off',
-    },
-    {
-      key: 'confirmActuators',
-      title: 'Confirm actuator tests',
-      options: [
-        { val: 'on', label: 'Ask first' },
-        { val: 'off', label: 'Send immediately' },
-      ],
-      now:
-        typeof Settings === 'object'
-          ? Settings.get('confirmActuators', 'on')
-          : 'on',
-    },
-    {
-      // A COUNTRY leaf in a validity rule compares the WORKSHOP's outlet
-      // country, never the car's; the tool takes it from its dealer data,
-      // this build from here, and from the browser's region until set
-      key: 'istaCountry',
-      title: 'Workshop country (dealer data)',
-      options: [
-        { val: '', label: 'Browser region' },
-        { val: 'US', label: 'US' },
-        { val: 'CA', label: 'CA' },
-        { val: 'GB', label: 'GB' },
-        { val: 'DE', label: 'DE' },
-        { val: 'AU', label: 'AU' },
-        { val: 'JP', label: 'JP' },
-      ],
-      now: typeof Settings === 'object' ? Settings.get('istaCountry', '') : '',
-    },
-    {
-      key: '_brand',
-      title: 'Select brand',
-      options: [
-        { val: 'bmw', label: 'BMW / MINI' },
-        { val: 'pkw', label: 'BMW / PKW' },
-        { val: 'i', label: 'BMW i' },
-        { val: 'mini', label: 'MINI' },
-        { val: 'rr', label: 'Rolls-Royce' },
-        { val: 'moto', label: 'BMW / Motorrad' },
-      ],
-      now: 'bmw',
-      why: 'this build serves one brand',
-    },
-    {
-      key: '_printing',
-      title: 'Printing type',
-      options: [
-        { val: 'file', label: 'Print to file' },
-        { val: 'pick', label: 'Printer selection' },
-        { val: 'default', label: 'Print from default printer' },
-      ],
-      now: 'pick',
-      why: "the browser's own print dialog chooses the printer",
+      Package: 'ISTA',
+      SubSystem: 'Layouts and data',
+      VersionNumber: '4.15.16',
     },
   ];
-}
-
-/**
- * One radio row, in the tool's grid.
- * @param {object} row - from istaAdminRows
- * @param {Object<string, string>} pending - edits not yet applied
- * @returns {string} HTML
- */
-function istaAdminRowHtml(row, pending) {
-  const now = Object.prototype.hasOwnProperty.call(pending, row.key)
-    ? pending[row.key]
-    : row.now;
-  const opts = row.options
-    .map(
-      (o) =>
-        `<label class="iradmin-opt${row.why ? ' off' : ''}">` +
-        `<input type="radio" name="iradmin-${esc(row.key)}" ` +
-        `value="${esc(o.val)}"${o.val === now ? ' checked' : ''}` +
-        `${row.why ? ' disabled' : ''} />` +
-        `<span>${esc(o.label)}</span></label>`
-    )
-    .join('');
-  return (
-    `<div class="iradmin-row" data-key="${esc(row.key)}">` +
-    `<div class="iradmin-row-t">${esc(row.title)}` +
-    (row.why ? ` <span class="iradmin-why">(${esc(row.why)})</span>` : '') +
-    `</div>` +
-    `<div class="iradmin-opts">${opts}</div></div>`
-  );
-}
-
-/**
- * The body of one Administration tab.
- * @param {string} tab - the tab id
- * @param {Object<string, string>} pending - edits not yet applied
- * @returns {string} HTML
- */
-function istaAdminBody(tab, pending) {
-  if (tab === 'client')
-    return (
-      `<div class="iradmin-body">` +
-      istaAdminRows()
-        .map((r) => istaAdminRowHtml(r, pending))
-        .join('') +
-      `</div>`
-    );
-
-  if (tab === 'version') {
-    const app =
-      (typeof window !== 'undefined' &&
-        ((window.bmweb && window.bmweb.version) || window.BMWEB_VERSION)) ||
-      '';
-    const cache =
-      typeof ISTA_ADMIN_DATA_VERSION === 'string'
-        ? ISTA_ADMIN_DATA_VERSION
-        : '';
-    return (
-      `<div class="iradmin-body">` +
-      `<table class="irtable"><tbody>` +
-      `<tr><td>Application</td><td>${esc(app || '-')}</td></tr>` +
-      `<tr><td>Data</td><td>${esc(cache || '-')}</td></tr>` +
-      `</tbody></table></div>`
-    );
+  for (const r of rows) {
+    r.Date = '';
+    r.Size = '';
   }
-
-  if (tab === 'interface') {
-    const port =
-      typeof webBus === 'object' && webBus && webBus.connected
-        ? webBus.portLabel()
-        : '';
-    const gw =
-      typeof Settings === 'object' ? Settings.get('gatewayUrl', '') : '';
-    return (
-      `<div class="iradmin-body">` +
-      `<table class="irtable"><thead><tr>` +
-      `<th>Interface</th><th>Type</th><th>State</th>` +
-      `</tr></thead><tbody>` +
-      `<tr><td>${esc(port || 'No interface')}</td><td>K+DCAN</td>` +
-      `<td>${port ? 'Connected' : 'Free'}</td></tr>` +
-      `</tbody></table>` +
-      `<div class="iradmin-row"><div class="iradmin-row-t">Gateway</div>` +
-      `<div class="iradmin-gw">${esc(gw || "this machine's own cable")}` +
-      `</div></div>` +
-      `<div class="iradmin-note">The cable is chosen when you connect it. ` +
-      `A gateway address is set on the app's Settings screen.</div>` +
-      `</div>`
-    );
-  }
-
-  const why = {
-    dealer: 'dealership records are a franchise system: this build has none',
-    initial:
-      'initial operation settings configure a workshop network: there is none here',
-    privacy:
-      'nothing leaves this machine, so there is no data-protection choice to make',
-  }[tab];
-  return `<div class="iradmin-body"><div class="irgrey-w">${esc(why)}</div></div>`;
+  return rows;
 }
 
 /**
@@ -222,74 +178,126 @@ function istaAdminBody(tab, pending) {
  *
  * Nothing is written until OK, so Cancel leaves every setting as it was.
  * @param {() => void} [onApply] - called after OK wrote the changes
- * @returns {void}
+ * @returns {Promise<void>}
  */
-function istaAdminOpen(onApply) {
+async function istaAdminOpen(onApply) {
   if (typeof openModal !== 'function') return;
-  let tab = 'client';
-  /** @type {Object<string, string>} edits not yet applied */
-  const pending = {};
+  const [tpl, strings, fallback] = await Promise.all([
+    istaXamlLoad('AdministrationDialog'),
+    istaXamlStrings(istaXamlCulture()),
+    istaXamlStrings('en-GB'),
+  ]);
+  const words = strings || fallback || {};
+  const root = tpl && tpl.root ? istaAdminPrune(tpl.root) : null;
+  const get = (key, def) =>
+    typeof Settings === 'object' && Settings ? Settings.get(key, def) : def;
+  // the edits, applied on OK
+  const state = {
+    AppLanguage: istaAdminLanguage(),
+    BreakdownPreSelection: get(ISTA_ADMIN_BREAKDOWN_KEY, ''),
+    country: get('istaCountry', ''),
+  };
 
-  const html =
-    `<div class="modal iradmin" role="dialog" aria-modal="true">` +
-    `<div class="modal-title iradmin-title">Administration</div>` +
-    `<div class="iradmin-tabs"></div>` +
-    `<div class="iradmin-host"></div>` +
-    `<div class="modal-actions iradmin-actions">` +
-    `<button type="button" class="btn iradmin-cancel">Cancel</button>` +
-    `<button type="button" class="btn iradmin-ok">OK</button>` +
-    `</div></div>`;
-  const { overlay, close } = openModal(html);
+  const first = { ...state };
 
-  /** Redraw the tab strip and the body. */
-  function paint() {
-    const strip = overlay.querySelector('.iradmin-tabs');
-    strip.innerHTML = ISTA_ADMIN_TABS.map(
-      (t) =>
-        `<button type="button" class="iradmin-tab${
-          t.id === tab ? ' on' : ''
-        }" data-tab="${esc(t.id)}">${esc(t.label)}</button>`
-    ).join('');
-    strip.querySelectorAll('[data-tab]').forEach((b) => {
-      b.onclick = () => {
-        tab = b.dataset.tab;
-        paint();
+  const title = istaXamlText({ strings: words }, '#Administration');
+  const text = (key) => esc(istaXamlText({ strings: words }, key));
+  const { overlay, close } = openModal(
+    `<div class="modal iradmin ixdialog" role="dialog" aria-modal="true">` +
+      `<div class="modal-title iradmin-title">${esc(title)}` +
+      `<button type="button" class="iradmin-x" aria-label="Close">` +
+      `✕</button></div>` +
+      `<div class="ixdialog-host ista-real-body iradmin-host"></div>` +
+      `<div class="modal-actions iradmin-actions">` +
+      `<button type="button" class="btn iradmin-cancel">` +
+      `${text('#Button.Cancel')}</button>` +
+      `<button type="button" class="btn iradmin-ok">` +
+      `${text('#Button.OK')}</button>` +
+      `</div></div>`
+  );
+  const host = overlay.querySelector('.iradmin-host');
+  const ctx = {
+    strings: words,
+    tabs: {},
+    data: {},
+    converters: {
+      LanguageAvailabilityConverter: () => true,
+      BrandAvailabilityConverter: () => false,
+    },
+    set: (path, checked, n) => {
+      if (!checked || !n || !n.checked) return;
+      state[path.split('.').pop()] = n.checked.param;
+      draw();
+    },
+    commands: {},
+  };
+
+  function draw() {
+    ctx.data = {
+      Settings: {
+        AppLanguage: state.AppLanguage,
+        BreakdownPreSelection: state.BreakdownPreSelection,
+      },
+      OutletCountry: state.country,
+      VersionInformation: istaAdminVersions(),
+    };
+    if (!root) {
+      host.innerHTML =
+        `<div class="irgrey-w">The Administration layout is not in this ` +
+        `build.</div>`;
+      return;
+    }
+    host.replaceChildren(
+      ...(root.kids || [root]).map((k) => istaXamlNode(k, ctx.data, ctx))
+    );
+    // the dealer record's country is the one field that can be set here
+    const cell = host.querySelector('[data-xname="OutletCountry"]');
+    if (cell) {
+      const pick = document.createElement('select');
+      pick.className = 'iradmin-country';
+      for (const [val, label] of ISTA_ADMIN_COUNTRIES) {
+        const o = document.createElement('option');
+        o.value = val;
+        o.textContent = label;
+        o.selected = val === state.country;
+        pick.appendChild(o);
+      }
+      pick.onchange = () => {
+        state.country = pick.value;
       };
-    });
-    const host = overlay.querySelector('.iradmin-host');
-    host.innerHTML = istaAdminBody(tab, pending);
-    // an edit is remembered, not applied: OK writes, Cancel forgets
-    host.querySelectorAll('.iradmin-row[data-key]').forEach((row) => {
-      row.querySelectorAll('input[type="radio"]').forEach((r) => {
-        r.onchange = () => {
-          if (r.checked) pending[row.dataset.key] = r.value;
-        };
-      });
-    });
+      cell.replaceChildren(pick);
+    }
   }
+  ctx.redraw = draw;
 
+  overlay.querySelector('.iradmin-x').onclick = () => close();
   overlay.querySelector('.iradmin-cancel').onclick = () => close();
   overlay.querySelector('.iradmin-ok').onclick = () => {
-    for (const [key, val] of Object.entries(pending)) {
-      // the underscore keys are the tool's own preferences that this build
-      // has nothing to store them in; they never reach Settings
-      if (key.startsWith('_')) continue;
-      if (typeof Settings === 'object' && Settings.set) Settings.set(key, val);
+    // only what was changed is written: an untouched language stays the
+    // app's own choice rather than being pinned by a press of OK
+    if (typeof Settings === 'object' && Settings && Settings.set) {
+      if (state.AppLanguage !== first.AppLanguage)
+        Settings.set(ISTA_ADMIN_LANG_KEY, state.AppLanguage.replace('_', '-'));
+      if (state.BreakdownPreSelection !== first.BreakdownPreSelection)
+        Settings.set(ISTA_ADMIN_BREAKDOWN_KEY, state.BreakdownPreSelection);
+      if (state.country !== first.country)
+        Settings.set('istaCountry', state.country);
     }
     close();
     if (typeof onApply === 'function') onApply();
   };
-  paint();
+  draw();
 }
 
 if (typeof window !== 'undefined') window.istaAdminOpen = istaAdminOpen;
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
-    ISTA_ADMIN_TABS,
-    istaAdminRows,
-    istaAdminRowHtml,
-    istaAdminBody,
+    ISTA_ADMIN_KEEP,
+    ISTA_ADMIN_LANG_KEY,
+    ISTA_ADMIN_BREAKDOWN_KEY,
+    istaAdminPrune,
+    istaAdminLanguage,
     istaAdminOpen,
   };
 }

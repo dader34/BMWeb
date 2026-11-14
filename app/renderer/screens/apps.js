@@ -224,24 +224,41 @@ const APP_REGISTRY = [
 ];
 
 /**
- * Resolve whether an app's data shipped; a throwing check counts as absent.
- * @param {AppEntry} app - the app
- * @returns {Promise<boolean>}
- */
-/**
  * How long an availability probe may take before the card is drawn as
  * absent. A probe that goes to the internet (the parts catalogue's) never
  * answers on an adapter's own WiFi, and the hub must not wait on it.
  */
 const APP_PROBE_MS = 2500;
 
-async function appIsReady(app) {
+/**
+ * Whether an app's data is there, within the time the hub will wait.
+ *
+ * A PROBE THAT RUNS OUT OF TIME HAS NOT ANSWERED "NO". On a first visit
+ * with nothing cached, the wiring probe's index can take longer than the
+ * wait, and the card was drawn "not in this build" for good, until a
+ * refresh found the index already in the cache. So a probe that is still
+ * running when the wait ends is drawn as absent for now, and `late` is told
+ * if it then answers yes, so the caller can draw the card as it should be.
+ * @param {AppEntry} app - the app
+ * @param {() => void} [late] - called when a timed-out probe answers yes
+ * @returns {Promise<boolean>}
+ */
+async function appIsReady(app, late) {
   if (typeof app.hasData !== 'function') return true;
   try {
-    return await Promise.race([
-      app.hasData(),
-      new Promise((resolve) => setTimeout(() => resolve(false), APP_PROBE_MS)),
+    const probe = Promise.resolve(app.hasData()).catch(() => false);
+    let waited = false;
+    const answer = await Promise.race([
+      probe,
+      new Promise((resolve) =>
+        setTimeout(() => {
+          waited = true;
+          resolve(false);
+        }, APP_PROBE_MS)
+      ),
     ]);
+    if (waited && late) probe.then((ok) => ok && late());
+    return answer;
   } catch (e) {
     return false;
   }
@@ -607,21 +624,59 @@ async function showApps() {
   loading.innerHTML = `<span class="wiring-spinner"></span><span>Loading apps…</span>`;
   view.appendChild(loading);
 
-  // resolve availability once, in parallel; a card renders as soon as we know
-  const states = await Promise.all(
-    APP_REGISTRY.map(async (app) => ({ app, ready: await appIsReady(app) }))
-  );
+  // A PROBE THAT ANSWERS YES AFTER THE WAIT PUTS ITS CARD RIGHT, in place:
+  // the home is painted from `states`, so a late yes flips its entry and
+  // paints again. Nothing is fetched twice and nothing else on the page
+  // waits; the reader's search text is the one thing carried across.
+  /** @type {{app: AppEntry, ready: boolean}[]} */
+  let states = [];
+  let host = list;
+  let painted = false;
+  const paint = () => {
+    const openable = states.filter((s) => s.ready).length;
+    const typed = host.querySelector('.home-search input');
+    let next;
+    if (inpaMode()) {
+      // the INPA-style layout: the hub as a classic launcher window
+      next = appsClassicWindow(appsClassicGroups(states), openable);
+    } else {
+      next = document.createElement('div');
+      next.className = 'apps-list';
+      appsHome(next, states);
+      const box = next.querySelector('.home-search input');
+      if (typed && typed.value && box) {
+        box.value = typed.value;
+        box.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    }
+    host.replaceWith(next);
+    host = next;
+    sbRight.textContent = `${openable} app${openable === 1 ? '' : 's'}`;
+    painted = true;
+  };
+  const late = (app) => {
+    const entry = states.find((s) => s.app === app);
+    if (!entry || entry.ready || !painted) return;
+    if (!_mine() || lastScreen !== showApps) return;
+    entry.ready = true;
+    paint();
+  };
+  // resolve availability once, in parallel
+  const probes = APP_REGISTRY.map((app) => {
+    const entry = { app, ready: false };
+    states.push(entry);
+    return appIsReady(app, () => {
+      // before the first paint the answer simply lands in the entry
+      if (painted) late(app);
+      else entry.ready = true;
+    }).then((ok) => {
+      entry.ready = entry.ready || ok;
+    });
+  });
+  await Promise.all(probes);
   loading.remove();
   if (!_mine()) return;
-
-  const openable = states.filter((s) => s.ready).length;
-  if (inpaMode()) {
-    // the INPA-style layout: the hub as a classic launcher window
-    list.replaceWith(appsClassicWindow(appsClassicGroups(states), openable));
-  } else {
-    appsHome(list, states);
-  }
-  sbRight.textContent = `${openable} app${openable === 1 ? '' : 's'}`;
+  paint();
 
   // the home has no keys of its own: its tools are opened by click, by the
   // search box, or (classic) by walking the buttons
