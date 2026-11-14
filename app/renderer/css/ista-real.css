@@ -2931,3 +2931,10 @@ html .ista-real-body .view .td-wrap .td-tree-title {
   .rp-hits {
   display: none;
 }
+/* the title is on the page's band; the tool's document does not say it a
+   second time at the top of the body */
+.ista-real-body .ista-repair .rp-doc .td-doc-crumb,
+.ista-real-body .ista-repair .rp-doc .td-doc-title,
+.ista-real-body .ista-repair .rp-doc .rp-doc-body > .rp-doc-h:first-child {
+  display: none;
+}
