@@ -2876,3 +2876,14 @@ html .ista-real-body .view .td-wrap .td-tree-title {
   > .ixtext:first-child {
   font-weight: 700;
 }
+/* the hit list scrolls inside its own pane, under a header that stays */
+.ista-real-body .ixbrowse .ixbox:has(> .ixtable) {
+  overflow: auto;
+  height: 100%;
+  min-height: 0;
+}
+.ista-real-body .ixbrowse .ixbox:has(> .ixtable) thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
