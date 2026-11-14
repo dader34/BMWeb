@@ -264,6 +264,10 @@ FILE_SETS = (
     "data/kfp", "data/daten", "data/coding-dispatch", "data/groups",
     "data/ista/techdata", "data/ista/ecufn", "data/ista/ecu-tree",
     "data/ista/faulttests.json",
+    # the ISTA pages' own extracts: layouts, structure trees and document
+    # bodies, search indexes, fault code lists, test plans, unit names
+    "data/ista/xaml", "data/ista/infotree", "data/ista/search",
+    "data/ista/faultcodes", "data/ista/testplan", "data/ista/ecu-names",
 )
 
 

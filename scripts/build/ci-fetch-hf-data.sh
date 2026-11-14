@@ -19,6 +19,7 @@
 # tree/data.js  -> data/ista/ecu-tree/  (the control unit tree AND the scan)
 # ista/plan.js  -> data/ista/abl/       (the test modules)
 # ista/*.js     -> data/ista/{diag,ecufn,techdata,wiring,repair}/
+# ista/*.js     -> data/ista/{xaml,infotree,search,faultcodes,testplan,ecu-names}/
 # tuning/xdf-library.js -> data/tuning/xdf/ (a DIFFERENT dataset: bmw-files)
 # wiring/archive.js     -> data/wiring/<chassis>.wiring (bmw-files as well)
 set -euo pipefail
@@ -74,6 +75,10 @@ case "${1:-}" in
     # wants five times it. One .ista per chassis is 26 downloads for the
     # same bytes, and it is the layout the app reads anyway.
     WANT='ista/bundles/* ista/ecu-tree/* ista/ecufn/* ista/techdata/*'
+    # the ISTA pages' own extracts (layouts, structure trees, search indexes,
+    # fault codes, test plans, unit names): six transport archives for 9,253
+    # files, unpacked by fetch_ista.py into data/ista/<set>/
+    WANT="$WANT ista/extract-bundles/*"
     # the repair manual as transport archives, not 55,480 separate files
     if [ "${1}" = "ista-all" ]; then WANT="$WANT ista/repair-bundles/*"; fi
     python3 scripts/build/fetch_ista.py "$DATASET" "$DIST/data" "$WANT"

@@ -32,6 +32,10 @@ from huggingface_hub import snapshot_download
 # bundles is one .ista per chassis -- 26 today, so 20 leaves room for a
 # chassis to be dropped without failing the build.
 FLOORS = {"ecu-tree": 40, "bundles": 20, "ecufn": 500}
+# the sets that arrive as transport archives (tools/ista/build_extract_bundles.py)
+# and are unpacked here: checked only when the archives were asked for
+EXTRACT_FLOORS = {"xaml": 100, "infotree": 30, "search": 15, "faultcodes": 500,
+                  "testplan": 15, "ecu-names": 15}
 # the scan reads both of these directly; without either it falls back to the
 # network, which is exactly what this fetch exists to prevent
 NEEDED = ("ecu-tree/index.json", "ecu-tree/scan-extras.json")
@@ -69,8 +73,31 @@ def main():
         print(f"  repair    {n} files unpacked from archives")
         shutil.rmtree(bundles, ignore_errors=True)
 
+    # THE SCREENS' OWN EXTRACTS TRAVEL THE SAME WAY. The page layouts, the
+    # structure trees, the search indexes, the fault code lists, the test
+    # plans and the unit names are 9,253 small files the hosted site reads a
+    # few at a time; fetched loose here they would be three quarters of an
+    # hour of rate limiting. One archive per set, unpacked into the layout
+    # the app expects (each holds paths under ista/).
+    extracts = os.path.join(out, "ista", "extract-bundles")
+    floors = dict(FLOORS)
+    if os.path.isdir(extracts):
+        n = 0
+        for name in sorted(os.listdir(extracts)):
+            if not name.endswith(".zip"):
+                continue
+            with zipfile.ZipFile(os.path.join(extracts, name)) as zf:
+                zf.extractall(os.path.join(out, "ista"))
+                n += len(zf.namelist())
+        print(f"  extracts  {n} files unpacked from archives")
+        shutil.rmtree(extracts, ignore_errors=True)
+        floors.update(EXTRACT_FLOORS)
+    elif "ista/extract-bundles/*" in want.split():
+        raise SystemExit("error: ista/extract-bundles matched nothing; without it the ISTA "
+                         "pages have no layouts, trees or search in an offline build")
+
     ista = os.path.join(out, "ista")
-    for sub, floor in FLOORS.items():
+    for sub, floor in floors.items():
         d = os.path.join(ista, sub)
         n = len(os.listdir(d)) if os.path.isdir(d) else 0
         if n < floor:
