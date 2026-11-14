@@ -2887,3 +2887,47 @@ html .ista-real-body .view .td-wrap .td-tree-title {
   top: 0;
   z-index: 1;
 }
+
+/* ---- an opened document is a page of its own (DocumentPage) -----------------
+   In the tool a document takes the whole area under the vehicle line: no
+   navigation tabs, a title band across the full width with its controls at
+   the right, the body under it, and the page's buttons at the bottom
+   right. So the browser's document view covers the tab strips while it is
+   open instead of sitting in what is left under them. */
+.ista-real-body :is(.ista-repair, .rp-body):has(> .rp-doc) {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: var(--ista-doc-top, 84px);
+  bottom: 0;
+  height: auto !important;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+}
+.ista-real-body :is(.ista-repair, .rp-body):has(> .rp-doc) > .rp-doc {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 0;
+  border: 0;
+}
+.ista-real-body .ista-repair .rp-doc .rp-doc-bar {
+  padding: 8px 10px;
+  font-size: 15px;
+}
+.ista-real-body .ista-repair .rp-doc .rp-doc-body {
+  padding: 16px 24px 32px;
+}
+/* the page's buttons: bottom right, as the tool has them */
+.ista-real-body :is(.ista-repair, .rp-body):has(> .rp-doc) > .rp-status {
+  justify-content: flex-end;
+  padding: 6px 6px 8px;
+  border-top: 1px solid #c8c8c8;
+}
+.ista-real-body
+  :is(.ista-repair, .rp-body):has(> .rp-doc)
+  > .rp-status
+  .rp-hits {
+  display: none;
+}

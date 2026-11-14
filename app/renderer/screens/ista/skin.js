@@ -489,6 +489,14 @@ function istaRealMeasure(el) {
   if (!el || !el.isConnected || typeof document === 'undefined') return;
   const h = el.getBoundingClientRect().height;
   if (h > 0) document.body.style.setProperty('--ista-h', `${Math.round(h)}px`);
+  // where the navigation starts: an opened document is a page of its own
+  // in the tool, drawn from here down over the tab strips
+  const tabs = el.querySelector('.irtabs');
+  if (tabs) {
+    const top = tabs.getBoundingClientRect().top;
+    if (top > 0)
+      document.body.style.setProperty('--ista-doc-top', `${Math.round(top)}px`);
+  }
 }
 
 /**
