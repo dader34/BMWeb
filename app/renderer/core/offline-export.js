@@ -31,6 +31,9 @@ const OFFLINE_SHELL = [
   'css/ista-real.css',
 
   'vendor/fflate.min.js',
+  'vendor/fzstd.js',
+
+  'core/packs.js',
 
   'core/offline-fs.js',
   'core/webshim/timers.js',
@@ -499,6 +502,11 @@ const OFFLINE_SGBD_CATCHALL = '_SGBD';
  */
 async function offlineWithCatchAll(ids, chassis) {
   if (chassis !== '*') return ids;
+  if (
+    typeof webChassisPacked === 'function' &&
+    (await webChassisPacked(OFFLINE_SGBD_CATCHALL))
+  )
+    return [...ids, OFFLINE_SGBD_CATCHALL];
   try {
     const r = await OFFLINE_FETCH(
       `${offlineBase()}/api/chassis/${OFFLINE_SGBD_CATCHALL}.chassis`
@@ -556,6 +564,25 @@ const OFFLINE_FETCH =
  * @throws {Error} `missing ${path}` when the file is not there.
  */
 async function offlineGet(path) {
+  // A build that carries its ECUs packed has no .chassis files (see
+  // loadEcuPacks in core/webshim/api-router.js); a car's archive is then
+  // made from the packs.
+  const car = /^api\/chassis\/([^/]+)\.chassis$/.exec(path);
+  if (
+    car &&
+    typeof webChassisPacked === 'function' &&
+    (await webChassisPacked(car[1]))
+  ) {
+    const made = await webChassisArchive(car[1]);
+    if (made) return made;
+  }
+  // The same for a car's wiring and document archives.
+  const arc = /^data\/(wiring|docs)\/([^/]+\.(?:wiring|docs))$/.exec(path);
+  if (arc && typeof dataPackedFolder === 'function') {
+    const folder = dataPackedFolder(arc[1]);
+    const made = folder ? await folder.zip(arc[2], fflate) : undefined;
+    if (made) return made;
+  }
   const r = await OFFLINE_FETCH(`${offlineBase()}/${path}`);
   if (!r.ok) throw new Error(`missing ${path}`);
   return new Uint8Array(await r.arrayBuffer());

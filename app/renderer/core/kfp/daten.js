@@ -291,7 +291,160 @@
     return next;
   }
 
+  /** The CRC-32 table, made on first use. @type {Uint32Array|null} */
+  let crcTable = null;
+  /**
+   * CRC-32 (the zlib one) of some bytes.
+   * @param {Uint8Array} bytes - What to sum.
+   * @returns {number} Unsigned.
+   */
+  function crc32(bytes) {
+    if (!crcTable) {
+      crcTable = new Uint32Array(256);
+      for (let n = 0; n < 256; n++) {
+        let c = n;
+        for (let k = 0; k < 8; k++)
+          c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+        crcTable[n] = c >>> 0;
+      }
+    }
+    let c = 0xffffffff;
+    for (let i = 0; i < bytes.length; i++)
+      c = crcTable[(c ^ bytes[i]) & 0xff] ^ (c >>> 8);
+    return (c ^ 0xffffffff) >>> 0;
+  }
+
+  const SPK_MAGIC = 'BSPK2\n';
+  const HEX_DIGITS = new TextEncoder().encode('0123456789ABCDEF');
+
+  /**
+   * An SP-Daten pack, opened (tools/export/kfp_spdaten_pack.py, which
+   * documents the format). A pack holds its files taken apart: every hex
+   * record's data bytes in one PAYLOAD stream, and a SKELETON of one op per
+   * line that says how to write the lines back around them. Both streams
+   * are zstd frames; opening a pack unpacks both once, and `read` then
+   * rebuilds any of its files.
+   *
+   * `read` REFUSES a file whose length or CRC-32 is not what the pack
+   * recorded. A flash file that came back different must never reach a
+   * module, whatever went wrong on the way: a damaged pack, or a
+   * decompressor that got it wrong.
+   * @param {Uint8Array} pack - The whole pack.
+   * @param {(z: Uint8Array) => Uint8Array} decompress - zstd (fzstd.decompress).
+   * @returns {{files: {name: string, size: number}[],
+   *   read: (place: number) => {name: string, bytes: Uint8Array}}}
+   * @throws {Error} When the pack is not one, or a stream is not the length
+   *   it says.
+   */
+  function openPack(pack, decompress) {
+    for (let i = 0; i < SPK_MAGIC.length; i++)
+      if (pack[i] !== SPK_MAGIC.charCodeAt(i))
+        throw new Error('not an SP-Daten pack');
+    let at = SPK_MAGIC.length;
+    const hlen =
+      (pack[at] |
+        (pack[at + 1] << 8) |
+        (pack[at + 2] << 16) |
+        (pack[at + 3] << 24)) >>>
+      0;
+    at += 4;
+    const header = JSON.parse(
+      new TextDecoder().decode(pack.subarray(at, at + hlen))
+    );
+    at += hlen;
+    const skel = decompress(pack.subarray(at, at + header.skel[0]));
+    at += header.skel[0];
+    const pay = decompress(pack.subarray(at, at + header.pay[0]));
+    if (skel.length !== header.skel[1] || pay.length !== header.pay[1])
+      throw new Error('the SP-Daten pack did not unpack to its own length');
+
+    const read = (place) => {
+      const file = header.files[place];
+      if (!file) throw new Error(`the pack has no file ${place}`);
+      const bad = () => new Error(`${file.name}: bad pack`);
+      const out = new Uint8Array(file.size);
+      let o = 0;
+      let i = file.sk[0];
+      const end = i + file.sk[1];
+      let p = file.pay[0];
+      const payEnd = p + file.pay[1];
+      if (end > skel.length || payEnd > pay.length) throw bad();
+      if (file.sk[1] === 1 && skel[i] === 3) {
+        // not a hex file: it is its payload, as it is
+        if (file.pay[1] !== file.size) throw bad();
+        out.set(pay.subarray(p, payEnd));
+        o = file.size;
+      } else {
+        const hex = (v) => {
+          out[o++] = HEX_DIGITS[v >> 4];
+          out[o++] = HEX_DIGITS[v & 15];
+        };
+        let len = -1;
+        let addr = -1;
+        let kind = -1;
+        let cr = -1;
+        let first = true;
+        while (i < end) {
+          const op = skel[i++];
+          if (!first) out[o++] = 10;
+          first = false;
+          if (op === 0 || op === 1) {
+            if (op === 1) {
+              len = skel[i];
+              addr = (skel[i + 1] << 8) | skel[i + 2];
+              kind = skel[i + 3];
+              cr = skel[i + 4];
+              i += 5;
+            } else {
+              if (len < 0) throw bad();
+              addr = (addr + len) & 0xffff;
+            }
+            if (p + len > payEnd || o + 11 + len * 2 + cr > out.length)
+              throw bad();
+            out[o++] = 58;
+            hex(len);
+            hex(addr >> 8);
+            hex(addr & 0xff);
+            hex(kind);
+            let sum = len + (addr >> 8) + (addr & 0xff) + kind;
+            for (let k = 0; k < len; k++) {
+              const v = pay[p++];
+              sum += v;
+              hex(v);
+            }
+            hex(-sum & 0xff);
+            if (cr) out[o++] = 13;
+          } else if (op === 2) {
+            let n = 0;
+            let shift = 0;
+            let b;
+            do {
+              b = skel[i++];
+              n += (b & 127) * 2 ** shift;
+              shift += 7;
+            } while (b & 128);
+            if (i + n > end || o + n > out.length) throw bad();
+            out.set(skel.subarray(i, i + n), o);
+            o += n;
+            i += n;
+          } else throw bad();
+        }
+      }
+      if (o !== file.size || crc32(out) !== file.crc)
+        throw new Error(
+          `${file.name} did not unpack to the file that was packed; it was not used`
+        );
+      return { name: file.name, bytes: out };
+    };
+    return {
+      files: header.files.map((f) => ({ name: f.name, size: f.size })),
+      read,
+    };
+  }
+
   const api = {
+    openPack,
+    crc32,
     parseFile,
     runs,
     blocks,

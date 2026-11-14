@@ -10,6 +10,14 @@ licensed under GPLv3. The original source is vendored at `vendor/ms45-flasher/`.
 Because this project incorporates GPLv3 code, BMWeb is distributed under GPLv3.
 See `LICENSE`.
 
+## fzstd (MIT)
+
+`app/renderer/vendor/fzstd.js` is [101arrowz/fzstd](https://github.com/101arrowz/fzstd)
+0.1.1 by Arjun Barrett, a Zstandard decompressor in JavaScript, licensed under
+MIT. The app unpacks its data packs with it. The file is the package's own
+source inside a small wrapper, and carries its licence text and where it came
+from at its top.
+
 ## EdiabasLib
 
 The in-browser virtual machine and transport were written against
