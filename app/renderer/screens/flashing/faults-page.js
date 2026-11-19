@@ -221,6 +221,10 @@ async function fbFaultsRead(quiet = false) {
   if (fbFaults.reading || fbState.running) return;
   const sgbd = fbFaultsSgbd();
   if (!sgbd) return;
+  // a live scan's read comes from a timer, not a click: the browser will
+  // not show the port picker for it, so with the cable out the scan rests
+  // rather than raise "could not be opened" every few seconds
+  if (quiet && !fbOnSharedCar() && !webBus.connected) return;
   if (!(await fbEnsureCable())) return;
   const shared = fbOnSharedCar();
   fbFaults.reading = true;
@@ -278,12 +282,19 @@ async function fbFaultsClear() {
   const sgbd = fbFaultsSgbd();
   if (!sgbd) return;
   const name = fbFaultsModuleName();
-  const ok = await fbConfirm(
-    `Clear the ${name}'s fault memory?\n\nEvery stored fault and its freeze frame is erased. Save the list first if you want a record.`,
-    'Clear faults'
-  );
-  if (!ok) return;
-  if (!(await fbEnsureCable())) return;
+  // the live scan rests while the question is up: a read it started then
+  // was still on the line when the clear went out, and whichever ended
+  // first marked the screen free under the other
+  fbFaultsLeave();
+  const ok =
+    (await fbConfirm(
+      `Clear the ${name}'s fault memory?\n\nEvery stored fault and its freeze frame is erased. Save the list first if you want a record.`,
+      'Clear faults'
+    )) && (await fbEnsureCable());
+  if (!ok) {
+    fbFaultsSchedule();
+    return;
+  }
   const shared = fbOnSharedCar();
   fbFaults.reading = true;
   fbFaults.error = '';
@@ -304,6 +315,7 @@ async function fbFaultsClear() {
     fbFaultsPaint();
   }
   if (!fbFaults.error) await fbFaultsRead();
+  fbFaultsSchedule();
 }
 
 /**
@@ -567,5 +579,8 @@ if (typeof module !== 'undefined' && module.exports) {
     fbFaultsRowHtml,
     fbFaultsPaint,
     fbFaultsClearAfterFlash,
+    fbFaultsRead,
+    fbFaultsClear,
+    fbFaultsSchedule,
   };
 }

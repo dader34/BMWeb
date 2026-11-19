@@ -130,8 +130,97 @@ function _ms45TableChecksum(binary, tablePointer, initial, memSubtract) {
   return crc;
 }
 
+/**
+ * Whether [start, start + length) lies inside an image.
+ * @param {number} start
+ * @param {number} length
+ * @param {Uint8Array} image
+ * @returns {boolean}
+ */
+function _ms45Inside(start, length, image) {
+  return length > 0 && start >= 0 && start + length <= image.length;
+}
+
 /** The checksums and signatures the DME verifies. Every call returns a copy. */
 const ms45Checksums = {
+  /**
+   * Why a calibration cannot be checksummed and signed, or null when it can:
+   * both are computed over the segments its header names, and a file that is
+   * not a calibration names anything. A count of four thousand million was
+   * the tab hanging after the erase; segments outside the image are a
+   * checksum of nothing, which the DME refuses once it is written. Asked
+   * before anything is erased (core/flash/flash-ops.js).
+   * @param {Uint8Array} cal - The 0x1D000-byte calibration.
+   * @returns {string|null}
+   */
+  parameterProblem(cal) {
+    if (!cal || cal.length < MS45_CAL_LENGTH)
+      return 'it is not a whole calibration';
+    // one checksum segment: the table's second pair would be the start
+    // value at 0x110
+    if (_ms45Be32(cal, 0x104) !== 1)
+      return 'its header does not name one checksum segment';
+    const from = (_ms45Be32(cal, 0x108) - 0xffe40000) >>> 0;
+    const to = (_ms45Be32(cal, 0x10c) - 0xffe40000) >>> 0;
+    if (to < from || !_ms45Inside(from, to - from + 1, cal))
+      return 'its checksum segment lies outside the calibration';
+    // at most two signed segments: a third start would be the first length
+    const count = _ms45Be32(cal, 0x130);
+    if (count < 1 || count > 2)
+      return 'its header does not name the signed segments';
+    for (let i = 0; i < count; i++) {
+      const start = (_ms45Be32(cal, 0x134 + i * 8) - 0xfff40000) >>> 0;
+      if (!_ms45Inside(start, _ms45Be32(cal, 0x144 + i * 4), cal))
+        return 'a signed segment lies outside the calibration';
+    }
+    return null;
+  },
+  /**
+   * Why a program cannot be checksummed and signed, or null when it can (see
+   * parameterProblem): the checksum's two segments and the signed segments,
+   * each in the external image (addresses above 0xFFF00000) or the MPC.
+   * @param {Uint8Array} flash - The 1 MB external image.
+   * @param {Uint8Array} mpc - The 448 KB MPC image.
+   * @returns {string|null}
+   */
+  programProblem(flash, mpc) {
+    if (!flash || flash.length !== MS45_FULL_FLASH_LENGTH)
+      return 'the external image is not 1 MB';
+    if (!mpc || mpc.length !== MS45_MPC_LENGTH)
+      return 'the MPC image is not 448 KB';
+    for (const [sAt, eAt] of [
+      [0x60008, 0x60010],
+      [0x6000c, 0x60014],
+    ]) {
+      const start = _ms45Be32(flash, sAt);
+      const end = _ms45Be32(flash, eAt);
+      const external = start > 0xfff00000;
+      const from = external ? start - 0xfff00000 : start;
+      if (
+        end < start ||
+        !_ms45Inside(from, end - start + 1, external ? flash : mpc)
+      )
+        return 'a checksum segment its header names lies outside the image';
+    }
+    // at most three signed segments: a fourth start would be the first length
+    const count = _ms45Be32(flash, 0x60030);
+    if (count < 1 || count > 3)
+      return 'its header does not name the signed segments';
+    for (let i = 0; i < count; i++) {
+      const start = _ms45Be32(flash, 0x60034 + i * 8);
+      const length = _ms45Be32(flash, 0x6004c + i * 4);
+      const external = start >= 0xfff00000;
+      if (
+        !_ms45Inside(
+          external ? start - 0xfff00000 : start,
+          length,
+          external ? flash : mpc
+        )
+      )
+        return 'a signed segment its header names lies outside the image';
+    }
+    return null;
+  },
   /**
    * The calibration's CRC at 0x100, over the segments its header names.
    * @param {Uint8Array} cal - The 0x1D000-byte calibration.

@@ -458,6 +458,113 @@ function _ffTraceLine(svc, data, reply, ms) {
   return `FF ${name}${what} -> ${got} ${ms} ms`;
 }
 
+// ---- a sector rewrite that is still open ---------------------------------------
+// A boot-sector rewrite (the AIF editor's, the bootloader's, the ISN's:
+// core/flash/aif.js, bl.js) erases a sector that holds the DME's loader and
+// writes it back from an image built off the DME itself. Between the erase
+// and the verify that image exists only on this side. A frame lost in that
+// window is not the end -- the body runs on in RAM and answers -- but the
+// image must be what any later attempt writes: one that reads the sector
+// off the DME again takes the erased bytes for the loader and writes THOSE
+// back, verified. So the image is kept from the moment its erase goes out
+// until its verify passes (here in memory, and in the browser's storage so
+// a reloaded page still has it), and RESET -- which ends the body, the only
+// thing still able to write that sector -- is not sent while it is open.
+const FF_REWRITE_KEY = 'bmweb-boot-rewrite-open';
+/** undefined until first asked (then storage is read once); null when none is open. */
+let _ffRewrite;
+
+/**
+ * The sector rewrite that is open, if one is.
+ * @returns {{base: number, data: Uint8Array, what: string}|null}
+ */
+function ffRewriteOpen() {
+  if (_ffRewrite !== undefined) return _ffRewrite;
+  _ffRewrite = null;
+  try {
+    const kept = JSON.parse(localStorage.getItem(FF_REWRITE_KEY) || 'null');
+    if (kept && Number.isInteger(kept.base) && typeof kept.data === 'string') {
+      const raw = atob(kept.data);
+      const data = new Uint8Array(raw.length);
+      for (let i = 0; i < raw.length; i++) data[i] = raw.charCodeAt(i);
+      if (data.length)
+        _ffRewrite = { base: kept.base, data, what: String(kept.what || '') };
+    }
+  } catch (e) {
+    // no storage, or not a record: nothing is open as far as this page knows
+  }
+  return _ffRewrite;
+}
+
+/**
+ * A sector's rewrite begins: called right before its ERASE goes out.
+ * @param {number} base - The sector's ext offset.
+ * @param {Uint8Array} data - The whole sector as it will be written.
+ * @param {string} what - The sector in words, for the messages.
+ */
+function ffRewriteBegin(base, data, what) {
+  _ffRewrite = { base, data: Uint8Array.from(data), what };
+  try {
+    let raw = '';
+    for (let i = 0; i < data.length; i += 0x8000)
+      raw += String.fromCharCode.apply(null, data.subarray(i, i + 0x8000));
+    localStorage.setItem(
+      FF_REWRITE_KEY,
+      JSON.stringify({ base, what, data: btoa(raw) })
+    );
+  } catch (e) {
+    // storage blocked or full: kept for as long as the page lives
+  }
+}
+
+/** The open rewrite is closed: its sector verified, or found not to be this DME's. */
+function ffRewriteEnd() {
+  _ffRewrite = null;
+  try {
+    localStorage.removeItem(FF_REWRITE_KEY);
+  } catch (e) {
+    // nothing was stored
+  }
+}
+
+/**
+ * Where the DME stands on the open rewrite: 'none' (nothing is open, or the
+ * record is not about what this DME holds and is dropped), 'whole' (the
+ * sector already holds the image: only an answer was lost) or 'open'
+ * (part-written). The record is about this DME when its marker is still
+ * ARMED and every byte of the sector is one a cut write of the image can
+ * have left: erased, or already the image's (programming only clears
+ * bits). A sector with bits clear that the image wants set was never that
+ * attempt's -- an erase that was refused, another DME.
+ * @param {FastFlashClient} client
+ * @returns {Promise<'none'|'whole'|'open'>}
+ */
+async function ffRewriteState(client) {
+  const p = ffRewriteOpen();
+  if (!p) return 'none';
+  let mark;
+  try {
+    mark = await client.aifRead();
+  } catch (e) {
+    // not answered as a body with the ladder does: not the session that
+    // rewrite ran on. The record stays for one that is.
+    return 'none';
+  }
+  if (mark !== FF_MARK.ARMED) {
+    ffRewriteEnd();
+    return 'none';
+  }
+  const have = (await client.sectorQuery(p.base, p.data.length)) >>> 0;
+  if (have === ffWireBytes.crc32Mpeg2(p.data) >>> 0) return 'whole';
+  const chip = await ffReadArea(client, p.base, p.data.length);
+  for (let i = 0; i < chip.length; i++)
+    if ((chip[i] & p.data[i]) !== p.data[i]) {
+      ffRewriteEnd();
+      return 'none';
+    }
+  return 'open';
+}
+
 /** A refusal from the flasher, with its reason. */
 class FastFlashNak extends Error {
   /** @param {number} svc @param {number} reason */
@@ -750,6 +857,17 @@ class FastFlashClient {
   }
 
   async reset() {
+    // not while a sector that holds the loader is part-written: the body
+    // this would end is the only thing that can still finish it
+    if (ffRewriteOpen() && (await ffRewriteState(this)) === 'open')
+      // rewriteOpen: so a caller that forgives an unanswered RESET (a read
+      // that is already saved) does not forgive this
+      throw Object.assign(
+        new Error(
+          `The rewrite of ${ffRewriteOpen().what || 'a boot sector'} was interrupted and the DME holds only part of it: restarting the DME now would leave it without its loader. Keep the ignition on and run the same write again; it finishes from the image it kept.`
+        ),
+        { rewriteOpen: true }
+      );
     await this.call(FF_SVC.RESET, [], FF_TIMEOUT.RESET);
   }
 
@@ -2630,6 +2748,10 @@ const fastFlashWire = {
   fasterLine: ffFasterLine,
   FAST_LINES: FF_FAST_LINES,
   webLink: ffWebLink,
+  rewriteOpen: ffRewriteOpen,
+  rewriteBegin: ffRewriteBegin,
+  rewriteEnd: ffRewriteEnd,
+  rewriteState: ffRewriteState,
 };
 
 if (typeof window !== 'undefined') {

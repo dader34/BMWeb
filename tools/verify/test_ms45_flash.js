@@ -92,6 +92,11 @@ const eq = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
       eq(sig.subarray(0x174, 0x1b4), c.subarray(0x174, 0x1b4)),
       `${path.basename(p)}: parameter signature`
     );
+    assert.strictEqual(
+      M.ms45Checksums.parameterProblem(c),
+      null,
+      `${path.basename(p)}: a stock calibration passes the pre-flight check`
+    );
     cals++;
   }
   if (cals)
@@ -123,10 +128,98 @@ const eq = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
     assert.strictEqual(M.ewsDelete.readProgramVersion(f), '0044570LO02S');
     assert.ok(M.ewsDelete.isApplicable(f) && !M.ewsDelete.isAlreadyPatched(f));
     assert.ok(M.ms45VerifyProgramMatch(f, '0044570'));
+    assert.strictEqual(M.ms45Checksums.programProblem(f, m), null);
+    assert.strictEqual(
+      M.ms45Checksums.parameterProblem(f.subarray(0x40000, 0x5d000)),
+      null
+    );
     ok(
       'stock full pair: program CRCs and signature reproduced; pair match; EWS stock'
     );
   } else console.log('  skip  stock full pair (set MS45_DIR to run this)');
+
+  // the pre-flight check: a header shaped like every MS45's passes, one that
+  // names nothing usable is refused (before the erase, in flash-ops)
+  {
+    const put = (d, at, v) => {
+      d[at] = v >>> 24;
+      d[at + 1] = (v >>> 16) & 255;
+      d[at + 2] = (v >>> 8) & 255;
+      d[at + 3] = v & 255;
+    };
+    const goodCal = () => {
+      const c = new Uint8Array(0x1d000);
+      put(c, 0x104, 1);
+      put(c, 0x108, 0xffe40200);
+      put(c, 0x10c, 0xffe5cfff);
+      put(c, 0x130, 2);
+      put(c, 0x134, 0xfff40000);
+      put(c, 0x13c, 0xfff40200);
+      put(c, 0x144, 0x170);
+      put(c, 0x148, 0x1ce00);
+      return c;
+    };
+    const P = M.ms45Checksums.parameterProblem;
+    assert.strictEqual(P(goodCal()), null);
+    assert.match(P(new Uint8Array(0x1d000).fill(0xff)), /checksum segment/);
+    assert.match(P(new Uint8Array(0x1d000)), /checksum segment/);
+    assert.match(P(new Uint8Array(0x100)), /not a whole calibration/);
+    let c = goodCal();
+    put(c, 0x10c, 0xffe5d000); // one byte past the calibration
+    assert.match(P(c), /outside the calibration/);
+    c = goodCal();
+    put(c, 0x108, 0xffe3ff00); // below the calibration: wraps
+    assert.match(P(c), /outside the calibration/);
+    c = goodCal();
+    put(c, 0x10c, 0xffe40100); // ends before it starts
+    assert.match(P(c), /outside the calibration/);
+    c = goodCal();
+    put(c, 0x130, 0xffffffff); // the count that hung the tab
+    assert.match(P(c), /signed segments/);
+    c = goodCal();
+    put(c, 0x148, 0x1ce01); // one byte too long
+    assert.match(P(c), /signed segment lies outside/);
+
+    const goodPair = () => {
+      const f = new Uint8Array(0x100000);
+      put(f, 0x60008, 0);
+      put(f, 0x60010, 0x6ffff);
+      put(f, 0x6000c, 0xfff60608);
+      put(f, 0x60014, 0xffffff3f);
+      put(f, 0x60030, 3);
+      put(f, 0x60034, 0);
+      put(f, 0x6003c, 0xfff60000);
+      put(f, 0x60044, 0xfff60100);
+      put(f, 0x6004c, 0x70000);
+      put(f, 0x60050, 0x70);
+      put(f, 0x60054, 0x9fe40);
+      return f;
+    };
+    const mpc = new Uint8Array(0x70000);
+    const G = M.ms45Checksums.programProblem;
+    assert.strictEqual(G(goodPair(), mpc), null);
+    // blank: both checksum segments read as the image's last byte, and the
+    // count is what refuses it
+    assert.match(
+      G(new Uint8Array(0x100000).fill(0xff), mpc),
+      /signed segments/
+    );
+    assert.match(G(new Uint8Array(0x100000), mpc), /signed segments/);
+    assert.match(G(goodPair(), new Uint8Array(0x100)), /MPC image/);
+    assert.match(G(new Uint8Array(0x100), mpc), /external image/);
+    let f = goodPair();
+    put(f, 0x60010, 0x70000); // one byte past the MPC
+    assert.match(G(f, mpc), /checksum segment/);
+    f = goodPair();
+    put(f, 0x60030, 4);
+    assert.match(G(f, mpc), /signed segments/);
+    f = goodPair();
+    put(f, 0x60054, 0x9ff01); // past the end of the external image
+    assert.match(G(f, mpc), /signed segment/);
+    ok(
+      'pre-flight check: the MS45 header shape passes; blank, zeroed, runaway and out-of-range tables are refused'
+    );
+  }
 
   // ── 3. security access agrees with the backup engine ───────────────────────
   console.log('\nsecurity access');

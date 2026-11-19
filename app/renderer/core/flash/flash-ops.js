@@ -75,6 +75,17 @@ function flashCallbacks(cb) {
 }
 
 // ---- the DME ----------------------------------------------------------------------------------------
+/**
+ * The result's status for an image refused before anything was sent
+ * (ms45Checksums.parameterProblem / programProblem say why).
+ * @param {'calibration'|'program'} what
+ * @param {string} why
+ * @returns {string}
+ */
+function flashRefused(what, why) {
+  return `Flash failed, nothing was sent: this is not a ${what} the DME would accept (${why})`;
+}
+
 /** The BMW-FAST protocol's session switch before a flash; nothing on the others. */
 async function flashDmeEnterFast(diagProtocol) {
   if (diagProtocol !== 'BMW-FAST') return true;
@@ -93,6 +104,14 @@ async function flashDmeEnterFast(diagProtocol) {
 async function flashDmeTune(p, c) {
   if (!p.cal || p.cal.length !== MS45_CAL_LENGTH)
     return { ok: false, status: 'The tune is not a 0x1D000-byte calibration' };
+  // checked, checksummed and signed before the DME is asked for anything:
+  // a file that is not a calibration is refused while the one on the car
+  // is still whole (this used to run after the erase)
+  const bad = ms45Checksums.parameterProblem(p.cal);
+  if (bad) return { ok: false, status: flashRefused('calibration', bad) };
+  const toFlash = ms45Checksums.signParameters(
+    ms45Checksums.correctParameterChecksums(p.cal)
+  );
   if (!(await ms45SecurityAccess(p.diagProtocol, c.stage)))
     return { ok: false, status: 'Security Access Denied' };
   if (!(await flashDmeEnterFast(p.diagProtocol)))
@@ -100,8 +119,6 @@ async function flashDmeTune(p, c) {
   c.stage('Erasing Flash');
   if (!(await ms45Erase(0x2040000, 0x20000, c.stage)))
     return { ok: false, status: 'Erase failed' };
-  let toFlash = ms45Checksums.correctParameterChecksums(p.cal);
-  toFlash = ms45Checksums.signParameters(toFlash);
   c.attach('tune_0x40000.bin', toFlash);
   c.stage('Flashing ECU');
   const written = await ms45FlashBlock(toFlash, 0x2040000, 0x205cfff, {
@@ -127,6 +144,23 @@ async function flashDmeProgram(p, c) {
     return { ok: false, status: 'The external image is not 1 MB' };
   if (!p.mpc || p.mpc.length !== MS45_MPC_LENGTH)
     return { ok: false, status: 'The MPC image is not 448 KB' };
+  // both images checked, and the calibration checksummed and signed, before
+  // the DME is asked for anything (see flashDmeTune): the calibration's turn
+  // comes after the program and the MPC are already written
+  const bad = ms45Checksums.programProblem(p.flash, p.mpc);
+  if (bad) return { ok: false, status: flashRefused('program', bad) };
+  let calFlash = null;
+  if (p.hasCal) {
+    calFlash = Uint8Array.from(
+      p.flash.subarray(MS45_CAL_START, MS45_CAL_START + MS45_CAL_LENGTH)
+    );
+    const badCal = ms45Checksums.parameterProblem(calFlash);
+    if (badCal)
+      return { ok: false, status: flashRefused('calibration', badCal) };
+    calFlash = ms45Checksums.signParameters(
+      ms45Checksums.correctParameterChecksums(calFlash)
+    );
+  }
   if (!(await ms45SecurityAccess(p.diagProtocol, c.stage)))
     return { ok: false, status: 'Security Access Denied' };
   if (!(await flashDmeEnterFast(p.diagProtocol)))
@@ -164,12 +198,6 @@ async function flashDmeProgram(p, c) {
     onProgress: progress('Flashing MPC'),
   });
   if (ok && p.hasCal) {
-    let calFlash = Uint8Array.from(
-      p.flash.subarray(MS45_CAL_START, MS45_CAL_START + MS45_CAL_LENGTH)
-    );
-    calFlash = ms45Checksums.signParameters(
-      ms45Checksums.correctParameterChecksums(calFlash)
-    );
     c.note('PHASE: erase calibration 0x2040000 block 0x20000');
     c.stage('Erasing Calibration');
     ok = await ms45Erase(0x2040000, 0x20000, c.stage);
@@ -364,6 +392,9 @@ async function flashDmeMapsRead(p, c) {
         mapSwitch.TABLES_OFFSET,
         mapSwitch.TABLES_OFFSET + mapSwitch.tablesLength('chunks') - 1
       );
+    // tables that did not come back are a failed read, not a car with no
+    // other map: without this the read ended "no other map is stored"
+    if (!area) failed = true;
     const count = area ? mapSwitch.mapCountFrom(area) : null;
     for (let index = 1; count && index < count && !failed; index++) {
       c.stage(`Reading map ${index + 1}`);
@@ -673,8 +704,10 @@ for (const op of FLASH_OPS) {
     async run(text, cb) {
       if (flashRemoteBusy)
         return { ok: false, status: 'another flashing operation is running' };
-      flashRemoteBusy = true;
+      // decoded before the flag goes up: a payload that threw here would
+      // leave every later operation refused as "another is running"
       const p = flashOps.decode(op, text);
+      flashRemoteBusy = true;
       const c = flashCallbacks(cb);
       const log = typeof flashLog !== 'undefined' ? flashLog : null;
       try {

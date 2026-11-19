@@ -251,8 +251,17 @@ const fastFlasher = {
     const f = Uint8Array.from(flash);
     const m = Uint8Array.from(mpc);
     const stamped = _fastFlasherMagicAt(f, FAST_FLASHER_STAMP_AT);
-    const hooked =
-      ffBytes.be32(m, FAST_FLASHER_HOOK_AT) === _fastFlasherBody().hookWord;
+    // this build's hook word, or any absolute branch into the body range
+    // (another build's gate): with the body blanked, either one sends
+    // every boot into 0xFF
+    const word = ffBytes.be32(m, FAST_FLASHER_HOOK_AT);
+    const li = word & 0x03fffffc;
+    const target = (li & 0x02000000 ? li | 0xfc000000 : li) >>> 0;
+    const intoBody =
+      (word & 0xfc000003) >>> 0 === 0x48000002 &&
+      target >= FAST_FLASHER_EXT_CPU + FAST_FLASHER_BODY_START &&
+      target < FAST_FLASHER_EXT_CPU + FAST_FLASHER_BODY_END;
+    const hooked = word === _fastFlasherBody().hookWord || intoBody;
     if (stamped) f.fill(0xff, FAST_FLASHER_BODY_START, FAST_FLASHER_BODY_END);
     if (hooked)
       ffBytes.putBe32(m, FAST_FLASHER_HOOK_AT, FAST_FLASHER_STOCK_HOOK);

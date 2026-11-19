@@ -804,10 +804,21 @@ async function fbTcuInstallReadPatch() {
   t.programName = 'Built-in 7552700 read-patch program  release 90';
   fbSetStatus('Built-in 7552700 read-patch program loaded');
   fbTcuRefresh();
-  await fbTcuWriteProgram();
+  // the program alone, as the button says ("the calibration is not
+  // touched"): a calibration that happened to be loaded for Write
+  // Calibration used to be written straight after it. The release was
+  // checked above to be the transmission's own, so none is needed.
+  await fbTcuWriteProgram({ programOnly: true });
 }
 
-async function fbTcuWriteProgram() {
+/**
+ * Write Program: the loaded program, then the loaded calibration when there
+ * is one.
+ * @param {{programOnly?: boolean}} [opts] - programOnly: the loaded
+ *   calibration is left out (Install Read Patch).
+ * @returns {Promise<void>}
+ */
+async function fbTcuWriteProgram(opts = {}) {
   const t = fbState.tcu;
   if (!t.program) {
     fbSetStatus('Load a program first');
@@ -816,9 +827,10 @@ async function fbTcuWriteProgram() {
   const release = gs20ProgramRelease(t.program);
   const reported = (t.identSw || '').trim().replace(/^0+(?=\d)/, '');
   const releaseChanges = release !== reported;
-  const calibrationFollows = !!t.cal;
+  const calibrationFollows = !!t.cal && !opts.programOnly;
   if (releaseChanges) {
-    const calRelease = t.cal ? gs20Checksum.release(t.cal) : null;
+    // (the calibration that will be written: none with programOnly)
+    const calRelease = calibrationFollows ? gs20Checksum.release(t.cal) : null;
     if (!release || !calRelease || calRelease !== release) {
       fbSetStatus(
         `Write cancelled: a calibration of release ${release || '?'} must be loaded first`
@@ -827,7 +839,7 @@ async function fbTcuWriteProgram() {
       // release, so a release change needs that calibration written after it
       await fbMessage(
         `This program is release ${release || 'unknown'}, and the transmission ${reported ? `runs release ${reported}` : 'has no software'}. Load a release-${release || '?'} calibration first; it will be written right after the program.` +
-          (t.cal
+          (calibrationFollows
             ? `\n\nThe loaded calibration is release ${calRelease || 'unknown'}.`
             : ''),
         'Program needs a matching calibration'

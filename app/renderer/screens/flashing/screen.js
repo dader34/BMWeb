@@ -136,6 +136,8 @@ let fbEls = {};
 let fbModuleDd = null;
 /** @type {?function(Event): void} The window's bmweb-cable listener, registered once. */
 let fbCableListener = null;
+/** Whether the History page follows flashHistory's changes yet (registered once). */
+let fbHistoryListening = false;
 
 /**
  * Developer conveniences: files can be loaded and Custom Options opened
@@ -412,9 +414,14 @@ function fbMount(host, returning) {
   fbEls['history-remove'].onclick = () => fbHistoryRemove();
   fbEls['history-log'].onclick = () => fbHistoryOpenLog();
   fbEls['history-files'].onclick = () => fbHistorySaveFiles();
-  flashHistory.onChange(() => {
-    if (lastScreen === showFlashing) fbHistoryRefresh();
-  });
+  // once: the window is built again on every visit, and a listener added
+  // each time refreshed the table once per visit so far
+  if (!fbHistoryListening) {
+    fbHistoryListening = true;
+    flashHistory.onChange(() => {
+      if (lastScreen === showFlashing) fbHistoryRefresh();
+    });
+  }
 
   fbDmeWire();
   fbTcuWire();
@@ -694,6 +701,10 @@ function fbBusy(busy) {
   fbEls.module.querySelector('.lkd-btn').disabled = !!busy;
   if (busy) fbModuleDd.close();
   fbEls.actions.classList.toggle('fb-locked', !!busy);
+  // the class only stops the pointer: inert stops the keyboard too (Tab to
+  // Load File or Full Binary and Space, mid-flash, changed the loaded files
+  // under the operation)
+  fbEls.actions.inert = !!busy;
 }
 
 // ---- the skin's status pair: how long the operation has run, and the cable --------------------------

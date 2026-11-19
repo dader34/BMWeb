@@ -13,6 +13,8 @@ const {
   fastFlashWire,
 } = require('../../app/renderer/core/flash/fast-flasher-wire.js');
 const { aifLog } = require('../../app/renderer/core/flash/aif.js');
+const { bl } = require('../../app/renderer/core/flash/bl.js');
+const { blBlob } = require('../../app/renderer/core/generated/bl-blob.js');
 
 const crc32 = fastFlashWire.crc32;
 const MARK = fastFlashWire.MARK;
@@ -57,6 +59,11 @@ function mockDme() {
     cur: 0,
     erases: 0,
     reads: 0,
+    chunks: 0,
+    /** The nth CHUNK from now goes unanswered (0: none). `landed`: whether it was programmed first. */
+    loseChunk: 0,
+    loseLanded: false,
+    resets: 0,
     client: {
       async aifRead() {
         return dme.cur >= dme.slots.length ? MARK.DONE : dme.slots[dme.cur];
@@ -86,7 +93,13 @@ function mockDme() {
       async chunk(off, plain) {
         if (off >= BOOT && dme.slots[dme.cur] !== MARK.ARMED)
           throw new Error('mock: boot-sector CHUNK refused, marker not armed');
+        dme.chunks++;
+        const lost = dme.loseChunk && --dme.loseChunk === 0;
+        // a frame the line lost: nothing programmed, nothing answered
+        if (lost && !dme.loseLanded)
+          throw new Error('fast flasher: no reply to CHUNK');
         for (let i = 0; i < plain.length; i++) dme.chip[off + i] &= plain[i];
+        if (lost) throw new Error('fast flasher: no reply to CHUNK');
         // the body's read-back compare: a chunk that would set bits NAKs
         for (let i = 0; i < plain.length; i++)
           if (dme.chip[off + i] !== plain[i])
@@ -314,6 +327,260 @@ const cb = () => {
     check(
       'ladder: a foreign tail refused',
       /foreign tail/.test(threw) && foreign.erases === 0
+    );
+  }
+
+  // ---- a rewrite cut after its erase ---------------------------------------
+  // One CHUNK of the restore goes unanswered. The boot sector is erased
+  // past that point; the image to finish it from is on this side only.
+  const wire = fastFlashWire;
+  const cutRewrite = async (landed) => {
+    wire.rewriteEnd();
+    const dme = stock();
+    const before = dme.chip.slice(BOOT, AIF);
+    const aif = new Uint8Array(LOG_LEN).fill(0xff);
+    aif[0] = 0x40;
+    dme.loseChunk = 10;
+    dme.loseLanded = landed;
+    let threw = '';
+    try {
+      await aifLog.rewrite(dme.client, aif, cb());
+    } catch (e) {
+      threw = e.message;
+    }
+    return { dme, before, aif, threw };
+  };
+  {
+    const { dme, before, aif, threw } = await cutRewrite(false);
+    check('cut: the rewrite stopped at the lost frame', /no reply/.test(threw));
+    check(
+      'cut: the loader is part erased',
+      dme.chip.subarray(BOOT + 10 * 0x1000, AIF).every((b) => b === 0xff)
+    );
+    check(
+      'cut: the image is kept open',
+      !!wire.rewriteOpen() &&
+        wire.rewriteOpen().base === BOOT &&
+        wire.rewriteOpen().data.length === BOOT_END - BOOT
+    );
+    check(
+      "cut: the DME reads 'open'",
+      (await wire.rewriteState(dme.client)) === 'open'
+    );
+
+    // the retry that used to brick: the same rewrite again WITHOUT the
+    // finish. It must refuse the part-erased sector as a source.
+    const kept = wire.rewriteOpen();
+    wire.rewriteEnd(); // as after a page that lost the image
+    let refused = '';
+    const erasesBefore = dme.erases;
+    try {
+      await aifLog.rewrite(dme.client, aif, cb());
+    } catch (e) {
+      refused = e.message;
+    }
+    check(
+      'cut, image lost: a second rewrite refuses the erased sector as its source',
+      /reads erased/.test(refused) &&
+        /Do NOT switch the ignition off/.test(refused)
+    );
+    check('cut, image lost: nothing more erased', dme.erases === erasesBefore);
+
+    // with the image: finished from it, loader byte-identical, log as asked
+    wire.rewriteBegin(kept.base, kept.data, kept.what);
+    const c = cb();
+    const finished = await aifLog.finishInterrupted(dme.client, c);
+    check('finish: reported', finished === true);
+    check(
+      'finish: the loader is back byte for byte',
+      dme.chip.subarray(BOOT, AIF).every((b, i) => b === before[i])
+    );
+    check(
+      'finish: the log is the one that rewrite was writing',
+      dme.chip.subarray(AIF, BOOT_END).every((b, i) => b === aif[i])
+    );
+    check(
+      'finish: the marker moved on',
+      dme.slots[0] === MARK.DONE && dme.cur === 1
+    );
+    check('finish: nothing is open any more', wire.rewriteOpen() === null);
+    check(
+      'finish: a second call does nothing',
+      (await aifLog.finishInterrupted(dme.client, cb())) === false
+    );
+  }
+  {
+    // the lost frame had been programmed, and it was the last one: the
+    // sector is whole, only VERIFY and DONE never ran
+    wire.rewriteEnd();
+    const dme = stock();
+    const aif = new Uint8Array(LOG_LEN).fill(0xff);
+    dme.loseChunk = 24;
+    dme.loseLanded = true;
+    try {
+      await aifLog.rewrite(dme.client, aif, cb());
+    } catch (e) {
+      /* the lost answer */
+    }
+    check(
+      "whole: the DME reads 'whole'",
+      (await wire.rewriteState(dme.client)) === 'whole'
+    );
+    const erases = dme.erases;
+    check(
+      'whole: finished',
+      (await aifLog.finishInterrupted(dme.client, cb())) === true
+    );
+    check(
+      'whole: no second erase, the marker closed',
+      dme.erases === erases &&
+        dme.slots[0] === MARK.DONE &&
+        wire.rewriteOpen() === null
+    );
+  }
+  {
+    // a record that is not about this DME: its ladder has moved on
+    wire.rewriteEnd();
+    const dme = stock();
+    wire.rewriteBegin(
+      BOOT,
+      new Uint8Array(BOOT_END - BOOT).fill(0x11),
+      'the boot sector'
+    );
+    check(
+      "stale: marker not armed -> 'none'",
+      (await wire.rewriteState(dme.client)) === 'none'
+    );
+    check('stale: the record is dropped', wire.rewriteOpen() === null);
+    // ... or armed, but the sector has bits clear that the image wants set
+    // (an erase that never ran, another DME): not written over
+    wire.rewriteBegin(
+      BOOT,
+      new Uint8Array(BOOT_END - BOOT).fill(0xff),
+      'the boot sector'
+    );
+    await dme.client.aifArm();
+    const erases = dme.erases;
+    check(
+      'stale: a sector the image does not fit is left alone',
+      (await aifLog.finishInterrupted(dme.client, cb())) === false &&
+        dme.erases === erases &&
+        wire.rewriteOpen() === null
+    );
+  }
+  {
+    // an erase the body refuses outright leaves nothing open
+    wire.rewriteEnd();
+    const dme = stock();
+    dme.client.erase = async () => {
+      throw new wire.Nak(wire.SVC.ERASE, 3);
+    };
+    try {
+      await aifLog.rewrite(
+        dme.client,
+        new Uint8Array(LOG_LEN).fill(0xff),
+        cb()
+      );
+    } catch (e) {
+      /* refused */
+    }
+    check('refused erase: nothing is open', wire.rewriteOpen() === null);
+  }
+
+  // ---- RESET is not sent while a boot sector is part-written -----------------
+  {
+    const { dme } = await cutRewrite(false);
+    // the real client's reset(), over the mock's services
+    const client = Object.create(wire.Client.prototype);
+    Object.assign(client, dme.client, {
+      readMax: 0x1000,
+      call: async (svc) => {
+        if (svc === wire.SVC.RESET) dme.resets++;
+        return new Uint8Array(0);
+      },
+    });
+    let threw = null;
+    try {
+      await client.reset();
+    } catch (e) {
+      threw = e;
+    }
+    check(
+      'reset: refused while the sector is open, and says why',
+      !!threw &&
+        threw.rewriteOpen === true &&
+        /without its loader/.test(threw.message)
+    );
+    check('reset: nothing was sent', dme.resets === 0);
+    await aifLog.finishInterrupted(dme.client, cb());
+    await client.reset();
+    check('reset: sent once the sector is whole again', dme.resets === 1);
+  }
+
+  // ---- the bootloader client over the same window ----------------------------
+  // bl.restore's 96 KB rewrite cut after its erase: run again, it used to
+  // read the erased sector, find "the ring blanked" and report the boot
+  // region already stock -- with no loader in it.
+  {
+    wire.rewriteEnd();
+    const dme = stock();
+    // a boot region as bl.restore expects: the installer ring in its span,
+    // both words patched, and an 8 KB sector / low sectors to read
+    const ringAt = blBlob.ring.at;
+    const ring = Uint8Array.from(
+      blBlob.installerRing.hex
+        .join('')
+        .match(/../g)
+        .map((h) => parseInt(h, 16))
+    );
+    dme.chip.fill(0xff, ringAt, 0x1f700);
+    dme.chip.set(ring, ringAt);
+    // no boot CRC table (the loader does not check): keeps the mock simple
+    dme.chip.fill(0xff, 0x1f808, 0x1f810);
+    for (const p of blBlob.patches) {
+      dme.chip[p.at] = p.word >>> 24;
+      dme.chip[p.at + 1] = (p.word >>> 16) & 255;
+      dme.chip[p.at + 2] = (p.word >>> 8) & 255;
+      dme.chip[p.at + 3] = p.word & 255;
+    }
+    // the mock erases/refuses by BOOT only: give it the 8 KB sector too
+    const erase0 = dme.client.erase;
+    dme.client.erase = async (off) => {
+      if (off === 0x4000) {
+        dme.chip.fill(0xff, 0x4000, 0x6000);
+        return;
+      }
+      return erase0(off);
+    };
+    const want = dme.chip.slice(0, BOOT_END);
+    for (const p of blBlob.patches) {
+      want[p.at] = p.stock >>> 24;
+      want[p.at + 1] = (p.stock >>> 16) & 255;
+      want[p.at + 2] = (p.stock >>> 8) & 255;
+      want[p.at + 3] = p.stock & 255;
+    }
+    want.fill(0xff, ringAt, 0x1f700);
+    // the 8 KB sector is 2 chunks, then the 96 KB one: lose its 6th
+    dme.loseChunk = 2 + 6;
+    let threw = '';
+    try {
+      await bl.restore(dme.client, cb());
+    } catch (e) {
+      threw = e.message;
+    }
+    check('bl.restore: cut inside the 96 KB sector', /no reply/.test(threw));
+    check(
+      'bl.restore: that sector is kept open',
+      !!wire.rewriteOpen() && wire.rewriteOpen().base === BOOT
+    );
+    const r = await bl.restore(dme.client, cb());
+    check(
+      'bl.restore, run again: the boot region is the stock one, whole',
+      dme.chip.subarray(0, BOOT_END).every((b, i) => b === want[i])
+    );
+    check(
+      'bl.restore, run again: finished from the kept image, nothing left open',
+      !!r && wire.rewriteOpen() === null
     );
   }
 

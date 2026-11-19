@@ -345,20 +345,33 @@ async function fbIsnFlashWrite(isn) {
 /** Virginize: blank the DME's ISN. Kept as a bench tool; pairing does not
  * need it (the EWS never writes the flash triple, so a blank DME stays
  * blank until Write ISN). */
-async function fbIsnFlashVirginize() {
+/**
+ * Virginize's gate and its question, before the DME is touched (the button
+ * asks first, as Write ISN does: asked after fbDmeGuard's autoEnter, a "no"
+ * left the DME sitting in the flasher the entry had just started).
+ * @returns {Promise<boolean>} True to go on.
+ */
+async function fbIsnConfirmVirginize() {
   const why = fbIsnWhyNot(false);
   if (why) {
     await fbMessage(why, 'Virginize');
-    return;
+    return false;
   }
   const ok = await fbConfirm(
     "Wipes the DME's ISN. The program, tune and log are kept.\n\nThe car will not start while the DME's ISN differs from the EWS's, unless the DME is EWS-deleted.\n\nKeep the ignition on, a charger connected and the cable plugged in until it finishes.\n\nVirginize the DME?",
     'Virginize'
   );
-  if (!ok) {
+  if (!ok)
     flashLog.note('Virginize not confirmed: nothing was sent to the car');
-    return;
-  }
+  return ok;
+}
+
+/**
+ * @param {boolean} [confirmed] - The question was asked already
+ *   (fbIsnConfirmVirginize, by the button).
+ */
+async function fbIsnFlashVirginize(confirmed = false) {
+  if (!confirmed && !(await fbIsnConfirmVirginize())) return;
   await fbDmeFastFlash({
     title: 'Virginize',
     operation: 'isn-virginize',
@@ -427,7 +440,7 @@ async function fbIsnDump() {
     noFasterLine: true,
     confirm:
       'Read EEPROM resets the DME into its fast flash bootloader, reads the EEPROM and restarts the DME. Nothing is written.\n\nRead the EEPROM?',
-    note: `DME ${d.ident.hwRef} / BL${d.bootLoader.version} / EEPROM read`,
+    note: `DME ${d.ident.hwRef} / ${fbDmeFlasherNote()} / EEPROM read`,
     push: async (client, cb) => {
       cb.stage('Reading the EEPROM');
       img = await eepromDump.dump(client, {
@@ -480,8 +493,13 @@ function fbIsnShow() {
         autoEnter: true,
       });
     };
-    fbEls['isnp-virgin'].onclick = () =>
-      fbDmeGuard('Virginize', fbIsnFlashVirginize, { autoEnter: true });
+    // (the question first, for the same reason)
+    fbEls['isnp-virgin'].onclick = async () => {
+      if (fbState.running || !(await fbIsnConfirmVirginize())) return;
+      await fbDmeGuard('Virginize', () => fbIsnFlashVirginize(true), {
+        autoEnter: true,
+      });
+    };
     // EWS sync is a stock KWP job on the application side -- no fast
     // flasher involved -- so it stays off the autoEnter path.
     fbEls['isnp-sync'].onclick = () => fbDmeGuard('Sync EWS', fbIsnSyncEws);

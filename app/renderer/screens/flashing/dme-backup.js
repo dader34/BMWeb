@@ -183,17 +183,18 @@ async function fbBackupRun() {
       const eeprom = await eepromDump.dump(client);
       cb.progress(99);
       const s = Math.round((Date.now() - t0) / 1000);
-      cb.stage('Restarting the DME');
-      await client.reset();
+      // kept before the restart, whose answer is not insisted on
+      // (fbDmeFastReadDone): everything is read and checked by now, and a
+      // RESET answer that is not heard used to cost the whole backup
       read = { flash: r.flash, mpc: r.mpc, eeprom };
       flashLog.note(
         `Full backup: ${r.flash.length + r.mpc.length + eeprom.length} bytes in ${s} s`
       );
-      return {
-        ok: true,
-        skipped: false,
-        summary: 'read the flash, the MPC and the EEPROM',
-      };
+      return fbDmeFastReadDone(
+        client,
+        cb,
+        'read the flash, the MPC and the EEPROM'
+      );
     },
     // a read changes nothing to identify again for
     after: async () => {},

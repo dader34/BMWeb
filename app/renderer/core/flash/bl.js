@@ -63,7 +63,6 @@ const BL_BOOT = 0x8000;
 const BL_BOOT_LEN = 0x18000; // [0x8000, 0x20000)
 const BL_SECT8K = 0x4000;
 const BL_SECT8K_LEN = 0x2000;
-const BL_CHUNK = 0x1000;
 const BL_MAGIC = 'MS45BL';
 /** The installer body's stamp flag: its window opens at 0x4000. */
 const BL_INSTALLER_FLAG = 0x04;
@@ -107,6 +106,20 @@ const blData =
 const BL_RING_LEN = BL_RING_SPAN_END - blData.ring.at;
 const blBytes =
   typeof bytes !== 'undefined' ? bytes : require('../bytes/index.mjs');
+// the marker ladder and the sector rewrite the AIF client shares with this
+// file (core/flash/aif.js, loaded first): one copy of the erase-to-verify
+// window, with the image kept open across it
+const blAif =
+  typeof aifRewriteSector !== 'undefined'
+    ? {
+        aifLadderArm,
+        aifLadderDone,
+        aifRewriteSector,
+        aifFinishInterrupted,
+        aifBootSectorWhole,
+        aifNotWholeError,
+      }
+    : require('./aif.js');
 
 /** The ring's bytes, from `blBlob.ring.at`. @returns {Uint8Array} */
 function blRing() {
@@ -411,28 +424,12 @@ function blRestoreImages(boot, sect8k) {
 
 /**
  * Erase one sector, check it blank, write it back 4 KB at a time and
- * verify the whole of it.
+ * verify the whole of it (the AIF client's aifRewriteSector: the image is
+ * kept open from the erase to the verify, so an attempt cut in between is
+ * finished from it and not from what the DME then reads).
  */
-async function _blRewrite(client, base, data, cb, pct0, pct1, what) {
-  const crc = blWire.crc32;
-  cb.stage(`Erasing ${what}`);
-  await client.erase(base);
-  const blank = crc(new Uint8Array(data.length).fill(0xff)) >>> 0;
-  if ((await client.sectorQuery(base, data.length)) >>> 0 !== blank)
-    throw new Error(
-      `${what} did not read blank after ERASE (hardware-protected?)`
-    );
-  cb.stage(`Writing ${what}`);
-  const n = data.length / BL_CHUNK;
-  for (let i = 0; i < n; i++) {
-    await client.chunk(
-      base + i * BL_CHUNK,
-      data.subarray(i * BL_CHUNK, (i + 1) * BL_CHUNK)
-    );
-    cb.progress(pct0 + Math.floor(((i + 1) * (pct1 - pct0)) / n));
-  }
-  cb.stage(`Verifying ${what}`);
-  await client.verify(base, data.length, crc(data) >>> 0);
+function _blRewrite(client, base, data, cb, pct0, pct1, what) {
+  return blAif.aifRewriteSector(client, base, data, cb, what, pct0, pct1);
 }
 
 /**
@@ -483,7 +480,7 @@ async function blPut(client, cb, force = false) {
           : 'the span held unknown bytes: the ring goes over them'
     }, handoff + park words ${s.sect8kChanged ? 'go in' : 'already patched'}${bootChanged && !s.bootChanged ? ', boot CRC word brought up to date' : ''}`
   );
-  await aifLadderArm(client, cb.note);
+  await blAif.aifLadderArm(client, cb.note);
   if (bootChanged)
     await _blRewrite(
       client,
@@ -504,7 +501,7 @@ async function blPut(client, cb, force = false) {
       95,
       'the 8 KB sector (the handoff and park words)'
     );
-  await aifLadderDone(client);
+  await blAif.aifLadderDone(client);
   const st = await _blStamp(client);
   if (st.magic !== BL_MAGIC || !blIsCurrent(st))
     throw new Error(
@@ -577,7 +574,7 @@ async function blBurnIsn(client, isn, cb) {
     };
   }
   cb.note(`ISN ${text(s.was)} -> ${text(isn)} (flash 0x1FB00)`);
-  await aifLadderArm(client, cb.note);
+  await blAif.aifLadderArm(client, cb.note);
   await _blRewrite(
     client,
     BL_BOOT,
@@ -587,7 +584,7 @@ async function blBurnIsn(client, isn, cb) {
     95,
     `the boot sector (ISN ${text(isn)})`
   );
-  await aifLadderDone(client);
+  await blAif.aifLadderDone(client);
   // read the six bytes back and vote them: the write is only good if the
   // DME would now read the ISN we wrote
   const back = await client.read(isnFlashMod.AT, isnFlashMod.LEN);
@@ -634,7 +631,7 @@ async function blVirginize(client, cb) {
     };
   }
   cb.note(`ISN ${text(s.was)} -> blank (flash 0x1FB00 wiped to FF)`);
-  await aifLadderArm(client, cb.note);
+  await blAif.aifLadderArm(client, cb.note);
   await _blRewrite(
     client,
     BL_BOOT,
@@ -644,7 +641,7 @@ async function blVirginize(client, cb) {
     95,
     'the boot sector (ISN blanked)'
   );
-  await aifLadderDone(client);
+  await blAif.aifLadderDone(client);
   const back = await client.read(isnFlashMod.AT, isnFlashMod.LEN);
   if (!Array.from(back).every((b) => b === 0xff))
     throw new Error(
@@ -664,6 +661,10 @@ async function blVirginize(client, cb) {
  * sectors that get written, and the two below them that the boot block's
  * CRC covers as well. */
 async function _blReadRegion(client, cb) {
+  // a sector rewrite an earlier attempt was cut in is finished first, from
+  // the image that attempt held: read now, its sector is part erased, and
+  // every operation here builds what it writes from what it reads
+  await blAif.aifFinishInterrupted(client, cb);
   cb.stage('Reading the boot region off the DME');
   const low = await blWire.readArea(client, BL_LOW, BL_LOW_LEN);
   const sect8k = await blWire.readArea(client, BL_SECT8K, BL_SECT8K_LEN);
@@ -671,6 +672,9 @@ async function _blReadRegion(client, cb) {
   const boot = await blWire.readArea(client, BL_BOOT, BL_BOOT_LEN, (n) =>
     cb.progress(Math.floor((n * 20) / BL_BOOT_LEN))
   );
+  // ... and a boot sector that still reads cut (no image left to finish it
+  // from) is no source for anything: written back, the gap is permanent
+  if (!blAif.aifBootSectorWhole(boot)) throw blAif.aifNotWholeError();
   return { low, sect8k, mid, boot };
 }
 
@@ -703,7 +707,7 @@ async function blToInstaller(client, cb) {
   }
   if (!img)
     cb.note('the installer ring is on already; its boot CRC word was stale');
-  await aifLadderArm(client, cb.note);
+  await blAif.aifLadderArm(client, cb.note);
   await _blRewrite(
     client,
     BL_BOOT,
@@ -713,7 +717,7 @@ async function blToInstaller(client, cb) {
     95,
     'the boot sector (the installer ring)'
   );
-  await aifLadderDone(client);
+  await blAif.aifLadderDone(client);
   const st = await _blStamp(client);
   if (st.magic !== BL_MAGIC || !(st.flags & BL_INSTALLER_FLAG))
     throw new Error(
@@ -741,7 +745,7 @@ async function blRestore(client, cb) {
     cb.note('the boot region is already stock: nothing written');
     return { skipped: true, summary: 'the boot region was already stock' };
   }
-  await aifLadderArm(client, cb.note);
+  await blAif.aifLadderArm(client, cb.note);
   if (r.sect8kChanged)
     await _blRewrite(
       client,
@@ -762,7 +766,7 @@ async function blRestore(client, cb) {
       95,
       'the boot sector (the ring blanked)'
     );
-  await aifLadderDone(client);
+  await blAif.aifLadderDone(client);
   const st = await _blStamp(client);
   if (st.magic === BL_MAGIC)
     throw new Error('the stamp still reads MS45BL after the restore');
@@ -876,7 +880,7 @@ async function blToSwapRing(client, cb) {
     cb.note('the swap ring is already on the DME: nothing written');
     return { skipped: true, summary: 'the swap ring was already on' };
   }
-  await aifLadderArm(client, cb.note);
+  await blAif.aifLadderArm(client, cb.note);
   await _blRewrite(
     client,
     BL_BOOT,
@@ -886,7 +890,7 @@ async function blToSwapRing(client, cb) {
     95,
     'the boot sector (the swap ring)'
   );
-  await aifLadderDone(client);
+  await blAif.aifLadderDone(client);
   const st = await _blStamp(client);
   if (st.magic !== BL_MAGIC || !(st.flags & BL_SWAP_FLAG))
     throw new Error(
@@ -909,6 +913,8 @@ async function blToSwapRing(client, cb) {
  * @returns {Promise<{skipped: boolean, summary: string}>}
  */
 async function blOverwriteBoot(client, file, cb) {
+  // (an earlier run cut inside a sector: that sector first, from its image)
+  await blAif.aifFinishInterrupted(client, cb);
   const st0 = await _blStamp(client);
   if (st0.magic !== BL_MAGIC || !(st0.flags & BL_SWAP_FLAG))
     throw new Error(
@@ -916,7 +922,7 @@ async function blOverwriteBoot(client, file, cb) {
     );
   const r = blBootRegionOf(file);
   cb.note(`the file: ${blBootFileFacts(r)}`);
-  await aifLadderArm(client, cb.note);
+  await blAif.aifLadderArm(client, cb.note);
   await _blRewrite(
     client,
     BL_LOW,
@@ -953,7 +959,7 @@ async function blOverwriteBoot(client, file, cb) {
     95,
     'the 96 KB boot sector'
   );
-  await aifLadderDone(client);
+  await blAif.aifLadderDone(client);
   const st = await _blStamp(client);
   cb.progress(100);
   return {
