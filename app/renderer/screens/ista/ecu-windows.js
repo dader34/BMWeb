@@ -40,7 +40,12 @@ function istaRouteStamp() {
     same ? now.view : null,
     same ? now.item : null
   );
-  history.replaceState(null, '', '#' + route);
+  // ENTERING workshop mode is a new history entry, so the browser's Back
+  // returns to where it was opened from (core/router.js routeEnter). Moving
+  // between its tabs is not: Back should leave the shell, not walk its tabs.
+  const inside = /^#?\/?ista(\/|$)/.test(String(location.hash || ''));
+  if (!inside && typeof routeEnter === 'function') routeEnter(route);
+  else history.replaceState(null, '', '#' + route);
 }
 
 /**

@@ -63,10 +63,11 @@ function istaPaintRealChrome(el) {
  */
 function istaToolbarAct(act) {
   if (act === 'home' || act === 'close') {
+    // both leave workshop mode for the home screen. Close used to land on
+    // the vehicle picker, from when that was the screen the app opened on;
+    // it is the Diagnostics app now, and leaving Workshop is not opening it
     istaChromeHide();
-    return act === 'home' && typeof showApps === 'function'
-      ? showApps()
-      : showChassis();
+    return typeof showApps === 'function' ? showApps() : showChassis();
   }
   if (act === 'print') return window.print();
   if (act === 'settings')
