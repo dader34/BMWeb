@@ -556,6 +556,23 @@ function fbDmePipelineWanted() {
 }
 
 /**
+ * Whether the external chunks go under the pipelined pagesets' pulses with
+ * a body that takes them there (v28): the MPC phase leaves the line idle
+ * for half of it or more, and what is written meanwhile is off the push's
+ * clock -- about 6 s of a program flash by the car's November timings. On,
+ * unless the browser says no (localStorage bmweb-fast-interleave = 0); it
+ * needs the pipelined sets, so their switch turns it off too.
+ * @returns {boolean}
+ */
+function fbDmeInterleaveWanted() {
+  try {
+    return localStorage.getItem('bmweb-fast-interleave') !== '0';
+  } catch (e) {
+    return true;
+  }
+}
+
+/**
  * Whether MPC block 0 joins the pagesets (its reset-word page still written
  * last, alone) instead of being erased and written on its own after them:
  * ~15 s off a program flash on the car (2026-11-09: 8 sequential chunks at
@@ -1190,6 +1207,10 @@ async function fbDmeFastFlashProgram(opts = {}) {
           // meanwhile
           pipeline:
             fbDmeBodyVersion() >= FB_PIPELINE_VERSION && fbDmePipelineWanted(),
+          // v28: external chunks written under those sets' pulses
+          interleave:
+            fbDmeBodyVersion() >= fastFlashWire.INTERLEAVE_VERSION &&
+            fbDmeInterleaveWanted(),
           block0InSets: fbDmeBlock0InSets(),
         }
       );

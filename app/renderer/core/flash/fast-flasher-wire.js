@@ -59,7 +59,6 @@ const FF_SVC = {
 };
 /** SETQ / SYNC result byte: nothing pending. */
 const FF_RESULT_NONE = 0xff;
-/** READ: bytes per request (the body refuses more), and the external chip. */
 /**
  * Bytes per READ request: 4 KB from a body up to v21, 16 KB from v22 on
  * (the data streams from the array; the cap was the host's patience, and
@@ -79,6 +78,57 @@ const FF_READ_PIECE = 0x1000;
  * on; the screen sets them from the body's version.
  */
 const FF_V26 = 26;
+/**
+ * v28: a plain CHUNK for the external chip sent while a pipelined pageset
+ * pulses is programmed right there, between the flash driver's steps. The
+ * MPC phase is the CMF's time (~40-50 ms a pageset) and leaves the line
+ * idle for half of it or more; the chunks that go under it are off the
+ * push's clock. While a background erase still holds the chip such a CHUNK
+ * is refused at once with FF_NAK_BUSY, and sent again later.
+ */
+const FF_INTERLEAVE_VERSION = 28;
+const FF_NAK_BUSY = 8;
+/**
+ * What a chunk under the pulses costs beyond its wire time, ms: the body's
+ * decode, program and read-back (~36 ms on the car), its answer and the
+ * cable's turnaround -- time the line stands idle.
+ */
+const FF_UNDER_PULSES_MS = 55;
+/**
+ * One more chunk goes under a set's pulses while it would overrun them by
+ * less than this share of its own wire time: the overrun is what it costs
+ * the MPC phase, the wire time what it saves after it.
+ */
+const FF_UNDER_PULSES_OVER = 0.8;
+/**
+ * The most a pageset's pulses are taken to last, ms, by the blocks it spans
+ * (the car: 39 with 6 blocks, 49 with 13, 55 with 14). A set's pulse time is
+ * measured from two SETQ answers with nothing sent between them, and what
+ * is measured is believed no further than this: the first car run
+ * (2026-11-18) timed a SETQ that had gone out twice, read 2.8 s for a 0.2 s
+ * set and put seventeen chunks behind each of eight sets, the MPC waiting
+ * them all out.
+ * @param {number} blocks @returns {number}
+ */
+function _ffPagesetMaxMs(blocks) {
+  return 35 + 2.5 * blocks;
+}
+/**
+ * Every so many sets one pulses with no chunk under it, so that the next
+ * answer times a set's pulses afresh.
+ */
+const FF_PULSES_EVERY = 32;
+/** After a busy refusal, how long until the chip is asked again, ms. */
+const FF_BUSY_RETRY_MS = 500;
+/**
+ * A sector erase on the car, ms, by the sector's size: 2.0 s for 128 KB and
+ * 2.7 s for 256 KB in the November logs. Only when the chunks start going
+ * under the pulses hangs on it; too early is a busy refusal, not a failure.
+ * @param {number} size @returns {number}
+ */
+function _ffEraseMs(size) {
+  return 1300 + (700 * size) / 0x20000;
+}
 /**
  * v27: a SET_BAUD the host cannot follow comes back by itself -- the body
  * returns to the old rate when no valid frame arrives at the new one within
@@ -116,22 +166,25 @@ const FF_NAK_REASON = {
   5: 'verify mismatch',
   6: 'malformed command',
   7: 'CMF driver missing or refused',
+  8: 'the external chip is still erasing',
 };
 const FF_TGT = 0x12;
 const FF_SRC = 0xf1;
+const FF_HELLO_ACK = FF_SVC.HELLO | 0x40;
 const FF_BAUD = 115200;
 
 /** Per-command answer budgets, ms (an Am29BL802C sector erase can run seconds). */
 const FF_TIMEOUT = {
   HELLO: 2000,
   ERASE: 20000,
-  CHUNK: 3000, // the floor; _chunkMs() stretches it on a slow line
+  // every packed write (CHUNK, CHUNKQ, CHUNK_SET, SETQ), the floor:
+  // _chunkMs() stretches it on a slow line. A SETQ is answered before its
+  // pulses, but the set before it may still be pulsing: a set's budget too
+  CHUNK: 3000,
   MARKS: 2000,
   RESET: 1000,
   SET_BAUD: 2000,
-  CHUNK_SET: 3000, // the floor; _chunkMs() stretches it on a slow line
   ERASE_Q: 20000, // ACKed at once, unless an earlier job is still running
-  SETQ: 3000, // answered after the decode, before the pulses (the previous set's pulses may still be running: same budget as a set)
   SYNC: 3000,
   READ: 3000, // the floor; _readReplyMs() stretches it for 16 KB on a slow line
 };
@@ -205,7 +258,6 @@ const FF_READ_FIRST_BYTE_MS = 500;
  * stepped down once.
  */
 const FF_GARBLE_TRIES = 3;
-/** How long the body's own fallback to 115200 is waited for after a dead rate. */
 /** A pageset is one 64-byte page per MPC block. */
 const FF_PAGE = 64;
 /** SECTOR_QUERY / VERIFY: a base plus this per 64 KB read back. */
@@ -225,6 +277,7 @@ const FF_EMULATOR_SCALE = 20;
 const FF_BREAK_MS = 1500;
 /** How many times HELLO is asked after the break, and the pause between, ms. */
 const FF_HELLO_ASKS = 2; // a missed entry is retried whole anyway (reset + break)
+const FF_HELLO_GAP_MS = 250;
 /**
  * After each reply, this long per reply byte before the next command. The
  * body sends a whole reply and only then reads back its echo, one byte per
@@ -238,7 +291,6 @@ const FF_ECHO_DRAIN_MS = 150; // the real chip's timeout runs longer than its 20
 const FF_ECHO_AS_SENT_VERSION = 6;
 /** The line rate a body was last heard on in this page, 0 for none (see ffWebLink's learn). */
 let ffLastHeardRate = 0;
-const FF_HELLO_GAP_MS = 250;
 /**
  * The quick pass of a resume: one HELLO at each rate a running body may be
  * holding, likeliest first, with this much patience each -- a body answers
@@ -284,6 +336,16 @@ function _ffU16(v) {
   return [(v >>> 8) & 0xff, v & 0xff];
 }
 
+/** An address as the session log writes it. @param {number} v @returns {string} */
+function _ffHex(v) {
+  return `0x${v.toString(16).toUpperCase()}`;
+}
+
+/** The result byte a pipelined ACK or a SYNC carries. @param {Uint8Array} d */
+function _ffResult(d) {
+  return d.length ? d[0] : FF_RESULT_NONE;
+}
+
 /**
  * One frame on the wire.
  * @param {number} svc
@@ -293,12 +355,16 @@ function _ffU16(v) {
  * @returns {Uint8Array}
  */
 function ffFrame(svc, data, tgt = FF_TGT, src = FF_SRC) {
-  const body = [tgt, src, svc, ...(data || [])];
-  let sum = 0;
-  for (const b of body) sum = (sum + b) & 0xff;
-  const span = body.length + 1;
+  data = data || [];
+  const span = data.length + 4; // tgt, src, svc and the sum
   const head = span > 0xff ? [0x00, ..._ffU16(span)] : [span];
-  return Uint8Array.from([...head, ...body, sum]);
+  const frame = new Uint8Array(head.length + span);
+  frame.set([...head, tgt, src, svc]);
+  frame.set(data, head.length + 3);
+  let sum = 0;
+  for (let i = head.length; i < frame.length - 1; i++) sum += frame[i];
+  frame[frame.length - 1] = sum; // the array keeps the low byte
+  return frame;
 }
 
 /**
@@ -316,12 +382,12 @@ function _ffHelloInTail(buf) {
       buf[i] !== 16 + 4 || // span: tgt src svc + 16-byte stamp + sum
       buf[i + 1] !== FF_TGT ||
       buf[i + 2] !== FF_SRC ||
-      buf[i + 3] !== (FF_SVC.HELLO | 0x40)
+      buf[i + 3] !== FF_HELLO_ACK
     )
       continue;
     try {
       const f = ffParse(buf.slice(i));
-      if (f && f.svc === (FF_SVC.HELLO | 0x40)) return f;
+      if (f) return f;
     } catch {
       // a checksum that does not add up: not the frame
     }
@@ -366,20 +432,24 @@ function ffParse(buf) {
 /**
  * One session-log line for a command and its reply: "CHUNK 0x40000 4096B
  * (2459B packed) -> ACK 220 ms", "ERASE 0x40000 -> NAK address not
- * permitted 12 ms", "VERIFY ... -> no reply 3000 ms".
+ * permitted 12 ms", "VERIFY ... -> no reply 3000 ms". A pageset names its
+ * offset within the blocks.
  */
 function _ffTraceLine(svc, data, reply, ms) {
   const name = FF_SVC_NAME[svc] || `svc ${svc}`;
+  const S = FF_SVC;
+  const at = () => ` ${_ffHex(ffWireBytes.be32(data, 0))}`;
+  const u16 = (i) => (data[i] << 8) | data[i + 1];
   let what = '';
-  if (svc === FF_SVC.SECTOR_QUERY || svc === FF_SVC.VERIFY)
-    what = ` 0x${ffWireBytes.be32(data, 0).toString(16).toUpperCase()} ${ffWireBytes.be32(data, 4)}B`;
-  else if (svc === FF_SVC.ERASE)
-    what = ` 0x${ffWireBytes.be32(data, 0).toString(16).toUpperCase()}`;
-  else if (svc === FF_SVC.CHUNK)
-    what = ` 0x${ffWireBytes.be32(data, 0).toString(16).toUpperCase()} ${(data[4] << 8) | data[5]}B (${(data[6] << 8) | data[7]}B packed)`;
-  else if (svc === FF_SVC.MARKS) what = data[0] ? ' program' : ' cal';
-  else if (svc === FF_SVC.READ)
-    what = ` 0x${ffWireBytes.be32(data, 0).toString(16).toUpperCase()} ${(data[4] << 8) | data[5]}B`;
+  if (svc === S.SECTOR_QUERY || svc === S.VERIFY)
+    what = `${at()} ${ffWireBytes.be32(data, 4)}B`;
+  else if (svc === S.ERASE) what = at();
+  else if (svc === S.CHUNK || svc === S.CHUNKQ)
+    what = `${at()} ${u16(4)}B (${u16(6)}B packed)`;
+  else if (svc === S.CHUNK_SET || svc === S.SETQ)
+    what = ` ${_ffHex(u16(2))} ${u16(4)}B (${u16(6)}B packed)`;
+  else if (svc === S.MARKS) what = data[0] ? ' program' : ' cal';
+  else if (svc === S.READ || svc === S.READX) what = `${at()} ${u16(4)}B`;
   let got = 'no reply';
   if (reply && reply.svc === 0x7f)
     got = `NAK ${FF_NAK_REASON[reply.data[1]] || `reason ${reply.data[1]}`}`;
@@ -407,9 +477,9 @@ class FastFlashNak extends Error {
  * Serial one below, or a simulated DME in a test.
  */
 class FastFlashClient {
-  /** @param {{exchange: (frame: Uint8Array, timeoutMs: number) => Promise<Uint8Array>}} link */
   /**
-   * @param {{exchange: Function}} link
+   * @param {{exchange: (frame: Uint8Array, timeoutMs: number) =>
+   *   Promise<Uint8Array>}} link
    * @param {{trace?: (line: string) => void}} [opts] - trace gets one line per
    *   command: service, address, sizes, the reply and its round-trip time --
    *   what the session log keeps for a diagnosis.
@@ -562,7 +632,7 @@ class FastFlashClient {
   }
 
   /**
-   * A CHUNK / CHUNK_SET's budget: the old 3 s, stretched to twice the
+   * A packed write's budget: the old 3 s, stretched to twice the
    * frame's wire time plus a second when the line is slow enough to need
    * it (a 4.6 KB chunk at 115200 is 0.44 s of wire each way). NEVER
    * SHORTER THAN 3 S: a 1.2 s floor was tried on 2026-11-08 and the first
@@ -571,11 +641,54 @@ class FastFlashClient {
    * 48"). The car's answers are ~0.2-0.4 s but a 2 s outlier shows up once
    * in a few hundred frames (1955 ms at 416667, 2106 ms at 115200).
    * @param {number} packed - the compressed payload's size
-   * @param {number} floor - FF_TIMEOUT.CHUNK or .CHUNK_SET
    * @returns {number} ms
    */
-  _chunkMs(packed, floor) {
-    return Math.max(floor, Math.round(1000 + 2 * this._wireMs(packed + 24)));
+  _chunkMs(packed) {
+    return Math.max(
+      FF_TIMEOUT.CHUNK,
+      Math.round(1000 + 2 * this._wireMs(packed + 24))
+    );
+  }
+
+  /**
+   * One packed write -- CHUNK, CHUNKQ, CHUNK_SET or SETQ: `head`, the plain
+   * and packed sizes, the CRC of the packed bytes (the body checks it
+   * before it unpacks), `tail`, the packed bytes.
+   * @param {number} svc
+   * @param {number[]} head
+   * @param {Uint8Array} plain - Up to 4 KB.
+   * @param {number[]} [tail]
+   * @param {{packed?: Uint8Array, minMs?: number}} [opts] - packed: `plain`
+   *   packed already; minMs: an answer budget no shorter than this.
+   * @returns {Promise<{sent: number, prev: number}>} The packed size sent,
+   *   and the result byte of the ACK (a pipelined service's: the write
+   *   before this one).
+   */
+  async _write(svc, head, plain, tail = [], opts = {}) {
+    const packed = opts.packed || this.codec.encode(plain);
+    const d = await this.call(
+      svc,
+      [
+        ...head,
+        ..._ffU16(plain.length),
+        ..._ffU16(packed.length),
+        ..._ffU32(ffWireBytes.crc32Mpeg2(packed)),
+        ...tail,
+        ...packed,
+      ],
+      Math.max(this._chunkMs(packed.length), opts.minMs || 0)
+    );
+    return { sent: packed.length, prev: _ffResult(d) };
+  }
+
+  /** A READ or READX request for `len` bytes at `off`: the ACK's payload. */
+  _readCall(svc, off, len) {
+    return this.call(
+      svc,
+      [..._ffU32(off), ..._ffU16(len)],
+      this._readReplyMs(len),
+      { firstByteMs: FF_READ_FIRST_BYTE_MS }
+    );
   }
 
   /**
@@ -615,22 +728,11 @@ class FastFlashClient {
    * One chunk: packed here, unpacked and programmed there.
    * @param {number} off
    * @param {Uint8Array} plain - Up to 4 KB.
+   * @param {{packed?: Uint8Array, minMs?: number}} [opts] - See _write.
    * @returns {Promise<number>} The packed size sent.
    */
-  async chunk(off, plain) {
-    const packed = this.codec.encode(plain);
-    await this.call(
-      FF_SVC.CHUNK,
-      [
-        ..._ffU32(off),
-        ..._ffU16(plain.length),
-        ..._ffU16(packed.length),
-        ..._ffU32(ffWireBytes.crc32Mpeg2(packed)),
-        ...packed,
-      ],
-      this._chunkMs(packed.length, FF_TIMEOUT.CHUNK)
-    );
-    return packed.length;
+  async chunk(off, plain, opts) {
+    return (await this._write(FF_SVC.CHUNK, _ffU32(off), plain, [], opts)).sent;
   }
 
   /** @param {number} off @param {number} len @param {number} crc */
@@ -675,24 +777,12 @@ class FastFlashClient {
    *   missing, FF_RESULT_NONE when none was pending.
    */
   async chunkSetQ(mask, offset, pagesets, plain) {
-    const packed = this.codec.encode(plain);
-    const d = await this.call(
+    return this._write(
       FF_SVC.SETQ,
-      [
-        ..._ffU16(mask),
-        ..._ffU16(offset),
-        ..._ffU16(plain.length),
-        ..._ffU16(packed.length),
-        ..._ffU32(ffWireBytes.crc32Mpeg2(packed)),
-        pagesets,
-        0,
-        0,
-        0,
-        ...packed,
-      ],
-      this._chunkMs(packed.length, FF_TIMEOUT.SETQ)
+      [..._ffU16(mask), ..._ffU16(offset)],
+      plain,
+      [pagesets, 0, 0, 0]
     );
-    return { sent: packed.length, prev: d.length ? d[0] : FF_RESULT_NONE };
   }
 
   /**
@@ -700,8 +790,7 @@ class FastFlashClient {
    * @returns {Promise<number>}
    */
   async sync() {
-    const d = await this.call(FF_SVC.SYNC, [], FF_TIMEOUT.SYNC);
-    return d.length ? d[0] : FF_RESULT_NONE;
+    return _ffResult(await this.call(FF_SVC.SYNC, [], FF_TIMEOUT.SYNC));
   }
 
   /**
@@ -732,19 +821,7 @@ class FastFlashClient {
    * @returns {Promise<{sent: number, prev: number}>}
    */
   async chunkQ(off, plain) {
-    const packed = this.codec.encode(plain);
-    const d = await this.call(
-      FF_SVC.CHUNKQ,
-      [
-        ..._ffU32(off),
-        ..._ffU16(plain.length),
-        ..._ffU16(packed.length),
-        ..._ffU32(ffWireBytes.crc32Mpeg2(packed)),
-        ...packed,
-      ],
-      this._chunkMs(packed.length, FF_TIMEOUT.CHUNK)
-    );
-    return { sent: packed.length, prev: d.length ? d[0] : FF_RESULT_NONE };
+    return this._write(FF_SVC.CHUNKQ, _ffU32(off), plain);
   }
 
   /**
@@ -757,34 +834,25 @@ class FastFlashClient {
    * @returns {Promise<Uint8Array>}
    */
   async readX(off, len) {
-    const d = await this.call(
-      FF_SVC.READX,
-      [..._ffU32(off), ..._ffU16(len)],
-      this._readReplyMs(len),
-      { firstByteMs: FF_READ_FIRST_BYTE_MS }
-    );
-    const pieces = len / FF_READ_PIECE;
+    const d = await this._readCall(FF_SVC.READX, off, len);
+    const P = FF_READ_PIECE;
     const mask = d.length > 4 ? d[4] : 0xff;
     const data = d.subarray(5);
-    let blanks = 0;
-    for (let i = 0; i < pieces; i++) if ((mask >> i) & 1) blanks++;
+    // the pieces that came, in order
+    const sent = [];
+    for (let i = 0; i < len / P; i++) if (!((mask >> i) & 1)) sent.push(i);
     if (
       d.length >= 5 &&
-      data.length === (pieces - blanks) * FF_READ_PIECE &&
+      data.length === sent.length * P &&
       ffWireBytes.crc32Mpeg2(data) === ffWireBytes.be32(d, 0)
     ) {
       const out = new Uint8Array(len).fill(0xff);
-      let at = 0;
-      for (let i = 0; i < pieces; i++)
-        if (!((mask >> i) & 1)) {
-          out.set(data.subarray(at, at + FF_READ_PIECE), i * FF_READ_PIECE);
-          at += FF_READ_PIECE;
-        }
+      sent.forEach((i, k) => out.set(data.subarray(k * P, (k + 1) * P), i * P));
       return out;
     }
     if (this.trace)
       this.trace(
-        `FF READX 0x${off.toString(16).toUpperCase()} ${len}B -> did not check out; read plainly`
+        `FF READX ${_ffHex(off)} ${len}B -> did not check out; read plainly`
       );
     await this._lineError();
     return this.read(off, len);
@@ -835,24 +903,9 @@ class FastFlashClient {
    * @returns {Promise<number>} The packed size sent.
    */
   async chunkSet(mask, offset, pagesets, plain) {
-    const packed = this.codec.encode(plain);
-    await this.call(
-      FF_SVC.CHUNK_SET,
-      [
-        ..._ffU16(mask),
-        ..._ffU16(offset),
-        ..._ffU16(plain.length),
-        ..._ffU16(packed.length),
-        ..._ffU32(ffWireBytes.crc32Mpeg2(packed)),
-        pagesets,
-        0,
-        0,
-        0,
-        ...packed,
-      ],
-      this._chunkMs(packed.length, FF_TIMEOUT.CHUNK_SET)
-    );
-    return packed.length;
+    const head = [..._ffU16(mask), ..._ffU16(offset)];
+    const tail = [pagesets, 0, 0, 0];
+    return (await this._write(FF_SVC.CHUNK_SET, head, plain, tail)).sent;
   }
 
   /**
@@ -884,12 +937,7 @@ class FastFlashClient {
    */
   async read(off, len) {
     for (let attempt = 1; ; attempt++) {
-      const d = await this.call(
-        FF_SVC.READ,
-        [..._ffU32(off), ..._ffU16(len)],
-        this._readReplyMs(len),
-        { firstByteMs: FF_READ_FIRST_BYTE_MS }
-      );
+      const d = await this._readCall(FF_SVC.READ, off, len);
       const bytes = d.subarray(4);
       if (
         bytes.length === len &&
@@ -902,7 +950,7 @@ class FastFlashClient {
       if (len > FF_READ_PIECE) {
         if (this.trace)
           this.trace(
-            `FF READ 0x${off.toString(16).toUpperCase()} ${len}B -> CRC mismatch; in ${FF_READ_PIECE / 1024} KB pieces`
+            `FF READ ${_ffHex(off)} ${len}B -> CRC mismatch; in ${FF_READ_PIECE / 1024} KB pieces`
           );
         await this._lineError();
         const out = new Uint8Array(len);
@@ -914,7 +962,7 @@ class FastFlashClient {
       }
       if (this.trace)
         this.trace(
-          `FF READ 0x${off.toString(16).toUpperCase()} ${len}B -> ${bytes.length}B, CRC mismatch${attempt < FF_GARBLE_TRIES ? ' -- once more' : ''}`
+          `FF READ ${_ffHex(off)} ${len}B -> ${bytes.length}B, CRC mismatch${attempt < FF_GARBLE_TRIES ? ' -- once more' : ''}`
         );
       if (attempt >= FF_GARBLE_TRIES)
         throw new Error(
@@ -984,39 +1032,27 @@ async function ffReadImage(client, cb = {}) {
   const stage = cb.stage || (() => {});
   const progress = cb.progress || (() => {});
   const total = FF_EXT_SIZE + (cb.mpc ? FF_MPC_SIZE : 0);
-  const resume = cb.resume || null;
-  if (resume) {
-    resume.ext = resume.ext || {};
-    resume.mpc = resume.mpc || {};
-  }
-  const from = (keep, size) =>
-    keep && keep.at && keep.at < size
-      ? `, carrying on at 0x${keep.at.toString(16)}`
-      : '';
-  let flash = resume && resume.ext.at === FF_EXT_SIZE ? resume.ext.out : null;
-  if (!flash) {
+  const resume = cb.resume || {};
+  // one area, after `before` bytes of the whole: skipped when an earlier
+  // attempt finished it, carried on where one stopped
+  const area = async (name, key, base, size, before) => {
+    const keep = (resume[key] = resume[key] || {});
+    if (keep.at === size && keep.out) return keep.out;
     stage(
-      `Reading the external flash${from(resume && resume.ext, FF_EXT_SIZE)}`
+      `Reading ${name}${keep.at ? `, carrying on at 0x${keep.at.toString(16)}` : ''}`
     );
-    flash = await ffReadArea(
+    return ffReadArea(
       client,
-      0,
-      FF_EXT_SIZE,
-      (n) => progress(Math.floor((n * 100) / total)),
-      resume && resume.ext
+      base,
+      size,
+      (n) => progress(Math.floor(((before + n) * 100) / total)),
+      keep
     );
-  }
-  let mpc = null;
-  if (cb.mpc) {
-    stage(`Reading the MPC${from(resume && resume.mpc, FF_MPC_SIZE)}`);
-    mpc = await ffReadArea(
-      client,
-      FF_MPC_WINDOW,
-      FF_MPC_SIZE,
-      (n) => progress(Math.floor(((FF_EXT_SIZE + n) * 100) / total)),
-      resume && resume.mpc
-    );
-  }
+  };
+  const flash = await area('the external flash', 'ext', 0, FF_EXT_SIZE, 0);
+  const mpc = cb.mpc
+    ? await area('the MPC', 'mpc', FF_MPC_WINDOW, FF_MPC_SIZE, FF_EXT_SIZE)
+    : null;
   return { flash, mpc };
 }
 
@@ -1070,28 +1106,20 @@ async function ffFasterLine(client, link, note = () => {}, preferred = 0) {
       // one copy was not enough on the car (2026-11-09: stranded at 416667,
       // then at 312500): three copies spaced past the body's discard-until-
       // quiet, then a check at 115200, up to six rounds
+      const goBack = ffFrame(FF_SVC.SET_BAUD, _ffU16(11));
       let back = false;
       for (let round = 0; round < 6 && !back; round++) {
-        if (link.sendBlind)
-          await link.sendBlind(
-            rate,
-            ffFrame(FF_SVC.SET_BAUD, _ffU16(11)),
-            3,
-            220
-          );
+        if (link.sendBlind) await link.sendBlind(rate, goBack, 3, 220);
         else if (link.exchange)
           try {
-            await link.exchange(
-              ffFrame(FF_SVC.SET_BAUD, _ffU16(11)),
-              FF_TIMEOUT.SET_BAUD
-            );
-          } catch (e2) {
+            await link.exchange(goBack, FF_TIMEOUT.SET_BAUD);
+          } catch {
             // garbled or silent, as expected on a rate that does not carry
           }
         try {
           await link.rebaud(FF_BAUD, { patience: 800 });
           back = true;
-        } catch (e3) {
+        } catch {
           note(
             `The body is not back at ${FF_BAUD} yet (round ${round + 1} of 6)`
           );
@@ -1133,48 +1161,12 @@ function ffCalSectorImage(signedCal) {
  * @param {Uint8Array} signedCal
  * @param {{stage?: (s: string) => void, progress?: (pct: number, what: string) => void,
  *   note?: (s: string) => void}} [cb]
- * @param {{reset?: boolean}} [opts] - reset: false skips the closing RESET
- *   (a program push follows in the same session and resets).
+ * @param {{reset?: boolean, compared?: boolean}} [opts] - reset: false skips
+ *   the closing RESET (a program push follows in the same session and
+ *   resets). compared: the caller asked the chip already, and it differs.
  * @returns {Promise<{ok: true, skipped: boolean, sent: number, chunks: number}>}
  */
-/**
- * Rough work units per step, so one progress bar covers a whole push --
- * the compare, the erases and the verifies as well as the chunks (an erase
- * is the longest single wait; a chunk is the unit).
- */
-const FF_UNITS = {
-  QUERY: 2,
-  ERASE: 6,
-  CHUNK: 1,
-  VERIFY: 2,
-  MARKS: 1,
-  RESET: 1,
-};
-
-/**
- * A progress counter over work units: each finished step adds its units
- * and reports the overall percent with the step's name.
- * @param {(pct: number, what: string) => void} progress
- * @param {number} total - Units expected; may be raised once known.
- */
-function _ffTracker(progress, total) {
-  let done = 0;
-  return {
-    setTotal(t) {
-      total = t;
-    },
-    add(units, what) {
-      done += units;
-      progress(
-        Math.min(100, Math.round((done * 100) / Math.max(1, total))),
-        what
-      );
-    },
-  };
-}
-
 async function ffPushCal(client, signedCal, cb = {}, opts = {}) {
-  // reset: false leaves the flasher running for a program push after it
   const reset = opts.reset !== false;
   const stage = cb.stage || (() => {});
   const note = cb.note || (() => {});
@@ -1188,7 +1180,6 @@ async function ffPushCal(client, signedCal, cb = {}, opts = {}) {
     U.QUERY + U.ERASE + slots * U.CHUNK + U.VERIFY + U.MARKS + U.RESET
   );
   stage('Comparing the calibration on the DME');
-  // opts.compared: the program push asked already and it differs
   const onChip = opts.compared
     ? -1
     : await client.sectorQuery(FF_CAL_SECTOR, FF_CAL_SECTOR_SIZE);
@@ -1244,6 +1235,59 @@ async function ffPushCal(client, signedCal, cb = {}, opts = {}) {
 }
 
 /**
+ * Rough work units per step, so one progress bar covers a whole push --
+ * the compare, the erases and the verifies as well as the chunks (an erase
+ * is the longest single wait; a chunk is the unit).
+ */
+const FF_UNITS = {
+  QUERY: 2,
+  ERASE: 6,
+  CHUNK: 1,
+  VERIFY: 2,
+  MARKS: 1,
+  RESET: 1,
+};
+
+/**
+ * A progress counter over work units: each finished step adds its units
+ * and reports the overall percent with the step's name.
+ * @param {(pct: number, what: string) => void} progress
+ * @param {number} total - Units expected; may be raised once known.
+ */
+function _ffTracker(progress, total) {
+  let done = 0;
+  return {
+    setTotal(t) {
+      total = t;
+    },
+    add(units, what) {
+      done += units;
+      progress(
+        Math.min(100, Math.round((done * 100) / Math.max(1, total))),
+        what
+      );
+    },
+  };
+}
+
+/**
+ * Whether the chip holds exactly `bytes` at `at`, by one QUERY.
+ * @param {FastFlashClient} client @param {number} at @param {Uint8Array} bytes
+ * @returns {Promise<boolean>}
+ */
+async function _ffHolds(client, at, bytes) {
+  return (
+    (await client.sectorQuery(at >>> 0, bytes.length)) >>> 0 ===
+    ffWireBytes.crc32Mpeg2(bytes) >>> 0
+  );
+}
+
+/** @param {number} n @returns {Uint8Array} n erased bytes. */
+function _ffBlank(n) {
+  return new Uint8Array(n).fill(0xff);
+}
+
+/**
  * Resume from what the DME holds (the flash is the pointer: no state is
  * kept anywhere else, so a connection that dropped anywhere -- the body
  * still running in RAM -- picks up where the chip says it stopped).
@@ -1258,12 +1302,8 @@ async function ffPushCal(client, signedCal, cb = {}, opts = {}) {
  *   whole span matches.
  */
 async function _ffFirstDiffering(client, base, data, chunk) {
-  const crc = ffWireBytes.crc32Mpeg2;
   const n = Math.ceil(data.length / chunk);
-  const len = (k) => Math.min(k * chunk, data.length);
-  const same = async (k) =>
-    (await client.sectorQuery(base, len(k))) >>> 0 ===
-    crc(data.subarray(0, len(k))) >>> 0;
+  const same = (k) => _ffHolds(client, base, data.subarray(0, k * chunk));
   let done = 0;
   let miss = n + 1;
   for (let step = 1; done < n; step *= 2) {
@@ -1285,9 +1325,23 @@ async function _ffFirstDiffering(client, base, data, chunk) {
 
 /** Whether `have` can become `want` by programming alone (bits only clear). */
 function _ffReachable(have, want) {
-  for (let i = 0; i < want.length; i++)
-    if (want[i] & ~have[i] & 0xff) return false;
-  return true;
+  return want.every((w, i) => !(w & ~have[i] & 0xff));
+}
+
+/**
+ * Whether the writing of `data` at `base` can carry on at `at` with no
+ * erase: the `len` bytes there are blank or torn toward the target, and
+ * everything after them is blank.
+ * @returns {Promise<boolean>}
+ */
+async function _ffCarriesOn(client, base, data, at, len) {
+  const end = Math.min(at + len, data.length);
+  const have = await client.read((base + at) >>> 0, end - at);
+  if (!_ffReachable(have, data.subarray(at, end))) return false;
+  return (
+    end >= data.length ||
+    _ffHolds(client, base + end, _ffBlank(data.length - end))
+  );
 }
 
 /**
@@ -1304,36 +1358,23 @@ function _ffReachable(have, want) {
  */
 async function _ffPlanUnit(client, base, data) {
   const C = 0x1000;
-  const crc = ffWireBytes.crc32Mpeg2;
-  const blank = (n) => crc(new Uint8Array(n).fill(0xff)) >>> 0;
+  const crc = (b) => ffWireBytes.crc32Mpeg2(b) >>> 0;
   const n = Math.ceil(data.length / C);
   const erase = { mode: 'erase', from: 0 };
+  const complete = { mode: 'complete', from: n };
   const tailAt = (n - 1) * C;
   const tail = data.subarray(tailAt);
   const tailHave = (await client.sectorQuery(base + tailAt, tail.length)) >>> 0;
-  if (tailHave !== blank(tail.length)) {
+  if (tailHave !== crc(_ffBlank(tail.length)))
     // a written tail: the whole span complete, or old content
-    if (tailHave !== crc(tail) >>> 0) return erase;
-    return (await client.sectorQuery(base, data.length)) >>> 0 ===
-      crc(data) >>> 0
-      ? { mode: 'complete', from: n }
+    return tailHave === crc(tail) && (await _ffHolds(client, base, data))
+      ? complete
       : erase;
-  }
   const k = await _ffFirstDiffering(client, base, data, C);
-  if (k >= n) return { mode: 'complete', from: n };
-  const at = k * C;
-  const len = Math.min(C, data.length - at);
-  const have = await client.read((base + at) >>> 0, len);
-  if (!_ffReachable(have, data.subarray(at, at + len))) return erase;
-  const rest = at + len;
-  if (
-    rest < data.length &&
-    (await client.sectorQuery((base + rest) >>> 0, data.length - rest)) >>>
-      0 !==
-      blank(data.length - rest)
-  )
-    return erase;
-  return { mode: 'resume', from: k };
+  if (k >= n) return complete;
+  return (await _ffCarriesOn(client, base, data, k * C, C))
+    ? { mode: 'resume', from: k }
+    : erase;
 }
 
 /**
@@ -1345,47 +1386,23 @@ async function _ffPlanUnit(client, base, data) {
  * @returns {Promise<{mode: 'complete'|'resume'|'erase', from: number}>}
  */
 async function _ffPlanSets(client, blocks, view, span) {
-  const crc = ffWireBytes.crc32Mpeg2;
-  const blank = (n) => crc(new Uint8Array(n).fill(0xff)) >>> 0;
   const steps = Math.ceil(FF_MPC_BLOCK / span);
   const base = (b) => (FF_MPC_WINDOW | (b * FF_MPC_BLOCK)) >>> 0;
   const erase = { mode: 'erase', from: 0 };
   const ref = blocks[blocks.length - 1];
   const k = await _ffFirstDiffering(client, base(ref), view(ref), span);
-  if (k >= steps) {
-    for (const b of blocks)
-      if (
-        (await client.sectorQuery(base(b), FF_MPC_BLOCK)) >>> 0 !==
-        crc(view(b)) >>> 0
-      )
-        return erase;
-    return { mode: 'complete', from: steps };
-  }
   const at = k * span;
-  const len = Math.min(span, FF_MPC_BLOCK - at);
   for (const b of blocks) {
     const v = view(b);
-    if (
-      at &&
-      (await client.sectorQuery(base(b), at)) >>> 0 !==
-        crc(v.subarray(0, at)) >>> 0
-    )
-      return erase;
-    const have = await client.read((base(b) + at) >>> 0, len);
-    if (!_ffReachable(have, v.subarray(at, at + len))) return erase;
-    const rest = at + len;
-    if (
-      rest < FF_MPC_BLOCK &&
-      (await client.sectorQuery(
-        (base(b) + rest) >>> 0,
-        FF_MPC_BLOCK - rest
-      )) >>>
-        0 !==
-        blank(FF_MPC_BLOCK - rest)
+    if (k >= steps) {
+      if (!(await _ffHolds(client, base(b), v))) return erase;
+    } else if (
+      (at && !(await _ffHolds(client, base(b), v.subarray(0, at)))) ||
+      !(await _ffCarriesOn(client, base(b), v, at, span))
     )
       return erase;
   }
-  return { mode: 'resume', from: k };
+  return { mode: k >= steps ? 'complete' : 'resume', from: k };
 }
 
 /**
@@ -1394,18 +1411,19 @@ async function _ffPlanSets(client, blocks, view, span) {
  * told with the next ACK, the last by sync(). A chunk that did not take
  * ends the push as a refused CHUNK always has (the resume compares and
  * writes again); a plain CHUNK otherwise.
- * @param {FastFlashClient|null} client - null: a queue that is off.
- * @returns {{on: boolean, chunk: (off: number, plain: Uint8Array) =>
- *   Promise<number>, sync: () => Promise<void>}}
+ * @param {FastFlashClient} client
+ * @param {boolean} [allow] - false: plain CHUNKs whatever the client can do
+ *   (the MPC's sequential blocks).
+ * @returns {{chunk: (off: number, plain: Uint8Array) => Promise<number>,
+ *   sync: () => Promise<void>}}
  */
-function _ffExtQueue(client) {
-  const on = !!(client && client.pipelineExt && client.chunkQ);
+function _ffExtQueue(client, allow = true) {
+  const on = !!(allow && client.pipelineExt && client.chunkQ);
   let pending = false;
   const told = (result) => {
     if (result === 4 || result === 7) throw new FastFlashNak(FF_SVC.CHUNK, 4);
   };
   return {
-    on,
     async chunk(off, plain) {
       if (!on) return client.chunk(off, plain);
       const r = await client.chunkQ(off, plain);
@@ -1466,7 +1484,7 @@ function ffProgramUnits(signedFull, mpc) {
   const units = FF_PROGRAM_SECTORS.map(([start, size]) => {
     const from = start - FF_PROGRAM_START;
     return {
-      name: `program sector 0x${start.toString(16).toUpperCase()}`,
+      name: `program sector ${_ffHex(start)}`,
       addr: start,
       bytes: area.subarray(from, from + size),
       write: written.subarray(from, from + size),
@@ -1491,6 +1509,204 @@ function ffProgramUnits(signedFull, mpc) {
 }
 
 /**
+ * A push's write time at the car's measured rates, s: per chunk a fixed part
+ * and a part that scales with the line (fitted to 115200 and 416667
+ * sessions, 2026-10-26: an external chunk 0.35 s -> 0.14 s, a pageset chunk
+ * 0.35 -> 0.23 s plus the CMF's pulses); a sequential MPC block is the CMF's
+ * time, not the wire's.
+ * @param {number} baud
+ * @param {Array<{addr: number, bytes: Uint8Array}>} sequential - The units
+ *   written one after another.
+ * @param {number} pagesets - Pagesets to a set; 0 when no block goes so.
+ * @returns {number}
+ */
+function _ffWriteSeconds(baud, sequential, pagesets) {
+  const slow = FF_BAUD / baud;
+  const extChunk = 0.06 + 0.29 * slow;
+  const setChunk = 0.187 + 0.163 * slow;
+  const unit = (u) =>
+    u.addr >= FF_MPC_WINDOW
+      ? 1 + 8 * 1.9
+      : 2.5 + extChunk * Math.ceil(u.bytes.length / 0x1000);
+  return (
+    sequential.reduce((n, u) => n + unit(u), 0) +
+    (pagesets
+      ? 1 + (FF_MPC_BLOCK / FF_PAGE / pagesets) * (setChunk + 0.025 * pagesets)
+      : 0)
+  );
+}
+
+/**
+ * The pagesets of `blocks`, `pagesets` to a set, each the 64-byte page of
+ * every block. Block 0's first page (the reset word at 0x8) goes as 0xFF --
+ * an erased page the pulses leave as it is -- and alone, last.
+ *
+ * v24, pipelined: each set is answered before its pulses, the answer
+ * carrying the previous set's result, so the next set's wire time hides
+ * under this set's pulses. A set that failed is sent again as a plain
+ * CHUNK_SET (stop-and-wait, its own answer), then the pipeline goes on.
+ * @param {FastFlashClient} client
+ * @param {Uint8Array} mpc - The MPC image.
+ * @param {number[]} blocks - Ascending.
+ * @param {number} pagesets
+ *
+ * v28, interleaved (io.feed, pipelined sets only): while a set pulses, the
+ * external chunks the feed hands over go out as plain CHUNKs and the body
+ * programs them under the pulses -- as many a set as its pulse time has
+ * room for. That time is measured: two SETQ answers with nothing sent in
+ * between are one set's pulses apart.
+ * @param {{from: number, pipeline: boolean, which: string, stage: Function,
+ *   note: Function, track: {add: Function}, now?: () => number,
+ *   cold?: boolean, onStaged?: () => Promise<void>,
+ *   feed?: {next: () => ({addr: number, plain: Uint8Array}|null),
+ *     done: (job: object, sent: number) => void, busy: () => void}|null}} io
+ *   from: the first set to send (a resumed push; the DME holds the ones
+ *   before). feed: next() the chunk to send now or null, done() it took,
+ *   busy() the chip refused as still erasing. cold, onStaged: no MPC job has
+ *   staged the body's driver yet -- the first set goes on its own, then
+ *   onStaged runs.
+ * @returns {Promise<{sent: number, chunks: number}>}
+ */
+async function _ffWriteSets(client, mpc, blocks, pagesets, io) {
+  const mask = blocks.reduce((m, b) => m | (1 << b), 0);
+  const span = pagesets * FF_PAGE;
+  const steps = Math.ceil(FF_MPC_BLOCK / span);
+  const units = (bytes) => (FF_UNITS.CHUNK * bytes * blocks.length) / 0x1000;
+  let sent = 0;
+  let chunks = 0;
+  io.stage(`Writing ${io.which}`);
+  if (io.from)
+    io.track.add(
+      units(Math.min(io.from * span, FF_MPC_BLOCK)),
+      'Already on the DME'
+    );
+  const now = io.now || Date.now;
+  let answeredAt = 0; // the last SETQ's answer ...
+  let alone = false; // ... with nothing sent since ...
+  let pulsing = 0; // ... and the pagesets it set pulsing
+  let pagesetMs = 0; // a pageset's pulse time as last measured
+  let measured = 0; // sets since then
+  const plainly = async (set) => {
+    alone = false;
+    sent += await client.chunkSet(mask, set.off, set.ps, set.plain);
+    chunks++;
+  };
+  // after a SETQ's answer at `t`, its `ps` pagesets now pulsing: the chunks
+  // those pulses have room for. setWire: the next set's frame, which must
+  // be in before they end. clean: the SETQ was answered at its first try.
+  const under = async (t, setWire, ps, clean) => {
+    // two answers with nothing sent between them are one set's pulses
+    // apart -- unless the second SETQ went out twice (_ffPagesetMaxMs)
+    if (alone && clean && pulsing) {
+      pagesetMs = Math.min(
+        (t - answeredAt) / pulsing,
+        _ffPagesetMaxMs(blocks.length)
+      );
+      measured = 0;
+    }
+    answeredAt = t;
+    alone = true;
+    pulsing = ps;
+    if (!io.feed || !pagesetMs || ++measured >= FF_PULSES_EVERY) return;
+    for (;;) {
+      const job = io.feed.next();
+      if (!job) return;
+      const packed = client.codec.encode(job.plain);
+      const wire = client._wireMs(packed.length + 24);
+      const over =
+        now() - t + wire + FF_UNDER_PULSES_MS + setWire - pagesetMs * ps;
+      if (over > wire * FF_UNDER_PULSES_OVER) return;
+      alone = false;
+      try {
+        // (the erase's budget: a chunk that just misses the pulses is
+        // written after them, behind whatever the chip is still doing)
+        await client.chunk(job.addr, job.plain, {
+          packed,
+          minMs: FF_TIMEOUT.ERASE,
+        });
+      } catch (e) {
+        if (!(e instanceof FastFlashNak) || e.reason !== FF_NAK_BUSY) throw e;
+        io.feed.busy();
+        return;
+      }
+      io.feed.done(job, packed.length);
+    }
+  };
+  // The body stages the CMF driver at its first MPC job of a session, out
+  // of the boot block -- behind whatever the external chip is erasing, and
+  // deaf to the line meanwhile. After an MPC erase that is done. Without one
+  // (io.cold: a resumed push) the first set goes stop-and-wait, and only
+  // then io.onStaged queues the background erases: pipelined, the next SETQ
+  // was lost under a 2 s wait for the chip and answered "malformed" 2.7 s
+  // later (the car, 2026-11-18).
+  let staged = !io.cold;
+  let inFlight = null; // the set the body is pulsing, for a resend
+  // the result an ACK or the SYNC carries is the set's before: `next` is
+  // the one now pulsing
+  const told = async (svc, result, next) => {
+    if (result === 7) throw new FastFlashNak(svc, 7);
+    const failed = result !== 0 && result !== FF_RESULT_NONE && inFlight;
+    inFlight = next;
+    if (!failed) return false;
+    io.note(
+      `pageset at 0x${failed.off.toString(16)} did not take: sent again on its own`
+    );
+    await plainly(failed);
+    return true;
+  };
+  for (let i = io.from; i < steps; i++) {
+    const off = i * span;
+    // the last set is shorter when the pagesets do not divide the block
+    const ps = Math.min(pagesets, (FF_MPC_BLOCK - off) / FF_PAGE);
+    const plain = new Uint8Array(ps * FF_PAGE * blocks.length).fill(0xff);
+    let at = 0;
+    for (let p = 0; p < ps; p++)
+      for (const b of blocks) {
+        const from = b * FF_MPC_BLOCK + off + p * FF_PAGE;
+        if (from) plain.set(mpc.subarray(from, from + FF_PAGE), at);
+        at += FF_PAGE;
+      }
+    const set = { off, ps, plain };
+    // a blank set is what the erase left: nothing to pulse
+    const blank = plain.every((x) => x === 0xff);
+    if (!blank && io.pipeline && staged) {
+      const errors = client.lineErrors;
+      const r = await client.chunkSetQ(mask, off, ps, plain);
+      const answered = now();
+      sent += r.sent;
+      chunks++;
+      // (a set sent again on its own is answered after its pulses: nothing
+      // is pulsing then for a chunk to go under)
+      if (!(await told(FF_SVC.SETQ, r.prev, set)))
+        await under(
+          answered,
+          client._wireMs ? client._wireMs(r.sent + 28) : 0,
+          ps,
+          client.lineErrors === errors
+        );
+    } else if (!blank) {
+      await plainly(set);
+      if (!staged) {
+        staged = true;
+        if (io.onStaged) await io.onStaged();
+      }
+    }
+    io.track.add(
+      units(ps * FF_PAGE),
+      `Writing ${io.which}, pageset ${i + 1} of ${steps}`
+    );
+  }
+  if (inFlight) await told(FF_SVC.SYNC, await client.sync(), null);
+  const held = blocks.includes(0) ? mpc.subarray(0, FF_PAGE) : null;
+  if (held && !held.every((x) => x === 0xff)) {
+    io.stage('Writing MPC block 0, first page (the reset word), last');
+    sent += await client.chunkSet(1, 0, 1, held);
+    chunks++;
+  }
+  return { sent, chunks };
+}
+
+/**
  * Push the program through an open flasher session: per unit (the external
  * program's sectors, and the MPC's blocks when `opts.mpc` is given), compare
  * its CRC and skip it when it already matches, else erase and rewrite it
@@ -1506,13 +1722,16 @@ function ffProgramUnits(signedFull, mpc) {
  * @param {FastFlashClient} client
  * @param {Uint8Array} signedFull - The signed 1 MB external image.
  * @param {{stage?: Function, progress?: Function, note?: Function}} [cb]
- * @param {{mpc?: Uint8Array, pagesets?: boolean, block0InSets?: boolean}} [opts]
+ * @param {{mpc?: Uint8Array, pagesets?: boolean, block0InSets?: boolean,
+ *   interleave?: boolean, clock?: () => number}} [opts]
  *   mpc: also write the MPC (a v2 flasher). pagesets: the differing blocks
  *   bar 0 as pagesets (v8). block0InSets: block 0 joins them -- erased in
  *   the same job, written in the same pagesets -- with only its first page,
  *   the one holding the reset word at 0x8, held back and written alone after
  *   every other page; for a DME the bootloader can always reach (a cut
  *   anywhere is repaired through the ring), ~12 s off a full MPC push.
+ *   interleave: external chunks under the pipelined sets' pulses (a v28
+ *   body). clock: the time in ms, for a test (Date.now).
  * @returns {Promise<{ok: true, skipped: boolean, sent: number,
  *   chunks: number, sectorsWritten: number, mpcBlocksWritten: number}>}
  */
@@ -1529,15 +1748,13 @@ async function ffPushProgram(client, signedFull, cb = {}, opts = {}) {
   // our CRC first -- and NAKs a mismatch, so a unit that took all its writes
   // IS the target; the whole-unit CRC after it read the same bytes again,
   // ~150-430 ms a unit, ~20 units a full push
-  const unitWork = (u) => U.ERASE + slotsOf(u.bytes.length) * U.CHUNK;
-  // until the compare says which units differ, assume all of them do
-  const track = _ffTracker(
-    cb.progress || (() => {}),
+  const work = (list) =>
     units.length * U.QUERY +
-      units.reduce((n, u) => n + unitWork(u), 0) +
-      U.MARKS +
-      U.RESET
-  );
+    list.reduce((n, u) => n + U.ERASE + slotsOf(u.bytes.length) * U.CHUNK, 0) +
+    U.MARKS +
+    U.RESET;
+  // until the compare says which units differ, assume all of them do
+  const track = _ffTracker(cb.progress || (() => {}), work(units));
 
   // which units differ: a read-back CRC per unit, the true diff
   const todo = [];
@@ -1592,13 +1809,6 @@ async function ffPushProgram(client, signedFull, cb = {}, opts = {}) {
   note(
     `${todo.length} of ${units.length} units differ: ${todo.map((u) => u.name).join(', ')}`
   );
-  track.setTotal(
-    units.length * U.QUERY +
-      todo.reduce((n, u) => n + unitWork(u), 0) +
-      U.MARKS +
-      U.RESET
-  );
-
   // The program's valid marks share the top sector with the end of the
   // program and the flasher's own copy. They go FIRST -- that sector is
   // erased before anything else is touched -- and come back LAST: an
@@ -1607,15 +1817,8 @@ async function ffPushProgram(client, signedFull, cb = {}, opts = {}) {
   // standard Flash Program recovers. Written early, they would let the
   // loader start a half-written program instead.
   const marksUnit = units.find((u) => u.holdsMarks);
-  if (marksUnit && !todo.includes(marksUnit)) {
-    todo.push(marksUnit);
-    track.setTotal(
-      units.length * U.QUERY +
-        todo.reduce((n, u) => n + unitWork(u), 0) +
-        U.MARKS +
-        U.RESET
-    );
-  }
+  if (marksUnit && !todo.includes(marksUnit)) todo.push(marksUnit);
+  track.setTotal(work(todo));
   const order = todo.filter((u) => u !== marksUnit);
   let sent = 0;
   let chunks = 0;
@@ -1639,28 +1842,9 @@ async function ffPushProgram(client, signedFull, cb = {}, opts = {}) {
   const pagesets = parallel.length
     ? Math.max(1, Math.min(64, Math.floor(4096 / (FF_PAGE * parallel.length))))
     : 0;
-  // the car's measured rates, per chunk a fixed part and a part that
-  // scales with the line (fitted to 115200 and 416667 sessions, 2026-10-26:
-  // an external chunk 0.35 s -> 0.14 s, a pageset chunk 0.35 -> 0.23 s plus
-  // the CMF's pulses); a sequential MPC block is the CMF's time, not the wire's
   const baud = client.baud || FF_BAUD;
-  const slow = FF_BAUD / baud;
-  const extChunk = 0.06 + 0.29 * slow;
-  const setChunk = 0.187 + 0.163 * slow;
-  const seconds =
-    sequential.reduce(
-      (n, u) =>
-        n +
-        (u.addr >= FF_MPC_WINDOW
-          ? 1 + 8 * 1.9
-          : 2.5 + extChunk * slotsOf(u.bytes.length)),
-      0
-    ) +
-    (parallel.length
-      ? 1 + (FF_MPC_BLOCK / FF_PAGE / pagesets) * (setChunk + 0.025 * pagesets)
-      : 0);
   note(
-    `Estimated write time ~${Math.round(seconds)} s at ${baud} baud (the car's measured rates${parallel.length ? `; ${parallel.length} MPC blocks as pagesets` : ''})`
+    `Estimated write time ~${Math.round(_ffWriteSeconds(baud, sequential, pagesets))} s at ${baud} baud (the car's measured rates${parallel.length ? `; ${parallel.length} MPC blocks as pagesets` : ''})`
   );
   // what the chip holds decides, per unit, whether it is erased and where
   // its writing starts (_ffPlanUnit): a push run again after a dropped
@@ -1692,16 +1876,17 @@ async function ffPushProgram(client, signedFull, cb = {}, opts = {}) {
     stage(`Writing ${which}`);
     const slots = slotsOf(u.write.length);
     const plan = await planOf(u);
-    const from = plan.mode === 'erase' ? 0 : plan.from;
-    if (from) track.add(U.CHUNK * Math.min(from, slots), `Already on the DME`);
+    const held = plan.mode === 'erase' ? 0 : plan.from;
+    if (held) track.add(U.CHUNK * Math.min(held, slots), `Already on the DME`);
+    // v28: less what went under the MPC's pulses
+    const from = Math.max(held, fed.get(u) || 0);
     // v26: the external chunks pipelined; the MPC's go as before
-    const q = u.addr < FF_MPC_WINDOW ? _ffExtQueue(client) : _ffExtQueue(null);
-    const send = (a, p) => (q.on ? q.chunk(a, p) : client.chunk(a, p));
+    const q = _ffExtQueue(client, u.addr < FF_MPC_WINDOW);
     for (let i = from; i < slots; i++) {
       const plain = u.write.subarray(i * 0x1000, (i + 1) * 0x1000);
       // the erase left it blank; an all-FF chunk needs no write
       if (!plain.every((b) => b === 0xff)) {
-        sent += await send((u.addr + i * 0x1000) >>> 0, plain);
+        sent += await q.chunk((u.addr + i * 0x1000) >>> 0, plain);
         chunks++;
       }
       track.add(U.CHUNK, `Writing ${which}, chunk ${i + 1} of ${slots}`);
@@ -1709,13 +1894,21 @@ async function ffPushProgram(client, signedFull, cb = {}, opts = {}) {
     await q.sync();
   };
   const total = todo.length;
+  /** v28: per external unit, the chunks written so far under the MPC's pulses. */
+  const fed = new Map();
+  const now = opts.clock || Date.now;
+  // v23: with a background erase, the external sectors are queued on the
+  // chip before the MPC phase and written after it -- the chip erases
+  // them (~2 s each) under the CMF's pulses instead of on the clock. The
+  // marks sector is erased alone before that, so an interruption still
+  // leaves the loader in charge. The MPC erase goes first: its driver
+  // staging reads the boot block, which the body refuses to do while the
+  // chip erases.
+  const background =
+    !!opts.backgroundErase && parallel.length > 0 && !!client.eraseQueue;
   // the calibration: in the background with the external sectors when the
   // MPC phase runs (written after it), else now, before the marks go
-  const calBehind =
-    !!calUnit &&
-    !!opts.backgroundErase &&
-    parallel.length > 0 &&
-    !!client.eraseQueue;
+  const calBehind = !!calUnit && background;
   const closeCal = async () => {
     stage('Verifying the calibration');
     await client.verify(
@@ -1741,17 +1934,9 @@ async function ffPushProgram(client, signedFull, cb = {}, opts = {}) {
     );
   }
   let n = 0;
-  // v23: with a background erase, the external sectors are queued on the
-  // chip before the MPC phase and written after it -- the chip erases
-  // them (~2 s each) under the CMF's pulses instead of on the clock. The
-  // marks sector was erased alone above, so an interruption still leaves
-  // the loader in charge. The MPC erase goes first: its driver staging
-  // reads the boot block, which the body refuses to do while the chip
-  // erases.
-  const background =
-    !!opts.backgroundErase && parallel.length > 0 && !!client.eraseQueue;
-  const extUnits = sequential.filter((u) => u.addr < FF_MPC_WINDOW);
-  const deferred = background ? extUnits : [];
+  const deferred = background
+    ? sequential.filter((u) => u.addr < FF_MPC_WINDOW)
+    : [];
   if (calBehind) deferred.unshift(calUnit);
   for (const u of sequential) {
     if (parallel.length && u.addr >= FF_MPC_WINDOW && blockOf(u) === 0) break;
@@ -1763,7 +1948,6 @@ async function ffPushProgram(client, signedFull, cb = {}, opts = {}) {
   }
   if (parallel.length) {
     const blocks = parallel.map(blockOf).sort((a, b) => a - b);
-    const mask = blocks.reduce((m, b) => m | (1 << b), 0);
     const which = `MPC blocks ${blocks.join(', ')} (${n + 1}-${n + blocks.length} of ${total}, as pagesets)`;
     const span = pagesets * FF_PAGE;
     const steps = Math.ceil(FF_MPC_BLOCK / span);
@@ -1779,7 +1963,7 @@ async function ffPushProgram(client, signedFull, cb = {}, opts = {}) {
     const setPlan = await _ffPlanSets(client, blocks, view, span);
     if (setPlan.mode === 'erase') {
       stage(`Erasing ${which}`);
-      await client.eraseBlocks(mask);
+      await client.eraseBlocks(blocks.reduce((m, b) => m | (1 << b), 0));
     } else
       note(
         setPlan.mode === 'complete'
@@ -1792,89 +1976,86 @@ async function ffPushProgram(client, signedFull, cb = {}, opts = {}) {
     const toQueue = [];
     for (const u of deferred)
       if ((await planOf(u)).mode === 'erase') toQueue.push(u);
-    if (toQueue.length) {
-      stage(
-        `Erasing ${toQueue.map((u) => u.name).join(', ')} in the background`
-      );
+    // v28: the external units' chunks go under the sets' pulses, in the
+    // order they are written after them (the marks' sector last), from
+    // when the chip is through the erases queued here -- asked too early
+    // it says busy and is asked again. What is left goes after the sets.
+    const pipeline = !!opts.pipeline && !!client.chunkSetQ;
+    let idleAt = 0;
+    let queued = false;
+    const queueErases = async (say) => {
+      queued = true;
+      if (!toQueue.length) return;
+      say(`Erasing ${toQueue.map((u) => u.name).join(', ')} in the background`);
       for (let i = 0; i < toQueue.length; i += 8)
         await client.eraseQueue(toQueue.slice(i, i + 8).map((u) => u.addr));
       // the chip's time, not the wire's: the bar moves when the writes land
-    }
-    stage(`Writing ${which}`);
-    // block 0 in the sets: its first page (the reset word at 0x8) goes as
-    // 0xFF -- an erased page the pulses leave as it is -- and alone, last
-    let heldPage = blocks.includes(0) ? opts.mpc.subarray(0, FF_PAGE) : null;
-    if (setPlan.from)
-      track.add(
-        (U.CHUNK *
-          Math.min(setPlan.from * span, FF_MPC_BLOCK) *
-          blocks.length) /
-          0x1000,
-        'Already on the DME'
-      );
-    // v24: pipelined -- each set is answered before its pulses, the answer
-    // carrying the previous set's result, so the next set's wire time hides
-    // under this set's pulses. A set that failed is sent again as a plain
-    // CHUNK_SET (stop-and-wait, its own answer), then the pipeline goes on.
-    const pipeline = !!opts.pipeline && !!client.chunkSetQ;
-    let inFlight = null; // the set the body is pulsing, for a resend
-    const settle = (result) => {
-      if (result === FF_RESULT_NONE || result === 0 || !inFlight) return null;
-      return inFlight;
+      idleAt =
+        now() + toQueue.reduce((ms, u) => ms + _ffEraseMs(u.bytes.length), 0);
     };
-    const resend = async (set, why) => {
-      note(
-        `pageset at 0x${set.off.toString(16)} ${why}: sent again on its own`
-      );
-      sent += await client.chunkSet(mask, set.off, set.ps, set.plain);
-      chunks++;
-    };
-    for (let i = setPlan.from; i < steps; i++) {
-      const off = i * span;
-      // the last set is shorter when the pagesets do not divide the block
-      const ps = Math.min(pagesets, (FF_MPC_BLOCK - off) / FF_PAGE);
-      const plain = new Uint8Array(ps * FF_PAGE * blocks.length);
-      let at = 0;
-      for (let p = 0; p < ps; p++)
-        for (const b of blocks) {
-          const from = b * FF_MPC_BLOCK + off + p * FF_PAGE;
-          if (b === 0 && from === 0) {
-            heldPage = opts.mpc.subarray(0, FF_PAGE);
-            plain.fill(0xff, at, at + FF_PAGE);
-          } else plain.set(opts.mpc.subarray(from, from + FF_PAGE), at);
-          at += FF_PAGE;
-        }
-      if (!plain.every((x) => x === 0xff)) {
-        if (pipeline) {
-          const r = await client.chunkSetQ(mask, off, ps, plain);
-          sent += r.sent;
+    // no MPC erase in this push: the body's driver may not be staged yet,
+    // and the queue waits for the first set (_ffWriteSets' note)
+    const cold = setPlan.mode !== 'erase';
+    if (!cold) await queueErases(stage);
+    let under = 0;
+    const feed = pipeline &&
+      opts.interleave && {
+        next() {
+          if (now() < idleAt) return null;
+          for (const u of [...deferred, ...(marksUnit ? [marksUnit] : [])]) {
+            const plan = plans.get(u);
+            if (!plan || plan.mode === 'complete') continue;
+            const slots = slotsOf(u.write.length);
+            let i = fed.has(u)
+              ? fed.get(u)
+              : plan.mode === 'erase'
+                ? 0
+                : plan.from;
+            for (; i < slots; i++) {
+              const plain = u.write.subarray(i * 0x1000, (i + 1) * 0x1000);
+              if (!plain.every((b) => b === 0xff))
+                return { u, i, addr: (u.addr + i * 0x1000) >>> 0, plain };
+              fed.set(u, i + 1); // blank after the erase: nothing to send
+              track.add(
+                U.CHUNK,
+                `Writing ${u.name}, chunk ${i + 1} of ${slots}`
+              );
+            }
+            fed.set(u, slots);
+          }
+          return null;
+        },
+        done(job, size) {
+          fed.set(job.u, job.i + 1);
+          sent += size;
           chunks++;
-          if (r.prev === 7) throw new FastFlashNak(FF_SVC.SETQ, 7);
-          const failed = settle(r.prev);
-          inFlight = { off, ps, plain };
-          if (failed) await resend(failed, 'did not take');
-        } else {
-          sent += await client.chunkSet(mask, off, ps, plain);
-          chunks++;
-        }
-      }
-      track.add(
-        (U.CHUNK * ps * FF_PAGE * blocks.length) / 0x1000,
-        `Writing ${which}, pageset ${i + 1} of ${steps}`
-      );
-    }
-    if (pipeline && inFlight) {
-      const last = await client.sync();
-      if (last === 7) throw new FastFlashNak(FF_SVC.SYNC, 7);
-      const failed = settle(last);
-      inFlight = null;
-      if (failed) await resend(failed, 'did not take');
-    }
-    if (heldPage && !heldPage.every((x) => x === 0xff)) {
-      stage('Writing MPC block 0, first page (the reset word), last');
-      sent += await client.chunkSet(1, 0, 1, heldPage);
-      chunks++;
-    }
+          under++;
+          track.add(
+            U.CHUNK,
+            `Writing ${job.u.name}, chunk ${job.i + 1} of ${slotsOf(job.u.write.length)} (under the MPC's pulses)`
+          );
+        },
+        busy() {
+          idleAt = now() + FF_BUSY_RETRY_MS;
+        },
+      };
+    const wrote = await _ffWriteSets(client, opts.mpc, blocks, pagesets, {
+      from: setPlan.from,
+      pipeline,
+      which,
+      stage,
+      note,
+      track,
+      now,
+      feed: feed || null,
+      cold,
+      onStaged: () => queueErases(note),
+    });
+    if (!queued) await queueErases(stage); // every set was there already
+    sent += wrote.sent;
+    chunks += wrote.chunks;
+    if (under)
+      note(`${under} external chunks were written under the MPC's pulses`);
     n += blocks.length;
     for (const u of sequential) {
       if (!(u.addr >= FF_MPC_WINDOW && blockOf(u) === 0)) continue;
@@ -1981,6 +2162,13 @@ function ffWebLink(bus, opts = {}) {
           .join(' ')}${heard.length > 32 ? ' …' : ''}`
       : 'nothing heard';
   const scale = bus.port.device === 'ms45-emu' ? FF_EMULATOR_SCALE : 1;
+  /** The port to `rate`, 8E1, with nothing heard yet. */
+  const reopen = async (baudRate) => {
+    await bus.reopen({ baudRate, dataBits: 8, stopBits: 1, parity: 'even' });
+    rx = [];
+    heard = [];
+  };
+  const isHello = (f) => !!f && f.svc === FF_HELLO_ACK;
 
   /**
    * Read until one whole frame (after the echo) is in. With firstByteMs,
@@ -2054,7 +2242,7 @@ function ffWebLink(bus, opts = {}) {
         const hello = ffParse(
           await self.exchange(ffFrame(FF_SVC.HELLO, []), timeoutMs)
         );
-        if (hello && hello.svc === (FF_SVC.HELLO | 0x40)) return hello;
+        if (isHello(hello)) return hello;
         // a frame that is not a HELLO: the late answer to the command a
         // cut session was waiting for (the car, 2026-11-08: a CHUNK_SET's
         // ACK read as "answered with service 48"). The body is alive and
@@ -2142,14 +2330,7 @@ function ffWebLink(bus, opts = {}) {
       // bytes heard at any other rate are lost. (A real cable may drop the
       // break when the port closes for the reopen; the flasher then speaks a
       // little early, and the asked-for HELLO below covers that.)
-      await bus.reopen({
-        baudRate: FF_BAUD,
-        dataBits: 8,
-        stopBits: 1,
-        parity: 'even',
-      });
-      rx = [];
-      heard = [];
+      await reopen(FF_BAUD);
       // the reopen already put DTR back at its idle level; say both anyway,
       // so the line is released whatever the platform did on close
       await bus.port.setSignals({ break: false, dataTerminalReady: false });
@@ -2166,7 +2347,7 @@ function ffWebLink(bus, opts = {}) {
         hello = await askHello(this);
       }
       learn(hello);
-      if (!hello || hello.svc !== (FF_SVC.HELLO | 0x40))
+      if (!isHello(hello))
         throw new Error(`fast flasher: no HELLO from the DME (${heardText()})`);
       return hello.data;
     },
@@ -2209,14 +2390,7 @@ function ffWebLink(bus, opts = {}) {
           ];
       for (const [asks, timeoutMs] of passes) {
         for (const rate of likely) {
-          await bus.reopen({
-            baudRate: rate,
-            dataBits: 8,
-            stopBits: 1,
-            parity: 'even',
-          });
-          rx = [];
-          heard = [];
+          await reopen(rate);
           try {
             const hello = await askHello(this, asks, timeoutMs);
             learn(hello);
@@ -2261,12 +2435,12 @@ function ffWebLink(bus, opts = {}) {
       // a wait, in the unscaled ms readFrame and askHello take, cut to the
       // time that is left (they multiply by `scale` themselves)
       const capped = (ms) => Math.max(1, Math.min(ms, left() / scale));
-      await bus.reopen({
-        baudRate: FF_BAUD,
-        dataBits: 8,
-        stopBits: 1,
-        parity: 'even',
-      });
+      const answered = (hello) => {
+        learn(hello);
+        step(`The flasher answered at ${FF_BAUD} baud`);
+        return hello.data;
+      };
+      await reopen(FF_BAUD);
       let last = null;
       for (let attempt = 1; attempt <= 2; attempt++) {
         if (left() <= 0) throw outOfTime();
@@ -2297,19 +2471,13 @@ function ffWebLink(bus, opts = {}) {
         }
         if (hello) {
           rx = [];
-          learn(hello);
-          step(`The flasher answered at ${FF_BAUD} baud`);
-          return hello.data;
+          return answered(hello);
         }
         rx = got >= frame.length ? rx.slice(frame.length) : [];
         if (left() <= 0) throw outOfTime();
         try {
           hello = ffParse(await readFrame(capped(FF_TIMEOUT.HELLO), null));
-          if (hello && hello.svc === (FF_SVC.HELLO | 0x40)) {
-            learn(hello);
-            step(`The flasher answered at ${FF_BAUD} baud`);
-            return hello.data;
-          }
+          if (isHello(hello)) return answered(hello);
         } catch {
           // the asked-for HELLO below reports the failure instead
         }
@@ -2318,14 +2486,9 @@ function ffWebLink(bus, opts = {}) {
         rx = [];
         if (left() <= 0) throw outOfTime();
         try {
-          const hello = await askHello(
-            this,
-            FF_HELLO_ASKS,
-            capped(FF_TIMEOUT.HELLO)
+          return answered(
+            await askHello(this, FF_HELLO_ASKS, capped(FF_TIMEOUT.HELLO))
           );
-          learn(hello);
-          step(`The flasher answered at ${FF_BAUD} baud`);
-          return hello.data;
         } catch (e) {
           last = e;
         }
@@ -2345,14 +2508,7 @@ function ffWebLink(bus, opts = {}) {
      * @returns {Promise<Uint8Array>} The stamp it echoed.
      */
     async rebaud(baudRate, opts = {}) {
-      await bus.reopen({
-        baudRate,
-        dataBits: 8,
-        stopBits: 1,
-        parity: 'even',
-      });
-      rx = [];
-      heard = [];
+      await reopen(baudRate);
       if (opts.settle) await sleep(opts.settle);
       const deadline = Date.now() + (opts.patience || 0);
       for (;;) {
@@ -2398,12 +2554,7 @@ function ffWebLink(bus, opts = {}) {
      * `rate`.
      */
     async sendBlind(rate, frame, copies = 3, gapMs = 200) {
-      await bus.reopen({
-        baudRate: rate,
-        dataBits: 8,
-        stopBits: 1,
-        parity: 'even',
-      });
+      await reopen(rate);
       for (let i = 0; i < copies; i++) {
         rx = [];
         await bus.writer.write(frame);
@@ -2471,6 +2622,7 @@ const fastFlashWire = {
   READ_MAX_WIDE: FF_READ_MAX_WIDE,
   READ_WIDE_VERSION: FF_READ_WIDE_VERSION,
   V26: FF_V26,
+  INTERLEAVE_VERSION: FF_INTERLEAVE_VERSION,
   PROBATION_VERSION: FF_PROBATION_VERSION,
   REPLY_GAP_PASSES: FF_REPLY_GAP_PASSES,
   REPLY_PAD: FF_REPLY_PAD,
