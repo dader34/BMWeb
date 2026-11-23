@@ -85,8 +85,7 @@ if (typeof document !== 'undefined')
       if (!navLocked()) return;
       const t = e.target;
       if (!t || typeof t.closest !== 'function') return;
-      if (!t.closest('.topbar') || t.closest('#link-status, #win-controls'))
-        return;
+      if (!t.closest('.topbar') || t.closest('#link-status')) return;
       e.preventDefault();
       e.stopImmediatePropagation();
       navLockNotice();

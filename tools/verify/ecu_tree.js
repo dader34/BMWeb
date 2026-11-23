@@ -59,6 +59,26 @@ function ecuDirs(sgbd) {
 }
 
 /**
+ * One ECU's folder in a car's tree, by a name of any case.
+ *
+ * THE FOLDER IS SPELLED AS INPA SPELLS THE ECU (E46/ME9_4N, other/S_ZUHEIZ)
+ * and a variant's as its SGBD (E46/me9k_ng4), so a path built from a
+ * lower-cased name opens on a Mac, whose filesystem does not tell case
+ * apart, and nowhere else: a test that did so passed here and could not
+ * find its file on a Linux runner.
+ * @param {string} chassis - the car's folder (E46, other, ...)
+ * @param {string} name - the ECU code or SGBD, any case
+ * @returns {string|null} the absolute folder path, or null when there is none
+ */
+function ecuFolder(chassis, name) {
+  const cd = path.join(TREE, chassis);
+  if (!fs.existsSync(cd)) return null;
+  const want = String(name).toLowerCase();
+  const hit = fs.readdirSync(cd).find((d) => d.toLowerCase() === want);
+  return hit ? path.join(cd, hit) : null;
+}
+
+/**
  * Read one file for an SGBD, transparently inflating a .gz sibling.
  * @param {string} sgbd - the SGBD name
  * @param {string} name - the file name inside the ECU folder
@@ -129,6 +149,7 @@ module.exports = {
   TREE,
   owners,
   ecuDirs,
+  ecuFolder,
   readEcu,
   readEcuJson,
   screenCorpus,

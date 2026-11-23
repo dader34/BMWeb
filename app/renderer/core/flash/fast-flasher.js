@@ -19,8 +19,7 @@
 // across its reset boots it exactly as a clean boot does (proven in
 // ms45-emu tools/gate_test.py) -- but nothing here relies on that.
 //
-// Payloads travel NRV2B-packed (core/flash/nrv2b.js) in 4 KB stop-and-wait
-// chunks; the flasher unpacks each and programs it.
+// What is said to it once it runs is core/flash/fast-flasher-wire.js.
 /* exported fastFlasher */
 
 const ffBytes =
@@ -32,19 +31,27 @@ const FAST_FLASHER_MAGIC = 'MS45QF';
 const FAST_FLASHER_HOOK_AT = 0x8; // MPC, the loader's reset word
 const FAST_FLASHER_STOCK_HOOK = 0x4bf717b6; // `ba 0xFFF717B4`
 const FAST_FLASHER_EXT_CPU = 0xfff00000; // where the external chip is mapped
-const FAST_FLASHER_VERSION = 27; // the highest stamp version this app speaks
 /**
- * A resident body in the program area is used only when it is THIS build's
- * (the installer the bootloader rides in on, or the shipped body); any
- * other version is noted and left alone -- the next program flash takes it
- * out, and the fast flash bootloader is what carries the fast path. No
- * version eras: there is one body, the current one.
+ * The stamp version this app speaks. A resident body in the program area is
+ * used only when it is THIS build's (the installer the bootloader rides in
+ * on, or the shipped body); any other version is noted and left alone --
+ * the next program flash takes it out, and the fast flash bootloader is
+ * what carries the fast path. No version eras: there is one body, the
+ * current one.
  */
-/** Stamp flags bit 0: the body can write the MPC (internal flash) too -- v2. */
-const FAST_FLASHER_FLAG_MPC = 0x01;
-/** Stamp flags bit 1: the body carries the boot-sector (AIF) window. */
+const FAST_FLASHER_VERSION = 28;
+/**
+ * Stamp flags bit 1: the body carries the boot-sector (AIF) window. (Bit 0
+ * said a body could write the MPC; every body since v2 can.)
+ */
 const FAST_FLASHER_FLAG_BOOT_WINDOW = 0x02;
-const FAST_FLASHER_CHUNK = 0x1000; // bytes per stop-and-wait chunk, unpacked
+/**
+ * The body range on the external chip -- blank on a stock image, the
+ * flasher's home after a bootstrap. The bootstrap splice refuses unless it
+ * is blank (never patch over something).
+ */
+const FAST_FLASHER_BODY_START = FAST_FLASHER_STAMP_AT;
+const FAST_FLASHER_BODY_END = 0xfff40;
 
 /**
  * The absolute `ba` PPC assembles at MPC 0x8 for a target (AA set).
@@ -55,15 +62,28 @@ function _fastFlasherBranch(target) {
   return (0x48000002 | (target & 0x03fffffc)) >>> 0;
 }
 
+/** This build's body: its runs on the external chip and the hook word. */
+function _fastFlasherBody() {
+  return typeof fastFlasherBlob !== 'undefined'
+    ? fastFlasherBlob
+    : require('../generated/fast-flasher-blob.js').fastFlasherBlob;
+}
+
+/** Whether the stamp's magic stands at `at`. @param {ArrayLike<number>} b */
+function _fastFlasherMagicAt(b, at) {
+  for (let i = 0; i < FAST_FLASHER_MAGIC.length; i++)
+    if (b[at + i] !== FAST_FLASHER_MAGIC.charCodeAt(i)) return false;
+  return true;
+}
+
 const fastFlasher = {
   STAMP_AT: FAST_FLASHER_STAMP_AT,
   STAMP_LENGTH: FAST_FLASHER_STAMP_LENGTH,
   HOOK_AT: FAST_FLASHER_HOOK_AT,
   STOCK_HOOK: FAST_FLASHER_STOCK_HOOK,
   VERSION: FAST_FLASHER_VERSION,
-  CHUNK: FAST_FLASHER_CHUNK,
-  FLAG_MPC: FAST_FLASHER_FLAG_MPC,
-  FLAG_BOOT_WINDOW: FAST_FLASHER_FLAG_BOOT_WINDOW,
+  BODY_START: FAST_FLASHER_BODY_START,
+  BODY_END: FAST_FLASHER_BODY_END,
 
   /**
    * Interpret the two reads: the 4 bytes at MPC 0x8 and the 16-byte stamp at
@@ -78,10 +98,7 @@ const fastFlasher = {
    */
   parseDetection(hook, stamp) {
     if (!stamp || stamp.length < FAST_FLASHER_STAMP_LENGTH) return null;
-    let s = '';
-    for (let i = 0; i < FAST_FLASHER_MAGIC.length; i++)
-      s += String.fromCharCode(stamp[i]);
-    if (s !== FAST_FLASHER_MAGIC) return null;
+    if (!_fastFlasherMagicAt(stamp, 0)) return null;
     const version = stamp[6];
     const flags = stamp[7];
     const gateCpu = ffBytes.be32(stamp, 8);
@@ -89,8 +106,8 @@ const fastFlasher = {
     // both addresses must land inside the external chip's body range, or the
     // stamp is not one of ours whatever its first six bytes say
     const inBody = (a) =>
-      a >= FAST_FLASHER_EXT_CPU + FAST_FLASHER_STAMP_AT &&
-      a < FAST_FLASHER_EXT_CPU + 0xfff40 &&
+      a >= FAST_FLASHER_EXT_CPU + FAST_FLASHER_BODY_START &&
+      a < FAST_FLASHER_EXT_CPU + FAST_FLASHER_BODY_END &&
       (a & 3) === 0;
     if (!version || !inBody(gateCpu) || !inBody(entryCpu)) return null;
     const hooked =
@@ -156,42 +173,6 @@ const fastFlasher = {
   },
 
   /**
-   * Cut a span of the image into the flasher's chunks and pack each with
-   * NRV2B. Only once the guard has passed: packing is for a DME that can
-   * unpack it.
-   * @param {ReturnType<typeof fastFlasher.parseDetection>} det
-   * @param {Uint8Array} bytes - The span to send.
-   * @param {number} extAddr - Its ext offset on the chip.
-   * @returns {Array<{addr: number, length: number, packed: Uint8Array}>}
-   */
-  packChunks(det, bytes, extAddr) {
-    fastFlasher.assertReady(det);
-    const codec =
-      typeof nrv2b !== 'undefined' ? nrv2b : require('./nrv2b.js').nrv2b;
-    const out = [];
-    for (let at = 0; at < bytes.length; at += FAST_FLASHER_CHUNK) {
-      const part = bytes.subarray(
-        at,
-        Math.min(bytes.length, at + FAST_FLASHER_CHUNK)
-      );
-      out.push({
-        addr: extAddr + at,
-        length: part.length,
-        packed: codec.encode(part),
-      });
-    }
-    return out;
-  },
-
-  /**
-   * The body range on the external chip -- blank on a stock image, the
-   * flasher's home after a bootstrap. The bootstrap splice refuses unless
-   * it is blank (never patch over something).
-   */
-  BODY_START: 0xfd26c,
-  BODY_END: 0xfff40,
-
-  /**
    * Is a stock pair a clean target for a bootstrap? The body range must be
    * blank and MPC 0x8 must hold the stock reset word (or the hook already,
    * for an idempotent rebuild) -- the same guards flasher_gate.build uses.
@@ -200,22 +181,21 @@ const fastFlasher = {
    * @returns {{ok: boolean, why?: string}}
    */
   canBootstrap(flash, mpc) {
-    if (!flash || flash.length < fastFlasher.BODY_END)
+    if (!flash || flash.length < FAST_FLASHER_BODY_END)
       return { ok: false, why: 'the external image is too small' };
     if (!mpc || mpc.length < 12)
       return { ok: false, why: 'the MPC image is too small' };
-    for (let i = fastFlasher.BODY_START; i < fastFlasher.BODY_END; i++)
+    for (let i = FAST_FLASHER_BODY_START; i < FAST_FLASHER_BODY_END; i++)
       if (flash[i] !== 0xff)
         return {
           ok: false,
           why: `the body range is not blank (ext ${i.toString(16)} = ${flash[i].toString(16)}); this image already carries code there`,
         };
     const hook = ffBytes.be32(mpc, FAST_FLASHER_HOOK_AT);
-    const blob =
-      typeof fastFlasherBlob !== 'undefined'
-        ? fastFlasherBlob
-        : require('../generated/fast-flasher-blob.js').fastFlasherBlob;
-    if (hook !== FAST_FLASHER_STOCK_HOOK && hook !== blob.hookWord)
+    if (
+      hook !== FAST_FLASHER_STOCK_HOOK &&
+      hook !== _fastFlasherBody().hookWord
+    )
       return {
         ok: false,
         why: `MPC 0x8 holds ${hook.toString(16)}, not the stock reset word`,
@@ -223,17 +203,6 @@ const fastFlasher = {
     return { ok: true };
   },
 
-  /**
-   * The bootstrap pair: the car's current images with the flasher body
-   * spliced into the external chip and the hook word into MPC 0x8. The
-   * CALLER then checksums and signs the pair (fbDmeChipImage / the full-
-   * flash path) -- the body sits inside a signed program segment, so the
-   * splice MUST be followed by a re-sign, which the full flash already does.
-   * @param {Uint8Array} flash - The 1 MB external image (the shadow/current bytes).
-   * @param {Uint8Array} mpc - The MPC image.
-   * @returns {{flash: Uint8Array, mpc: Uint8Array}}
-   * @throws {Error} When the pair is not a clean bootstrap target.
-   */
   /**
    * Does this pair already carry exactly this app's flasher -- every body run
    * in the external image and the hook word at MPC 0x8? A dump read off a
@@ -243,18 +212,12 @@ const fastFlasher = {
    * @returns {boolean}
    */
   carriesFlasher(flash, mpc) {
-    const blob =
-      typeof fastFlasherBlob !== 'undefined'
-        ? fastFlasherBlob
-        : require('../generated/fast-flasher-blob.js').fastFlasherBlob;
-    if (!flash || !mpc || flash.length < fastFlasher.BODY_END) return false;
+    const blob = _fastFlasherBody();
+    if (!flash || !mpc || flash.length < FAST_FLASHER_BODY_END) return false;
     if (ffBytes.be32(mpc, blob.hookAt) !== blob.hookWord) return false;
-    for (const [off, hex] of blob.runs) {
-      const bytes = ffBytes.hexToBytes(hex);
-      for (let i = 0; i < bytes.length; i++)
-        if (flash[off + i] !== bytes[i]) return false;
-    }
-    return true;
+    return blob.runs.every(([off, hex]) =>
+      ffBytes.hexToBytes(hex).every((b, i) => flash[off + i] === b)
+    );
   },
 
   /**
@@ -269,6 +232,11 @@ const fastFlasher = {
    * @returns {{flash: Uint8Array, mpc: Uint8Array}}
    * @throws {Error} When the pair neither carries the flasher nor can take it.
    */
+  withFlasher(flash, mpc) {
+    if (fastFlasher.carriesFlasher(flash, mpc)) return { flash, mpc };
+    return fastFlasher.bootstrap(flash, mpc);
+  },
+
   /**
    * The pair WITHOUT the resident flasher, for a DME whose fast flasher is
    * the boot-region bootloader: the body range back to blank and MPC 0x8
@@ -282,44 +250,46 @@ const fastFlasher = {
   withoutFlasher(flash, mpc) {
     const f = Uint8Array.from(flash);
     const m = Uint8Array.from(mpc);
-    const blob =
-      typeof fastFlasherBlob !== 'undefined'
-        ? fastFlasherBlob
-        : require('../generated/fast-flasher-blob.js').fastFlasherBlob;
-    let removed = false;
-    const stamp = String.fromCharCode(
-      ...f.subarray(FAST_FLASHER_STAMP_AT, FAST_FLASHER_STAMP_AT + 6)
-    );
-    if (stamp === FAST_FLASHER_MAGIC) {
-      f.fill(0xff, fastFlasher.BODY_START, fastFlasher.BODY_END);
-      removed = true;
-    }
-    if (ffBytes.be32(m, FAST_FLASHER_HOOK_AT) === blob.hookWord) {
+    const stamped = _fastFlasherMagicAt(f, FAST_FLASHER_STAMP_AT);
+    // this build's hook word, or any absolute branch into the body range
+    // (another build's gate): with the body blanked, either one sends
+    // every boot into 0xFF
+    const word = ffBytes.be32(m, FAST_FLASHER_HOOK_AT);
+    const li = word & 0x03fffffc;
+    const target = (li & 0x02000000 ? li | 0xfc000000 : li) >>> 0;
+    const intoBody =
+      (word & 0xfc000003) >>> 0 === 0x48000002 &&
+      target >= FAST_FLASHER_EXT_CPU + FAST_FLASHER_BODY_START &&
+      target < FAST_FLASHER_EXT_CPU + FAST_FLASHER_BODY_END;
+    const hooked = word === _fastFlasherBody().hookWord || intoBody;
+    if (stamped) f.fill(0xff, FAST_FLASHER_BODY_START, FAST_FLASHER_BODY_END);
+    if (hooked)
       ffBytes.putBe32(m, FAST_FLASHER_HOOK_AT, FAST_FLASHER_STOCK_HOOK);
-      removed = true;
-    }
-    return { flash: f, mpc: m, removed };
+    return { flash: f, mpc: m, removed: stamped || hooked };
   },
 
-  withFlasher(flash, mpc) {
-    if (fastFlasher.carriesFlasher(flash, mpc)) return { flash, mpc };
-    return fastFlasher.bootstrap(flash, mpc);
-  },
-
+  /**
+   * The bootstrap pair: the car's current images with the flasher body
+   * spliced into the external chip and the hook word into MPC 0x8. The
+   * CALLER then checksums and signs the pair (fbDmeChipImage / the full-
+   * flash path) -- the body sits inside a signed program segment, so the
+   * splice MUST be followed by a re-sign, which the full flash already does.
+   * @param {Uint8Array} flash - The 1 MB external image (the shadow/current bytes).
+   * @param {Uint8Array} mpc - The MPC image.
+   * @returns {{flash: Uint8Array, mpc: Uint8Array}}
+   * @throws {Error} When the pair is not a clean bootstrap target.
+   */
   bootstrap(flash, mpc) {
     const can = fastFlasher.canBootstrap(flash, mpc);
     if (!can.ok) throw new Error(`Cannot install the fast flasher: ${can.why}`);
-    const blob =
-      typeof fastFlasherBlob !== 'undefined'
-        ? fastFlasherBlob
-        : require('../generated/fast-flasher-blob.js').fastFlasherBlob;
+    const blob = _fastFlasherBody();
     const f = Uint8Array.from(flash);
     const m = Uint8Array.from(mpc);
     for (const [off, hex] of blob.runs) {
       const bytes = ffBytes.hexToBytes(hex);
       if (
-        off < fastFlasher.BODY_START ||
-        off + bytes.length > fastFlasher.BODY_END
+        off < FAST_FLASHER_BODY_START ||
+        off + bytes.length > FAST_FLASHER_BODY_END
       )
         throw new Error(
           `blob run at ${off.toString(16)} falls outside the body range`

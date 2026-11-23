@@ -447,9 +447,20 @@ const SHIPPED = new Set(GROUPS.groups || []);
       for (const sg of fs.readdirSync(cd)) {
         const jc = path.join(cd, sg, 'job-code.json.gz');
         if (!fs.existsSync(jc)) continue;
+        // Only the job NAMES are wanted, and the exporter writes "jobs"
+        // (name -> entry index, no nesting) ahead of the megabytes of ops:
+        // that object alone is parsed. Parsing all 3,100 files whole was
+        // 28 of this test's 37 seconds. A file laid out otherwise is still
+        // read, the slow way.
         let d;
         try {
-          d = JSON.parse(zlib.gunzipSync(fs.readFileSync(jc)).toString());
+          const raw = zlib.gunzipSync(fs.readFileSync(jc));
+          const at = raw.indexOf('"jobs":{');
+          const end = at < 0 ? -1 : raw.indexOf('}', at);
+          d =
+            end > 0
+              ? { jobs: JSON.parse(raw.toString('utf8', at + 7, end + 1)) }
+              : JSON.parse(raw.toString());
         } catch {
           continue;
         }

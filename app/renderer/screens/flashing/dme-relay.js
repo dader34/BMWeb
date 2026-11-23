@@ -130,6 +130,10 @@ async function fbRelayRun() {
   }
   fbRelayLastText('');
   let flashed = false;
+  // the pair as the DME held it, read ONCE: the push is run again when it
+  // stops part-way (fbDmeFastPushWithResume), and a second read would take
+  // the half-written relay program for the stock pair -- the restore source
+  let stock = null;
   await fbDmeFastFlash({
     title: 'GS20 relay',
     operation: 'gs20-relay',
@@ -158,20 +162,24 @@ async function fbRelayRun() {
       return {};
     },
     push: async (client, cb) => {
-      cb.stage('Reading the external flash');
-      const flash = await fastFlashWire.readArea(client, 0, 0x100000, (n) =>
-        cb.progress(Math.floor((n * 40) / 0x100000))
-      );
-      cb.stage('Reading the MPC');
-      const mpc = await fastFlashWire.readArea(
-        client,
-        fastFlashWire.MPC_WINDOW,
-        MS45_MPC_LENGTH,
-        (n) => cb.progress(40 + Math.floor((n * 15) / MS45_MPC_LENGTH))
-      );
-      // the stock pair is the restore source: in memory and on disk
-      fbRelaySaved = { flash, mpc };
-      fbDmeSaveRead(flash, mpc);
+      if (!stock) {
+        cb.stage('Reading the external flash');
+        const ext = await fastFlashWire.readArea(client, 0, 0x100000, (n) =>
+          cb.progress(Math.floor((n * 40) / 0x100000))
+        );
+        cb.stage('Reading the MPC');
+        const internal = await fastFlashWire.readArea(
+          client,
+          fastFlashWire.MPC_WINDOW,
+          MS45_MPC_LENGTH,
+          (n) => cb.progress(40 + Math.floor((n * 15) / MS45_MPC_LENGTH))
+        );
+        // the stock pair is the restore source: in memory and on disk
+        stock = { flash: ext, mpc: internal };
+        fbRelaySaved = stock;
+        fbDmeSaveRead(ext, internal);
+      }
+      const { flash, mpc } = stock;
       cb.stage('Adding the relay payload');
       const patched = relayPatchPair(flash, mpc);
       const chip = fbDmeChipImage(patched.flash, patched.mpc, true);

@@ -12,11 +12,14 @@ const GARAGE_VIN_LINE_RE =
   /^\s*(?:Fg-Nummer|Fahrgestellnummer|VIN)\s*:\s*(.+)$/i;
 
 /**
- * Trailing commentary the script appends to the VIN it printed ("... read
- * from EWS"), in the languages the shipped scripts use.
+ * What a chassis number looks like where a read reports one: the 17
+ * characters of a VIN or the 7 of its production number, letters and digits
+ * only (the shape core/router.js carries in an address). A value is a VIN by
+ * being shaped like one -- not by failing to contain the word "error", which
+ * is how this used to decide: "nicht lesbar" and "keine Antwort" passed, and
+ * the scan was offered for a car of that name.
  */
-const GARAGE_VIN_NOTE_RE =
-  /\s+(?:aus\s+\w+\s+ausgelesen|read\s+from\s+\w+)\s*$/i;
+const GARAGE_VIN_SHAPE_RE = /^[A-Z0-9]{7,17}$/;
 
 /**
  * The VIN a finished read identified the car by.
@@ -34,17 +37,19 @@ function garageVinFromView(view) {
     const id = m.ident || {};
     // kombi and EWS spell the same number differently
     const raw = id.FG_NR || id.AIF_FG_NR || id.VIN;
-    const s = String(raw == null ? '' : raw).trim();
-    if (s.length >= GARAGE_VIN_TAIL && !/error/i.test(s))
-      return s.toUpperCase();
+    const s = String(raw == null ? '' : raw)
+      .trim()
+      .toUpperCase();
+    if (GARAGE_VIN_SHAPE_RE.test(s)) return s;
   }
   for (const line of v.lines || []) {
     const m = GARAGE_VIN_LINE_RE.exec(String(line));
     if (!m) continue;
-    const s = m[1].replace(GARAGE_VIN_NOTE_RE, '').trim();
-    // the script prints its own failure on this line ("EWS-Error: ...")
-    if (s.length >= GARAGE_VIN_TAIL && !/error/i.test(s))
-      return s.toUpperCase();
+    // the number is the line's first word: the script appends where it came
+    // from ("... aus EWS ausgelesen"), or prints its own failure there
+    // instead ("EWS-Error: ..."), which is not shaped like a VIN
+    const s = m[1].trim().split(/\s+/)[0].toUpperCase();
+    if (GARAGE_VIN_SHAPE_RE.test(s)) return s;
   }
   return '';
 }

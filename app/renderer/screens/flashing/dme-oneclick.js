@@ -281,6 +281,9 @@ async function fbDmeOneClickTrigger(title, ui = {}) {
       },
     });
   } catch (e) {
+    // the drift ticker goes with the entry: left running it painted
+    // "Entering fast flasher: n%" over the failure the caller reports
+    fbEntryProgressReset();
     throw new Error(e.message, { cause: e });
   }
   // the body owns the line; nothing KWP can be sent again. Pick it up like
@@ -456,12 +459,18 @@ async function fbDmeOneClickFlashTune() {
     confirmed: true,
     note: `DME ${d.ident.hwRef} / prog ${d.ident.progRef} / one-click (selector-5 grant)${d.flashName ? ` / file ${d.flashName}` : ''}`,
     async prepare() {
-      await fbDmeOneClickInto('Flash Tune');
-      // the same bytes Flash Tune would write, signed the same way
-      const cal = await fbDmePrepareTuneCal();
+      // the same bytes Flash Tune would write, signed the same way -- and
+      // BEFORE the entry: the tune's check against the program on the car
+      // is a KWP read, which the body answers nothing of (taken after the
+      // entry it timed out and the check was skipped without a word), and
+      // a file that is not a calibration must be refused while the DME is
+      // still on its program. A plain read: this session must not go on to
+      // unlock the loader ahead of the selector-5 chain.
+      const cal = await fbDmePrepareTuneCal({ plainRead: true });
       const signedCal = ms45Checksums.signParameters(
         ms45Checksums.correctParameterChecksums(cal)
       );
+      await fbDmeOneClickInto('Flash Tune');
       return { attach: ['fast_tune_cal_0x40000.bin', signedCal], signedCal };
     },
     push: (client, cb, p) => fastFlashWire.pushCal(client, p.signedCal, cb),
@@ -469,11 +478,14 @@ async function fbDmeOneClickFlashTune() {
 }
 
 /**
- * Flash Program through the one-click: the entry first, then the stock
- * Fast Flash Program unchanged (it re-asks its own confirm -- the push it
- * describes is exactly what runs; the one-click half was already confirmed
- * here). Note the stock program flow needs a break-capable cable for its
- * availability check even though this entry does not.
+ * Flash Program through the one-click: the stock Fast Flash Program with
+ * the one-click entry in place of the reset (opts.enter). The entry runs
+ * inside the flash, once the images are built and checked and the cable is
+ * known to do: a config the flash refuses, a file it cannot sign or a cable
+ * without a break line used to be found out after the DME had already been
+ * fired into the body, and left it sitting there with nothing to do. Note
+ * the program flow asks for a break-capable cable even though this entry
+ * does not need one.
  */
 async function fbDmeOneClickFlashProgram(opts = {}) {
   const d = fbState.dme;
@@ -487,15 +499,11 @@ async function fbDmeOneClickFlashProgram(opts = {}) {
     !(await fbDmeOneClickConfirm('Flash Program', 'program'))
   )
     return;
-  try {
-    await fbDmeOneClickInto('Flash Program');
-  } catch (e) {
-    fbSetStatus(`Flash Program failed: ${fbDescribeError(e)}`);
-    flashLog.note(`Flash Program failed: ${e.message}`);
-    return;
-  }
   // confirmed:true: the question above was this flash's
-  await fbDmeFastFlashProgram({ confirmed: true });
+  await fbDmeFastFlashProgram({
+    confirmed: true,
+    enter: () => fbDmeOneClickInto('Flash Program'),
+  });
 }
 
 /**
@@ -507,6 +515,8 @@ async function fbDmeOneClickRead() {
   if (!d.identified) return;
   if (!(await fbDmeOneClickGate('Read DME'))) return;
   const full = !!d.fullBin;
+  // saved once, however many times the push runs
+  let saved = false;
   await fbDmeFastFlash({
     title: 'Read DME',
     operation: 'oneclick-read',
@@ -542,18 +552,21 @@ async function fbDmeOneClickRead() {
           (n) => cb.progress(Math.floor((n * 100) / MS45_CAL_LENGTH))
         );
       }
-      cb.stage('Restarting the DME');
-      await client.reset();
-      fbDmeSaveRead(flash, mpc);
       const s = Math.round((Date.now() - t0) / 1000);
+      // saved before the restart, and the restart's answer not insisted on
+      // (fbDmeFastReadDone): a finished read is not lost to it
+      if (!saved) {
+        fbDmeSaveRead(flash, mpc);
+        saved = true;
+      }
       flashLog.note(
         `One-click read: ${flash.length + (mpc ? mpc.length : 0)} bytes in ${s} s`
       );
-      return {
-        ok: true,
-        skipped: false,
-        summary: full ? 'saved the full flash and MPC' : 'saved the tune',
-      };
+      return fbDmeFastReadDone(
+        client,
+        cb,
+        full ? 'saved the full flash and MPC' : 'saved the tune'
+      );
     },
     after: async () => {},
   });

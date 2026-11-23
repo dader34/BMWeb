@@ -14,7 +14,6 @@
  *   framing.js           concepts, checksums, frame lengths, port settings
  *   exchange.js          one request/answer with echo, pacing and retry
  *   transport-base.js    the Transport contract and the shared serial base
- *   native-bus.js        the macOS shell's serial bridge
  *   web-serial-bus.js    Web Serial, with the K-line wake and DTR handling
  *   bus.js               the one bus instance and the bus lock
  *   data-fetch.js        JSON / gzip data loaders

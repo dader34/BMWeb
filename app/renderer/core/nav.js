@@ -340,16 +340,9 @@ async function showScriptSelection(chassisId, onAbort) {
     });
   };
 
-  // Coding row: open the Coding hub (Features + Expert)
-  const openCoding = () => {
-    close();
-    showCodingHub(chassisId);
-  };
-
   items.forEach((it) => {
     const i = Number(it.dataset.i);
-    it.onclick = () =>
-      i === -1 ? showChassisJobs() : i === -2 ? openCoding() : showSection(i);
+    it.onclick = () => (i === -1 ? showChassisJobs() : showSection(i));
   });
 
   showChassisJobs(); // open on the chassis row: Functional Jobs only

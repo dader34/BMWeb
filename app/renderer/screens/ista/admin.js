@@ -150,14 +150,12 @@ function istaAdminLanguage() {
  * @returns {Array<object>}
  */
 function istaAdminVersions() {
-  // the same answer every other screen gives: the shell's or the web
-  // build's version, or 'dev' on a checkout
+  // the same answer every other screen gives: the build's version, or
+  // 'dev' on a checkout
   const app =
     typeof remoteVersion === 'function'
       ? remoteVersion()
-      : (typeof window !== 'undefined' &&
-          ((window.bmweb && window.bmweb.version) || window.BMWEB_VERSION)) ||
-        '';
+      : (typeof window !== 'undefined' && window.BMWEB_VERSION) || '';
   const rows = [
     { Package: 'BMWeb', SubSystem: 'Application', VersionNumber: app || '-' },
     {

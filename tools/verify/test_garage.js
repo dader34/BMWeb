@@ -483,6 +483,31 @@ function faultReport(sgbd, codes, silent) {
     G.garageVinFromView({ lines: ['Fg-Nummer   :  EWS-Error: no answer'] }),
     ''
   );
+  // ...in whatever words: a VIN is what is SHAPED like one. (The check used
+  // to be "does not contain 'error'", which let all of these through.)
+  for (const said of [
+    'nicht lesbar',
+    'keine Antwort vom Steuergeraet',
+    'Fehler beim Lesen',
+    '-----------------',
+    'WBAAV33481FU1234567', // 19 characters: not a VIN either
+  ])
+    assert.strictEqual(
+      G.garageVinFromView({ lines: [`Fg-Nummer   :  ${said}`] }),
+      '',
+      `"${said}" was taken as the car's VIN`
+    );
+  assert.strictEqual(
+    G.garageVinFromView({
+      report: { modules: [{ ident: { FG_NR: 'nicht codiert' } }] },
+    }),
+    ''
+  );
+  // the 7-character production number is one, and case does not matter
+  assert.strictEqual(
+    G.garageVinFromView({ lines: ['VIN: fu12345 read from EWS'] }),
+    'FU12345'
+  );
   ok('a failed VIN read is not taken as a VIN');
 
   // an ident read carries it in the modules' own answers, under either spelling

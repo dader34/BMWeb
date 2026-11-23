@@ -136,6 +136,8 @@ let fbEls = {};
 let fbModuleDd = null;
 /** @type {?function(Event): void} The window's bmweb-cable listener, registered once. */
 let fbCableListener = null;
+/** Whether the History page follows flashHistory's changes yet (registered once). */
+let fbHistoryListening = false;
 
 /**
  * Developer conveniences: files can be loaded and Custom Options opened
@@ -412,9 +414,14 @@ function fbMount(host, returning) {
   fbEls['history-remove'].onclick = () => fbHistoryRemove();
   fbEls['history-log'].onclick = () => fbHistoryOpenLog();
   fbEls['history-files'].onclick = () => fbHistorySaveFiles();
-  flashHistory.onChange(() => {
-    if (lastScreen === showFlashing) fbHistoryRefresh();
-  });
+  // once: the window is built again on every visit, and a listener added
+  // each time refreshed the table once per visit so far
+  if (!fbHistoryListening) {
+    fbHistoryListening = true;
+    flashHistory.onChange(() => {
+      if (lastScreen === showFlashing) fbHistoryRefresh();
+    });
+  }
 
   fbDmeWire();
   fbTcuWire();
@@ -548,6 +555,13 @@ function fbShowPage(page) {
   fbEls.statusbar.hidden = tuning || logging;
   if (tuning && !fbState.tuningActions && typeof tnMount === 'function')
     fbState.tuningActions = tnMount(fbEls['page-tuning'], fbState.actions[0]);
+  // a visit to the editor is where the user is asked, once, for a word on
+  // how the app is doing (core/feedback.js decides whether this is the one)
+  if (tuning && typeof feedbackMaybeAsk === 'function')
+    feedbackMaybeAsk(
+      'tuning',
+      () => fbState.page === 'tuning' && !!document.querySelector('#view .fb')
+    );
   // leaving the logger stops its run and hands the bus back
   if (!logging && typeof logUnmount === 'function') logUnmount();
   setActions((tuning && fbState.tuningActions) || fbState.actions);
@@ -593,7 +607,7 @@ function fbPaintLog() {
 
 /**
  * The status line, also appended to the log, and kept by a running session
- * as its outcome.
+ * as its closing words (how the session went is flashLog.outcome's to say).
  * @param {string} text - The status.
  */
 function fbSetStatus(text) {
@@ -609,9 +623,8 @@ function fbSetStatus(text) {
 /**
  * An engine stage ("opening session", "battery reading unavailable: ...",
  * "erasing 0x090000"): shown as the status and noted in the session, but
- * NOT judged as the session's outcome. The Flasher keeps these as log notes;
- * routing them through the status let "battery request failed" mark a
- * calibration write that finished as failed.
+ * not kept as the session's closing words -- a stage is a step on the way,
+ * and History shows the line the flow ended on.
  * @param {string} text - The stage.
  */
 function fbSetStage(text) {
@@ -694,6 +707,10 @@ function fbBusy(busy) {
   fbEls.module.querySelector('.lkd-btn').disabled = !!busy;
   if (busy) fbModuleDd.close();
   fbEls.actions.classList.toggle('fb-locked', !!busy);
+  // the class only stops the pointer: inert stops the keyboard too (Tab to
+  // Load File or Full Binary and Space, mid-flash, changed the loaded files
+  // under the operation)
+  fbEls.actions.inert = !!busy;
 }
 
 // ---- the skin's status pair: how long the operation has run, and the cable --------------------------
@@ -1035,7 +1052,7 @@ const FB_FLASH_CANCELLED = 'Cancelled: nothing was written';
  */
 function fbConfirmFlash(op, note, lead) {
   const label = flashOps.label(op);
-  const module = op.startsWith('tcu') ? 'transmission' : 'DME';
+  const module = flashOps.module(op) === 'GS20' ? 'transmission' : 'DME';
   return confirmDialog({
     title: esc(`${label}?`),
     body: fbHtml(
@@ -1078,6 +1095,32 @@ function fbConfirmFlash(op, note, lead) {
  * @param {{stage?: Function, progress?: Function, confirm?: boolean, confirmNote?: string, confirmLead?: string}} [ui]
  */
 async function fbFlashRun(op, payload, ui = {}) {
+  // The session's outcome is this operation's own result, said here once
+  // for every flow that runs one (flashLog.outcome): what the status lines
+  // go on to say -- a fault clear that could not run, an identify that
+  // failed after a write that went through -- does not change it.
+  let r;
+  try {
+    r = await fbFlashRunOp(op, payload, ui);
+  } catch (e) {
+    flashLog.outcome('failed');
+    throw e;
+  }
+  flashLog.outcome(
+    r && r.ok ? 'ok' : r && r.cancelled ? 'cancelled' : 'failed'
+  );
+  return r;
+}
+
+/**
+ * {@link fbFlashRun} without the outcome: the question, then the operation
+ * here or on the owner's cable.
+ * @param {string} op
+ * @param {object} payload
+ * @param {object} ui
+ * @returns {Promise<object>}
+ */
+async function fbFlashRunOp(op, payload, ui) {
   if (
     flashOps.writes(op) &&
     ui.confirm !== false &&

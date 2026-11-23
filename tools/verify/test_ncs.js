@@ -69,8 +69,11 @@ page.loadDatenMap = async () => {};
 page.loadCodingMap = async () => {};
 page.loadSget = async () => {};
 page.loadTables = async () => {};
+// a file the page fetches: beside the renderer where a dev tree keeps a
+// copy, else the repository's own data/, which a build lays beside the page
 page.webFetchJson = async (rel) => {
-  const p = R(rel);
+  const p =
+    [R(rel), path.join(ROOT, rel)].find((f) => fs.existsSync(f)) || R(rel);
   return fs.existsSync(p) ? JSON.parse(fs.readFileSync(p, 'utf8')) : null;
 };
 for (const f of [

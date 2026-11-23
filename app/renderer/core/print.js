@@ -291,17 +291,12 @@ function ensurePrintCss() {
   document.head.appendChild(s);
 }
 
-// window.print() is a no-op inside a WKWebView (no dialog behind it), so the Mac
-// app runs an NSPrintOperation over the live view; the browser build's dialog is
-// real. The promise resolves when the panel closes (native) or immediately (web).
 /**
- * Open the print dialog: the native shell's print operation, or window.print().
- * @returns {Promise<void>} Settles when the panel closes (native) or at once (web).
+ * Open the browser's print dialog.
+ * @returns {Promise<void>} Settled at once: callers were written against a
+ *   host that reported when its own panel closed, and still await this.
  */
 function triggerPrint() {
-  if (window.bmweb && typeof window.bmweb.printPage === 'function') {
-    return window.bmweb.printPage().catch(() => {});
-  }
   window.print();
   return Promise.resolve();
 }

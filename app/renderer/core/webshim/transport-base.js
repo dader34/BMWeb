@@ -1,24 +1,17 @@
 /**
- * @file The Transport contract every bus implements, and the base class the
- * two serial transports share.
+ * @file The Transport contract every bus implements, and the base class a
+ * serial transport is built on.
  *
- * TWO transports carry the exact same protocol to the car: Web Serial (a
- * K+DCAN cable in a desktop browser) and the native bridge (the macOS shell
- * owning /dev/tty). runExchange, readFrame, withChecksum, frameTotal and
- * verifyChecksum (exchange.js, framing.js) are the protocol and are SHARED by
- * both -- "the protocol does not change with the plumbing." A full merge of
- * the two classes is NOT possible, because two boundaries are physical, not
- * incidental, and each stays a per-transport override:
+ * runExchange, readFrame, withChecksum, frameTotal and verifyChecksum
+ * (exchange.js, framing.js) are the protocol; a transport only moves bytes
+ * -- "the protocol does not change with the plumbing". What a transport
+ * keeps to itself is physical:
  *
- *   SEAM 1  connect-entry -- Web Serial needs a USER GESTURE for the first
- *           requestPort(); the native bridge does not.
- *   SEAM 2  K-line line-control -- only Web Serial has setSignals (DTR/break),
- *           so fast-init and the ISO 9141 slow-init live there alone; the
- *           native bridge has no setSignals.
- *
- * The native side is the macOS shell's SerialProxy.cs, the byte-mover behind
- * NativeSerialBus (open/write/readAvailable/close/flush). Bytes cross that
- * bridge as a JSON int[], NOT base64 -- base64 corrupted the echo/checksum.
+ *   connect-entry  Web Serial needs a USER GESTURE for the first
+ *                  requestPort().
+ *   line control   setSignals (DTR/break) is the port's, so fast-init and
+ *                  the ISO 9141 slow-init live with the transport that has
+ *                  it (web-serial-bus.js).
  */
 /* exported SerialTransportBase */
 
@@ -63,10 +56,9 @@
  */
 
 /**
- * Shared base for the two SERIAL transports (Web Serial + native bridge). They
- * both own a real port whose baud/parity must track the job's concept, and
- * they both keep the same per-session wire state -- so the reconfigure-guard
- * and the state reset live here once.
+ * The base of a SERIAL transport: it owns a real port whose baud/parity must
+ * track the job's concept and keeps the per-session wire state, so the
+ * reconfigure-guard and the state reset live here.
  */
 class SerialTransportBase {
   /**
@@ -79,19 +71,6 @@ class SerialTransportBase {
     this.initedAddr = null;
     this.pending = null;
     this.sessionConcept = null;
-  }
-
-  /**
-   * Clear the WAKE state only, when the port is REOPENED onto different
-   * settings: a reopened port drops the ECU session, so a woken module must
-   * be woken again. Deliberately does NOT touch sessionConcept -- runExchange
-   * sets that immediately before calling ensureConfig, and the K-line wake in
-   * exchangeRaw reads it right after, so clearing it here would blind the
-   * wake.
-   */
-  _resetWakeState() {
-    this.inited = null;
-    this.initedAddr = null;
   }
 
   /**

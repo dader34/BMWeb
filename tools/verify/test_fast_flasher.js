@@ -1432,6 +1432,330 @@ const be32 = (b, at) =>
     );
   }
 
+  // ---- 4h. v28: external chunks under the pagesets' pulses ------------------
+  console.log("\nv28: external chunks under the pagesets' pulses");
+  {
+    const WIN = 0x80000000;
+    const BLOCK = 0x8000;
+    const SIZE = { 0x40000: 0x20000, 0x60000: 0x20000, 0x80000: 0x40000 };
+    SIZE[0xc0000] = 0x40000;
+    // the car, timed: a pageset pulses 45 ms, the line carries a byte in
+    // 44 us. A plain CHUNK that is in before the set's pulses end is written
+    // under them -- or refused as busy (NAK 8) while the chip still erases;
+    // everything else, and a CHUNK that comes later, waits for the set and
+    // for the chip. `now` is the push's clock.
+    const car = (ext0, mpc0, eraseMs, late = {}) => {
+      const ext = Uint8Array.from(ext0);
+      const mpc = Uint8Array.from(mpc0);
+      const events = [];
+      let setQs = 0;
+      let t = 0;
+      let pulsesEnd = 0;
+      let idleAt = 0;
+      let pending = null;
+      const wire = (n) => n * 0.044;
+      const idle = () => (t = Math.max(t, pulsesEnd));
+      const area = (off, len) =>
+        off >= WIN
+          ? mpc.subarray(off - WIN, off - WIN + len)
+          : ext.subarray(off, off + len);
+      const pages = (mask, offset, pagesets, plain) => {
+        let at = 0;
+        for (let p = 0; p < pagesets; p++)
+          for (let b = 0; b < 14; b++)
+            if ((mask >> b) & 1) {
+              const a = b * BLOCK + offset + p * 64;
+              for (let i = 0; i < 64; i++) mpc[a + i] &= plain[at + i];
+              at += 64;
+            }
+      };
+      const told = () => {
+        const r = pending === null ? 0xff : pending;
+        pending = 0;
+        return r;
+      };
+      const client = {
+        pipelineExt: true,
+        codec: global.nrv2b,
+        _wireMs: wire,
+        async sectorQuery(off, len) {
+          t = Math.max(idle(), off < WIN ? idleAt : 0) + 15;
+          return W.crc32(area(off, len));
+        },
+        async read(off, len) {
+          t = idle() + 15;
+          return Uint8Array.from(area(off, len));
+        },
+        async erase(off) {
+          t = Math.max(idle(), idleAt) + 2000;
+          ext.fill(0xff, off, off + SIZE[off]);
+        },
+        async eraseQueue(offsets) {
+          events.push(['eraseQueue', offsets.slice()]);
+          for (const off of offsets) ext.fill(0xff, off, off + SIZE[off]);
+          idleAt = idle() + eraseMs;
+        },
+        async eraseBlocks(mask) {
+          t = idle() + 1000;
+          for (let b = 0; b < 14; b++)
+            if ((mask >> b) & 1) mpc.fill(0xff, b * BLOCK, (b + 1) * BLOCK);
+        },
+        async chunk(off, plain, opts = {}) {
+          const packed = opts.packed || global.nrv2b.encode(plain);
+          t += wire(packed.length + 24);
+          const under = off < WIN && t < pulsesEnd;
+          if (under && t < idleAt) {
+            events.push(['busy', off]);
+            t += 10;
+            throw new W.Nak(W.SVC.CHUNK, 8);
+          }
+          if (!under) t = Math.max(idle(), idleAt);
+          events.push([under ? 'under' : 'chunk', off]);
+          const a = area(off, plain.length);
+          for (let i = 0; i < plain.length; i++) a[i] &= plain[i];
+          t += 45;
+          return packed.length;
+        },
+        async chunkQ(off, plain) {
+          t = Math.max(idle(), idleAt) + wire(plain.length / 2);
+          events.push(['chunkQ', off]);
+          ext.set(plain, off);
+          return { sent: plain.length, prev: told() };
+        },
+        async chunkSet(mask, offset, pagesets, plain) {
+          events.push(['chunkSet', offset]);
+          pages(mask, offset, pagesets, plain);
+          t = idle() + pagesets * 45;
+          return plain.length;
+        },
+        async chunkSetQ(mask, offset, pagesets, plain) {
+          const packed = global.nrv2b.encode(plain);
+          t = Math.max(t + wire(packed.length + 28), pulsesEnd);
+          // `late`: the n-th SETQ answered 2.8 s late -- lost on the line
+          // and sent again (the client counts a line error), or the host
+          // itself stalled (it does not)
+          if (++setQs === late.at) {
+            t += 2800;
+            if (late.garbled) client.lineErrors = (client.lineErrors || 0) + 1;
+          }
+          events.push(['setQ', offset]);
+          pages(mask, offset, pagesets, plain);
+          pulsesEnd = t + pagesets * 45;
+          return { sent: packed.length, prev: told() };
+        },
+        async sync() {
+          idle();
+          events.push(['sync']);
+          const r = pending === null ? 0xff : pending;
+          pending = null;
+          return r;
+        },
+        async verify(off, len, crc) {
+          t = Math.max(idle(), idleAt) + 15;
+          assert.strictEqual(W.crc32(area(off, len)), crc, 'verify');
+        },
+        async marks(which) {
+          for (const [at, w] of which
+            ? [
+                [0xfff80, 0x42902448],
+                [0xfffc0, 0x42244890],
+              ]
+            : [
+                [0x5ff80, 0x48249042],
+                [0x5ffc0, 0x90482442],
+              ])
+            ext.set([w >>> 24, (w >>> 16) & 255, (w >>> 8) & 255, w & 255], at);
+        },
+        async reset() {},
+      };
+      return { client, ext, mpc, events, now: () => t };
+    };
+    // the target, and a DME that holds another program and tune in every
+    // unit; the MPC differs in six blocks (a set is then ten pagesets,
+    // 450 ms of pulses)
+    const target = image(11);
+    let x = 4;
+    const rnd = () => ((x = (x * 1103515245 + 12345) >>> 0) >>> 16) & 0xff;
+    for (let i = 0x40000; i < 0x5d000; i++)
+      target[i] = i % 64 < 40 ? rnd() & 0x0f : 0x20;
+    const cal = target.slice(0x40000, 0x5d000);
+    const mpcTarget = new Uint8Array(0x70000);
+    for (let i = 0; i < mpcTarget.length; i++)
+      mpcTarget[i] = i % 4096 < 3000 ? rnd() : 0xff;
+    const onChip = image(12);
+    onChip.set(W.programAreaImage(image(12)), 0x60000);
+    const mpcOnChip = Uint8Array.from(mpcTarget);
+    for (const b of [0, 1, 6, 9, 10, 13]) mpcOnChip[b * BLOCK + 17] ^= 0x80;
+    const push = async (c, more) =>
+      W.pushProgram(
+        c.client,
+        target,
+        {},
+        {
+          mpc: mpcTarget,
+          cal,
+          pagesets: true,
+          pipeline: true,
+          backgroundErase: true,
+          block0InSets: true,
+          clock: c.now,
+          ...more,
+        }
+      );
+    const holds = (c, what) => {
+      assert(Buffer.from(c.mpc).equals(Buffer.from(mpcTarget)), `${what}: MPC`);
+      assert(
+        Buffer.from(c.ext.subarray(0x60000, 0xfff40)).equals(
+          Buffer.from(target.subarray(0x60000, 0xfff40))
+        ),
+        `${what}: program`
+      );
+      assert(
+        Buffer.from(c.ext.subarray(0x40000, 0x5d000)).equals(Buffer.from(cal)),
+        `${what}: calibration`
+      );
+    };
+    const kinds = (c, k) => c.events.filter((e) => e[0] === k);
+
+    // as before, when nobody asks
+    const plainCar = car(onChip, mpcOnChip, 4500);
+    const plain = await push(plainCar, {});
+    holds(plainCar, 'not interleaved');
+    assert(!kinds(plainCar, 'under').length && !kinds(plainCar, 'busy').length);
+    ok('v28 push: nothing goes under the pulses unless asked');
+
+    // interleaved: the chip erases its two sectors in the background within
+    // the estimate (4.7 s), then the chunks go under the pulses, each once,
+    // in order (the calibration's sector is blank on this DME: not queued)
+    const c = car(onChip, mpcOnChip, 4500);
+    const r = await push(c, { interleave: true });
+    holds(c, 'interleaved');
+    const under = kinds(c, 'under').map((e) => e[1]);
+    const after = kinds(c, 'chunkQ').map((e) => e[1]);
+    assert(under.length > 20, `${under.length} chunks under the pulses`);
+    assert.strictEqual(r.chunks, plain.chunks, 'the same chunks either way');
+    assert.strictEqual(
+      new Set([...under, ...after]).size,
+      under.length + after.length,
+      'no chunk written twice'
+    );
+    assert.deepStrictEqual(
+      [...under, ...after],
+      kinds(plainCar, 'chunkQ').map((e) => e[1]),
+      'the units in the order they are written without it, the marks sector last'
+    );
+    const first = c.events.findIndex((e) => e[0] === 'under');
+    const queued = c.events.findIndex((e) => e[0] === 'eraseQueue');
+    assert(
+      c.events.slice(queued, first).filter((e) => e[0] === 'setQ').length >= 10,
+      'the sets alone while the chip erases'
+    );
+    assert(!kinds(c, 'busy').length, 'never asked while it erases');
+    for (let i = first; i < c.events.length - 1; i++)
+      if (c.events[i][0] === 'under')
+        assert(
+          ['under', 'setQ', 'sync'].includes(c.events[i + 1][0]),
+          'a chunk under the pulses sits between two sets'
+        );
+    assert(
+      c.now() < plainCar.now() - 3000,
+      `${Math.round(plainCar.now() - c.now())} ms off the push`
+    );
+    ok(
+      `v28 push: ${under.length} of ${r.chunks - kinds(c, 'setQ').length - 1} external chunks under the pulses, each once and in order`
+    );
+
+    // the chip takes twice the estimate: refused as busy, asked again, the
+    // refused chunk written afterwards like any other
+    const slow = car(onChip, mpcOnChip, 9500);
+    const rs = await push(slow, { interleave: true });
+    holds(slow, 'slow erase');
+    const busy = kinds(slow, 'busy').map((e) => e[1]);
+    const underS = kinds(slow, 'under').map((e) => e[1]);
+    assert(busy.length >= 2, `${busy.length} busy refusals`);
+    assert.strictEqual(
+      rs.chunks,
+      plain.chunks,
+      'a refused chunk is not counted'
+    );
+    assert.strictEqual(
+      underS[0],
+      busy[0],
+      'the refused chunk goes first, later'
+    );
+    assert.strictEqual(
+      new Set([...underS, ...kinds(slow, 'chunkQ').map((e) => e[1])]).size,
+      underS.length + kinds(slow, 'chunkQ').length,
+      'no chunk written twice'
+    );
+    ok(
+      `v28 push: ${busy.length} busy refusals while the chip erased, each chunk still written once`
+    );
+
+    // the first car run (2026-11-18): a SETQ that went out twice was timed
+    // as one set's pulses, 2.8 s for 0.45, and every set after it got a
+    // dozen chunks the MPC then waited out. A SETQ sent twice is not a
+    // measurement; and one answered late for a reason the client cannot
+    // see is believed only as far as a pageset can pulse.
+    const perSet = (c) => {
+      const counts = [];
+      for (const e of c.events)
+        if (e[0] === 'setQ') counts.push(0);
+        else if ((e[0] === 'under' || e[0] === 'chunk') && counts.length)
+          counts[counts.length - 1]++;
+      return counts;
+    };
+    const usual = Math.max(...perSet(c));
+    for (const [what, late] of [
+      ['a SETQ sent twice', { at: 2, garbled: true }],
+      ['a SETQ answered 2.8 s late', { at: 2 }],
+    ]) {
+      const hit = car(onChip, mpcOnChip, 4500, late);
+      await push(hit, { interleave: true });
+      holds(hit, what);
+      assert(
+        Math.max(...perSet(hit)) <= usual + 1,
+        `${what}: ${Math.max(...perSet(hit))} chunks behind one set (${usual} without it)`
+      );
+      assert(
+        !kinds(hit, 'chunk').length,
+        `${what}: no chunk missed its pulses`
+      );
+    }
+    ok(
+      `v28 push: a SETQ sent twice or answered late does not stretch the pulses (at most ${usual + 1} chunks a set)`
+    );
+
+    // a push carried on with the MPC already blank: no MPC erase has staged
+    // the body's driver, so the first set goes stop-and-wait, the erases are
+    // queued after it, and the pipeline starts from the second
+    const blankMpc = Uint8Array.from(mpcOnChip);
+    for (const b of [0, 1, 6, 9, 10, 13])
+      blankMpc.fill(0xff, b * BLOCK, (b + 1) * BLOCK);
+    const cold = car(onChip, blankMpc, 4500);
+    await push(cold, { interleave: true });
+    holds(cold, 'cold start');
+    const order = cold.events
+      .filter((e) => ['chunkSet', 'setQ', 'eraseQueue'].includes(e[0]))
+      .map((e) => e[0]);
+    assert.deepStrictEqual(
+      order.slice(0, 3),
+      ['chunkSet', 'eraseQueue', 'setQ'],
+      'the first set on its own, then the queue, then the pipeline'
+    );
+    assert(kinds(cold, 'under').length > 20, 'and chunks under the pulses');
+    ok(
+      'v28 push: with no MPC erase before it the first set goes stop-and-wait, the background erases after it'
+    );
+
+    // the sets stop-and-wait: nothing to go under
+    const still = car(onChip, mpcOnChip, 4500);
+    await push(still, { interleave: true, pipeline: false });
+    holds(still, 'not pipelined');
+    assert(!kinds(still, 'under').length);
+    ok('v28 push: only under pipelined sets');
+  }
+
   // ---- 5. detection ----------------------------------------------------------
   console.log('\ndetection');
   {

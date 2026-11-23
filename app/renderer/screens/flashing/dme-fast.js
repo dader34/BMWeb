@@ -5,7 +5,7 @@
 // protocol is core/flash/fast-flasher-wire.js, detection and the bootstrap
 // splice core/flash/fast-flasher.js. Part of the DME screen with dme.js;
 // one scope.
-/* exported fbDmeFastFlashTune, fbDmeFastFlashProgram, fbDmeFastFlasherAvailable, fbDmeFastRead, fbDmeViaStockLoader */
+/* exported fbDmeFastFlashTune, fbDmeFastFlashProgram, fbDmeFastFlasherAvailable, fbDmeFastRead, fbDmeFastReadDone, fbDmeFlasherNote, fbDmeViaStockLoader */
 
 // ---- Fast Flash ------------------------------------------------------------------------------------------
 /**
@@ -61,6 +61,8 @@ async function fbDmeFastRead() {
   // connection carries on at the block that failed (2026-11-02: a full read
   // dropped at 60% started over from 0x0)
   const resume = { ext: {}, mpc: {} };
+  // saved once, however many times the push runs
+  let saved = false;
   await fbDmeFastFlash({
     title: 'Read DME',
     operation: 'fast-read',
@@ -93,21 +95,61 @@ async function fbDmeFastRead() {
         );
       }
       const s = Math.round((Date.now() - t0) / 1000);
-      cb.stage('Restarting the DME');
-      await client.reset();
-      fbDmeSaveRead(flash, mpc);
+      // saved BEFORE the restart: every block is in and checked by its own
+      // CRC, and a RESET whose answer is not heard (the DME may restart
+      // before it is out) ended the read as failed with nothing saved
+      if (!saved) {
+        fbDmeSaveRead(flash, mpc);
+        saved = true;
+      }
       flashLog.note(
         `Fast read: ${flash.length + (mpc ? mpc.length : 0)} bytes in ${s} s`
       );
-      return {
-        ok: true,
-        skipped: false,
-        summary: full ? 'saved the full flash and MPC' : 'saved the tune',
-      };
+      return fbDmeFastReadDone(
+        client,
+        cb,
+        full ? 'saved the full flash and MPC' : 'saved the tune'
+      );
     },
     // a read changes nothing to identify again for
     after: async () => {},
   });
+}
+
+/**
+ * The end of a read through the flasher, once the files are saved: the DME
+ * restarted on its program. The flasher may restart the DME before its
+ * answer to RESET is out, and a read that is already complete and saved must
+ * not end as failed for that -- an answer not heard is noted, and the result
+ * says to identify before going on.
+ * @param {object} client - fastFlashWire.Client.
+ * @param {{stage: (s: string) => void}} cb
+ * @param {string} summary - What was read and kept, for the status line.
+ * @returns {Promise<{ok: boolean, skipped: boolean, summary: string}>}
+ */
+async function fbDmeFastReadDone(client, cb, summary) {
+  cb.stage('Restarting the DME');
+  let restarted = true;
+  try {
+    await client.reset();
+  } catch (e) {
+    // a RESET the client would not send (a boot-sector rewrite is open on
+    // this DME) is not an answer that went missing
+    if (e && e.rewriteOpen) throw e;
+    restarted = false;
+    flashLog.note(
+      `The flasher's answer to RESET was not heard (${e.message}): the read is saved; Identify says whether the DME restarted`
+    );
+  }
+  return {
+    ok: true,
+    skipped: false,
+    summary:
+      summary +
+      (restarted
+        ? ''
+        : '; the DME did not confirm its restart, so Identify before going on'),
+  };
 }
 
 /**
@@ -129,18 +171,20 @@ async function fbDmeFastFlash(spec) {
   // `confirmed`: a flow that asked its own question first (Install
   // bootloader once for all its steps; the one-click's Flash Tune / Flash
   // Program, which ask before they start the flasher).
-  // A one-click-triggered body also counts as confirmed for the TAB actions:
-  // the tab button's autoEnter guard fired fbDmeOneClickTrigger with no
-  // dialog (the user already clicked "Read AIF" / "Write ISN" / etc), and a
+  // A one-click-triggered body also counts as confirmed for a READ from the
+  // tabs: the tab button's autoEnter guard fired fbDmeOneClickTrigger with
+  // no dialog (the user already clicked "Read AIF" / "Read EEPROM"), and a
   // second dialog ("Read the log?") right after the triggered body is live
   // is just a repeat of the first click's intent.
-  // NOT for a flash: Flash Tune and Flash Program always ask before they
-  // start, whichever way they reach the DME -- a body left running by an
-  // earlier session used to take the next Flash Program without a word.
-  const isFlash = spec.what === 'calibration' || spec.what === 'program';
+  // NOT for anything that writes. Flash Tune and Flash Program always ask
+  // before they start, whichever way they reach the DME -- a body left
+  // running by an earlier session used to take the next Flash Program
+  // without a word -- and so does every other write: the exemption used to
+  // cover all but those two, so Write AIF on a one-click DME erased and
+  // rewrote the boot sector with its warning never shown.
   const preConfirmed =
     spec.confirmed ||
-    (!isFlash && !!(d && d.bootLoader && d.bootLoader.triggered));
+    (spec.what === 'read' && !!(d && d.bootLoader && d.bootLoader.triggered));
   if (!preConfirmed && !(await fbConfirm(spec.confirm, spec.title))) {
     flashLog.note(`${spec.title} not confirmed: nothing was sent to the car`);
     return;
@@ -241,6 +285,7 @@ async function fbDmeFastFlash(spec) {
       spec.push(client, cb, prepared)
     );
     ok = true;
+    flashLog.outcome('ok');
     ui.stop();
     fbSetStatus(
       r.summary
@@ -250,6 +295,7 @@ async function fbDmeFastFlash(spec) {
           : `${spec.title} successful in ${ui.elapsed()}s`
     );
   } catch (e) {
+    flashLog.outcome('failed');
     ui.stop();
     fbSetStatus(
       `${spec.title} failed after ${ui.elapsed()}s: ${fbDescribeError(e)}`
@@ -268,18 +314,22 @@ async function fbDmeFastFlash(spec) {
     fbFlashingBar(false);
     fbProgress(0);
     // `after` replaces the identify (the AIF wipe asks for a key cycle first)
-    if (ok) {
-      if (spec.after) await spec.after();
-      else {
-        await fbDmeIdentify(true);
-        // the plain tune and program writes only: the flows that bring an
-        // `after` of their own (bootloader, relay, AIF, the reads) are not
-        // flashes to clean up after
-        if (spec.what === 'calibration' || spec.what === 'program')
-          await fbFaultsClearAfterFlash('dme');
+    try {
+      if (ok) {
+        if (spec.after) await spec.after();
+        else {
+          await fbDmeIdentify(true);
+          // the plain tune and program writes only: the flows that bring an
+          // `after` of their own (bootloader, relay, AIF, the reads) are not
+          // flashes to clean up after
+          if (spec.what === 'calibration' || spec.what === 'program')
+            await fbFaultsClearAfterFlash('dme');
+        }
       }
+    } finally {
+      // whatever the steps after it did: the session ends here
+      await fbSessionStop();
     }
-    await fbSessionStop();
   }
 }
 
@@ -556,6 +606,23 @@ function fbDmePipelineWanted() {
 }
 
 /**
+ * Whether the external chunks go under the pipelined pagesets' pulses with
+ * a body that takes them there (v28): the MPC phase leaves the line idle
+ * for half of it or more, and what is written meanwhile is off the push's
+ * clock -- about 6 s of a program flash by the car's November timings. On,
+ * unless the browser says no (localStorage bmweb-fast-interleave = 0); it
+ * needs the pipelined sets, so their switch turns it off too.
+ * @returns {boolean}
+ */
+function fbDmeInterleaveWanted() {
+  try {
+    return localStorage.getItem('bmweb-fast-interleave') !== '0';
+  } catch (e) {
+    return true;
+  }
+}
+
+/**
  * Whether MPC block 0 joins the pagesets (its reset-word page still written
  * last, alone) instead of being erased and written on its own after them:
  * ~15 s off a program flash on the car (2026-11-09: 8 sequential chunks at
@@ -606,6 +673,20 @@ function fbDmeReplyTiming() {
     gap: num('bmweb-fast-gap', fastFlashWire.REPLY_GAP_PASSES, 1, 1000000),
     pad: num('bmweb-fast-pad', fastFlashWire.REPLY_PAD, 0, 255),
   };
+}
+
+/**
+ * The flasher a session talks to, for its first log line: the bootloader
+ * ring's version when identify found one (or a one-click planted one), else
+ * the detection in words. A DME identified sitting in its flasher, or one
+ * with a resident body and no ring, has no bootloader record at all.
+ * @returns {string}
+ */
+function fbDmeFlasherNote() {
+  const d = fbState.dme;
+  return d.bootLoader
+    ? `BL${d.bootLoader.version}`
+    : fastFlasher.describe(d.fastFlasher);
 }
 
 /**
@@ -936,7 +1017,19 @@ async function fbDmeEnterFastFlasher(owner, ui, opts = {}) {
       );
       await new Promise((r) => setTimeout(r, ms));
     }
-    await webBus.port.setSignals({ break: true });
+    try {
+      await webBus.port.setSignals({ break: true });
+    } catch (e) {
+      // the port went away under the break (a cable pulled): the claim
+      // must not outlive this attempt, or every later job finds the cable
+      // taken until the page is reloaded
+      claim.release();
+      webDropSession(MS45_SGBD);
+      throw new Error(
+        `The K-line could not be held low after the reset (${e.message}). The DME restarted on its program; nothing was written.`,
+        { cause: e }
+      );
+    }
     // the DME is rebooting out of the diagnostic session it was in -- and
     // from here it may come up in the flasher, so the next press asks the
     // flasher first instead of sending a reset it cannot hear
@@ -1077,6 +1170,15 @@ async function fbDmeFastFlasherAvailable(title) {
     );
     return false;
   }
+  return fbDmeFastCableOk(title);
+}
+
+/**
+ * The cable half of fbDmeFastFlasherAvailable: one that can hold a break.
+ * @param {string} title
+ * @returns {Promise<boolean>}
+ */
+async function fbDmeFastCableOk(title) {
   if (
     typeof webBus === 'undefined' ||
     !webBus.port ||
@@ -1100,17 +1202,25 @@ async function fbDmeFastFlasherAvailable(title) {
  *   {flash: Uint8Array, mpc: Uint8Array}, patch?: (flash: Uint8Array,
  *   mpc: Uint8Array) => {flash: Uint8Array, mpc: Uint8Array},
  *   patchName?: string, title?: string, confirmed?: boolean,
- *   after?: () => Promise<void>}} [opts]
+ *   after?: () => Promise<void>, enter?: () => Promise<*>}} [opts]
  *   - carry: the body the pair is given in place of the shipped one (the
  *   bootloader installer); patch: applied after it, last of all (live tune);
  *   title and confirmed: a guided flow's own name, and
  *   that it already asked; after: what runs in place of the Identify that
- *   follows a successful push.
+ *   follows a successful push; enter: starts the flasher on a DME that has
+ *   none ready (the one-click) -- run once everything below is built and
+ *   checked, inside the session, right before it connects.
  */
 async function fbDmeFastFlashProgram(opts = {}) {
   const d = fbState.dme;
   if (!d.identified || !d.flash || !d.mpc) return;
-  if (!(await fbDmeFastFlasherAvailable('Fast Flash Program'))) return;
+  // with `enter` the flasher is not there yet: only the cable is asked about
+  if (
+    !(await (opts.enter
+      ? fbDmeFastCableOk('Fast Flash Program')
+      : fbDmeFastFlasherAvailable('Fast Flash Program')))
+  )
+    return;
 
   const prompts = await fbDmeProgramMatchPrompts('Fast Flash Program');
   if (!prompts) return;
@@ -1151,8 +1261,11 @@ async function fbDmeFastFlashProgram(opts = {}) {
       `${fbDmeProgramTuneNote(hasCal)}\n\n` +
       'Keep the ignition on, a charger on the battery and the cable plugged in until it has finished. An interrupted write leaves the program without its valid marks, and the DME stays in the flasher until a flash completes.\n\n' +
       'Write the program?',
-    note: `DME ${d.ident.hwRef} / prog ${progRef || '(unreadable)'} / ${fastFlasher.describe(d.fastFlasher)}${d.flashName ? ` / ${d.flashName}` : ''}${d.mpcName && d.mpcName !== d.flashName ? ` + ${d.mpcName}` : ''}`,
-    prepare: async () => ({ attach: ['fast_program_ext.bin', chipImage] }),
+    note: `DME ${d.ident.hwRef} / prog ${progRef || '(unreadable)'} / ${opts.enter ? 'one-click (selector-5 grant)' : fastFlasher.describe(d.fastFlasher)}${d.flashName ? ` / ${d.flashName}` : ''}${d.mpcName && d.mpcName !== d.flashName ? ` + ${d.mpcName}` : ''}`,
+    prepare: async () => {
+      if (opts.enter) await opts.enter();
+      return { attach: ['fast_program_ext.bin', chipImage] };
+    },
     push: async (client, cb) => {
       // the calibration too, as Flash Program writes it: first, without the
       // reset, so the program push that follows closes the session
@@ -1190,6 +1303,10 @@ async function fbDmeFastFlashProgram(opts = {}) {
           // meanwhile
           pipeline:
             fbDmeBodyVersion() >= FB_PIPELINE_VERSION && fbDmePipelineWanted(),
+          // v28: external chunks written under those sets' pulses
+          interleave:
+            fbDmeBodyVersion() >= fastFlashWire.INTERLEAVE_VERSION &&
+            fbDmeInterleaveWanted(),
           block0InSets: fbDmeBlock0InSets(),
         }
       );

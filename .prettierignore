@@ -1,21 +1,10 @@
 # build output and deps
 node_modules/
 dist-web/
-src/*/bin/
-src/*/obj/
 
-# generated data blobs — large, machine-authored, never hand-edited
-app/renderer/data/faultdb.js
-app/renderer/data/pcodes.js
-app/renderer/data/faultinfo.js
-app/renderer/data/faultmeta.js
-app/renderer/data/faultindex.js
-app/renderer/data/codingmap.js
-app/renderer/data/datenmap.js
-app/renderer/data/envmap.js
-app/renderer/data/sanames.js
-app/renderer/data/sget.js
-app/renderer/data/tables.js
+# generated data: fetched or built, never hand-edited (data/ below covers the
+# repo's own; this is the renderer's copy)
+app/renderer/data/
 
 # vendored third-party
 app/renderer/vendor/

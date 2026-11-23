@@ -158,7 +158,6 @@ html[data-theme='inpa'] .inpa-fn-lookup .inpa-fn-key {
   overflow-y: auto;
 }
 .inpa-pop-row {
-  -webkit-app-region: no-drag;
   cursor: pointer;
   text-align: left;
   display: grid;
@@ -243,7 +242,6 @@ html[data-theme='inpa'] .inpa-pop-key {
 }
 /* header doubles as the clickable Functional Jobs entry on the chassis row */
 .inpa-ss-head.func {
-  -webkit-app-region: no-drag;
   cursor: pointer;
   color: var(--amber);
 }
@@ -259,7 +257,6 @@ html[data-theme='inpa'] .inpa-ss-head.func:hover {
 /* indented section items, bold mono */
 .inpa-ss-item,
 .inpa-ss-job {
-  -webkit-app-region: no-drag;
   cursor: pointer;
   display: block;
   width: 100%;
@@ -342,7 +339,6 @@ html[data-theme='inpa'] .inpa-ss-chassis.active {
   display: block;
 }
 .inpa-fn {
-  -webkit-app-region: no-drag;
   cursor: pointer;
   text-align: left;
   display: grid;

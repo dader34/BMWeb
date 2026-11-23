@@ -780,7 +780,6 @@ html[data-theme='inpa'] .lookup-chip {
   line-height: 1.35;
 }
 .fm-print {
-  -webkit-app-region: no-drag;
   cursor: pointer;
   flex: none;
   height: 30px;
@@ -797,7 +796,6 @@ html[data-theme='inpa'] .lookup-chip {
   border-color: var(--amber);
 }
 .fm-close {
-  -webkit-app-region: no-drag;
   cursor: pointer;
   flex: none;
   width: 30px;
@@ -836,7 +834,6 @@ html[data-theme='inpa'] .lookup-chip {
   font-family: var(--mono);
 }
 .fm-showall {
-  -webkit-app-region: no-drag;
   cursor: pointer;
   background: none;
   border: none;

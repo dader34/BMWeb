@@ -123,6 +123,24 @@ const R = require(path.join(ROOT, 'core', 'router.js'));
   calls.length = 0;
   ok('the VIN decoder route still stands');
 
+  // Diagnostics (the vehicle picker) is an app with an address of its own.
+  // It used to be the addressless screen the app opened on, which is what
+  // made Back out of another app land on it.
+  {
+    let opened = 0;
+    globalThis.showChassis = () => {
+      opened++;
+    };
+    const open = R.resolveRoute('diagnostics');
+    assert.strictEqual(typeof open, 'function', '#diagnostics opens nothing');
+    open();
+    assert.strictEqual(opened, 1);
+    // and it is not the fault-code lookup, which keeps #apps/diagnostics
+    assert.notStrictEqual(R.resolveRoute('apps/diagnostics'), open);
+    delete globalThis.showChassis;
+    ok('#diagnostics opens the vehicle picker');
+  }
+
   console.log(`test_router_vin: ${passed} checks passed`);
 })().catch((e) => {
   console.error(e);

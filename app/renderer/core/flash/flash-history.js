@@ -107,16 +107,31 @@ const flashLog = {
     _flashSession.lines.push(_flashStamp() + text);
   },
   /**
-   * The status line the app shows, kept as the session's outcome.
+   * The status line the app shows: the last one is kept as the session's
+   * closing words. It says nothing about how the session went -- see
+   * {@link flashLog.outcome}.
    * @param {string} text - The status.
    */
   status(text) {
     if (!_flashSession || !text || text.startsWith('Logging to ')) return;
     _flashSession.lastStatus = text;
-    const judged = flashHistory.judge(text);
-    if (judged === 'failed') _flashSession.result = 'failed';
-    else if (judged === 'ok' && _flashSession.result !== 'failed')
-      _flashSession.result = 'ok';
+  },
+  /**
+   * How the session went, said by the flow that ran it -- it holds the
+   * operation's own result. A session nobody speaks for is 'ended'.
+   *
+   * The outcome used to be READ OUT OF THE STATUS LINES: any line with
+   * "fail", "error", "denied", "cancel", "no data" or "not match" in it made
+   * the session failed for good, and one with "success", "written" or
+   * "saved" made it ok. So a flash that went through was recorded as failed
+   * when the fault clear after it could not run ("Clear failed: ..."), a
+   * finished Finish Programming ("Both signatures verified, DME reset") and
+   * a read of the installed maps were recorded as merely ended, and the
+   * wording of every status line had to be chosen around the words above.
+   * @param {'ok'|'failed'|'cancelled'} result - The outcome.
+   */
+  outcome(result) {
+    if (_flashSession) _flashSession.result = result;
   },
   /**
    * One job entry: name, arg summary, status, and the request/response telegrams.
@@ -364,34 +379,6 @@ const flashHistory = {
       default:
         return operation || '';
     }
-  },
-  /**
-   * ok / failed / ended, from the outcome a status line reports.
-   * @param {string} status - A status line.
-   * @returns {string}
-   */
-  judge(status) {
-    if (!status) return 'ended';
-    const s = status.toLowerCase();
-    if (
-      s.includes('fail') ||
-      s.includes('denied') ||
-      s.includes('cancel') ||
-      s.includes('no data') ||
-      s.includes('error') ||
-      s.includes('not match')
-    ) {
-      return 'failed';
-    }
-    if (
-      s.includes('success') ||
-      s.includes('written') ||
-      s.startsWith('read 0x') ||
-      s.startsWith('read tcu') ||
-      s.startsWith('saved')
-    )
-      return 'ok';
-    return 'ended';
   },
 };
 

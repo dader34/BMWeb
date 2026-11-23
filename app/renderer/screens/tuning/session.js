@@ -219,24 +219,17 @@ async function tnSaveBin(ed, fresh = false) {
   const name =
     tuningState.fileName.replace(/\.(bin|hex|ori|orig)$/i, '') + '-tuned.bin';
   try {
-    // Prefer the host's real Save panel (macOS shell); fall back to a browser
-    // download. Same pattern core/offline-export.js uses.
-    if (window.bmweb && typeof window.bmweb.saveFile === 'function') {
-      const r = await window.bmweb.saveFile(name, tuningState.bin);
-      if (r && r.cancelled) return;
-    } else {
-      const blob = new Blob([tuningState.bin], {
-        type: 'application/octet-stream',
-      });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = name;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), TN_DOWNLOAD_URL_TTL_MS);
-    }
+    const blob = new Blob([tuningState.bin], {
+      type: 'application/octet-stream',
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), TN_DOWNLOAD_URL_TTL_MS);
     els.status.textContent = `saved ${name}`;
   } catch (e) {
     els.status.textContent = `save failed: ${e.message}`;

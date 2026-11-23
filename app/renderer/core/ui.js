@@ -274,8 +274,6 @@ function tipify(root) {
   root.querySelectorAll('[title]:not([data-tip])').forEach((el) => {
     const text = el.getAttribute('title');
     if (!text) return;
-    // skip the traffic-light dots: a tip flips below them and paints a bar across all three; macOS doesn't caption them either
-    if (el.classList.contains('win-dot')) return;
     el.dataset.tip = text;
     // measured on hover: layout is settled by then
     el.addEventListener(

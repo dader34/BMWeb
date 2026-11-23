@@ -227,7 +227,6 @@ class ActionBar {
    */
   set(actions, shifted) {
     stopLive();
-    stopLogging();
     // a data-logging run polls until told otherwise; leaving the screen is
     // the telling, so the bus is free for whatever the next screen does
     if (typeof stopDataLogging === 'function') stopDataLogging();

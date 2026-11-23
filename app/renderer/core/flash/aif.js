@@ -24,6 +24,16 @@
 // re-read the ladder after every step: an ARMED marker from an interrupted
 // attempt is resumed, a DONE one means the ladder is spent and nothing is
 // erased, and any other value is a foreign tail -- nothing was written.
+//
+// A REWRITE CUT AFTER ITS ERASE. The sector's image is built off the DME,
+// so once the erase is out it exists only here. It is kept (the wire's
+// rewriteBegin / rewriteEnd) until its verify passes, and every boot-sector
+// operation starts with aifFinishInterrupted: an image still open is
+// written before anything is read off the DME again. Without it the retry
+// after one lost frame read the half-erased sector as "the loader" and
+// wrote that back, verified -- a DME only a BDM rig recovers, reported as a
+// success. aifBootSectorWhole is the second line: no operation takes its
+// image from a boot sector whose tail reads erased.
 
 /** Where the log and its sector sit (fastFlashWire carries the same numbers). */
 const AIF_LOG_START = 0x1fb34;
@@ -91,6 +101,116 @@ async function aifLadderDone(client) {
   await client.aifDone();
   if ((await client.aifRead()) === aifWire.MARK.ARMED)
     throw new Error('the AIF marker is still armed after the commit');
+}
+
+/**
+ * The part of the boot sector no healthy DME has blank: its tail from the
+ * boot CRC table up to the ISN (the table, the hardware number and what
+ * lies between), in the sector's last 4 KB -- the last chunk a rewrite
+ * puts back, so a rewrite cut anywhere before its end leaves it erased.
+ */
+const AIF_TAIL_START = 0x1f800;
+const AIF_TAIL_END = 0x1fb00;
+
+/**
+ * Whether a boot sector read off a DME can be the source of a rewrite: its
+ * tail is not erased. One that reads blank there is a rewrite that was cut
+ * (the loader below it is missing chunks too); writing it back would make
+ * the gap permanent.
+ * @param {Uint8Array} sector - From AIF_SECTOR; at least up to the log.
+ * @returns {boolean}
+ */
+function aifBootSectorWhole(sector) {
+  const from = AIF_TAIL_START - AIF_SECTOR;
+  const to = AIF_TAIL_END - AIF_SECTOR;
+  if (!sector || sector.length < to) return false;
+  for (let i = from; i < to; i++) if (sector[i] !== 0xff) return true;
+  return false;
+}
+
+/** What an operation says when the boot sector on the DME is not whole. */
+function aifNotWholeError() {
+  return new Error(
+    'the boot sector on the DME reads erased where no loader is blank: a rewrite of it was cut short, and this page no longer holds the image to finish it from. Nothing was written. Do NOT switch the ignition off or restart the DME: it has no loader to start from. Its flasher is still running and can write the sector back from a full read of this DME.'
+  );
+}
+
+/**
+ * Erase one sector, check it blank, write it back 4 KB at a time and verify
+ * the whole of it -- with the image kept open from the erase to the verify
+ * (see the header). The marker must be armed already.
+ * @param {FastFlashClient} client
+ * @param {number} base - The sector's ext offset.
+ * @param {Uint8Array} data - The whole sector, a multiple of 4 KB.
+ * @param {{stage: (s: string) => void, progress: (pct: number) => void}} cb
+ * @param {string} what - The sector in words.
+ * @param {number} pct0 - Where the writing starts on the bar.
+ * @param {number} pct1 - Where it ends.
+ * @returns {Promise<void>}
+ */
+async function aifRewriteSector(client, base, data, cb, what, pct0, pct1) {
+  const crc = aifWire.crc32;
+  cb.stage(`Erasing ${what}`);
+  aifWire.rewriteBegin(base, data, what);
+  try {
+    await client.erase(base);
+  } catch (e) {
+    // refused outright (a NAK): nothing was erased, so nothing is open. An
+    // erase that simply went unanswered may have run: that one stays open.
+    if (e instanceof aifWire.Nak) aifWire.rewriteEnd();
+    throw e;
+  }
+  const blank = crc(new Uint8Array(data.length).fill(0xff)) >>> 0;
+  if ((await client.sectorQuery(base, data.length)) >>> 0 !== blank)
+    throw new Error(
+      `${what} did not read blank after ERASE (hardware-protected?)`
+    );
+  cb.stage(`Writing ${what}`);
+  const n = data.length / AIF_CHUNK;
+  for (let i = 0; i < n; i++) {
+    await client.chunk(
+      base + i * AIF_CHUNK,
+      data.subarray(i * AIF_CHUNK, (i + 1) * AIF_CHUNK)
+    );
+    cb.progress(pct0 + Math.floor(((i + 1) * (pct1 - pct0)) / n));
+  }
+  cb.stage(`Verifying ${what}`);
+  await client.verify(base, data.length, crc(data) >>> 0);
+  aifWire.rewriteEnd();
+}
+
+/**
+ * Finish a sector rewrite that an earlier attempt left open, from the image
+ * that attempt held: nothing if none is open or the record is not about
+ * what this DME holds (the wire's rewriteState decides, and drops such a
+ * record); the marker closed if the sector turns out whole (only the last
+ * answer was lost); else the sector written again.
+ * @param {FastFlashClient} client
+ * @param {{stage: (s: string) => void, progress: (pct: number) => void, note: (msg: string) => void}} cb
+ * @returns {Promise<boolean>} Whether a rewrite was finished.
+ */
+async function aifFinishInterrupted(client, cb) {
+  if (!aifWire.rewriteOpen()) return false;
+  cb.stage('Checking for an interrupted boot-sector rewrite');
+  const state = await aifWire.rewriteState(client);
+  if (state === 'none') return false;
+  const p = aifWire.rewriteOpen();
+  if (state === 'whole') {
+    cb.note(
+      `an interrupted rewrite of ${p.what} had landed whole: closing its marker`
+    );
+    await aifLadderDone(client);
+    aifWire.rewriteEnd();
+    return true;
+  }
+  cb.note(
+    `an earlier rewrite of ${p.what} was cut after its erase: writing the image it held`
+  );
+  await aifLadderArm(client, cb.note);
+  await aifRewriteSector(client, p.base, p.data, cb, p.what, 0, 95);
+  await aifLadderDone(client);
+  cb.note(`${p.what} is whole again`);
+  return true;
 }
 
 /**
@@ -162,7 +282,6 @@ async function aifRewrite(client, aif, cb, opts = {}) {
   if (aif.length !== AIF_LOG_LEN)
     throw new Error(`the log must be ${AIF_LOG_LEN} bytes (got ${aif.length})`);
   const crc = aifWire.crc32;
-  const blank = crc(new Uint8Array(AIF_SECTOR_LEN).fill(0xff)) >>> 0;
 
   // ---- everything the restore needs, before anything is committed -------
   let below;
@@ -186,32 +305,25 @@ async function aifRewrite(client, aif, cb, opts = {}) {
       (n) => cb.progress(Math.floor((n * 30) / (AIF_LOG_START - AIF_SECTOR)))
     );
   }
+  // what goes back as the loader must be one: a sector cut by an earlier
+  // rewrite is not written back as if it were whole
+  if (!aifBootSectorWhole(below)) throw aifNotWholeError();
   const sector = new Uint8Array(AIF_SECTOR_LEN);
   sector.set(below, 0);
   sector.set(aif, AIF_LOG_START - AIF_SECTOR);
 
   // ---- the ladder, then the committed window -----------------------------
   await aifLadderArm(client, cb.note);
-  cb.stage('Erasing the boot sector (the loader with it)');
   cb.note('erasing: committed until the restore lands');
-  await client.erase(AIF_SECTOR);
-  const got = (await client.sectorQuery(AIF_SECTOR, AIF_SECTOR_LEN)) >>> 0;
-  if (got !== blank)
-    throw new Error(
-      'the boot sector did not read blank after ERASE (hardware-protected?)'
-    );
-  cb.note('the sector is blank; restoring it with the edited log');
-
-  cb.stage('Rewriting the boot sector');
-  const chunks = AIF_SECTOR_LEN / AIF_CHUNK;
-  for (let i = 0; i < chunks; i++) {
-    await client.chunk(
-      AIF_SECTOR + i * AIF_CHUNK,
-      sector.subarray(i * AIF_CHUNK, (i + 1) * AIF_CHUNK)
-    );
-    cb.progress(30 + Math.floor(((i + 1) * 55) / chunks));
-  }
-  await client.verify(AIF_SECTOR, AIF_SECTOR_LEN, crc(sector) >>> 0);
+  await aifRewriteSector(
+    client,
+    AIF_SECTOR,
+    sector,
+    cb,
+    'the boot sector (the loader with it)',
+    30,
+    85
+  );
   await aifLadderDone(client);
   cb.note('the sector is rewritten and verified; the marker is DONE');
   cb.progress(100);
@@ -226,11 +338,21 @@ const aifLog = {
   SECTOR_LEN: AIF_SECTOR_LEN,
   writeDirect: aifWriteDirect,
   rewrite: aifRewrite,
+  finishInterrupted: aifFinishInterrupted,
+  bootSectorWhole: aifBootSectorWhole,
 };
 
 if (typeof window !== 'undefined') {
   window.aifLog = aifLog;
 }
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { aifLog };
+  module.exports = {
+    aifLog,
+    aifLadderArm,
+    aifLadderDone,
+    aifRewriteSector,
+    aifFinishInterrupted,
+    aifBootSectorWhole,
+    aifNotWholeError,
+  };
 }

@@ -15,8 +15,7 @@ const vm = require('vm');
 // The shim (core/webshim/, joined in load order) is browser code: it ends by
 // touching `window`. Take the pure helpers, which is everything above the
 // first transport class.
-const src = require('./webshim_src').readWebshimSource();
-const helpers = src.slice(0, src.indexOf('class NativeSerialBus'));
+const helpers = require('./webshim_src').readWebshimSource('transport-base.js');
 const ctx = { exports: {}, console, Date, setTimeout, Error };
 vm.createContext(ctx);
 vm.runInContext(
@@ -588,47 +587,65 @@ console.log('\nDS2 answer length without xawlen');
     // other request keeps the 25. Measured from the last answer, as before.
     // The emulated loader drops a request sent before 12 ms, so the cap must
     // never go under it.
+    //
+    // ON A CLOCK OF ITS OWN. The gap is what the code ASKS to wait, so the
+    // shim's Date and setTimeout are swapped for a clock that only a wait
+    // moves, and the gaps are exact. Measured on the real one this was a
+    // window (14..24 ms), and a machine busy with the rest of the suite
+    // slept past it: the check failed one parallel run in ten.
     {
-      const sentAt = [];
-      const pacedBus = {
-        sent: 0,
-        lastResponseAt: 0,
-        sessionConcept: null,
-        ensureConfig: async () => {},
-        portHint: () => '',
-        exchangeRaw: async () => {
-          sentAt.push(Date.now());
-          return [0xb8, 0xf1, 0x12, 0x02, 0x76, 0x01, 0x00];
-        },
+      const real = { Date: ctx.Date, setTimeout: ctx.setTimeout };
+      let now = 1e6;
+      ctx.Date = { now: () => now };
+      ctx.setTimeout = (fn, ms) => {
+        now += ms;
+        return real.setTimeout(fn, 0);
       };
-      const paced = { concept: 0x10d, timeout: 500, regen: 25 };
-      const gapOf = async (req) => {
-        pacedBus.lastResponseAt = Date.now();
-        const t0 = pacedBus.lastResponseAt;
-        await runExchange(pacedBus, req, paced);
-        return sentAt[sentAt.length - 1] - t0;
-      };
-      const block = [0xb8, 0x12, 0xf1, 0x03, 0x36, 0xaa, 0xbb];
-      const other = [0xb8, 0x12, 0xf1, 0x03, 0x23, 0x00, 0x00];
-      const blockGaps = [];
-      for (let i = 0; i < 5; i++) blockGaps.push(await gapOf(block));
-      const otherGap = await gapOf(other);
-      check(
-        'a flash block goes out 14..24 ms after the last answer, other requests after the 25 ms ParRegenTime',
-        blockGaps.every((g) => g >= 14 && g < 25) && otherGap >= 25,
-        `blocks ${blockGaps.join(',')} other ${otherGap}`
-      );
-      // an SGBD that asks for LESS than the cap keeps its own gap
-      const quick = { concept: 0x10d, timeout: 500, regen: 5 };
-      pacedBus.lastResponseAt = Date.now();
-      const q0 = pacedBus.lastResponseAt;
-      await runExchange(pacedBus, block, quick);
-      const quickGap = sentAt[sentAt.length - 1] - q0;
-      check(
-        'the cap never lengthens a shorter ParRegenTime',
-        quickGap < 14,
-        `gap ${quickGap}`
-      );
+      try {
+        const sentAt = [];
+        const pacedBus = {
+          sent: 0,
+          lastResponseAt: 0,
+          sessionConcept: null,
+          ensureConfig: async () => {},
+          portHint: () => '',
+          exchangeRaw: async () => {
+            sentAt.push(now);
+            return [0xb8, 0xf1, 0x12, 0x02, 0x76, 0x01, 0x00];
+          },
+        };
+        const gapOf = async (req, comm) => {
+          pacedBus.lastResponseAt = now;
+          const t0 = now;
+          await runExchange(pacedBus, req, comm);
+          return sentAt[sentAt.length - 1] - t0;
+        };
+        const paced = { concept: 0x10d, timeout: 500, regen: 25 };
+        const block = [0xb8, 0x12, 0xf1, 0x03, 0x36, 0xaa, 0xbb];
+        const other = [0xb8, 0x12, 0xf1, 0x03, 0x23, 0x00, 0x00];
+        const blockGaps = [];
+        for (let i = 0; i < 5; i++) blockGaps.push(await gapOf(block, paced));
+        const otherGap = await gapOf(other, paced);
+        check(
+          "a flash block goes out 14 ms after the last answer (never under the loader's 12), other requests after the 25 ms ParRegenTime",
+          blockGaps.every((g) => g === 14) && otherGap === 25,
+          `blocks ${blockGaps.join(',')} other ${otherGap}`
+        );
+        // an SGBD that asks for LESS than the cap keeps its own gap
+        const quickGap = await gapOf(block, {
+          concept: 0x10d,
+          timeout: 500,
+          regen: 5,
+        });
+        check(
+          'the cap never lengthens a shorter ParRegenTime',
+          quickGap === 5,
+          `gap ${quickGap}`
+        );
+      } finally {
+        ctx.Date = real.Date;
+        ctx.setTimeout = real.setTimeout;
+      }
     }
 
     // busy-repeat (7F 31 23): the DME answers busy to the security-access

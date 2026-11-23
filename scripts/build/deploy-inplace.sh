@@ -25,17 +25,13 @@ OUT="${1:-dist-web}"
 test -f "$OUT/index.html" || { echo "no served tree at $OUT (run build-web.sh once first)"; exit 1; }
 
 node scripts/build/bundle-modules.mjs
-node scripts/build/bundle-renderer.mjs app/renderer "$OUT/bundle.js"
-gzip -9 -k -f "$OUT/bundle.js"
 mkdir -p "$OUT/css"
 rm -f "$OUT"/css/*.gz   # stale pre-compressed twins would shadow the new sheets
 cp app/renderer/css/*.css "$OUT/css/"
-# the page: the dev index.html, stamped and collapsed as build-web.sh does it
-VERSION=$(node -p "require('./package.json').version")
-printf 'window.BMWEB_VERSION=%s;\n' "\"${VERSION:-web}\"" > "$OUT/version.js"
+# the page: the dev index.html, then stamped, bundled and collapsed the way
+# every build does it (stamp-shell.mjs), reading the scripts from the
+# working tree rather than from the served copy
 cp app/renderer/index.html "$OUT/index.html"
-sed -i.bak 's#<head>#<head>\n  <script src="version.js"></script>#' "$OUT/index.html"
-rm -f "$OUT/index.html.bak"
-node scripts/build/bundle-index.mjs "$OUT/index.html"
-grep -q 'bundle.js' "$OUT/index.html"
+node scripts/build/stamp-shell.mjs "$OUT" --src app/renderer
+gzip -9 -k -f "$OUT/bundle.js"
 echo "deployed in place to $OUT: bundle.js ($(du -h "$OUT/bundle.js" | cut -f1)), bundle.js.gz, css/, index.html"

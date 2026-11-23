@@ -50,22 +50,39 @@ ok('journal: VINs scrubbed at write time');
     false,
     'non-IFH text must never auto-file'
   );
+  // A module that is not fitted answers IFH-0009 (silence) or IFH-0018 (its
+  // concept is out of this cable's reach): the expected result of asking,
+  // never filed (journal.js BETA_EXPECTED_WIRE; one week's reports were 45
+  // of 48 exactly that).
   assert.strictEqual(
     await Journal.maybeAutoReport('IFH-0009 silence', 'job A'),
+    false,
+    'a module that did not answer must not auto-file'
+  );
+  assert.strictEqual(
+    await Journal.maybeAutoReport('IFH-0018 init', 'job A'),
+    false,
+    "a module out of the cable's reach must not auto-file"
+  );
+  assert.strictEqual(posts, 0, 'an expected wire code reached the collector');
+  ok('auto-reports: IFH-0009 and IFH-0018 are the expected answer, not filed');
+
+  assert.strictEqual(
+    await Journal.maybeAutoReport('IFH-0003 echo', 'job B'),
     true
   );
   assert.strictEqual(
-    await Journal.maybeAutoReport('IFH-0009 again', 'job B'),
+    await Journal.maybeAutoReport('IFH-0003 again', 'job C'),
     false,
     'same code twice must not file twice'
   );
   assert.strictEqual(
-    await Journal.maybeAutoReport('IFH-0003 echo', 'job C'),
+    await Journal.maybeAutoReport('IFH-0019 checksum', 'job D'),
     true
   );
   Journal._auto.sent = Journal._auto.max;
   assert.strictEqual(
-    await Journal.maybeAutoReport('IFH-0018 init', 'job D'),
+    await Journal.maybeAutoReport('IFH-0056 no concept', 'job E'),
     false,
     'the session cap must hold'
   );

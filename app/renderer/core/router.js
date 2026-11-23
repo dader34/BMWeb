@@ -2,12 +2,17 @@
 // browser Back button works. The app is otherwise a pure SPA that swaps screens
 // by calling show*() directly; this layer only mirrors those calls into
 // location.hash and, on load / back-forward, replays the hash into the matching
-// show*() call. Vehicle/ECU screens keep their existing Settings-based deep
-// link (startChassis) and are intentionally NOT routed here -- only the Apps
-// hub and the apps that live under it.
+// show*() call. The screens INSIDE a vehicle keep their existing deep links
+// (startChassis in Settings, and #car/... which they write themselves) and
+// are not routed here -- only the hub and the apps that live under it.
 //
-// Routes (all under #apps):
+// Routes (under #apps unless they say otherwise):
 //   #apps                 the hub
+//   #diagnostics          Diagnostics, the vehicle picker (showChassis). An
+//                         app like the others now, with an address of its
+//                         own: it used to be the screen the app opened on,
+//                         with no address, so Back out of anything landed
+//                         on it
 //   #apps/diagnostics     Diagnostic Plans and Trouble Codes (showLookup)
 //   #apps/wiring          Wiring Diagrams (showWiringChassis)
 //   #apps/wiring/vin      the wiring VIN decoder (showWiringVinDecoder)
@@ -27,6 +32,7 @@
  */
 const APPS_ROUTES = {
   apps: () => (typeof showApps === 'function' ? showApps() : null),
+  diagnostics: () => (typeof showChassis === 'function' ? showChassis() : null),
   'apps/diagnostics': () =>
     typeof showLookup === 'function' ? showLookup() : null,
   'apps/wiring': () =>
@@ -88,6 +94,7 @@ const APPS_ROUTES = {
 /** @type {Object<string, string>} */
 const ROUTE_FOR_SCREEN = {
   showApps: 'apps',
+  showChassis: 'diagnostics',
   showLookup: 'apps/diagnostics',
   showWiringChassis: 'apps/wiring',
   showEtk: 'apps/parts',
@@ -352,8 +359,10 @@ function routeWithVin(route, vin) {
 // Screens that mean "left the Apps section" -- reaching one clears the apps
 // hash. Deeper un-named sub-screens (chassis grid inside Parts, a single wiring
 // diagram) are NOT here: they keep the section's hash rather than clearing it.
+// The vehicle picker is not here either: it is the Diagnostics app, with its
+// own route (#diagnostics).
 /** @type {Set<string>} */
-const EXIT_APPS_SCREEN = new Set(['showChassis', 'showSettings']);
+const EXIT_APPS_SCREEN = new Set(['showSettings']);
 
 // true while the router itself is driving navigation, so the hashchange it
 // causes doesn't loop back into another navigation.
@@ -386,7 +395,6 @@ function currentRoute() {
  * @returns {void}
  */
 function routeSyncFromScreen(fn) {
-  if (_routing) return; // we are already navigating by URL
   const name = fn && fn.name;
   // Leaving workshop mode. The ISTA shell is chrome around #view rather than
   // a screen in it, so nothing about a normal screen render would take it
@@ -405,6 +413,10 @@ function routeSyncFromScreen(fn) {
   ) {
     istaChromeHide();
   }
+  // (the shell comes down above even when the URL is what is navigating:
+  // the browser's Back out of workshop mode renders the screen behind it,
+  // and that screen must not come up inside the shell)
+  if (_routing) return; // we are already navigating by URL
   const route = ROUTE_FOR_SCREEN[name];
   if (route === undefined) {
     // Not a routed Apps screen. If it's an explicit exit (home / settings),
@@ -444,10 +456,49 @@ function routeSyncFromScreen(fn) {
     // entry first, then push the sub-route on top of it. Now browser Back ->
     // the hub -> (Back again) -> home.
     const from = currentRoute();
+    // Back out of a vehicle to the picker: the vehicle's own #car address
+    // took the picker's place in the history when the vehicle was opened
+    // (routeSetCar replaces), so the picker takes it back the same way.
+    // Pushing would stack a hub and a picker on every trip into a car.
+    if (route === 'diagnostics' && from.startsWith('car')) {
+      history.replaceState(null, '', '#diagnostics');
+      _openRoute = route;
+      return;
+    }
     if (route !== 'apps' && !from.startsWith('apps')) {
       location.hash = '#apps';
     }
     location.hash = '#' + route; // pushes a history entry
+    _openRoute = route;
+  } finally {
+    _routing = false;
+  }
+}
+
+// A screen that writes its own address ENTERS it here. Workshop mode's route
+// carries a tab, a sub-tab and a car, which no function name can stand for,
+// so it stamps the address itself -- and it used to stamp OVER the entry of
+// the screen it was opened from. The browser's Back out of Workshop then
+// skipped that screen (Home) and landed on whatever came before it, usually
+// the vehicle picker. Entering is a new history entry, with the hub seeded
+// behind it when the user did not come from the hub, as for any other app.
+/**
+ * Push a self-written route as a new history entry.
+ * @param {string} route - The route, no '#'.
+ * @returns {void}
+ */
+function routeEnter(route) {
+  if (_routing) {
+    // navigating by URL (a link, Back, Forward): the entry exists already
+    history.replaceState(null, '', '#' + route);
+    _openRoute = route;
+    return;
+  }
+  _routing = true;
+  try {
+    if (!currentRoute().startsWith('apps'))
+      history.pushState(null, '', '#apps');
+    history.pushState(null, '', '#' + route);
     _openRoute = route;
   } finally {
     _routing = false;
@@ -839,6 +890,7 @@ if (typeof window !== 'undefined') {
   window.routeVinCode = routeVinCode;
   window.routeApplyHash = routeApplyHash;
   window.routeSyncFromScreen = routeSyncFromScreen;
+  window.routeEnter = routeEnter;
   window.routeSetWiringDoc = routeSetWiringDoc;
   window.routeSetDocsDoc = routeSetDocsDoc;
   window.routeSetEtkDiagram = routeSetEtkDiagram;

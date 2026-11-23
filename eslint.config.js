@@ -18,22 +18,14 @@ module.exports = [
       'data/**',
       'vendor/**',
       'app/renderer/vendor/**',
-      'src/**',
       // the built renderer bundle (scripts/build/bundle-renderer): generated
       'app/renderer/bundle.js',
       'app/renderer/core/generated/**',
-      // generated data blobs: machine-authored, never linted
-      'app/renderer/data/faultdb.js',
-      'app/renderer/data/pcodes.js',
-      'app/renderer/data/faultinfo.js',
-      'app/renderer/data/faultmeta.js',
-      'app/renderer/data/faultindex.js',
-      'app/renderer/data/codingmap.js',
-      'app/renderer/data/datenmap.js',
-      'app/renderer/data/envmap.js',
-      'app/renderer/data/sanames.js',
-      'app/renderer/data/sget.js',
-      'app/renderer/data/tables.js',
+      // generated data (fetched or built, never in git, never hand-edited):
+      // the whole folder, not a list of its files -- a list is one a new
+      // blob is forgotten in (cvt.js and i18n-shared.js were linted for
+      // months on any machine that had them)
+      'app/renderer/data/**',
     ],
   },
 
@@ -143,16 +135,6 @@ module.exports = [
         'warn',
         { args: 'none', varsIgnorePattern: '^_', caughtErrors: 'none' },
       ],
-    },
-  },
-
-  // thor_bridge.js lives under app/renderer/ but is a Node relay, not renderer
-  // code -- lint it as CommonJS/Node so `require('crypto')` isn't a redeclare.
-  {
-    files: ['app/renderer/thor_bridge.js'],
-    languageOptions: {
-      sourceType: 'commonjs',
-      globals: { ...globals.node },
     },
   },
 

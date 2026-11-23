@@ -981,9 +981,12 @@ async function showIsta(tab, sub, sub3, carId) {
     keyLabel: 'Esc',
     label: 'Back',
     kind: 'back',
+    // out to the home screen, where Workshop was opened from; not to the
+    // vehicle picker, which is another app (Diagnostics)
     fn: () => {
       istaChromeHide();
-      showChassis();
+      if (typeof showApps === 'function') showApps();
+      else showChassis();
     },
   };
 

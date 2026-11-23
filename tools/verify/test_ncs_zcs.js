@@ -42,7 +42,7 @@ function ok(cond, msg) {
 
 const need = [
   'data/ecu-src/c_kmb46.job-code.json.gz',
-  'app/renderer/data/coding-dispatch/a_kmb46.json',
+  'data/coding-dispatch/a_kmb46.json',
   'app/renderer/data/datenmap.js',
 ];
 const missing = need.filter((f) => !fs.existsSync(path.join(ROOT, f)));
@@ -105,7 +105,7 @@ function cluster(mem) {
   }
   const dispatch = JSON.parse(
     fs.readFileSync(
-      path.join(ROOT, 'app/renderer/data/coding-dispatch/a_kmb46.json'),
+      path.join(ROOT, 'data/coding-dispatch/a_kmb46.json'),
       'utf8'
     )
   );

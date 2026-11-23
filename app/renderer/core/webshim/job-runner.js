@@ -306,8 +306,8 @@ async function driveJobOverBus(
  * member and the caller re-parses it: ~90 ms for ms450ds0's 215k ops. Paid
  * on EVERY job, that was most of what a 254-byte memory-read chunk cost --
  * a 1 MB flash read spent longer parsing JSON than talking to the DME. The
- * VM never mutates the code, so one object serves every job (vmbridge
- * shares its copy the same way). A missing SGBD is remembered as missing.
+ * VM never mutates the code, so one object serves every job. A missing SGBD
+ * is remembered as missing.
  * @type {Map<string, Promise<{code: ?object, tables: object}>>}
  */
 const jobCodeCache = new Map();

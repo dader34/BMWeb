@@ -1,10 +1,17 @@
 /**
- * @file NOT LOADED BY THE APP -- only tools/verify/test_vmbridge.js uses it.
- * Replays telegrams the C# engine captured (_TEL_AUFTRAG = request,
- * _TEL_ANTWORT = answer, both published as job results) back through the VM
- * and checks it decodes real wire bytes to the same values. The VM's send()
- * only replays a captured answer, so it never reaches a bus.
+ * @file The bridge that fed the BEST2 VM from a running engine's published
+ * results, kept for tools/verify/test_vmbridge.js. THE APP DOES NOT HAVE IT
+ * ANY MORE: it shadowed the C# engine (off / shadow / on), and when that
+ * engine went the VM became the only one. Until 2026-11 this file still sat
+ * in app/renderer/core/, loaded by no page and copied into every build.
+ *
+ * What the test uses it for: replaying telegrams the C# engine captured
+ * (_TEL_AUFTRAG = request, _TEL_ANTWORT = answer, both published as job
+ * results) back through the VM and checking it decodes real wire bytes to
+ * the same values. The VM's send() only replays a captured answer, so it
+ * never reaches a bus.
  */
+/* exported vmObserve, vmStats, vmReplay */
 
 /** Parsed job code per SGBD (lower-cased name), null when none is shipped. */
 const VM_CODE_CACHE = new Map();

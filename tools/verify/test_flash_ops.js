@@ -85,6 +85,10 @@ global.ms45Checksums = {
   signParameters: (c) => c,
   correctProgramChecksums: (f) => f,
   signProgram: (f) => f,
+  // the pre-flight check (tools/verify/test_ms45_flash.js proves the real
+  // one): here only that a refusal stops the operation before the wire
+  parameterProblem: () => global.badCal || null,
+  programProblem: () => global.badProgram || null,
 };
 global.gs20WriteCalibration = async (cal, opts) => {
   calls.push([
@@ -157,6 +161,7 @@ global.flashLog = {
   attach: (n) => logLines.push(`attach ${n}`),
   trace: () => {},
   job: () => {},
+  outcome: (r) => logLines.push(`outcome ${r}`),
   async stop() {
     logLines.push('stop');
   },
@@ -325,8 +330,32 @@ const {
   global.refuseUnlock = false;
   r = await flashOps.run('dme-tune', { ...back, cal: bytes(10, 1) });
   assert.match(r.status, /not a 0x1D000-byte calibration/);
+  // an image whose header names nothing usable: refused before the unlock,
+  // so before the erase -- for the tune, the program, and the tune a program
+  // file carries
+  calls.length = 0;
+  global.badCal = 'its header does not name one checksum segment';
+  r = await flashOps.run('dme-tune', back);
+  assert.strictEqual(r.ok, false);
+  assert.match(r.status, /nothing was sent: this is not a calibration/);
+  r = await flashOps.run('dme-program', { ...prog, hasCal: true });
+  assert.match(r.status, /nothing was sent: this is not a calibration/);
+  r = await flashOps.run('dme-program', { ...prog, hasCal: false });
+  assert.strictEqual(
+    r.ok,
+    true,
+    'no tune in the flash: its header is not asked'
+  );
+  assert.ok(calls.length > 0);
+  calls.length = 0;
+  global.badCal = null;
+  global.badProgram = 'its header does not name the signed segments';
+  r = await flashOps.run('dme-program', { ...prog, hasCal: false });
+  assert.match(r.status, /nothing was sent: this is not a program/);
+  global.badProgram = null;
+  assert.deepStrictEqual(calls, [], 'nothing reached the DME');
   ok(
-    'a failed write, a refused unlock and a wrong image stop the operation where they happen'
+    'a failed write, a refused unlock and a wrong image stop the operation where they happen; a header that names nothing is refused before the unlock'
   );
 
   calls.length = 0;
@@ -485,6 +514,20 @@ const {
       logLines.includes('note Result: Flash successful') &&
       logLines[logLines.length - 1] === 'stop'
   );
+  // the owner's History is told how it went by the operation's own result
+  assert.deepStrictEqual(
+    logLines.filter((l) => l.startsWith('outcome ')),
+    ['outcome ok']
+  );
+  // and which module each operation is done to is said once, in one table
+  assert.deepStrictEqual(
+    flashOps.OPS.map((op) => [op, flashOps.module(op)]),
+    flashOps.OPS.map((op) => [op, flashOperations[op].module])
+  );
+  assert.ok(
+    flashOps.OPS.every((op) => /^(DME|GS20)$/.test(flashOps.module(op)))
+  );
+  assert.strictEqual(flashOps.module('toString'), '');
   const again = await flashOperations['tcu-cal'].run(
     flashOps.encode({
       calibration: bytes(0x10000, 5),
@@ -634,9 +677,15 @@ const {
   const shown = [];
   Remote.onOperation = (ev) => shown.push(ev);
   const replies = [];
+  // a reply over the channel's size crosses in parts (a read's 64 KB image
+  // does): joined here as the helper's end joins them
   Remote.chan = {
     readyState: 'open',
-    send: (m) => replies.push(JSON.parse(m)),
+    send: (m) => {
+      const msg = JSON.parse(m);
+      const whole = msg.t === 'part' ? Remote._joinPart(msg) : msg;
+      if (whole) replies.push(whole);
+    },
   };
   global.ms45FinishFlash = async (area, reset, proto, stage) => {
     stage('Checking signature');

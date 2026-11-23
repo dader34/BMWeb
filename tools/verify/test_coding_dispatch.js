@@ -647,7 +647,7 @@ async function endToEnd() {
   const need = [
     'data/ecu-src/c_kmb46.job-code.json.gz',
     'data/ecu-src/c_gm5.job-code.json.gz',
-    'app/renderer/data/coding-dispatch/c_kmb46.json',
+    'data/coding-dispatch/c_kmb46.json',
     'app/renderer/data/daten/E46.json',
   ];
   const missing = need.filter((f) => !fs.existsSync(path.join(ROOT, f)));
@@ -672,7 +672,7 @@ async function endToEnd() {
   }
   const dispatch = JSON.parse(
     fs.readFileSync(
-      path.join(ROOT, 'app/renderer/data/coding-dispatch/c_kmb46.json'),
+      path.join(ROOT, 'data/coding-dispatch/c_kmb46.json'),
       'utf8'
     )
   );

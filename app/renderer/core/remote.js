@@ -59,16 +59,14 @@ const REMOTE_APPROVAL_MS = 15 * 60 * 1000;
 // THE APP VERSION BOTH ENDS MUST SHARE. The helper drives the owner's car
 // through the owner's shim, so both sides must speak the same routes, job
 // classifier and runtime; a helper on an older build could ask for things
-// the owner's build no longer means. The native shell injects
-// window.bmweb.version, a web build ships version.js (BMWEB_VERSION), a dev
-// checkout has neither and reports 'dev'.
+// the owner's build no longer means. A build ships version.js
+// (BMWEB_VERSION); a dev checkout has none and reports 'dev'.
 /**
  * The app version both ends of a session must share.
- * @returns {string} The native shell / web build version, or 'dev'.
+ * @returns {string} The build's version, or 'dev'.
  */
 function remoteVersion() {
   if (typeof window === 'undefined') return 'dev';
-  if (window.bmweb && window.bmweb.version) return String(window.bmweb.version);
   if (window.BMWEB_VERSION) return String(window.BMWEB_VERSION);
   return 'dev';
 }
@@ -412,7 +410,7 @@ const Remote = {
       let ok;
       try {
         ok = await this.onGate({
-          sgbd: /transmission/.test(handler.label) ? 'GS20' : 'DME',
+          sgbd: handler.module,
           job: handler.label,
           arg: what,
           action: this._actionOf(msg),

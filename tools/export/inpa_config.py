@@ -940,6 +940,19 @@ def main():
     check = ns.check
     out_dir = ns.out or OUT
 
+    # ...AND NOT WITH A HOLLOW ONE. The menus (EC-APPS) and the modules
+    # (EDIABAS/Ecu) are two separate installs. With the menus present and the
+    # .prg files missing every chassis is still found, every entry fails to
+    # resolve to an SGBD and is dropped, and each chassis is written as a
+    # list of empty sections: 78 bytes over a 4 kB file, exit 0. (--check
+    # called the same state 26 files "CHANGED".) Checked before the build,
+    # so neither mode gets that far.
+    if not any(n.lower().endswith(".prg") for n in
+               (os.listdir(ECU) if os.path.isdir(ECU) else [])):
+        sys.exit("no SGBDs found: vendor/EDIABAS/Ecu is missing or holds no "
+                 ".prg (run scripts/setup/fetch-vendor.sh); nothing "
+                 "was written or compared")
+
     ids, chassis = build(legacy=legacy)
 
     # NEVER OVERWRITE THE COMMITTED CACHE WITH AN EMPTY BUILD. Everything

@@ -116,20 +116,6 @@ const isMissingJob = (e) =>
   );
 
 /**
- * A stable fault signature for echo dedup. F_HEX_CODE is globally unique
- * (BMW DTC); F_ORT_NR is only an ECU-local index, so fall back to it only
- * when hex is absent. hexText: on web F_HEX_CODE is a byte Array, which would
- * splice its own commas into a comma-joined signature and let two faults
- * collide with one; '|' can't appear in dashed hex.
- * @param {FaultEntry[]|null|undefined} codes - The fault list.
- * @returns {string} The signature.
- */
-const _faultSig = (codes) =>
-  (codes || [])
-    .map((c) => hexText(c.F_HEX_CODE) || `nr:${c.F_ORT_NR}`)
-    .join('|');
-
-/**
  * The running sweep's token. Each sweep takes a token; navigating away or
  * starting another bumps it, and the running loop bails on its next
  * iteration -- stops hammering the K-line once the user leaves.

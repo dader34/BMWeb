@@ -6,5 +6,7 @@ LICENSE
 # esbuild output
 dist/
 dist-test/
+# one-off bundles of probe scripts (25 of them were committed once)
+dist-probe/
 node_modules/
 *.tgz

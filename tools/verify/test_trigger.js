@@ -30,11 +30,11 @@ const check = (what, ok, detail) => {
 
 // ---- the body out of the bootstrap blob ------------------------------------
 const body = triggerWire.triggerBodyFromBlob(fastFlasherBlob);
-check('body from blob: 8768 B (v27)', body.length === 8768, `${body.length} B`);
+check('body from blob: 8752 B (v28)', body.length === 8752, `${body.length} B`);
 check('body from blob: whole words', body.length % 4 === 0);
 check(
-  'body from blob: starts with the flasher prologue (lis r3,0x3F9800)',
-  hex(body.slice(0, 8)) === '3c20003f6021c8e0',
+  'body from blob: starts with the flasher prologue (r2 = the SRAM base, v28)',
+  hex(body.slice(0, 8)) === '3c40003f6042dc30',
   hex(body.slice(0, 8))
 );
 
@@ -46,7 +46,7 @@ const sha1 = (b) =>
 // login chain on loaders A, B and C on 2026-11-05.
 check(
   'body: byte-identical to the emu proof body',
-  sha1(body) === '3ee45c9c693173eef4c7ee28078ffc076bcbd2ce',
+  sha1(body) === 'd925b966ce3a7a94bfc446fe9582cc6ad1206008',
   sha1(body)
 );
 
@@ -124,12 +124,12 @@ check(
 // ---- the upload -------------------------------------------------------------
 const up = triggerWire.triggerUploadFrame(body);
 check(
-  'upload: A5 5A, length 0x2240, body, sum (8774 B)',
-  hex(up.slice(0, 4)) === 'a55a2240' &&
-    up.length === 8774 &&
+  'upload: A5 5A, length 0x2230, body, sum (8758 B)',
+  hex(up.slice(0, 4)) === 'a55a2230' &&
+    up.length === 8758 &&
     hex(up.slice(4, 4 + body.length)) === hex(body)
 );
-check('upload: the sum of the emu proof body', hex(up.slice(-2)) === 'b581');
+check('upload: the sum of the emu proof body', hex(up.slice(-2)) === '8f2b');
 
 // ---- the telegrams ----------------------------------------------------------
 check(

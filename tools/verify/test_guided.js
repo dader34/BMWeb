@@ -13,9 +13,15 @@ const assert = require('assert');
 const { loadClassic } = require('./lib/load_classic.js');
 const { IpoVm, FeedHost, scanQuitBox } = loadClassic('core/ipovm/');
 
-const ROOT = path.join(__dirname, '..', '..');
-const load = (p) =>
-  JSON.parse(zlib.gunzipSync(fs.readFileSync(path.join(ROOT, p))));
+const T = require('./ecu_tree.js');
+/** An ECU's runnable script from the per-car tree (the folder by any case). */
+const load = (chassis, ecu) => {
+  const dir = T.ecuFolder(chassis, ecu);
+  assert.ok(dir, `data/chassis/${chassis} has no ${ecu} (run the data fetch)`);
+  return JSON.parse(
+    zlib.gunzipSync(fs.readFileSync(path.join(dir, 'ipoexec.json.gz')))
+  );
+};
 
 let passed = 0;
 const ok = (m) => {
@@ -25,7 +31,7 @@ const ok = (m) => {
 
 // ---- 1. the full Pruefung lifecycle, scripted -------------------------------
 {
-  const exec = load('data/chassis/other/s_zuheiz/ipoexec.json.gz');
+  const exec = load('other', 's_zuheiz');
   const texts = [];
   const vm = new IpoVm(exec, {
     budget: 800000,
@@ -127,7 +133,7 @@ const ok = (m) => {
 
 // ---- 2. offline parity: wireJobs off keeps the old shape --------------------
 {
-  const exec = load('data/chassis/other/s_zuheiz/ipoexec.json.gz');
+  const exec = load('other', 's_zuheiz');
   const vm = new IpoVm(exec, { budget: 800000 });
   const step = vm.stepStart('Pruefung');
   assert.strictEqual(
@@ -140,7 +146,7 @@ const ok = (m) => {
 
 // ---- 3. the quit-box scan on ZKE5 -------------------------------------------
 {
-  const exec = load('data/chassis/E46/zke5/ipoexec.json.gz');
+  const exec = load('E46', 'zke5');
   const qb = scanQuitBox(exec.procs['sm_steuern']);
   assert.ok(qb, 'sm_steuern has a quit box and the scan missed it');
   assert.strictEqual(

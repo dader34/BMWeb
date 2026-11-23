@@ -49,9 +49,9 @@ function ok(cond, msg) {
 
 const need = [
   'data/ecu-src/kombi46r.job-code.json.gz',
-  'app/renderer/data/coding-dispatch/scripts.json',
-  'app/renderer/data/coding-dispatch/a_kmb46.json',
-  'app/renderer/data/coding-dispatch/c_kmb46.json',
+  'data/coding-dispatch/scripts.json',
+  'data/coding-dispatch/a_kmb46.json',
+  'data/coding-dispatch/c_kmb46.json',
   'app/renderer/data/datenmap.js',
   'app/renderer/data/sget.js',
   'app/renderer/data/tables.js',
@@ -95,8 +95,11 @@ page.loadTables = async () => {};
 page.BMW_CODING_MAP = {
   kombi46: { read: 'CODIERDATEN_LESEN', fields: [], sgbd: 'kombi46' },
 };
+// a file the page fetches: beside the renderer where a dev tree keeps a
+// copy, else the repository's own data/, which a build lays beside the page
 page.webFetchJson = async (rel) => {
-  const p = R(rel);
+  const p =
+    [R(rel), path.join(ROOT, rel)].find((f) => fs.existsSync(f)) || R(rel);
   return fs.existsSync(p) ? JSON.parse(fs.readFileSync(p, 'utf8')) : null;
 };
 for (const f of [

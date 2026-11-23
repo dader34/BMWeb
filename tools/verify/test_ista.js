@@ -72,7 +72,7 @@ const I = loadClassic('screens/ista/');
 // ---- the tab model ---------------------------------------------------------
 {
   const { ISTA_TABS, istaTab, istaSub, istaSubsOf, istaFirstSub } = I;
-  assert.ok(ISTA_TABS.length >= 6, 'the shell has its tabs');
+  assert.strictEqual(ISTA_TABS.length, 5, 'the shell has its five tabs');
   ok('tabs exist');
 
   // ids are unique, and so are the sub-ids inside a tab -- the route addresses
@@ -130,7 +130,8 @@ const I = loadClassic('screens/ista/');
 
   // THE TAB LABELS ARE BMW'S, verbatim. They are landmarks a technician
   // navigates by, so a tidy-up here is a tool that no longer matches the one
-  // they trained on -- this pins the seven that name the main bar.
+  // they trained on -- this pins the five that name the main bar. (Favourites
+  // went on 2026-11-13: ISTA-D 4.15 has no such tab.)
   assert.deepStrictEqual(
     ISTA_TABS.map((t) => t.label.replace(/\n/g, '')),
     [
@@ -138,7 +139,6 @@ const I = loadClassic('screens/ista/');
       'Vehicle information',
       'Vehicle management',
       'Service plan',
-      'Favourites',
       'Workshop/Operating fluids',
     ],
     "the main bar's labels are the real tool's"
@@ -233,7 +233,7 @@ const I = loadClassic('screens/ista/');
       'equipment',
       'fault-memory',
       'finished',
-      'history',
+      'infotree',
       'plan',
       'readout',
       'repair',
@@ -267,7 +267,6 @@ const I = loadClassic('screens/ista/');
   for (const [tab, sub] of [
     ['information', 'tree'],
     ['operations', 'finished'],
-    ['information', 'history'],
     ['information', 'unit-list'],
     ['service-plan', 'hit-list'],
     ['service-plan', 'test-plan'],
@@ -292,11 +291,10 @@ const I = loadClassic('screens/ista/');
     [
       'Vehicle details',
       'Vehicle equipment',
-      'Repair history',
       'Control unit tree',
       'Control unit list',
     ],
-    'Vehicle information has its five tabs'
+    'Vehicle information has its four tabs'
   );
   ok('the two dropped tabs are gone');
   ok('page kinds are the ones that exist');
@@ -774,7 +772,8 @@ const I = loadClassic('screens/ista/');
     off.includes('css/ista-real.css'),
     'OFFLINE_SHELL carries the skin'
   );
-  assert.ok(html.includes('id="ista-btn"'), 'the topbar has the entry');
+  // (the topbar button this once looked for is gone: the hub tile below is
+  // the one way in)
   const apps = fs.readFileSync(
     path.join(ROOT, 'app', 'renderer', 'screens', 'apps.js'),
     'utf8'
@@ -798,11 +797,33 @@ const I = loadClassic('screens/ista/');
     .split('}')
     .map((b) => b.split('{')[0].trim())
     .filter((sel) => sel && !sel.startsWith('@') && !/^\d+%$/.test(sel));
+  // one selector of a list, split at the commas OUTSIDE parentheses: the
+  // sheet uses :is(a, b) and :has(a, b), whose own commas are not a new
+  // selector (splitting on every comma read ".ixgrid):has(.ixtree)" as a
+  // rule of its own and failed on it)
+  const listOf = (sel) => {
+    const out = [];
+    let depth = 0;
+    let cur = '';
+    for (const c of sel) {
+      if (c === '(') depth++;
+      else if (c === ')') depth--;
+      if (c === ',' && depth === 0) {
+        out.push(cur);
+        cur = '';
+      } else cur += c;
+    }
+    out.push(cur);
+    return out.map((x) => x.trim()).filter(Boolean);
+  };
+  // The shell's dialogs are modals mounted on the page, outside the shell's
+  // own element, so they cannot sit under .ista-real: they carry .ixdialog,
+  // a class nothing but an ISTA dialog has, and that is their scope.
   for (const sel of selectors)
-    for (const one of sel.split(','))
+    for (const one of listOf(sel))
       assert.ok(
-        /\.ista-real/.test(one),
-        `every rule is scoped under .ista-real, but "${one.trim()}" is not`
+        /\.ista-real|\.ixdialog/.test(one),
+        `every rule is scoped under .ista-real (or an ISTA dialog), but "${one}" is not`
       );
   ok('every skin rule is scoped');
 

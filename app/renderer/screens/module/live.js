@@ -1,4 +1,4 @@
-/* exported runJob, stopLive, stopLogging */
+/* exported runJob, stopLive */
 
 // raw job runner: argument dialogs, runJob, generic result cards
 
@@ -409,18 +409,6 @@ function stopLive() {
     clearTimeout(liveTimer);
     liveTimer = null;
   }
-}
-
-/** CSV logging handle from the main process. @type {any} */
-let logId = null;
-
-/**
- * Stop the native CSV log, if one is running.
- * @returns {void}
- */
-function stopLogging() {
-  if (logId && window.bmweb) window.bmweb.stopLog(logId);
-  logId = null;
 }
 
 /**

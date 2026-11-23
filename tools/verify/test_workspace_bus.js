@@ -29,7 +29,6 @@ function load(win) {
   const ctx = {
     window: win,
     console,
-    NativeSerialBus: class NativeSerialBus {},
     WebSerialBus: class WebSerialBus {
       async connect() {}
       async disconnect() {}

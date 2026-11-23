@@ -43,21 +43,17 @@ echo "==> copying the renderer"
 cp -R "$ROOT/app/renderer/." "$OUT/"
 cp -R "$ROOT/app/site/." "$OUT/"   # the installer, docs and screenshots, beside the app
 
-# Stamp the version into the web build: index.html reads window.BMWEB_VERSION
-# and settings and the offline export both fall back to it. Read from
-# package.json so there is ONE version source.
-VERSION=$(node -p "require('$ROOT/package.json').version")
-printf 'window.BMWEB_VERSION=%s;\n' "\"${VERSION:-web}\"" > "$OUT/version.js"
-# load it before app.js reads it (right after the opening <head>, cheap + early)
-if ! grep -q 'version.js' "$OUT/index.html"; then
-  # macOS/BSD sed: insert the tag after the first <head>
-  sed -i.bak 's#<head>#<head>\n  <script src="version.js"></script>#' "$OUT/index.html"
-  rm -f "$OUT/index.html.bak"
-fi
-# index.html already loads the shim (core/webshim/): BOTH builds need it now. The macOS app
-# dropped its C# API too, so the shim is the only thing answering /api/* in
-# either host -- it picks its transport at load (Web Serial in a browser, the
-# native bridge inside the app).
+# index.html already loads the shim (core/webshim/): it is the only thing
+# answering /api/* -- static files for reads, the BEST2 VM over Web Serial
+# for job runs.
+
+# The version (package.json is the one source: index.html, Settings and the
+# offline export read window.BMWEB_VERSION), the scripts concatenated into
+# one $OUT/bundle.js in index.html load order, and $OUT/index.html collapsed
+# to that single tag. The dev source keeps its individual tags; only the
+# shipped copy is bundled. One script does this for every build.
+echo "==> stamping and bundling the renderer"
+node "$ROOT/scripts/build/stamp-shell.mjs" "$OUT"
 
 # faultinfo.js is 60 MB of ISTA fault detail and faultmeta.js another 14 MB.
 # They load lazily in the app; on a static host they are just weight, so ship
@@ -68,14 +64,6 @@ fi
 # keeps the original, so a build without them still serves everything -- just
 # uncompressed. That is why absence is fine but a failure HERE is not: a
 # broken gzip should fail the build, not quietly ship the fat site.
-# Bundle the renderer scripts into one $OUT/bundle.js (index.html load order)
-# and collapse $OUT/index.html to a single <script> tag. The dev source keeps
-# its individual tags; only the shipped copy is bundled.
-echo "==> bundling the renderer"
-node "$ROOT/scripts/build/bundle-renderer.mjs" "$OUT" "$OUT/bundle.js"
-node "$ROOT/scripts/build/bundle-index.mjs" "$OUT/index.html"
-grep -q 'bundle.js' "$OUT/index.html"
-
 echo "==> pre-compressing the large payloads"
 find "$OUT" -name "*.js" -size +1M -print0 \
   | xargs -0 -P 8 -I{} gzip -9 -k -f {}

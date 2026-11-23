@@ -504,7 +504,7 @@ function _resultField(res, field) {
 
 // Result bytes come back the way EDIABAS publishes them: a "AA-BB-CC" hex
 // string for telegram fields (_TEL_ANTWORT), sometimes a number array. Same
-// rule vmbridge.js uses.
+// rule the VM's replay harness uses (tools/verify/lib/vmbridge.js).
 /**
  * A result field as bytes, decoding the dashed-hex or number-array forms.
  * @param {{sets?: object[]}} res - A job result.

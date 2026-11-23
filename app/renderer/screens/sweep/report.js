@@ -249,7 +249,7 @@ function faultReportHtml(sub, metaPairs, bodyHtml) {
       <div class="meta">${meta}</div>
     </header>
     ${bodyHtml}
-    <footer>${APP_NAME} · ${IS_WEB ? 'BMW diagnostics' : 'native macOS BMW diagnostics'}. Codes read over K+DCAN; descriptions are best-effort translations.</footer>
+    <footer>${APP_NAME} · BMW diagnostics. Codes read over K+DCAN; descriptions are best-effort translations.</footer>
   </body></html>`;
 }
 

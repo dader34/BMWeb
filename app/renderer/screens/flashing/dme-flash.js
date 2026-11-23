@@ -8,7 +8,10 @@
 async function fbDmeFlashTune() {
   const d = fbState.dme;
   if (!d.identified || !d.flash) return;
-  let success = true;
+  // true once the write itself has gone through: a write declined, or one
+  // that threw before or during it, is not followed by the re-identify and
+  // the fault clear a finished flash gets
+  let success = false;
   fbFlashingBar(true);
   await fbSessionStart('flash-tune', {
     vin: d.ident.vin,
@@ -28,7 +31,8 @@ async function fbDmeFlashTune() {
         'Flash Tune'
       ))
     ) {
-      fbSetStatus('Tune not written');
+      fbSetStatus(FB_FLASH_CANCELLED);
+      flashLog.outcome('cancelled');
       return;
     }
     const cal = await fbDmePrepareTuneCal();
@@ -41,14 +45,22 @@ async function fbDmeFlashTune() {
     });
     success = result.ok;
     fbSetStatus(result.status);
+  } catch (e) {
+    // (the prepare's read, before the run that speaks for itself)
+    flashLog.outcome('failed');
+    throw e;
   } finally {
     fbFlashingBar(false);
     fbProgress(0);
-    if (success) {
-      await fbDmeIdentify(true);
-      await fbFaultsClearAfterFlash('dme');
+    try {
+      if (success) {
+        await fbDmeIdentify(true);
+        await fbFaultsClearAfterFlash('dme');
+      }
+    } finally {
+      // whatever the steps after it did: the session ends here
+      await fbSessionStop();
     }
-    await fbSessionStop();
   }
 }
 
@@ -58,9 +70,14 @@ async function fbDmeFlashTune() {
  * (with the user's consent). Shared by Flash Tune and Fast Flash Tune so the
  * bytes that reach the car are identical whichever path writes them. The
  * read it makes happens before any programming session opens.
+ * @param {{plainRead?: boolean}} [opts] - plainRead: the read never goes on
+ *   to unlock the DME when it comes back short (the one-click, whose own
+ *   chain must find the DME in its normal session); the check is then
+ *   skipped with a note, as it is whenever the bytes cannot be read.
  * @returns {Promise<Uint8Array>} The 0x1D000-byte calibration, not yet signed.
+ * @throws {Error} When the loaded file is not a calibration.
  */
-async function fbDmePrepareTuneCal() {
+async function fbDmePrepareTuneCal(opts = {}) {
   const d = fbState.dme;
   const calFromFull = d.fullBin || d.flash.length > 0x40000;
   let cal = calFromFull
@@ -75,7 +92,8 @@ async function fbDmePrepareTuneCal() {
       ewsDelete.PROGRAM_STATE_OFFSET,
       ewsDelete.PROGRAM_MASK_OFFSET,
       'ROMX',
-      d.ident.diagProtocol
+      // ms45ReadCarBytes never asks a BMW-FAST DME for security access
+      opts.plainRead ? 'BMW-FAST' : d.ident.diagProtocol
     );
     if (
       progBytes &&
@@ -113,6 +131,14 @@ async function fbDmePrepareTuneCal() {
       );
     }
   }
+  // every tune flash signs what this returns (the stock loader's, the fast
+  // flasher's, the one-click's): a file that is not a calibration stops here,
+  // before any of them opens a session
+  const bad = ms45Checksums.parameterProblem(cal);
+  if (bad)
+    throw new Error(
+      `${d.flashName || 'The loaded file'} is not a calibration the DME would accept: ${bad}. Nothing was sent to the car.`
+    );
   return cal;
 }
 
@@ -237,6 +263,20 @@ function fbDmeApplyProgramEdits(prompts) {
  * @returns {Uint8Array}
  */
 function fbDmeChipImage(source, mpcOut, hasCal) {
+  // the headers name what is checksummed and signed: a pair whose headers
+  // name nothing usable stops here, before a session opens (the stock
+  // loader's flash asks the same in core/flash/flash-ops.js)
+  const bad =
+    ms45Checksums.programProblem(source, mpcOut) ||
+    (hasCal
+      ? ms45Checksums.parameterProblem(
+          source.subarray(MS45_CAL_START, MS45_CAL_START + MS45_CAL_LENGTH)
+        )
+      : null);
+  if (bad)
+    throw new Error(
+      `The loaded files are not a program the DME would accept: ${bad}. Nothing was sent to the car.`
+    );
   const signed = ms45Checksums.signProgram(
     ms45Checksums.correctProgramChecksums(source, mpcOut),
     mpcOut
@@ -292,6 +332,7 @@ async function fbDmeFlashProgram(opts = {}) {
         images = { source: patched.flash, mpc: patched.mpc };
       }
     } catch (e) {
+      flashLog.outcome('failed');
       await fbMessage(e.message, e.title || title);
       return false;
     }
@@ -319,17 +360,24 @@ async function fbDmeFlashProgram(opts = {}) {
     );
     success = result.ok;
     fbSetStatus(result.status);
+  } catch (e) {
+    flashLog.outcome('failed');
+    throw e;
   } finally {
     fbFlashingBar(false);
     fbProgress(0);
-    if (success) {
-      if (opts.after) await opts.after();
-      else {
-        await fbDmeIdentify(true);
-        await fbFaultsClearAfterFlash('dme');
+    try {
+      if (success) {
+        if (opts.after) await opts.after();
+        else {
+          await fbDmeIdentify(true);
+          await fbFaultsClearAfterFlash('dme');
+        }
       }
+    } finally {
+      // whatever the steps after it did: the session ends here
+      await fbSessionStop();
     }
-    await fbSessionStop();
   }
   return success;
 }
@@ -351,11 +399,13 @@ async function fbDmeVerifyProgramming() {
   fbShowPage('flashing');
   let success = true;
   fbFlashingBar(true);
-  await fbSessionStart('verify-program', {
-    vin: d.ident.vin,
-    module: d.ident.hwRef,
-  });
   try {
+    // inside the try: this flow is not under fbDmeGuard, so nothing else
+    // would hand the screen and the navigation lock back if it threw
+    await fbSessionStart('verify-program', {
+      vin: d.ident.vin,
+      module: d.ident.hwRef,
+    });
     flashLog.note(
       `DME ${d.ident.hwRef} / prog ${d.ident.progRef} / diag ${d.ident.diagProtocol}`
     );
@@ -396,6 +446,9 @@ async function fbDmeVerifyProgramming() {
   } finally {
     fbFlashingBar(false);
     fbProgress(0);
+    // both signatures checked, or not: said before the identify, whose own
+    // failure is not this session's
+    flashLog.outcome(success ? 'ok' : 'failed');
     if (success) {
       try {
         await fbDmeIdentify(true);

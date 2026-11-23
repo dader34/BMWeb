@@ -7,7 +7,7 @@
  * behind a small controller, with its own USB IDs (VID 0x0333 "PASOFT",
  * PID 0x0137 "BMW Scanner V14x"). macOS binds no serial driver to those IDs,
  * so Web Serial never sees it; WebUSB claims interface 0 and drives the FT232R
- * with FTDI vendor control requests, the same way can-ftdi-bitbang.js does.
+ * with FTDI vendor control requests.
  *
  * It is NOT a transparent K-line cable. The PC talks to the adapter's
  * controller in its own framing and the controller builds the bus telegram:

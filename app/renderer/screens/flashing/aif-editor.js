@@ -427,8 +427,15 @@ function fbAifEdShow() {
       fbAifEd().edit.fill(0xff);
       fbAifEdPaint();
     };
-    fbEls['aif-write'].onclick = () =>
-      fbDmeGuard('Write AIF', fbAifEdWrite, { autoEnter: true });
+    // asked FIRST, then fbDmeGuard: the question names what the write does
+    // to the boot sector, and on a DME with no ring the guard's autoEnter
+    // starts the flasher -- a "no" after that left the DME sitting in it
+    fbEls['aif-write'].onclick = async () => {
+      if (fbState.running || !(await fbAifEdConfirmWrite())) return;
+      await fbDmeGuard('Write AIF', () => fbAifEdWrite(true), {
+        autoEnter: true,
+      });
+    };
   }
   fbAifEdPaint();
 }
@@ -894,7 +901,7 @@ async function fbAifEdRead() {
     noFasterLine: true,
     confirm:
       'Read AIF resets the DME into its fast flash bootloader, reads the programming log and restarts the DME on its program. Nothing is written.\n\nRead the log?',
-    note: `DME ${d.ident.hwRef} / BL${d.bootLoader.version} / AIF read`,
+    note: `DME ${d.ident.hwRef} / ${fbDmeFlasherNote()} / AIF read`,
     push: async (client, cb) => {
       cb.stage('Reading the programming log');
       log = await fastFlashWire.readArea(
@@ -926,7 +933,40 @@ async function fbAifEdRead() {
  * clears bits, else the boot-sector rewrite. Refuses unless the DME's log is
  * still the one the edits were staged against, and reads it back after.
  */
-async function fbAifEdWrite() {
+/**
+ * What Write AIF says before it starts, by the path the staged edits take.
+ * @param {{path: string, slots: number[]}} plan - fbAifEdPlan().
+ * @returns {string}
+ */
+function fbAifEdWriteQuestion(plan) {
+  return plan.path === 'rewrite'
+    ? `This ERASES the 96 KB boot sector (the loader included), writes it back with the edited log and verifies it (${plan.slots.length} slot${plan.slots.length === 1 ? '' : 's'} changed).\n\n` +
+        'A power or cable loss between the erase and the restore leaves a DME that neither the loader nor a full flash can reach: only a BDM / boot-mode rig recovers it. Keep power and the cable steady.\n\nWrite the log?'
+    : `This programs slot${plan.slots.length > 1 ? 's' : ''} ${plan.slots.join(', ')} over what is there: the edits only clear bits, so nothing is erased and the rest of the boot sector is not touched.\n\nWrite the log?`;
+}
+
+/**
+ * Write AIF's gate and its question, before the DME is touched.
+ * @returns {Promise<boolean>} True to go on.
+ */
+async function fbAifEdConfirmWrite() {
+  const why = fbAifEdWhyNot(true);
+  if (why) {
+    await fbMessage(why, 'Write AIF');
+    return false;
+  }
+  const plan = fbAifEdPlan();
+  if (plan.path === 'none' || fbAifEd().source !== 'dme') return false;
+  if (await fbConfirm(fbAifEdWriteQuestion(plan), 'Write AIF')) return true;
+  flashLog.note('Write AIF not confirmed: nothing was sent to the car');
+  return false;
+}
+
+/**
+ * @param {boolean} [confirmed] - The question was asked already
+ *   (fbAifEdConfirmWrite, by the button before the flasher is entered).
+ */
+async function fbAifEdWrite(confirmed = false) {
   const why = fbAifEdWhyNot(true);
   if (why) {
     await fbMessage(why, 'Write AIF');
@@ -951,31 +991,47 @@ async function fbAifEdWrite() {
     operation: 'aif-write',
     what: 'aif',
     noFasterLine: true,
-    confirm: rewrite
-      ? `This ERASES the 96 KB boot sector (the loader included), writes it back with the edited log and verifies it (${plan.slots.length} slot${plan.slots.length === 1 ? '' : 's'} changed).\n\n` +
-        'A power or cable loss between the erase and the restore leaves a DME that neither the loader nor a full flash can reach: only a BDM / boot-mode rig recovers it. Keep power and the cable steady.\n\nWrite the log?'
-      : `This programs slot${plan.slots.length > 1 ? 's' : ''} ${plan.slots.join(', ')} over what is there: the edits only clear bits, so nothing is erased and the rest of the boot sector is not touched.\n\nWrite the log?`,
-    note: `DME ${d.ident.hwRef} / BL${d.bootLoader.version} / AIF ${plan.path} write, slots ${plan.slots.join(',') || 'tail'}`,
+    confirmed,
+    confirm: fbAifEdWriteQuestion(plan),
+    note: `DME ${d.ident.hwRef} / ${fbDmeFlasherNote()} / AIF ${plan.path} write, slots ${plan.slots.join(',') || 'tail'}`,
     prepare: async () => ({ attach: ['aif_staged_0x1FB34.bin', next] }),
     push: async (client, cb) => {
+      // a rewrite cut after its erase (this write's own first attempt, when
+      // the push is run again, or an earlier one) is finished first, from
+      // the image it held: the boot sector is part erased until then, and
+      // the log read below would be the erased one
+      const finished = await aifLog.finishInterrupted(client, cb);
       cb.stage('Reading the programming log');
       const now = await fastFlashWire.readArea(
         client,
         FB_AIF_ED_START,
         FB_AIF_ED_LEN
       );
-      if (!fbAifEdSame(now, base))
-        throw new Error(
-          'The log on the DME is not the one the edits were made against (read it again). Nothing was written.'
-        );
-      if (rewrite) {
-        await aifLog.rewrite(client, next, cb, { sector });
+      if (finished && fbAifEdSame(now, next)) {
+        // that rewrite was this write: it is on the DME, only the checks
+        // below are left
+        cb.note('the interrupted rewrite was this write: nothing more to send');
       } else {
-        const edits = plan.slots.map((i) => ({
-          at: FB_AIF_ED_START + i * FB_AIF_ED_SLOT,
-          bytes: fbAifEdSlot(next, i).slice(),
-        }));
-        await aifLog.writeDirect(client, edits, cb);
+        if (!fbAifEdSame(now, base)) {
+          if (!finished)
+            throw new Error(
+              'The log on the DME is not the one the edits were made against (read it again). Nothing was written.'
+            );
+          // what the DME now holds is the truth the page shows
+          s.base = now.slice();
+          throw new Error(
+            'An interrupted rewrite of the boot sector was finished first, and the log it put back is not the one these edits were made against. The page now shows what the DME holds: check the edits and write again.'
+          );
+        }
+        if (rewrite) {
+          await aifLog.rewrite(client, next, cb, { sector });
+        } else {
+          const edits = plan.slots.map((i) => ({
+            at: FB_AIF_ED_START + i * FB_AIF_ED_SLOT,
+            bytes: fbAifEdSlot(next, i).slice(),
+          }));
+          await aifLog.writeDirect(client, edits, cb);
+        }
       }
       cb.stage('Verifying the programming log');
       const back = await fastFlashWire.readArea(
