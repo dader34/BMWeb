@@ -15,8 +15,7 @@ const vm = require('vm');
 // The shim (core/webshim/, joined in load order) is browser code: it ends by
 // touching `window`. Take the pure helpers, which is everything above the
 // first transport class.
-const src = require('./webshim_src').readWebshimSource();
-const helpers = src.slice(0, src.indexOf('class NativeSerialBus'));
+const helpers = require('./webshim_src').readWebshimSource('transport-base.js');
 const ctx = { exports: {}, console, Date, setTimeout, Error };
 vm.createContext(ctx);
 vm.runInContext(

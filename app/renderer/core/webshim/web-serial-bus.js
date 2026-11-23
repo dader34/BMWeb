@@ -118,8 +118,8 @@ class WebSerialBus extends SerialTransportBase {
     }
     if (!('serial' in navigator)) {
       throw new Error(
-        'This browser has no Web Serial. Use Chrome or Edge ' +
-          '(desktop), or the macOS app.'
+        'This browser has no Web Serial. Use Chrome or Edge on a ' +
+          'desktop computer.'
       );
     }
     return navigator.serial.requestPort();
@@ -550,8 +550,8 @@ class WebSerialBus extends SerialTransportBase {
     if (!this.port.setSignals) {
       throw ifhError(
         'IFH-0018',
-        'this browser cannot drive the K line ' +
-          '(no setSignals); use the macOS app for this ECU'
+        'this connection cannot drive the K line (no setSignals), ' +
+          'so this ECU cannot be woken over it'
       );
     }
     const t0 = Date.now();
@@ -604,8 +604,8 @@ class WebSerialBus extends SerialTransportBase {
     if (!this.port.setSignals) {
       throw ifhError(
         'IFH-0018',
-        'this browser cannot bit-bang the K line ' +
-          '(no setSignals); use the macOS app for this ECU'
+        'this connection cannot bit-bang the K line (no setSignals), ' +
+          'so this ECU cannot be woken over it'
       );
     }
 

@@ -141,15 +141,22 @@ console.log('\nthe 5-baud bit pattern');
 console.log('\nsession lifecycle');
 {
   ok(/this\.inited = null;/.test(src), 'inited is reset somewhere');
-  const wake = src.match(/_resetWakeState\(\) \{[\s\S]*?\n {2}\}/)[0];
+  // A woken session ends with the WIRE session (connect, reconnect,
+  // disconnect) and when the job runner moves to another module -- not when
+  // the port is reopened on other settings: a module that changes baud
+  // mid-session is still awake. (This block used to assert a reset on
+  // reopen. It was reading the native shell's transport, which had one and
+  // which no browser ever ran; Web Serial never did, and the native one is
+  // gone.)
+  const wire = src.match(/_resetWireState\(\) \{[\s\S]*?\n {2}\}/)[0];
   ok(
-    /this\.inited = null/.test(wake),
-    'the wake-state reset clears the woken session'
+    /this\.inited = null/.test(wire),
+    'ending the wire session clears the woken session'
   );
   const ec = src.match(/async ensureConfig\(cfg\) \{[\s\S]*?\n {2}\}/)[0];
   ok(
-    /this\._resetWakeState\(\)/.test(ec),
-    'reopening the port for a new concept clears the woken session'
+    !/this\.inited = null|_resetWireState/.test(ec),
+    'reopening the port on new settings leaves a woken module woken'
   );
   ok(
     /if \(framed && !this\.inited && wantsWake\)/.test(src),
@@ -236,24 +243,17 @@ console.log('\nDTR is asserted for every K-line write');
 
 console.log('\nthe wake lives on the bus that owns the wires');
 {
-  // THE MISTAKE THIS GUARDS: fastInit/slowInit were first added to
-  // NativeSerialBus, but the browser drives the cable through WebSerialBus.
-  // The code was correct and simply never ran -- the car stayed silent and
-  // nothing about the app said why.
+  // THE MISTAKE THIS GUARDS: fastInit/slowInit were first added to a
+  // transport the browser never used (the native shell's, since removed),
+  // while the cable is driven through WebSerialBus. The code was correct and
+  // simply never ran -- the car stayed silent and nothing about the app said
+  // why.
   const web = src.slice(
     src.indexOf('class WebSerialBus'),
     src.indexOf('const webBus =')
   );
-  const nat = src.slice(
-    src.indexOf('class NativeSerialBus'),
-    src.indexOf('class WebSerialBus')
-  );
   ok(/async fastInit/.test(web), 'fastInit is defined on WebSerialBus');
   ok(/async slowInit/.test(web), 'slowInit is defined on WebSerialBus');
-  ok(
-    !/async fastInit/.test(nat),
-    'and NOT stranded on NativeSerialBus, where it would never run'
-  );
   // fastInit is NO LONGER called for DS2. EdiabasLib's SendWakeFastInit has
   // one call site, inside TransKwp2000Bmw (EdInterfaceObd.cs:4698); TransDs2
   // has no wake at all and concept 5/6 sets EcuConnected = true outright.

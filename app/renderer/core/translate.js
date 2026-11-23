@@ -1,4 +1,4 @@
-/* exported phraseText, envLabel, ortNrCode, pCode, ortNrFull, loadPcodes, loadFaultMeta, loadFaultInfo, loadCodingMap, loadDatenMap, loadSget, loadCvt, loadTables, loadSaNames, variantsForHex, faultInfoFor, pcodeForHex, hexForPcode */
+/* exported phraseText, envLabel, ortNrCode, bmwCode, bmwTextCode, ortNrFull, loadPcodes, loadFaultMeta, loadFaultInfo, loadCodingMap, loadDatenMap, loadSget, loadCvt, loadTables, loadSaNames, variantsForHex, faultInfoFor, pcodeForHex, hexForPcode */
 
 // Exact-match English lookups for text the SGBD sends at runtime, plus the
 // fault-code helpers. Pure lookup, no DOM, no word-level rewriting: a string
@@ -218,33 +218,80 @@ function hexText(v) {
   return String(v);
 }
 
-// BMW fault number = first token of F_ORT_TEXT ("27DA BSD-Generator" -> 27DA).
-// GOTCHA: F_HEX_CODE is declared `binary` in every SGBD that has it. The native
-// path flattens it first (Diag.Format -> BitConverter.ToString -> "27-DA", hence
-// the dash strip below), but the web VM hands us the raw Uint8Array, which has
-// no .replace. Most ECUs never reach here because their F_ORT_TEXT leads with
-// the code; KOMBI's text is German-only, so it falls through to `hex`.
 /**
- * The BMW fault number for a fault: the leading hex token of F_ORT_TEXT, else
- * the first two bytes of F_HEX_CODE.
- * @param {string|null|undefined} loc - F_ORT_TEXT.
- * @param {any} hex - F_HEX_CODE (string, number, or bytes).
- * @returns {string|null} The uppercase code, or null when neither yields one.
+ * F_ORT_NR (BMW "Fehlerort") as a number. EDIABAS gives it decimal ("2879");
+ * hex ("0x0B3F", or digits with a letter among them: "1F") is accepted too.
+ * @param {string|number|null|undefined} nr - F_ORT_NR.
+ * @returns {number|null} The value, or null when there is none or it is not a number.
  */
-function bmwCode(loc, hex) {
-  const text = loc == null ? '' : String(loc);
-  if (text) {
-    const m = text.match(/^([0-9A-F]{3,5})\b/i);
-    if (m) return m[1].toUpperCase();
-  }
-  const h = hexText(hex);
-  return h ? h.replace(/-/g, '').slice(0, 4).toUpperCase() : null;
+function ortNrValue(nr) {
+  if (nr == null) return null;
+  const s = String(nr).trim();
+  if (!s) return null;
+  const m =
+    s.match(/^0x([0-9A-Fa-f]+)$/) ||
+    s.match(/^([0-9A-Fa-f]*[A-Fa-f][0-9A-Fa-f]*)$/);
+  const val = m ? parseInt(m[1], 16) : /^\d+$/.test(s) ? parseInt(s, 10) : NaN;
+  return Number.isNaN(val) ? null : val;
 }
 
-// F_ORT_NR (BMW "Fehlerort") -> the LOCATION BYTE the SGBD FORTTEXTE table keys
-// on (IHKA 0x1F, LWS 0x0B). For a 16-bit value (LWS 0x0B3F) the location is the
-// HIGH byte; the low byte is symptom detail. EDIABAS gives it decimal ("2879");
-// hex ("0x0B3F"/"1F") is accepted too. Returns two hex digits.
+// THE CODE A FAULT'S TEXT LEADS WITH IS ITS CODE ONLY WHEN IT IS ITS NUMBER.
+// A DME's fault text carries the number in front ("27DA BSD-Generator"): the
+// row of the SGBD's text table the fault's own number (F_ORT_NR) found. But a
+// text may begin with something that merely LOOKS like one, and the first
+// version of this took any leading 3-5 hex characters:
+//   * a fault the SGBD has no row for gets the table's default row, "FFFF
+//     unbekannter Fehlerort" -- every unknown fault was shown as code FFFF,
+//     and looked up as FFFF, while the module had said 1F27;
+//   * a word made of the letters A-F ("ACC-relevanter Fehler DSC", "DDE-
+//     Hauptrelais", "ADC Spannungsteiler", "ADF") became the code;
+//   * BMW words several faults alike under one of their numbers ("4214
+//     Freigabeleitung zum CAS" is the text of 4219, 421E and 421F too).
+// Over the fault tables of every shipped SGBD (773 tables, 2026-11) the
+// leading token IS the row's own number 33,516 times and is not 85 times, so
+// the number decides: the token is the code when it equals F_ORT_NR, or the
+// first two bytes of the fault word where a reader gives no number.
+//
+// GOTCHA: F_HEX_CODE is declared `binary` in every SGBD that has it, and the
+// VM hands us the raw bytes, which have no .replace -- hexText flattens them.
+/**
+ * The BMW fault number for a fault: the hex token its text leads with when
+ * that is the fault's own number, else the first two bytes of F_HEX_CODE.
+ * @param {string|null|undefined} loc - F_ORT_TEXT.
+ * @param {any} hex - F_HEX_CODE (string, number, or bytes).
+ * @param {string|number|null} [nr] - F_ORT_NR.
+ * @returns {string|null} The uppercase code, or null when neither yields one.
+ */
+function bmwCode(loc, hex, nr) {
+  const h = hexText(hex);
+  const fromHex = h ? h.replace(/-/g, '').slice(0, 4).toUpperCase() : null;
+  return bmwTextCode(loc, hex, nr) || fromHex;
+}
+
+/**
+ * The code a fault's text leads with, when it is the fault's own number
+ * (see above); null when the text leads with none, or with another's.
+ * @param {string|null|undefined} loc - F_ORT_TEXT.
+ * @param {any} hex - F_HEX_CODE.
+ * @param {string|number|null} [nr] - F_ORT_NR.
+ * @returns {string|null}
+ */
+function bmwTextCode(loc, hex, nr) {
+  const m = (loc == null ? '' : String(loc)).match(/^([0-9A-F]{3,5})\b/i);
+  if (!m) return null;
+  const lead = m[1].toUpperCase();
+  const own = ortNrValue(nr);
+  const word = hexText(hex).replace(/-/g, '').slice(0, 4);
+  // nothing to hold it to (an entry with neither number nor fault word is
+  // not one a module's fault read produces): the text is all there is
+  if (own == null && !word) return lead;
+  const n = parseInt(lead, 16);
+  return n === own || (word && n === parseInt(word, 16)) ? lead : null;
+}
+
+// F_ORT_NR -> the LOCATION BYTE the SGBD FORTTEXTE table keys on (IHKA 0x1F,
+// LWS 0x0B). For a 16-bit value (LWS 0x0B3F) the location is the HIGH byte;
+// the low byte is symptom detail. Returns two hex digits.
 /**
  * The FORTTEXTE location byte for an F_ORT_NR value, as two hex digits.
  * @param {string|number|null|undefined} nr - F_ORT_NR (decimal or hex text).
@@ -254,27 +301,11 @@ function ortNrCode(nr) {
   if (nr == null) return null;
   const s = String(nr).trim();
   if (!s) return null;
-  let val = null;
-  let m =
-    s.match(/^0x([0-9A-Fa-f]+)$/) ||
-    s.match(/^([0-9A-Fa-f]*[A-Fa-f][0-9A-Fa-f]*)$/);
-  if (m) val = parseInt(m[1], 16);
-  else if (/^\d+$/.test(s)) val = parseInt(s, 10);
-  if (val == null || Number.isNaN(val)) return s; // unknown format: show as-is
+  const val = ortNrValue(nr);
+  if (val == null) return s; // unknown format: show as-is
   const loc = val > 0xff ? (val >> 8) & 0xff : val; // high byte if 16-bit
   return loc.toString(16).toUpperCase().padStart(2, '0');
 }
-/**
- * The hand-pinned P-code for a fault, via {@link PCODE_MAP} only.
- * @param {string|null|undefined} loc - F_ORT_TEXT.
- * @param {any} hex - F_HEX_CODE.
- * @returns {string|null}
- */
-function pCode(loc, hex) {
-  const code = bmwCode(loc, hex);
-  return code && PCODE_MAP[code] ? PCODE_MAP[code] : null;
-}
-
 // full 16-bit F_ORT_NR as 4-hex ("24002" -> "5DC2"), or null for single bytes.
 // Lets the caller tell a real 2-byte DTC (DSC 5DC2, in the DB) from a text-scheme
 // location+detail word (LWS 0B3F, not in the DB -> show the location byte).
@@ -284,16 +315,8 @@ function pCode(loc, hex) {
  * @returns {string|null}
  */
 function ortNrFull(nr) {
-  if (nr == null) return null;
-  const s = String(nr).trim();
-  if (!s) return null;
-  let val = null;
-  let m =
-    s.match(/^0x([0-9A-Fa-f]+)$/) ||
-    s.match(/^([0-9A-Fa-f]*[A-Fa-f][0-9A-Fa-f]*)$/);
-  if (m) val = parseInt(m[1], 16);
-  else if (/^\d+$/.test(s)) val = parseInt(s, 10);
-  if (val == null || Number.isNaN(val) || val <= 0xff) return null;
+  const val = ortNrValue(nr);
+  if (val == null || val <= 0xff) return null;
   return val.toString(16).toUpperCase().padStart(4, '0');
 }
 

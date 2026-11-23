@@ -285,6 +285,7 @@ async function fbDmeFastFlash(spec) {
       spec.push(client, cb, prepared)
     );
     ok = true;
+    flashLog.outcome('ok');
     ui.stop();
     fbSetStatus(
       r.summary
@@ -294,6 +295,7 @@ async function fbDmeFastFlash(spec) {
           : `${spec.title} successful in ${ui.elapsed()}s`
     );
   } catch (e) {
+    flashLog.outcome('failed');
     ui.stop();
     fbSetStatus(
       `${spec.title} failed after ${ui.elapsed()}s: ${fbDescribeError(e)}`

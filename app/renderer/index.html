@@ -89,27 +89,6 @@
     <div class="grain" aria-hidden="true"></div>
 
     <header class="topbar">
-      <!-- custom controls, window is frameless. macOS traffic-light layout -->
-      <div class="win-controls" id="win-controls">
-        <button
-          class="win-dot win-close"
-          id="win-close"
-          title="Close"
-          aria-label="Close"
-        ></button>
-        <button
-          class="win-dot win-min"
-          id="win-min"
-          title="Minimize"
-          aria-label="Minimize"
-        ></button>
-        <button
-          class="win-dot win-zoom"
-          id="win-zoom"
-          title="Zoom"
-          aria-label="Zoom"
-        ></button>
-      </div>
       <!-- Back, for touch. A phone has no Esc key and the F10 slot sits off
          the right end of the scrolling F-key strip, so without this there
          is no way back up a screen. Hidden above 760px, where Esc and the
@@ -249,49 +228,22 @@
       </button>
     </nav>
 
-    <!-- Name the product BEFORE the browser's first paint. A native shell
-       injects window.bmweb at document start, so its absence means the web
-       build. This cannot wait for app.js: the parser stalls for seconds on
-       the big scripts below (the offline copy embeds megabytes of data) and
-       the browser paints the splash in the meantime. -->
+    <!-- The name, and the saved skin, BEFORE the browser's first paint. This
+       cannot wait for app.js: the parser stalls for seconds on the big
+       scripts below (the offline copy embeds megabytes of data) and the
+       browser paints the splash in the meantime. -->
     <script>
-      // THE NAME AND THE CHROME ARE TWO QUESTIONS, not one.
-      //
-      // The app is BMWeb everywhere. A native host may still name itself
-      // (window.bmweb.appName); the browser, having no host at all, is BMWeb
-      // by definition.
-      //
-      // Window controls are a separate matter: only a host that hides the real
-      // titlebar wants the renderer to draw its own traffic lights. A browser
-      // has none to draw and a host that keeps its own titlebar says so
-      // (ownChrome: false), so both drop the renderer's set.
-      const IS_WEB = !window.bmweb;
-      const APP_NAME = IS_WEB ? 'BMWeb' : window.bmweb.appName || 'BMWeb';
-      const OWN_CHROME = !IS_WEB && window.bmweb.ownChrome !== false;
-      // the static page is BMWeb (what the hosted site and every crawler
-      // sees); a native host renames itself on boot
-      if (APP_NAME !== 'BMWeb') {
-        document.title = APP_NAME;
-        document.querySelector('.splash-name').textContent = APP_NAME;
-        document.querySelector('.brand-name').textContent = APP_NAME;
-        document.querySelector('.splash-tag').textContent = 'BMW diagnostics';
-      }
-      if (!OWN_CHROME) {
-        // nothing for these to drive: the window's own chrome is showing
-        document.getElementById('win-controls').remove();
-        document.documentElement.classList.add('no-chrome');
-      }
-      // Paint in the saved skin from the first frame, same reason as above.
-      // core.js re-applies the full theme (translucency, dock icon) when it
-      // loads; this only sets what CSS needs.
+      // read by every script below
+      const APP_NAME = 'BMWeb';
+      // Paint in the saved skin from the first frame. core/settings.js
+      // re-applies the full theme (the favicon, the pointer) when it loads;
+      // this only sets what CSS needs.
       try {
-        const early =
-          window.__bmwebSettings ||
-          JSON.parse(
-            localStorage.getItem('bmweb.settings') ||
-              localStorage.getItem('bmacw.settings') ||
-              '{}'
-          );
+        const early = JSON.parse(
+          localStorage.getItem('bmweb.settings') ||
+            localStorage.getItem('bmacw.settings') ||
+            '{}'
+        );
         // a first visit (nothing saved) gets the default skin, instrument
         // (core/settings.js DEFAULT_THEME; the two must agree)
         const theme = early.theme || 'instrument';
@@ -315,14 +267,10 @@
     <script src="core/webshim/framing.js"></script>
     <script src="core/webshim/exchange.js"></script>
     <script src="core/webshim/transport-base.js"></script>
-    <script src="core/webshim/native-bus.js"></script>
     <script src="core/webshim/gateway-port.js"></script>
     <script src="core/webshim/adapter-port.js"></script>
     <script src="core/webshim/web-serial-bus.js"></script>
     <script src="core/webshim/bus.js"></script>
-    <script src="core/webshim/can-slcan-port.js"></script>
-    <script src="core/webshim/can-ftdi-bitbang.js"></script>
-    <script src="core/webshim/can-emu-port.js"></script>
     <script src="core/webshim/pasoft-usb-port.js"></script>
     <script src="core/webshim/ds2-wire.js"></script>
     <script src="core/webshim/data-fetch.js"></script>
@@ -609,8 +557,6 @@
     <script src="screens/flashing/options.js"></script>
     <script src="screens/flashing/log-view.js"></script>
     <script src="screens/flashing/screen.js"></script>
-    <script src="screens/tuning/memory-spec.js"></script>
-    <script src="screens/tuning/memory-read.js"></script>
     <!-- The Tuning screen, one piece per concern. state.js first (the shared
        state and constants), screen.js last (the entry point); nothing in
        between reads a later piece at load time. -->
@@ -631,8 +577,6 @@
     <script src="screens/tuning/table-actions.js"></script>
     <script src="screens/tuning/table-editor.js"></script>
     <script src="screens/tuning/xdf-library.js"></script>
-    <script src="screens/tuning/module-picker.js"></script>
-    <script src="screens/tuning/read-ecu-dialog.js"></script>
     <script src="screens/tuning/session.js"></script>
     <script src="screens/tuning/live-mode.js"></script>
     <script src="screens/tuning/live-faults.js"></script>

@@ -13,8 +13,7 @@ const WEB_API_BASE = 'api';
  * WHERE THIS PAGE LIVES. A project site served from a subpath (/BMWeb/), not
  * the domain root, would resolve "/api/chassis" to the host's root -- off the
  * site entirely. Derive the base from the document's own URL and hang every
- * static path off it. Empty at a domain root and inside the macOS app, so
- * both behave exactly as before.
+ * static path off it. Empty at a domain root.
  */
 const WEB_BASE = (
   typeof location !== 'undefined'
@@ -455,7 +454,7 @@ function sgbdOfDataPath(rel) {
  * it too. So routing THIS one function through the picked directory handle
  * covers all data -- chassis, ECU, groups, coding-dispatch, sgbd-tables,
  * job-code, ISTA -- with no other change. offlineFsActive() is false on
- * http(s) and in the native app, where this is exactly nativeFetch.
+ * http(s), where this is exactly nativeFetch.
  * @param {RealFetch} nativeFetch - The browser's own fetch, bound to window.
  * @returns {RealFetch}
  */

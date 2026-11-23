@@ -124,12 +124,7 @@ async function curatedResolve(sgbd, kw) {
       }
     }
     if (on == null || off == null) continue;
-    const i18n = (typeof window !== 'undefined' && window.BMW_DATEN_I18N) || {};
-    const label =
-      i18n[kw.toLowerCase()] ||
-      (typeof codTidy === 'function'
-        ? codTidy(codTranslate(kw, true), kw)
-        : kw);
+    const label = typeof datLabel === 'function' ? datLabel(kw) : kw;
     return { sgbd, name: kw, label, on, off };
   }
   return null;

@@ -45,7 +45,6 @@ global.esc = (s) =>
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
 global.APP_NAME = 'BMWeb';
-global.IS_WEB = true;
 global.dispChassis = (id) => id || 'E46';
 
 // codes ARE already field objects in the fixtures (faultFields is identity).

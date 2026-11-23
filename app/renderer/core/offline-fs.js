@@ -18,16 +18,15 @@
  *
  * The handle is remembered in IndexedDB, so after the first pick a reload
  * reconnects silently (or with one "restore access" click if the browser has
- * aged the permission out). None of this runs on http(s) or in the native
- * macOS app -- offlineFsActive() is false there and the shim never calls in.
+ * aged the permission out). None of this runs on http(s) --
+ * offlineFsActive() is false there and the shim never calls in.
  */
 
 (function () {
   'use strict';
 
   /**
-   * Only file:// needs this. http(s) fetch works; the native app has its own
-   * file bridge.
+   * Only file:// needs this. http(s) fetch works.
    */
   const IS_FILE =
     typeof location !== 'undefined' && location.protocol === 'file:';

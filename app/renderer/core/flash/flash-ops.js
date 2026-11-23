@@ -38,6 +38,22 @@ const FLASH_LABELS = {
 };
 /** The operations that write to the car; the others only read it. */
 const FLASH_WRITES = ['dme-tune', 'dme-program', 'tcu-cal', 'tcu-program'];
+/**
+ * The module each operation is done to, said here once. (It used to be
+ * worked out where it was wanted, three ways: from the route name's first
+ * letters twice and from the word "transmission" in the label once.)
+ * @type {Object<string, 'DME'|'GS20'>}
+ */
+const FLASH_MODULES = {
+  'dme-tune': 'DME',
+  'dme-program': 'DME',
+  'dme-read': 'DME',
+  'dme-maps-read': 'DME',
+  'tcu-cal': 'GS20',
+  'tcu-program': 'GS20',
+  'tcu-cal-read': 'GS20',
+  'tcu-full-read': 'GS20',
+};
 /** The transmission's regions, as core/flash/gs20.js and core/flash/gs20-program.js read and write them. */
 const FLASH_TCU_CAL_LENGTH = 0x10000;
 const FLASH_TCU_PROGRAM_LENGTH = 0x40000;
@@ -504,6 +520,12 @@ const flashOps = {
   writes(op) {
     return FLASH_WRITES.includes(op);
   },
+  /** The module an operation is done to. @param {string} op @returns {'DME'|'GS20'|''} */
+  module(op) {
+    return Object.prototype.hasOwnProperty.call(FLASH_MODULES, op)
+      ? FLASH_MODULES[op]
+      : '';
+  },
 
   /**
    * Run an operation on this machine's cable.
@@ -688,7 +710,7 @@ const flashOps = {
 let flashRemoteBusy = false;
 
 /**
- * @type {Object<string, {label: string, write: boolean, describe: (text: string) => string, run: (text: string, cb: FlashCallbacks) => Promise<object>}>}
+ * @type {Object<string, {label: string, write: boolean, module: string, describe: (text: string) => string, run: (text: string, cb: FlashCallbacks) => Promise<object>}>}
  *   `run` resolves with the result as encodeResult gives it, ready for the channel.
  */
 const flashOperations = {};
@@ -696,6 +718,7 @@ for (const op of FLASH_OPS) {
   flashOperations[op] = {
     label: FLASH_LABELS[op],
     write: FLASH_WRITES.includes(op),
+    module: FLASH_MODULES[op],
     /** What the helper asks to write, for the owner's prompt; throws on a payload that is not one. */
     describe(text) {
       const p = flashOps.decode(op, text);
@@ -714,7 +737,9 @@ for (const op of FLASH_OPS) {
         if (log) {
           await log.start(`remote-${op}`, {
             vin: p.vin,
-            module: p.hwRef || (op.startsWith('tcu') ? 'GS20' : ''),
+            // the hardware number where the helper read one (the DME's);
+            // the transmission has none to give
+            module: p.hwRef || (FLASH_MODULES[op] === 'GS20' ? 'GS20' : ''),
           });
           log.note(
             `Run for a remote helper: ${p.describe || FLASH_LABELS[op]}`
@@ -737,8 +762,15 @@ for (const op of FLASH_OPS) {
             if (log) log.trace(t);
           },
         });
-        if (log) log.note(`Result: ${r.status}`);
+        if (log) {
+          log.note(`Result: ${r.status}`);
+          // History's result is the operation's own (flashLog.outcome)
+          log.outcome(r.ok ? 'ok' : 'failed');
+        }
         return flashOps.encodeResult(r);
+      } catch (e) {
+        if (log) log.outcome('failed');
+        throw e;
       } finally {
         flashRemoteBusy = false;
         if (log) {

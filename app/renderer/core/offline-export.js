@@ -37,15 +37,11 @@ const OFFLINE_SHELL = [
 
   'core/offline-fs.js',
   'core/webshim/timers.js',
-  'core/webshim/can-slcan-port.js',
-  'core/webshim/can-ftdi-bitbang.js',
-  'core/webshim/can-emu-port.js',
   'core/webshim/pasoft-usb-port.js',
   'core/webshim/trace.js',
   'core/webshim/framing.js',
   'core/webshim/exchange.js',
   'core/webshim/transport-base.js',
-  'core/webshim/native-bus.js',
   'core/webshim/gateway-port.js',
   'core/webshim/adapter-port.js',
   'core/webshim/web-serial-bus.js',
@@ -299,8 +295,6 @@ const OFFLINE_SHELL = [
   'screens/flashing/livetune-install.js',
   'screens/flashing/fast-page.js',
   'screens/flashing/faults-page.js',
-  'screens/tuning/memory-spec.js',
-  'screens/tuning/memory-read.js',
   'screens/tuning/state.js',
   'screens/tuning/helpers.js',
   'screens/tuning/hex-find.js',
@@ -318,8 +312,6 @@ const OFFLINE_SHELL = [
   'screens/tuning/table-actions.js',
   'screens/tuning/table-editor.js',
   'screens/tuning/xdf-library.js',
-  'screens/tuning/module-picker.js',
-  'screens/tuning/read-ecu-dialog.js',
   'screens/tuning/session.js',
   'screens/tuning/live-mode.js',
   'screens/tuning/live-faults.js',
@@ -427,12 +419,7 @@ function offlineBase() {
  */
 function offlineStamp() {
   const app = typeof APP_NAME === 'string' ? APP_NAME : 'BMWeb';
-  const ver =
-    window.bmweb && window.bmweb.version
-      ? `v${window.bmweb.version}`
-      : window.BMWEB_VERSION
-        ? `v${window.BMWEB_VERSION}`
-        : 'web';
+  const ver = window.BMWEB_VERSION ? `v${window.BMWEB_VERSION}` : 'web';
   return `${app} ${ver} · exported ${new Date().toISOString()}`;
 }
 
@@ -835,16 +822,6 @@ async function offlineExport(
   const name =
     `bmweb-${chassis === '*' ? 'all' : chassis.toLowerCase()}` + '-offline.zip';
 
-  // ASK WHERE, when the host can: the macOS shell opens a real Save panel
-  // (a WKWebView download lands somewhere unchosen); the web falls back to a
-  // browser download.
-  if (window.bmweb && typeof window.bmweb.saveFile === 'function') {
-    const r = await window.bmweb.saveFile(name, zipped);
-    if (r && r.cancelled) throw new Error('cancelled');
-    offlineWarn(warnings);
-    return zipped.length;
-  }
-
   const blob = new Blob([zipped], { type: 'application/zip' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -881,7 +858,6 @@ async function offlineSingleFile(
     if (onProgress) onProgress(t);
   };
   const dec = new TextDecoder();
-  const enc = new TextEncoder();
   const warnings = [];
   const stamp = offlineStamp();
 
@@ -1152,14 +1128,6 @@ async function offlineSingleFile(
   say('saving');
   const name = `bmweb-${chassis === '*' ? 'all' : chassis.toLowerCase()}.html`;
 
-  // native shell wants bytes (one more full-size copy), so only encode when used
-  if (window.bmweb && typeof window.bmweb.saveFile === 'function') {
-    const bytes = enc.encode(html);
-    const r = await window.bmweb.saveFile(name, bytes);
-    if (r && r.cancelled) throw new Error('cancelled');
-    offlineWarn(warnings);
-    return bytes.length;
-  }
   // a Blob takes PARTS, so the doc never exists as string AND bytes at once
   const size = html.length;
   const blob = new Blob([html], { type: 'text/html' });

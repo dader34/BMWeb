@@ -4,7 +4,7 @@
  * attention animations, and the table heat ramp.
  */
 
-/* exported fmtBytes, fmtNum, tnFmtAddr, tnHex2, tnHexOff, tnDefSizeLabel, makeEmpty, makeNote, tnDefsEmptyState, shake, tnFlash, heatColor, heatColorBright */
+/* exported fmtBytes, fmtNum, tnHex2, tnHexOff, tnDefSizeLabel, makeEmpty, makeNote, tnDefsEmptyState, shake, tnFlash, heatColor, heatColorBright */
 
 /** Bytes in a megabyte, for size labels. */
 const TN_MB = 1048576;
@@ -36,22 +36,6 @@ function fmtNum(v, dp) {
   const s = v.toFixed(Math.min(dp, 8));
   if (s.indexOf('.') === -1) return s;
   return s.replace(/0+$/, '').replace(/\.$/, '');
-}
-
-/**
- * "0x" + upper-case hex, zero-padded to `digits`.
- * @param {number} n
- * @param {number} [digits] - Minimum hex digits (default 2).
- * @returns {string}
- */
-function tnFmtAddr(n, digits) {
-  return (
-    '0x' +
-    n
-      .toString(16)
-      .toUpperCase()
-      .padStart(digits || 2, '0')
-  );
 }
 
 /**

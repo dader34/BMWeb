@@ -31,9 +31,8 @@ async function fbDmeFlashTune() {
         'Flash Tune'
       ))
     ) {
-      // the words every declined write ends on: History reads a status
-      // with "written" in it as a write that went through
       fbSetStatus(FB_FLASH_CANCELLED);
+      flashLog.outcome('cancelled');
       return;
     }
     const cal = await fbDmePrepareTuneCal();
@@ -46,6 +45,10 @@ async function fbDmeFlashTune() {
     });
     success = result.ok;
     fbSetStatus(result.status);
+  } catch (e) {
+    // (the prepare's read, before the run that speaks for itself)
+    flashLog.outcome('failed');
+    throw e;
   } finally {
     fbFlashingBar(false);
     fbProgress(0);
@@ -329,6 +332,7 @@ async function fbDmeFlashProgram(opts = {}) {
         images = { source: patched.flash, mpc: patched.mpc };
       }
     } catch (e) {
+      flashLog.outcome('failed');
       await fbMessage(e.message, e.title || title);
       return false;
     }
@@ -356,6 +360,9 @@ async function fbDmeFlashProgram(opts = {}) {
     );
     success = result.ok;
     fbSetStatus(result.status);
+  } catch (e) {
+    flashLog.outcome('failed');
+    throw e;
   } finally {
     fbFlashingBar(false);
     fbProgress(0);
@@ -439,6 +446,9 @@ async function fbDmeVerifyProgramming() {
   } finally {
     fbFlashingBar(false);
     fbProgress(0);
+    // both signatures checked, or not: said before the identify, whose own
+    // failure is not this session's
+    flashLog.outcome(success ? 'ok' : 'failed');
     if (success) {
       try {
         await fbDmeIdentify(true);

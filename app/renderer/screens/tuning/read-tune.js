@@ -6,9 +6,6 @@
  * programming session is opened and the engine may be running. Tables open
  * in live mode are laid over what was read, so the image is the tune the
  * engine is using, unsaved edits included.
- *
- * The reader for any other module's memory (read-ecu-dialog.js) is one
- * button away in the same dialog.
  */
 /* exported tnOpenReadTune */
 

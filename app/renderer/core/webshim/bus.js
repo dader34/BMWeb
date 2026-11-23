@@ -5,11 +5,6 @@
 /* exported webBus, withBusLock, webBusRawExchange, lockBus, webClaimBus, webBusClaimedBy, webBusOnDisconnect, busShell */
 
 /**
- * Which transport this host can do: the native serial bridge when the macOS
- * shell injects one, else Web Serial. Both drive the same K+DCAN cable.
- * @type {NativeSerialBus|WebSerialBus}
- */
-/**
  * The shell this document is a pane of, when it is one: a same-origin
  * BMWeb that holds the cable -- the Workspace page's frames
  * (screens/workspace.js), or the window that popped a pane out. Its bus
@@ -30,11 +25,12 @@ const busShell = (() => {
   }
   return null;
 })();
-const webBus = busShell
-  ? busShell.webBus
-  : typeof window !== 'undefined' && window.bmweb && window.bmweb.serialOpen
-    ? new NativeSerialBus()
-    : new WebSerialBus();
+/**
+ * The bus: the shell's when this document is a pane, else this page's own
+ * Web Serial transport.
+ * @type {WebSerialBus}
+ */
+const webBus = busShell ? busShell.webBus : new WebSerialBus();
 
 /**
  * The tail of the bus queue: every locked call chains onto it.
@@ -173,7 +169,7 @@ function webBusOnDisconnect(fn) {
  * would leave the next connection thinking INITIALISIERUNG had already run,
  * and reuse shared data from a car that may not even be the same one. ENDE
  * is skipped deliberately -- the wire is already going away.
- * @param {NativeSerialBus|WebSerialBus} bus - The transport to wrap in place.
+ * @param {WebSerialBus} bus - The transport to wrap in place.
  * @param {() => void} onDisconnect - Forgets everything known about the car.
  */
 function lockBus(bus, onDisconnect) {

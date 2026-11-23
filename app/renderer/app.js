@@ -187,7 +187,7 @@ function showSettings() {
   const ver = document.createElement('div');
   ver.className = 'settings-version';
   ver.textContent =
-    `${APP_NAME} ${window.bmweb && window.bmweb.version ? 'v' + window.bmweb.version : window.BMWEB_VERSION ? 'v' + window.BMWEB_VERSION : ''}`.trim();
+    `${APP_NAME} ${window.BMWEB_VERSION ? 'v' + window.BMWEB_VERSION : ''}`.trim();
   view.appendChild(ver);
 
   stagger(wrap, 40);
@@ -622,16 +622,6 @@ function setScreenLayout(v) {
       childList: true,
     });
   }
-  // custom window controls: absent on web and on Win/Linux (their own titlebar), so
-  // guard on the element too -- checking only window.bmweb threw on null and killed boot behind the splash
-  const winClose = document.getElementById('win-close');
-  if (window.bmweb && winClose) {
-    winClose.onclick = () => window.bmweb.winClose();
-    document.getElementById('win-min').onclick = () =>
-      window.bmweb.winMinimize();
-    document.getElementById('win-zoom').onclick = () => window.bmweb.winZoom();
-  }
-
   // the status chip IS the connect control: Web Serial refuses its port picker outside a user gesture, so a click must start it
   if (window.webBus) {
     const chip = document.getElementById('link-status');
@@ -796,7 +786,7 @@ function setScreenLayout(v) {
     const splashStart = Date.now();
     // OFFLINE FOLDER (file:// double-click): resolve the directory handle
     // before the first data read. Restores a remembered folder silently, or
-    // shows a one-time picker. A no-op on http(s) and in the native app.
+    // shows a one-time picker. A no-op on http(s).
     if (typeof initOfflineFs === 'function') {
       splashStatus('opening offline folder');
       try {

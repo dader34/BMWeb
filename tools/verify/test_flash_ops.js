@@ -161,6 +161,7 @@ global.flashLog = {
   attach: (n) => logLines.push(`attach ${n}`),
   trace: () => {},
   job: () => {},
+  outcome: (r) => logLines.push(`outcome ${r}`),
   async stop() {
     logLines.push('stop');
   },
@@ -513,6 +514,20 @@ const {
       logLines.includes('note Result: Flash successful') &&
       logLines[logLines.length - 1] === 'stop'
   );
+  // the owner's History is told how it went by the operation's own result
+  assert.deepStrictEqual(
+    logLines.filter((l) => l.startsWith('outcome ')),
+    ['outcome ok']
+  );
+  // and which module each operation is done to is said once, in one table
+  assert.deepStrictEqual(
+    flashOps.OPS.map((op) => [op, flashOps.module(op)]),
+    flashOps.OPS.map((op) => [op, flashOperations[op].module])
+  );
+  assert.ok(
+    flashOps.OPS.every((op) => /^(DME|GS20)$/.test(flashOps.module(op)))
+  );
+  assert.strictEqual(flashOps.module('toString'), '');
   const again = await flashOperations['tcu-cal'].run(
     flashOps.encode({
       calibration: bytes(0x10000, 5),

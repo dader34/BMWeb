@@ -51,7 +51,7 @@ ctx.globalThis = ctx;
 vm.createContext(ctx);
 require('./load_bestvm.js').loadBestvm(ctx);
 vm.runInContext(
-  fs.readFileSync(path.join(ROOT, 'app/renderer/core/vmbridge.js'), 'utf8'),
+  fs.readFileSync(path.join(__dirname, 'lib', 'vmbridge.js'), 'utf8'),
   ctx
 );
 

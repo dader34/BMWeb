@@ -4,7 +4,7 @@
 
 :root {
   /* the app's roundel, re-rendered in the theme's colours by settings.js
-     (updateDockIcon); every spinner is this logo turning */
+     (updateFavicon); every spinner is this logo turning */
   --app-logo: url('data:image/svg+xml,%3Csvg%20width%3D%22100%22%20height%3D%22100%22%20viewBox%3D%220%200%20100%20100%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%20%3Ccircle%20cx%3D%2250%22%20cy%3D%2250%22%20r%3D%2248%22%20fill%3D%22%2311161c%22%20stroke%3D%22%239aa6b2%22%20stroke-width%3D%223%22%2F%3E%20%3CclipPath%20id%3D%22disc%22%3E%3Ccircle%20cx%3D%2250%22%20cy%3D%2250%22%20r%3D%2231%22%2F%3E%3C%2FclipPath%3E%20%3Cg%20clip-path%3D%22url%28%23disc%29%22%3E%20%3Crect%20x%3D%2219%22%20y%3D%2219%22%20width%3D%2231%22%20height%3D%2231%22%20fill%3D%22%23eef2f5%22%2F%3E%20%3Crect%20x%3D%2250%22%20y%3D%2250%22%20width%3D%2231%22%20height%3D%2231%22%20fill%3D%22%23eef2f5%22%2F%3E%20%3Crect%20x%3D%2250%22%20y%3D%2219%22%20width%3D%2231%22%20height%3D%2231%22%20fill%3D%22%23ff9e2c%22%2F%3E%20%3Crect%20x%3D%2219%22%20y%3D%2250%22%20width%3D%2231%22%20height%3D%2231%22%20fill%3D%22%23ff9e2c%22%2F%3E%20%3C%2Fg%3E%20%3Ccircle%20cx%3D%2250%22%20cy%3D%2250%22%20r%3D%2231%22%20fill%3D%22none%22%20stroke%3D%22%230a0d11%22%20stroke-width%3D%222%22%2F%3E%20%3C%2Fsvg%3E');
   --bg: #0a0d11;
   --panel: #11161c;
@@ -179,74 +179,19 @@ summary,
 /* top bar */
 .topbar {
   height: 56px;
-  -webkit-app-region: drag; /* drag window by topbar */
   display: grid;
-  grid-template-columns: auto auto 1fr auto;
+  /* [brand | breadcrumbs | right]: the breadcrumbs take the slack and the
+     right group stays right. THE PHONE BLOCKS BELOW SET NO COLUMNS OF THEIR
+     OWN: this shape was html.no-chrome .topbar until 2026-11 (the class every
+     host but the retired macOS shell carried), and as that it out-ranked
+     their column rules, which therefore never applied and were removed with
+     the class. */
+  grid-template-columns: auto 1fr auto;
   align-items: center;
   gap: 18px;
   padding: 0 18px 0 14px;
   background: linear-gradient(180deg, #131a22, #0d1217);
   border-bottom: 1px solid var(--line);
-}
-/* Hosts that keep the window's own titlebar -- a browser tab, and the
-   Windows/Linux build -- remove .win-controls, which left the 1fr column on
-   .topbar-right and dragged everything leftward; re-shape the grid so the
-   breadcrumbs take the slack and the right group stays right. Only the macOS
-   app draws its own traffic lights, which is why it alone keeps them. */
-html.no-chrome .topbar {
-  grid-template-columns: auto 1fr auto;
-}
-
-/* custom traffic-light controls (frameless window) */
-.win-controls {
-  -webkit-app-region: no-drag;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.win-dot {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  border: none;
-  padding: 0;
-  cursor: pointer;
-  position: relative;
-  transition: filter 0.12s;
-}
-.win-close {
-  background: #ff5f57;
-}
-.win-min {
-  background: #febc2e;
-}
-.win-zoom {
-  background: #28c840;
-}
-.win-dot:hover {
-  filter: brightness(0.85);
-}
-/* glyphs on hover */
-.win-controls:hover .win-dot::after {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 9px;
-  font-weight: 700;
-  color: rgba(0, 0, 0, 0.55);
-  line-height: 1;
-}
-.win-controls:hover .win-close::after {
-  content: '\00d7';
-}
-.win-controls:hover .win-min::after {
-  content: '\2013';
-}
-.win-controls:hover .win-zoom::after {
-  content: '\2b1a';
-  font-size: 7px;
 }
 .brand {
   display: flex;
@@ -293,7 +238,6 @@ html.no-chrome .topbar {
     var(--panel-2) 0%,
     var(--bg) 70%
   );
-  -webkit-app-region: drag;
   opacity: 1;
   transition: opacity 0.5s ease;
 }
@@ -402,7 +346,6 @@ html.no-chrome .topbar {
   }
 }
 .breadcrumbs {
-  -webkit-app-region: no-drag;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -429,7 +372,6 @@ html.no-chrome .topbar {
 }
 
 .status {
-  -webkit-app-region: no-drag;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -442,7 +384,6 @@ html.no-chrome .topbar {
   background: var(--panel);
 }
 .topbar-right {
-  -webkit-app-region: no-drag;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -452,7 +393,6 @@ html.no-chrome .topbar {
    mobile breakpoint reveals it. */
 .nav-back {
   display: none;
-  -webkit-app-region: no-drag;
   cursor: pointer;
   align-items: center;
   justify-content: center;
@@ -498,22 +438,21 @@ body.apps-section .nav-back:not([hidden]) {
 body.apps-section .nav-back .nav-back-label {
   display: inline;
 }
-/* Revealing nav-back adds a 4th visible cell to the topbar, but the browser
-   build (html.no-chrome) only lays out 3 columns [brand | breadcrumbs | right],
-   so the extra child wrapped and shoved the breadcrumbs off the right edge.
+/* Revealing nav-back adds a 4th visible cell to the topbar, which lays out 3
+   columns [brand | breadcrumbs | right], so the extra child wrapped and
+   shoved the breadcrumbs off the right edge.
    When Back is showing, restore the 4-column shape [back | brand | crumbs | right]
    so the breadcrumbs keep the 1fr slack and topbar-right stays pinned right.
    Only while Back really shows: the home screen is in the Apps section with
    no Back, and four columns over three cells put the right group on the 1fr
    column, flush left. */
-html.no-chrome body.apps-section .topbar:has(.nav-back:not([hidden])) {
+body.apps-section .topbar:has(.nav-back:not([hidden])) {
   grid-template-columns: auto auto 1fr auto;
 }
 /* the top-right nav action mirrors nav-back: desktop hides it (the F-key bar
    carries the action there); the mobile block shows it. */
 .nav-action {
   display: none;
-  -webkit-app-region: no-drag;
   cursor: pointer;
   align-items: center;
   justify-content: center;
@@ -538,7 +477,6 @@ html.no-chrome body.apps-section .topbar:has(.nav-back:not([hidden])) {
    already shows every action; the mobile block reveals it */
 .nav-fn {
   display: none;
-  -webkit-app-region: no-drag;
   cursor: pointer;
 }
 .nav-fn[hidden] {
@@ -585,7 +523,6 @@ html.no-chrome body.apps-section .topbar:has(.nav-back:not([hidden])) {
   display: none !important;
 }
 .icon-btn {
-  -webkit-app-region: no-drag;
   cursor: pointer;
   font-family: var(--mono);
   font-size: 10px;
@@ -610,7 +547,6 @@ html.no-chrome body.apps-section .topbar:has(.nav-back:not([hidden])) {
    drawn like the bar's buttons. Phones are always modern (inpaMode), so it
    is not offered there. */
 .layout-toggle {
-  -webkit-app-region: no-drag;
   display: inline-flex;
   border: 1px solid var(--line);
   border-radius: 4px;
@@ -1029,7 +965,6 @@ body.fb-screen-on .layout-toggle {
 .ecu-card {
   position: relative;
   cursor: pointer;
-  -webkit-app-region: no-drag;
   display: flex;
   flex-direction: column;
   gap: 5px;
@@ -1076,7 +1011,6 @@ body.fb-screen-on .layout-toggle {
   flex-wrap: wrap;
 }
 .btn {
-  -webkit-app-region: no-drag;
   cursor: pointer;
   font-family: var(--display);
   font-weight: 700;
@@ -1292,7 +1226,6 @@ body.fb-screen-on .layout-toggle {
   align-items: center;
 }
 .quick-clear-all {
-  -webkit-app-region: no-drag;
   cursor: pointer;
   font-family: var(--mono);
   font-size: 11.5px;
@@ -1312,7 +1245,6 @@ body.fb-screen-on .layout-toggle {
   cursor: default;
 }
 .quick-pdf {
-  -webkit-app-region: no-drag;
   cursor: pointer;
   font-family: var(--mono);
   font-size: 11.5px;
@@ -1381,7 +1313,6 @@ body.fb-screen-on .layout-toggle {
   gap: 8px;
 }
 .quick-clear {
-  -webkit-app-region: no-drag;
   cursor: pointer;
   font-family: var(--mono);
   font-size: 10.5px;
@@ -1574,7 +1505,6 @@ body.fb-screen-on .layout-toggle {
   display: none !important;
 }
 .sys-item {
-  -webkit-app-region: no-drag;
   cursor: pointer;
   text-align: left;
   display: flex;
@@ -2978,7 +2908,6 @@ select.modal-input {
   line-height: 15px;
 }
 .fkey {
-  -webkit-app-region: no-drag;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -3133,89 +3062,6 @@ select.modal-input {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-}
-
-/* "How it works" guided explainer (centered card, stepped slides) */
-.hiw-card {
-  position: relative;
-  width: min(560px, 92vw);
-  background: var(--panel);
-  border: 1px solid var(--line-bright);
-  border-radius: 12px;
-  padding: 30px 30px 20px;
-  box-shadow: var(--shadow);
-  text-align: center;
-}
-.hiw-close {
-  position: absolute;
-  top: 14px;
-  right: 14px;
-  -webkit-app-region: no-drag;
-  cursor: pointer;
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  border: 1px solid var(--line);
-  background: transparent;
-  color: var(--ink-dim);
-  font-size: 12px;
-}
-.hiw-close:hover {
-  color: var(--ink);
-  border-color: var(--ink-faint);
-}
-.hiw-icon {
-  font-size: 40px;
-  line-height: 1;
-  margin-bottom: 14px;
-}
-.hiw-title {
-  font-size: 20px;
-  font-weight: 800;
-  color: var(--ink);
-  margin-bottom: 12px;
-}
-.hiw-body {
-  font-size: 14px;
-  line-height: 1.6;
-  color: var(--ink-dim);
-  max-width: 460px;
-  margin: 0 auto 22px;
-  text-align: left;
-}
-.hiw-foot {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-.hiw-dots {
-  display: flex;
-  gap: 6px;
-  justify-content: center;
-}
-.hiw-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--line-bright);
-  -webkit-app-region: no-drag;
-  cursor: pointer;
-}
-.hiw-dot.active {
-  background: var(--amber);
-}
-.hiw-btns {
-  display: flex;
-  gap: 8px;
-  justify-content: center;
-}
-.hiw-btns .btn {
-  padding: 8px 20px;
-  font-size: 13px;
-}
-.hiw-btns .hiw-back:disabled {
-  opacity: 0.4;
-  cursor: default;
 }
 
 /* whole-vehicle fault scan entry at the foot of the system rail */
@@ -3380,7 +3226,6 @@ body.apps-section .view {
     height: calc(50px + var(--safe-top));
     padding: var(--safe-top) calc(6px + var(--safe-right)) 0
       calc(6px + var(--safe-left));
-    grid-template-columns: auto auto 1fr;
     gap: 6px;
     align-items: center;
   }
@@ -3389,9 +3234,6 @@ body.apps-section .view {
      phone -- the logo already says which app this is -- and dropping it
      when the arrow appears keeps the status cluster from being squeezed. */
   .topbar:has(.nav-back:not([hidden])) .brand-name {
-    display: none;
-  }
-  .win-controls {
     display: none;
   }
   .breadcrumbs {
@@ -3942,7 +3784,6 @@ body.apps-section .view {
     height: calc(var(--nav-h) + var(--safe-top));
     padding: var(--safe-top) calc(12px + var(--safe-right)) 0
       calc(8px + var(--safe-left));
-    grid-template-columns: 1fr auto 1fr;
     gap: 8px;
     background: var(--ios-bar-bg);
     backdrop-filter: saturate(1.6) blur(22px);
@@ -4005,8 +3846,7 @@ body.apps-section .view {
     font-weight: 600;
     letter-spacing: -0.01em;
   }
-  .breadcrumbs,
-  .win-controls {
+  .breadcrumbs {
     display: none;
   }
 

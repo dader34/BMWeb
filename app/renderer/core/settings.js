@@ -2,16 +2,16 @@
  * @file Persistent settings, the API base, and the skin (theme) machinery.
  *
  * First piece of the core: everything here is read by the pieces that follow
- * (ui.js, api.js, ...) and by every screen. `IS_WEB` and `APP_NAME` are
- * declared inline in index.html so the name lands before first paint.
+ * (ui.js, api.js, ...) and by every screen. `APP_NAME` is declared inline in
+ * index.html so the name lands before first paint.
  */
 
 /* exported API, THEMES, DEFAULT_THEME, itemLabel */
 
 /**
- * Base URL of the diagnostic engine. The native shell runs a local sidecar;
- * the web build's fetch shim answers the same routes in-page, so the value is
- * only a prefix. `?api=` on the page URL overrides it for development.
+ * Base URL of the diagnostic engine. The fetch shim (core/webshim) answers
+ * its routes in the page, so the value is only a prefix. `?api=` on the page
+ * URL overrides it for development.
  * @type {string}
  */
 const API =
@@ -35,21 +35,17 @@ const API =
  */
 
 /**
- * Durable key/value settings. localStorage alone resets every launch in the
- * native shell (ephemeral port, origin-scoped), so the shell injects the
- * durable copy at document start and is handed every write.
+ * Durable key/value settings, kept in localStorage.
  */
 const Settings = {
   /** @type {AppSettings & Object<string, any>} */
   // bmacw.settings is the key before the rename: read once, so nobody's
   // settings reset; every write goes to the new key
-  data:
-    (typeof window !== 'undefined' && window.__bmwebSettings) ||
-    JSON.parse(
-      localStorage.getItem('bmweb.settings') ||
-        localStorage.getItem('bmacw.settings') ||
-        '{}'
-    ),
+  data: JSON.parse(
+    localStorage.getItem('bmweb.settings') ||
+      localStorage.getItem('bmacw.settings') ||
+      '{}'
+  ),
 
   /**
    * Read one setting.
@@ -63,8 +59,7 @@ const Settings = {
   },
 
   /**
-   * Write one setting and persist the whole map (localStorage plus the native
-   * shell's durable store when present).
+   * Write one setting and persist the whole map.
    * @param {string} key - Setting name.
    * @param {any} val - New value.
    * @returns {void}
@@ -73,8 +68,6 @@ const Settings = {
     this.data[key] = val;
     const json = JSON.stringify(this.data);
     localStorage.setItem('bmweb.settings', json);
-    if (window.bmweb && window.bmweb.saveSettings)
-      window.bmweb.saveSettings(json);
   },
 };
 
@@ -100,12 +93,12 @@ const LOGO_PNG_SIZE = 256;
 /**
  * The cursor logo's edge, in CSS pixels. Browsers refuse a cursor image
  * wider than 128px, and a pointer has to stay small enough to see past, so
- * this is drawn separately from the 256px dock icon rather than scaled down.
+ * this is drawn separately from the 256px favicon rather than scaled down.
  */
 const LOGO_CURSOR_SIZE = 28;
 /** Delay before re-rendering the logo after a theme swap, so the new colours have applied. */
-const DOCK_ICON_REPAINT_MS = 100;
-/** Window translucency under the aero skin (a CSS custom property). */
+const LOGO_REPAINT_MS = 100;
+/** Panel translucency under the aero skin (a CSS custom property). */
 const AERO_OPACITY = '0.82';
 
 /**
@@ -126,14 +119,10 @@ function applyTheme(id) {
   } catch {
     /* bar not built yet */
   }
-  // aero only: frameless + transparent window
-  if (window.bmweb && window.bmweb.setTranslucent) {
-    window.bmweb.setTranslucent(id === 'aero');
-  }
   applyAeroOpacity();
-  setTimeout(updateDockIcon, DOCK_ICON_REPAINT_MS);
+  setTimeout(updateFavicon, LOGO_REPAINT_MS);
   // the pointer wears the same logo, so it is redrawn in the new colours too
-  setTimeout(applyCursor, DOCK_ICON_REPAINT_MS);
+  setTimeout(applyCursor, LOGO_REPAINT_MS);
 }
 
 /**
@@ -218,13 +207,11 @@ function logoSvg(size) {
 }
 
 /**
- * Render the logo SVG to a PNG in the current theme's colours and hand it to
- * the dock (native shell) or the favicon (web).
+ * Render the logo SVG to a PNG in the current theme's colours and make it
+ * the favicon.
  * @returns {void}
  */
-function updateDockIcon() {
-  const dock = window.bmweb && window.bmweb.setDockIcon;
-  if (!dock && !IS_WEB) return;
+function updateFavicon() {
   const resolvedSvg = logoSvg(LOGO_PNG_SIZE);
 
   // the spinners are this logo turning (styles.css --app-logo)
@@ -246,8 +233,7 @@ function updateDockIcon() {
     const ctx = canvas.getContext('2d');
     ctx.drawImage(img, 0, 0);
     const dataUrl = canvas.toDataURL('image/png');
-    if (dock) window.bmweb.setDockIcon(dataUrl).catch(console.error);
-    else setFavicon(dataUrl);
+    setFavicon(dataUrl);
     URL.revokeObjectURL(url);
   };
   img.onerror = (e) => {

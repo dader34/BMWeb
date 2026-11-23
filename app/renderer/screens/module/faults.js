@@ -3,7 +3,7 @@
  * projection every fault view and report draws from, the two fault views
  * (INPA-style and modern card), and the freeze-frame environment blocks.
  *
- * German->English tables and the bmwCode/pCode/phraseText/envLabel helpers
+ * German->English tables and the bmwCode/phraseText/envLabel helpers
  * live in core/translate.js (loaded before this file).
  */
 
@@ -96,11 +96,13 @@ function scopedFaultDb(sgbd) {
  * @param {string|null|undefined} loc - F_ORT_TEXT.
  * @param {string} hex - The raw fault word as dashed hex.
  * @param {string|null|undefined} sgbd - The SGBD, for the scoped map.
+ * @param {string|number|null} [nr] - F_ORT_NR, which says whether the code
+ *   the text leads with is this fault's (translate.js bmwCode).
  * @returns {string} The name, "CODE Name" where the DB knows it.
  */
-function faultName(loc, hex, sgbd) {
+function faultName(loc, hex, sgbd, nr) {
   if (lang() === 'orig') return loc || '';
-  const code = bmwCode(loc, hex);
+  const code = bmwCode(loc, hex, nr);
   const own = scopedFaultDb(sgbd);
   if (code && own && own[code]) return `${code} ${own[code]}`;
   const db = (typeof window !== 'undefined' && window.BMW_FAULT_DB) || {};
@@ -147,10 +149,10 @@ function faultTypeText(c) {
  */
 function faultFields(c, sgbd) {
   const hex = hexText(c.F_HEX_CODE);
-  // a real 4-hex DTC only when the fault TEXT leads with one ("27DA
+  // a real 4-hex DTC only when the fault TEXT leads with its own ("27DA
   // BSD-Generator"). NOT bmwCode's hex fallback -- that would surface the full
   // F_HEX_CODE and defeat the location-byte preference below.
-  const textCode = bmwCode(c.F_ORT_TEXT, '');
+  const textCode = bmwTextCode(c.F_ORT_TEXT, c.F_HEX_CODE, c.F_ORT_NR);
   const pstr = c.F_PCODE_STRING || c.F_PCODE7_STRING || '';
   const vt = String(c.F_VORHANDEN_TEXT || '').toLowerCase();
   const present =
@@ -158,8 +160,10 @@ function faultFields(c, sgbd) {
   const ortFull = ortNrFull(c.F_ORT_NR);
   const own = scopedFaultDb(sgbd);
   const flat = (typeof window !== 'undefined' && window.BMW_FAULT_DB) || {};
-  const knownFull =
-    ortFull && ((own && own[ortFull]) || (!own && flat[ortFull]));
+  // A module with a codespace of its own reports 16-bit CODES: a number it
+  // has no name for is still one (a fault the SGBD cannot word, 1F27 under
+  // "FFFF unbekannter Fehlerort"), not a location and a detail byte.
+  const knownFull = ortFull && (own ? true : !!flat[ortFull]);
   const ortNr = knownFull ? ortFull : ortNrCode(c.F_ORT_NR);
   // fault type (static vs sporadic) + occurrence counter (F_HFK, falling back to
   // the logistic counter)
@@ -189,7 +193,7 @@ function faultFields(c, sgbd) {
     pcode: pcode !== code ? pcode : '',
     name: worded
       ? String(c.F_ORT_TEXT || '')
-      : faultName(c.F_ORT_TEXT, hex, sgbd),
+      : faultName(c.F_ORT_TEXT, hex, sgbd, c.F_ORT_NR),
     present,
     ftype,
     count,
@@ -276,7 +280,7 @@ function renderFaultsInpa(codes, container, ecu) {
   const blocks = faults
     .map((c, i) => {
       const hex = hexText(c.F_HEX_CODE);
-      const code = bmwCode(c.F_ORT_TEXT, hex);
+      const code = bmwCode(c.F_ORT_TEXT, hex, c.F_ORT_NR);
       // P-code from the ECU's own detailed read only -- no local hex->P mapping.
       const pstr = c.F_PCODE_STRING || c.F_PCODE7_STRING || '';
       const ptext = phraseText(c.F_PCODE_TEXT || c.F_PCODE7_TEXT || '');
@@ -308,7 +312,7 @@ function renderFaultsInpa(codes, container, ecu) {
         <div class="inpa-fault-head">
           <span class="inpa-fault-idx">Error: ${i + 1}(${total})</span>
           <span class="inpa-fault-nr">Nr: ${esc(c.F_ORT_NR || '-')}</span>
-          <span class="inpa-fault-name">${esc(faultName(c.F_ORT_TEXT, hexText(c.F_HEX_CODE), ecu && ecu.sgbd) || 'Unknown')}</span>
+          <span class="inpa-fault-name">${esc(faultName(c.F_ORT_TEXT, hexText(c.F_HEX_CODE), ecu && ecu.sgbd, c.F_ORT_NR) || 'Unknown')}</span>
           ${present ? '<span class="inpa-fault-present">PRESENT</span>' : ''}
           ${freq ? `<span class="inpa-fault-freq">frequency: ${esc(freq)}</span>` : ''}
         </div>

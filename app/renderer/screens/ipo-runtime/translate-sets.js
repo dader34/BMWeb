@@ -54,7 +54,9 @@ function ipoLocationText(set, text, sgbd) {
   if (!own && !flat) return text;
   const codes = [];
   const led =
-    typeof bmwCode === 'function' ? bmwCode(text, set.F_HEX_CODE) : null;
+    typeof bmwCode === 'function'
+      ? bmwCode(text, set.F_HEX_CODE, set.F_ORT_NR)
+      : null;
   if (led) codes.push({ code: led, flatOk: true });
   const full = typeof ortNrFull === 'function' ? ortNrFull(set.F_ORT_NR) : null;
   if (full) codes.push({ code: full, flatOk: !own });

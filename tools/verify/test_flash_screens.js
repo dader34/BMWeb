@@ -88,7 +88,13 @@ function scope(extra = {}) {
     fbProgress: () => {},
     fbLog: () => {},
     fbDescribeError: (e) => (e && e.message) || String(e),
-    flashLog: { note: () => {}, attach: () => {}, trace: () => {} },
+    flashLog: {
+      note: () => {},
+      attach: () => {},
+      trace: () => {},
+      // how the flow says the session went (History's result)
+      outcome: (r) => ctx.calls.push(['outcome', r]),
+    },
     fbSessionStart: rec('session-start'),
     fbSessionStop: rec('session-stop'),
     fbConfirm: rec('confirm', true),
@@ -157,6 +163,11 @@ function scope(extra = {}) {
     );
     assert.ok(names.includes('session-stop'), 'the session is closed');
     assert.deepStrictEqual(c.statuses, ['Cancelled: nothing was written']);
+    assert.deepStrictEqual(
+      c.calls.filter((x) => x[0] === 'outcome'),
+      [['outcome', 'cancelled']],
+      'and History is told it was cancelled, not left to read the words'
+    );
     ok(
       'a write declined at the map switch warning: no identify, no fault clear, the words of a cancelled write'
     );
@@ -172,6 +183,11 @@ function scope(extra = {}) {
     await assert.rejects(
       vm.runInContext('fbDmeFlashTune()', c),
       /the cable went away/
+    );
+    assert.deepStrictEqual(
+      c.calls.filter((x) => x[0] === 'outcome'),
+      [['outcome', 'failed']],
+      'a flash that threw is recorded as failed'
     );
     const names = c.calls.map((x) => x[0]);
     assert.ok(

@@ -46,6 +46,11 @@
 # ipo_actions.py (its _actions.json was never written, let alone read),
 # ipo_grid.py (no output on disk, no importer -- live.js only mentioned it in
 # a comment describing the grid format).
+# Removed 2026-11-21, the same way: ipo_recognize.py, ipo_status.py,
+# ipo_rootmenu.py and ipo_layout.py -- the first, inference-by-recognition
+# pass over the .IPO files (1,073 lines). Nothing imported them and nothing
+# read the _recognized/_status/_rootmenus/_submenus.json they wrote; the IR
+# is built by executing the scripts (ir_build) and has been since 2026-09.
 cd "$(dirname "$0")/.."
 
 # Every check runs, and the failures are listed together at the end: a run
@@ -115,6 +120,7 @@ run node tools/verify/test_fast_flasher.js
 run node tools/verify/test_trigger.js
 run node tools/verify/test_aif_log_wire.js
 run node tools/verify/test_flash_screens.js
+run node tools/verify/test_flash_history.js
 
 echo
 echo "== GS20 calibration engine: checksum pinned, write sequence, rails, baud change =="
@@ -206,6 +212,7 @@ echo "== whole-vehicle sweep plans every chassis from its own config =="
 run node tools/verify/test_sweep.js
 run node tools/verify/test_fault_read_arg.js
 run node tools/verify/test_report_noise.js
+run node tools/verify/test_fault_code.js
 
 echo
 echo "== export ships every variant a group can identify, not just the menu =="
@@ -252,18 +259,11 @@ run node tools/verify/test_coding_ui_flow.js
 echo
 echo "== BMWeb Coding (NCS): FSW_PSW.TRC/.MAN round trip, edits, warnings =="
 run node tools/verify/test_ncs.js
+run node tools/verify/test_coding_labels.js
 
 echo
 echo "== ZCS_SCHREIBEN / ZCS_LOESCHEN: BMW's cluster script writes the key (and only it) =="
 run node tools/verify/test_ncs_zcs.js
-
-echo
-echo "== ECU memory read: region units (word vs byte), chunking, refused reads =="
-run node tools/verify/test_tuning_memory.js
-
-echo
-echo "== ECU read dialog: count/range comments, profile regions, status origin, identify =="
-run node tools/verify/test_tuning_read.js
 
 echo
 echo "== Web Serial read: a timed-out read is resumed, not orphaned (echo loss) =="
@@ -357,6 +357,10 @@ run node tools/verify/test_remote.js
 echo
 echo "== beta journal: VINs scrubbed, ring bounded, report shape =="
 run node tools/verify/test_journal.js
+
+echo
+echo "== what a failure is called: each message the app throws gets the explanation that fits =="
+run node tools/verify/test_errors.js
 
 echo
 echo "== fault-report PDF: one fixed column grid, both render paths agree =="
