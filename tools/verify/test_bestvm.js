@@ -28,7 +28,10 @@ const { Best2Vm, VmError } = loadBestvm(vmCtx);
 const fixPath = path.join(ROOT, 'data/sim-captures/vmfix.json');
 if (!fs.existsSync(fixPath)) {
   console.error('missing ' + path.relative(ROOT, fixPath));
-  console.error('restore it from git (the engine that produced it is gone)');
+  console.error(
+    'fetch it: python3 scripts/setup/fetch_repo_data.py ' +
+      '(the engine that produced it is gone, so it cannot be regenerated)'
+  );
   process.exit(2);
 }
 const fix = JSON.parse(fs.readFileSync(fixPath, 'utf8'));

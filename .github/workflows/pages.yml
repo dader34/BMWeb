@@ -9,7 +9,8 @@
 # this is not a fast job -- most of the time is the artifact upload, not the
 # build (the export itself is ~20s).
 #
-# SPEED. Three things take the job from ~3.5 min to under 2: the wiring
+# SPEED. Three things keep the job short (it was ~3.5 min; the whole test
+# suite, run in parallel, adds about one): the wiring
 # archives are fetched in the background from the first step (they depend on
 # nothing before them and nothing needs them until the end); the fetched
 # wiring set is cached by the dataset's revision; and the exported API tree
@@ -36,9 +37,12 @@ on:
       - 'scripts/setup/repo-data.sha256'
       - 'scripts/setup/fetch_repo_data.py'
       - 'tools/export/**'
+      - 'tools/check.sh'   # what gates the deploy
       - 'tools/sgbd/ecu_tree.py'
       - 'scripts/build/build-web.sh'
       - 'scripts/build/bundle-renderer.mjs'
+      - 'scripts/build/bundle-index.mjs'
+      - 'scripts/build/stamp-shell.mjs'
       - 'scripts/build/chunks.json'
       - 'scripts/build/ci-fetch-hf-data.sh'
       - 'scripts/build/fetch_wiring.py'
@@ -152,28 +156,20 @@ jobs:
           npm run lint
           npm run format:check
           npm run typecheck
-          # the deployed bundle loads Flashing/Tuning & Logging on demand:
-          # nothing else may reach into it but through its entries
-          node tools/verify/test_chunks.js
 
-      # NO DEPLOY OF UNTESTED CODE. These are the verify tests whose inputs
-      # are all fetched above (plus the data/chassis tree assembled there): the VM
-      # against captured telegrams, the wire framing, the VM bridge, the live .IPO
-      # runtime and its captions, and -- critically -- the safety write-guard and its gate,
-      # which keep an unrecognised job from ever reaching the car. They need no
-      # app, no vendor tree and no cable.
-      - name: Run the verify tests
-        run: |
-          set -euo pipefail
-          node tools/verify/test_bestvm.js
-          node tools/verify/test_transport.js
-          node tools/verify/test_vmbridge.js
-          node tools/verify/test_ir_i18n.js
-          node tools/verify/test_writeguard.js
-          node tools/verify/test_write_gate.js
-          node tools/verify/test_ipo_runtime.js
-          node tools/verify/test_flasher.js
-          node tools/verify/test_global_collisions.js
+      # NO DEPLOY OF UNTESTED CODE. The whole suite (tools/check.sh, about a
+      # minute), not a list: this step ran nine tests picked by hand for
+      # months, and a test nobody runs is a test nobody keeps -- two had gone
+      # stale and seventeen were in no list at all. Every check runs on what
+      # is fetched and assembled above; the few that read BMW's originals,
+      # which no runner has, are skipped and listed at the end of the log
+      # (`needs` in check.sh), so a skip is said, never silent. Among what
+      # runs: the VM against captured telegrams, the wire framing, the
+      # coding write path against BMW's own scripts, the flashing engine,
+      # and the write guard that keeps an unrecognised job from reaching the
+      # car.
+      - name: Run the tests
+        run: npm test
 
       - name: Export the API tree
         if: steps.export-cache.outputs.cache-hit != 'true'
@@ -203,29 +199,21 @@ jobs:
           # both hosts need it.
           test -s dist-web/index.html
           grep -q 'core/webshim/' dist-web/index.html
-          # Version stamp, exactly as build-web.sh does it. This step calls
-          # the exporter directly and skipped the stamp, so the deployed app
-          # had no BMWEB_VERSION and every beta report said app "dev".
-          VERSION=$(node -p "require('./package.json').version")
-          test -n "$VERSION"
-          printf 'window.BMWEB_VERSION="%s";\n' "$VERSION" > dist-web/version.js
-          sed -i 's#<head>#<head>\n  <script src="version.js"></script>#' dist-web/index.html
+          # The version stamp, the scripts bundled into one dist-web/bundle.js
+          # (minified with a .map; the Flashing/Tuning & Logging and Scanner
+          # parts split out and loaded when first opened -- scripts/build/
+          # chunks.json, which tools/verify/test_chunks.js holds the code to),
+          # index.html collapsed to that one tag, and the worker's shell cache
+          # named after this commit, so each release drops the last one's
+          # cached shell. scripts/build/stamp-shell.mjs does this for every
+          # build; written out here it once skipped the version, and every
+          # beta report said app "dev".
+          node scripts/build/stamp-shell.mjs dist-web --minify --split \
+            --sw-cache "bmweb-shell-${GITHUB_SHA::8}"
           grep -q version.js dist-web/index.html
-          echo "version: $VERSION"
-          # Bundle the ~50 renderer scripts into one dist-web/bundle.js and
-          # collapse index.html to a single tag (the dev source keeps its
-          # individual tags). One request instead of fifty on the deployed site.
-          # Minified (with a .map), and the Flashing/Tuning & Logging part
-          # split out, loaded when that app first opens (scripts/build/
-          # chunks.json; tools/verify/test_chunks.js holds the code to it).
-          node scripts/build/bundle-renderer.mjs dist-web dist-web/bundle.js --minify --split
           test -s dist-web/bundle-flashing.js
           test -s dist-web/bundle.js.map
-          node scripts/build/bundle-index.mjs dist-web/index.html
           grep -q bundle.js dist-web/index.html
-          # Name the worker's shell cache after this commit: each release
-          # drops the previous release's cached shell.
-          sed -i "s/const SHELL_CACHE = '[^']*'/const SHELL_CACHE = 'bmweb-shell-${GITHUB_SHA::8}'/" dist-web/sw.js
           grep -q "bmweb-shell-${GITHUB_SHA::8}" dist-web/sw.js
           # A build that exported nothing must FAIL here, not deploy a shell
           # of a site: an earlier run shipped 63 files and looked green, and a

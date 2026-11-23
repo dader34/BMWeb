@@ -60,24 +60,14 @@ fi
 # the in-page exporter is what THIS replaces
 rm -f dist-web/core/offline-export.js
 
-# one version source: package.json. Settings and OFFLINE-README both read it.
+# The version stamp (package.json is the one source; Settings and
+# OFFLINE-README both read it), the renderer scripts bundled into one
+# dist-web/bundle.js in index.html load order, and dist-web/index.html
+# collapsed to that single tag -- one request instead of hundreds. The
+# individual source files are left in the tree (the SW may still hold them
+# from a prior version and offline zips copy the whole dir), but the page no
+# longer requests them. scripts/build/stamp-shell.mjs is the one copy of
+# these steps.
+node scripts/build/stamp-shell.mjs dist-web
 VERSION=$(node -p "require('./package.json').version")
-test -n "$VERSION"
-printf 'window.BMWEB_VERSION=%s;\n' "\"${VERSION}\"" > dist-web/version.js
-grep -q 'version.js' dist-web/index.html \
-  || sed -i.bak 's#<head>#<head>\n  <script src="version.js"></script>#' dist-web/index.html
-rm -f dist-web/index.html.bak
-test -s dist-web/index.html
-
-# Bundle the ~50 renderer scripts into one dist-web/bundle.js (in index.html
-# load order) and collapse dist-web/index.html to a single <script> tag. The
-# dev source keeps its individual tags; only the shipped copy is bundled, so
-# the page makes one request instead of fifty. Order is read from index.html,
-# so the two can't drift.
-node scripts/build/bundle-renderer.mjs dist-web dist-web/bundle.js
-node scripts/build/bundle-index.mjs dist-web/index.html
-# index.html now loads only bundle.js. The individual source files are left in
-# the tree (the SW may still hold them from a prior version and offline zips
-# copy the whole dir), but the page no longer requests them.
-grep -q 'bundle.js' dist-web/index.html
 echo "dist-web ${VERSION}: $(du -sh dist-web | cut -f1)"

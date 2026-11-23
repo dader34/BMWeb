@@ -101,7 +101,7 @@ async function main() {
   );
   const need = [
     'data/ecu-src/c_lsza.job-code.json.gz',
-    'app/renderer/data/coding-dispatch/c_lsza.json',
+    'data/coding-dispatch/c_lsza.json',
     'app/renderer/data/daten/E46.json',
   ];
   const missing = need.filter((f) => !fs.existsSync(path.join(ROOT, f)));
@@ -120,10 +120,7 @@ async function main() {
   const code = gz('c_lsza.job-code.json.gz');
   const tables = gz('c_lsza.tables.json.gz');
   const dispatch = JSON.parse(
-    fs.readFileSync(
-      path.join(ROOT, 'app/renderer/data/coding-dispatch/c_lsza.json'),
-      'utf8'
-    )
+    fs.readFileSync(path.join(ROOT, 'data/coding-dispatch/c_lsza.json'), 'utf8')
   );
   // the coding file under NCS's own name (daten_files.py)
   const map = JSON.parse(
@@ -316,7 +313,7 @@ async function vinRequired() {
   console.log('\na script that writes the VIN, with none known');
   const need = [
     'data/ecu-src/c_ihk.job-code.json.gz',
-    'app/renderer/data/coding-dispatch/a_ihk46.json',
+    'data/coding-dispatch/a_ihk46.json',
   ];
   if (need.some((f) => !fs.existsSync(path.join(ROOT, f)))) {
     console.log('  skip  generated data not on disk');
@@ -333,7 +330,7 @@ async function vinRequired() {
   const code = gz('c_ihk.job-code.json.gz');
   const dispatch = JSON.parse(
     fs.readFileSync(
-      path.join(ROOT, 'app/renderer/data/coding-dispatch/a_ihk46.json'),
+      path.join(ROOT, 'data/coding-dispatch/a_ihk46.json'),
       'utf8'
     )
   );
@@ -393,7 +390,7 @@ async function gm5() {
   console.log('\nthe body module (GM5 C05) through ZKE5_S12 and A_GM5');
   const need = [
     'data/ecu-src/zke5_s12.job-code.json.gz',
-    'app/renderer/data/coding-dispatch/c_gm5.json',
+    'data/coding-dispatch/c_gm5.json',
   ];
   if (need.some((f) => !fs.existsSync(path.join(ROOT, f)))) {
     console.log('  skip  generated data not on disk');
@@ -410,10 +407,7 @@ async function gm5() {
   const code = gz('zke5_s12.job-code.json.gz');
   const tables = gz('zke5_s12.tables.json.gz');
   const dispatch = JSON.parse(
-    fs.readFileSync(
-      path.join(ROOT, 'app/renderer/data/coding-dispatch/c_gm5.json'),
-      'utf8'
-    )
+    fs.readFileSync(path.join(ROOT, 'data/coding-dispatch/c_gm5.json'), 'utf8')
   );
   const map = JSON.parse(
     fs.readFileSync(path.join(ROOT, 'app/renderer/data/daten/E46.json'), 'utf8')

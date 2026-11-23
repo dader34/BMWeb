@@ -29,7 +29,9 @@ const ROOT = path.join(__dirname, '..', '..');
 const R = path.join(ROOT, 'app/renderer');
 const CD = require(path.join(R, 'core/coding/dispatch.js'));
 const W = require(path.join(R, 'core/coding/write.js'));
-const DIR = path.join(R, 'data/coding-dispatch');
+// the repository's own copy (the fetch puts it there; a build lays it
+// beside the page)
+const DIR = path.join(ROOT, 'data/coding-dispatch');
 
 let failures = 0;
 let passed = 0;

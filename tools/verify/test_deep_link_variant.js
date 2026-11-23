@@ -17,6 +17,7 @@ const fs = require('fs');
 const path = require('path');
 const zlib = require('zlib');
 const { irDeclaresSgbd } = require('../../app/renderer/screens/module/ir.js');
+const T = require('./ecu_tree.js');
 const ROOT = path.join(__dirname, '..', '..');
 let passed = 0;
 const ok = (m) => {
@@ -31,15 +32,12 @@ const rows = (cfg.sections || []).flatMap((s) =>
   (s.ecus || []).map((e) => ({ ...e, _sec: s.name }))
 );
 
-// a row's INPA script, as /api/ecu/<sgbd>/ipoexec serves it
+// a row's INPA script, as /api/ecu/<sgbd>/ipoexec serves it (the tree's
+// folder is spelled as INPA spells the ECU: found by any case)
 const exec = (sgbd) => {
-  const p = path.join(
-    ROOT,
-    'data/chassis/E46',
-    String(sgbd).toLowerCase(),
-    'ipoexec.json.gz'
-  );
-  return fs.existsSync(p)
+  const dir = T.ecuFolder('E46', sgbd);
+  const p = dir && path.join(dir, 'ipoexec.json.gz');
+  return p && fs.existsSync(p)
     ? JSON.parse(zlib.gunzipSync(fs.readFileSync(p)))
     : null;
 };
@@ -72,7 +70,7 @@ function resolve(want, rec) {
   // the real record, as /api/ecu/me9k_ng4/ecu serves it
   const rec = JSON.parse(
     fs.readFileSync(
-      path.join(ROOT, 'data/chassis/E46/me9k_ng4/ecu.json'),
+      path.join(T.ecuFolder('E46', 'me9k_ng4'), 'ecu.json'),
       'utf8'
     )
   );
@@ -87,12 +85,20 @@ function resolve(want, rec) {
   assert.ok(onAddr.length > 1, 'the engine address really is shared');
   const hit = resolve('me9k_ng4', rec);
   assert.ok(hit, 'the link still resolves to a row');
-  // its named parent is DDE40, a real row -- the diesel. The script that
-  // declares it wins over that name.
-  assert.strictEqual(
-    String(rec.identifiedVariantOf).toUpperCase(),
-    'DDE40',
-    'the record names the diesel row it was discovered under'
+  // Its named parent is a real row on that address and NOT the ME9's: a
+  // diesel (DDE40 in one build of the tree, DDE30 in another -- which one is
+  // the generator's first-met, as said above, so the name is not pinned
+  // here; pinning DDE40 failed on every tree built from the published data).
+  // The script that declares it wins over that name.
+  const parent = String(rec.identifiedVariantOf).toUpperCase();
+  assert.ok(
+    onAddr.some((e) => String(e.code).toUpperCase() === parent),
+    `the record names a row of its address (${parent})`
+  );
+  assert.notStrictEqual(
+    parent,
+    'ME9_4N',
+    'the trap is gone: the record names the ME9 row itself'
   );
   assert.strictEqual(
     hit.code,
@@ -100,15 +106,16 @@ function resolve(want, rec) {
     'it opens on the ME9 row, whose script declares ME9K_NG4'
   );
   ok('a variant opens on the row whose INPA script declares it');
+  const named = onAddr.find((e) => String(e.code).toUpperCase() === parent);
   assert.ok(
-    !irDeclaresSgbd(exec('dde40kw0'), 'me9k_ng4'),
-    "the diesel's script does not declare it"
+    !irDeclaresSgbd(exec(named.sgbd), 'me9k_ng4'),
+    "the named row's script does not declare it"
   );
 }
 {
   // GS20: the named parent IS a row, so it wins outright
   const rec = JSON.parse(
-    fs.readFileSync(path.join(ROOT, 'data/chassis/E46/gs20/ecu.json'), 'utf8')
+    fs.readFileSync(path.join(T.ecuFolder('E46', 'gs20'), 'ecu.json'), 'utf8')
   );
   const hit = resolve('gs20', rec);
   assert.ok(hit, 'gs20 resolves');

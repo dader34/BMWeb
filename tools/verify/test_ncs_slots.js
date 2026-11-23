@@ -64,9 +64,13 @@ page.loadDatenMap = async () => {};
 page.loadCodingMap = async () => {};
 page.loadSget = async () => {};
 page.loadTables = async () => {};
+// A file the page fetches: beside the renderer where a dev tree keeps a
+// copy, else the repository's own data/, which a build lays beside the page
+// (data/coding-dispatch is fetched there and nowhere under app/renderer, so
+// on a fresh checkout every coding script read as "not shipped").
 page.webFetchJson = async (rel) => {
-  const p = R(rel);
-  return fs.existsSync(p) ? JSON.parse(fs.readFileSync(p, 'utf8')) : null;
+  const p = [R(rel), path.join(ROOT, rel)].find((f) => fs.existsSync(f));
+  return p ? JSON.parse(fs.readFileSync(p, 'utf8')) : null;
 };
 for (const f of [
   'screens/coding/daten-read.js',

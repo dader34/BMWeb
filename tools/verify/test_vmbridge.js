@@ -62,7 +62,8 @@ if (!fs.existsSync(fixP)) {
   // so and fail, like the rest of the suite.
   console.error(
     'FAIL: missing data/sim-captures/vmfix.json;' +
-      ' restore it from git (nothing was verified)'
+      ' fetch it with python3 scripts/setup/fetch_repo_data.py' +
+      ' (nothing was verified)'
   );
   process.exit(1);
 }

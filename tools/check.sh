@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 # Every guard on the generated-screen pipeline, in one command.
 #
 # Run this after touching anything under tools/decompile, tools/sgbd or
@@ -19,7 +19,9 @@
 # data/sim-captures/vmfix.json is a FETCHED capture: the result sets the
 # real EDIABAS engine produced for the replayed telegrams. The engine that
 # wrote it (the .NET reference CLI) was removed from the repo in 2026-09,
-# so the fixture cannot be regenerated -- restore it from git.
+# so the fixture cannot be regenerated. It left git with the rest of the
+# generated data (2026-09-28) and now comes with it:
+# python3 scripts/setup/fetch_repo_data.py
 # (actuator captions live in the IR itself now: ir_build emits them; the
 # old reference-dump generators whose _*.json nothing read are gone)
 #
@@ -56,61 +58,110 @@ cd "$(dirname "$0")/.."
 # Every check runs, and the failures are listed together at the end: a run
 # that stopped at the first one hid every other, and a machine without the
 # BMW originals stopped before any of the app's own tests.
-FAILED=""
+#
+# IN PARALLEL. The script below does not run anything itself: `section` and
+# `run` write a plan, the plan is run CHECK_JOBS at a time (every core by
+# default), and each check's output is then printed whole, in the order it
+# is written here. The checks only read the tree (the one that builds, the
+# CLI, builds into its own folder), so the order they finish in changes
+# nothing; a run took 3 min 50 s one at a time. CHECK_JOBS=1 is that again,
+# for a failure that looks like two checks meeting.
+#
+#   CHECK_JOBS=1 tools/check.sh      one at a time
+#   tools/check.sh test_gs20         only the checks whose command says so
+PLAN=$(mktemp -d "${TMPDIR:-/tmp}/bmweb-check.XXXXXX")
+trap 'rm -rf "$PLAN"' EXIT
+ONLY="${1:-}"
+STEP=0
+section() {
+  if [ -n "$ONLY" ]; then return; fi # a filtered run prints its checks alone
+  STEP=$((STEP + 1))
+  printf '\n%s\n' "$*" > "$PLAN/$(printf %04d "$STEP").head"
+}
 run() {
-  if ! "$@"; then
-    echo "FAIL: $*" >&2
-    FAILED="$FAILED
-  $*"
+  if [ -n "$ONLY" ] && [[ "$*" != *"$ONLY"* ]]; then return; fi
+  STEP=$((STEP + 1))
+  # the command as a script: quoted, so an argument with a space stays one
+  printf '%q ' "$@" > "$PLAN/$(printf %04d "$STEP").cmd"
+}
+# A CHECK THAT NEEDS WHAT ONLY THE GENERATING MACHINE HAS is skipped where
+# that is absent, and listed at the end -- not failed:
+#
+#   needs <path> [<path>...] run <command...>
+#
+# Two things are like that. BMW's originals (vendor/) cannot be fetched, so
+# every check that reads them, or that asks whether the generated data is in
+# step with them, belongs to the machine that generates. And a few extracts
+# are not in the published data. Everything else -- the app's own tests, and
+# every check of the fetched data -- must pass on any checkout: that is what
+# lets the deploy run this whole file (it used to run nine tests picked by
+# hand, because one missing original failed the run). A fetched fixture that
+# is missing is still a failure: it can be fetched.
+needs() {
+  local missing=""
+  while [ "$#" -gt 0 ] && [ "$1" != "run" ]; do
+    [ -e "$1" ] || missing="${missing:+$missing, }$1"
+    shift
+  done
+  shift # the word "run"
+  if [ -z "$missing" ]; then
+    run "$@"
+    return
   fi
+  if [ -n "$ONLY" ] && [[ "$*" != *"$ONLY"* ]]; then return; fi
+  STEP=$((STEP + 1))
+  printf '%s   (no %s)\n' "$*" "$missing" > "$PLAN/$(printf %04d "$STEP").skip"
 }
 
 # The .IPO compiler + constant editor round-trip against a committed corpus,
 # so this one runs BEFORE the vendor gate -- it needs no BMW originals. Point
 # BMWEB_IPO_CORPUS at vendor/EC-APPS/INPA/SGDAT to run it over the real tree.
-echo "== .IPO compiler / editor round-trip =="
+section "== .IPO compiler / editor round-trip =="
 run python3 tools/verify/test_ipo_roundtrip.py
-echo
 
 # bmweb-cli runs COPIES of the renderer's scripts in node; its build and
 # tests need no BMW originals either, so it also runs before the gate.
-echo "== bmweb-cli: builds from the renderer's own files, tests pass, tarball is clean =="
+section "== bmweb-cli: builds from the renderer's own files, tests pass, tarball is clean =="
 run node tools/verify/test_cli.js
-echo
 
 # BMW originals are not in the repo; say so clearly before anything reads them
-# (the checks that read them fail below and are listed; the rest still run)
-if ! scripts/setup/check-vendor.sh >/dev/null 2>&1; then
+# (the checks that read them are skipped below and listed; the rest still
+# run). CI=true is a runner, which never has them: no need to say so there.
+if [ -z "${CI:-}" ] && ! scripts/setup/check-vendor.sh >/dev/null 2>&1; then
   scripts/setup/check-vendor.sh
   echo
-  echo "Continuing: the checks that need the originals will fail and be listed."
+  echo "Continuing: the checks that need the originals are skipped and listed."
   echo
 fi
+SGDAT=vendor/EC-APPS/INPA/SGDAT
+NCSDATEN=vendor/EC-APPS/NCSEXPER/DATEN
 
-echo "== .IPO decompiler vs ground truth =="
-run python3 tools/verify/test_disasm.py
+section "== .IPO decompiler vs ground truth =="
+needs "$SGDAT" run python3 tools/verify/test_disasm.py
 run python3 tools/verify/test_ipo_source.py
 
-echo
-echo "== IR emitter invariants =="
-(cd tools/decompile && python3 -m ir_build --check)
-run node tools/decompile/ipo_i18n.js --check
+section "== IR emitter invariants =="
+# (this one ran outside `run` until 2026-11: its failure was printed and
+# then forgotten, so the run still ended "all checks passed")
+needs "$SGDAT" run sh -c 'cd tools/decompile && python3 -m ir_build --check'
+# Is the IR in step with the caption dictionaries? A question about what the
+# generators last wrote, answered by running them again (ipo_i18n.js), so it
+# is asked where they run. (Asked of the PUBLISHED data on 2026-11-23 the
+# answer was no for 222 ECUs: a dictionary gained captions after the IR was
+# resolved. That is fixed by regenerating and republishing, not by a deploy.)
+needs "$SGDAT" run node tools/decompile/ipo_i18n.js --check
 
-echo
-echo "== offline export mirrors index.html =="
+section "== offline export mirrors index.html =="
 run node tools/verify/test_offline_shell.js
 run node tools/verify/test_chunks.js
 
-echo
-echo "== freeze-frame (Umwelt) dictionary is a pure lookup =="
+section "== freeze-frame (Umwelt) dictionary is a pure lookup =="
 run node tools/verify/test_env_i18n.js
 
-echo
-echo "== captions translate through exact dictionaries only =="
+section "== captions translate through exact dictionaries only =="
 run node tools/verify/test_ir_i18n.js
 
-echo
-echo "== ECU backup engine: crypto bit-exact, reads byte-identical, rails hold =="
+section "== ECU backup engine: crypto bit-exact, reads byte-identical, rails hold =="
 run node tools/verify/test_flasher.js
 run node tools/verify/test_bytes.js
 run node tools/verify/test_workspace_bus.js
@@ -121,25 +172,26 @@ run node tools/verify/test_trigger.js
 run node tools/verify/test_aif_log_wire.js
 run node tools/verify/test_flash_screens.js
 run node tools/verify/test_flash_history.js
+run node tools/verify/test_backup.js
+run node tools/verify/test_oneclick.js
+run node tools/verify/test_push_resume.js
+run node tools/verify/test_fast_line_errors.js
+run node tools/verify/test_fast_read_resume.js
+run node tools/verify/test_relay.js
 
-echo
-echo "== GS20 calibration engine: checksum pinned, write sequence, rails, baud change =="
+section "== GS20 calibration engine: checksum pinned, write sequence, rails, baud change =="
 run node tools/verify/test_gs20.js
 
-echo
-echo "== GS20 program / AIF / no-upshift / .0DA: checksums, records, patches, decode =="
+section "== GS20 program / AIF / no-upshift / .0DA: checksums, records, patches, decode =="
 run node tools/verify/test_gs20_program.js
 
-echo
-echo "== MS45 flashing engine: CRC-32, RSA signatures, EWS delete, exchange files =="
+section "== MS45 flashing engine: CRC-32, RSA signatures, EWS delete, exchange files =="
 run node tools/verify/test_ms45_flash.js
 
-echo
-echo "== Map switch builder: byte-identical to the reference build, recognition, gates =="
+section "== Map switch builder: byte-identical to the reference build, recognition, gates =="
 run node tools/verify/test_mapswitch.js
 
-echo
-echo "== Live-tune client: open/sync/save against a faithful DME-service stub =="
+section "== Live-tune client: open/sync/save against a faithful DME-service stub =="
 run node tools/verify/test_livetune.js
 run node tools/verify/test_livetune_cursor.js
 run node tools/verify/test_livetune_correct.js
@@ -147,6 +199,7 @@ run node tools/verify/test_livetune_adapt.js
 run node tools/verify/test_livetune_link.js
 run node tools/verify/test_livetune_faults.js
 run node tools/verify/test_logging_comfort.js
+run node tools/verify/test_logging.js
 run node tools/verify/test_tuning_comfort.js
 run node tools/verify/test_logging_replay.js
 run node tools/verify/test_logging_tracer.js
@@ -163,251 +216,211 @@ run node tools/verify/test_scanner_unit.js
 run node tools/verify/test_scanner_eeprom.js
 run node tools/verify/test_shell_globals.js
 
-echo
-echo "== Engine protection builder: byte-identical to the emulator-tested build, gates, config =="
+section "== Engine protection builder: byte-identical to the emulator-tested build, gates, config =="
 run node tools/verify/test_ms45_protect.js
 run node tools/verify/test_flash_ops.js
 
-echo
-echo "== EWS/ISN matcher client: DS2 0x44 dialect, ISN read/write, sync, match state =="
+section "== EWS/ISN matcher client: DS2 0x44 dialect, ISN read/write, sync, match state =="
 run node tools/verify/test_ews.js
 
-echo
-echo "== DME identity vault: EEPROM dump through READ bit 30, 3-copy scan, blocks =="
+section "== DME identity vault: EEPROM dump through READ bit 30, 3-copy scan, blocks =="
 run node tools/verify/test_eeprom.js
 
-echo
-echo "== ISN alignment: voting triples picked and rewritten, both repair flows =="
+section "== ISN alignment: voting triples picked and rewritten, both repair flows =="
 run node tools/verify/test_pairing.js
 
-echo
-echo "== MS45 image validation math: CRC-32/MPEG-2, RSA signature, region/address =="
+section "== MS45 image validation math: CRC-32/MPEG-2, RSA signature, region/address =="
 run node tools/verify/test_ms45_bin.js
 
-echo
-echo "== XDF parser + raw<->engineering codec the Tuning screen writes through =="
+section "== XDF parser + raw<->engineering codec the Tuning screen writes through =="
 run node tools/verify/test_xdf.js
 
-echo
-echo "== no cross-file global-name collisions in the renderer =="
+section "== no cross-file global-name collisions in the renderer =="
 run node tools/verify/test_global_collisions.js
 
-echo
-echo "== INPA config export matches the shipped chassis-config =="
-run python3 tools/export/inpa_config.py --check
+section "== INPA config export matches the shipped chassis-config =="
+needs vendor/EC-APPS/INPA/CFGDAT vendor/EDIABAS/Ecu run python3 tools/export/inpa_config.py --check
 
-echo
-echo "== the VM against captured telegrams =="
+section "== the VM against captured telegrams =="
 run node tools/verify/test_bestvm.js
 run node tools/verify/test_tabline.js
 run node tools/verify/test_vm_config.js
 run node tools/verify/test_fa_stream.js
 
-echo
-echo "== group SGBDs resolve variants (address -> concrete SGBD) =="
+section "== group SGBDs resolve variants (address -> concrete SGBD) =="
 run node tools/verify/test_groups.js
 
-echo
-echo "== whole-vehicle sweep plans every chassis from its own config =="
+section "== whole-vehicle sweep plans every chassis from its own config =="
 run node tools/verify/test_sweep.js
 run node tools/verify/test_fault_read_arg.js
 run node tools/verify/test_report_noise.js
 run node tools/verify/test_fault_code.js
 
-echo
-echo "== export ships every variant a group can identify, not just the menu =="
+section "== export ships every variant a group can identify, not just the menu =="
 run python3 tools/verify/test_export_gate.py
 
-echo
-echo "== coding encode is the exact inverse of decode (round-trip + Mod-36) =="
+section "== coding encode is the exact inverse of decode (round-trip + Mod-36) =="
 run node tools/verify/test_coding_encode.js
 
-echo
-echo "== write gate: staged changes never reach the wire (safety) =="
+section "== write gate: staged changes never reach the wire (safety) =="
 run node tools/verify/test_write_gate.js
 
-echo
-echo "== coding write dispatcher: per-family sequence, gate, prove-by-re-read =="
+section "== coding write dispatcher: per-family sequence, gate, prove-by-re-read =="
 run node tools/verify/test_coding_write.js
+run node tools/verify/test_coding_block.js
+run node tools/verify/test_coding_image.js
 
-echo
-echo "== ZCS: validation, format, parse, SA code extraction, FA/ZCS filtering =="
+section "== ZCS: validation, format, parse, SA code extraction, FA/ZCS filtering =="
 run node tools/verify/test_coding_zcs.js
 
-echo
-echo "== custom coding parameters encode through the real codec (mask/shift) =="
+section "== custom coding parameters encode through the real codec (mask/shift) =="
 run node tools/verify/test_coding_custom.js
 
-echo
-echo "== coding dispatch: derived A_<cabd> program runs end-to-end, frames the request =="
+section "== coding dispatch: derived A_<cabd> program runs end-to-end, frames the request =="
 run node tools/verify/test_coding_dispatch.js
 
-echo "== every shipped coding script: no unserved call mid-write, order/ident preflight =="
+section "== every shipped coding script: no unserved call mid-write, order/ident preflight =="
 run node tools/verify/test_coding_scripts.js
 
-echo "== WebKFP: flash-file reader, ZB table, CDH host data pump, WinKFP's own logic, every exported script served =="
+section "== WebKFP: flash-file reader, ZB table, CDH host data pump, WinKFP's own logic, every exported script served =="
 run node tools/verify/test_kfp.js
 # an offline build's packed data, read back through the app's own loaders
 # (reference zstd), and the zstd decoder the app ships against the reference
 run node tools/verify/test_packs.js
 run node tools/verify/test_fzstd.js
 
-echo
-echo "== coding UI -> write flow: review builds the payload, write needs confirmed =="
+section "== coding UI -> write flow: review builds the payload, write needs confirmed =="
 run node tools/verify/test_coding_ui_flow.js
 
-echo
-echo "== BMWeb Coding (NCS): FSW_PSW.TRC/.MAN round trip, edits, warnings =="
+section "== BMWeb Coding (NCS): FSW_PSW.TRC/.MAN round trip, edits, warnings =="
 run node tools/verify/test_ncs.js
 run node tools/verify/test_coding_labels.js
+run node tools/verify/test_ncs_factory.js
+run node tools/verify/test_ncs_slots.js
 
-echo
-echo "== ZCS_SCHREIBEN / ZCS_LOESCHEN: BMW's cluster script writes the key (and only it) =="
+section "== ZCS_SCHREIBEN / ZCS_LOESCHEN: BMW's cluster script writes the key (and only it) =="
 run node tools/verify/test_ncs_zcs.js
 
-echo
-echo "== Web Serial read: a timed-out read is resumed, not orphaned (echo loss) =="
+section "== Web Serial read: a timed-out read is resumed, not orphaned (echo loss) =="
 run node tools/verify/test_readsome.js
 
-echo
-echo "== ISO 9141 slow init: 5-baud wake, 10400 8N1, framing (E46 DME) =="
+section "== ISO 9141 slow init: 5-baud wake, 10400 8N1, framing (E46 DME) =="
 run node tools/verify/test_iso9141.js
 
-echo
-echo "== PA Soft V14x cable (WebUSB): scramble, frames, readers, retries =="
+section "== PA Soft V14x cable (WebUSB): scramble, frames, readers, retries =="
 run node tools/verify/test_pasoft_usb.js
 
-echo
-echo "== BMW-FAST long form (0xB8): XOR checksum, length byte, short->long fallback =="
+section "== BMW-FAST long form (0xB8): XOR checksum, length byte, short->long fallback =="
 run node tools/verify/test_longform.js
 
-echo
-echo "== AUFTRAGSAUSDRUCK: byte-coded predicate, precedence, real SGET bytes =="
+section "== AUFTRAGSAUSDRUCK: byte-coded predicate, precedence, real SGET bytes =="
 run node tools/verify/test_coding_auftrag.js
 
-echo
-echo "== SGET rows extract and every predicate parses =="
-run python3 tools/decompile/ncs_sget.py --check
+section "== SGET rows extract and every predicate parses =="
+needs "$NCSDATEN" run python3 tools/decompile/ncs_sget.py --check
 
-echo
-echo "== CVT: each coding function's value per car decodes, and evaluates =="
-run python3 tools/decompile/ncs_cvt.py --check
+section "== CVT: each coding function's value per car decodes, and evaluates =="
+needs "$NCSDATEN" run python3 tools/decompile/ncs_cvt.py --check
 run node tools/verify/test_coding_cvt.js
 run node tools/verify/test_ncs_key.js
 
-echo
-echo "== SGFAM/AT/ZST tables parse, and the ZCS->SA bridge resolves =="
-run python3 tools/decompile/ncs_tables.py --check
+section "== SGFAM/AT/ZST tables parse, and the ZCS->SA bridge resolves =="
+needs "$NCSDATEN" run python3 tools/decompile/ncs_tables.py --check
 
-echo
-echo "== Vehicle identity: masters, ZCS->SA bridge, FA round-trip, discovery =="
+section "== Vehicle identity: masters, ZCS->SA bridge, FA round-trip, discovery =="
 run node tools/verify/test_vehicle_identity.js
 
 
-echo
-echo "== Coding selection: SGET predicates pick the module and its coding file =="
+section "== Coding selection: SGET predicates pick the module and its coding file =="
 run node tools/verify/test_coding_select.js
 
-echo
-echo "== service functions: the catalogue, its per-chassis resolution, the app =="
+section "== service functions: the catalogue, its per-chassis resolution, the app =="
 run node tools/verify/test_service_functions.js
 
-echo
-echo "== live .IPO runtime: entry, keys, screens, machines, scriptchange =="
+section "== live .IPO runtime: entry, keys, screens, machines, scriptchange =="
 run node tools/verify/test_ipo_runtime.js
+run node tools/verify/test_items.js
 
-echo
-echo "== .IPO reader: a dropped script decodes to the same tokens the exporter ships =="
+section "== .IPO reader: a dropped script decodes to the same tokens the exporter ships =="
 run node tools/verify/test_ipofile.js
 
-echo
-echo "== .IPO writer: a decoded script re-encodes to its own bytes =="
+section "== .IPO writer: a decoded script re-encodes to its own bytes =="
 run node tools/verify/test_ipo_encode.js
 
-echo
-echo "== INPA source compiler: decompile, recompile, and drive the car the same way =="
+section "== INPA source compiler: decompile, recompile, and drive the car the same way =="
 run node tools/verify/test_ips_compile.js
 
-echo
-echo "== guided procedures: suspend on every job, honour waits, resolve segment jumps =="
+section "== guided procedures: suspend on every job, honour waits, resolve segment jumps =="
 run node tools/verify/test_guided.js
 
-echo
-echo "== renderer's VM bridge reconstructs frames the engine consumed =="
+section "== renderer's VM bridge reconstructs frames the engine consumed =="
 run node tools/verify/test_vmbridge.js
 
-echo
-echo "== the wire: framing, checksums, port settings, sessions =="
+section "== the wire: framing, checksums, port settings, sessions =="
 run node tools/verify/test_transport.js
 run node tools/verify/test_port_label.js
 run node tools/verify/test_read_pending.js
+run node tools/verify/test_reopen_closed_port.js
 
-echo
-echo "== write guard holds =="
+section "== write guard holds =="
 run node tools/verify/test_writeguard.js
 
-echo
-echo "== comm parameters decode the way EDIABAS reads them =="
+section "== comm parameters decode the way EDIABAS reads them =="
 run node tools/verify/test_commpars.js
 
-echo
-echo "== remote session seam: car routes wait for the owner, never go local =="
+section "== remote session seam: car routes wait for the owner, never go local =="
 run node tools/verify/test_remote.js
 
-echo
-echo "== beta journal: VINs scrubbed, ring bounded, report shape =="
+section "== beta journal: VINs scrubbed, ring bounded, report shape =="
 run node tools/verify/test_journal.js
 
-echo
-echo "== what a failure is called: each message the app throws gets the explanation that fits =="
+section "== what a failure is called: each message the app throws gets the explanation that fits =="
 run node tools/verify/test_errors.js
 
-echo
-echo "== fault-report PDF: one fixed column grid, both render paths agree =="
+section "== fault-report PDF: one fixed column grid, both render paths agree =="
 run node tools/verify/test_fault_report.js
 
-echo
-echo "== control unit tree: layout, scan status join, extractor =="
+section "== control unit tree: layout, scan status join, extractor =="
 run node tools/verify/test_ecu_tree.js
 run node tools/verify/test_tree_scan.js
 
-echo
-echo "== ISTA shell: tab model, routes, favourites, banner and details text =="
+section "== navigation: a deep link to a variant, a screen that lost its turn, the job search =="
+run node tools/verify/test_deep_link_variant.js
+run node tools/verify/test_screen_owner.js
+run node tools/verify/test_search.js
+
+section "== Garage: saved cars, scan history, comparing two reads =="
+run node tools/verify/test_garage.js
+
+section "== ISTA shell: tab model, routes, favourites, banner and details text =="
 run node tools/verify/test_ista.js
 
-echo
-echo "== ISTA vehicle test: the read runs in the shell and is kept on the car =="
+section "== ISTA vehicle test: the read runs in the shell and is kept on the car =="
 run node tools/verify/test_ista_vehicle_test.js
 # pages drawn from ISTA's own layout: the compiler (when the decompiled XAML
 # is on this machine) and the renderer's split into content/status/buttons
 run node tools/verify/test_ista_xaml.js
 
-echo
-echo "== repair manual: the extractor's document model, groups and pictures =="
+section "== repair manual: the extractor's document model, groups and pictures =="
 run python3 tools/verify/test_repair_extract.py
 run python3 tools/verify/test_ecu_functions_extract.py
 run python3 tools/verify/test_repair_search_index.py
 
-echo
-echo "== repair manual: the browser's tree, the search scopes, the renderer =="
+section "== repair manual: the browser's tree, the search scopes, the renderer =="
 run node tools/verify/test_repair.js
 
-echo
-echo "== diagnosis structures: the tree joins, the document classes, the bodies =="
+section "== diagnosis structures: the tree joins, the document classes, the bodies =="
 run node tools/verify/test_diag_structure.js
 
-echo
-echo "== ISTA test modules: flattening, the opaque switch, dispatch, the validator =="
+section "== ISTA test modules: flattening, the opaque switch, dispatch, the validator =="
 run python3 tools/verify/test_abl_extract.py
 run node tools/verify/test_abl_engine.js
 
-echo
-echo "== ISTA wiring: the designator index a clicked schematic resolves through =="
+section "== ISTA wiring: the designator index a clicked schematic resolves through =="
 run python3 tools/verify/test_wiring_extract.py
 run node tools/verify/test_wiring_applicability.js
 
-echo
-echo "== parts diagrams: callout hotspot file shape, the pos join, scale mapping =="
+section "== parts diagrams: callout hotspot file shape, the pos join, scale mapping =="
 run node tools/verify/test_etk_hotspots.mjs
 run node tools/verify/test_etk_lines.mjs
 run node tools/verify/test_etk_identify.mjs
@@ -416,10 +429,10 @@ run python3 tools/verify/test_etk_lines.py
 run node tools/verify/test_etk_rules.mjs
 run python3 tools/verify/test_etk_rules.py
 
-echo
-echo "== workshop documents: validity rules, the car filter, tree, renderers =="
+section "== workshop documents: validity rules, the car filter, tree, renderers =="
 run node tools/verify/test_techdata.js
-run node tools/verify/test_techdata_rules.js
+# (the rule facts are an ISTA extract the published data does not carry)
+needs app/renderer/data/ista/techdata/rulefacts.json run node tools/verify/test_techdata_rules.js
 run python3 tools/verify/test_techdata_extract.py
 
 # Table completeness: the VM reaches tables the lifter never modelled, so a
@@ -428,17 +441,116 @@ run python3 tools/verify/test_techdata_extract.py
 # BMACW_PORT is the name before the rename; it still works
 BMWEB_PORT="${BMWEB_PORT:-${BMACW_PORT:-}}"
 if [ -n "$BMWEB_PORT" ] && [ -d data/sgbd-tables ]; then
-  echo
-  echo "== shipped tables cover what the SGBDs declare =="
+  section "== shipped tables cover what the SGBDs declare =="
   run python3 tools/export/sgbd_export.py --audit
 else
-  echo
-  echo "SKIP (engine not running): sgbd_export.py --audit (table completeness)"
+  section "SKIP (engine not running): sgbd_export.py --audit (table completeness)"
 fi
 
+# A test file nothing above names never runs, and nobody notices: 17 of them
+# had piled up by 2026-11, all passing, none run. Every tools/verify/test_*
+# is in the plan or the run fails.
+MISSING=""
+for f in tools/verify/test_*; do
+  grep -qF "$(basename "$f")" tools/check.sh || MISSING="$MISSING
+  $f"
+done
+
+# ---- run the plan, CHECK_JOBS at a time --------------------------------------
+JOBS="${CHECK_JOBS:-$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 4)}"
+TOTAL=$(find "$PLAN" -name '*.cmd' | wc -l | tr -d ' ')
+echo "running $TOTAL checks, $JOBS at a time"
+# Slowest first, by how long each took last time (kept beside the installed
+# tools, which no checkout tracks): the run cannot be shorter than its
+# longest check, and one that only starts half way through adds its whole
+# length to the wait. A check never timed runs in the order written.
+TIMES=node_modules/.cache/bmweb-check-times
+for f in "$PLAN"/*.cmd; do
+  [ -f "$f" ] || continue
+  secs=$(grep -F -m 1 "	$(cat "$f")" "$TIMES" 2>/dev/null | cut -f 1)
+  printf '%s\t%s\n' "${secs:-0}" "$f"
+done | sort -k1,1nr -k2,2 | cut -f 2 | xargs -P "$JOBS" -n 1 bash -c '
+  f=$0; base=${f%.cmd}
+  start=$(date +%s)
+  bash "$f" > "$base.out" 2>&1; echo $? > "$base.rc"
+  echo "$(( $(date +%s) - start ))" > "$base.secs"
+'
+
+# A CHECK THAT FAILED IN THE CROWD IS RUN ONCE MORE, ALONE. A few checks
+# measure real time (a pacing gap, a read timeout), and a machine running
+# every core flat out can sleep past a window that holds on a quiet one: a
+# deploy must not hang on that. A real failure fails again and is reported as
+# one; a check that passes alone is reported as passed AND named at the end,
+# so one that keeps needing the second go is seen and made deterministic.
+RETRIED=""
+for f in "$PLAN"/*.rc; do
+  [ -f "$f" ] || continue
+  [ "$(cat "$f")" = "0" ] && continue
+  base=${f%.rc}
+  if bash "$base.cmd" > "$base.again" 2>&1; then
+    mv "$base.again" "$base.out"
+    echo 0 > "$f"
+    RETRIED="$RETRIED
+  $(bash -c "set -- $(cat "$base.cmd"); echo \"\$*\"")"
+  fi
+done
+
+# ---- the report: every check's output, in the order written above ------------
+FAILED=""
+SKIPPED=""
+for f in $(find "$PLAN" -name '*.head' -o -name '*.cmd' -o -name '*.skip' | sort); do
+  case "$f" in
+    *.head) cat "$f" ;;
+    *.skip)
+      echo "SKIP: $(cat "$f")"
+      SKIPPED="$SKIPPED
+  $(cat "$f")"
+      ;;
+    *.cmd)
+      base=${f%.cmd}
+      cat "$base.out"
+      if [ "$(cat "$base.rc" 2>/dev/null)" != "0" ]; then
+        # the command as it is written above, not as the plan quoted it
+        cmd=$(bash -c "set -- $(cat "$f"); echo \"\$*\"")
+        echo "FAIL: $cmd" >&2
+        FAILED="$FAILED
+  $cmd"
+      fi
+      ;;
+  esac
+done
+
+# remember how long each took, for the next run's order
+if [ -z "$ONLY" ] && mkdir -p "$(dirname "$TIMES")" 2>/dev/null; then
+  for f in "$PLAN"/*.secs; do
+    [ -f "$f" ] && printf '%s\t%s\n' "$(cat "$f")" "$(cat "${f%.secs}.cmd")"
+  done > "$TIMES"
+fi
+
+# what the wait was for: the run is as long as its slowest checks
 echo
+echo "slowest:"
+for f in "$PLAN"/*.secs; do
+  [ -f "$f" ] || continue
+  cmd=$(bash -c "set -- $(cat "${f%.secs}.cmd"); echo \"\$*\"")
+  printf '%4ss  %s\n' "$(cat "$f")" "$cmd"
+done | sort -rn | head -5
+
+echo
+if [ -n "$RETRIED" ]; then
+  echo "FAILED WITH EVERY CORE BUSY, PASSED ALONE (timing? make it deterministic):$RETRIED"
+  echo
+fi
+if [ -n "$SKIPPED" ]; then
+  echo "SKIPPED (what each needs is not on this machine):$SKIPPED"
+  echo
+fi
+if [ -z "$ONLY" ] && [ -n "$MISSING" ]; then
+  echo "NOT RUN (add each to tools/check.sh):$MISSING"
+fi
 if [ -n "$FAILED" ]; then
   echo "FAILED:$FAILED"
   exit 1
 fi
+if [ -z "$ONLY" ] && [ -n "$MISSING" ]; then exit 1; fi
 echo "all checks passed"
