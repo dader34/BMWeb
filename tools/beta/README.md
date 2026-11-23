@@ -25,6 +25,26 @@ Re-deploy after edits:
     curl -s -H "Authorization: Bearer $TOKEN" \
       'https://bmweb-beta.danner-baumgartner.workers.dev/report?key=r/2026-08-27/...json' | jq .
 
+## Read the feedback
+
+The feedback prompt (core/feedback.js: asked once on a visit to the Tuning
+page) posts to the same endpoint with `kind: "feedback"`, and the worker
+keeps those under `f/` instead of `r/`:
+
+    curl -s -H "Authorization: Bearer $TOKEN" \
+      'https://bmweb-beta.danner-baumgartner.workers.dev/reports?prefix=f/' | jq -r '.keys[].key' |
+    while read k; do
+      curl -s -H "Authorization: Bearer $TOKEN" \
+        "https://bmweb-beta.danner-baumgartner.workers.dev/report?key=$k" |
+        jq -c '{ts, app, country: ._country, used: .feedback.used, rating: .feedback.rating, wants: .feedback.wants}'
+    done
+
+Each holds the three answers (`feedback.used`: first / some / regular,
+`feedback.rating`: 1-5, `feedback.wants`: the free text), the app version,
+browser, window size, skin and the anonymous tester id. No session journal,
+no wire trace, nothing about the car. (Feedback sent before the worker was
+redeployed with the `f/` shelf sits under `r/` with `kind: "feedback"`.)
+
 ## What a report holds
 
 app+browser version, current screen route, the session journal (screens

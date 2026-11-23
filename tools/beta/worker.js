@@ -7,6 +7,14 @@
 // report; GET /reports lists them and GET /report?key= fetches one (both
 // behind a bearer token).
 //
+// TWO KINDS, TWO SHELVES. A bug report (the Report button, and the wire
+// errors that file themselves) is kept under r/. What a user answers to the
+// feedback prompt (core/feedback.js: used it before? rating? what should
+// change?) arrives at the same door marked kind 'feedback' and is kept under
+// f/, so reading one kind never means paging through the other:
+//   GET /reports             the bug reports (prefix r/, as before)
+//   GET /reports?prefix=f/   the feedback
+//
 //   wrangler kv namespace create BETA   # id goes into wrangler.toml
 //   wrangler secret put TOKEN           # any long random string, for reading
 //   wrangler deploy
@@ -114,10 +122,21 @@ export default {
       } catch {
         return json({ error: 'not json' }, 400);
       }
+      // a report is an object; anything else that parses (null, a number,
+      // a list) used to reach `.tester` below and answer 500
+      if (!body || typeof body !== 'object' || Array.isArray(body))
+        return json({ error: 'not a report' }, 400);
       const day = new Date().toISOString().slice(0, 10);
+      const shelf = body.kind === 'feedback' ? 'f' : 'r';
+      // the tester id names the key: letters, digits and dashes only, so
+      // nothing a client sends can put a slash in it
+      const tester =
+        String(body.tester || 'anon')
+          .replace(/[^A-Za-z0-9-]/g, '')
+          .slice(0, 16) || 'anon';
       const key =
-        `r/${day}/${Date.now()}-` +
-        `${(body.tester || 'anon').slice(0, 16)}-` +
+        `${shelf}/${day}/${Date.now()}-` +
+        `${tester}-` +
         `${crypto.randomUUID().slice(0, 8)}.json`;
       body._received = new Date().toISOString();
       body._country = req.headers.get('cf-ipcountry') || null;

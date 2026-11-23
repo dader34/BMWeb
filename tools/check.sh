@@ -374,6 +374,10 @@ run node tools/verify/test_remote.js
 section "== beta journal: VINs scrubbed, ring bounded, report shape =="
 run node tools/verify/test_journal.js
 
+section "== the feedback prompt: when it asks, what it sends, and the collector that shelves it =="
+run node tools/verify/test_feedback.js
+run node tools/verify/test_beta_worker.mjs
+
 section "== what a failure is called: each message the app throws gets the explanation that fits =="
 run node tools/verify/test_errors.js
 

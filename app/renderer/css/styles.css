@@ -2622,6 +2622,98 @@ html[data-theme='inpa'] {
 .modal-body .muted {
   color: var(--ink-dim);
 }
+/* ---- the feedback prompt (core/feedback.js): a question, three answers ----
+   The dialog is the app's own modal; these are the form's parts. */
+.modal.fbk {
+  width: min(500px, 92vw);
+}
+/* the form's first question is a heading of its own: more air under the
+   title than a paragraph needs */
+.fbk .modal-title:has(+ .fbk-q) {
+  margin-bottom: 18px;
+}
+.fbk-q {
+  margin-bottom: 20px;
+}
+.fbk-label {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--ink);
+  margin-bottom: 8px;
+}
+/* the three answers share the width, so no one of them reads as the default */
+.fbk-seg {
+  display: flex;
+}
+.fbk-seg .seg-btn {
+  flex: 1;
+  padding-left: 8px;
+  padding-right: 8px;
+}
+.fbk-stars {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.fbk-star {
+  cursor: pointer;
+  border: 0;
+  background: none;
+  padding: 0 3px;
+  font-size: 28px;
+  line-height: 1;
+  color: var(--line-bright);
+  transition:
+    color 0.1s,
+    transform 0.1s;
+}
+.fbk-star:hover {
+  transform: scale(1.12);
+}
+.fbk-star.on {
+  color: var(--amber);
+}
+.fbk-star:focus-visible {
+  outline: 1px solid var(--amber);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+/* what the stars lit so far say, beside them */
+.fbk-rate-word {
+  margin-left: 10px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: 0.04em;
+  color: var(--ink-dim);
+}
+.fbk-text {
+  display: block;
+  width: 100%;
+  min-height: 92px;
+  resize: vertical;
+  padding: 10px 12px;
+  background: var(--bg);
+  border: 1px solid var(--line-bright);
+  border-radius: 4px;
+  color: var(--ink);
+  font: inherit;
+  font-size: 13.5px;
+  line-height: 1.5;
+  outline: none;
+}
+.fbk-text::placeholder {
+  color: var(--ink-faint);
+}
+.fbk-text:focus {
+  border-color: var(--amber);
+}
+.fbk-note {
+  margin: -8px 0 20px;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--ink-faint);
+}
 /* multi-field job-argument dialog (built from the _ARGUMENTS schema) */
 /* scroll the field list, not the whole modal, so many-arg jobs (e.g. AIF_SCHREIBEN
    with 9 fields) stay on screen with the title and Run/Cancel fixed */

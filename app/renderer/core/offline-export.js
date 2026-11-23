@@ -143,6 +143,7 @@ const OFFLINE_SHELL = [
   'core/flash/flash-ops.js',
   'core/flash/flash-history.js',
   'core/journal.js',
+  'core/feedback.js',
   'core/remote.js',
   'core/remote-ui.js',
 

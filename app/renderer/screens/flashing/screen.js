@@ -555,6 +555,13 @@ function fbShowPage(page) {
   fbEls.statusbar.hidden = tuning || logging;
   if (tuning && !fbState.tuningActions && typeof tnMount === 'function')
     fbState.tuningActions = tnMount(fbEls['page-tuning'], fbState.actions[0]);
+  // a visit to the editor is where the user is asked, once, for a word on
+  // how the app is doing (core/feedback.js decides whether this is the one)
+  if (tuning && typeof feedbackMaybeAsk === 'function')
+    feedbackMaybeAsk(
+      'tuning',
+      () => fbState.page === 'tuning' && !!document.querySelector('#view .fb')
+    );
   // leaving the logger stops its run and hands the bus back
   if (!logging && typeof logUnmount === 'function') logUnmount();
   setActions((tuning && fbState.tuningActions) || fbState.actions);
