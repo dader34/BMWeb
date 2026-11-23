@@ -532,6 +532,37 @@ async function interpreterChecks() {
       h.CDHGetSystemData('GM_SCHLUESSEL') === 'FFFFFFFFP',
     "a script's own value fills what was not given and leaves what was"
   );
+  // the key the module holds, read out of the image for its script
+  {
+    const img = new Uint8Array(400).fill(0xee);
+    E.buildZcsRegion('61630000', '0000004000080011', '0000000102', 368, img);
+    const zcs = { groups: [{ name: 'ZCS', start: 368, length: 20 }] };
+    const k = W._zcsKeyOf(zcs, img);
+    const body = (v) => v.slice(0, -1);
+    ok(
+      body(k.GM_SCHLUESSEL) === '61630000' &&
+        body(k.SA_SCHLUESSEL) === '0000004000080011' &&
+        body(k.VN_SCHLUESSEL) === '0000000102' &&
+        k.GM_SCHLUESSEL.slice(-1) === String.fromCharCode(img[372]),
+      "the module's central key is read out of its ZCS group, check characters and all"
+    );
+    ok(
+      Object.keys(W._zcsKeyOf({ groups: [] }, img)).length === 0 &&
+        Object.keys(
+          W._zcsKeyOf(
+            { groups: [{ name: 'ZCS', start: 104, length: 18 }] },
+            img
+          )
+        ).length === 0 &&
+        Object.keys(
+          W._zcsKeyOf(
+            { groups: [{ name: 'ZCS', start: 390, length: 20 }] },
+            img
+          )
+        ).length === 0,
+      'a description with no 20-byte ZCS group inside the image gives no key'
+    );
+  }
   e = await thrown(() =>
     CD.runCodingDispatch(
       { procs: {}, coding: false },
@@ -764,6 +795,8 @@ async function endToEnd() {
   // -- a coding memory to work on ---------------------------------------------
   // A real read when there is one (never in the repository), else a made-up
   // one; both are completed to the layout's 1024 bytes.
+  // the key the simulated cluster holds: a real-looking one, not blank
+  const ZCS_HELD = ['61630000', '0000004000080011', '0000000102'];
   const realPath =
     process.env.KMB_EEPROM ||
     path.join(
@@ -775,6 +808,14 @@ async function endToEnd() {
     for (let i = 0; i < mem.length; i++) mem[i] = (i * 37 + 11) & 0xff;
     if (fs.existsSync(realPath))
       mem.set(fs.readFileSync(realPath).subarray(0, 1024));
+    // A REAL CLUSTER HOLDS ITS CAR'S CENTRAL CODING KEY (the ZCS group, 20
+    // bytes at 368 on KMB_E46.C08), and a coding write must give it back as
+    // it found it. Laid over whatever the memory came from: the real read on
+    // the author's machine holds the BLANK key, which is exactly what BMW's
+    // script writes when the host hands it no key -- so a write that blanked
+    // a car's key passed there, and failed only on a machine without that
+    // file (2026-11-23).
+    E.buildZcsRegion(...ZCS_HELD, 368, mem);
     return mem;
   };
   const field = (name) => fields.find((f) => f.name === name);
@@ -862,15 +903,37 @@ async function endToEnd() {
     );
     const diff = changed(mem, base);
     ok(
-      String(diff) === String([0x70, 0x71, 0x16e]) &&
+      Array.from(mem.subarray(368, 388)).join() ===
+        Array.from(base.subarray(368, 388)).join() &&
+        mem[368] === 0x61 &&
+        mem[369] === 0x63,
+      "the car's central coding key goes back as the module held it (GM 61630000), not as the script's blank seed"
+    );
+    // THE CHECKSUM ITSELF NEEDS A REAL READ. BMW's
+    // script computes the cluster's checksum from coding data that is
+    // consistent with itself; the made-up memory is not (its checksum and
+    // the flag beside it are noise), and there the job writes the byte back
+    // as it was. So on every machine: nothing changes but the edit and the
+    // checksum byte. Where a real read is on disk: the checksum moves.
+    const real = fs.existsSync(realPath);
+    ok(
+      diff.includes(0x70) &&
+        diff.includes(0x71) &&
+        diff.every((a) => a === 0x70 || a === 0x71 || a === 0x16e) &&
+        (!real || diff.includes(0x16e)) &&
         mem[0x70] === live70 &&
         mem[0x71] === want[0x71],
       `the module differs from before at the edit and the checksum only (${at(diff)})`
     );
-    ok(
-      mem[0x16e] === (base[0x16e] ^ base[0x71] ^ want[0x71] ^ 0x10),
-      "and the checksum BMW's job computed follows the two changed bytes"
-    );
+    if (real)
+      ok(
+        mem[0x16e] === (base[0x16e] ^ base[0x71] ^ want[0x71] ^ 0x10),
+        "and the checksum BMW's job computed follows the two changed bytes"
+      );
+    else
+      console.log(
+        "  skip  the checksum BMW's job computes (needs a real cluster read: KMB_EEPROM)"
+      );
     ok(
       String(r.edited) === String([0x71]) &&
         r.addrs.includes(0x70) &&
@@ -925,9 +988,13 @@ async function endToEnd() {
     const want = E.spliceEdits(mem, [flip('TEMPERATUR_EINHEIT', mem)]);
     const sim = cluster(mem);
     const r = await write(want, null, sim);
+    const moved = changed(mem, base);
     ok(
-      r.ok && String(changed(mem, base)) === String([0x71, 0x16e]),
-      'without a base the edit is found by reading the module, and written the same'
+      r.ok &&
+        moved.includes(0x71) &&
+        moved.every((a) => a === 0x71 || a === 0x16e) &&
+        (!fs.existsSync(realPath) || moved.includes(0x16e)),
+      `without a base the edit is found by reading the module, and written the same (${at(moved)})`
     );
     const other = fresh();
     for (let i = 0x70; i < 0x170; i++) other[i] ^= 0x5a;

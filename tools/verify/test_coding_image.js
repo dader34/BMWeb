@@ -182,6 +182,14 @@ const freshMem = () => {
   const mem = new Uint8Array(1024);
   for (let i = 0; i < mem.length; i++) mem[i] = (i * 37 + 11) & 0xff;
   if (haveReal) mem.set(fs.readFileSync(realPath).subarray(0, 1024));
+  // A REAL CLUSTER HOLDS ITS CAR'S CENTRAL CODING KEY (the ZCS group, 20
+  // bytes at 368 on KMB_E46.C08), and a coding write must give it back as
+  // it found it. Laid over whatever the memory came from: the real read on
+  // the author's machine holds the BLANK key, which is exactly what BMW's
+  // script writes when the host hands it no key -- so a write that blanked
+  // a car's key passed there, and failed only on a machine without that
+  // file (2026-11-23).
+  E.buildZcsRegion('61630000', '0000004000080011', '0000000102', 368, mem);
   return mem;
 };
 
@@ -601,9 +609,33 @@ const freshMem = () => {
     );
     const diff = [];
     for (let i = 0; i < mem.length; i++) if (mem[i] !== before[i]) diff.push(i);
+    // THE CHECKSUM ITSELF NEEDS A REAL READ. BMW's
+    // script computes the cluster's checksum from coding data that is
+    // consistent with itself; the made-up memory is not (its checksum and
+    // the flag beside it are noise), and there the job writes the byte back
+    // as it was. So on every machine: nothing changes but the edit and the
+    // checksum byte. Where a real read is on disk: the checksum moves.
+    const allowed = new Set([f.word, 0x16e]);
+    // ...and the unused bits the write codes to the description's factory
+    // fill, as NCS does: a real cluster holds them already, so they do not
+    // move; in the made-up memory they are noise, and each such byte must
+    // come out holding exactly the fill
+    const cover = W.factoryCoverage(source.cabd, mem.length);
+    const filled = (a) =>
+      !!cover &&
+      cover.fillMask[a] !== 0 &&
+      (before[a] & cover.fillMask[a]) !== cover.fillBits[a] &&
+      (mem[a] & cover.fillMask[a]) === cover.fillBits[a] &&
+      (mem[a] & ~cover.fillMask[a] & 0xff) ===
+        (before[a] & ~cover.fillMask[a] & 0xff);
+    for (const a of diff) if (filled(a)) allowed.add(a);
     ok(
-      String(diff) === String([f.word, 0x16e]) && E.fieldHex(f, mem) === other,
-      'the cluster changed at that function and the checksum, nowhere else'
+      diff.includes(f.word) &&
+        diff.every((a) => allowed.has(a)) &&
+        (!haveReal || diff.every((a) => a === f.word || a === 0x16e)) &&
+        (!haveReal || diff.includes(0x16e)) &&
+        E.fieldHex(f, mem) === other,
+      `the cluster changed at that function and the checksum, nowhere else${haveReal ? '' : ` (no real read: the checksum byte is not checked; ${diff.length - 1} bytes took the factory fill for their unused bits)`}`
     );
     ok(
       state.get(key).current === other && state.get(key).staged === null,

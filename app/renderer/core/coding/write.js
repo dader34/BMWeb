@@ -1050,6 +1050,50 @@
   }
 
   /**
+   * The central coding key a module holds, as the system data its coding
+   * script reads it from (GM/SA/VN_SCHLUESSEL), out of the image about to be
+   * written: the description's 20-byte ZCS group -- GM 4 bytes and its
+   * check character, SA 8 and its check, VN 5 and its check.
+   *
+   * WHY. BMW's cluster script (A_KMB46) seeds those three with the blank key
+   * (FFFFFFFFP, ...) at the start of every run, and its coding job writes the
+   * ZCS group from them. NCS Expert hands the script the car's key before
+   * that, so the seed never counts. This app handed none on an ordinary
+   * coding write, and the seed went out: changing one option on the E46
+   * cluster wrote a blank central coding key over the car's (found
+   * 2026-11-23; the tests had seeded their simulated cluster from a real
+   * read whose key was blank, which hid it). The key the module holds goes
+   * back as it is; a caller that means to change it (ZCS_SCHREIBEN,
+   * ZCS_LOESCHEN) passes its own, which wins.
+   * @param {object|null} cabd - the coding description (flattened).
+   * @param {ArrayLike<number>} image - the image the write sends.
+   * @returns {Record<string, string>} the three keys, or {} when the
+   *   description has no single 20-byte ZCS group inside the image.
+   */
+  function zcsKeyOf(cabd, image) {
+    const groups = ((cabd && cabd.groups) || []).filter(
+      (g) => String(g.name).toUpperCase() === 'ZCS'
+    );
+    if (groups.length !== 1) return {};
+    const start = groups[0].start | 0;
+    if ((groups[0].length | 0) !== 20 || !image || start + 20 > image.length)
+      return {};
+    const hex = (from, n) =>
+      Array.from({ length: n }, (_, i) =>
+        (image[start + from + i] & 0xff)
+          .toString(16)
+          .toUpperCase()
+          .padStart(2, '0')
+      ).join('');
+    const check = (at) => String.fromCharCode(image[start + at] & 0xff);
+    return {
+      GM_SCHLUESSEL: hex(0, 4) + check(4),
+      SA_SCHLUESSEL: hex(5, 8) + check(13),
+      VN_SCHLUESSEL: hex(14, 5) + check(19),
+    };
+  }
+
+  /**
    * Write via the derived dispatcher, then prove by re-read.
    * @param {string} sgbd - the module.
    * @param {number[]} want - the FULL image the module should hold.
@@ -1383,7 +1427,10 @@
       netto: image,
       changed: region,
       held: before,
-      systemData: systemDataFor(opts),
+      // the module's own central key first, so the script's blank seed is
+      // not what its ZCS group is written from (zcsKeyOf); what the caller
+      // gave, a ZCS job's key among it, wins over both
+      systemData: { ...zcsKeyOf(cabd, image), ...systemDataFor(opts) },
       sget: opts.sget,
     });
     const sent = new Set(result.written);
@@ -1460,6 +1507,7 @@
     _bytesToArgString: bytesToArgString,
     _extractNetto: extractNetto,
     _systemDataFor: systemDataFor,
+    _zcsKeyOf: zcsKeyOf,
     runCodingReadJob,
     blockOnTheWire,
     codingBlocks,
