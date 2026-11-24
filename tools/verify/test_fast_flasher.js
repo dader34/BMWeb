@@ -1449,6 +1449,7 @@ const be32 = (b, at) =>
       const mpc = Uint8Array.from(mpc0);
       const events = [];
       let setQs = 0;
+      let unders = 0;
       let t = 0;
       let pulsesEnd = 0;
       let idleAt = 0;
@@ -1510,6 +1511,16 @@ const be32 = (b, at) =>
             throw new W.Nak(W.SVC.CHUNK, 8);
           }
           if (!under) t = Math.max(idle(), idleAt);
+          // `late.fault`: the n-th chunk under the pulses meets a serial
+          // line fault -- the client resends it after the line is quiet and
+          // sets interleaveOff (FastFlashClient.call); `late.fatal`: it
+          // fails for good, as a lost cable does
+          if (under && ++unders === late.fault) {
+            client.lineErrors = (client.lineErrors || 0) + 1;
+            client.interleaveOff = 'the cable reported BufferOverrunError';
+          }
+          if (under && unders === late.fatal)
+            throw new Error('the port closed');
           events.push([under ? 'under' : 'chunk', off]);
           const a = area(off, plain.length);
           for (let i = 0; i < plain.length; i++) a[i] &= plain[i];
@@ -1725,6 +1736,54 @@ const be32 = (b, at) =>
     ok(
       `v28 push: a SETQ sent twice or answered late does not stretch the pulses (at most ${usual + 1} chunks a set)`
     );
+
+    // A SERIAL LINE FAULT UNDER THE PULSES (a Windows laptop, 2026-11-23:
+    // "Buffer overrun" on the ninth chunk under them stopped the flash).
+    // The chunk is resent by the client; from then on nothing goes under
+    // the pulses, and the rest of the external program is written after
+    // the sets -- each chunk once, the image whole.
+    {
+      const hit = car(onChip, mpcOnChip, 4500, { fault: 9 });
+      await push(hit, { interleave: true });
+      holds(hit, 'a line fault under the pulses');
+      assert.strictEqual(kinds(hit, 'under').length, 9, 'none after the fault');
+      const all = [...kinds(hit, 'under'), ...kinds(hit, 'chunkQ')].map(
+        (e) => e[1]
+      );
+      assert.strictEqual(
+        new Set(all).size,
+        all.length,
+        'no chunk written twice'
+      );
+      assert.deepStrictEqual(
+        all,
+        kinds(plainCar, 'chunkQ').map((e) => e[1]),
+        'every chunk, in order'
+      );
+      ok(
+        'v28 push: after a serial line fault under the pulses, the rest goes one request at a time'
+      );
+    }
+    {
+      // a chunk under the pulses that fails for good stops the push; the
+      // resumed push (the caller's HELLO and push again) goes without
+      const hit = car(onChip, mpcOnChip, 4500, { fatal: 5 });
+      await assert.rejects(push(hit, { interleave: true }), /port closed/);
+      assert.ok(
+        /a chunk under the pulses failed/.test(hit.client.interleaveOff)
+      );
+      const before = kinds(hit, 'under').length;
+      await push(hit, { interleave: true });
+      holds(hit, 'resumed after a failed chunk under the pulses');
+      assert.strictEqual(
+        kinds(hit, 'under').length,
+        before,
+        'the resumed push sent nothing under the pulses'
+      );
+      ok(
+        'v28 push: a push resumed after a failure under the pulses goes without them'
+      );
+    }
 
     // a push carried on with the MPC already blank: no MPC erase has staged
     // the body's driver, so the first set goes stop-and-wait, the erases are
