@@ -53,6 +53,10 @@ function mockLink(plan) {
         `fast flasher: the DME did not answer (after the echo, 40 byte(s) of ${reply.length}: 00 10 08)`
       );
     if (what === 'sum') reply[reply.length - 1] ^= 0xff;
+    if (what === 'overrun')
+      throw Object.assign(new Error('Buffer overrun'), {
+        name: 'BufferOverrunError',
+      });
     return reply;
   };
   return link;
@@ -138,6 +142,48 @@ function ok(note) {
     assert.deepStrictEqual(c.steps, []);
     assert.strictEqual(c.baud, fastFlashWire.BAUD);
     ok('at 115200 a step-down does nothing; the reads still go through');
+  }
+
+  // a fault the serial port reports (Windows, 2026-11-23: "Buffer overrun"
+  // in the middle of a push stopped the flash): a damaged reply like the
+  // rest -- the line is let go quiet first, then the request goes again --
+  // and no more chunks go under the pulses for the rest of the session
+  {
+    const { c, link } = client(['overrun', 'ok']);
+    const settled = [];
+    link.settle = async (ms) => void settled.push(ms);
+    const data = await c.read(0x2000, 4096);
+    assert.deepStrictEqual(Array.from(data), Array.from(dataAt(0x2000, 4096)));
+    assert.strictEqual(link.reads, 2, 'sent twice');
+    assert.strictEqual(
+      settled.length,
+      1,
+      'the line let go quiet once, before the resend'
+    );
+    assert.strictEqual(c.lineErrors, 1, 'counted as a line error');
+    assert.ok(/BufferOverrunError/.test(c.interleaveOff), 'interleaving off');
+    ok(
+      'a serial buffer overrun is a damaged reply: quiet, then sent again; interleaving stops'
+    );
+  }
+  {
+    // three in a row is a line that will not carry: the push stops (and is
+    // resumed by its caller), it does not spin
+    const { c, link } = client(['overrun', 'overrun', 'overrun', 'ok']);
+    link.settle = async () => {};
+    await assert.rejects(c.read(0, 4096), /Buffer overrun/);
+    assert.strictEqual(link.reads, 3);
+    ok('three overruns running stop the request after its three tries');
+  }
+  {
+    // a garble the line made is not a serial fault: interleaving goes on
+    const { c, link } = client(['sum', 'ok']);
+    link.settle = async () => {
+      throw new Error('settle on a plain garble');
+    };
+    await c.read(0, 4096);
+    assert.strictEqual(c.interleaveOff, '');
+    ok('a bad checksum is resent at once and leaves interleaving on');
   }
 
   console.log(`\nfast-line-errors: ${passed} checks passed`);

@@ -258,6 +258,24 @@ const FF_READ_FIRST_BYTE_MS = 500;
  * stepped down once.
  */
 const FF_GARBLE_TRIES = 3;
+
+/**
+ * The read error (by its DOMException name) after which the serial bus takes
+ * a fresh reader -- only the overrun (web-serial-bus.js SERIAL_LINE_ERRORS
+ * says why the others are not) -- and which the client therefore treats as
+ * a damaged reply, sent again once the line is quiet. A Windows laptop,
+ * 2026-11-23: "Buffer overrun" in the middle of a v28 push stopped the
+ * flash.
+ */
+const FF_SERIAL_LINE_ERRORS = new Set(['BufferOverrunError']);
+
+/**
+ * After a serial line error, how long the line must stay silent before the
+ * request goes again: the DME may still be taking the frame and answering
+ * it (a chunk under the pulses answers when its pages are written), and
+ * the K line is one wire.
+ */
+const FF_SETTLE_QUIET_MS = 400;
 /** A pageset is one 64-byte page per MPC block. */
 const FF_PAGE = 64;
 /** SECTOR_QUERY / VERIFY: a base plus this per 64 KB read back. */
@@ -598,6 +616,12 @@ class FastFlashClient {
       typeof nrv2b !== 'undefined' ? nrv2b : require('./nrv2b.js').nrv2b;
     /** Garbled replies so far (a marginal line shows here first). */
     this.lineErrors = 0;
+    /**
+     * Why external chunks no longer go under the pagesets' pulses (v28), or
+     * '' while they may. Set for the rest of the session, a resumed push
+     * included, by a serial line error.
+     */
+    this.interleaveOff = '';
     /** The last FF_LINE_WINDOW frames: {bad, wireMs}, for the step-down decision. */
     this._recent = [];
     /** Bytes per READ: FF_READ_MAX, or FF_READ_MAX_WIDE on a v22+ body (the session sets it). */
@@ -696,12 +720,18 @@ class FastFlashClient {
       // ... and a reply cut short: it started arriving and stopped (the car,
       // 2026-11-02: READ 0xDF000 and 0x21000 at 250000, the body back
       // answering HELLO at once -- the bytes went missing on the way)
+      // ... and a fault the serial port itself reported (a buffer overrun
+      // on Windows): the bytes in flight are gone, the DME is not
+      const lineFault = !!err && FF_SERIAL_LINE_ERRORS.has(err.name);
+      if (lineFault)
+        this.interleaveOff = `the cable reported ${err.name} (${err.message})`;
       const garbled =
         (err &&
           /checksum|frame is not one|after the echo, \d+ byte/.test(
             err.message || ''
           )) ||
-        refusedAsDamaged;
+        refusedAsDamaged ||
+        lineFault;
       const again =
         garbled && svc !== FF_SVC.RESET && attempt < FF_GARBLE_TRIES;
       if (this.trace)
@@ -711,6 +741,9 @@ class FastFlashClient {
         );
       if (!err && !again) break;
       if (!again) throw err;
+      // the frame may still be arriving at the DME, and its answer on its
+      // way: let the line go quiet, or the resend collides with it
+      if (lineFault && this.link.settle) await this.link.settle(timeoutMs);
       await this._lineError();
     }
     if (!reply)
@@ -1704,6 +1737,7 @@ async function _ffWriteSets(client, mpc, blocks, pagesets, io) {
   let pulsing = 0; // ... and the pagesets it set pulsing
   let pagesetMs = 0; // a pageset's pulse time as last measured
   let measured = 0; // sets since then
+  let noted = false; // the note that interleaving stopped, once
   const plainly = async (set) => {
     alone = false;
     sent += await client.chunkSet(mask, set.off, set.ps, set.plain);
@@ -1726,6 +1760,15 @@ async function _ffWriteSets(client, mpc, blocks, pagesets, io) {
     alone = true;
     pulsing = ps;
     if (!io.feed || !pagesetMs || ++measured >= FF_PULSES_EVERY) return;
+    if (client.interleaveOff) {
+      if (!noted) {
+        noted = true;
+        io.note(
+          `No more chunks under the pulses: ${client.interleaveOff}. The rest goes one request at a time.`
+        );
+      }
+      return;
+    }
     for (;;) {
       const job = io.feed.next();
       if (!job) return;
@@ -1743,7 +1786,13 @@ async function _ffWriteSets(client, mpc, blocks, pagesets, io) {
           minMs: FF_TIMEOUT.ERASE,
         });
       } catch (e) {
-        if (!(e instanceof FastFlashNak) || e.reason !== FF_NAK_BUSY) throw e;
+        if (!(e instanceof FastFlashNak) || e.reason !== FF_NAK_BUSY) {
+          // a push that stops here is resumed (a HELLO, the push again):
+          // that run goes without chunks under the pulses
+          if (!client.interleaveOff)
+            client.interleaveOff = `a chunk under the pulses failed (${e.message})`;
+          throw e;
+        }
         io.feed.busy();
         return;
       }
@@ -2679,6 +2728,35 @@ function ffWebLink(bus, opts = {}) {
         await sleep(gapMs);
       }
       rx = [];
+    },
+    /**
+     * After a serial line error (FastFlashClient.call): read and drop until
+     * the line has been silent FF_SETTLE_QUIET_MS, at most `maxMs`, so the
+     * next request does not go out on top of the answer to the last one.
+     * The bus has already taken a fresh reader; another fault while waiting
+     * means the line is still busy.
+     */
+    async settle(maxMs) {
+      const quiet = FF_SETTLE_QUIET_MS * scale;
+      const until = Date.now() + Math.max(quiet, maxMs * scale);
+      let since = Date.now();
+      while (Date.now() < until && Date.now() - since < quiet) {
+        let r;
+        try {
+          r = await bus.readSome(Math.min(until, since + quiet));
+        } catch (e) {
+          since = Date.now();
+          await sleep(5);
+          continue;
+        }
+        if (r.done) break;
+        if (r.value && r.value.length) {
+          since = Date.now();
+          if (heard.length < 256) heard.push(...r.value);
+        }
+      }
+      rx = [];
+      quietAt = 0;
     },
     /** v26: the packet size the body now pads its replies to (0: none). */
     setPad(size) {

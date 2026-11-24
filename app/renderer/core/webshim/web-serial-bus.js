@@ -21,6 +21,18 @@ const TIMED_OUT = Symbol('timed-out');
 const SERIAL_BUFFER_BYTES = 1 << 16;
 
 /**
+ * The read errors after which readSome takes the fresh stream the port
+ * hands out (Web Serial calls these non-fatal: the stream errors, the port
+ * stays open). ONLY THE OVERRUN. A break, a framing or a parity error is
+ * what this bus makes itself while it wakes a module (the fast init's
+ * break, a probe at another rate), and renewing the reader on those took
+ * the Chrome tab down on a Windows laptop during Identify (2026-11-23,
+ * STATUS_ACCESS_VIOLATION); those keep the behaviour that worked: the
+ * stream stays errored until the next reopen.
+ */
+const SERIAL_LINE_ERRORS = new Set(['BufferOverrunError']);
+
+/**
  * Open the port with `cfg` and the larger read buffer.
  * @param {SerialPort} port
  * @param {object} cfg - A PortConfig (baudRate, dataBits, stopBits, parity).
@@ -305,6 +317,24 @@ class WebSerialBus extends SerialTransportBase {
       '[serial] reconnected to a previously-granted port, no picker'
     );
     return this.portLabel();
+  }
+
+  /**
+   * Take the fresh readable stream the port hands out after a line fault
+   * (SERIAL_LINE_ERRORS), giving back the errored one's lock.
+   */
+  _renewReader() {
+    try {
+      if (this.reader) this.reader.releaseLock();
+    } catch {
+      /* the errored stream's lock is already gone */
+    }
+    try {
+      if (this.port && this.port.readable)
+        this.reader = this.port.readable.getReader();
+    } catch {
+      /* the port closed meanwhile: the next read says so */
+    }
   }
 
   /**
@@ -847,6 +877,16 @@ class WebSerialBus extends SerialTransportBase {
       r = await Promise.race([this.pending, timeout]);
     } catch (e) {
       this.pending = null;
+      // A LINE FAULT IS NOT THE END OF THE PORT. Web Serial reports a buffer
+      // overrun, a framing or parity error or a break by erroring the
+      // readable stream; the port stays open and port.readable is a fresh
+      // stream from then on. The reader of the errored one rejects every
+      // read after, so without taking the new one, every exchange after the
+      // first fault failed at once: a Windows laptop, 2026-11-23, "Buffer
+      // overrun" in the middle of a fast flash, then the resume's HELLO
+      // failed in 1 ms and the flash stopped with the flasher still running.
+      // The caller still gets the error: what it was reading is damaged.
+      if (e && SERIAL_LINE_ERRORS.has(e.name)) this._renewReader();
       throw e;
     }
     // Timed out: the read stays on this.pending for the next call. Report

@@ -39,11 +39,31 @@ const TIMED_OUT = Symbol('timed-out');
 // the shim's waits run on a worker-backed clock in the browser; here the
 // plain timer stands in for it
 const bmwSleep = (ms) => new Promise((r) => setTimeout(r, ms));
+// the set as the shim declares it, so the test runs what ships
+const lineSet = src.match(
+  /const SERIAL_LINE_ERRORS = new Set\((\[[^\]]*\])\);/
+);
+if (!lineSet) {
+  console.error('SERIAL_LINE_ERRORS missing -- was the fix reverted?');
+  process.exit(1);
+}
+const SERIAL_LINE_ERRORS = new Set(
+  JSON.parse(lineSet[1].replace(/'/g, '"').replace(/,\s*\]/, ']'))
+);
 const readSome = new Function(
   'TIMED_OUT',
   'bmwSleep',
+  'SERIAL_LINE_ERRORS',
   'return async function ' + body[0].replace(/^async /, '') + ';'
-)(TIMED_OUT, bmwSleep);
+)(TIMED_OUT, bmwSleep, SERIAL_LINE_ERRORS);
+const renew = src.match(/_renewReader\(\) \{[\s\S]*?\n {2}\}/);
+if (!renew || !SERIAL_LINE_ERRORS.has('BufferOverrunError')) {
+  console.error(
+    'the line-fault reader renewal is missing -- was the fix reverted?'
+  );
+  process.exit(1);
+}
+const renewReader = new Function('return function ' + renew[0] + ';')();
 
 // A reader that answers after `delayMs`, and counts how many reads it saw.
 function fakeReader(chunks, delayMs) {
@@ -100,6 +120,84 @@ console.log('a timed-out read is resumed, not discarded');
     const ctx2 = { reader: fakeReader([], 1), pending: null };
     const r = await readSome.call(ctx2, Date.now() + 50);
     ok(r.done === true, 'done:true is reserved for the port actually closing');
+
+    // A LINE FAULT IS NOT THE END OF THE PORT (a Windows laptop,
+    // 2026-11-23: "Buffer overrun" mid-flash, then every read failed at
+    // once). Web Serial errors the stream and hands out a fresh one; the
+    // fault reaches the caller, and the next read uses the new stream.
+    console.log('\na line fault: the error is reported, the next read works');
+    for (const name of ['BufferOverrunError']) {
+      const fault = Object.assign(new Error('Buffer overrun'), { name });
+      const dead = {
+        released: false,
+        read: () => Promise.reject(fault),
+        releaseLock() {
+          this.released = true;
+        },
+      };
+      const fresh = fakeReader([new Uint8Array([0x40, 0x41])], 1);
+      const port = { readable: { getReader: () => fresh } };
+      const ctx3 = {
+        reader: dead,
+        pending: null,
+        port,
+        _renewReader: renewReader,
+      };
+      let threw = null;
+      try {
+        await readSome.call(ctx3, Date.now() + 50);
+      } catch (e) {
+        threw = e;
+      }
+      const next = await readSome.call(ctx3, Date.now() + 50);
+      ok(
+        threw === fault &&
+          dead.released &&
+          ctx3.reader === fresh &&
+          next.value &&
+          next.value.length === 2,
+        `${name}: reported, the errored reader let go, the next read on the fresh stream`
+      );
+    }
+    // a break, a framing or a parity error is the bus's own doing while it
+    // wakes a module: the reader is left as it was (renewing it there took
+    // the Chrome tab down on Windows during Identify, 2026-11-23)
+    for (const name of ['BreakError', 'FramingError', 'ParityError']) {
+      const fault = Object.assign(new Error(name), { name });
+      const held = { read: () => Promise.reject(fault), releaseLock() {} };
+      const ctx5 = {
+        reader: held,
+        pending: null,
+        port: { readable: { getReader: () => fakeReader([], 1) } },
+        _renewReader: renewReader,
+      };
+      try {
+        await readSome.call(ctx5, Date.now() + 50);
+      } catch {
+        /* expected */
+      }
+      ok(ctx5.reader === held, `${name}: the reader is left as it was`);
+    }
+    // a fault that is not the line's (the port went away) is left alone
+    const gone = Object.assign(new Error('The device has been lost.'), {
+      name: 'NetworkError',
+    });
+    const lost = { read: () => Promise.reject(gone), releaseLock() {} };
+    const ctx4 = {
+      reader: lost,
+      pending: null,
+      port: { readable: { getReader: () => fakeReader([], 1) } },
+      _renewReader: renewReader,
+    };
+    try {
+      await readSome.call(ctx4, Date.now() + 50);
+    } catch {
+      /* expected */
+    }
+    ok(
+      ctx4.reader === lost,
+      'a lost device is not papered over with a new reader'
+    );
 
     console.log(
       failures ? `\nFAILED (${failures})` : '\nAll readSome checks passed'
